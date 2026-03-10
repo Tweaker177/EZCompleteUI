@@ -31,5 +31,17 @@
     <array>
         <string>UIInterfaceOrientationPortrait</string>
     </array>
+    <key>CFBundleIcons</key>
+    <dict>
+        <key>CFBundlePrimaryIcon</key>
+        <dict>
+            <key>CFBundleIconFiles</key>
+            <array>
+                <string>AppIcon60x60</string> <!-- Base name of the icon files -->
+            </array>
+            <key>UIPrerenderedIcon</key>
+            <false/> 
+        </dict>
+    </dict>
 </dict>
 </plist>
