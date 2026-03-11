@@ -37,10 +37,10 @@
         <dict>
             <key>CFBundleIconFiles</key>
             <array>
-                <string>AppIcon60x60</string> <!-- Base name of the icon files -->
+                <string>AppIcon60x60</string>
             </array>
             <key>UIPrerenderedIcon</key>
-            <false/> 
+            <false/>
         </dict>
     </dict>
 </dict>
