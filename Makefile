@@ -1,5 +1,6 @@
 TARGET := iphone:clang:latest:16.0
 INSTALL_TARGET_PROCESSES = EZCompleteUI
+FINALPACKAGE= 1
 
 include $(THEOS)/makefiles/common.mk
 
