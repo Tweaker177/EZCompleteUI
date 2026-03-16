@@ -53,8 +53,6 @@ EZCompleteUI was built with a simple goal: bring a genuinely capable, modern AI 
 - Installation via any of the methods below — no jailbreak required
 - An **OpenAI API key** (required)
 - An **ElevenLabs API key** (optional, for premium TTS voices)
-- Sora video generation requires **OpenAI Sora API access** (separate from standard API access — request at platform.openai.com)
-
 ---
 
 ## Installation
