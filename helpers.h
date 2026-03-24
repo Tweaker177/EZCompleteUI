@@ -1,204 +1,192 @@
 // helpers.h
-// EZCompleteUI
+// EZCompleteUI v5.0
 //
-// System-wide AI and utility helper functions.
-// All AI helpers use gpt-4.1-nano (cheap, fast) to minimize token usage.
-// The main ViewController.m simply imports this header and calls these functions.
-//
-// HELPERS OVERVIEW:
-//   1. EZLog()                  - Robust logging to file (no AI)
-//   2. analyzePromptForContext() - AI "mini-app": decides if extra context is needed before send
-//   3. createMemoryFromCompletion() - AI "mini-app": summarizes Q&A pairs into a memory log
-//   4. loadMemoryContext()      - Reads the memory log for use as system context
-//   5. helperStats()            - Reads logs and prints performance stats (no AI)
+// Changes from v4.0:
+//   - Memory store changed from flat text log to JSON array (ezui_memory.json)
+//   - Each memory entry is now a dictionary with timestamp, summary, chatKey
+//   - EZThreadSearchMemory now does local relevance scoring (no token waste)
+//     then sends only the top candidates to the AI for final ranking
+//   - createMemoryFromCompletion updated to write JSON entry
+//   - loadMemoryContext returns formatted string from JSON for backwards compat
+//   - EZMemoryLoadAll returns raw array of entry dicts for new code
+//   - Migration: old .log file is imported and converted on first run
 
 #import <Foundation/Foundation.h>
-
-#ifndef helpers_h
-#define helpers_h
+NS_ASSUME_NONNULL_BEGIN
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MARK: - Log Level Enum
+// Logging
 // ─────────────────────────────────────────────────────────────────────────────
 
 typedef NS_ENUM(NSInteger, EZLogLevel) {
     EZLogLevelDebug   = 0,
     EZLogLevelInfo    = 1,
     EZLogLevelWarning = 2,
-    EZLogLevelError   = 3
+    EZLogLevelError   = 3,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - Context Analysis Result
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Result returned by analyzePromptForContext()
-@interface EZContextResult : NSObject
-
-/// YES if the analyzer recommends injecting extra context before sending.
-@property (nonatomic, assign) BOOL needsContext;
-
-/// Human-readable reason from the AI (e.g. "Multi-step technical question").
-@property (nonatomic, strong) NSString *reason;
-
-/// The (possibly context-augmented) prompt ready to send to the main model.
-/// If needsContext == NO this is identical to the original prompt.
-@property (nonatomic, strong) NSString *finalPrompt;
-
-/// Raw token count estimate for the final prompt (rough char/4 heuristic).
-@property (nonatomic, assign) NSInteger estimatedTokens;
-
-@end
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - 1. Logging
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * EZLog — Append a timestamped entry to EZCompleteUI's persistent log file.
- *
- * The log lives in the app's Documents directory: "ezui_helpers.log"
- * Each entry format:
- *   [YYYY-MM-DD HH:MM:SS] [LEVEL] [tag] message
- *
- * @param level   One of EZLogLevelDebug/Info/Warning/Error
- * @param tag     Short category string, e.g. @"CONTEXT", @"MEMORY", @"SEND"
- * @param message The log message (NSString format supported via EZLogf macro)
- */
-void EZLog(EZLogLevel level, NSString *tag, NSString *message);
-
-/// Convenience macro — accepts printf-style format args.
-/// Usage: EZLogf(EZLogLevelInfo, @"SEND", @"Prompt tokens: %ld", (long)count);
-#define EZLogf(level, tag, fmt, ...) \
-    EZLog(level, tag, [NSString stringWithFormat:(fmt), ##__VA_ARGS__])
-
-/**
- * EZLogGetPath — Returns the full filesystem path to the current log file.
- * Useful if you want to display or share the log from the UI.
- */
 NSString *EZLogGetPath(void);
-
-/**
- * EZLogRotateIfNeeded — If the log file exceeds maxBytes, archive it with a
- * date-stamped filename and start a fresh log. Call from applicationDidBecomeActive
- * or any convenient startup point.
- *
- * @param maxBytes  Rotate when file exceeds this size. Suggested: 512 * 1024 (512 KB).
- */
+void EZLog(EZLogLevel level, NSString *tag, NSString *message);
+#define EZLogf(level, tag, fmt, ...) EZLog((level),(tag),[NSString stringWithFormat:(fmt),##__VA_ARGS__])
 void EZLogRotateIfNeeded(NSUInteger maxBytes);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MARK: - 2. Prompt Context Analyzer (AI Mini-App)
+// EZContextResult — the routing decision returned to ViewController
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * analyzePromptForContext — Before sending a user prompt to the main model,
- * call this helper. It uses gpt-4.1-nano to quickly decide:
- *   a) Is this a simple question that needs NO extra context? (saves tokens)
- *   b) Is this a complex prompt that SHOULD have memory context injected?
- *
- * The function is asynchronous. Results arrive on the main queue via the
- * completion block.
- *
- * @param userPrompt      The raw prompt the user typed.
- * @param memoryContext   Pass the result of loadMemoryContext() here.
- *                        Can be nil or empty string if no memories exist yet.
- * @param apiKey          Your OpenAI API key.
- * @param completion      Called on main thread with an EZContextResult.
- *                        On network error, result.needsContext == NO and
- *                        result.finalPrompt == userPrompt (fail-open, always send).
- *
- * Example call in ViewController.m:
- *
- *   NSString *memories = loadMemoryContext();
- *   analyzePromptForContext(self.inputField.text, memories, API_KEY, ^(EZContextResult *r) {
- *       [self sendToMainModel:r.finalPrompt];
- *       EZLogf(EZLogLevelInfo, @"CONTEXT", @"needsContext=%d tokens≈%ld reason=%@",
- *              r.needsContext, (long)r.estimatedTokens, r.reason);
- *   });
- */
+typedef NS_ENUM(NSInteger, EZRoutingTier) {
+    EZRoutingTierDirect   = 1,  ///< Helper model answered — skip main model entirely
+    EZRoutingTierSimple   = 2,  ///< Main model, no context injected
+    EZRoutingTierMemory   = 3,  ///< Main model + relevant memory summaries injected
+    EZRoutingTierFullChat = 4,  ///< Main model + full chat turns loaded from disk
+};
+
+@interface EZContextResult : NSObject
+/// Which routing tier was decided
+@property (nonatomic, assign) EZRoutingTier tier;
+/// Backwards-compat flag: YES when tier >= EZRoutingTierMemory
+@property (nonatomic, assign) BOOL          needsContext;
+/// One-sentence explanation of why this tier was chosen
+@property (nonatomic, copy)   NSString     *reason;
+/// Tier 1: the direct answer text to display to the user.
+/// Tiers 2-4: the enriched prompt to send to the main model
+/// (may include injected memory context as a preamble).
+@property (nonatomic, copy)   NSString     *finalPrompt;
+/// Rough token count of finalPrompt (used for budget logging)
+@property (nonatomic, assign) NSInteger     estimatedTokens;
+/// Tier 1 only: if non-nil, display this string and skip the API call entirely
+@property (nonatomic, copy, nullable) NSString              *shortCircuitAnswer;
+/// Tier 4 only: array of API-ready message dicts loaded from the thread on disk.
+/// ViewController prepends these to chatContext before sending.
+@property (nonatomic, strong, nullable) NSArray<NSDictionary *> *injectedHistory;
+/// Confidence score the classifier assigned (0.0 – 1.0)
+@property (nonatomic, assign) float         confidence;
+@end
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EZChatThread — one complete saved conversation
+// ─────────────────────────────────────────────────────────────────────────────
+
+@interface EZChatThread : NSObject
+/// Unique identifier — ISO-8601 timestamp of when the thread was created,
+/// e.g. "2026-03-20T13:28:20". Used as the filename and as the chatKey
+/// stored in memory entries so we can find the thread later.
+@property (nonatomic, copy)   NSString                *threadID;
+/// Short title derived from the first user message (truncated to 60 chars)
+@property (nonatomic, copy)   NSString                *title;
+/// Longer display preview (currently same as title; reserved for future use)
+@property (nonatomic, copy)   NSString                *displayText;
+/// Full OpenAI-format message array: [{role, content}, ...]
+@property (nonatomic, strong) NSArray<NSDictionary *> *chatContext;
+/// The model name that was active when the thread was created
+@property (nonatomic, copy)   NSString                *modelName;
+/// ISO-8601 creation timestamp
+@property (nonatomic, copy)   NSString                *createdAt;
+/// ISO-8601 last-updated timestamp (set on every save)
+@property (nonatomic, copy)   NSString                *updatedAt;
+/// Local filesystem paths of files attached during this conversation
+@property (nonatomic, strong) NSArray<NSString *>     *attachmentPaths;
+/// Local path of the last image generated or edited in this thread (optional)
+@property (nonatomic, copy, nullable) NSString        *lastImageLocalPath;
+/// Local path of the last video generated in this thread (optional)
+@property (nonatomic, copy, nullable) NSString        *lastVideoLocalPath;
+- (NSDictionary *)toDictionary;
++ (nullable instancetype)fromDictionary:(NSDictionary *)dict;
+@end
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Context Analyzer (4-tier routing)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Classify a user prompt and decide how much context to inject.
+/// Dispatches to a background queue and calls completion on the main queue.
+///
+/// @param userPrompt    The raw text the user typed
+/// @param memoryContext Pre-fetched relevant memory entries as a formatted string.
+///                      Pass the result of EZThreadSearchMemory() or loadMemoryContext().
+/// @param apiKey        OpenAI API key
+/// @param chatKey       threadID of the currently active thread. Used as a
+///                      fallback chatKey when loading Tier-4 history from disk.
+/// @param completion    Called on main queue with the routing decision.
 void analyzePromptForContext(NSString *userPrompt,
-                             NSString *memoryContext,
+                             NSString * _Nullable memoryContext,
                              NSString *apiKey,
+                             NSString * _Nullable chatKey,
                              void (^completion)(EZContextResult *result));
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MARK: - 3. Memory Creator (AI Mini-App)
+// Memory Store  (JSON-based, replaces flat .log file)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * createMemoryFromCompletion — After each successful chat completion, call this
- * to summarize the Q&A exchange into a compact memory entry. The entry is
- * appended to "ezui_memory.log" in the app's Documents directory.
- *
- * Uses gpt-4.1-nano — very cheap. The summary is intentionally terse (<80 words)
- * so that loading all memories as context stays token-efficient.
- *
- * @param userPrompt       The user's original message.
- * @param assistantReply   The full response from the main model.
- * @param apiKey           Your OpenAI API key.
- * @param completion       Called on main thread. memoryEntry is the string that
- *                         was written to disk, or nil on failure.
- *
- * Example call in ViewController.m (inside your completion handler):
- *
- *   createMemoryFromCompletion(prompt, reply, API_KEY, ^(NSString *entry) {
- *       if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved: %@", entry);
- *   });
- */
+/// Path to the JSON memory store file (Documents/ezui_memory.json)
+NSString *EZMemoryGetPath(void);
+
+/// Save a new memory entry after a completed exchange.
+/// The entry is a JSON dict with: timestamp, summary, chatKey (links to thread).
+/// @param userPrompt    What the user asked
+/// @param assistantReply What the model answered (truncated to 1200 chars)
+/// @param apiKey        Used to call the summarizer model
+/// @param chatKey       threadID to store so Tier-4 can find the full thread
+/// @param completion    Called on main queue with the formatted entry string, or nil on failure
 void createMemoryFromCompletion(NSString *userPrompt,
                                 NSString *assistantReply,
                                 NSString *apiKey,
-                                void (^completion)(NSString *memoryEntry));
+                                NSString * _Nullable chatKey,
+                                void (^completion)(NSString * _Nullable entry));
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - 4. Memory Loader
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * loadMemoryContext — Reads the memory log file and returns a single NSString
- * containing the most recent N memory entries, ready to be injected as context.
- *
- * This is a synchronous, blocking call (reads from disk — fast). Call it on a
- * background thread if you're worried about main-thread blocking on large files.
- *
- * @param maxEntries  Maximum number of recent memory entries to include.
- *                    Recommended: 10–20. Pass 0 to load all entries.
- * @return            A formatted context string, or empty string if no memories.
- *
- * Example:
- *   NSString *ctx = loadMemoryContext(15);
- *   // ctx now contains the last 15 memory summaries for injection into context
- */
+/// Load all memory entries from disk and return them as a formatted string.
+/// @param maxEntries  Maximum number of entries to return (most recent first).
+///                    Pass 0 to return all entries with no limit.
 NSString *loadMemoryContext(NSInteger maxEntries);
 
-/**
- * EZMemoryGetPath — Returns the full filesystem path to the memory log file.
- */
-NSString *EZMemoryGetPath(void);
+/// Load all memory entries as a raw array of NSDictionary objects.
+/// Each dict has keys: "timestamp" (NSString), "summary" (NSString), "chatKey" (NSString, may be empty).
+/// Returns empty array if the store is empty or unreadable.
+NSArray<NSDictionary *> *EZMemoryLoadAll(void);
 
-/**
- * clearMemoryLog — Deletes all stored memories. Use with a confirmation dialog.
- * @return YES on success.
- */
+/// Semantic memory search — finds the most relevant memory entries for a query.
+///
+/// Strategy (two-stage to control token cost):
+///   Stage 1: Local keyword/word-overlap scoring over ALL entries in memory —
+///            completely free, no API call. Returns up to 20 candidate entries.
+///   Stage 2: Send only those candidates to gpt-4.1-nano with a large enough
+///            token budget to rank them and return the top 5 most relevant.
+///            If Stage 2 fails, Stage 1 results are returned directly.
+///
+/// Returns a formatted string of the top relevant entries, or empty string if none found.
+/// MUST be called on a background thread (makes a synchronous network call).
+NSString *EZThreadSearchMemory(NSString *query, NSString *apiKey);
+
 BOOL clearMemoryLog(void);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MARK: - 5. Helper Stats / Diagnostics (no AI)
+// Thread Store
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * EZHelperStats — Scans the helper log and returns a human-readable stats
- * summary string. Useful for a debug screen or shake-to-show panel.
- *
- * Reports:
- *   - Total log entries by level
- *   - Context analyzer: how often context was injected vs skipped
- *   - Memory creator: total memories saved, log file size
- *   - Most recent 5 log entries
- *
- * @return Formatted NSString stats report.
- */
+NSString *EZThreadStoreDir(void);
+void EZThreadSave(EZChatThread *thread, void (^ _Nullable completion)(BOOL success));
+EZChatThread * _Nullable EZThreadLoad(NSString *threadID);
+NSArray<EZChatThread *> *EZThreadList(void);
+BOOL EZThreadDelete(NSString *threadID);
+
+/// Load the most-recent turns from a saved thread that fit within a token budget.
+/// Walks backwards from the most recent message, accumulating turns until
+/// the budget (approx 1 token = 4 chars) is exhausted.
+/// Returns nil if the thread is not found or has no messages.
+NSArray<NSDictionary *> * _Nullable EZThreadLoadContext(NSString *threadID,
+                                                         NSInteger tokenBudget);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Attachment Store
+// ─────────────────────────────────────────────────────────────────────────────
+
+NSString * _Nullable EZAttachmentSave(NSData *data, NSString *fileName);
+NSString * _Nullable EZAttachmentPath(NSString *savedFileName);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stats
+// ─────────────────────────────────────────────────────────────────────────────
+
 NSString *EZHelperStats(void);
 
-#endif /* helpers_h */
+NS_ASSUME_NONNULL_END

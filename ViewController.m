@@ -104,12 +104,18 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 }
 
 - (void)setupData {
+    // Model list — internal identifiers. Display labels added in showModelPicker.
     self.models = @[
+        // ── Chat / Reasoning ──────────────────────────────────────────────
         @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
         @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
         @"gpt-3.5-turbo",
-        @"dall-e-3",
+        // ── Image Generation & Edit ───────────────────────────────────────
+        @"gpt-image-1",   // generation + edit (current, replaces dall-e-3/2)
+        @"dall-e-3",      // generation only (legacy, still active)
+        // ── Video ─────────────────────────────────────────────────────────
         @"sora-2", @"sora-2-pro",
+        // ── Audio ─────────────────────────────────────────────────────────
         @"whisper-1"
     ];
     self.chatContext       = [NSMutableArray array];
@@ -585,65 +591,119 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)attachImage:(NSURL *)fileURL {
-    NSData *imgData = [NSData dataWithContentsOfURL:fileURL];
-    if (!imgData) {
+    NSData *rawData = [NSData dataWithContentsOfURL:fileURL];
+    if (!rawData) {
         [self appendToChat:@"[Error: Could not read image]"]; return;
     }
 
-    // Save to EZAttachments for persistence
-    NSString *localPath = EZAttachmentSave(imgData, fileURL.lastPathComponent);
+    NSString *name = fileURL.lastPathComponent;
+    NSString *ext  = fileURL.pathExtension.lowercaseString;
+
+    // ── Format validation & conversion ───────────────────────────────────────
+    // OpenAI vision + image edit APIs accept: png, jpeg, gif, webp ONLY.
+    // HEIC (default iOS camera format) must be converted to JPEG.
+    // Any other unsupported format also gets converted to JPEG.
+    NSData   *imageData = rawData;
+    NSString *mime      = @"image/jpeg";
+    BOOL      converted = NO;
+
+    NSSet *supported = [NSSet setWithObjects:@"png", @"jpg", @"jpeg", @"gif", @"webp", nil];
+
+    if (![supported containsObject:ext]) {
+        // Attempt conversion via UIImage → JPEG
+        UIImage *img = [UIImage imageWithData:rawData];
+        if (img) {
+            NSData *jpegData = UIImageJPEGRepresentation(img, 0.92);
+            if (jpegData) {
+                imageData  = jpegData;
+                mime       = @"image/jpeg";
+                finalExt   = @"jpeg";
+                converted  = YES;
+                [self appendToChat:[NSString stringWithFormat:
+                    @"[System: %@ converted from %@ to JPEG for API compatibility ✓]",
+                    name, ext.uppercaseString]];
+                EZLogf(EZLogLevelInfo, @"ATTACH", @"Converted %@ → JPEG (%lu bytes)",
+                       ext, (unsigned long)imageData.length);
+            } else {
+                [self appendToChat:[NSString stringWithFormat:
+                    @"[Error: Could not convert %@ to a supported format. "
+                    @"Please use PNG, JPEG, GIF, or WebP.]", ext.uppercaseString]];
+                return;
+            }
+        } else {
+            [self appendToChat:[NSString stringWithFormat:
+                @"[Error: Unsupported image format '%@'. Please use PNG, JPEG, GIF, or WebP.]",
+                ext.uppercaseString]];
+            return;
+        }
+    } else {
+        // Set correct mime for supported formats
+        if ([ext isEqualToString:@"png"])              mime = @"image/png";
+        else if ([ext isEqualToString:@"gif"])         mime = @"image/gif";
+        else if ([ext isEqualToString:@"webp"])        mime = @"image/webp";
+        else                                           mime = @"image/jpeg";
+    }
+
+    // ── Save to EZAttachments ─────────────────────────────────────────────────
+    NSString *saveName  = converted
+        ? [[name stringByDeletingPathExtension] stringByAppendingPathExtension:@"jpeg"]
+        : name;
+    NSString *localPath = EZAttachmentSave(imageData, saveName);
     self.pendingImagePath = localPath ?: fileURL.path;
 
-    // Track in active thread
     if (localPath) {
         NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
         [att addObject:localPath];
         self.activeThread.attachmentPaths = [att copy];
     }
 
-    NSString *name = fileURL.lastPathComponent;
-    NSString *ext  = fileURL.pathExtension.lowercaseString;
+    // ── Route based on selected model ─────────────────────────────────────────
+    BOOL inImageGenMode = ([self.selectedModel isEqualToString:@"dall-e-3"] ||
+                           [self.selectedModel isEqualToString:@"gpt-image-1"]);
 
-    // Determine what mode this image will be used for
-    BOOL inDalleMode = [self.selectedModel isEqualToString:@"dall-e-3"];
-    if (inDalleMode) {
-        // Auto-switch to dall-e-2 edit mode and inform user
+    if (inImageGenMode) {
+        // Switch to image edit mode — gpt-image-1 handles both gen and edit
+        self.selectedModel = @"gpt-image-1-edit";
+        [self.modelButton setTitle:@"Model: gpt-image-1 (edit mode)" forState:UIControlStateNormal];
         [self appendToChat:[NSString stringWithFormat:
-            @"[System: Image %@ attached. Model switched to DALL-E 2 image edit. "
-            @"Type a prompt to edit this image.]", name]];
-        self.selectedModel = @"dall-e-2-edit";
-        [self.modelButton setTitle:@"Model: dall-e-2 (edit)" forState:UIControlStateNormal];
+            @"[System: Image %@ attached — switched to image edit mode. "
+            @"Type a prompt describing your edits.]", saveName]];
     } else {
-        // Auto-switch to gpt-4o for vision if not already a vision-capable model
-        NSArray *visionModels = @[@"gpt-4o",@"gpt-4o-mini",@"gpt-4-turbo",@"gpt-4",
-                                  @"gpt-5",@"gpt-5-mini",@"gpt-5-pro"];
+        // Vision analysis mode — ensure model supports vision
+        NSSet *visionModels = [NSSet setWithObjects:
+            @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
+            @"gpt-5", @"gpt-5-mini", @"gpt-5-pro", nil];
+
         if (![visionModels containsObject:self.selectedModel]) {
-            NSString *prev = self.selectedModel;
+            NSString *prev     = self.selectedModel;
             self.selectedModel = @"gpt-4o";
             [self.modelButton setTitle:@"Model: gpt-4o" forState:UIControlStateNormal];
             [self appendToChat:[NSString stringWithFormat:
-                @"[System: Image attached — switching from %@ to gpt-4o for vision. "
-                @"Type a prompt or ask me to describe/analyze it.]", prev]];
+                @"[System: Image attached — %@ doesn't support vision. "
+                @"Switched to gpt-4o. Type a prompt to analyze the image.]", prev]];
         } else {
             [self appendToChat:[NSString stringWithFormat:
-                @"[System: Image %@ attached. Type a prompt to analyze or describe it.]", name]];
+                @"[System: Image %@ attached. Type a prompt to analyze or describe it.]", saveName]];
         }
-        // Build vision message and add to context
-        NSDictionary *mimeMap = @{@"jpg":@"image/jpeg",@"jpeg":@"image/jpeg",@"png":@"image/png",
-                                  @"gif":@"image/gif",@"webp":@"image/webp",@"heic":@"image/heic"};
-        NSString *mime    = mimeMap[ext] ?: @"image/jpeg";
-        NSString *base64  = [imgData base64EncodedStringWithOptions:0];
+
+        // Add vision message to context — use base64 data URL
+        // NOTE: this message is marked so we can strip it after first use
+        // to avoid re-sending huge base64 blobs on every subsequent turn
+        NSString *base64  = [imageData base64EncodedStringWithOptions:0];
         NSString *dataURL = [NSString stringWithFormat:@"data:%@;base64,%@", mime, base64];
         NSDictionary *visionMsg = @{
-            @"role": @"user",
-            @"content": @[
+            @"role":     @"user",
+            @"content":  @[
                 @{@"type": @"image_url", @"image_url": @{@"url": dataURL}},
-                @{@"type": @"text", @"text": @"User attached this image. Await their question."}
-            ]
+                @{@"type": @"text",      @"text": @"[image attached — await user question]"}
+            ],
+            @"_isVisionAttachment": @YES   // internal flag — stripped before API call
         };
         [self.chatContext addObject:visionMsg];
     }
-    EZLogf(EZLogLevelInfo, @"ATTACH", @"Image attached: %@ path=%@", name, self.pendingImagePath);
+
+    EZLogf(EZLogLevelInfo, @"ATTACH", @"Image ready: %@ mime=%@ bytes=%lu",
+           saveName, mime, (unsigned long)imageData.length);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -835,10 +895,31 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSString *apiKey = [[NSUserDefaults standardUserDefaults] stringForKey:@"apiKey"];
     if (!apiKey.length) { [self appendToChat:@"[Error: No API Key]"]; return; }
 
-    // ── DALL-E image edit (image attached while in dall-e mode) ──────────────
-    if ([self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
+    // ── Guard: Whisper is transcription-only, not a chat model ───────────────
+    if ([self.selectedModel isEqualToString:@"whisper-1"]) {
+        self.selectedModel = @"gpt-4o";
+        [self.modelButton setTitle:@"Model: gpt-4o" forState:UIControlStateNormal];
+        [self appendToChat:@"[System: Whisper is for audio transcription only — switched to gpt-4o for chat]"];
+    }
+
+    // ── Image edit mode (gpt-image-1 with attached image) ────────────────────
+    if ([self.selectedModel isEqualToString:@"gpt-image-1-edit"]) {
         [self callImageEdit:text imagePath:self.pendingImagePath ?: self.lastImageLocalPath];
         self.pendingImagePath = nil;
+        return;
+    }
+
+    // ── Legacy dall-e-2-edit fallback (in case old state persists) ───────────
+    if ([self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
+        self.selectedModel = @"gpt-image-1-edit";
+        [self callImageEdit:text imagePath:self.pendingImagePath ?: self.lastImageLocalPath];
+        self.pendingImagePath = nil;
+        return;
+    }
+
+    // ── gpt-image-1 generation (no image attached = text-to-image) ───────────
+    if ([self.selectedModel isEqualToString:@"gpt-image-1"]) {
+        [self callGptImage1:text];
         return;
     }
 
@@ -954,9 +1035,17 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     body[@"model"] = self.selectedModel;
     NSString *sys  = [defaults stringForKey:@"systemMessage"];
 
+    // Build a clean context array for the API:
+    // - Strip internal _isVisionAttachment flag from all messages
+    // - Vision messages beyond the most recent one are collapsed to text
+    //   so we don't re-send huge base64 blobs on every subsequent turn
+    NSArray *cleanContext = [self sanitizedContextForAPI:self.chatContext
+                                           modelSupportsVision:[self modelSupportsVision:self.selectedModel]
+                                               useResponsesAPI:useResponsesAPI];
+
     if (useResponsesAPI) {
         if (sys.length > 0) body[@"instructions"] = sys;
-        body[@"input"] = self.chatContext;
+        body[@"input"] = cleanContext;
         if (useWebSearch) {
             NSString *loc = [defaults stringForKey:@"webSearchLocation"] ?: @"";
             NSMutableDictionary *webTool = [@{@"type": @"web_search_preview"} mutableCopy];
@@ -970,7 +1059,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         body[@"frequency_penalty"] = @([defaults floatForKey:@"frequency"]);
         NSMutableArray *messages   = [NSMutableArray array];
         if (sys.length > 0) [messages addObject:@{@"role":@"system",@"content":sys}];
-        [messages addObjectsFromArray:self.chatContext];
+        [messages addObjectsFromArray:cleanContext];
         body[@"messages"] = messages;
     }
 
@@ -1105,73 +1194,140 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MARK: - DALL-E 2 Image Edit
+// MARK: - gpt-image-1 Text-to-Image Generation
+// ─────────────────────────────────────────────────────────────────────────────
+
+- (void)callGptImage1:(NSString *)prompt {
+    [self appendToChat:@"[System: Generating image with gpt-image-1...]"];
+    EZLog(EZLogLevelInfo, @"GPTIMAGE", @"Sending generation request");
+    NSString *apiKey = [[NSUserDefaults standardUserDefaults] stringForKey:@"apiKey"];
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:
+        [NSURL URLWithString:@"https://api.openai.com/v1/images/generations"]];
+    req.HTTPMethod = @"POST";
+    req.timeoutInterval = 120;
+    [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [req setValue:[NSString stringWithFormat:@"Bearer %@", apiKey] forHTTPHeaderField:@"Authorization"];
+    req.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
+        @"model":  @"gpt-image-1",
+        @"prompt": prompt,
+        @"n":      @1,
+        @"size":   @"1024x1024"
+    } options:0 error:nil];
+
+    NSString *savedPrompt = prompt;
+    [[[NSURLSession sharedSession] dataTaskWithRequest:req
+        completionHandler:^(NSData *data, NSURLResponse *resp, NSError *error) {
+        if (!data) { [self handleAPIError:error.localizedDescription ?: @"gpt-image-1 request failed"]; return; }
+        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        EZLogf(EZLogLevelDebug, @"GPTIMAGE", @"Response: %@", json);
+        id errObj = json[@"error"];
+        if (errObj && ![errObj isKindOfClass:[NSNull class]]) {
+            id m = ((NSDictionary *)errObj)[@"message"];
+            [self handleAPIError:(m && ![m isKindOfClass:[NSNull class]]) ? m : @"gpt-image-1 error"];
+            return;
+        }
+        id dataArr = json[@"data"];
+        if (!dataArr || [dataArr isKindOfClass:[NSNull class]] || [(NSArray *)dataArr count] == 0) {
+            [self handleAPIError:@"No image in response"]; return;
+        }
+        id imgObj  = ((NSArray *)dataArr)[0];
+        id imgURL  = ([imgObj isKindOfClass:[NSDictionary class]]) ? imgObj[@"url"]      : nil;
+        id b64     = ([imgObj isKindOfClass:[NSDictionary class]]) ? imgObj[@"b64_json"] : nil;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.lastImagePrompt = savedPrompt;
+        });
+        if (imgURL && ![imgURL isKindOfClass:[NSNull class]]) {
+            EZLog(EZLogLevelInfo, @"GPTIMAGE", @"URL received");
+            [self downloadAndSaveImage:(NSString *)imgURL purpose:@"gptimage"];
+        } else if (b64 && ![b64 isKindOfClass:[NSNull class]]) {
+            EZLog(EZLogLevelInfo, @"GPTIMAGE", @"b64_json received");
+            NSData *imgData = [[NSData alloc] initWithBase64EncodedString:(NSString *)b64 options:0];
+            if (imgData) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    NSString *savedPath = EZAttachmentSave(imgData, @"gptimage_result.png");
+                    if (savedPath) self.lastImageLocalPath = savedPath;
+                    NSURL *tmp = [NSURL fileURLWithPath:
+                        [NSTemporaryDirectory() stringByAppendingPathComponent:@"gptimage_gen.png"]];
+                    [imgData writeToURL:tmp atomically:YES];
+                    self.previewURL = tmp;
+                    QLPreviewController *ql = [[QLPreviewController alloc] init];
+                    ql.dataSource = self;
+                    [self presentViewController:ql animated:YES completion:nil];
+                });
+            }
+        } else {
+            [self handleAPIError:@"No image URL or data in gpt-image-1 response"];
+        }
+    }] resume];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Image Edit (gpt-image-1)
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath {
     if (!imagePath) {
         [self appendToChat:@"[Error: No image attached for editing]"]; return;
     }
-    [self appendToChat:@"[System: Editing image...]"];
+    [self appendToChat:@"[System: Editing image with gpt-image-1...]"];
     EZLog(EZLogLevelInfo, @"IMGEDIT", @"Sending image edit request");
 
-    NSString *apiKey = [[NSUserDefaults standardUserDefaults] stringForKey:@"apiKey"];
-    NSData *imageData = [NSData dataWithContentsOfFile:imagePath];
-    if (!imageData) {
-        // Try as URL path
-        imageData = [NSData dataWithContentsOfURL:[NSURL fileURLWithPath:imagePath]];
-    }
+    NSString *apiKey  = [[NSUserDefaults standardUserDefaults] stringForKey:@"apiKey"];
+    NSData *imageData = [NSData dataWithContentsOfFile:imagePath]
+                     ?: [NSData dataWithContentsOfURL:[NSURL fileURLWithPath:imagePath]];
     if (!imageData) {
         [self appendToChat:@"[Error: Could not read image for editing]"]; return;
     }
 
-    // /v1/images/edits requires PNG — convert if needed
-    // We send the raw image data; if it fails the API will return an error we'll surface
+    // gpt-image-1 requires PNG. Convert via UIImage to guarantee correct format + headers.
+    UIImage *img = [UIImage imageWithData:imageData];
+    if (!img) { [self appendToChat:@"[Error: Could not decode image for editing]"]; return; }
+    NSData *pngData = UIImagePNGRepresentation(img);
+    if (!pngData) { [self appendToChat:@"[Error: Could not convert image to PNG]"]; return; }
+    EZLogf(EZLogLevelInfo, @"IMGEDIT", @"PNG ready: %lu bytes", (unsigned long)pngData.length);
+
     NSString *boundary = [NSString stringWithFormat:@"Boundary-%@", [[NSUUID UUID] UUIDString]];
-    NSURL *url = [NSURL URLWithString:@"https://api.openai.com/v1/images/edits"];
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
-    req.HTTPMethod = @"POST";
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:
+        [NSURL URLWithString:@"https://api.openai.com/v1/images/edits"]];
+    req.HTTPMethod      = @"POST";
+    req.timeoutInterval = 120;
     [req setValue:[NSString stringWithFormat:@"multipart/form-data; boundary=%@", boundary]
-        forHTTPHeaderField:@"Content-Type"];
+       forHTTPHeaderField:@"Content-Type"];
     [req setValue:[NSString stringWithFormat:@"Bearer %@", apiKey]
-        forHTTPHeaderField:@"Authorization"];
+       forHTTPHeaderField:@"Authorization"];
 
     NSMutableData *body = [NSMutableData data];
 
-    // image field
+    // model
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:[@"Content-Disposition: form-data; name=\"image\"; filename=\"image.png\"\r\n"
-                      dataUsingEncoding:NSUTF8StringEncoding]];
+    [body appendData:[@"Content-Disposition: form-data; name=\"model\"\r\n\r\ngpt-image-1\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+    // image — PNG required
+    [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
+    [body appendData:[@"Content-Disposition: form-data; name=\"image\"; filename=\"image.png\"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Type: image/png\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:imageData];
+    [body appendData:pngData];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-
-    // prompt field
+    // prompt
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"prompt\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[prompt dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-
-    // model field
-    [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:[@"Content-Disposition: form-data; name=\"model\"\r\n\r\ndall-e-2\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-
-    // n and size
+    // n
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"n\"\r\n\r\n1\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+    // size
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"size\"\r\n\r\n1024x1024\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-
     [body appendData:[[NSString stringWithFormat:@"--%@--\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     req.HTTPBody = body;
 
-    EZLogf(EZLogLevelInfo, @"IMGEDIT", @"Prompt: %@, imageData: %lu bytes",
-           prompt, (unsigned long)imageData.length);
+    EZLogf(EZLogLevelInfo, @"IMGEDIT", @"Sending — prompt: %@", prompt);
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:req
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *error) {
         if (!data) { [self handleAPIError:error.localizedDescription ?: @"Image edit failed"]; return; }
         NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        EZLogf(EZLogLevelDebug, @"IMGEDIT", @"Response: %@", json);
         id errObj = json[@"error"];
         if (errObj && ![errObj isKindOfClass:[NSNull class]]) {
             id m = ((NSDictionary *)errObj)[@"message"];
@@ -1184,19 +1340,65 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
         id imgObj = ((NSArray *)dataArr)[0];
         id imgURL = ([imgObj isKindOfClass:[NSDictionary class]]) ? imgObj[@"url"] : nil;
-        if (!imgURL || [imgURL isKindOfClass:[NSNull class]]) {
-            [self handleAPIError:@"No URL in edit response"]; return;
-        }
-        EZLog(EZLogLevelInfo, @"IMGEDIT", @"Edited image URL received");
+        id b64    = ([imgObj isKindOfClass:[NSDictionary class]]) ? imgObj[@"b64_json"] : nil;
         dispatch_async(dispatch_get_main_queue(), ^{
             self.lastImagePrompt = prompt;
-            // Reset back to dall-e-3 after edit completes
-            self.selectedModel = @"dall-e-3";
-            [self.modelButton setTitle:@"Model: dall-e-3" forState:UIControlStateNormal];
+            // Stay in edit mode — user can keep iterating on the result
+            // without having to re-attach the image
+            self.selectedModel = @"gpt-image-1-edit";
+            [self.modelButton setTitle:@"Model: gpt-image-1 (edit mode)" forState:UIControlStateNormal];
+            [self appendToChat:@"[System: Edit complete — still in edit mode. Attach a new image or type another edit prompt.]"];
         });
-        [self downloadAndSaveImage:(NSString *)imgURL purpose:@"edit"];
+        if (imgURL && ![imgURL isKindOfClass:[NSNull class]]) {
+            EZLog(EZLogLevelInfo, @"IMGEDIT", @"URL received");
+            // Download, save, and set as new edit source for next iteration
+            [[[NSURLSession sharedSession] downloadTaskWithURL:[NSURL URLWithString:(NSString *)imgURL]
+                completionHandler:^(NSURL *location, NSURLResponse *resp, NSError *err) {
+                if (!location) { [self handleAPIError:@"Edit result download failed"]; return; }
+                NSURL *tmp = [NSURL fileURLWithPath:
+                    [NSTemporaryDirectory() stringByAppendingPathComponent:@"edit_gen.png"]];
+                [[NSFileManager defaultManager] removeItemAtURL:tmp error:nil];
+                [[NSFileManager defaultManager] copyItemAtURL:location toURL:tmp error:nil];
+                NSData *imgData = [NSData dataWithContentsOfURL:tmp];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    NSString *savedPath = imgData ? EZAttachmentSave(imgData, @"edit_result.png") : nil;
+                    if (savedPath) {
+                        self.lastImageLocalPath = savedPath;   // next edit uses this automatically
+                        self.activeThread.lastImageLocalPath = savedPath;
+                        [self saveActiveThread];
+                    }
+                    self.previewURL = tmp;
+                    QLPreviewController *ql = [[QLPreviewController alloc] init];
+                    ql.dataSource = self;
+                    [self presentViewController:ql animated:YES completion:nil];
+                });
+            }] resume];
+        } else if (b64 && ![b64 isKindOfClass:[NSNull class]]) {
+            EZLog(EZLogLevelInfo, @"IMGEDIT", @"b64_json received");
+            NSData *imgData = [[NSData alloc] initWithBase64EncodedString:(NSString *)b64 options:0];
+            if (imgData) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    NSString *savedPath = EZAttachmentSave(imgData, @"edit_result.png");
+                    if (savedPath) {
+                        self.lastImageLocalPath = savedPath;
+                        self.activeThread.lastImageLocalPath = savedPath;
+                        [self saveActiveThread];
+                    }
+                    NSURL *tmp = [NSURL fileURLWithPath:
+                        [NSTemporaryDirectory() stringByAppendingPathComponent:@"edit_gen.png"]];
+                    [imgData writeToURL:tmp atomically:YES];
+                    self.previewURL = tmp;
+                    QLPreviewController *ql = [[QLPreviewController alloc] init];
+                    ql.dataSource = self;
+                    [self presentViewController:ql animated:YES completion:nil];
+                });
+            }
+        } else {
+            [self handleAPIError:@"No image URL or data in edit response"];
+        }
     }] resume];
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Sora Text-to-Video (always async job)
@@ -1642,6 +1844,158 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // MARK: - Misc
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Returns YES if the given model supports image vision input
+- (BOOL)modelSupportsVision:(NSString *)model {
+    NSSet *vision = [NSSet setWithObjects:
+        @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
+        @"gpt-5", @"gpt-5-mini", @"gpt-5-pro",
+        @"gpt-image-1", nil];
+    // All gpt-5 variants support vision via Responses API
+    if ([model hasPrefix:@"gpt-5"]) return YES;
+    return [vision containsObject:model];
+}
+
+/// Produces an API-safe copy of the context array.
+/// - Strips internal _isVisionAttachment keys
+/// - If model doesn't support vision, collapses image blocks to plain text
+/// - Keeps only the MOST RECENT vision attachment; older ones collapse to text
+/// - Converts image block format between Chat Completions and Responses API
+///
+/// Chat Completions format: {"type":"image_url", "image_url":{"url":"data:..."}}
+/// Responses API format:    {"type":"input_image", "image_url":"data:..."}
+- (NSArray *)sanitizedContextForAPI:(NSArray *)context
+                  modelSupportsVision:(BOOL)supportsVision
+                      useResponsesAPI:(BOOL)useResponsesAPI {
+    // Find index of last vision attachment
+    NSInteger lastVisionIdx = -1;
+    for (NSInteger i = (NSInteger)context.count - 1; i >= 0; i--) {
+        NSDictionary *msg = context[(NSUInteger)i];
+        if ([msg[@"_isVisionAttachment"] boolValue]) {
+            lastVisionIdx = i; break;
+        }
+        id content = msg[@"content"];
+        if ([content isKindOfClass:[NSArray class]]) {
+            for (NSDictionary *block in (NSArray *)content) {
+                NSString *type = [block[@"type"] description];
+                if ([type isEqualToString:@"image_url"] || [type isEqualToString:@"input_image"]) {
+                    lastVisionIdx = i; break;
+                }
+            }
+        }
+        if (lastVisionIdx >= 0) break;
+    }
+
+    NSMutableArray *result = [NSMutableArray array];
+    for (NSUInteger i = 0; i < context.count; i++) {
+        NSDictionary *msg = context[i];
+
+        // Strip internal keys
+        NSMutableDictionary *clean = [NSMutableDictionary dictionary];
+        for (NSString *key in msg) {
+            if ([key hasPrefix:@"_"]) continue;
+            clean[key] = msg[key];
+        }
+
+        id content = clean[@"content"];
+        if ([content isKindOfClass:[NSArray class]]) {
+            NSArray *blocks   = (NSArray *)content;
+            BOOL     hasImage = NO;
+            for (NSDictionary *b in blocks) {
+                NSString *t = [b[@"type"] description];
+                if ([t isEqualToString:@"image_url"] || [t isEqualToString:@"input_image"]) {
+                    hasImage = YES; break;
+                }
+            }
+
+            if (hasImage) {
+                BOOL isLatest   = ((NSInteger)i == lastVisionIdx);
+                BOOL sendInline = isLatest && supportsVision;
+
+                if (sendInline) {
+                    // Convert ALL blocks to the correct format for the target API
+                    NSMutableArray *convertedBlocks = [NSMutableArray array];
+                    for (NSDictionary *b in blocks) {
+                        NSString *type = [b[@"type"] description];
+
+                        // ── Image block ───────────────────────────────────────
+                        if ([type isEqualToString:@"image_url"] || [type isEqualToString:@"input_image"]) {
+                            NSString *dataURL = nil;
+                            id imgUrlVal = b[@"image_url"];
+                            if ([imgUrlVal isKindOfClass:[NSDictionary class]]) {
+                                dataURL = ((NSDictionary *)imgUrlVal)[@"url"];
+                            } else if ([imgUrlVal isKindOfClass:[NSString class]]) {
+                                dataURL = (NSString *)imgUrlVal;
+                            }
+                            if (!dataURL) continue;
+
+                            if (useResponsesAPI) {
+                                [convertedBlocks addObject:@{@"type":@"input_image", @"image_url":dataURL}];
+                            } else {
+                                [convertedBlocks addObject:@{@"type":@"image_url", @"image_url":@{@"url":dataURL}}];
+                            }
+
+                        // ── Text block ────────────────────────────────────────
+                        } else if ([type isEqualToString:@"text"] || [type isEqualToString:@"input_text"]) {
+                            NSString *text = b[@"text"] ?: @"";
+                            // Skip the placeholder we injected on attach
+                            if ([text isEqualToString:@"[image attached — await user question]"]) continue;
+                            if (useResponsesAPI) {
+                                [convertedBlocks addObject:@{@"type":@"input_text", @"text":text}];
+                            } else {
+                                [convertedBlocks addObject:@{@"type":@"text", @"text":text}];
+                            }
+                        } else {
+                            // Pass through any other block types unchanged
+                            [convertedBlocks addObject:b];
+                        }
+                    }
+                    // If only image ended up in blocks (placeholder text was stripped), add nothing extra
+                    if (convertedBlocks.count > 0) {
+                        clean[@"content"] = [convertedBlocks copy];
+                        [result addObject:clean];
+                    }
+                } else {
+                    // Collapse image message to plain text string
+                    NSMutableString *textContent = [NSMutableString string];
+                    for (NSDictionary *b in blocks) {
+                        NSString *t = [b[@"type"] description];
+                        if ([t isEqualToString:@"text"] || [t isEqualToString:@"input_text"]) {
+                            NSString *txt = b[@"text"] ?: @"";
+                            if (![txt isEqualToString:@"[image attached — await user question]"]) {
+                                [textContent appendString:txt];
+                            }
+                        }
+                    }
+                    if (textContent.length == 0) [textContent appendString:@"[image attached]"];
+                    [result addObject:@{
+                        @"role":    clean[@"role"] ?: @"user",
+                        @"content": [textContent copy]
+                    }];
+                }
+                continue;
+            }
+
+            // Non-image array content — convert any text blocks if using Responses API
+            if (useResponsesAPI) {
+                NSMutableArray *convertedBlocks = [NSMutableArray array];
+                for (NSDictionary *b in blocks) {
+                    NSString *type = [b[@"type"] description];
+                    if ([type isEqualToString:@"text"]) {
+                        [convertedBlocks addObject:@{@"type":@"input_text", @"text":b[@"text"] ?: @""}];
+                    } else {
+                        [convertedBlocks addObject:b];
+                    }
+                }
+                clean[@"content"] = [convertedBlocks copy];
+                [result addObject:clean];
+                continue;
+            }
+        }
+        [result addObject:clean];
+    }
+    return [result copy];
+}
+
 - (void)handleAPIError:(NSString *)msg {
     EZLogf(EZLogLevelError, @"API", @"Error: %@", msg);
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -1725,13 +2079,39 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)showModelPicker {
+    // Capability labels for each model
+    NSDictionary *labels = @{
+        @"gpt-5-pro":    @"💬 Chat + 👁 Vision",
+        @"gpt-5":        @"💬 Chat + 👁 Vision",
+        @"gpt-5-mini":   @"💬 Chat + 👁 Vision",
+        @"gpt-4o":       @"💬 Chat + 👁 Vision ⭐",
+        @"gpt-4o-mini":  @"💬 Chat + 👁 Vision (fast)",
+        @"gpt-4-turbo":  @"💬 Chat + 👁 Vision",
+        @"gpt-4":        @"💬 Chat + 👁 Vision",
+        @"gpt-3.5-turbo":@"💬 Chat only",
+        @"gpt-image-1":  @"🖼 Image gen + ✏️ Edit",
+        @"dall-e-3":     @"🖼 Image gen only (legacy)",
+        @"sora-2":       @"🎬 Video gen (4/8/12/16s)",
+        @"sora-2-pro":   @"🎬 Video gen HQ (5/10/15/20s)",
+        @"whisper-1":    @"🎙 Audio transcription only"
+    };
+
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Select Model"
                                                                    message:nil
                                                             preferredStyle:UIAlertControllerStyleActionSheet];
     for (NSString *model in self.models) {
-        [alert addAction:[UIAlertAction actionWithTitle:model
+        NSString *cap   = labels[model] ?: @"";
+        NSString *title = cap.length > 0
+            ? [NSString stringWithFormat:@"%@  —  %@", model, cap]
+            : model;
+        [alert addAction:[UIAlertAction actionWithTitle:title
                                                  style:UIAlertActionStyleDefault
                                                handler:^(UIAlertAction *action) {
+            // If switching away from image edit mode, clear pending image path
+            if ([self.selectedModel isEqualToString:@"gpt-image-1-edit"] ||
+                [self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
+                self.pendingImagePath = nil;
+            }
             self.selectedModel = model;
             [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", model]
                               forState:UIControlStateNormal];
