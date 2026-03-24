@@ -1,9 +1,9 @@
 Package: com.i0stweak3r.ezcompleteui
 Name: EZCompleteUI
 Author: i0s_tweak3r
-Description: Let's chat gpt and DallE Whisper chit up...with a UI. And memory
+Description: Let's chat gpt and DallE Whisper Sora chit up...with a UI. And memory. And AI agents under the hood optimizing token usage, memory management, and context given for each prompt resulting in a smarter, more helpful chatbot personal assistant.
 Depends: firmware (>= 15.0)
 Maintainer: i0s_tweak3r <djvs23@gmail.com>
 Architecture: iphoneos-arm64
 Section: Utilities
-Version: 1.0.1
+Version: 5.0
