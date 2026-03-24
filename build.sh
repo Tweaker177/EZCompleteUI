@@ -23,12 +23,14 @@ except Exception as e:
     sys.exit(1)
 d['NSMicrophoneUsageDescription'] = 'EZCompleteUI uses the microphone for voice dictation.'
 d['NSSpeechRecognitionUsageDescription'] = 'EZCompleteUI uses speech recognition to transcribe your voice.'
+d['NSDocumentsFolderUsageDescription'] = 'EZCompleteUI needs access to files so you can attach documents, images, and audio to your chats.'
 with open(path, 'wb') as f:
     plistlib.dump(d, f)
 keys = [k for k in d if 'Usage' in k]
 print(f"  Injected {len(keys)} key(s): {keys}")
 assert 'NSMicrophoneUsageDescription' in d
 assert 'NSSpeechRecognitionUsageDescription' in d
+assert 'NSDocumentsFolderUsageDescription' in d
 PYEOF
 }
 
@@ -115,8 +117,10 @@ with open(path, 'rb') as f:
     d = plistlib.load(f)
 mic    = d.get('NSMicrophoneUsageDescription', 'MISSING')
 speech = d.get('NSSpeechRecognitionUsageDescription', 'MISSING')
+docs   = d.get('NSDocumentsFolderUsageDescription', 'MISSING')
 print(f"  Mic:    {mic[:60]}")
 print(f"  Speech: {speech[:60]}")
+print(f"  Docs:   {docs[:60]}")
 if mic == 'MISSING' or speech == 'MISSING':
     print("ERROR: keys missing from deb root plist!", file=sys.stderr)
     sys.exit(1)

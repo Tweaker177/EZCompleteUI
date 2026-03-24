@@ -16,6 +16,7 @@
 #import "SettingsViewController.h"
 #import "ChatHistoryViewController.h"
 #import "helpers.h"
+#import <objc/runtime.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <QuickLook/QuickLook.h>
 #import <AVFoundation/AVFoundation.h>
@@ -538,13 +539,11 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [sheet addAction:[UIAlertAction actionWithTitle:@"🖼 Attach Image (Vision / Edit)"
                                              style:UIAlertActionStyleDefault
                                            handler:^(UIAlertAction *a) {
-        UIDocumentPickerViewController *p = [[UIDocumentPickerViewController alloc]
-            initForOpeningContentTypes:@[UTTypeImage] asCopy:YES];
-        p.delegate    = self;
-        p.view.tag    = (NSInteger)EZAttachModeAnalyze;
-        [self presentViewController:p animated:YES completion:nil];
+        [self presentFilePickerForMode:EZAttachModeAnalyze
+                           forceTypes:@[UTTypeImage]];
     }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel"
+                                             style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:sheet animated:YES completion:nil];
 }
 
@@ -553,15 +552,28 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     if (mode == EZAttachModeWhisper) {
         types = @[UTTypeAudio, UTTypeVideo, UTTypeMovie, UTTypeAudiovisualContent];
     } else {
+        // Be explicit — UTTypeData catch-all breaks iOS 15 file picker
         types = @[UTTypePDF,
                   [UTType typeWithIdentifier:@"org.idpf.epub-container"],
-                  UTTypePlainText, UTTypeRTF, UTTypeHTML,
-                  UTTypeImage, UTTypeData];
+                  UTTypePlainText,
+                  UTTypeRTF,
+                  UTTypeHTML,
+                  UTTypeImage,
+                  [UTType typeWithIdentifier:@"public.comma-separated-values-text"],
+                  [UTType typeWithIdentifier:@"public.json"],
+                  [UTType typeWithIdentifier:@"public.xml"]];
     }
+    [self presentFilePickerForMode:mode forceTypes:types];
+}
+
+- (void)presentFilePickerForMode:(EZAttachMode)mode forceTypes:(NSArray *)types {
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
         initForOpeningContentTypes:types asCopy:YES];
     picker.delegate = self;
-    picker.view.tag = (NSInteger)mode;
+    picker.allowsMultipleSelection = NO;
+    // Store mode via associated object — safer than .view.tag on iOS 15
+    objc_setAssociatedObject(picker, "EZAttachMode",
+                             @(mode), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [self presentViewController:picker animated:YES completion:nil];
 }
 
@@ -573,9 +585,13 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSURL *fileURL = urls.firstObject;
     if (!fileURL) return;
-    EZAttachMode mode = (EZAttachMode)controller.view.tag;
+
+    // Retrieve mode from associated object — fall back to analyze
+    NSNumber *modeNum = objc_getAssociatedObject(controller, "EZAttachMode");
+    EZAttachMode mode = modeNum ? (EZAttachMode)modeNum.integerValue : EZAttachModeAnalyze;
+
     NSString *ext = fileURL.pathExtension.lowercaseString;
-    BOOL isImage = [@[@"jpg",@"jpeg",@"png",@"gif",@"webp",@"heic"] containsObject:ext];
+    BOOL isImage  = [@[@"jpg",@"jpeg",@"png",@"gif",@"webp",@"heic"] containsObject:ext];
 
     if (mode == EZAttachModeWhisper) {
         [self transcribeAudio:fileURL];
@@ -584,6 +600,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     } else {
         [self analyzeFile:fileURL];
     }
+}
+
+- (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
+    EZLog(EZLogLevelInfo, @"FILE", @"Document picker cancelled by user");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -617,7 +637,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             if (jpegData) {
                 imageData  = jpegData;
                 mime       = @"image/jpeg";
-                finalExt   = @"jpeg";
+              
                 converted  = YES;
                 [self appendToChat:[NSString stringWithFormat:
                     @"[System: %@ converted from %@ to JPEG for API compatibility ✓]",
@@ -926,21 +946,21 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // ── DALL-E 3 generation ───────────────────────────────────────────────────
     if ([self.selectedModel isEqualToString:@"dall-e-3"]) {
         if (self.lastImagePrompt.length > 0) {
-            // Has prior image — check if follow-up needs context
-            NSString *memories = loadMemoryContext(15);
             self.sendButton.enabled = NO;
-            analyzePromptForContext(text, memories, apiKey, self.activeThread.threadID,
-            ^(EZContextResult *result) {
-                self.sendButton.enabled = YES;
-                NSString *finalPrompt = text;
-                if (result.tier >= EZRoutingTierMemory) {
-                    finalPrompt = [NSString stringWithFormat:
-                        @"Previous image prompt was: \"%@\". Now create: %@",
-                        self.lastImagePrompt, text];
-                    [self appendToChat:@"[System: Previous image context included ✓]"];
-                }
-                [self callDalle3:finalPrompt];
-            });
+            [self fetchRelevantMemories:text apiKey:apiKey completion:^(NSString *memories) {
+                analyzePromptForContext(text, memories, apiKey, self.activeThread.threadID,
+                ^(EZContextResult *result) {
+                    self.sendButton.enabled = YES;
+                    NSString *finalPrompt = text;
+                    if (result.tier >= EZRoutingTierMemory) {
+                        finalPrompt = [NSString stringWithFormat:
+                            @"Previous image prompt was: \"%@\". Now create: %@",
+                            self.lastImagePrompt, text];
+                        [self appendToChat:@"[System: Previous image context included ✓]"];
+                    }
+                    [self callDalle3:finalPrompt];
+                });
+            }];
         } else {
             [self callDalle3:text];
         }
@@ -954,10 +974,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 
     // ── Chat / reasoning models ───────────────────────────────────────────────
-    NSString *memories = loadMemoryContext(15);
     self.sendButton.enabled = NO;
 
-    analyzePromptForContext(text, memories, apiKey, self.activeThread.threadID,
+    [self fetchRelevantMemories:text apiKey:apiKey completion:^(NSString *memories) {
+        analyzePromptForContext(text, memories, apiKey, self.activeThread.threadID,
     ^(EZContextResult *result) {
         self.sendButton.enabled = YES;
         EZLogf(EZLogLevelInfo, @"SEND",
@@ -1005,11 +1025,51 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         [self callChatCompletions];
     });
+    }]; // end fetchRelevantMemories
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MARK: - Chat Completions / Responses API
+// MARK: - Memory Search
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Fetches semantically relevant memory entries for the given prompt.
+/// Uses EZThreadSearchMemory (AI-ranked) when enough entries exist,
+/// falls back to loadMemoryContext (recency-based) for sparse logs.
+/// Always calls completion on the main queue.
+- (void)fetchRelevantMemories:(NSString *)prompt
+                       apiKey:(NSString *)apiKey
+                   completion:(void (^)(NSString *memories))completion {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSString *memories = @"";
+
+        // Check how many memory entries exist
+        NSString *all = loadMemoryContext(0); // 0 = no limit, just check
+        NSInteger entryCount = 0;
+        if (all.length > 0) {
+            for (NSString *line in [all componentsSeparatedByString:@"\n"]) {
+                if ([line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]].length > 0) entryCount++;
+            }
+        }
+
+        if (entryCount >= 5 && apiKey.length > 0) {
+            // Enough history to do semantic search — find the actually relevant entries
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"Semantic search over %ld entries for: %@",
+                   (long)entryCount, prompt);
+            NSString *searched = EZThreadSearchMemory(prompt, apiKey);
+            memories = searched.length > 0 ? searched : loadMemoryContext(15);
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"Search returned %lu chars",
+                   (unsigned long)memories.length);
+        } else if (entryCount > 0) {
+            // Too few entries for search overhead — just use recency
+            memories = loadMemoryContext(15);
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"Using recency (%ld entries)", (long)entryCount);
+        }
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(memories);
+        });
+    });
+}
 
 - (void)callChatCompletions {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
