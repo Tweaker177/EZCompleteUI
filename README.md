@@ -29,6 +29,7 @@ EZCompleteUI was built with a simple goal: bring a genuinely capable, modern AI 
 
 ### 🎙 Voice & Audio
 - **Voice dictation** using Apple's on-device Speech Recognition framework
+- ***Instant VOICE CLONES*** CLone any voice using a few seconds of audio in mp3 format.  For higher quality upload multiple mp3 files or one long file.  Uses Elevenlabs API Key, and the cloned voices live in the in-app settings for voice selection. (for TTS Responses)
 - **Whisper transcription** — attach any audio or video file for accurate AI transcription
 - **Text-to-speech** via Apple TTS (built-in, no key needed) or **ElevenLabs** for high-quality voices
 
