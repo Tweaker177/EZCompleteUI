@@ -11,11 +11,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>5.1</string>
+	<string>6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>5.1</string>
+	<string>6.0</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Used for live dictation input</string>
 	<key>NSMicrophoneUsageDescription</key>

@@ -6,4 +6,4 @@ Depends: firmware (>= 15.0)
 Maintainer: i0s_tweak3r <djvs23@gmail.com>
 Architecture: iphoneos-arm64
 Section: Utilities
-Version: 5.0
+Version: 6.0

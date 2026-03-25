@@ -637,7 +637,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             if (jpegData) {
                 imageData  = jpegData;
                 mime       = @"image/jpeg";
-              
                 converted  = YES;
                 [self appendToChat:[NSString stringWithFormat:
                     @"[System: %@ converted from %@ to JPEG for API compatibility ✓]",
@@ -993,8 +992,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [self appendToChat:[NSString stringWithFormat:@"AI: %@", answer]];
             [self appendToChat:@"[System: Answered directly by helper model ⚡]"];
             EZLogf(EZLogLevelInfo, @"SEND", @"Tier 1 direct answer displayed");
-            // Still save a memory entry
+            // Still save a memory entry — include any attachment paths so memory knows files were involved
+            NSArray *attachmentsAtSend = self.activeThread.attachmentPaths.count > 0
+                ? @[self.activeThread.attachmentPaths.lastObject] : @[];
             createMemoryFromCompletion(text, answer, apiKey, self.activeThread.threadID,
+                                       attachmentsAtSend,
                                        ^(NSString *entry) {
                 if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved: %lu chars",
                                   (unsigned long)entry.length);
@@ -1130,8 +1132,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     EZLogf(EZLogLevelInfo, @"API", @"→ %@ [%@]%@",
            endpointStr, self.selectedModel, useWebSearch ? @" +web" : @"");
 
-    NSString *capturedPrompt = self.lastUserPrompt;
-    NSString *capturedThreadID = self.activeThread.threadID;
+    NSString *capturedPrompt     = self.lastUserPrompt;
+    NSString *capturedThreadID   = self.activeThread.threadID;
+    // Capture current attachment paths so memory knows what files were part of this exchange.
+    // We copy the array so it can't be mutated before the completion block fires.
+    NSArray  *capturedAttachments = [self.activeThread.attachmentPaths copy];
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:request
         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
@@ -1198,9 +1203,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [self.chatContext addObject:@{@"role": @"assistant", @"content": reply}];
             [self appendToChat:[NSString stringWithFormat:@"AI: %@", reply]];
             [self saveActiveThread];
+            // Check if the model mentioned a local file path we should open
+            [self checkReplyForLocalFilePaths:reply];
         });
 
         createMemoryFromCompletion(capturedPrompt ?: @"", reply, apiKey, capturedThreadID,
+                                   capturedAttachments,
         ^(NSString *entry) {
             if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved %lu chars",
                               (unsigned long)entry.length);
@@ -2183,6 +2191,67 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self presentViewController:alert animated:YES completion:nil];
 }
 
+/// Called after a chat reply arrives to check if the model referenced a local file path.
+/// If the reply contains a path that exists on disk, offer to open it in QuickLook.
+- (void)checkReplyForLocalFilePaths:(NSString *)reply {
+    // Look for absolute paths in the reply (Documents/ paths we stored)
+    NSString *docsDir = [NSSearchPathForDirectoriesInDomains(
+        NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
+    if (!docsDir) return;
+
+    // Simple heuristic: look for any substring starting with /var or /private
+    // that ends with a known media extension
+    NSRegularExpression *pathRegex = [NSRegularExpression
+        regularExpressionWithPattern:@"(/[^\\s\"']+\\.(?:png|jpg|jpeg|gif|webp|pdf|mp4|mov|epub|txt|m4a|mp3))"
+                             options:NSRegularExpressionCaseInsensitive error:nil];
+    NSArray *matches = [pathRegex matchesInString:reply
+                                          options:0
+                                            range:NSMakeRange(0, reply.length)];
+    for (NSTextCheckingResult *match in matches) {
+        NSString *path = [reply substringWithRange:[match rangeAtIndex:1]];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
+            EZLogf(EZLogLevelInfo, @"ATTACH", @"Model referenced local file: %@", path);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self offerToOpenLocalFile:path];
+            });
+            break; // Open one at a time
+        }
+    }
+}
+
+/// Find a local file path from memory entries matching a keyword and offer to open it.
+/// Called by ViewController when the user asks to "pull up" or "reopen" a file.
+- (void)reopenAttachmentFromMemory:(NSString *)keyword {
+    NSArray<NSDictionary *> *allMemories = EZMemoryLoadAll();
+    NSString *lowerKeyword = keyword.lowercaseString;
+
+    // Search memory entries for one that has attachmentPaths and a matching filename
+    for (NSDictionary *entry in allMemories.reverseObjectEnumerator) {
+        NSArray *paths = entry[@"attachmentPaths"];
+        for (NSString *path in paths) {
+            if ([path.lastPathComponent.lowercaseString containsString:lowerKeyword] ||
+                [[entry[@"summary"] lowercaseString] containsString:lowerKeyword]) {
+                if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
+                    EZLogf(EZLogLevelInfo, @"ATTACH", @"Reopening from memory: %@", path);
+                    [self offerToOpenLocalFile:path];
+                    return;
+                }
+            }
+        }
+    }
+    EZLogf(EZLogLevelInfo, @"ATTACH", @"No matching file found in memory for: %@", keyword);
+}
+
+/// Present a QuickLook preview for a local file path, with a chat notification.
+- (void)offerToOpenLocalFile:(NSString *)path {
+    self.previewURL = [NSURL fileURLWithPath:path];
+    QLPreviewController *ql = [[QLPreviewController alloc] init];
+    ql.dataSource = self;
+    [self presentViewController:ql animated:YES completion:nil];
+    [self appendToChat:[NSString stringWithFormat:@"[System: Opening %@]",
+                        path.lastPathComponent]];
+}
+
 - (void)appendToChat:(NSString *)text {
     self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingFormat:@"\n\n%@", text];
     NSUInteger len = self.chatHistoryView.text.length;
@@ -2199,309 +2268,3 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-#pragma mark - SettingsViewController
-// ─────────────────────────────────────────────────────────────────────────────
-
-@interface SettingsViewController () <UITextFieldDelegate>
-@property (nonatomic, strong) UIScrollView *scrollView;
-@property (nonatomic, strong) UITextField  *apiKeyField, *systemMsgField;
-@property (nonatomic, strong) UISlider     *tempSlider, *freqSlider;
-@property (nonatomic, strong) UILabel      *tempLabel, *freqLabel;
-@property (nonatomic, strong) UITextField  *elKeyField, *elVoiceField;
-@property (nonatomic, strong) UITextField  *webLocationField;
-@property (nonatomic, strong) UISwitch     *webSearchSwitch;
-@property (nonatomic, strong) UITextField  *soraModelField, *soraSizeField;
-@property (nonatomic, strong) UISlider     *soraDurationSlider;
-@property (nonatomic, strong) UILabel      *soraDurationLabel;
-@end
-
-@implementation SettingsViewController
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.title = @"Settings";
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
-        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
-                             target:self
-                             action:@selector(saveAndClose)];
-    [self setupUI];
-    [self loadSettings];
-    NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
-    [nc addObserver:self selector:@selector(keyboardShow:) name:UIKeyboardWillShowNotification object:nil];
-    [nc addObserver:self selector:@selector(keyboardHide:) name:UIKeyboardWillHideNotification object:nil];
-    [nc addObserver:self selector:@selector(keyboardShow:) name:UIKeyboardWillChangeFrameNotification object:nil];
-}
-- (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
-- (void)keyboardShow:(NSNotification *)n {
-    CGRect f = [n.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
-    UIEdgeInsets i = UIEdgeInsetsMake(0, 0, f.size.height, 0);
-    self.scrollView.contentInset = self.scrollView.scrollIndicatorInsets = i;
-}
-- (void)keyboardHide:(NSNotification *)n {
-    self.scrollView.contentInset = self.scrollView.scrollIndicatorInsets = UIEdgeInsetsZero;
-}
-- (BOOL)textFieldShouldReturn:(UITextField *)tf { [tf resignFirstResponder]; return YES; }
-
-- (void)setupUI {
-    self.scrollView = [[UIScrollView alloc] initWithFrame:self.view.bounds];
-    self.scrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [self.view addSubview:self.scrollView];
-    CGFloat w = self.view.frame.size.width - 40;
-    CGFloat y = 20;
-
-    [self addSection:@"🤖 OpenAI" y:&y];
-    [self addLabel:@"API Key:" y:&y];
-    self.apiKeyField = [self addField:w y:&y placeholder:@"sk-..."];
-    [self addLabel:@"System Message:" y:&y];
-    self.systemMsgField = [self addField:w y:&y placeholder:@"e.g. You are a helpful assistant"];
-    self.tempLabel = [self addLabel:@"Temperature: 0.70" y:&y];
-    self.tempSlider = [self addSlider:w y:&y min:0 max:2];
-    self.freqLabel = [self addLabel:@"Freq Penalty: 0.00" y:&y];
-    self.freqSlider = [self addSlider:w y:&y min:-2 max:2];
-
-    [self addSection:@"🌐 Web Search" y:&y];
-    [self addLabel:@"Enable web search by default:" y:&y];
-    self.webSearchSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(w - 30, y - 28, 51, 31)];
-    [self.scrollView addSubview:self.webSearchSwitch];
-    [self addLabel:@"Location hint (optional city):" y:&y];
-    self.webLocationField = [self addField:w y:&y placeholder:@"e.g. Miami, FL"];
-
-    [self addSection:@"🎙 ElevenLabs TTS" y:&y];
-    [self addLabel:@"API Key:" y:&y];
-    self.elKeyField = [self addField:w y:&y placeholder:@"ElevenLabs API key"];
-    [self addLabel:@"Voice ID:" y:&y];
-    self.elVoiceField = [self addField:w - 95 y:&y placeholder:@"Voice ID"];
-    UIButton *getVoices = [UIButton buttonWithType:UIButtonTypeSystem];
-    getVoices.frame = CGRectMake(w - 74, y - 50, 84, 40);
-    [getVoices setTitle:@"Get Voices" forState:UIControlStateNormal];
-    [getVoices addTarget:self action:@selector(fetchVoices) forControlEvents:UIControlEventTouchUpInside];
-    [self.scrollView addSubview:getVoices];
-
-    [self addSection:@"🎬 Sora Text-to-Video" y:&y];
-
-    // Model picker — tap to choose sora-2 or sora-2-pro
-    [self addLabel:@"Model:" y:&y];
-    self.soraModelField = [self addField:w y:&y placeholder:@"sora-2"];
-    // Make it read-only and tap to pick
-    self.soraModelField.userInteractionEnabled = NO;
-    UIButton *soraModelPicker = [UIButton buttonWithType:UIButtonTypeSystem];
-    soraModelPicker.frame = CGRectMake(w - 74, y - 50, 84, 40);
-    [soraModelPicker setTitle:@"Choose" forState:UIControlStateNormal];
-    [soraModelPicker addTarget:self action:@selector(pickSoraModel)
-              forControlEvents:UIControlEventTouchUpInside];
-    [self.scrollView addSubview:soraModelPicker];
-
-    // Resolution — tap to choose
-    [self addLabel:@"Resolution: (480p / 720p / 1080p)" y:&y];
-    self.soraSizeField = [self addField:w y:&y placeholder:@"1280x720"];
-    self.soraSizeField.userInteractionEnabled = NO;
-    UIButton *soraResPicker = [UIButton buttonWithType:UIButtonTypeSystem];
-    soraResPicker.frame = CGRectMake(w - 74, y - 50, 84, 40);
-    [soraResPicker setTitle:@"Choose" forState:UIControlStateNormal];
-    [soraResPicker addTarget:self action:@selector(pickSoraResolution)
-            forControlEvents:UIControlEventTouchUpInside];
-    [self.scrollView addSubview:soraResPicker];
-
-    // Duration — sora-2-pro max is 10s, sora-2 max is 20s.
-    // Slider goes 1-20; callSora clamps to valid value for chosen model.
-    self.soraDurationLabel = [self addLabel:@"Duration: 4s  (sora-2: 4/8/12/16s  •  sora-2-pro: 5/10/15/20s)" y:&y];
-    self.soraDurationSlider = [self addSlider:w y:&y min:1 max:20];
-    [self.soraDurationSlider addTarget:self action:@selector(updateVideoLabels)
-                      forControlEvents:UIControlEventValueChanged];
-
-    [self addSection:@"🧠 AI Memory" y:&y];
-    y += 8;
-    [self addButton:@"Clear All Memories" color:[UIColor systemOrangeColor]
-            action:@selector(confirmClearMemories) y:&y w:w];
-    [self addButton:@"View Helper Stats" color:[UIColor systemIndigoColor]
-            action:@selector(showHelperStats) y:&y w:w];
-    [self addButton:@"💙 Donate via PayPal" color:[UIColor systemBlueColor]
-            action:@selector(donate) y:&y w:w];
-
-    self.scrollView.contentSize = CGSizeMake(self.view.frame.size.width, y + 30);
-}
-
-// ─── Settings UI helpers ──────────────────────────────────────────────────────
-- (void)addSection:(NSString *)txt y:(CGFloat *)y {
-    *y += 10;
-    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(20, *y, self.view.frame.size.width-40, 28)];
-    l.text = txt; l.font = [UIFont boldSystemFontOfSize:15]; l.textColor = [UIColor systemBlueColor];
-    [self.scrollView addSubview:l]; *y += 34;
-}
-- (UILabel *)addLabel:(NSString *)txt y:(CGFloat *)y {
-    UILabel *l = [[UILabel alloc] initWithFrame:CGRectMake(20, *y, self.view.frame.size.width-40, 20)];
-    l.text = txt; l.font = [UIFont systemFontOfSize:13]; l.textColor = [UIColor secondaryLabelColor];
-    [self.scrollView addSubview:l]; *y += 22; return l;
-}
-- (UITextField *)addField:(CGFloat)w y:(CGFloat *)y placeholder:(NSString *)p {
-    UITextField *f = [[UITextField alloc] initWithFrame:CGRectMake(20, *y, w, 40)];
-    f.borderStyle = UITextBorderStyleRoundedRect; f.placeholder = p;
-    f.delegate = self; f.returnKeyType = UIReturnKeyDone;
-    f.font = [UIFont systemFontOfSize:14];
-    [self.scrollView addSubview:f]; *y += 50; return f;
-}
-- (UISlider *)addSlider:(CGFloat)w y:(CGFloat *)y min:(float)mn max:(float)mx {
-    UISlider *s = [[UISlider alloc] initWithFrame:CGRectMake(20, *y, w, 30)];
-    s.minimumValue = mn; s.maximumValue = mx;
-    [s addTarget:self action:@selector(updateLabels) forControlEvents:UIControlEventValueChanged];
-    [self.scrollView addSubview:s]; *y += 45; return s;
-}
-- (void)addButton:(NSString *)title color:(UIColor *)color action:(SEL)action
-                y:(CGFloat *)y w:(CGFloat)w {
-    UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
-    b.frame = CGRectMake(20, *y, w, 44);
-    [b setTitle:title forState:UIControlStateNormal];
-    b.backgroundColor = color; b.tintColor = [UIColor whiteColor]; b.layer.cornerRadius = 10;
-    [b addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
-    [self.scrollView addSubview:b]; *y += 55;
-}
-- (void)updateLabels {
-    self.tempLabel.text = [NSString stringWithFormat:@"Temperature: %.2f", self.tempSlider.value];
-    self.freqLabel.text = [NSString stringWithFormat:@"Freq Penalty: %.2f", self.freqSlider.value];
-}
-- (void)pickSoraModel {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Sora Model"
-        message:nil preferredStyle:UIAlertControllerStyleActionSheet];
-    NSDictionary *models = @{
-        @"sora-2":     @"Fast, flexible — 5/10/15/20s",
-        @"sora-2-pro": @"High fidelity — 5/10s only"
-    };
-    for (NSString *model in @[@"sora-2", @"sora-2-pro"]) {
-        NSString *title = [NSString stringWithFormat:@"%@  (%@)", model, models[model]];
-        [sheet addAction:[UIAlertAction actionWithTitle:title
-                                                 style:UIAlertActionStyleDefault
-                                               handler:^(UIAlertAction *a) {
-            self.soraModelField.text = model;
-            [self updateVideoLabels];  // refresh duration hint
-        }]];
-    }
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:sheet animated:YES completion:nil];
-}
-
-- (void)pickSoraResolution {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Video Size"
-        message:nil preferredStyle:UIAlertControllerStyleActionSheet];
-    NSDictionary *options = @{
-        @"1280x720":  @"Landscape 720p  (recommended)",
-        @"1792x1024": @"Landscape wide  (cinematic)",
-        @"720x1280":  @"Portrait 720p   (social/reels)",
-        @"1024x1792": @"Portrait tall   (stories)"
-    };
-    for (NSString *res in @[@"1280x720", @"1792x1024", @"720x1280", @"1024x1792"]) {
-        NSString *title = [NSString stringWithFormat:@"%@  —  %@", res, options[res]];
-        [sheet addAction:[UIAlertAction actionWithTitle:title
-                                                 style:UIAlertActionStyleDefault
-                                               handler:^(UIAlertAction *a) {
-            self.soraSizeField.text = res;
-        }]];
-    }
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:sheet animated:YES completion:nil];
-}
-
-- (void)updateVideoLabels {
-    NSString *model = self.soraModelField.text ?: @"sora-2";
-    BOOL isPro = [model isEqualToString:@"sora-2-pro"];
-    NSInteger raw = (NSInteger)self.soraDurationSlider.value;
-
-    // Snap to nearest valid value for display
-    NSArray<NSNumber *> *valid = isPro
-        ? @[@5, @10, @15, @20]
-        : @[@4, @8, @12, @16];
-    NSInteger best = valid.firstObject.integerValue, bestDiff = NSIntegerMax;
-    for (NSNumber *v in valid) {
-        NSInteger diff = ABS(raw - v.integerValue);
-        if (diff < bestDiff) { bestDiff = diff; best = v.integerValue; }
-    }
-    NSString *hint = isPro ? @"(5/10/15/20s)" : @"(4/8/12/16s)";
-    self.soraDurationLabel.text = [NSString stringWithFormat:@"Duration: %lds %@",
-                                   (long)best, hint];
-}
-
-// ─── Settings actions ─────────────────────────────────────────────────────────
-- (void)confirmClearMemories {
-    UIAlertController *c = [UIAlertController alertControllerWithTitle:@"Clear All Memories?"
-        message:@"Cannot be undone." preferredStyle:UIAlertControllerStyleAlert];
-    [c addAction:[UIAlertAction actionWithTitle:@"Delete" style:UIAlertActionStyleDestructive
-                                        handler:^(UIAlertAction *a) {
-        BOOL ok = clearMemoryLog();
-        UIAlertController *r = [UIAlertController alertControllerWithTitle:@"Memory"
-            message:(ok ? @"All memories cleared." : @"Error clearing memories.")
-            preferredStyle:UIAlertControllerStyleAlert];
-        [r addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-        [self presentViewController:r animated:YES completion:nil];
-    }]];
-    [c addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:c animated:YES completion:nil];
-}
-- (void)showHelperStats {
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"EZHelper Stats"
-        message:EZHelperStats() preferredStyle:UIAlertControllerStyleAlert];
-    [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-    [self presentViewController:a animated:YES completion:nil];
-}
-- (void)fetchVoices {
-    if (self.elKeyField.text.length == 0) return;
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:
-        [NSURL URLWithString:@"https://api.elevenlabs.io/v1/voices"]];
-    [req setValue:self.elKeyField.text forHTTPHeaderField:@"xi-api-key"];
-    [[[NSURLSession sharedSession] dataTaskWithRequest:req
-        completionHandler:^(NSData *data, NSURLResponse *r, NSError *e) {
-        if (!data) return;
-        NSArray *voices = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil][@"voices"];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            UIAlertController *s = [UIAlertController alertControllerWithTitle:@"Select Voice"
-                message:nil preferredStyle:UIAlertControllerStyleActionSheet];
-            for (NSDictionary *v in voices) {
-                [s addAction:[UIAlertAction actionWithTitle:v[@"name"]
-                                                     style:UIAlertActionStyleDefault
-                                                   handler:^(UIAlertAction *a) {
-                    self.elVoiceField.text = v[@"voice_id"];
-                }]];
-            }
-            [s addAction:[UIAlertAction actionWithTitle:@"Cancel"
-                                                  style:UIAlertActionStyleCancel handler:nil]];
-            [self presentViewController:s animated:YES completion:nil];
-        });
-    }] resume];
-}
-- (void)donate {
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://paypal.me/i0stweak3r"]
-                                       options:@{} completionHandler:nil];
-}
-- (void)loadSettings {
-    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-    self.apiKeyField.text       = [d stringForKey:@"apiKey"];
-    self.systemMsgField.text    = [d stringForKey:@"systemMessage"];
-    self.tempSlider.value       = [d floatForKey:@"temperature"] ?: 0.7;
-    self.freqSlider.value       = [d floatForKey:@"frequency"];
-    self.elKeyField.text        = [d stringForKey:@"elevenKey"];
-    self.elVoiceField.text      = [d stringForKey:@"elevenVoiceID"];
-    self.webSearchSwitch.on     = [d boolForKey:@"webSearchEnabled"];
-    self.webLocationField.text  = [d stringForKey:@"webSearchLocation"];
-    self.soraModelField.text    = [d stringForKey:@"soraModel"]    ?: @"sora-2";
-    self.soraSizeField.text     = [d stringForKey:@"soraSize"]     ?: @"1280x720";
-    self.soraDurationSlider.value = (float)([d integerForKey:@"soraDuration"] ?: 4);
-    [self updateLabels];
-    [self updateVideoLabels];
-}
-- (void)saveAndClose {
-    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-    [d setObject:self.apiKeyField.text       forKey:@"apiKey"];
-    [d setObject:self.systemMsgField.text    forKey:@"systemMessage"];
-    [d setFloat:self.tempSlider.value        forKey:@"temperature"];
-    [d setFloat:self.freqSlider.value        forKey:@"frequency"];
-    [d setObject:self.elKeyField.text        forKey:@"elevenKey"];
-    [d setObject:self.elVoiceField.text      forKey:@"elevenVoiceID"];
-    [d setBool:self.webSearchSwitch.isOn     forKey:@"webSearchEnabled"];
-    [d setObject:self.webLocationField.text  forKey:@"webSearchLocation"];
-    [d setObject:self.soraModelField.text    forKey:@"soraModel"];
-    [d setObject:self.soraSizeField.text     forKey:@"soraSize"];
-    [d setInteger:(NSInteger)self.soraDurationSlider.value forKey:@"soraDuration"];
-    [d synchronize];
-    EZLog(EZLogLevelInfo, @"SETTINGS", @"Settings saved");
-    [self dismissViewControllerAnimated:YES completion:nil];
-}
-@end

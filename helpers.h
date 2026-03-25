@@ -122,16 +122,19 @@ void analyzePromptForContext(NSString *userPrompt,
 NSString *EZMemoryGetPath(void);
 
 /// Save a new memory entry after a completed exchange.
-/// The entry is a JSON dict with: timestamp, summary, chatKey (links to thread).
-/// @param userPrompt    What the user asked
-/// @param assistantReply What the model answered (truncated to 1200 chars)
-/// @param apiKey        Used to call the summarizer model
-/// @param chatKey       threadID to store so Tier-4 can find the full thread
-/// @param completion    Called on main queue with the formatted entry string, or nil on failure
+/// The entry is a JSON dict with: timestamp, summary, chatKey, and any attachment paths.
+/// @param userPrompt      What the user asked
+/// @param assistantReply  What the model answered (truncated to 1200 chars)
+/// @param apiKey          Used to call the summarizer model
+/// @param chatKey         threadID to store so Tier-4 can find the full thread
+/// @param attachmentPaths Local file paths of any images/files involved in this exchange.
+///                        Stored in the memory entry so the user can ask to re-open them.
+/// @param completion      Called on main queue with the formatted entry string, or nil on failure
 void createMemoryFromCompletion(NSString *userPrompt,
                                 NSString *assistantReply,
                                 NSString *apiKey,
                                 NSString * _Nullable chatKey,
+                                NSArray<NSString *> * _Nullable attachmentPaths,
                                 void (^completion)(NSString * _Nullable entry));
 
 /// Load all memory entries from disk and return them as a formatted string.

@@ -710,6 +710,7 @@ void createMemoryFromCompletion(NSString *userPrompt,
                                 NSString *assistantReply,
                                 NSString *apiKey,
                                 NSString *_Nullable chatKey,
+                                NSArray<NSString *> *_Nullable attachmentPaths,
                                 void (^completion)(NSString *_Nullable)) {
     NSCParameterAssert(userPrompt);
     NSCParameterAssert(assistantReply);
@@ -718,17 +719,35 @@ void createMemoryFromCompletion(NSString *userPrompt,
     EZLog(EZLogLevelInfo, @"MEMORY", @"Creating summary...");
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-        NSString *systemPrompt = @"You are a memory summarizer. Write ONE concise sentence "
-                                  "(max 80 words) summarizing what was asked and answered. "
-                                  "Only the summary, no labels or preamble.";
+
+        // Build a description of any attachments so the summarizer mentions them.
+        // The file name alone is usually enough — "resume_john.pdf", "IMG_1750.jpeg" etc.
+        NSMutableString *attachmentContext = [NSMutableString string];
+        NSMutableArray<NSString *> *validPaths = [NSMutableArray array];
+        for (NSString *path in attachmentPaths) {
+            if (!path.length) continue;
+            [validPaths addObject:path];
+            [attachmentContext appendFormat:@" [attached: %@]", path.lastPathComponent];
+        }
+
+        NSString *systemPrompt =
+            @"You are a memory summarizer for an AI chat app. Write ONE concise sentence "
+             "(max 80 words) summarizing what was asked and answered. "
+             "If a file or image was attached, mention its name and what was done with it. "
+             "If an image or video was generated, say so. "
+             "Only the summary sentence, no labels or preamble.";
 
         // Truncate long replies to avoid burning too many tokens on the summarizer
         NSString *truncatedReply = assistantReply.length > 1200
             ? [assistantReply substringToIndex:1200]
             : assistantReply;
 
+        // Include attachment context in the content so the summarizer knows about files
         NSString *contentToSummarize = [NSString stringWithFormat:
-            @"USER ASKED:\n%@\n\nASSISTANT REPLIED:\n%@", userPrompt, truncatedReply];
+            @"USER ASKED:\n%@%@\n\nASSISTANT REPLIED:\n%@",
+            userPrompt,
+            attachmentContext.length > 0 ? attachmentContext : @"",
+            truncatedReply];
 
         NSString *summary = _callHelperModelSync(systemPrompt, contentToSummarize, apiKey, 150);
         if (!summary.length) {
@@ -737,25 +756,29 @@ void createMemoryFromCompletion(NSString *userPrompt,
             return;
         }
 
-        // Build the memory entry dict
-        NSDictionary *newEntry = @{
-            @"timestamp": _timestampForDisplay(),
-            @"summary":   summary,
-            @"chatKey":   chatKey ?: @""
-        };
+        // Build the memory entry dict.
+        // attachmentPaths is stored as an array so the app can reopen any file
+        // by asking "pull up my resume" — the path is right here in the memory entry.
+        NSMutableDictionary *newEntry = [NSMutableDictionary dictionaryWithDictionary:@{
+            @"timestamp":       _timestampForDisplay(),
+            @"summary":         summary,
+            @"chatKey":         chatKey ?: @""
+        }];
+        if (validPaths.count > 0) {
+            newEntry[@"attachmentPaths"] = [validPaths copy];
+        }
 
-        // Load existing entries, append the new one, and write back atomically
-        // Use the serial file queue to prevent concurrent writes
+        // Load existing entries, append, and write back atomically
         dispatch_sync(_fileWriteQueue(), ^{
             NSMutableArray *allEntries = _loadMemoryEntries();
-            [allEntries addObject:newEntry];
+            [allEntries addObject:[newEntry copy]];
             _saveMemoryEntries(allEntries);
         });
 
-        // Return the formatted entry string (backwards-compat with callers that log it)
-        NSString *formattedEntry = [NSString stringWithFormat:@"[%@] [chatKey=%@] %@",
+        NSString *formattedEntry = [NSString stringWithFormat:@"[%@] [chatKey=%@]%@ %@",
                                     newEntry[@"timestamp"],
                                     newEntry[@"chatKey"],
+                                    attachmentContext,
                                     summary];
         EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved: %@", formattedEntry);
         dispatch_async(dispatch_get_main_queue(), ^{ completion(formattedEntry); });
@@ -778,17 +801,27 @@ NSString *loadMemoryContext(NSInteger maxEntries) {
         entriesToReturn = [allEntries subarrayWithRange:recentRange];
     }
 
-    // Format each entry as a single line including timestamp and chatKey
+    // Format each entry as a single line including timestamp, chatKey, attachments, and summary
     NSMutableArray<NSString *> *formattedLines = [NSMutableArray array];
     for (NSDictionary *entry in entriesToReturn) {
-        NSString *timestamp = entry[@"timestamp"] ?: @"";
-        NSString *summary   = entry[@"summary"]   ?: @"";
-        NSString *chatKey   = entry[@"chatKey"]   ?: @"";
-        NSString *keyTag    = chatKey.length > 0
-            ? [NSString stringWithFormat:@" [chatKey=%@]", chatKey]
-            : @"";
-        [formattedLines addObject:[NSString stringWithFormat:@"[%@]%@ %@",
-                                   timestamp, keyTag, summary]];
+        NSString *timestamp       = entry[@"timestamp"]  ?: @"";
+        NSString *summary         = entry[@"summary"]    ?: @"";
+        NSString *chatKey         = entry[@"chatKey"]    ?: @"";
+        NSArray  *attachments     = entry[@"attachmentPaths"];
+
+        NSString *keyTag = chatKey.length > 0
+            ? [NSString stringWithFormat:@" [chatKey=%@]", chatKey] : @"";
+
+        // Include attachment filenames so the classifier knows files were involved
+        NSMutableString *attachTag = [NSMutableString string];
+        for (NSString *path in attachments) {
+            if (path.length > 0) {
+                [attachTag appendFormat:@" [file:%@]", path.lastPathComponent];
+            }
+        }
+
+        [formattedLines addObject:[NSString stringWithFormat:@"[%@]%@%@ %@",
+                                   timestamp, keyTag, attachTag, summary]];
     }
     return [formattedLines componentsJoinedByString:@"\n"];
 }
@@ -1072,40 +1105,127 @@ NSArray<NSDictionary *> *_Nullable EZThreadLoadContext(NSString *threadID, NSInt
     EZChatThread *thread = EZThreadLoad(threadID);
     if (!thread || !thread.chatContext.count) return nil;
 
-    // Walk backwards through the conversation (most recent first), accumulating
-    // turns until we've used up the token budget. This ensures we always include
-    // the most recent context rather than the oldest.
+    // ── Strategy: relevance-aware turn selection ──────────────────────────────
+    //
+    // The old approach just took the most recent N turns up to the token budget.
+    // Problem: if your resume discussion happened 200 turns ago in a long thread,
+    // the budget window never reaches it.
+    //
+    // New approach:
+    //   1. Always include the most recent 4 turns (gives the model recent context)
+    //   2. Search ALL turns for ones that are semantically rich (long assistant
+    //      replies, turns mentioning files/attachments, turns with detailed content)
+    //   3. Fill remaining token budget with those relevant turns, oldest first
+    //      so the model sees them in chronological order
+    //
+    // This is done without an API call — pure local heuristics — so it's free.
+
     NSInteger characterBudget = tokenBudget * 4; // 1 token ≈ 4 chars
-    NSMutableArray<NSDictionary *> *selectedTurns = [NSMutableArray array];
+    NSArray<NSDictionary *> *allTurns = thread.chatContext;
+    NSUInteger totalTurns = allTurns.count;
 
-    for (NSDictionary *turn in thread.chatContext.reverseObjectEnumerator) {
+    // Helper: get text content length of a turn (handles both string and array content)
+    NSInteger (^turnLength)(NSDictionary *) = ^NSInteger(NSDictionary *turn) {
         id content = turn[@"content"];
-        NSInteger turnCharacterCost = 0;
-
-        if ([content isKindOfClass:[NSString class]]) {
-            // Plain text message — count all characters
-            turnCharacterCost = ((NSString *)content).length;
-        } else if ([content isKindOfClass:[NSArray class]]) {
-            // Mixed content (vision message with image + text) — count only text blocks
-            // We don't count base64 image data since it won't be re-sent
+        if ([content isKindOfClass:[NSString class]]) return ((NSString *)content).length;
+        if ([content isKindOfClass:[NSArray class]]) {
+            NSInteger total = 0;
             for (NSDictionary *block in (NSArray *)content) {
+                id text = block[@"text"];
+                if ([text isKindOfClass:[NSString class]]) total += ((NSString *)text).length;
+            }
+            return total;
+        }
+        return 0;
+    };
+
+    // Helper: does this turn mention a file, image, or attachment?
+    BOOL (^turnHasAttachment)(NSDictionary *) = ^BOOL(NSDictionary *turn) {
+        id content = turn[@"content"];
+        NSString *text = @"";
+        if ([content isKindOfClass:[NSString class]]) text = content;
+        else if ([content isKindOfClass:[NSArray class]]) {
+            for (NSDictionary *block in (NSArray *)content) {
+                // Vision messages have image_url blocks — always relevant
+                if ([[block[@"type"] description] containsString:@"image"]) return YES;
                 id blockText = block[@"text"];
                 if ([blockText isKindOfClass:[NSString class]]) {
-                    turnCharacterCost += ((NSString *)blockText).length;
+                    text = [text stringByAppendingString:(NSString *)blockText];
                 }
             }
         }
+        // Check for keywords that indicate file work happened
+        NSString *lower = text.lowercaseString;
+        return [lower containsString:@"attached"]  || [lower containsString:@"resume"]     ||
+               [lower containsString:@"document"]  || [lower containsString:@"pdf"]        ||
+               [lower containsString:@"image"]     || [lower containsString:@"generated"]  ||
+               [lower containsString:@"edited"]    || [lower containsString:@"file"]        ||
+               [lower containsString:@"epub"]      || [lower containsString:@"transcript"];
+    };
 
-        // Stop if adding this turn would exceed the budget (but always include at least one turn)
-        if (characterBudget - turnCharacterCost < 0 && selectedTurns.count > 0) break;
+    // ── Step 1: reserve the most recent 4 turns ───────────────────────────────
+    NSInteger recentTurnCount = MIN(4, (NSInteger)totalTurns);
+    NSMutableSet<NSNumber *> *includedIndices = [NSMutableSet set];
+    NSInteger budgetUsed = 0;
 
-        [selectedTurns insertObject:turn atIndex:0]; // Insert at front to preserve order
-        characterBudget -= turnCharacterCost;
+    for (NSInteger i = (NSInteger)totalTurns - 1;
+         i >= (NSInteger)totalTurns - recentTurnCount; i--) {
+        [includedIndices addObject:@(i)];
+        budgetUsed += turnLength(allTurns[(NSUInteger)i]);
+    }
+
+    // ── Step 2: score remaining turns by relevance ────────────────────────────
+    // Score = content length (longer = more substantive) + bonus for attachments
+    NSMutableArray<NSDictionary *> *scoredTurns = [NSMutableArray array];
+    for (NSInteger i = 0; i < (NSInteger)totalTurns - recentTurnCount; i++) {
+        NSDictionary *turn   = allTurns[(NSUInteger)i];
+        NSString *role       = turn[@"role"] ?: @"";
+        NSInteger length     = turnLength(turn);
+        BOOL hasAttachment   = turnHasAttachment(turn);
+
+        // Only score assistant turns and user turns with attachments or long content.
+        // Skip short user messages like "ok" or "thanks" — low information density.
+        BOOL isAssistant     = [role isEqualToString:@"assistant"];
+        BOOL isSubstantial   = length > 100 || hasAttachment;
+        if (!isAssistant && !isSubstantial) continue;
+
+        NSInteger score = length;
+        if (hasAttachment) score += 500;   // Strong bonus for file-related turns
+        if (isAssistant)   score += 200;   // Prefer assistant turns (they have the answers)
+
+        [scoredTurns addObject:@{@"index": @(i), @"score": @(score), @"length": @(length)}];
+    }
+
+    // Sort by score descending
+    [scoredTurns sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+        return [b[@"score"] compare:a[@"score"]];
+    }];
+
+    // ── Step 3: fill remaining budget with highest-scoring turns ─────────────
+    for (NSDictionary *scored in scoredTurns) {
+        NSInteger idx    = [scored[@"index"] integerValue];
+        NSInteger length = [scored[@"length"] integerValue];
+        if (budgetUsed + length > characterBudget) continue; // Skip if too large
+        if ([includedIndices containsObject:@(idx)]) continue; // Already included
+        [includedIndices addObject:@(idx)];
+        budgetUsed += length;
+        if (budgetUsed >= characterBudget) break;
+    }
+
+    // ── Step 4: collect selected turns in chronological order ─────────────────
+    NSArray<NSNumber *> *sortedIndices = [[includedIndices allObjects]
+        sortedArrayUsingSelector:@selector(compare:)];
+    NSMutableArray<NSDictionary *> *selectedTurns = [NSMutableArray array];
+    for (NSNumber *index in sortedIndices) {
+        [selectedTurns addObject:allTurns[(NSUInteger)index.integerValue]];
     }
 
     EZLogf(EZLogLevelInfo, @"THREADS",
-           @"LoadContext: %lu turns loaded from thread %@",
-           (unsigned long)selectedTurns.count, threadID);
+           @"LoadContext: %lu/%lu turns selected from thread %@ (~%ld tokens)",
+           (unsigned long)selectedTurns.count,
+           (unsigned long)totalTurns,
+           threadID,
+           (long)(budgetUsed / 4));
     return selectedTurns.count > 0 ? [selectedTurns copy] : nil;
 }
 
