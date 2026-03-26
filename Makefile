@@ -1,8 +1,8 @@
-export TARGET := iphone:clang:latest:14.0
+export TARGET := iphone:clang:latest:15.0
 export ARCHS = arm64 arm64e
 INSTALL_TARGET_PROCESSES = EZCompleteUI
-export FINALPACKAGE= 1
-export THEOS_PACKAGE_SCHEME=rootless
+export FINALPACKAGE = 1
+export THEOS_PACKAGE_SCHEME = rootless
 
 include $(THEOS)/makefiles/common.mk
 

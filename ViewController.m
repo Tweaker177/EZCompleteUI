@@ -1,16 +1,16 @@
 // ViewController.m
-// EZCompleteUI v4.0
+// EZCompleteUI v6.2
 //
-// Changes from v3:
-//   - analyzePromptForContext / createMemoryFromCompletion updated for new signatures
-//   - 4-tier routing: Tier 1 answers directly, Tier 4 injects history turns
-//   - clearConversation saves thread before wiping
-//   - Chat history button → ChatHistoryViewController
-//   - Thread restored via delegate
-//   - Image edit API (dall-e-2 /v1/images/edits) for image+prompt combos
-//   - Auto model selection: image attached → gpt-4o for analysis, dall-e-2 for edit
-//   - Sora: always polls — initial response is always async job
-//   - Attached files/images saved to EZAttachments via EZAttachmentSave
+// Changes from v6.1:
+//   - GPT-5 timeout increased (180s solo, 240s with web search)
+//   - Web search now silently skipped with warning for incompatible models
+//   - Copy button shows checkmark confirmation for 1.5s
+//   - Language→extension map fixed for objective-c/objc variants + normalization
+//   - Image display intent detection: "show it again" reopens instead of regenerating
+//   - attachmentPaths now always includes lastImageLocalPath + pendingImagePath
+//   - Code block detection: extracts ```, saves to EZAttachments, renders inline widget
+//   - processReplyWithCodeBlocks: saves snippets, returns display string with placeholders
+//   - sanitizedContextForAPI: converts image/text block types for Responses vs Chat API
 
 #import "ViewController.h"
 #import "SettingsViewController.h"
@@ -936,6 +936,32 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         return;
     }
 
+    // ── Image model intent check ──────────────────────────────────────────────
+    // Before generating a NEW image, check if the user is actually asking to
+    // VIEW an existing one ("show it again", "display that", "pull it up").
+    // If so, reopen from memory instead of burning credits on a new generation.
+    BOOL isImageModel = ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
+                         [self.selectedModel isEqualToString:@"dall-e-3"]);
+    if (isImageModel && self.lastImageLocalPath.length > 0) {
+        // Quick local keyword check — no API call needed
+        NSString *lowerText = text.lowercaseString;
+        NSArray *displayIntentWords = @[
+            @"show", @"display", @"view", @"see", @"again", @"reopen",
+            @"pull up", @"pull it", @"missed", @"didn't see", @"cant see",
+            @"can't see", @"lost it", @"where is", @"open it", @"open that"
+        ];
+        BOOL looksLikeViewRequest = NO;
+        for (NSString *keyword in displayIntentWords) {
+            if ([lowerText containsString:keyword]) { looksLikeViewRequest = YES; break; }
+        }
+        if (looksLikeViewRequest) {
+            EZLogf(EZLogLevelInfo, @"IMAGE", @"Display intent detected — reopening last image");
+            [self appendToChat:@"[System: Reopening last image ✓]"];
+            [self offerToOpenLocalFile:self.lastImageLocalPath];
+            return;
+        }
+    }
+
     // ── gpt-image-1 generation (no image attached = text-to-image) ───────────
     if ([self.selectedModel isEqualToString:@"gpt-image-1"]) {
         [self callGptImage1:text];
@@ -992,9 +1018,16 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [self appendToChat:[NSString stringWithFormat:@"AI: %@", answer]];
             [self appendToChat:@"[System: Answered directly by helper model ⚡]"];
             EZLogf(EZLogLevelInfo, @"SEND", @"Tier 1 direct answer displayed");
-            // Still save a memory entry — include any attachment paths so memory knows files were involved
-            NSArray *attachmentsAtSend = self.activeThread.attachmentPaths.count > 0
-                ? @[self.activeThread.attachmentPaths.lastObject] : @[];
+            // Still save a memory entry — include all relevant attachment paths
+            NSMutableArray *attachmentsAtSend = [self.activeThread.attachmentPaths mutableCopy];
+            if (self.lastImageLocalPath.length > 0 &&
+                ![attachmentsAtSend containsObject:self.lastImageLocalPath]) {
+                [attachmentsAtSend addObject:self.lastImageLocalPath];
+            }
+            if (self.pendingImagePath.length > 0 &&
+                ![attachmentsAtSend containsObject:self.pendingImagePath]) {
+                [attachmentsAtSend addObject:self.pendingImagePath];
+            }
             createMemoryFromCompletion(text, answer, apiKey, self.activeThread.threadID,
                                        attachmentsAtSend,
                                        ^(NSString *entry) {
@@ -1079,8 +1112,24 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     if (!apiKey) { [self appendToChat:@"[Error: No API Key]"]; return; }
 
     BOOL isGPT5          = [self.selectedModel hasPrefix:@"gpt-5"];
-    BOOL useWebSearch    = self.webSearchEnabled;
+    // Web search via Responses API — only works with GPT-4o+ and GPT-5 family.
+    // Silently disable it for models that don't support the Responses API tool format.
+    NSSet *webSearchCompatible = [NSSet setWithObjects:
+        @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo",
+        @"gpt-5", @"gpt-5-mini", @"gpt-5-pro", nil];
+    BOOL modelSupportsWebSearch = isGPT5 || [webSearchCompatible containsObject:self.selectedModel];
+    BOOL useWebSearch    = self.webSearchEnabled && modelSupportsWebSearch;
     BOOL useResponsesAPI = isGPT5 || useWebSearch;
+
+    if (self.webSearchEnabled && !modelSupportsWebSearch) {
+        // Warn once in chat that web search is silently skipped for this model
+        [self appendToChat:[NSString stringWithFormat:
+            @"[System: Web search skipped — not supported by %@. "
+             "Switch to gpt-4o or a gpt-5 model to use web search.]",
+            self.selectedModel]];
+        EZLogf(EZLogLevelWarning, @"WEBSEARCH",
+               @"Skipped — model %@ doesn't support Responses API tools", self.selectedModel);
+    }
 
     NSString *endpointStr = useResponsesAPI
         ? @"https://api.openai.com/v1/responses"
@@ -1089,6 +1138,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:
         [NSURL URLWithString:endpointStr]];
     request.HTTPMethod = @"POST";
+    // GPT-5 models can take much longer than GPT-4 — give them more room.
+    // GPT-5 with web search is slowest. Standard GPT-4 gets a normal timeout.
+    if (isGPT5 && useWebSearch)       request.timeoutInterval = 240;
+    else if (isGPT5)                  request.timeoutInterval = 180;
+    else                              request.timeoutInterval = 90;
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [request setValue:[NSString stringWithFormat:@"Bearer %@", apiKey]
    forHTTPHeaderField:@"Authorization"];
@@ -1134,9 +1188,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     NSString *capturedPrompt     = self.lastUserPrompt;
     NSString *capturedThreadID   = self.activeThread.threadID;
-    // Capture current attachment paths so memory knows what files were part of this exchange.
-    // We copy the array so it can't be mutated before the completion block fires.
-    NSArray  *capturedAttachments = [self.activeThread.attachmentPaths copy];
+    // Build the most complete attachment list possible for the memory entry.
+    // Include: all thread attachmentPaths + lastImageLocalPath (generated/edited images)
+    // + pendingImagePath (image just attached this turn, may not be in attachmentPaths yet).
+    NSMutableArray *capturedAttachments = [self.activeThread.attachmentPaths mutableCopy];
+    if (self.lastImageLocalPath.length > 0 &&
+        ![capturedAttachments containsObject:self.lastImageLocalPath]) {
+        [capturedAttachments addObject:self.lastImageLocalPath];
+    }
+    if (self.pendingImagePath.length > 0 &&
+        ![capturedAttachments containsObject:self.pendingImagePath]) {
+        [capturedAttachments addObject:self.pendingImagePath];
+    }
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:request
         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
@@ -1200,10 +1263,21 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         dispatch_async(dispatch_get_main_queue(), ^{
             self.lastAIResponse = reply;
+            // Store raw reply in context (no widget placeholders in API history)
             [self.chatContext addObject:@{@"role": @"assistant", @"content": reply}];
-            [self appendToChat:[NSString stringWithFormat:@"AI: %@", reply]];
+
+            // Extract code blocks, save to disk, replace with widget placeholders for display
+            NSMutableArray<NSString *> *codePaths = [NSMutableArray array];
+            NSString *displayReply = [self processReplyWithCodeBlocks:reply savedPaths:codePaths];
+
+            // Merge any saved snippet paths into capturedAttachments for memory
+            NSMutableArray *allAttachments = [capturedAttachments mutableCopy];
+            for (NSString *p in codePaths) {
+                if (![allAttachments containsObject:p]) [allAttachments addObject:p];
+            }
+
+            [self appendToChat:[NSString stringWithFormat:@"AI: %@", displayReply]];
             [self saveActiveThread];
-            // Check if the model mentioned a local file path we should open
             [self checkReplyForLocalFilePaths:reply];
         });
 
@@ -2140,10 +2214,20 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)copyLastResponse {
-    if (self.lastAIResponse) {
-        [UIPasteboard generalPasteboard].string = self.lastAIResponse;
-        EZLog(EZLogLevelInfo, @"APP", @"Last response copied to clipboard");
-    }
+    if (!self.lastAIResponse) return;
+    [UIPasteboard generalPasteboard].string = self.lastAIResponse;
+    EZLog(EZLogLevelInfo, @"APP", @"Last response copied to clipboard");
+
+    // Flash the clipboard button with a checkmark for 1.5s as confirmation
+    UIImage *checkImg = [UIImage systemImageNamed:@"checkmark.circle.fill"];
+    UIImage *origImg  = [UIImage systemImageNamed:@"doc.on.doc"];
+    [self.clipboardButton setImage:checkImg forState:UIControlStateNormal];
+    [self.clipboardButton setTintColor:[UIColor systemGreenColor]];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        [self.clipboardButton setImage:origImg forState:UIControlStateNormal];
+        [self.clipboardButton setTintColor:nil]; // restore default tint
+    });
 }
 
 - (void)showModelPicker {
@@ -2252,10 +2336,331 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                         path.lastPathComponent]];
 }
 
+/// Determine a file extension from a language hint string (e.g. "python" → "py")
+- (NSString *)fileExtensionForLanguage:(NSString *)lang {
+    // Normalize — lowercase and strip common separators/spaces
+    NSString *normalized = [[[lang lowercaseString]
+                             stringByReplacingOccurrencesOfString:@"-" withString:@""]
+                            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+    NSDictionary *map = @{
+        @"python":        @"py",    @"py":           @"py",
+        @"javascript":    @"js",    @"js":           @"js",
+        @"typescript":    @"ts",    @"ts":           @"ts",
+        @"swift":         @"swift",
+        @"objc":          @"m",     @"objectivec":   @"m",   // handles "objc", "objective-c" → "objectivec"
+        @"objectivecpp":  @"mm",    @"objcpp":       @"mm",  // Objective-C++
+        @"c":             @"c",
+        @"cpp":           @"cpp",   @"c++":          @"cpp", @"cxx": @"cpp",
+        @"java":          @"java",  @"kotlin":       @"kt",
+        @"ruby":          @"rb",    @"go":           @"go",
+        @"rust":          @"rs",    @"shell":        @"sh",
+        @"bash":          @"sh",    @"sh":           @"sh",  @"zsh": @"sh",
+        @"html":          @"html",  @"css":          @"css",
+        @"json":          @"json",  @"xml":          @"xml",
+        @"yaml":          @"yaml",  @"yml":          @"yaml",
+        @"sql":           @"sql",   @"markdown":     @"md",  @"md": @"md",
+        @"plaintext":     @"txt",   @"text":         @"txt", @"plain": @"txt",
+        @"diff":          @"diff",  @"makefile":     @"mk",
+        @"dart":          @"dart",  @"php":          @"php",
+        @"cs":            @"cs",    @"csharp":       @"cs",
+        @"r":             @"r",     @"matlab":       @"m",
+        @"scala":         @"scala", @"lua":          @"lua",
+        @"perl":          @"pl",    @"haskell":      @"hs",
+    };
+    NSString *ext = map[normalized];
+    if (!ext) {
+        // Last resort: use first 6 chars of language as extension if it looks safe
+        NSCharacterSet *safe = [NSCharacterSet alphanumericCharacterSet];
+        NSString *candidate = normalized.length > 6
+            ? [normalized substringToIndex:6] : normalized;
+        BOOL isSafe = YES;
+        for (NSUInteger i = 0; i < candidate.length; i++) {
+            if (![safe characterIsMember:[candidate characterAtIndex:i]]) { isSafe = NO; break; }
+        }
+        ext = (isSafe && candidate.length > 0) ? candidate : @"txt";
+    }
+    return ext;
+}
+
+/// Process an AI reply before displaying it:
+///  - Detects ```lang ... ``` code blocks
+///  - Saves each block to EZAttachments/<UUID>_snippet.ext
+///  - Returns display string with code blocks replaced by a placeholder
+///    that appendToChat renders as a styled tappable view
+///
+/// Saved file paths are stored so the user can ask to reopen them later.
+- (NSString *)processReplyWithCodeBlocks:(NSString *)reply
+                            savedPaths:(NSMutableArray<NSString *> *)savedPaths {
+    // Regex: match ```[optional lang]\n<code>\n``` — multiline, non-greedy
+    NSError *regexErr;
+    NSRegularExpression *codeBlockRegex = [NSRegularExpression
+        regularExpressionWithPattern:@"```([a-zA-Z0-9+#._-]*)\\n([\\s\\S]*?)```"
+                             options:NSRegularExpressionCaseInsensitive
+                               error:&regexErr];
+    if (regexErr) return reply;
+
+    NSMutableString *processed = [NSMutableString stringWithString:reply];
+    __block NSInteger offset = 0; // Track position shift as we replace in-place
+
+    NSArray *matches = [codeBlockRegex matchesInString:reply
+                                               options:0
+                                                 range:NSMakeRange(0, reply.length)];
+
+    for (NSTextCheckingResult *match in matches) {
+        NSString *lang     = [reply substringWithRange:[match rangeAtIndex:1]];
+        NSString *code     = [reply substringWithRange:[match rangeAtIndex:2]];
+        NSString *ext      = [self fileExtensionForLanguage:lang];
+        NSString *label    = lang.length > 0 ? lang : ext;
+
+        // Save the code to EZAttachments so it's persistent and reopenable
+        NSData   *codeData = [code dataUsingEncoding:NSUTF8StringEncoding];
+        NSString *fileName = [NSString stringWithFormat:@"snippet.%@", ext];
+        NSString *savedPath = codeData ? EZAttachmentSave(codeData, fileName) : nil;
+        if (savedPath) {
+            [savedPaths addObject:savedPath];
+            // Track in the active thread so memory entry includes it
+            NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
+            if (![att containsObject:savedPath]) [att addObject:savedPath];
+            self.activeThread.attachmentPaths = [att copy];
+            EZLogf(EZLogLevelInfo, @"CODE", @"Saved %@ snippet: %@", label, savedPath);
+        }
+
+        // Build the placeholder that will become a tappable code block widget
+        // Format: [CODE:label:savedPath] — parsed by appendToChat
+        NSString *placeholder = savedPath
+            ? [NSString stringWithFormat:@"\n[CODE:%@:%@]\n", label, savedPath]
+            : [NSString stringWithFormat:@"\n[CODE:%@]\n%@\n[/CODE]\n", label, code];
+
+        // Replace the original ``` block with the placeholder in processed string
+        NSRange originalRange = [match range];
+        NSRange adjustedRange = NSMakeRange((NSUInteger)((NSInteger)originalRange.location + offset),
+                                            originalRange.length);
+        [processed replaceCharactersInRange:adjustedRange withString:placeholder];
+        offset += (NSInteger)placeholder.length - (NSInteger)originalRange.length;
+    }
+    return [processed copy];
+}
+
+/// Append a message to the chat view. If text contains [CODE:...] placeholders
+/// from processReplyWithCodeBlocks, renders them as styled inline code widgets.
 - (void)appendToChat:(NSString *)text {
-    self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingFormat:@"\n\n%@", text];
+    // Check if this message contains any code block placeholders
+    if ([text containsString:@"[CODE:"]) {
+        [self appendToChatWithCodeBlocks:text];
+    } else {
+        self.chatHistoryView.text = [self.chatHistoryView.text
+                                     stringByAppendingFormat:@"\n\n%@", text];
+        [self scrollChatToBottom];
+    }
+}
+
+/// Render a message that contains [CODE:lang:path] placeholders.
+/// Splits the text around placeholders, appends plain parts as text,
+/// and adds UIViews for code blocks that are anchored in the scroll view.
+- (void)appendToChatWithCodeBlocks:(NSString *)text {
+    // Split on [CODE:...] boundaries
+    NSError *splitErr;
+    NSRegularExpression *re = [NSRegularExpression
+        regularExpressionWithPattern:@"\\[CODE:([^:]+):([^\\]]+)\\]|\\[CODE:([^\\]]+)\\]([\\s\\S]*?)\\[/CODE\\]"
+                             options:0 error:&splitErr];
+    if (splitErr) {
+        // Fallback — just show raw text
+        self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingFormat:@"\n\n%@", text];
+        [self scrollChatToBottom];
+        return;
+    }
+
+    NSArray *matches = [re matchesInString:text options:0 range:NSMakeRange(0, text.length)];
+    NSInteger lastEnd = 0;
+
+    for (NSTextCheckingResult *match in matches) {
+        // Append any plain text before this code block
+        NSRange before = NSMakeRange((NSUInteger)lastEnd,
+                                     match.range.location - (NSUInteger)lastEnd);
+        if (before.length > 0) {
+            NSString *plainPart = [text substringWithRange:before];
+            plainPart = [plainPart stringByTrimmingCharactersInSet:
+                         [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (plainPart.length > 0) {
+                self.chatHistoryView.text = [self.chatHistoryView.text
+                                             stringByAppendingFormat:@"\n\n%@", plainPart];
+            }
+        }
+
+        // Determine lang, path, and inline code
+        NSString *lang      = @"";
+        NSString *savedPath = nil;
+        NSString *inlineCode = nil;
+
+        NSRange r1 = [match rangeAtIndex:1]; // [CODE:lang:path] form
+        NSRange r2 = [match rangeAtIndex:2];
+        NSRange r3 = [match rangeAtIndex:3]; // [CODE:lang]...[/CODE] form
+        NSRange r4 = [match rangeAtIndex:4];
+
+        if (r1.location != NSNotFound) {
+            lang      = [text substringWithRange:r1];
+            savedPath = [text substringWithRange:r2];
+            if (savedPath.length > 0) {
+                inlineCode = [NSString stringWithContentsOfFile:savedPath
+                                                       encoding:NSUTF8StringEncoding error:nil];
+            }
+        } else if (r3.location != NSNotFound) {
+            lang       = [text substringWithRange:r3];
+            inlineCode = r4.location != NSNotFound ? [text substringWithRange:r4] : @"";
+        }
+
+        if (!inlineCode) inlineCode = @"(code unavailable)";
+
+        // Add a visual separator in the text view
+        self.chatHistoryView.text = [self.chatHistoryView.text
+                                     stringByAppendingString:@"\n\n"];
+
+        // Insert the inline code block widget into the chat scroll view
+        [self insertCodeBlockWidget:inlineCode
+                           language:lang
+                          savedPath:savedPath];
+
+        lastEnd = (NSInteger)(match.range.location + match.range.length);
+    }
+
+    // Append any trailing plain text after the last code block
+    if ((NSUInteger)lastEnd < text.length) {
+        NSString *tail = [[text substringFromIndex:(NSUInteger)lastEnd]
+                          stringByTrimmingCharactersInSet:
+                          [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (tail.length > 0) {
+            self.chatHistoryView.text = [self.chatHistoryView.text
+                                         stringByAppendingFormat:@"\n\n%@", tail];
+        }
+    }
+    [self scrollChatToBottom];
+}
+
+/// Insert a self-contained code block widget into the chat scroll view.
+/// The widget is positioned at the current text insertion point and stays there.
+/// Tapping copies the code to clipboard; tapping the filename opens QuickLook.
+- (void)insertCodeBlockWidget:(NSString *)code
+                     language:(NSString *)language
+                    savedPath:(nullable NSString *)savedPath {
+    // Measure where the widget should sit based on current text height
+    CGFloat textWidth    = self.chatHistoryView.frame.size.width - 32;
+    CGFloat widgetWidth  = textWidth;
+    CGFloat codeHeight   = MIN(200, MAX(60, (CGFloat)[[code componentsSeparatedByString:@"\n"] count] * 18 + 24));
+    CGFloat headerHeight = 36;
+    CGFloat totalHeight  = headerHeight + codeHeight + 8;
+
+    // Get current content size to position widget after existing text
+    [self.chatHistoryView layoutIfNeeded];
+    CGFloat yPosition = self.chatHistoryView.contentSize.height + 4;
+
+    // Outer container
+    UIView *container = [[UIView alloc] initWithFrame:
+                          CGRectMake(16, yPosition, widgetWidth, totalHeight)];
+    container.backgroundColor  = [UIColor colorWithWhite:0.12 alpha:1.0];
+    container.layer.cornerRadius = 10;
+    container.clipsToBounds    = YES;
+    container.layer.borderColor  = [UIColor colorWithWhite:0.3 alpha:1.0].CGColor;
+    container.layer.borderWidth  = 1;
+
+    // Header bar: language label + copy button
+    UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, widgetWidth, headerHeight)];
+    header.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1.0];
+
+    UILabel *langLabel = [[UILabel alloc] initWithFrame:CGRectMake(12, 0, widgetWidth - 100, headerHeight)];
+    langLabel.text      = language.length > 0
+        ? [NSString stringWithFormat:@"  %@", language.uppercaseString]
+        : @"  CODE";
+    langLabel.textColor = [UIColor colorWithRed:0.6 green:0.8 blue:1.0 alpha:1.0];
+    langLabel.font      = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightMedium];
+    [header addSubview:langLabel];
+
+    UIButton *copyBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    copyBtn.frame     = CGRectMake(widgetWidth - 90, 4, 82, headerHeight - 8);
+    [copyBtn setTitle:@"⎘ Copy" forState:UIControlStateNormal];
+    copyBtn.tintColor = [UIColor colorWithWhite:0.75 alpha:1.0];
+    copyBtn.titleLabel.font = [UIFont systemFontOfSize:13];
+    copyBtn.layer.cornerRadius = 6;
+    copyBtn.backgroundColor = [UIColor colorWithWhite:0.28 alpha:1.0];
+    // Store code via associated object for the action
+    objc_setAssociatedObject(copyBtn, "EZCodeContent", code, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    [copyBtn addTarget:self action:@selector(codeBlockCopyTapped:)
+      forControlEvents:UIControlEventTouchUpInside];
+    [header addSubview:copyBtn];
+
+    // If we have a saved path, add a filename tap area
+    if (savedPath) {
+        UIButton *fileBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+        fileBtn.frame = CGRectMake(0, 0, widgetWidth - 100, headerHeight);
+        [fileBtn setTitle:@"" forState:UIControlStateNormal]; // invisible tap area over langLabel
+        objc_setAssociatedObject(fileBtn, "EZCodePath", savedPath, OBJC_ASSOCIATION_COPY_NONATOMIC);
+        [fileBtn addTarget:self action:@selector(codeBlockFileTapped:)
+          forControlEvents:UIControlEventTouchUpInside];
+        [header addSubview:fileBtn];
+    }
+    [container addSubview:header];
+
+    // Code text view (read-only, scrollable if tall)
+    UITextView *codeView = [[UITextView alloc] initWithFrame:
+                             CGRectMake(0, headerHeight, widgetWidth, codeHeight + 8)];
+    codeView.text            = code;
+    codeView.editable        = NO;
+    codeView.selectable      = YES;
+    codeView.backgroundColor = [UIColor clearColor];
+    codeView.textColor       = [UIColor colorWithRed:0.85 green:0.95 blue:0.85 alpha:1.0];
+    codeView.font            = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
+    codeView.textContainerInset = UIEdgeInsetsMake(8, 10, 8, 10);
+    [container addSubview:codeView];
+
+    // Add to chatHistoryView's scroll view so it stays anchored
+    [self.chatHistoryView addSubview:container];
+
+    // Expand the chatHistoryView content size to accommodate the widget
+    CGSize newSize = CGSizeMake(self.chatHistoryView.contentSize.width,
+                                yPosition + totalHeight + 12);
+    self.chatHistoryView.contentSize = newSize;
+
+    // Add placeholder whitespace in the text so future appends don't overlap
+    NSString *spacer = [@"\n" stringByPaddingToLength:(NSUInteger)(totalHeight / 14) + 2
+                                           withString:@"\n"
+                                      startingAtIndex:0];
+    self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingString:spacer];
+
+    [self scrollChatToBottom];
+    EZLogf(EZLogLevelInfo, @"CODE", @"Widget inserted: %@ (%lu lines)",
+           language, (unsigned long)[[code componentsSeparatedByString:@"\n"] count]);
+}
+
+- (void)codeBlockCopyTapped:(UIButton *)sender {
+    NSString *code = objc_getAssociatedObject(sender, "EZCodeContent");
+    if (code) {
+        [UIPasteboard generalPasteboard].string = code;
+        // Brief visual feedback
+        NSString *original = [sender titleForState:UIControlStateNormal];
+        [sender setTitle:@"✓ Copied!" forState:UIControlStateNormal];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            [sender setTitle:original forState:UIControlStateNormal];
+        });
+        EZLog(EZLogLevelInfo, @"CODE", @"Code copied to clipboard");
+    }
+}
+
+- (void)codeBlockFileTapped:(UIButton *)sender {
+    NSString *path = objc_getAssociatedObject(sender, "EZCodePath");
+    if (path && [[NSFileManager defaultManager] fileExistsAtPath:path]) {
+        [self offerToOpenLocalFile:path];
+    }
+}
+
+- (void)scrollChatToBottom {
     NSUInteger len = self.chatHistoryView.text.length;
     if (len > 0) [self.chatHistoryView scrollRangeToVisible:NSMakeRange(len - 1, 1)];
+}
+
+- (void)appendToOldChat:(NSString *)text {
+    // Direct append bypassing code block processing — for system messages
+    self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingFormat:@"\n\n%@", text];
+    [self scrollChatToBottom];
 }
 
 - (void)openSettings {

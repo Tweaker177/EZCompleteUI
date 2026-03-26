@@ -23,7 +23,11 @@ except Exception as e:
     sys.exit(1)
 d['NSMicrophoneUsageDescription'] = 'EZCompleteUI uses the microphone for voice dictation.'
 d['NSSpeechRecognitionUsageDescription'] = 'EZCompleteUI uses speech recognition to transcribe your voice.'
-d['NSDocumentsFolderUsageDescription'] = 'EZCompleteUI needs access to files so you can attach documents, images, and audio to your chats.'
+d['NSDocumentsFolderUsageDescription'] = 'EZCompleteUI needs access to your files so you can attach documents, images, and audio to your chats.'
+d['UIFileSharingEnabled'] = True
+d['LSSupportsOpeningDocumentsInPlace'] = True
+# UISupportsDocumentBrowser = True breaks UIDocumentPickerViewController on iOS 15 — remove it
+d.pop('UISupportsDocumentBrowser', None)
 with open(path, 'wb') as f:
     plistlib.dump(d, f)
 keys = [k for k in d if 'Usage' in k]
@@ -31,6 +35,8 @@ print(f"  Injected {len(keys)} key(s): {keys}")
 assert 'NSMicrophoneUsageDescription' in d
 assert 'NSSpeechRecognitionUsageDescription' in d
 assert 'NSDocumentsFolderUsageDescription' in d
+assert d.get('UIFileSharingEnabled') == True
+assert 'UISupportsDocumentBrowser' not in d, "UISupportsDocumentBrowser must be removed"
 PYEOF
 }
 
