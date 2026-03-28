@@ -124,6 +124,23 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.selectedModel     = [[NSUserDefaults standardUserDefaults] stringForKey:@"selectedModel"]
                              ?: self.models[0];
     self.webSearchEnabled  = [[NSUserDefaults standardUserDefaults] boolForKey:@"webSearchEnabled"];
+
+    // Restore persisted image/attachment paths so they survive app restarts.
+    // This is the key fix for "reopen image" failing — lastImageLocalPath was
+    // always nil after relaunch, so the intent check fell through to generation.
+    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    NSString *savedImagePath = [d stringForKey:@"lastImageLocalPath"];
+    if (savedImagePath.length > 0 &&
+        [[NSFileManager defaultManager] fileExistsAtPath:savedImagePath]) {
+        self.lastImageLocalPath = savedImagePath;
+        EZLogf(EZLogLevelInfo, @"APP", @"Restored lastImageLocalPath: %@",
+               savedImagePath.lastPathComponent);
+    }
+    NSString *savedPrompt = [d stringForKey:@"lastImagePrompt"];
+    if (savedPrompt.length > 0) {
+        self.lastImagePrompt = savedPrompt;
+    }
+
     [self startNewThread];
 }
 
@@ -151,13 +168,27 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.activeThread.chatContext = [self.chatContext copy];
     self.activeThread.modelName   = self.selectedModel;
 
-    // Set title from first user message if not set
+    // Set title from first user message if not set.
+    // Strip Tier-3 context preamble if present — we want the raw user question, not the injected context.
     if ([self.activeThread.title isEqualToString:@"New Conversation"] ||
         self.activeThread.title.length == 0) {
         for (NSDictionary *msg in self.chatContext) {
             if ([msg[@"role"] isEqualToString:@"user"]) {
                 id content = msg[@"content"];
                 NSString *text = [content isKindOfClass:[NSString class]] ? content : @"";
+                // Strip the Tier-3 context preamble so titles are the actual question
+                NSString *contextPrefix = @"[Context from previous conversations]";
+                if ([text hasPrefix:contextPrefix]) {
+                    NSRange userMsgRange = [text rangeOfString:@"[User message]\n"];
+                    if (userMsgRange.location != NSNotFound) {
+                        text = [text substringFromIndex:userMsgRange.location + userMsgRange.length];
+                    } else {
+                        // No user message marker — skip this turn and use the next
+                        continue;
+                    }
+                }
+                text = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                if (text.length == 0) continue;
                 self.activeThread.title = text.length > 60
                     ? [[text substringToIndex:60] stringByAppendingString:@"…"]
                     : text;
@@ -194,27 +225,52 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", self.selectedModel]
                       forState:UIControlStateNormal];
 
-    // Rebuild chat display from context
-    NSMutableString *display = [NSMutableString string];
+    // Rebuild chat display from context.
+    // For assistant messages that contain code blocks (``` markers), we run them
+    // through processReplyWithCodeBlocks so the widgets get re-rendered.
+    // We build the text first then let appendToChat handle widget injection.
+    self.chatHistoryView.text = @""; // Clear all existing subviews' space
+
+    // Remove any old code block widgets from a prior restore
+    for (UIView *subview in self.chatHistoryView.subviews) {
+        if (subview.tag == 9001) [subview removeFromSuperview];
+    }
+
     for (NSDictionary *msg in self.chatContext) {
         NSString *role    = msg[@"role"] ?: @"";
         id        content = msg[@"content"];
         NSString *text    = [content isKindOfClass:[NSString class]] ? content : @"[attachment]";
+
         if ([role isEqualToString:@"user"]) {
-            [display appendFormat:@"\n\nYou: %@", text];
+            // User messages: show raw text but strip injected context preambles
+            NSString *displayText = text;
+            if ([displayText hasPrefix:@"[Context from previous conversations]"]) {
+                // Extract just the user message portion after the preamble
+                NSRange userMsgRange = [displayText rangeOfString:@"[User message]\n"];
+                if (userMsgRange.location != NSNotFound) {
+                    displayText = [displayText substringFromIndex:userMsgRange.location + userMsgRange.length];
+                }
+            }
+            [self appendToOldChat:[NSString stringWithFormat:@"You: %@", displayText]];
         } else if ([role isEqualToString:@"assistant"]) {
-            [display appendFormat:@"\n\nAI: %@", text];
             self.lastAIResponse = text;
+            if ([text containsString:@"```"]) {
+                // Re-render code blocks — isRestore:YES prevents re-saving files
+                NSMutableArray<NSString *> *codePaths = [NSMutableArray array];
+                NSString *displayReply = [self processReplyWithCodeBlocks:text
+                                                               savedPaths:codePaths
+                                                                isRestore:YES];
+                [self appendToChat:[NSString stringWithFormat:@"AI: %@", displayReply]];
+            } else {
+                [self appendToOldChat:[NSString stringWithFormat:@"AI: %@", text]];
+            }
         }
     }
-    self.chatHistoryView.text = display.length > 0
-        ? [display substringFromIndex:2]   // trim leading \n\n
-        : @"[System: Conversation restored]";
 
     [self.chatHistoryView scrollRangeToVisible:
         NSMakeRange(self.chatHistoryView.text.length > 0 ? self.chatHistoryView.text.length - 1 : 0, 1)];
 
-    [self appendToChat:[NSString stringWithFormat:@"[System: Thread \"%@\" restored ✓]", thread.title]];
+    [self appendToOldChat:[NSString stringWithFormat:@"[System: Thread \"%@\" restored ✓]", thread.title]];
     EZLogf(EZLogLevelInfo, @"THREAD", @"Restored: %@ (%lu turns)",
            thread.threadID, (unsigned long)self.chatContext.count);
 }
@@ -937,58 +993,71 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 
     // ── Image model intent check ──────────────────────────────────────────────
-    // Before generating a NEW image, check if the user is actually asking to
-    // VIEW an existing one ("show it again", "display that", "pull it up").
-    // If so, reopen from memory instead of burning credits on a new generation.
+    // Before generating a NEW image, classify the intent:
+    //   "reopen"   → show the last saved image (no API cost)
+    //   "edit"     → edit the last saved image
+    //   "generate" → create a new one
+    //
+    // lastImageLocalPath is persisted to NSUserDefaults so it survives restarts.
     BOOL isImageModel = ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
                          [self.selectedModel isEqualToString:@"dall-e-3"]);
-    if (isImageModel && self.lastImageLocalPath.length > 0) {
-        // Quick local keyword check — no API call needed
-        NSString *lowerText = text.lowercaseString;
-        NSArray *displayIntentWords = @[
-            @"show", @"display", @"view", @"see", @"again", @"reopen",
-            @"pull up", @"pull it", @"missed", @"didn't see", @"cant see",
-            @"can't see", @"lost it", @"where is", @"open it", @"open that"
-        ];
-        BOOL looksLikeViewRequest = NO;
-        for (NSString *keyword in displayIntentWords) {
-            if ([lowerText containsString:keyword]) { looksLikeViewRequest = YES; break; }
+    if (isImageModel) {
+        // Reload persisted path in case it was set in a prior session
+        if (!self.lastImageLocalPath.length) {
+            NSString *persisted = [[NSUserDefaults standardUserDefaults]
+                                   stringForKey:@"lastImageLocalPath"];
+            if (persisted.length > 0 &&
+                [[NSFileManager defaultManager] fileExistsAtPath:persisted]) {
+                self.lastImageLocalPath = persisted;
+            }
         }
-        if (looksLikeViewRequest) {
-            EZLogf(EZLogLevelInfo, @"IMAGE", @"Display intent detected — reopening last image");
-            [self appendToChat:@"[System: Reopening last image ✓]"];
-            [self offerToOpenLocalFile:self.lastImageLocalPath];
-            return;
-        }
-    }
+        BOOL hasLocal = self.lastImageLocalPath.length > 0;
 
-    // ── gpt-image-1 generation (no image attached = text-to-image) ───────────
-    if ([self.selectedModel isEqualToString:@"gpt-image-1"]) {
-        [self callGptImage1:text];
-        return;
-    }
-
-    // ── DALL-E 3 generation ───────────────────────────────────────────────────
-    if ([self.selectedModel isEqualToString:@"dall-e-3"]) {
-        if (self.lastImagePrompt.length > 0) {
-            self.sendButton.enabled = NO;
-            [self fetchRelevantMemories:text apiKey:apiKey completion:^(NSString *memories) {
-                analyzePromptForContext(text, memories, apiKey, self.activeThread.threadID,
-                ^(EZContextResult *result) {
-                    self.sendButton.enabled = YES;
-                    NSString *finalPrompt = text;
-                    if (result.tier >= EZRoutingTierMemory) {
-                        finalPrompt = [NSString stringWithFormat:
-                            @"Previous image prompt was: \"%@\". Now create: %@",
-                            self.lastImagePrompt, text];
-                        [self appendToChat:@"[System: Previous image context included ✓]"];
+        self.sendButton.enabled = NO;
+        [self classifyImageIntent:text hasLocalImage:hasLocal apiKey:apiKey
+                       completion:^(NSString *intent) {
+            self.sendButton.enabled = YES;
+            if ([intent isEqualToString:@"reopen"] && hasLocal) {
+                EZLogf(EZLogLevelInfo, @"IMAGE", @"Intent=reopen → %@",
+                       self.lastImageLocalPath.lastPathComponent);
+                [self appendToChat:@"[System: Reopening last image ✓]"];
+                [self offerToOpenLocalFile:self.lastImageLocalPath];
+            } else if ([intent isEqualToString:@"edit"] && hasLocal) {
+                EZLogf(EZLogLevelInfo, @"IMAGE", @"Intent=edit → switching to edit mode");
+                self.selectedModel = @"gpt-image-1-edit";
+                [self.modelButton setTitle:@"Model: gpt-image-1 (edit mode)"
+                                  forState:UIControlStateNormal];
+                [self callImageEdit:text imagePath:self.lastImageLocalPath];
+            } else {
+                // Generate new image
+                EZLogf(EZLogLevelInfo, @"IMAGE", @"Intent=generate");
+                if ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
+                    [self.selectedModel isEqualToString:@"gpt-image-1-edit"]) {
+                    [self callGptImage1:text];
+                } else {
+                    // dall-e-3 — check for follow-up context
+                    if (self.lastImagePrompt.length > 0) {
+                        [self fetchRelevantMemories:text apiKey:apiKey
+                                        completion:^(NSString *memories) {
+                            analyzePromptForContext(text, memories, apiKey,
+                                                   self.activeThread.threadID,
+                            ^(EZContextResult *result) {
+                                NSString *finalPrompt = text;
+                                if (result.tier >= EZRoutingTierMemory) {
+                                    finalPrompt = [NSString stringWithFormat:
+                                        @"Previous image prompt was: \"%@\". Now create: %@",
+                                        self.lastImagePrompt, text];
+                                    [self appendToChat:@"[System: Previous image context included ✓]"];
+                                }
+                                [self callDalle3:finalPrompt];
+                            });
+                        }];
+                    } else {
+                        [self callDalle3:text];
                     }
-                    [self callDalle3:finalPrompt];
-                });
-            }];
-        } else {
-            [self callDalle3:text];
-        }
+                }
+            }
+        }];
         return;
     }
 
@@ -1508,6 +1577,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                         self.lastImageLocalPath = savedPath;   // next edit uses this automatically
                         self.activeThread.lastImageLocalPath = savedPath;
                         [self saveActiveThread];
+                        [self persistImagePath:savedPath prompt:self.lastImagePrompt];
                     }
                     self.previewURL = tmp;
                     QLPreviewController *ql = [[QLPreviewController alloc] init];
@@ -1525,6 +1595,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                         self.lastImageLocalPath = savedPath;
                         self.activeThread.lastImageLocalPath = savedPath;
                         [self saveActiveThread];
+                        [self persistImagePath:savedPath prompt:self.lastImagePrompt];
                     }
                     NSURL *tmp = [NSURL fileURLWithPath:
                         [NSTemporaryDirectory() stringByAppendingPathComponent:@"edit_gen.png"]];
@@ -1916,6 +1987,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 [att addObject:savedPath];
                 self.activeThread.attachmentPaths = [att copy];
                 [self saveActiveThread];
+                // Persist to NSUserDefaults so reopen works after app restart
+                [self persistImagePath:savedPath prompt:self.lastImagePrompt];
             }
             self.previewURL = tmp;
             QLPreviewController *ql = [[QLPreviewController alloc] init];
@@ -2275,7 +2348,117 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self presentViewController:alert animated:YES completion:nil];
 }
 
-/// Called after a chat reply arrives to check if the model referenced a local file path.
+/// Persist the most recently generated/edited image path to NSUserDefaults.
+/// This survives app restarts so "show the last image" always works.
+- (void)persistImagePath:(NSString *)path prompt:(NSString *)prompt {
+    if (!path.length) return;
+    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    [d setObject:path   forKey:@"lastImageLocalPath"];
+    [d setObject:prompt ?: @"" forKey:@"lastImagePrompt"];
+    [d synchronize];
+    EZLogf(EZLogLevelInfo, @"IMAGE", @"Persisted path: %@", path.lastPathComponent);
+}
+
+/// Classify whether a prompt on an image model is requesting:
+///   "reopen"  — show/display a previously generated image
+///   "generate" — create a new image
+///   "edit"    — edit the last image
+///
+/// Uses a two-tier approach:
+///   Tier 1: fast local scoring (no API) — requires MULTIPLE strong signals
+///   Tier 2: helper model call if ambiguous — definitive answer
+///
+/// Calls completion on the main queue with one of: @"reopen", @"generate", @"edit"
+- (void)classifyImageIntent:(NSString *)prompt
+              hasLocalImage:(BOOL)hasLocalImage
+                     apiKey:(NSString *)apiKey
+                 completion:(void(^)(NSString *intent))completion {
+
+    NSString *lower = prompt.lowercaseString;
+
+    // ── Tier 1: strong multi-signal local check ───────────────────────────────
+    // Require at least 2 co-occurring signals to fire without an API call.
+    // Single words like "show" or "see" alone are NOT enough.
+
+    // Signals that strongly suggest "reopen"
+    NSArray *reopenSignals = @[
+        @"again", @"reopen", @"re-open", @"pull up", @"pull it up",
+        @"show it", @"display it", @"view it", @"see it again",
+        @"missed it", @"didn't see", @"can't see", @"lost it",
+        @"bring it back", @"show me again", @"display again",
+        @"open it again", @"show that image", @"that image again",
+        @"previous image", @"last image", @"the image again"
+    ];
+
+    // Signals that strongly suggest "generate new"
+    NSArray *generateSignals = @[
+        @"create", @"generate", @"make", @"draw", @"paint",
+        @"a picture of", @"an image of", @"image of", @"picture of",
+        @"new image", @"different image"
+    ];
+
+    // Signals that suggest "edit"
+    NSArray *editSignals = @[
+        @"edit", @"change", @"modify", @"adjust", @"alter",
+        @"add to", @"remove from", @"make it", @"turn it into"
+    ];
+
+    NSInteger reopenScore = 0, generateScore = 0, editScore = 0;
+    for (NSString *s in reopenSignals)   if ([lower containsString:s]) reopenScore++;
+    for (NSString *s in generateSignals) if ([lower containsString:s]) generateScore++;
+    for (NSString *s in editSignals)     if ([lower containsString:s]) editScore++;
+
+    EZLogf(EZLogLevelDebug, @"IMAGE",
+           @"Intent scores — reopen:%ld generate:%ld edit:%ld hasLocal:%d",
+           (long)reopenScore, (long)generateScore, (long)editScore, hasLocalImage);
+
+    // Clear winner with 2+ signals — no API call needed
+    if (reopenScore >= 2 && reopenScore > generateScore && hasLocalImage) {
+        EZLogf(EZLogLevelInfo, @"IMAGE", @"Tier 1: reopen (score %ld)", (long)reopenScore);
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(@"reopen"); });
+        return;
+    }
+    if (generateScore >= 2 && generateScore > reopenScore) {
+        EZLogf(EZLogLevelInfo, @"IMAGE", @"Tier 1: generate (score %ld)", (long)generateScore);
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(@"generate"); });
+        return;
+    }
+    if (editScore >= 2 && editScore > reopenScore && hasLocalImage) {
+        EZLogf(EZLogLevelInfo, @"IMAGE", @"Tier 1: edit (score %ld)", (long)editScore);
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(@"edit"); });
+        return;
+    }
+
+    // ── Tier 2: helper model — use when signals are mixed or weak ────────────
+    // Only worth the API call if there's a local image to potentially reopen.
+    if (!hasLocalImage || !apiKey.length) {
+        // No local image → can only generate
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(@"generate"); });
+        return;
+    }
+
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSString *sys =
+            @"You classify user intent for an AI image app. The user may want to:\n"
+             "  REOPEN — view/display a previously generated image they already have\n"
+             "  GENERATE — create a brand new image from a description\n"
+             "  EDIT — modify/edit a previously generated image\n\n"
+             "Reply with exactly one word: REOPEN, GENERATE, or EDIT. Nothing else.";
+        NSString *msg = [NSString stringWithFormat:
+            @"User prompt: \"%@\"\nContext: User has a previously generated image available.",
+            prompt];
+
+        NSString *raw = EZCallHelperModel(sys, msg, apiKey, 10);
+        NSString *result = [[raw uppercaseString]
+                            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        EZLogf(EZLogLevelInfo, @"IMAGE", @"Tier 2 classifier: %@ → %@", prompt, result);
+
+        NSString *intent = @"generate"; // safe default
+        if ([result isEqualToString:@"REOPEN"]) intent = @"reopen";
+        else if ([result isEqualToString:@"EDIT"])   intent = @"edit";
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(intent); });
+    });
+}
 /// If the reply contains a path that exists on disk, offer to open it in QuickLook.
 - (void)checkReplyForLocalFilePaths:(NSString *)reply {
     // Look for absolute paths in the reply (Documents/ paths we stored)
@@ -2338,7 +2521,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 /// Determine a file extension from a language hint string (e.g. "python" → "py")
 - (NSString *)fileExtensionForLanguage:(NSString *)lang {
-    // Normalize — lowercase and strip common separators/spaces
+    // Normalize — lowercase, strip dashes, trim whitespace
+    // Using nested brackets (not dot syntax) to avoid ObjC method chaining compiler error
     NSString *normalized = [[[lang lowercaseString]
                              stringByReplacingOccurrencesOfString:@"-" withString:@""]
                             stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
@@ -2391,50 +2575,117 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 /// Saved file paths are stored so the user can ask to reopen them later.
 - (NSString *)processReplyWithCodeBlocks:(NSString *)reply
                             savedPaths:(NSMutableArray<NSString *> *)savedPaths {
-    // Regex: match ```[optional lang]\n<code>\n``` — multiline, non-greedy
+    return [self processReplyWithCodeBlocks:reply savedPaths:savedPaths isRestore:NO];
+}
+
+- (NSString *)processReplyWithCodeBlocks:(NSString *)reply
+                            savedPaths:(NSMutableArray<NSString *> *)savedPaths
+                             isRestore:(BOOL)isRestore {
+    // Match ONLY triple-backtick fenced blocks.
+    // Pattern requires the closing ``` to be on its own line (preceded by newline or start).
+    // This prevents matching across unrelated inline backtick spans.
+    // Group 1: optional language hint (letters, digits, +, #, ., _, -)
+    // Group 2: code content (non-greedy, must have at least one non-whitespace char)
     NSError *regexErr;
     NSRegularExpression *codeBlockRegex = [NSRegularExpression
-        regularExpressionWithPattern:@"```([a-zA-Z0-9+#._-]*)\\n([\\s\\S]*?)```"
-                             options:NSRegularExpressionCaseInsensitive
+        regularExpressionWithPattern:@"```([a-zA-Z0-9+#._-]*)[ \\t]*\\n([\\s\\S]+?)\\n[ \\t]*```"
+                             options:0
                                error:&regexErr];
-    if (regexErr) return reply;
-
-    NSMutableString *processed = [NSMutableString stringWithString:reply];
-    __block NSInteger offset = 0; // Track position shift as we replace in-place
+    if (regexErr || !codeBlockRegex) return reply;
 
     NSArray *matches = [codeBlockRegex matchesInString:reply
                                                options:0
                                                  range:NSMakeRange(0, reply.length)];
+    if (matches.count == 0) return reply; // Nothing to process
+
+    NSMutableString *processed = [NSMutableString stringWithString:reply];
+    NSInteger offset = 0;
 
     for (NSTextCheckingResult *match in matches) {
-        NSString *lang     = [reply substringWithRange:[match rangeAtIndex:1]];
-        NSString *code     = [reply substringWithRange:[match rangeAtIndex:2]];
-        NSString *ext      = [self fileExtensionForLanguage:lang];
-        NSString *label    = lang.length > 0 ? lang : ext;
+        NSRange langRange = [match rangeAtIndex:1];
+        NSRange codeRange = [match rangeAtIndex:2];
+        if (langRange.location == NSNotFound || codeRange.location == NSNotFound) continue;
 
-        // Save the code to EZAttachments so it's persistent and reopenable
-        NSData   *codeData = [code dataUsingEncoding:NSUTF8StringEncoding];
-        NSString *fileName = [NSString stringWithFormat:@"snippet.%@", ext];
-        NSString *savedPath = codeData ? EZAttachmentSave(codeData, fileName) : nil;
-        if (savedPath) {
-            [savedPaths addObject:savedPath];
-            // Track in the active thread so memory entry includes it
-            NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
-            if (![att containsObject:savedPath]) [att addObject:savedPath];
-            self.activeThread.attachmentPaths = [att copy];
-            EZLogf(EZLogLevelInfo, @"CODE", @"Saved %@ snippet: %@", label, savedPath);
+        NSString *lang = [reply substringWithRange:langRange];
+        NSString *code = [reply substringWithRange:codeRange];
+
+        // Skip trivially small "code blocks" — likely backtick formatting accidents
+        if (code.length < 5) continue;
+
+        // ── Smart filename detection ──────────────────────────────────────────
+        // Check first 1-2 lines of the code block for a filename comment.
+        // Handles: "// Filename.m", "# script.py", "/* Header.h */", "// MARK: - file.swift"
+        NSString *detectedName = nil;
+        NSArray<NSString *> *firstLines = [[code componentsSeparatedByString:@"\n"]
+                                           subarrayWithRange:NSMakeRange(0, MIN(2, [[code componentsSeparatedByString:@"\n"] count]))];
+        NSError *fnErr;
+        // Look for a known file extension in the first two lines
+        NSRegularExpression *fnRegex = [NSRegularExpression
+            regularExpressionWithPattern:@"[\\w.+-]+\\.(?:m|h|mm|swift|py|js|ts|sh|bash|rb|go|rs|kt|java|c|cpp|cxx|cs|html|css|json|xml|yaml|yml|sql|md|txt|mk|makefile|gradle|plist|entitlements|pbxproj)"
+                                 options:NSRegularExpressionCaseInsensitive error:&fnErr];
+        if (!fnErr) {
+            for (NSString *line in firstLines) {
+                NSRange lineRange = NSMakeRange(0, line.length);
+                NSTextCheckingResult *fnMatch = [fnRegex firstMatchInString:line options:0 range:lineRange];
+                if (fnMatch) {
+                    detectedName = [line substringWithRange:fnMatch.range];
+                    break;
+                }
+            }
         }
 
-        // Build the placeholder that will become a tappable code block widget
-        // Format: [CODE:label:savedPath] — parsed by appendToChat
+        // ── Determine extension and label ─────────────────────────────────────
+        NSString *ext;
+        NSString *label;
+        if (detectedName.length > 0) {
+            // Use detected filename directly
+            label = detectedName;
+            ext   = detectedName.pathExtension.length > 0 ? detectedName.pathExtension : @"txt";
+        } else {
+            ext   = [self fileExtensionForLanguage:lang];
+            label = lang.length > 0 ? lang : ext;
+        }
+
+        // ── Save snippet to EZAttachments ─────────────────────────────────────
+        // During restore, check if a file with the same name already exists
+        // rather than creating duplicates on every restore.
+        NSString *savedPath = nil;
+        NSString *fileName  = detectedName.length > 0 ? detectedName
+            : [NSString stringWithFormat:@"snippet.%@", ext];
+
+        if (isRestore) {
+            // Look for an existing saved snippet with this filename in attachmentPaths
+            for (NSString *existingPath in self.activeThread.attachmentPaths) {
+                if ([existingPath.lastPathComponent hasSuffix:[@"_" stringByAppendingString:fileName]] ||
+                    [existingPath.lastPathComponent hasSuffix:fileName]) {
+                    if ([[NSFileManager defaultManager] fileExistsAtPath:existingPath]) {
+                        savedPath = existingPath;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!savedPath) {
+            NSData *codeData = [code dataUsingEncoding:NSUTF8StringEncoding];
+            savedPath = codeData ? EZAttachmentSave(codeData, fileName) : nil;
+            if (savedPath && !isRestore) {
+                [savedPaths addObject:savedPath];
+                NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
+                if (![att containsObject:savedPath]) [att addObject:savedPath];
+                self.activeThread.attachmentPaths = [att copy];
+            }
+            if (savedPath) EZLogf(EZLogLevelInfo, @"CODE", @"Saved %@ snippet: %@", label, savedPath);
+        }
+
+        // ── Build placeholder ─────────────────────────────────────────────────
         NSString *placeholder = savedPath
             ? [NSString stringWithFormat:@"\n[CODE:%@:%@]\n", label, savedPath]
             : [NSString stringWithFormat:@"\n[CODE:%@]\n%@\n[/CODE]\n", label, code];
 
-        // Replace the original ``` block with the placeholder in processed string
-        NSRange originalRange = [match range];
-        NSRange adjustedRange = NSMakeRange((NSUInteger)((NSInteger)originalRange.location + offset),
-                                            originalRange.length);
+        NSRange originalRange  = [match range];
+        NSRange adjustedRange  = NSMakeRange((NSUInteger)((NSInteger)originalRange.location + offset),
+                                              originalRange.length);
         [processed replaceCharactersInRange:adjustedRange withString:placeholder];
         offset += (NSInteger)placeholder.length - (NSInteger)originalRange.length;
     }
@@ -2542,56 +2793,72 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)insertCodeBlockWidget:(NSString *)code
                      language:(NSString *)language
                     savedPath:(nullable NSString *)savedPath {
-    // Measure where the widget should sit based on current text height
-    CGFloat textWidth    = self.chatHistoryView.frame.size.width - 32;
-    CGFloat widgetWidth  = textWidth;
-    CGFloat codeHeight   = MIN(200, MAX(60, (CGFloat)[[code componentsSeparatedByString:@"\n"] count] * 18 + 24));
+
+    CGFloat viewWidth    = self.chatHistoryView.frame.size.width;
+    CGFloat widgetWidth  = viewWidth - 32;
+    NSInteger lineCount  = [[code componentsSeparatedByString:@"\n"] count];
+    CGFloat codeHeight   = MIN(220, MAX(60, (CGFloat)lineCount * 17 + 24));
     CGFloat headerHeight = 36;
     CGFloat totalHeight  = headerHeight + codeHeight + 8;
 
-    // Get current content size to position widget after existing text
+    // ── Measure text height BEFORE adding spacer ──────────────────────────────
+    // UITextView.contentSize is unreliable immediately after text assignment.
+    // sizeThatFits: is synchronous and accurate.
     [self.chatHistoryView layoutIfNeeded];
-    CGFloat yPosition = self.chatHistoryView.contentSize.height + 4;
+    CGSize fitsSize  = [self.chatHistoryView sizeThatFits:
+                        CGSizeMake(self.chatHistoryView.frame.size.width, CGFLOAT_MAX)];
+    //UIEdgeInsets ins = self.chatHistoryView.textContainerInset;
+    // Y where we want the widget to appear
+    CGFloat yPosition = fitsSize.height + 4;
 
-    // Outer container
-    UIView *container = [[UIView alloc] initWithFrame:
-                          CGRectMake(16, yPosition, widgetWidth, totalHeight)];
-    container.backgroundColor  = [UIColor colorWithWhite:0.12 alpha:1.0];
+    // ── Append spacer newlines to reserve vertical space for the widget ───────
+    // 1 newline ≈ font.lineHeight pixels in UITextView with default settings
+    CGFloat lineH    = self.chatHistoryView.font.lineHeight;
+    NSUInteger nlines = (NSUInteger)ceil(totalHeight / lineH) + 1;
+    NSMutableString *spacer = [NSMutableString string];
+    for (NSUInteger i = 0; i < nlines; i++) [spacer appendString:@"\n"];
+    self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingString:spacer];
+    [self.chatHistoryView layoutIfNeeded];
+
+    EZLogf(EZLogLevelDebug, @"CODE",
+           @"Widget at y=%.0f fitsH=%.0f lineH=%.0f nlines=%lu totalH=%.0f",
+           yPosition, fitsSize.height, lineH, (unsigned long)nlines, totalHeight);
+
+    // ── Build widget ──────────────────────────────────────────────────────────
+    UIView *container            = [[UIView alloc] initWithFrame:
+                                     CGRectMake(16, yPosition, widgetWidth, totalHeight)];
+    container.backgroundColor    = [UIColor colorWithWhite:0.12 alpha:1.0];
     container.layer.cornerRadius = 10;
-    container.clipsToBounds    = YES;
+    container.clipsToBounds      = YES;
     container.layer.borderColor  = [UIColor colorWithWhite:0.3 alpha:1.0].CGColor;
-    container.layer.borderWidth  = 1;
+    container.layer.borderWidth  = 0.5;
+    container.tag                = 9001;
 
-    // Header bar: language label + copy button
-    UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, widgetWidth, headerHeight)];
+    UIView *header         = [[UIView alloc] initWithFrame:CGRectMake(0, 0, widgetWidth, headerHeight)];
     header.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1.0];
 
-    UILabel *langLabel = [[UILabel alloc] initWithFrame:CGRectMake(12, 0, widgetWidth - 100, headerHeight)];
-    langLabel.text      = language.length > 0
-        ? [NSString stringWithFormat:@"  %@", language.uppercaseString]
-        : @"  CODE";
-    langLabel.textColor = [UIColor colorWithRed:0.6 green:0.8 blue:1.0 alpha:1.0];
-    langLabel.font      = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightMedium];
+    UILabel *langLabel     = [[UILabel alloc] initWithFrame:
+                               CGRectMake(12, 0, widgetWidth - 100, headerHeight)];
+    langLabel.text         = language.length > 0 ? language.uppercaseString : @"CODE";
+    langLabel.textColor    = [UIColor colorWithRed:0.6 green:0.8 blue:1.0 alpha:1.0];
+    langLabel.font         = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightMedium];
     [header addSubview:langLabel];
 
-    UIButton *copyBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    copyBtn.frame     = CGRectMake(widgetWidth - 90, 4, 82, headerHeight - 8);
-    [copyBtn setTitle:@"⎘ Copy" forState:UIControlStateNormal];
-    copyBtn.tintColor = [UIColor colorWithWhite:0.75 alpha:1.0];
-    copyBtn.titleLabel.font = [UIFont systemFontOfSize:13];
-    copyBtn.layer.cornerRadius = 6;
-    copyBtn.backgroundColor = [UIColor colorWithWhite:0.28 alpha:1.0];
-    // Store code via associated object for the action
+    UIButton *copyBtn          = [UIButton buttonWithType:UIButtonTypeSystem];
+    copyBtn.frame              = CGRectMake(widgetWidth - 88, 5, 80, headerHeight - 10);
+    [copyBtn setTitle:@"\u2398 Copy" forState:UIControlStateNormal];
+    copyBtn.tintColor          = [UIColor colorWithWhite:0.8 alpha:1.0];
+    copyBtn.titleLabel.font    = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
+    copyBtn.layer.cornerRadius = 5;
+    copyBtn.backgroundColor    = [UIColor colorWithWhite:0.28 alpha:1.0];
     objc_setAssociatedObject(copyBtn, "EZCodeContent", code, OBJC_ASSOCIATION_COPY_NONATOMIC);
     [copyBtn addTarget:self action:@selector(codeBlockCopyTapped:)
       forControlEvents:UIControlEventTouchUpInside];
     [header addSubview:copyBtn];
 
-    // If we have a saved path, add a filename tap area
     if (savedPath) {
         UIButton *fileBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-        fileBtn.frame = CGRectMake(0, 0, widgetWidth - 100, headerHeight);
-        [fileBtn setTitle:@"" forState:UIControlStateNormal]; // invisible tap area over langLabel
+        fileBtn.frame     = CGRectMake(0, 0, widgetWidth - 100, headerHeight);
         objc_setAssociatedObject(fileBtn, "EZCodePath", savedPath, OBJC_ASSOCIATION_COPY_NONATOMIC);
         [fileBtn addTarget:self action:@selector(codeBlockFileTapped:)
           forControlEvents:UIControlEventTouchUpInside];
@@ -2599,36 +2866,26 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
     [container addSubview:header];
 
-    // Code text view (read-only, scrollable if tall)
-    UITextView *codeView = [[UITextView alloc] initWithFrame:
-                             CGRectMake(0, headerHeight, widgetWidth, codeHeight + 8)];
-    codeView.text            = code;
-    codeView.editable        = NO;
-    codeView.selectable      = YES;
-    codeView.backgroundColor = [UIColor clearColor];
-    codeView.textColor       = [UIColor colorWithRed:0.85 green:0.95 blue:0.85 alpha:1.0];
-    codeView.font            = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
-    codeView.textContainerInset = UIEdgeInsetsMake(8, 10, 8, 10);
+    UITextView *codeView                  = [[UITextView alloc] initWithFrame:
+                                              CGRectMake(0, headerHeight, widgetWidth, codeHeight + 8)];
+    codeView.text                         = code;
+    codeView.editable                     = NO;
+    codeView.selectable                   = YES;
+    codeView.backgroundColor              = [UIColor clearColor];
+    codeView.textColor                    = [UIColor colorWithRed:0.85 green:0.95 blue:0.85 alpha:1.0];
+    codeView.font                         = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
+    codeView.textContainerInset           = UIEdgeInsetsMake(8, 10, 8, 10);
+    codeView.showsVerticalScrollIndicator = YES;
     [container addSubview:codeView];
 
-    // Add to chatHistoryView's scroll view so it stays anchored
     [self.chatHistoryView addSubview:container];
-
-    // Expand the chatHistoryView content size to accommodate the widget
-    CGSize newSize = CGSizeMake(self.chatHistoryView.contentSize.width,
-                                yPosition + totalHeight + 12);
-    self.chatHistoryView.contentSize = newSize;
-
-    // Add placeholder whitespace in the text so future appends don't overlap
-    NSString *spacer = [@"\n" stringByPaddingToLength:(NSUInteger)(totalHeight / 14) + 2
-                                           withString:@"\n"
-                                      startingAtIndex:0];
-    self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingString:spacer];
-
     [self scrollChatToBottom];
-    EZLogf(EZLogLevelInfo, @"CODE", @"Widget inserted: %@ (%lu lines)",
-           language, (unsigned long)[[code componentsSeparatedByString:@"\n"] count]);
+
+    EZLogf(EZLogLevelInfo, @"CODE", @"Widget inserted: %@ (%lu lines) at y=%.0f",
+           language, (unsigned long)lineCount, yPosition);
 }
+
+
 
 - (void)codeBlockCopyTapped:(UIButton *)sender {
     NSString *code = objc_getAssociatedObject(sender, "EZCodeContent");

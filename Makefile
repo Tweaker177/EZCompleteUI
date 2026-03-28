@@ -1,6 +1,5 @@
 export TARGET := iphone:clang:latest:15.0
 export ARCHS = arm64 arm64e
-INSTALL_TARGET_PROCESSES = EZCompleteUI
 export FINALPACKAGE = 1
 export THEOS_PACKAGE_SCHEME = rootless
 
@@ -9,7 +8,7 @@ include $(THEOS)/makefiles/common.mk
 APPLICATION_NAME = EZCompleteUI
 
 EZCompleteUI_FILES = main.m AppDelegate.m ViewController.m helpers.m \
-                     ChatHistoryViewController.m SettingsViewController.m
+                     ChatHistoryViewController.m SettingsViewController.m MemoriesViewController.m 
 
 EZCompleteUI_FRAMEWORKS = UIKit Foundation AVFoundation Speech QuickLook \
                           UniformTypeIdentifiers PDFKit

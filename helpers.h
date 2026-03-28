@@ -192,4 +192,16 @@ NSString * _Nullable EZAttachmentPath(NSString *savedFileName);
 
 NSString *EZHelperStats(void);
 
+/// Make a single synchronous call to the helper model (gpt-4.1-nano).
+/// Returns the response text or nil on failure.
+/// MUST be called on a background thread.
+/// @param systemPrompt  The system message
+/// @param userMessage   The user message
+/// @param apiKey        OpenAI API key
+/// @param maxTokens     Max tokens in response (keep small for classification tasks)
+NSString * _Nullable EZCallHelperModel(NSString *systemPrompt,
+                                       NSString *userMessage,
+                                       NSString *apiKey,
+                                       NSInteger maxTokens);
+
 NS_ASSUME_NONNULL_END

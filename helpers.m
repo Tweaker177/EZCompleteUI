@@ -1277,6 +1277,14 @@ NSString *_Nullable EZAttachmentPath(NSString *savedFileName) {
 // MARK: - 6. Stats
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Public wrapper around _callHelperModelSync for callers outside helpers.m
+NSString *_Nullable EZCallHelperModel(NSString *systemPrompt,
+                                       NSString *userMessage,
+                                       NSString *apiKey,
+                                       NSInteger maxTokens) {
+    return _callHelperModelSync(systemPrompt, userMessage, apiKey, maxTokens);
+}
+
 NSString *EZHelperStats(void) {
     NSMutableString *report = [NSMutableString stringWithString:@"=== EZCompleteUI Stats ===\n\n"];
 
