@@ -2,53 +2,67 @@
 // EZCompleteUI
 //
 // All app settings plus ElevenLabs voice cloning.
-// Extracted from ViewController.m to keep file sizes manageable.
+// API keys are stored encrypted via EZKeyVault (AES-256-GCM, Keychain-backed).
+// Keys are masked after entry — the plaintext is never shown again.
 
 #import "SettingsViewController.h"
 #import "MemoriesViewController.h"
+#import "EZKeyVault.h"
 #import "helpers.h"
 #import <objc/runtime.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
-static const void * kEZCloneNameKey    = &kEZCloneNameKey;
+static const void * kEZCloneNameKey     = &kEZCloneNameKey;
 static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
+
+// Placeholder shown in a key field once a key has been saved
+static NSString * const kAPIKeyMaskedPlaceholder    = @"API key saved — tap to replace";
+static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to replace";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Private interface
 // ─────────────────────────────────────────────────────────────────────────────
 
-@interface SettingsViewController () <UITextFieldDelegate, UIDocumentPickerDelegate>
+@interface SettingsViewController () <UITextFieldDelegate, UITextViewDelegate, UIDocumentPickerDelegate>
 
 // ── Scroll container ──────────────────────────────────────────────────────────
 @property (nonatomic, strong) UIScrollView *scrollView;
 
 // ── OpenAI fields ─────────────────────────────────────────────────────────────
-@property (nonatomic, strong) UITextField *apiKeyField;
-@property (nonatomic, strong) UITextField *systemMsgField;
-@property (nonatomic, strong) UISlider    *tempSlider;
-@property (nonatomic, strong) UISlider    *freqSlider;
-@property (nonatomic, strong) UILabel     *tempLabel;
-@property (nonatomic, strong) UILabel     *freqLabel;
+/// Text field used for key entry. Shows masked placeholder when key is saved.
+@property (nonatomic, strong) UITextField  *apiKeyField;
+/// YES while the field is in "masked" state (key exists, not being edited)
+@property (nonatomic, assign) BOOL          apiKeyMasked;
+
+// ── System prompt (inline multi-line UITextView) ───────────────────────────
+@property (nonatomic, strong) UITextView   *systemMsgView;
+/// Height constraint we update as the text view grows
+@property (nonatomic, assign) CGFloat       systemMsgViewHeight;
+
+// ── Sliders ───────────────────────────────────────────────────────────────────
+@property (nonatomic, strong) UISlider     *tempSlider;
+@property (nonatomic, strong) UISlider     *freqSlider;
+@property (nonatomic, strong) UILabel      *tempLabel;
+@property (nonatomic, strong) UILabel      *freqLabel;
 
 // ── Web search ────────────────────────────────────────────────────────────────
-@property (nonatomic, strong) UITextField *webLocationField;
-@property (nonatomic, strong) UISwitch    *webSearchSwitch;
+@property (nonatomic, strong) UITextField  *webLocationField;
+@property (nonatomic, strong) UISwitch     *webSearchSwitch;
 
 // ── ElevenLabs TTS ────────────────────────────────────────────────────────────
-@property (nonatomic, strong) UITextField *elKeyField;
-@property (nonatomic, strong) UITextField *elVoiceField;
+@property (nonatomic, strong) UITextField  *elKeyField;
+@property (nonatomic, assign) BOOL          elKeyMasked;
+@property (nonatomic, strong) UITextField  *elVoiceField;
 
 // ── ElevenLabs Voice Cloning ──────────────────────────────────────────────────
-/// Array of NSDictionary: @{@"voice_id": ..., @"name": ...}
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *clonedVoices;
-/// Label that shows status messages during clone create/delete operations
-@property (nonatomic, strong) UILabel *cloneStatusLabel;
+@property (nonatomic, strong) UILabel      *cloneStatusLabel;
 
 // ── Sora video ────────────────────────────────────────────────────────────────
-@property (nonatomic, strong) UITextField *soraModelField;
-@property (nonatomic, strong) UITextField *soraSizeField;
-@property (nonatomic, strong) UISlider    *soraDurationSlider;
-@property (nonatomic, strong) UILabel     *soraDurationLabel;
+@property (nonatomic, strong) UITextField  *soraModelField;
+@property (nonatomic, strong) UITextField  *soraSizeField;
+@property (nonatomic, strong) UISlider     *soraDurationSlider;
+@property (nonatomic, strong) UILabel      *soraDurationLabel;
 
 @end
 
@@ -81,11 +95,21 @@ static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
     [nc addObserver:self selector:@selector(keyboardShow:)
                name:UIKeyboardWillChangeFrameNotification object:nil];
 
+    // Dismiss keyboard on tap outside text inputs
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(dismissKeyboard)];
+    tap.cancelsTouchesInView = NO;
+    [self.scrollView addGestureRecognizer:tap];
+
     EZLog(EZLogLevelInfo, @"SETTINGS", @"Settings opened");
 }
 
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)dismissKeyboard {
+    [self.view endEditing:YES];
 }
 
 
@@ -112,6 +136,38 @@ static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MARK: - API Key field masking
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Called when the user taps an API key field that is currently masked.
+- (void)apiKeyFieldTapped:(UITapGestureRecognizer *)tap {
+    UITextField *field = (UITextField *)tap.view;
+    if (field == self.apiKeyField && self.apiKeyMasked) {
+        [self unmaskKeyField:field maskedFlag:&_apiKeyMasked];
+    } else if (field == self.elKeyField && self.elKeyMasked) {
+        [self unmaskKeyField:field maskedFlag:&_elKeyMasked];
+    }
+}
+
+- (void)unmaskKeyField:(UITextField *)field maskedFlag:(BOOL *)flag {
+    *flag = NO;
+    field.text                  = @"";
+    field.placeholder           = @"Enter new key";
+    field.textColor             = [UIColor labelColor];
+    field.backgroundColor       = [UIColor systemBackgroundColor];
+    field.layer.borderWidth     = 0;
+    [field becomeFirstResponder];
+}
+
+/// Renders a field in masked/saved state (no text shown, styled differently)
+- (void)maskKeyField:(UITextField *)field placeholder:(NSString *)placeholder {
+    field.text            = @"";
+    field.placeholder     = placeholder;
+    field.textColor       = [UIColor secondaryLabelColor];
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MARK: - UI Setup
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -126,10 +182,39 @@ static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
     // ── OpenAI ───────────────────────────────────────────────────────────────
     [self addSection:@"🤖 OpenAI" y:&y];
     [self addLabel:@"API Key:" y:&y];
-    self.apiKeyField = [self addField:w y:&y placeholder:@"sk-..."];
+
+    // API key field — tappable when masked
+    self.apiKeyField = [[UITextField alloc] initWithFrame:CGRectMake(20, y, w, 40)];
+    self.apiKeyField.borderStyle   = UITextBorderStyleRoundedRect;
+    self.apiKeyField.placeholder   = @"sk-...";
+    self.apiKeyField.delegate      = self;
+    self.apiKeyField.returnKeyType = UIReturnKeyDone;
+    self.apiKeyField.font          = [UIFont systemFontOfSize:14];
+    self.apiKeyField.secureTextEntry = YES;
+    UITapGestureRecognizer *apiTap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(apiKeyFieldTapped:)];
+    [self.apiKeyField addGestureRecognizer:apiTap];
+    [self.scrollView addSubview:self.apiKeyField];
+    y += 50;
+
+    // ── System Prompt (inline multi-line UITextView) ──────────────────────
     [self addLabel:@"System Message:" y:&y];
-    self.systemMsgField = [self addField:w y:&y
-                              placeholder:@"e.g. You are a helpful assistant"];
+
+    CGFloat minTextViewHeight = 80.0; // ~3 lines
+    self.systemMsgView = [[UITextView alloc] initWithFrame:CGRectMake(20, y, w, minTextViewHeight)];
+    self.systemMsgView.font          = [UIFont systemFontOfSize:14];
+    self.systemMsgView.delegate      = self;
+    self.systemMsgView.layer.cornerRadius  = 8;
+    self.systemMsgView.layer.borderWidth   = 1.0;
+    self.systemMsgView.layer.borderColor   = [UIColor systemGray4Color].CGColor;
+    self.systemMsgView.backgroundColor     = [UIColor secondarySystemBackgroundColor];
+    self.systemMsgView.textContainerInset  = UIEdgeInsetsMake(8, 6, 8, 6);
+    self.systemMsgView.scrollEnabled       = NO; // We resize instead of scrolling
+    self.systemMsgViewHeight               = minTextViewHeight;
+    [self.scrollView addSubview:self.systemMsgView];
+    y += minTextViewHeight + 10;
+
+    // ── Sliders ───────────────────────────────────────────────────────────
     self.tempLabel  = [self addLabel:@"Temperature: 0.70" y:&y];
     self.tempSlider = [self addSlider:w y:&y min:0 max:2];
     self.freqLabel  = [self addLabel:@"Freq Penalty: 0.00" y:&y];
@@ -146,7 +231,21 @@ static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
     // ── ElevenLabs TTS ───────────────────────────────────────────────────────
     [self addSection:@"🎙 ElevenLabs TTS" y:&y];
     [self addLabel:@"API Key:" y:&y];
-    self.elKeyField = [self addField:w y:&y placeholder:@"ElevenLabs API key"];
+
+    // ElevenLabs key field — same masking treatment
+    self.elKeyField = [[UITextField alloc] initWithFrame:CGRectMake(20, y, w, 40)];
+    self.elKeyField.borderStyle   = UITextBorderStyleRoundedRect;
+    self.elKeyField.placeholder   = @"ElevenLabs API key";
+    self.elKeyField.delegate      = self;
+    self.elKeyField.returnKeyType = UIReturnKeyDone;
+    self.elKeyField.font          = [UIFont systemFontOfSize:14];
+    self.elKeyField.secureTextEntry = YES;
+    UITapGestureRecognizer *elTap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(apiKeyFieldTapped:)];
+    [self.elKeyField addGestureRecognizer:elTap];
+    [self.scrollView addSubview:self.elKeyField];
+    y += 50;
+
     [self addLabel:@"Voice ID (preset or cloned):" y:&y];
     self.elVoiceField = [self addField:w - 95 y:&y placeholder:@"Voice ID"];
 
@@ -208,7 +307,6 @@ static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
     // ── AI Memory ────────────────────────────────────────────────────────────
     [self addSection:@"🧠 AI Memory" y:&y];
     y += 8;
-    // "View / Edit Memories" sits above "Clear All Memories"
     [self addButton:@"📖 View / Edit Memories"
               color:[UIColor systemGreenColor]
              action:@selector(openMemoriesViewer)
@@ -231,48 +329,93 @@ static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+// MARK: - UITextViewDelegate (system prompt auto-expand)
+// ─────────────────────────────────────────────────────────────────────────────
+
+- (void)textViewDidChange:(UITextView *)textView {
+    if (textView != self.systemMsgView) return;
+    [self resizeSystemMsgView];
+}
+
+- (void)resizeSystemMsgView {
+    CGFloat w = self.view.frame.size.width - 40;
+    CGFloat minH = 80.0;
+
+    // Calculate the height needed to show all text
+    CGSize sizeThatFits = [self.systemMsgView sizeThatFits:CGSizeMake(w, CGFLOAT_MAX)];
+    CGFloat newH = MAX(minH, sizeThatFits.height);
+
+    if (ABS(newH - self.systemMsgViewHeight) < 1.0) return; // No meaningful change
+
+    CGFloat delta = newH - self.systemMsgViewHeight;
+    self.systemMsgViewHeight = newH;
+
+    // Resize the text view frame
+    CGRect tvFrame = self.systemMsgView.frame;
+    tvFrame.size.height = newH;
+    self.systemMsgView.frame = tvFrame;
+
+    // Shift every subview below the text view down by delta
+    CGFloat tvBottom = CGRectGetMaxY(tvFrame);
+    for (UIView *sub in self.scrollView.subviews) {
+        if (sub == self.systemMsgView) continue;
+        if (sub.frame.origin.y >= tvBottom - delta - 1) {
+            CGRect f  = sub.frame;
+            f.origin.y += delta;
+            sub.frame  = f;
+        }
+    }
+
+    // Expand the scroll content
+    CGSize cs = self.scrollView.contentSize;
+    cs.height += delta;
+    self.scrollView.contentSize = cs;
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MARK: - UI Helper Methods
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)addSection:(NSString *)title y:(CGFloat *)y {
     *y += 10;
-    UILabel *label       = [[UILabel alloc] initWithFrame:
-                            CGRectMake(20, *y, self.view.frame.size.width - 40, 28)];
-    label.text           = title;
-    label.font           = [UIFont boldSystemFontOfSize:15];
-    label.textColor      = [UIColor systemBlueColor];
+    UILabel *label      = [[UILabel alloc] initWithFrame:
+                           CGRectMake(20, *y, self.view.frame.size.width - 40, 28)];
+    label.text          = title;
+    label.font          = [UIFont boldSystemFontOfSize:15];
+    label.textColor     = [UIColor systemBlueColor];
     [self.scrollView addSubview:label];
     *y += 34;
 }
 
 - (UILabel *)addLabel:(NSString *)text y:(CGFloat *)y {
-    UILabel *label       = [[UILabel alloc] initWithFrame:
-                            CGRectMake(20, *y, self.view.frame.size.width - 40, 20)];
-    label.text           = text;
-    label.font           = [UIFont systemFontOfSize:13];
-    label.textColor      = [UIColor secondaryLabelColor];
-    label.numberOfLines  = 0;
+    UILabel *label      = [[UILabel alloc] initWithFrame:
+                           CGRectMake(20, *y, self.view.frame.size.width - 40, 20)];
+    label.text          = text;
+    label.font          = [UIFont systemFontOfSize:13];
+    label.textColor     = [UIColor secondaryLabelColor];
+    label.numberOfLines = 0;
     [self.scrollView addSubview:label];
     *y += 22;
     return label;
 }
 
 - (UITextField *)addField:(CGFloat)width y:(CGFloat *)y placeholder:(NSString *)placeholder {
-    UITextField *field   = [[UITextField alloc] initWithFrame:CGRectMake(20, *y, width, 40)];
-    field.borderStyle    = UITextBorderStyleRoundedRect;
-    field.placeholder    = placeholder;
-    field.delegate       = self;
-    field.returnKeyType  = UIReturnKeyDone;
-    field.font           = [UIFont systemFontOfSize:14];
+    UITextField *field  = [[UITextField alloc] initWithFrame:CGRectMake(20, *y, width, 40)];
+    field.borderStyle   = UITextBorderStyleRoundedRect;
+    field.placeholder   = placeholder;
+    field.delegate      = self;
+    field.returnKeyType = UIReturnKeyDone;
+    field.font          = [UIFont systemFontOfSize:14];
     [self.scrollView addSubview:field];
     *y += 50;
     return field;
 }
 
 - (UISlider *)addSlider:(CGFloat)width y:(CGFloat *)y min:(float)minVal max:(float)maxVal {
-    UISlider *slider     = [[UISlider alloc] initWithFrame:CGRectMake(20, *y, width, 30)];
-    slider.minimumValue  = minVal;
-    slider.maximumValue  = maxVal;
+    UISlider *slider    = [[UISlider alloc] initWithFrame:CGRectMake(20, *y, width, 30)];
+    slider.minimumValue = minVal;
+    slider.maximumValue = maxVal;
     [slider addTarget:self action:@selector(updateLabels)
      forControlEvents:UIControlEventValueChanged];
     [self.scrollView addSubview:slider];
@@ -282,11 +425,11 @@ static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
 
 - (void)addButton:(NSString *)title color:(UIColor *)color action:(SEL)action
                 y:(CGFloat *)y w:(CGFloat)width {
-    UIButton *button           = [UIButton buttonWithType:UIButtonTypeSystem];
-    button.frame               = CGRectMake(20, *y, width, 44);
-    button.backgroundColor     = color;
-    button.tintColor           = [UIColor whiteColor];
-    button.layer.cornerRadius  = 10;
+    UIButton *button          = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.frame              = CGRectMake(20, *y, width, 44);
+    button.backgroundColor    = color;
+    button.tintColor          = [UIColor whiteColor];
+    button.layer.cornerRadius = 10;
     [button setTitle:title forState:UIControlStateNormal];
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:button];
@@ -299,9 +442,9 @@ static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
 }
 
 - (void)updateVideoLabels {
-    NSString *model  = self.soraModelField.text ?: @"sora-2";
-    BOOL      isPro  = [model isEqualToString:@"sora-2-pro"];
-    NSInteger raw    = (NSInteger)self.soraDurationSlider.value;
+    NSString *model = self.soraModelField.text ?: @"sora-2";
+    BOOL      isPro = [model isEqualToString:@"sora-2-pro"];
+    NSInteger raw   = (NSInteger)self.soraDurationSlider.value;
 
     NSArray<NSNumber *> *validDurations = isPro
         ? @[@5, @10, @15, @20]
@@ -371,12 +514,21 @@ static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
 // MARK: - ElevenLabs Voice Fetching
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Returns the current ElevenLabs key — from vault if masked, from field if being edited.
+- (NSString *)resolvedElevenLabsKey {
+    if (self.elKeyMasked) {
+        return [EZKeyVault loadKeyForIdentifier:EZVaultKeyElevenLabs] ?: @"";
+    }
+    return self.elKeyField.text ?: @"";
+}
+
 - (void)fetchVoices {
-    if (self.elKeyField.text.length == 0) return;
+    NSString *key = [self resolvedElevenLabsKey];
+    if (key.length == 0) return;
 
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:
         [NSURL URLWithString:@"https://api.elevenlabs.io/v1/voices"]];
-    [request setValue:self.elKeyField.text forHTTPHeaderField:@"xi-api-key"];
+    [request setValue:key forHTTPHeaderField:@"xi-api-key"];
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:request
         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
@@ -407,7 +559,8 @@ static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)createInstantClone {
-    if (self.elKeyField.text.length == 0) {
+    NSString *key = [self resolvedElevenLabsKey];
+    if (key.length == 0) {
         [self showAlert:@"ElevenLabs Key Required"
                 message:@"Enter your ElevenLabs API key before creating a voice clone."];
         return;
@@ -472,7 +625,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         return;
     }
 
-    NSString *elKey    = self.elKeyField.text;
+    NSString *elKey    = [self resolvedElevenLabsKey];
     NSString *boundary = [NSString stringWithFormat:@"Boundary-%@", [[NSUUID UUID] UUIDString]];
 
     NSURL *cloneURL = [NSURL URLWithString:@"https://api.elevenlabs.io/v1/voices/add"];
@@ -493,7 +646,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [body appendData:[@"Created via EZCompleteUI" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"files\"; filename=\"%@\"\r\n", fileURL.lastPathComponent] dataUsingEncoding:NSUTF8StringEncoding]];
+    [body appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"files\"; filename=\"%@\"\r\n",
+                       fileURL.lastPathComponent] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Type: audio/mpeg\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:audioData];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
@@ -506,11 +660,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [self updateCloneStatus:@"Upload failed — check your connection."];
             return;
         }
-
         NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
         NSString *voiceID  = json[@"voice_id"];
 
-        // BUGFIX: Handle potential NSArray in 'detail' response
         id detailObj = json[@"detail"];
         NSString *errorMsg = @"";
         if ([detailObj isKindOfClass:[NSString class]]) {
@@ -547,7 +699,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)showClonedVoices {
-    if (self.elKeyField.text.length == 0) {
+    NSString *key = [self resolvedElevenLabsKey];
+    if (key.length == 0) {
         [self showAlert:@"ElevenLabs Key Required" message:@"Enter your ElevenLabs API key first."];
         return;
     }
@@ -555,7 +708,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self updateCloneStatus:@"Loading cloned voices..."];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:
         [NSURL URLWithString:@"https://api.elevenlabs.io/v1/voices"]];
-    [request setValue:self.elKeyField.text forHTTPHeaderField:@"xi-api-key"];
+    [request setValue:key forHTTPHeaderField:@"xi-api-key"];
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:request
         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
@@ -580,12 +733,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                         message:@"You haven't created any voice clones yet."];
                 return;
             }
-
             UIAlertController *sheet = [UIAlertController
                 alertControllerWithTitle:@"My Cloned Voices"
                                  message:@"Tap a voice to select it, or swipe to delete."
                           preferredStyle:UIAlertControllerStyleActionSheet];
-
             for (NSDictionary *v in cloned) {
                 [sheet addAction:[UIAlertAction actionWithTitle:v[@"name"]
                                                           style:UIAlertActionStyleDefault
@@ -605,14 +756,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }] resume];
 }
 
-// ── Voice Deletion Logic ─────────────────────────────────────────────────────
-
 - (void)showDeleteCloneSheet:(NSArray<NSDictionary *> *)voices {
     UIAlertController *sheet = [UIAlertController
         alertControllerWithTitle:@"Delete Voice Clone"
                          message:@"This permanently deletes the voice from ElevenLabs."
                   preferredStyle:UIAlertControllerStyleActionSheet];
-
     for (NSDictionary *voice in voices) {
         NSString *name    = voice[@"name"] ?: @"Unnamed";
         NSString *voiceID = voice[@"voice_id"];
@@ -632,7 +780,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         alertControllerWithTitle:[NSString stringWithFormat:@"Delete \"%@\"?", voiceName]
                          message:@"This cannot be undone."
                   preferredStyle:UIAlertControllerStyleAlert];
-
     [confirm addAction:[UIAlertAction actionWithTitle:@"Delete"
                                                style:UIAlertActionStyleDestructive
                                              handler:^(UIAlertAction *a) {
@@ -647,7 +794,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSString *urlString = [NSString stringWithFormat:@"https://api.elevenlabs.io/v1/voices/%@", voiceID];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString]];
     request.HTTPMethod = @"DELETE";
-    [request setValue:self.elKeyField.text forHTTPHeaderField:@"xi-api-key"];
+    [request setValue:[self resolvedElevenLabsKey] forHTTPHeaderField:@"xi-api-key"];
 
     EZLogf(EZLogLevelInfo, @"SETTINGS", @"Deleting voice: %@ (%@)", voiceName, voiceID);
     [self updateCloneStatus:[NSString stringWithFormat:@"Deleting %@...", voiceName]];
@@ -729,37 +876,92 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)loadSettings {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    self.apiKeyField.text          = [defaults stringForKey:@"apiKey"];
-    self.systemMsgField.text       = [defaults stringForKey:@"systemMessage"];
-    self.tempSlider.value          = [defaults floatForKey:@"temperature"]  ?: 0.7;
+
+    // ── OpenAI key — load from vault, never show plaintext ───────────────────
+    if ([EZKeyVault hasKeyForIdentifier:EZVaultKeyOpenAI]) {
+        self.apiKeyMasked = YES;
+        [self maskKeyField:self.apiKeyField placeholder:kAPIKeyMaskedPlaceholder];
+    } else {
+        // Migrate from UserDefaults if present (one-time upgrade path)
+        NSString *legacyKey = [defaults stringForKey:@"apiKey"];
+        if (legacyKey.length > 0) {
+            [EZKeyVault saveKey:legacyKey forIdentifier:EZVaultKeyOpenAI];
+            [defaults removeObjectForKey:@"apiKey"];
+            [defaults synchronize];
+            self.apiKeyMasked = YES;
+            [self maskKeyField:self.apiKeyField placeholder:kAPIKeyMaskedPlaceholder];
+        }
+        // else: field stays blank for first-time entry
+    }
+
+    // ── ElevenLabs key — same treatment ──────────────────────────────────────
+    if ([EZKeyVault hasKeyForIdentifier:EZVaultKeyElevenLabs]) {
+        self.elKeyMasked = YES;
+        [self maskKeyField:self.elKeyField placeholder:kELKeyMaskedPlaceholder];
+    } else {
+        NSString *legacyElKey = [defaults stringForKey:@"elevenKey"];
+        if (legacyElKey.length > 0) {
+            [EZKeyVault saveKey:legacyElKey forIdentifier:EZVaultKeyElevenLabs];
+            [defaults removeObjectForKey:@"elevenKey"];
+            [defaults synchronize];
+            self.elKeyMasked = YES;
+            [self maskKeyField:self.elKeyField placeholder:kELKeyMaskedPlaceholder];
+        }
+    }
+
+    // ── Non-sensitive settings stay in UserDefaults ───────────────────────────
+    self.systemMsgView.text        = [defaults stringForKey:@"systemMessage"] ?: @"";
+    self.tempSlider.value          = [defaults floatForKey:@"temperature"] ?: 0.7f;
     self.freqSlider.value          = [defaults floatForKey:@"frequency"];
-    self.elKeyField.text           = [defaults stringForKey:@"elevenKey"];
     self.elVoiceField.text         = [defaults stringForKey:@"elevenVoiceID"];
     self.webSearchSwitch.on        = [defaults boolForKey:@"webSearchEnabled"];
     self.webLocationField.text     = [defaults stringForKey:@"webSearchLocation"];
     self.soraModelField.text       = [defaults stringForKey:@"soraModel"]    ?: @"sora-2";
     self.soraSizeField.text        = [defaults stringForKey:@"soraSize"]     ?: @"1280x720";
     self.soraDurationSlider.value  = (float)([defaults integerForKey:@"soraDuration"] ?: 4);
+
     [self updateLabels];
     [self updateVideoLabels];
+
+    // Resize system prompt text view to fit loaded content
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self resizeSystemMsgView];
+    });
 }
 
 - (void)saveAndClose {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setObject:self.apiKeyField.text       forKey:@"apiKey"];
-    [defaults setObject:self.systemMsgField.text    forKey:@"systemMessage"];
-    [defaults setFloat:self.tempSlider.value        forKey:@"temperature"];
-    [defaults setFloat:self.freqSlider.value        forKey:@"frequency"];
-    [defaults setObject:self.elKeyField.text        forKey:@"elevenKey"];
-    [defaults setObject:self.elVoiceField.text      forKey:@"elevenVoiceID"];
-    [defaults setBool:self.webSearchSwitch.isOn     forKey:@"webSearchEnabled"];
-    [defaults setObject:self.webLocationField.text  forKey:@"webSearchLocation"];
-    [defaults setObject:self.soraModelField.text    forKey:@"soraModel"];
-    [defaults setObject:self.soraSizeField.text     forKey:@"soraSize"];
+
+    // ── OpenAI key: only save to vault if the user actually typed a new one ───
+    if (!self.apiKeyMasked && self.apiKeyField.text.length > 0) {
+        [EZKeyVault saveKey:self.apiKeyField.text forIdentifier:EZVaultKeyOpenAI];
+    }
+
+    // ── ElevenLabs key: same logic ────────────────────────────────────────────
+    if (!self.elKeyMasked && self.elKeyField.text.length > 0) {
+        [EZKeyVault saveKey:self.elKeyField.text forIdentifier:EZVaultKeyElevenLabs];
+    }
+
+    // ── Non-sensitive settings ────────────────────────────────────────────────
+    [defaults setObject:self.systemMsgView.text      forKey:@"systemMessage"];
+    [defaults setFloat:self.tempSlider.value         forKey:@"temperature"];
+    [defaults setFloat:self.freqSlider.value         forKey:@"frequency"];
+    [defaults setObject:self.elVoiceField.text       forKey:@"elevenVoiceID"];
+    [defaults setBool:self.webSearchSwitch.isOn      forKey:@"webSearchEnabled"];
+    [defaults setObject:self.webLocationField.text   forKey:@"webSearchLocation"];
+    [defaults setObject:self.soraModelField.text     forKey:@"soraModel"];
+    [defaults setObject:self.soraSizeField.text      forKey:@"soraSize"];
     [defaults setInteger:(NSInteger)self.soraDurationSlider.value forKey:@"soraDuration"];
     [defaults synchronize];
+
+    EZLog(EZLogLevelInfo, @"SETTINGS", @"Settings saved");
     [self dismissViewControllerAnimated:YES completion:nil];
 }
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Utility
+// ─────────────────────────────────────────────────────────────────────────────
 
 - (void)showAlert:(NSString *)title message:(NSString *)message {
     dispatch_async(dispatch_get_main_queue(), ^{

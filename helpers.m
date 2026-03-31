@@ -397,15 +397,24 @@ void analyzePromptForContext(NSString *userPrompt,
         NSString *memoryContextForClassifier = (memoryContext.length > 0)
             ? memoryContext : @"(none)";
 
+        // IMPORTANT: Pass the raw userPrompt to the classifier, NOT the file-enriched version.
+        // The classifier only needs to know what the user asked, not the full file contents.
+        // Truncate memory to prevent token blowout with large memory logs.
+        NSString *truncatedMemory = memoryContextForClassifier.length > 3000
+            ? [[memoryContextForClassifier substringToIndex:3000] stringByAppendingString:@"\n[...truncated]"]
+            : memoryContextForClassifier;
+
         NSString *systemPrompt =
             @"You are a routing classifier for an AI chatbot. Analyze the user prompt and return ONLY valid JSON, no markdown.\n\n"
+            @"IMPORTANT: The 'Memory entries' section below contains PAST conversation summaries — "
+            @"they are provided as context, NOT as part of the user's current question.\n\n"
             @"TIERS:\n"
             @"  SIMPLE        — greeting, basic fact, simple math, short task; answer with high confidence\n"
-            @"  COMPLEX       — multi-step, coding, creative writing, explanation\n"
-            @"  NEEDS_CONTEXT — references prior conversation, earlier results, or user preferences;\n"
-            @"                  the memory summaries provided are sufficient to answer\n"
-            @"  NEEDS_HISTORY — like NEEDS_CONTEXT but the memory summary is NOT enough;\n"
-            @"                  the full original chat turns must be loaded from disk\n\n"
+            @"  COMPLEX       — multi-step, coding, creative writing, explanation; no prior context needed\n"
+            @"  NEEDS_CONTEXT — user references something from a prior conversation; memory summaries are enough\n"
+            @"  NEEDS_HISTORY — references prior conversation BUT summaries lack enough detail; full chat turns needed\n\n"
+            @"If the user is asking about an ATTACHED FILE that was just added to context this session, "
+            @"classify as COMPLEX (the file content is already in the conversation — no memory needed).\n\n"
             @"Return this JSON with no extra text:\n"
             @"{\n"
             @"  \"classification\": \"SIMPLE\" | \"COMPLEX\" | \"NEEDS_CONTEXT\" | \"NEEDS_HISTORY\",\n"
@@ -417,8 +426,8 @@ void analyzePromptForContext(NSString *userPrompt,
             @"}";
 
         NSString *userMessage = [NSString stringWithFormat:
-            @"User prompt: \"%@\"\n\nMemory entries available:\n%@",
-            userPrompt, memoryContextForClassifier];
+            @"Current user prompt: \"%@\"\n\n--- Past memory entries (context only, not part of user's question) ---\n%@",
+            userPrompt, truncatedMemory];
 
         // Call the helper model synchronously (we're already on a background thread)
         NSString *rawResponse = _callHelperModelSync(systemPrompt, userMessage, apiKey, 400);
@@ -720,21 +729,27 @@ void createMemoryFromCompletion(NSString *userPrompt,
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
 
-        // Build a description of any attachments so the summarizer mentions them.
-        // The file name alone is usually enough — "resume_john.pdf", "IMG_1750.jpeg" etc.
+        // Build full path info for attachments — store FULL paths not just filenames
+        // so the model can provide the exact path when asked
         NSMutableString *attachmentContext = [NSMutableString string];
         NSMutableArray<NSString *> *validPaths = [NSMutableArray array];
         for (NSString *path in attachmentPaths) {
             if (!path.length) continue;
             [validPaths addObject:path];
-            [attachmentContext appendFormat:@" [attached: %@]", path.lastPathComponent];
+            // Store the full path in the attachment context so it ends up in the summary
+            [attachmentContext appendFormat:@" [file: %@ full_path=%@]",
+             path.lastPathComponent, path];
         }
 
         NSString *systemPrompt =
-            @"You are a memory summarizer for an AI chat app. Write ONE concise sentence "
-             "(max 80 words) summarizing what was asked and answered. "
-             "If a file or image was attached, mention its name and what was done with it. "
-             "If an image or video was generated, say so. "
+            @"You are a memory indexer for an AI chat app. Write ONE factual sentence (max 100 words) "
+             "describing exactly what was asked and answered. Rules:\n"
+             "1. Keep the SAME specific words, names, file names, paths, and technical terms — do NOT paraphrase or generalize.\n"
+             "2. If a file path is provided (full_path=...) include the COMPLETE path verbatim in the summary.\n"
+             "3. If an image was generated or edited, include the output filename and full path.\n"
+             "4. Never say 'the user expressed frustration' — say what they actually asked.\n"
+             "5. Never say 'the assistant explained it cannot...' — say what the assistant actually did or provided.\n"
+             "6. Be specific: 'user asked for lyrics to Give Me Love by Ed Sheeran' not 'user asked about a song'.\n"
              "Only the summary sentence, no labels or preamble.";
 
         // Truncate long replies to avoid burning too many tokens on the summarizer
@@ -742,11 +757,11 @@ void createMemoryFromCompletion(NSString *userPrompt,
             ? [assistantReply substringToIndex:1200]
             : assistantReply;
 
-        // Include attachment context in the content so the summarizer knows about files
+        // Include FULL attachment paths in the content so they appear in the summary
         NSString *contentToSummarize = [NSString stringWithFormat:
             @"USER ASKED:\n%@%@\n\nASSISTANT REPLIED:\n%@",
             userPrompt,
-            attachmentContext.length > 0 ? attachmentContext : @"",
+            attachmentContext.length > 0 ? [NSString stringWithFormat:@"\nAttachments: %@", attachmentContext] : @"",
             truncatedReply];
 
         NSString *summary = _callHelperModelSync(systemPrompt, contentToSummarize, apiKey, 150);
@@ -945,9 +960,13 @@ NSString *EZThreadSearchMemory(NSString *searchQuery, NSString *apiKey) {
 
     NSString *rankerSystemPrompt =
         @"You are a memory relevance ranker. Given a search query and a list of memory entries, "
-        @"return the 5 most relevant entries VERBATIM (copy them exactly), one per line. "
-        @"If fewer than 5 are relevant, return only the relevant ones. "
-        @"If none are relevant, return an empty string. "
+        @"select up to 3 entries that are MOST USEFUL for answering the query. "
+        @"Rules:\n"
+        @"1. Prefer entries with SPECIFIC details (exact file paths, filenames, values, names) over vague ones.\n"
+        @"2. Do NOT return multiple entries that say essentially the same thing — pick the most specific version.\n"
+        @"3. If an entry contains a file path, prefer it over one that only has a filename.\n"
+        @"4. Return selected entries VERBATIM (copy them exactly), one per line.\n"
+        @"5. If fewer than 3 are truly relevant, return only those. If none relevant, return empty string.\n"
         @"No preamble, no explanation, no numbering — just the entries.";
 
     NSString *rankerUserMessage = [NSString stringWithFormat:
@@ -969,9 +988,9 @@ NSString *EZThreadSearchMemory(NSString *searchQuery, NSString *apiKey) {
         return rankerResponse;
     }
 
-    // Stage 2 failed — fall back to Stage 1 results (top 5 by keyword score)
+    // Stage 2 failed — fall back to Stage 1 top 3 (not 5) by keyword score
     EZLog(EZLogLevelWarning, @"MEMORY", @"Stage 2 ranker failed — using Stage 1 keyword results");
-    NSInteger fallbackCount = MIN(5, (NSInteger)topCandidates.count);
+    NSInteger fallbackCount = MIN(3, (NSInteger)topCandidates.count);
     NSArray *fallback = [candidateLines subarrayWithRange:NSMakeRange(0, (NSUInteger)fallbackCount)];
     return [fallback componentsJoinedByString:@"\n"];
 }

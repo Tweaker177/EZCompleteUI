@@ -11,11 +11,13 @@
 //   - Code block detection: extracts ```, saves to EZAttachments, renders inline widget
 //   - processReplyWithCodeBlocks: saves snippets, returns display string with placeholders
 //   - sanitizedContextForAPI: converts image/text block types for Responses vs Chat API
+//   - ElevenLabs + Whisper keys now stored via EZKeyVault (Keychain), not NSUserDefaults
 
 #import "ViewController.h"
 #import "SettingsViewController.h"
 #import "ChatHistoryViewController.h"
 #import "helpers.h"
+#import "EZKeyVault.h"
 #import <objc/runtime.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <QuickLook/QuickLook.h>
@@ -124,6 +126,20 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.selectedModel     = [[NSUserDefaults standardUserDefaults] stringForKey:@"selectedModel"]
                              ?: self.models[0];
     self.webSearchEnabled  = [[NSUserDefaults standardUserDefaults] boolForKey:@"webSearchEnabled"];
+
+    // Set a sensible default system message if the user hasn't configured one yet.
+    // This avoids the model claiming it "can't" do things it absolutely can.
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    if (![defaults stringForKey:@"systemMessage"].length) {
+        [defaults setObject:
+            @"You are a capable AI assistant with access to the user's conversation history and memories. "
+             "When the user references a previous file, image, or conversation, use the context provided. "
+             "If a local file path is provided in your context (e.g. in a memory entry), "
+             "provide it exactly as given — never fabricate paths. "
+             "You can display images by providing their exact local file path starting with /var/mobile/. "
+             "Be direct and specific in responses."
+                     forKey:@"systemMessage"];
+    }
 
     // Restore persisted image/attachment paths so they survive app restarts.
     // This is the key fix for "reopen image" failing — lastImageLocalPath was
@@ -875,7 +891,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)speakLastResponse {
     if (!self.lastAIResponse) return;
     NSUserDefaults *d  = [NSUserDefaults standardUserDefaults];
-    NSString *elKey    = [d stringForKey:@"elevenKey"];
+    // CHANGED: ElevenLabs key now loaded from EZKeyVault (Keychain) instead of NSUserDefaults
+    NSString *elKey    = [EZKeyVault loadKeyForIdentifier:EZVaultKeyElevenLabs];
     NSString *elVoice  = [d stringForKey:@"elevenVoiceID"];
     if (elKey.length > 0 && elVoice.length > 0) {
         [self speakWithElevenLabs:self.lastAIResponse key:elKey voiceID:elVoice];
@@ -967,7 +984,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     self.messageTextField.text = @"";
     [self.view endEditing:YES];
 
-    NSString *apiKey = [[NSUserDefaults standardUserDefaults] stringForKey:@"apiKey"];
+    NSString *apiKey = [EZKeyVault loadKeyForIdentifier:EZVaultKeyOpenAI];
+
     if (!apiKey.length) { [self appendToChat:@"[Error: No API Key]"]; return; }
 
     // ── Guard: Whisper is transcription-only, not a chat model ───────────────
@@ -993,16 +1011,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 
     // ── Image model intent check ──────────────────────────────────────────────
-    // Before generating a NEW image, classify the intent:
-    //   "reopen"   → show the last saved image (no API cost)
-    //   "edit"     → edit the last saved image
-    //   "generate" → create a new one
-    //
-    // lastImageLocalPath is persisted to NSUserDefaults so it survives restarts.
     BOOL isImageModel = ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
                          [self.selectedModel isEqualToString:@"dall-e-3"]);
     if (isImageModel) {
-        // Reload persisted path in case it was set in a prior session
         if (!self.lastImageLocalPath.length) {
             NSString *persisted = [[NSUserDefaults standardUserDefaults]
                                    stringForKey:@"lastImageLocalPath"];
@@ -1029,13 +1040,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                   forState:UIControlStateNormal];
                 [self callImageEdit:text imagePath:self.lastImageLocalPath];
             } else {
-                // Generate new image
                 EZLogf(EZLogLevelInfo, @"IMAGE", @"Intent=generate");
                 if ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
                     [self.selectedModel isEqualToString:@"gpt-image-1-edit"]) {
                     [self callGptImage1:text];
                 } else {
-                    // dall-e-3 — check for follow-up context
                     if (self.lastImagePrompt.length > 0) {
                         [self fetchRelevantMemories:text apiKey:apiKey
                                         completion:^(NSString *memories) {
@@ -1079,7 +1088,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                (long)result.tier, result.confidence,
                (long)result.estimatedTokens, result.reason);
 
-        // Tier 1: helper answered directly
         if (result.tier == EZRoutingTierDirect && result.shortCircuitAnswer.length > 0) {
             NSString *answer = result.shortCircuitAnswer;
             self.lastAIResponse = answer;
@@ -1087,7 +1095,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [self appendToChat:[NSString stringWithFormat:@"AI: %@", answer]];
             [self appendToChat:@"[System: Answered directly by helper model ⚡]"];
             EZLogf(EZLogLevelInfo, @"SEND", @"Tier 1 direct answer displayed");
-            // Still save a memory entry — include all relevant attachment paths
             NSMutableArray *attachmentsAtSend = [self.activeThread.attachmentPaths mutableCopy];
             if (self.lastImageLocalPath.length > 0 &&
                 ![attachmentsAtSend containsObject:self.lastImageLocalPath]) {
@@ -1107,13 +1114,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             return;
         }
 
-        // Tiers 2-4: build the final context and call the main model
-
-        // Tier 4: prepend injected history turns before the enriched prompt
         if (result.tier == EZRoutingTierFullChat && result.injectedHistory.count > 0) {
-            // Remove the last chatContext entry (bare user message)
             if (self.chatContext.count > 0) [self.chatContext removeLastObject];
-            // Prepend the history turns
             NSMutableArray *rebuilt = [NSMutableArray array];
             [rebuilt addObjectsFromArray:result.injectedHistory];
             [rebuilt addObjectsFromArray:self.chatContext];
@@ -1121,7 +1123,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             self.chatContext = rebuilt;
             [self appendToChat:@"[System: Full chat history injected ✓]"];
         } else if (result.tier >= EZRoutingTierMemory) {
-            // Tier 3: replace last message with enriched prompt
             if (self.chatContext.count > 0) [self.chatContext removeLastObject];
             [self.chatContext addObject:@{@"role": @"user", @"content": result.finalPrompt}];
             [self appendToChat:@"[System: Memory context included ✓]"];
@@ -1129,25 +1130,20 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         [self callChatCompletions];
     });
-    }]; // end fetchRelevantMemories
+    }];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Memory Search
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Fetches semantically relevant memory entries for the given prompt.
-/// Uses EZThreadSearchMemory (AI-ranked) when enough entries exist,
-/// falls back to loadMemoryContext (recency-based) for sparse logs.
-/// Always calls completion on the main queue.
 - (void)fetchRelevantMemories:(NSString *)prompt
                        apiKey:(NSString *)apiKey
                    completion:(void (^)(NSString *memories))completion {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSString *memories = @"";
 
-        // Check how many memory entries exist
-        NSString *all = loadMemoryContext(0); // 0 = no limit, just check
+        NSString *all = loadMemoryContext(0);
         NSInteger entryCount = 0;
         if (all.length > 0) {
             for (NSString *line in [all componentsSeparatedByString:@"\n"]) {
@@ -1156,7 +1152,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
 
         if (entryCount >= 5 && apiKey.length > 0) {
-            // Enough history to do semantic search — find the actually relevant entries
             EZLogf(EZLogLevelInfo, @"MEMORY", @"Semantic search over %ld entries for: %@",
                    (long)entryCount, prompt);
             NSString *searched = EZThreadSearchMemory(prompt, apiKey);
@@ -1164,7 +1159,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             EZLogf(EZLogLevelInfo, @"MEMORY", @"Search returned %lu chars",
                    (unsigned long)memories.length);
         } else if (entryCount > 0) {
-            // Too few entries for search overhead — just use recency
             memories = loadMemoryContext(15);
             EZLogf(EZLogLevelInfo, @"MEMORY", @"Using recency (%ld entries)", (long)entryCount);
         }
@@ -1177,12 +1171,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)callChatCompletions {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    NSString *apiKey = [defaults stringForKey:@"apiKey"];
+    NSString *apiKey = [EZKeyVault loadKeyForIdentifier:EZVaultKeyOpenAI];
+
     if (!apiKey) { [self appendToChat:@"[Error: No API Key]"]; return; }
 
     BOOL isGPT5          = [self.selectedModel hasPrefix:@"gpt-5"];
-    // Web search via Responses API — only works with GPT-4o+ and GPT-5 family.
-    // Silently disable it for models that don't support the Responses API tool format.
     NSSet *webSearchCompatible = [NSSet setWithObjects:
         @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo",
         @"gpt-5", @"gpt-5-mini", @"gpt-5-pro", nil];
@@ -1191,7 +1184,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     BOOL useResponsesAPI = isGPT5 || useWebSearch;
 
     if (self.webSearchEnabled && !modelSupportsWebSearch) {
-        // Warn once in chat that web search is silently skipped for this model
         [self appendToChat:[NSString stringWithFormat:
             @"[System: Web search skipped — not supported by %@. "
              "Switch to gpt-4o or a gpt-5 model to use web search.]",
@@ -1207,8 +1199,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:
         [NSURL URLWithString:endpointStr]];
     request.HTTPMethod = @"POST";
-    // GPT-5 models can take much longer than GPT-4 — give them more room.
-    // GPT-5 with web search is slowest. Standard GPT-4 gets a normal timeout.
     if (isGPT5 && useWebSearch)       request.timeoutInterval = 240;
     else if (isGPT5)                  request.timeoutInterval = 180;
     else                              request.timeoutInterval = 90;
@@ -1220,10 +1210,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     body[@"model"] = self.selectedModel;
     NSString *sys  = [defaults stringForKey:@"systemMessage"];
 
-    // Build a clean context array for the API:
-    // - Strip internal _isVisionAttachment flag from all messages
-    // - Vision messages beyond the most recent one are collapsed to text
-    //   so we don't re-send huge base64 blobs on every subsequent turn
     NSArray *cleanContext = [self sanitizedContextForAPI:self.chatContext
                                            modelSupportsVision:[self modelSupportsVision:self.selectedModel]
                                                useResponsesAPI:useResponsesAPI];
@@ -1257,9 +1243,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     NSString *capturedPrompt     = self.lastUserPrompt;
     NSString *capturedThreadID   = self.activeThread.threadID;
-    // Build the most complete attachment list possible for the memory entry.
-    // Include: all thread attachmentPaths + lastImageLocalPath (generated/edited images)
-    // + pendingImagePath (image just attached this turn, may not be in attachmentPaths yet).
     NSMutableArray *capturedAttachments = [self.activeThread.attachmentPaths mutableCopy];
     if (self.lastImageLocalPath.length > 0 &&
         ![capturedAttachments containsObject:self.lastImageLocalPath]) {
@@ -1332,14 +1315,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         dispatch_async(dispatch_get_main_queue(), ^{
             self.lastAIResponse = reply;
-            // Store raw reply in context (no widget placeholders in API history)
             [self.chatContext addObject:@{@"role": @"assistant", @"content": reply}];
 
-            // Extract code blocks, save to disk, replace with widget placeholders for display
             NSMutableArray<NSString *> *codePaths = [NSMutableArray array];
             NSString *displayReply = [self processReplyWithCodeBlocks:reply savedPaths:codePaths];
 
-            // Merge any saved snippet paths into capturedAttachments for memory
             NSMutableArray *allAttachments = [capturedAttachments mutableCopy];
             for (NSString *p in codePaths) {
                 if (![allAttachments containsObject:p]) [allAttachments addObject:p];
@@ -1366,7 +1346,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)callDalle3:(NSString *)prompt {
     [self appendToChat:@"[System: Generating Image...]"];
     EZLog(EZLogLevelInfo, @"DALLE", @"Sending DALL-E 3 request");
-    NSString *apiKey = [[NSUserDefaults standardUserDefaults] stringForKey:@"apiKey"];
+    NSString *apiKey = [EZKeyVault loadKeyForIdentifier:EZVaultKeyOpenAI];
+
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:
         [NSURL URLWithString:@"https://api.openai.com/v1/images/generations"]];
     req.HTTPMethod = @"POST";
@@ -1411,7 +1392,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)callGptImage1:(NSString *)prompt {
     [self appendToChat:@"[System: Generating image with gpt-image-1...]"];
     EZLog(EZLogLevelInfo, @"GPTIMAGE", @"Sending generation request");
-    NSString *apiKey = [[NSUserDefaults standardUserDefaults] stringForKey:@"apiKey"];
+    NSString *apiKey = [EZKeyVault loadKeyForIdentifier:EZVaultKeyOpenAI];
+
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:
         [NSURL URLWithString:@"https://api.openai.com/v1/images/generations"]];
     req.HTTPMethod = @"POST";
@@ -1483,14 +1465,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self appendToChat:@"[System: Editing image with gpt-image-1...]"];
     EZLog(EZLogLevelInfo, @"IMGEDIT", @"Sending image edit request");
 
-    NSString *apiKey  = [[NSUserDefaults standardUserDefaults] stringForKey:@"apiKey"];
+    NSString *apiKey = [EZKeyVault loadKeyForIdentifier:EZVaultKeyOpenAI];
+
     NSData *imageData = [NSData dataWithContentsOfFile:imagePath]
                      ?: [NSData dataWithContentsOfURL:[NSURL fileURLWithPath:imagePath]];
     if (!imageData) {
         [self appendToChat:@"[Error: Could not read image for editing]"]; return;
     }
 
-    // gpt-image-1 requires PNG. Convert via UIImage to guarantee correct format + headers.
     UIImage *img = [UIImage imageWithData:imageData];
     if (!img) { [self appendToChat:@"[Error: Could not decode image for editing]"]; return; }
     NSData *pngData = UIImagePNGRepresentation(img);
@@ -1509,24 +1491,19 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     NSMutableData *body = [NSMutableData data];
 
-    // model
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"model\"\r\n\r\ngpt-image-1\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-    // image — PNG required
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"image\"; filename=\"image.png\"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Type: image/png\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:pngData];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-    // prompt
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"prompt\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[prompt dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-    // n
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"n\"\r\n\r\n1\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-    // size
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"size\"\r\n\r\n1024x1024\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[[NSString stringWithFormat:@"--%@--\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
@@ -1554,15 +1531,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         id b64    = ([imgObj isKindOfClass:[NSDictionary class]]) ? imgObj[@"b64_json"] : nil;
         dispatch_async(dispatch_get_main_queue(), ^{
             self.lastImagePrompt = prompt;
-            // Stay in edit mode — user can keep iterating on the result
-            // without having to re-attach the image
             self.selectedModel = @"gpt-image-1-edit";
             [self.modelButton setTitle:@"Model: gpt-image-1 (edit mode)" forState:UIControlStateNormal];
             [self appendToChat:@"[System: Edit complete — still in edit mode. Attach a new image or type another edit prompt.]"];
         });
         if (imgURL && ![imgURL isKindOfClass:[NSNull class]]) {
             EZLog(EZLogLevelInfo, @"IMGEDIT", @"URL received");
-            // Download, save, and set as new edit source for next iteration
             [[[NSURLSession sharedSession] downloadTaskWithURL:[NSURL URLWithString:(NSString *)imgURL]
                 completionHandler:^(NSURL *location, NSURLResponse *resp, NSError *err) {
                 if (!location) { [self handleAPIError:@"Edit result download failed"]; return; }
@@ -1574,7 +1548,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     NSString *savedPath = imgData ? EZAttachmentSave(imgData, @"edit_result.png") : nil;
                     if (savedPath) {
-                        self.lastImageLocalPath = savedPath;   // next edit uses this automatically
+                        self.lastImageLocalPath = savedPath;
                         self.activeThread.lastImageLocalPath = savedPath;
                         [self saveActiveThread];
                         [self persistImagePath:savedPath prompt:self.lastImagePrompt];
@@ -1612,7 +1586,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }] resume];
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Sora Text-to-Video (always async job)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1632,17 +1605,15 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     EZLog(EZLogLevelInfo, @"SORA", @"Sending request");
 
     NSUserDefaults *d    = [NSUserDefaults standardUserDefaults];
-    NSString *apiKey     = [d stringForKey:@"apiKey"];
+    NSString *apiKey = [EZKeyVault loadKeyForIdentifier:EZVaultKeyOpenAI];
+
     NSString *videoModel = [d stringForKey:@"soraModel"] ?: @"sora-2";
     NSString *resolution = [d stringForKey:@"soraSize"]  ?: @"720p";
     NSInteger rawDur     = [d integerForKey:@"soraDuration"] ?: 4;
 
-    // Enforce model-specific duration constraints.
-    // Both models want the value passed as a STRING, not an integer.
     NSString *secondsStr;
     BOOL isPro = [videoModel isEqualToString:@"sora-2-pro"];
     if (isPro) {
-        // sora-2-pro: "5" | "10" | "15" | "20"
         NSArray<NSNumber *> *valid = @[@5, @10, @15, @20];
         NSInteger best = 5, bestDiff = NSIntegerMax;
         for (NSNumber *v in valid) {
@@ -1651,7 +1622,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
         secondsStr = [NSString stringWithFormat:@"%ld", (long)best];
     } else {
-        // sora-2: "4" | "8" | "12" | "16"
         NSArray<NSNumber *> *valid = @[@4, @8, @12, @16];
         NSInteger best = 4, bestDiff = NSIntegerMax;
         for (NSNumber *v in valid) {
@@ -1661,12 +1631,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         secondsStr = [NSString stringWithFormat:@"%ld", (long)best];
     }
 
-    // Validate size — API accepts pixel dimension strings, not "480p" etc.
-    // Supported: "720x1280" (portrait), "1280x720" (landscape),
-    //            "1024x1792" (portrait tall), "1792x1024" (landscape wide)
     NSArray<NSString *> *validRes = @[@"1280x720", @"720x1280", @"1024x1792", @"1792x1024"];
     if (![validRes containsObject:resolution]) {
-        // Map friendly names and old values to correct strings
         NSDictionary *resMap = @{
             @"480p":   @"1280x720",
             @"720p":   @"1280x720",
@@ -1699,8 +1665,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     req.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
         @"model":   videoModel,
         @"prompt":  prompt,
-        @"size":    resolution,   // "size" not "resolution"
-        @"seconds": secondsStr    // "seconds" as STRING not integer
+        @"size":    resolution,
+        @"seconds": secondsStr
     } options:0 error:&bodyErr];
     if (bodyErr) { [self handleAPIError:@"Failed to build Sora request"]; return; }
 
@@ -1710,7 +1676,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         if (error) { [self handleAPIError:error.localizedDescription]; return; }
 
-        // Always log raw body — helps diagnose API changes
         NSString *rawBody = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"(unreadable)";
         EZLogf(EZLogLevelDebug, @"SORA", @"Raw response: %@", rawBody);
 
@@ -1728,7 +1693,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             return;
         }
 
-        // Extract job ID — Sora 2 returns top-level "id"
         NSString *jobId = nil;
         id topId = json[@"id"];
         if (topId && ![topId isKindOfClass:[NSNull class]]) jobId = (NSString *)topId;
@@ -1740,9 +1704,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         EZLogf(EZLogLevelInfo, @"SORA", @"Job created: %@  status: %@", jobId, json[@"status"] ?: @"?");
 
-        // Persist job ID so we can resume polling if app backgrounds
+        // Only persist the job ID — never store the API key in NSUserDefaults.
+        // On resume, the key is reloaded from EZKeyVault (Keychain).
         [[NSUserDefaults standardUserDefaults] setObject:jobId forKey:@"soraActivejobId"];
-        [[NSUserDefaults standardUserDefaults] setObject:apiKey forKey:@"soraActiveApiKey"];
         [[NSUserDefaults standardUserDefaults] synchronize];
 
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -1757,15 +1721,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     __block NSInteger attempts = 0;
     dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 
-    // Weak/strong block dance to avoid retain cycle
     __block __weak void (^weakPoll)(void);
     void (^poll)(void);
     poll = ^{
         void (^strongPoll)(void) = weakPoll;
         if (!strongPoll) return;
         attempts++;
-        // sora-2-pro can take up to ~5 min, sora-2 typically under 2 min
-        // Poll up to 36 times: first 6 every 5s, then every 10s = ~5.5 min total
         if (attempts > 36) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self appendToChat:@"[Sora: Generation is taking unusually long. "
@@ -1775,7 +1736,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
         NSTimeInterval delay = (attempts <= 6) ? 5.0 : 10.0;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), q, ^{
-            // GET /v1/videos/{id}
             NSString *pollURL = [NSString stringWithFormat:@"https://api.openai.com/v1/videos/%@", jobId];
             NSMutableURLRequest *r = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:pollURL]];
             r.HTTPMethod = @"GET";
@@ -1792,7 +1752,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 NSString *status = jd[@"status"] ?: @"";
                 EZLogf(EZLogLevelInfo, @"SORA", @"Poll %ld — status: %@", (long)attempts, status);
 
-                // Show status changes in chat so user knows it's alive
                 static NSString *lastShownStatus = nil;
                 if (![status isEqualToString:lastShownStatus]) {
                     lastShownStatus = [status copy];
@@ -1808,32 +1767,27 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                     });
                 }
 
-                // Terminal failure states
                 if ([status isEqualToString:@"failed"] || [status isEqualToString:@"error"]) {
                     id errDetail = jd[@"error"];
                     NSString *msg = (errDetail && ![errDetail isKindOfClass:[NSNull class]])
                         ? [errDetail description] : @"Video generation failed";
                     [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"soraActivejobId"];
-                    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"soraActiveApiKey"];
                     dispatch_async(dispatch_get_main_queue(), ^{
                         [self appendToChat:[NSString stringWithFormat:@"[Sora failed: %@]", msg]];
                     });
                     return;
                 }
 
-                // Success — fetch content via /v1/videos/{id}/content
                 BOOL done = ([status isEqualToString:@"completed"] ||
                              [status isEqualToString:@"succeeded"] ||
                              [status isEqualToString:@"ready"]);
                 if (done) {
                     [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"soraActivejobId"];
-                    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"soraActiveApiKey"];
                     EZLogf(EZLogLevelInfo, @"SORA", @"Job complete — fetching content");
                     [self fetchSoraContent:jobId apiKey:apiKey];
                     return;
                 }
 
-                // Still processing — keep polling
                 if (s) s();
             }] resume];
         });
@@ -1842,13 +1796,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     poll();
 }
 
-/// Called from applicationDidBecomeActive — resumes polling if a job was in flight when app backgrounded
 - (void)resumePendingSoraJobIfNeeded {
-    // Guard: don't run before the view is fully set up
     if (!self.isViewLoaded || !self.view.window) return;
     NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
     NSString *jobId   = [d stringForKey:@"soraActivejobId"];
-    NSString *apiKey  = [d stringForKey:@"soraActiveApiKey"];
+    // CHANGED: reload key from EZKeyVault — never stored in NSUserDefaults
+    NSString *apiKey  = [EZKeyVault loadKeyForIdentifier:EZVaultKeyOpenAI];
     if (!jobId.length || !apiKey.length) return;
     EZLogf(EZLogLevelInfo, @"SORA", @"Resuming poll for job: %@", jobId);
     [self appendToChat:[NSString stringWithFormat:
@@ -1856,7 +1809,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self pollSoraJob:jobId apiKey:apiKey];
 }
 
-/// GET /v1/videos/{id}/content — follows redirect to actual mp4 URL
 - (void)fetchSoraContent:(NSString *)jobId apiKey:(NSString *)apiKey {
     NSString *contentURL = [NSString stringWithFormat:
         @"https://api.openai.com/v1/videos/%@/content", jobId];
@@ -1864,7 +1816,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     req.HTTPMethod = @"GET";
     [req setValue:[NSString stringWithFormat:@"Bearer %@", apiKey] forHTTPHeaderField:@"Authorization"];
 
-    // Use a session configured to follow redirects (default NSURLSession does follow them)
     [[[NSURLSession sharedSession] dataTaskWithRequest:req
         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         if (error) { [self handleAPIError:error.localizedDescription]; return; }
@@ -1873,9 +1824,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         EZLogf(EZLogLevelInfo, @"SORA", @"Content fetch HTTP %ld, %lu bytes",
                (long)http.statusCode, (unsigned long)data.length);
 
-        // If we got redirected to the actual video and the data is large enough to be a video
         if (http.statusCode == 200 && data.length > 10000) {
-            // Save directly — no need to download again
             dispatch_async(dispatch_get_main_queue(), ^{
                 NSString *savedPath = EZAttachmentSave(data, @"sora_video.mp4");
                 NSURL *tmp = [NSURL fileURLWithPath:
@@ -1895,20 +1844,17 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             return;
         }
 
-        // If response is JSON, it might contain a download URL
         NSError *parseErr;
         id jsonObj = [NSJSONSerialization JSONObjectWithData:data options:0 error:&parseErr];
         if (!parseErr && jsonObj && ![jsonObj isKindOfClass:[NSNull class]]) {
             NSDictionary *json = jsonObj;
             EZLogf(EZLogLevelDebug, @"SORA", @"Content JSON: %@", json);
-            // Look for a URL field
             id urlObj = json[@"url"] ?: json[@"download_url"] ?: json[@"video_url"];
             if (urlObj && ![urlObj isKindOfClass:[NSNull class]]) {
                 [self downloadAndShowVideo:(NSString *)urlObj]; return;
             }
         }
 
-        // Last resort: use the final response URL (after redirect) as the download source
         NSURL *finalURL = response.URL;
         if (finalURL && ![finalURL.absoluteString containsString:@"/content"]) {
             EZLogf(EZLogLevelInfo, @"SORA", @"Following redirect to: %@", finalURL);
@@ -1932,7 +1878,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         [[NSFileManager defaultManager] removeItemAtURL:tmp error:nil];
         [[NSFileManager defaultManager] copyItemAtURL:location toURL:tmp error:nil];
 
-        // Also save to EZAttachments for persistence
         NSData *videoData = [NSData dataWithContentsOfURL:tmp];
         if (videoData) {
             NSString *savedPath = EZAttachmentSave(videoData, @"sora_video.mp4");
@@ -1966,14 +1911,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             EZLogf(EZLogLevelError, @"IMAGE", @"Download failed: %@", err.localizedDescription);
             [self handleAPIError:@"Image download failed"]; return;
         }
-        // Copy to temp for QuickLook
         NSString *tmpName = [NSString stringWithFormat:@"%@_gen.png", purpose];
         NSURL *tmp = [NSURL fileURLWithPath:
             [NSTemporaryDirectory() stringByAppendingPathComponent:tmpName]];
         [[NSFileManager defaultManager] removeItemAtURL:tmp error:nil];
         [[NSFileManager defaultManager] copyItemAtURL:location toURL:tmp error:nil];
 
-        // Save to EZAttachments for persistence
         NSData *imgData = [NSData dataWithContentsOfURL:tmp];
         NSString *savedPath = imgData ? EZAttachmentSave(imgData, tmpName) : nil;
 
@@ -1987,7 +1930,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 [att addObject:savedPath];
                 self.activeThread.attachmentPaths = [att copy];
                 [self saveActiveThread];
-                // Persist to NSUserDefaults so reopen works after app restart
                 [self persistImagePath:savedPath prompt:self.lastImagePrompt];
             }
             self.previewURL = tmp;
@@ -2010,7 +1952,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)transcribeAudio:(NSURL *)fileURL {
     [self appendToChat:@"[System: Whisper uploading...]"];
     EZLog(EZLogLevelInfo, @"WHISPER", @"Starting transcription");
-    NSString *apiKey = [[NSUserDefaults standardUserDefaults] stringForKey:@"apiKey"];
+    // CHANGED: Use EZKeyVault instead of legacy NSUserDefaults @"apiKey"
+    NSString *apiKey = [EZKeyVault loadKeyForIdentifier:EZVaultKeyOpenAI];
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:
         [NSURL URLWithString:@"https://api.openai.com/v1/audio/transcriptions"]];
     req.HTTPMethod = @"POST";
@@ -2059,29 +2002,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // MARK: - Misc
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Returns YES if the given model supports image vision input
 - (BOOL)modelSupportsVision:(NSString *)model {
     NSSet *vision = [NSSet setWithObjects:
         @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
         @"gpt-5", @"gpt-5-mini", @"gpt-5-pro",
         @"gpt-image-1", nil];
-    // All gpt-5 variants support vision via Responses API
     if ([model hasPrefix:@"gpt-5"]) return YES;
     return [vision containsObject:model];
 }
 
-/// Produces an API-safe copy of the context array.
-/// - Strips internal _isVisionAttachment keys
-/// - If model doesn't support vision, collapses image blocks to plain text
-/// - Keeps only the MOST RECENT vision attachment; older ones collapse to text
-/// - Converts image block format between Chat Completions and Responses API
-///
-/// Chat Completions format: {"type":"image_url", "image_url":{"url":"data:..."}}
-/// Responses API format:    {"type":"input_image", "image_url":"data:..."}
 - (NSArray *)sanitizedContextForAPI:(NSArray *)context
                   modelSupportsVision:(BOOL)supportsVision
                       useResponsesAPI:(BOOL)useResponsesAPI {
-    // Find index of last vision attachment
     NSInteger lastVisionIdx = -1;
     for (NSInteger i = (NSInteger)context.count - 1; i >= 0; i--) {
         NSDictionary *msg = context[(NSUInteger)i];
@@ -2104,7 +2036,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     for (NSUInteger i = 0; i < context.count; i++) {
         NSDictionary *msg = context[i];
 
-        // Strip internal keys
         NSMutableDictionary *clean = [NSMutableDictionary dictionary];
         for (NSString *key in msg) {
             if ([key hasPrefix:@"_"]) continue;
@@ -2127,12 +2058,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 BOOL sendInline = isLatest && supportsVision;
 
                 if (sendInline) {
-                    // Convert ALL blocks to the correct format for the target API
                     NSMutableArray *convertedBlocks = [NSMutableArray array];
                     for (NSDictionary *b in blocks) {
                         NSString *type = [b[@"type"] description];
 
-                        // ── Image block ───────────────────────────────────────
                         if ([type isEqualToString:@"image_url"] || [type isEqualToString:@"input_image"]) {
                             NSString *dataURL = nil;
                             id imgUrlVal = b[@"image_url"];
@@ -2149,10 +2078,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                 [convertedBlocks addObject:@{@"type":@"image_url", @"image_url":@{@"url":dataURL}}];
                             }
 
-                        // ── Text block ────────────────────────────────────────
                         } else if ([type isEqualToString:@"text"] || [type isEqualToString:@"input_text"]) {
                             NSString *text = b[@"text"] ?: @"";
-                            // Skip the placeholder we injected on attach
                             if ([text isEqualToString:@"[image attached — await user question]"]) continue;
                             if (useResponsesAPI) {
                                 [convertedBlocks addObject:@{@"type":@"input_text", @"text":text}];
@@ -2160,17 +2087,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                 [convertedBlocks addObject:@{@"type":@"text", @"text":text}];
                             }
                         } else {
-                            // Pass through any other block types unchanged
                             [convertedBlocks addObject:b];
                         }
                     }
-                    // If only image ended up in blocks (placeholder text was stripped), add nothing extra
                     if (convertedBlocks.count > 0) {
                         clean[@"content"] = [convertedBlocks copy];
                         [result addObject:clean];
                     }
                 } else {
-                    // Collapse image message to plain text string
                     NSMutableString *textContent = [NSMutableString string];
                     for (NSDictionary *b in blocks) {
                         NSString *t = [b[@"type"] description];
@@ -2190,7 +2114,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 continue;
             }
 
-            // Non-image array content — convert any text blocks if using Responses API
             if (useResponsesAPI) {
                 NSMutableArray *convertedBlocks = [NSMutableArray array];
                 for (NSDictionary *b in blocks) {
@@ -2234,7 +2157,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [nc addObserver:self selector:@selector(keyboardWillChange:) name:UIKeyboardWillChangeFrameNotification object:nil];
 }
 
-/// Green + button — save current thread and start a fresh one, no confirmation needed
 - (void)newChat {
     [self saveActiveThread];
     [self _resetConversation];
@@ -2242,9 +2164,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     EZLog(EZLogLevelInfo, @"APP", @"New chat started by user");
 }
 
-/// Red trash button — confirm delete, then start fresh (deleted thread is gone)
 - (void)deleteCurrentChat {
-    if (self.chatContext.count == 0) return; // nothing to delete
+    if (self.chatContext.count == 0) return;
     UIAlertController *confirm = [UIAlertController
         alertControllerWithTitle:@"Delete This Chat?"
                          message:@"This conversation will be permanently deleted."
@@ -2252,7 +2173,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [confirm addAction:[UIAlertAction actionWithTitle:@"Delete"
                                                style:UIAlertActionStyleDestructive
                                              handler:^(UIAlertAction *a) {
-        // Delete from disk if it was ever saved
         if (self.activeThread.threadID.length > 0) {
             EZThreadDelete(self.activeThread.threadID);
         }
@@ -2265,7 +2185,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self presentViewController:confirm animated:YES completion:nil];
 }
 
-/// Internal reset — clears state and starts a new thread (does NOT save or delete)
 - (void)_resetConversation {
     [self.chatContext removeAllObjects];
     self.chatHistoryView.text  = @"";
@@ -2279,7 +2198,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self startNewThread];
 }
 
-/// Legacy — kept so any internal callers still work
 - (void)clearConversation {
     [self saveActiveThread];
     [self _resetConversation];
@@ -2291,7 +2209,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [UIPasteboard generalPasteboard].string = self.lastAIResponse;
     EZLog(EZLogLevelInfo, @"APP", @"Last response copied to clipboard");
 
-    // Flash the clipboard button with a checkmark for 1.5s as confirmation
     UIImage *checkImg = [UIImage systemImageNamed:@"checkmark.circle.fill"];
     UIImage *origImg  = [UIImage systemImageNamed:@"doc.on.doc"];
     [self.clipboardButton setImage:checkImg forState:UIControlStateNormal];
@@ -2299,12 +2216,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
         [self.clipboardButton setImage:origImg forState:UIControlStateNormal];
-        [self.clipboardButton setTintColor:nil]; // restore default tint
+        [self.clipboardButton setTintColor:nil];
     });
 }
 
 - (void)showModelPicker {
-    // Capability labels for each model
     NSDictionary *labels = @{
         @"gpt-5-pro":    @"💬 Chat + 👁 Vision",
         @"gpt-5":        @"💬 Chat + 👁 Vision",
@@ -2332,7 +2248,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         [alert addAction:[UIAlertAction actionWithTitle:title
                                                  style:UIAlertActionStyleDefault
                                                handler:^(UIAlertAction *action) {
-            // If switching away from image edit mode, clear pending image path
             if ([self.selectedModel isEqualToString:@"gpt-image-1-edit"] ||
                 [self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
                 self.pendingImagePath = nil;
@@ -2348,8 +2263,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self presentViewController:alert animated:YES completion:nil];
 }
 
-/// Persist the most recently generated/edited image path to NSUserDefaults.
-/// This survives app restarts so "show the last image" always works.
 - (void)persistImagePath:(NSString *)path prompt:(NSString *)prompt {
     if (!path.length) return;
     NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
@@ -2359,16 +2272,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     EZLogf(EZLogLevelInfo, @"IMAGE", @"Persisted path: %@", path.lastPathComponent);
 }
 
-/// Classify whether a prompt on an image model is requesting:
-///   "reopen"  — show/display a previously generated image
-///   "generate" — create a new image
-///   "edit"    — edit the last image
-///
-/// Uses a two-tier approach:
-///   Tier 1: fast local scoring (no API) — requires MULTIPLE strong signals
-///   Tier 2: helper model call if ambiguous — definitive answer
-///
-/// Calls completion on the main queue with one of: @"reopen", @"generate", @"edit"
 - (void)classifyImageIntent:(NSString *)prompt
               hasLocalImage:(BOOL)hasLocalImage
                      apiKey:(NSString *)apiKey
@@ -2376,11 +2279,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     NSString *lower = prompt.lowercaseString;
 
-    // ── Tier 1: strong multi-signal local check ───────────────────────────────
-    // Require at least 2 co-occurring signals to fire without an API call.
-    // Single words like "show" or "see" alone are NOT enough.
-
-    // Signals that strongly suggest "reopen"
     NSArray *reopenSignals = @[
         @"again", @"reopen", @"re-open", @"pull up", @"pull it up",
         @"show it", @"display it", @"view it", @"see it again",
@@ -2390,14 +2288,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         @"previous image", @"last image", @"the image again"
     ];
 
-    // Signals that strongly suggest "generate new"
     NSArray *generateSignals = @[
         @"create", @"generate", @"make", @"draw", @"paint",
         @"a picture of", @"an image of", @"image of", @"picture of",
         @"new image", @"different image"
     ];
 
-    // Signals that suggest "edit"
     NSArray *editSignals = @[
         @"edit", @"change", @"modify", @"adjust", @"alter",
         @"add to", @"remove from", @"make it", @"turn it into"
@@ -2412,7 +2308,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
            @"Intent scores — reopen:%ld generate:%ld edit:%ld hasLocal:%d",
            (long)reopenScore, (long)generateScore, (long)editScore, hasLocalImage);
 
-    // Clear winner with 2+ signals — no API call needed
     if (reopenScore >= 2 && reopenScore > generateScore && hasLocalImage) {
         EZLogf(EZLogLevelInfo, @"IMAGE", @"Tier 1: reopen (score %ld)", (long)reopenScore);
         dispatch_async(dispatch_get_main_queue(), ^{ completion(@"reopen"); });
@@ -2429,10 +2324,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         return;
     }
 
-    // ── Tier 2: helper model — use when signals are mixed or weak ────────────
-    // Only worth the API call if there's a local image to potentially reopen.
     if (!hasLocalImage || !apiKey.length) {
-        // No local image → can only generate
         dispatch_async(dispatch_get_main_queue(), ^{ completion(@"generate"); });
         return;
     }
@@ -2453,21 +2345,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                             stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
         EZLogf(EZLogLevelInfo, @"IMAGE", @"Tier 2 classifier: %@ → %@", prompt, result);
 
-        NSString *intent = @"generate"; // safe default
+        NSString *intent = @"generate";
         if ([result isEqualToString:@"REOPEN"]) intent = @"reopen";
         else if ([result isEqualToString:@"EDIT"])   intent = @"edit";
         dispatch_async(dispatch_get_main_queue(), ^{ completion(intent); });
     });
 }
-/// If the reply contains a path that exists on disk, offer to open it in QuickLook.
+
 - (void)checkReplyForLocalFilePaths:(NSString *)reply {
-    // Look for absolute paths in the reply (Documents/ paths we stored)
     NSString *docsDir = [NSSearchPathForDirectoriesInDomains(
         NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
     if (!docsDir) return;
 
-    // Simple heuristic: look for any substring starting with /var or /private
-    // that ends with a known media extension
     NSRegularExpression *pathRegex = [NSRegularExpression
         regularExpressionWithPattern:@"(/[^\\s\"']+\\.(?:png|jpg|jpeg|gif|webp|pdf|mp4|mov|epub|txt|m4a|mp3))"
                              options:NSRegularExpressionCaseInsensitive error:nil];
@@ -2481,18 +2370,15 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self offerToOpenLocalFile:path];
             });
-            break; // Open one at a time
+            break;
         }
     }
 }
 
-/// Find a local file path from memory entries matching a keyword and offer to open it.
-/// Called by ViewController when the user asks to "pull up" or "reopen" a file.
 - (void)reopenAttachmentFromMemory:(NSString *)keyword {
     NSArray<NSDictionary *> *allMemories = EZMemoryLoadAll();
     NSString *lowerKeyword = keyword.lowercaseString;
 
-    // Search memory entries for one that has attachmentPaths and a matching filename
     for (NSDictionary *entry in allMemories.reverseObjectEnumerator) {
         NSArray *paths = entry[@"attachmentPaths"];
         for (NSString *path in paths) {
@@ -2509,7 +2395,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     EZLogf(EZLogLevelInfo, @"ATTACH", @"No matching file found in memory for: %@", keyword);
 }
 
-/// Present a QuickLook preview for a local file path, with a chat notification.
 - (void)offerToOpenLocalFile:(NSString *)path {
     self.previewURL = [NSURL fileURLWithPath:path];
     QLPreviewController *ql = [[QLPreviewController alloc] init];
@@ -2519,10 +2404,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                         path.lastPathComponent]];
 }
 
-/// Determine a file extension from a language hint string (e.g. "python" → "py")
 - (NSString *)fileExtensionForLanguage:(NSString *)lang {
-    // Normalize — lowercase, strip dashes, trim whitespace
-    // Using nested brackets (not dot syntax) to avoid ObjC method chaining compiler error
     NSString *normalized = [[[lang lowercaseString]
                              stringByReplacingOccurrencesOfString:@"-" withString:@""]
                             stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
@@ -2531,8 +2413,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         @"javascript":    @"js",    @"js":           @"js",
         @"typescript":    @"ts",    @"ts":           @"ts",
         @"swift":         @"swift",
-        @"objc":          @"m",     @"objectivec":   @"m",   // handles "objc", "objective-c" → "objectivec"
-        @"objectivecpp":  @"mm",    @"objcpp":       @"mm",  // Objective-C++
+        @"objc":          @"m",     @"objectivec":   @"m",
+        @"objectivecpp":  @"mm",    @"objcpp":       @"mm",
         @"c":             @"c",
         @"cpp":           @"cpp",   @"c++":          @"cpp", @"cxx": @"cpp",
         @"java":          @"java",  @"kotlin":       @"kt",
@@ -2553,7 +2435,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     };
     NSString *ext = map[normalized];
     if (!ext) {
-        // Last resort: use first 6 chars of language as extension if it looks safe
         NSCharacterSet *safe = [NSCharacterSet alphanumericCharacterSet];
         NSString *candidate = normalized.length > 6
             ? [normalized substringToIndex:6] : normalized;
@@ -2566,13 +2447,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     return ext;
 }
 
-/// Process an AI reply before displaying it:
-///  - Detects ```lang ... ``` code blocks
-///  - Saves each block to EZAttachments/<UUID>_snippet.ext
-///  - Returns display string with code blocks replaced by a placeholder
-///    that appendToChat renders as a styled tappable view
-///
-/// Saved file paths are stored so the user can ask to reopen them later.
 - (NSString *)processReplyWithCodeBlocks:(NSString *)reply
                             savedPaths:(NSMutableArray<NSString *> *)savedPaths {
     return [self processReplyWithCodeBlocks:reply savedPaths:savedPaths isRestore:NO];
@@ -2581,11 +2455,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (NSString *)processReplyWithCodeBlocks:(NSString *)reply
                             savedPaths:(NSMutableArray<NSString *> *)savedPaths
                              isRestore:(BOOL)isRestore {
-    // Match ONLY triple-backtick fenced blocks.
-    // Pattern requires the closing ``` to be on its own line (preceded by newline or start).
-    // This prevents matching across unrelated inline backtick spans.
-    // Group 1: optional language hint (letters, digits, +, #, ., _, -)
-    // Group 2: code content (non-greedy, must have at least one non-whitespace char)
     NSError *regexErr;
     NSRegularExpression *codeBlockRegex = [NSRegularExpression
         regularExpressionWithPattern:@"```([a-zA-Z0-9+#._-]*)[ \\t]*\\n([\\s\\S]+?)\\n[ \\t]*```"
@@ -2596,7 +2465,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSArray *matches = [codeBlockRegex matchesInString:reply
                                                options:0
                                                  range:NSMakeRange(0, reply.length)];
-    if (matches.count == 0) return reply; // Nothing to process
+    if (matches.count == 0) return reply;
 
     NSMutableString *processed = [NSMutableString stringWithString:reply];
     NSInteger offset = 0;
@@ -2609,17 +2478,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         NSString *lang = [reply substringWithRange:langRange];
         NSString *code = [reply substringWithRange:codeRange];
 
-        // Skip trivially small "code blocks" — likely backtick formatting accidents
         if (code.length < 5) continue;
 
-        // ── Smart filename detection ──────────────────────────────────────────
-        // Check first 1-2 lines of the code block for a filename comment.
-        // Handles: "// Filename.m", "# script.py", "/* Header.h */", "// MARK: - file.swift"
         NSString *detectedName = nil;
         NSArray<NSString *> *firstLines = [[code componentsSeparatedByString:@"\n"]
                                            subarrayWithRange:NSMakeRange(0, MIN(2, [[code componentsSeparatedByString:@"\n"] count]))];
         NSError *fnErr;
-        // Look for a known file extension in the first two lines
         NSRegularExpression *fnRegex = [NSRegularExpression
             regularExpressionWithPattern:@"[\\w.+-]+\\.(?:m|h|mm|swift|py|js|ts|sh|bash|rb|go|rs|kt|java|c|cpp|cxx|cs|html|css|json|xml|yaml|yml|sql|md|txt|mk|makefile|gradle|plist|entitlements|pbxproj)"
                                  options:NSRegularExpressionCaseInsensitive error:&fnErr];
@@ -2634,11 +2498,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             }
         }
 
-        // ── Determine extension and label ─────────────────────────────────────
         NSString *ext;
         NSString *label;
         if (detectedName.length > 0) {
-            // Use detected filename directly
             label = detectedName;
             ext   = detectedName.pathExtension.length > 0 ? detectedName.pathExtension : @"txt";
         } else {
@@ -2646,15 +2508,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             label = lang.length > 0 ? lang : ext;
         }
 
-        // ── Save snippet to EZAttachments ─────────────────────────────────────
-        // During restore, check if a file with the same name already exists
-        // rather than creating duplicates on every restore.
         NSString *savedPath = nil;
         NSString *fileName  = detectedName.length > 0 ? detectedName
             : [NSString stringWithFormat:@"snippet.%@", ext];
 
         if (isRestore) {
-            // Look for an existing saved snippet with this filename in attachmentPaths
             for (NSString *existingPath in self.activeThread.attachmentPaths) {
                 if ([existingPath.lastPathComponent hasSuffix:[@"_" stringByAppendingString:fileName]] ||
                     [existingPath.lastPathComponent hasSuffix:fileName]) {
@@ -2678,7 +2536,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             if (savedPath) EZLogf(EZLogLevelInfo, @"CODE", @"Saved %@ snippet: %@", label, savedPath);
         }
 
-        // ── Build placeholder ─────────────────────────────────────────────────
         NSString *placeholder = savedPath
             ? [NSString stringWithFormat:@"\n[CODE:%@:%@]\n", label, savedPath]
             : [NSString stringWithFormat:@"\n[CODE:%@]\n%@\n[/CODE]\n", label, code];
@@ -2692,10 +2549,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     return [processed copy];
 }
 
-/// Append a message to the chat view. If text contains [CODE:...] placeholders
-/// from processReplyWithCodeBlocks, renders them as styled inline code widgets.
 - (void)appendToChat:(NSString *)text {
-    // Check if this message contains any code block placeholders
     if ([text containsString:@"[CODE:"]) {
         [self appendToChatWithCodeBlocks:text];
     } else {
@@ -2705,17 +2559,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 }
 
-/// Render a message that contains [CODE:lang:path] placeholders.
-/// Splits the text around placeholders, appends plain parts as text,
-/// and adds UIViews for code blocks that are anchored in the scroll view.
 - (void)appendToChatWithCodeBlocks:(NSString *)text {
-    // Split on [CODE:...] boundaries
     NSError *splitErr;
     NSRegularExpression *re = [NSRegularExpression
         regularExpressionWithPattern:@"\\[CODE:([^:]+):([^\\]]+)\\]|\\[CODE:([^\\]]+)\\]([\\s\\S]*?)\\[/CODE\\]"
                              options:0 error:&splitErr];
     if (splitErr) {
-        // Fallback — just show raw text
         self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingFormat:@"\n\n%@", text];
         [self scrollChatToBottom];
         return;
@@ -2725,7 +2574,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSInteger lastEnd = 0;
 
     for (NSTextCheckingResult *match in matches) {
-        // Append any plain text before this code block
         NSRange before = NSMakeRange((NSUInteger)lastEnd,
                                      match.range.location - (NSUInteger)lastEnd);
         if (before.length > 0) {
@@ -2738,14 +2586,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             }
         }
 
-        // Determine lang, path, and inline code
         NSString *lang      = @"";
         NSString *savedPath = nil;
         NSString *inlineCode = nil;
 
-        NSRange r1 = [match rangeAtIndex:1]; // [CODE:lang:path] form
+        NSRange r1 = [match rangeAtIndex:1];
         NSRange r2 = [match rangeAtIndex:2];
-        NSRange r3 = [match rangeAtIndex:3]; // [CODE:lang]...[/CODE] form
+        NSRange r3 = [match rangeAtIndex:3];
         NSRange r4 = [match rangeAtIndex:4];
 
         if (r1.location != NSNotFound) {
@@ -2762,11 +2609,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         if (!inlineCode) inlineCode = @"(code unavailable)";
 
-        // Add a visual separator in the text view
         self.chatHistoryView.text = [self.chatHistoryView.text
                                      stringByAppendingString:@"\n\n"];
 
-        // Insert the inline code block widget into the chat scroll view
         [self insertCodeBlockWidget:inlineCode
                            language:lang
                           savedPath:savedPath];
@@ -2774,7 +2619,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         lastEnd = (NSInteger)(match.range.location + match.range.length);
     }
 
-    // Append any trailing plain text after the last code block
     if ((NSUInteger)lastEnd < text.length) {
         NSString *tail = [[text substringFromIndex:(NSUInteger)lastEnd]
                           stringByTrimmingCharactersInSet:
@@ -2787,9 +2631,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self scrollChatToBottom];
 }
 
-/// Insert a self-contained code block widget into the chat scroll view.
-/// The widget is positioned at the current text insertion point and stays there.
-/// Tapping copies the code to clipboard; tapping the filename opens QuickLook.
 - (void)insertCodeBlockWidget:(NSString *)code
                      language:(NSString *)language
                     savedPath:(nullable NSString *)savedPath {
@@ -2801,18 +2642,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     CGFloat headerHeight = 36;
     CGFloat totalHeight  = headerHeight + codeHeight + 8;
 
-    // ── Measure text height BEFORE adding spacer ──────────────────────────────
-    // UITextView.contentSize is unreliable immediately after text assignment.
-    // sizeThatFits: is synchronous and accurate.
     [self.chatHistoryView layoutIfNeeded];
     CGSize fitsSize  = [self.chatHistoryView sizeThatFits:
                         CGSizeMake(self.chatHistoryView.frame.size.width, CGFLOAT_MAX)];
-    //UIEdgeInsets ins = self.chatHistoryView.textContainerInset;
-    // Y where we want the widget to appear
     CGFloat yPosition = fitsSize.height + 4;
 
-    // ── Append spacer newlines to reserve vertical space for the widget ───────
-    // 1 newline ≈ font.lineHeight pixels in UITextView with default settings
     CGFloat lineH    = self.chatHistoryView.font.lineHeight;
     NSUInteger nlines = (NSUInteger)ceil(totalHeight / lineH) + 1;
     NSMutableString *spacer = [NSMutableString string];
@@ -2824,7 +2658,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
            @"Widget at y=%.0f fitsH=%.0f lineH=%.0f nlines=%lu totalH=%.0f",
            yPosition, fitsSize.height, lineH, (unsigned long)nlines, totalHeight);
 
-    // ── Build widget ──────────────────────────────────────────────────────────
     UIView *container            = [[UIView alloc] initWithFrame:
                                      CGRectMake(16, yPosition, widgetWidth, totalHeight)];
     container.backgroundColor    = [UIColor colorWithWhite:0.12 alpha:1.0];
@@ -2885,13 +2718,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
            language, (unsigned long)lineCount, yPosition);
 }
 
-
-
 - (void)codeBlockCopyTapped:(UIButton *)sender {
     NSString *code = objc_getAssociatedObject(sender, "EZCodeContent");
     if (code) {
         [UIPasteboard generalPasteboard].string = code;
-        // Brief visual feedback
         NSString *original = [sender titleForState:UIControlStateNormal];
         [sender setTitle:@"✓ Copied!" forState:UIControlStateNormal];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
@@ -2915,7 +2745,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)appendToOldChat:(NSString *)text {
-    // Direct append bypassing code block processing — for system messages
     self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingFormat:@"\n\n%@", text];
     [self scrollChatToBottom];
 }
