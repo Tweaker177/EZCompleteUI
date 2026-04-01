@@ -2,25 +2,30 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Required for UIDocumentPickerViewController to present external file access -->
-    <key>com.apple.security.files.user-selected.read-write</key>
-    <true/>
-
-    <!-- Required for presenting view controllers from external processes (file picker, QuickLook) -->
+    <!-- Required for presenting UIDocumentPickerViewController and QuickLook -->
     <key>com.apple.UIKit.vends-view-services</key>
     <true/>
 
-    <!-- Rootless jailbreak (Dopamine/palera1n): bypass sandbox restrictions -->
-    <!-- Without this the document picker silently fails to return files on iOS 15 -->
-    <key>com.apple.private.security.no-sandbox</key>
+    <!-- Required for the document picker to hand file URLs back to the app on iOS 15 -->
+    <key>com.apple.private.security.storage.UserSelectableAddressableFiles.read-write</key>
     <true/>
 
-    <!-- Keep container accessible without strict enforcement -->
+    <!-- Allows the app to open files outside its own sandbox via the document picker -->
+    <key>com.apple.private.security.storage.AppDataContainers.read-write</key>
+    <true/>
+
+    <!-- Container: allow loose container requirements for jailbreak install -->
     <key>com.apple.private.security.container-required</key>
     <false/>
 
-    <!-- Application groups — empty array satisfies entitlement checks -->
+    <!-- Application groups: empty array satisfies group entitlement checks -->
     <key>com.apple.security.application-groups</key>
     <array/>
+    
+    <!-- Keychain access groups -->
+    <key>keychain-access-groups</key>
+    <array>
+        <string>$(AppIdentifierPrefix)com.i0stweak3r.EZCompleteUI</string>
+    </array>
 </dict>
 </plist>

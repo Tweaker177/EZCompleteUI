@@ -17,6 +17,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// Identifier constants — use these everywhere so the strings stay in sync.
 extern NSString * const EZVaultKeyOpenAI;
 extern NSString * const EZVaultKeyElevenLabs;
+/// Support contact address — value seeded only from EZKeyVault.m (never in open-source files).
+extern NSString * const EZVaultKeySupportEmail;
 
 @interface EZKeyVault : NSObject
 
@@ -36,6 +38,11 @@ extern NSString * const EZVaultKeyElevenLabs;
 
 /// Returns YES if a key has been stored for the given identifier.
 + (BOOL)hasKeyForIdentifier:(NSString *)identifier;
+
+/// Seeds the support contact email into the vault on first run.
+/// The actual address is defined only in EZKeyVault.m (kept off GitHub).
+/// Safe to call every launch — does nothing if the address is already stored.
++ (void)seedSupportEmailIfNeeded;
 
 @end
 

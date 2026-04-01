@@ -3,6 +3,7 @@
  
 #import "AppDelegate.h"
 #import "ViewController.h"
+#import "EZKeyVault.h"
  
 @implementation AppDelegate
  
@@ -12,6 +13,7 @@
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
     self.window.rootViewController = [[ViewController alloc] init];
     [self.window makeKeyAndVisible];
+    [EZKeyVault seedSupportEmailIfNeeded];
     return YES;
 }
  

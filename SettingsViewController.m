@@ -1,12 +1,16 @@
 // SettingsViewController.m
-// EZCompleteUI
+// EZCompleteUI v2.0
 //
-// All app settings plus ElevenLabs voice cloning.
-// API keys are stored encrypted via EZKeyVault (AES-256-GCM, Keychain-backed).
-// Keys are masked after entry — the plaintext is never shown again.
+// Changes from v1.0:
+//   - All app settings plus ElevenLabs voice cloning
+//   - API keys stored encrypted via EZKeyVault (AES-256-GCM, Keychain-backed)
+//   - Keys are masked after entry — the plaintext is never shown again
+//   - App version read from Info.plist and displayed at top of settings
+//   - Support & Feedback button opens SupportRequestViewController
 
 #import "SettingsViewController.h"
 #import "MemoriesViewController.h"
+#import "SupportRequestViewController.h"
 #import "EZKeyVault.h"
 #import "helpers.h"
 #import <objc/runtime.h>
@@ -179,6 +183,19 @@ static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to
     CGFloat w = self.view.frame.size.width - 40;
     CGFloat y = 20;
 
+    // ── App Version (read from Info.plist) ───────────────────────────────────
+    NSDictionary *infoPlist  = [NSBundle mainBundle].infoDictionary;
+    NSString *appVersion     = infoPlist[@"CFBundleShortVersionString"] ?: @"?";
+    NSString *buildNumber    = infoPlist[@"CFBundleVersion"]            ?: @"?";
+    UILabel *versionLabel    = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 20)];
+    versionLabel.text        = [NSString stringWithFormat:@"EZCompleteUI  v%@  (build %@)",
+                                appVersion, buildNumber];
+    versionLabel.font        = [UIFont systemFontOfSize:12];
+    versionLabel.textColor   = [UIColor tertiaryLabelColor];
+    versionLabel.textAlignment = NSTextAlignmentCenter;
+    [self.scrollView addSubview:versionLabel];
+    y += 30;
+
     // ── OpenAI ───────────────────────────────────────────────────────────────
     [self addSection:@"🤖 OpenAI" y:&y];
     [self addLabel:@"API Key:" y:&y];
@@ -322,6 +339,10 @@ static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to
     [self addButton:@"💙 Donate via PayPal"
               color:[UIColor systemBlueColor]
              action:@selector(donate)
+                  y:&y w:w];
+    [self addButton:@"📬 Support & Feedback"
+              color:[UIColor systemTealColor]
+             action:@selector(openSupportRequest)
                   y:&y w:w];
 
     self.scrollView.contentSize = CGSizeMake(self.view.frame.size.width, y + 30);
@@ -867,6 +888,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         openURL:[NSURL URLWithString:@"https://paypal.me/i0stweak3r"]
         options:@{}
         completionHandler:nil];
+}
+
+- (void)openSupportRequest {
+    SupportRequestViewController *supportVC = [[SupportRequestViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc]
+                                   initWithRootViewController:supportVC];
+    nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:nav animated:YES completion:nil];
 }
 
 

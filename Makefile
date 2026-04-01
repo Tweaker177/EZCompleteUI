@@ -8,10 +8,10 @@ include $(THEOS)/makefiles/common.mk
 APPLICATION_NAME = EZCompleteUI
 
 EZCompleteUI_FILES = main.m AppDelegate.m ViewController.m helpers.m \
-                     ChatHistoryViewController.m SettingsViewController.m MemoriesViewController.m
+                     ChatHistoryViewController.m SettingsViewController.m MemoriesViewController.m EZKeyVault.m SupportRequestViewController.m
 
 EZCompleteUI_FRAMEWORKS = UIKit Foundation AVFoundation Speech QuickLook \
-                          UniformTypeIdentifiers PDFKit QuickLookThumbnailing
+UniformTypeIdentifiers PDFKit QuickLookThumbnailing Security
 
 EZCompleteUI_CFLAGS = -fobjc-arc
 EZCompleteUI_CODESIGN_FLAGS = -Sent.plist
