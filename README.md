@@ -199,9 +199,11 @@ The app automatically snaps your selected duration to the nearest valid value.
 
 ```
 EZCompleteUI/
-├── ViewController.m          # Main UI, all API calls, routing
+├── ViewController.h / .m          # Main UI, all API calls, routing
 ├── helpers.h / helpers.m     # Logging, memory, thread store, context routing
 ├── ChatHistoryViewController.h / .m  # Past conversations browser
+├── SettingsViewController.h / .m  # Settings for the app including API Keys, Resolution for video gen, etc
+├── MemoriesViewController.h / .m  # An in-app browser of stored memories, attachments and generated images.
 ├── AppDelegate.h / .m        # App lifecycle, Sora job resume on foreground
 ├── Info.plist                # Bundle metadata and permission descriptions
 ├── entitlements.plist        # Code signing entitlements
