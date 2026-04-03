@@ -362,10 +362,10 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
 
     // Build the shared email body
     NSMutableString *body = [NSMutableString string];
-    [body appendString:@"USER MESSAGE"];
-    [body appendString:@"────────────────────────────────────────"];
+    [body appendString:@"USER MESSAGE\n"];
+    [body appendString:@"----------------------------------------\n"];
     [body appendString:self.messageTextView.text];
-    [body appendString:@""];
+    [body appendString:@"\n\n\n"];
     [body appendString:[self buildSettingsSnapshot]];
 
     // ── Path 1: MFMailComposeViewController (preferred — supports log attachment) ──
@@ -384,21 +384,13 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
                 NSUInteger maxLogBytes = 50 * 1024;
                 if (logContent.length > maxLogBytes) {
                     logContent = [logContent substringFromIndex:logContent.length - maxLogBytes];
-                    logContent = [@"[Log truncated to last 50 KB]"
-                                  stringByAppendingString:logContent];
+                    logContent = [@"[Log truncated to last 50 KB]\n\n" stringByAppendingString:logContent];
                 }
-                [body appendString:@"
-
-── Debug Log ─────────────────────────────
-"];
+                [body appendString:@"\n\n-- Debug Log -------------------------\n"];
                 [body appendString:logContent];
             } else {
-                [body appendString:@"
-
-── Debug Log ─────────────────────────────
-"];
-                [body appendString:@"(log file is empty or could not be read)
-"];
+                [body appendString:@"\n\n-- Debug Log -------------------------\n"];
+                [body appendString:@"(log file is empty or could not be read)\n"];
             }
         }
 
@@ -424,13 +416,8 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
           @"canSendMail returned NO — falling back to mailto: URL");
 
     if (self.includeLogSwitch.isOn) {
-        [body appendString:@"
-
-── Debug Log ─────────────────────────────
-"];
-        [body appendString:@"[Log omitted: not supported via mailto: fallback. "
-                            "Please send a follow-up with the log from Settings → Helper Stats.]
-"];
+        [body appendString:@"\n\n-- Debug Log -------------------------\n"];
+        [body appendString:@"[Log omitted: not supported via mailto: fallback. Please send a follow-up with the log from Settings > Helper Stats.]\n"];
     }
 
     // Percent-encode subject and body for the mailto: URL

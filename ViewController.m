@@ -1,5 +1,5 @@
 // ViewController.m
-// EZCompleteUI v6.4
+// EZCompleteUI v6.5
 //
 // Changes from v6.2:
 //   - GPT-5 timeout increased (180s solo, 240s with web search)
@@ -13,7 +13,6 @@
 //   - sanitizedContextForAPI: converts image/text block types for Responses vs Chat API
 //   - ElevenLabs + Whisper keys now stored via EZKeyVault (Keychain), not NSUserDefaults
 //   - URLs in AI responses are now tappable (dataDetectorTypes) with styled link appearance
-//   - Message input replaced with UITextView: expands to ~4 lines on focus, collapses on dismiss
 //   - checkReplyForLocalFilePaths regex broadened to /var/mobile/ prefix + any extension
 
 #import "ViewController.h"
@@ -36,7 +35,6 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
 @interface ViewController () <UIDocumentPickerDelegate,
                                UITextFieldDelegate,
-                               UITextViewDelegate,
                                QLPreviewControllerDataSource,
                                SFSpeechRecognizerDelegate,
                                ChatHistoryViewControllerDelegate>
@@ -44,11 +42,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 // UI
 @property (nonatomic, strong) UITextView    *chatHistoryView;
 @property (nonatomic, strong) UIView        *inputContainer;
-// messageTextField is a UITextView so it can expand on focus for multi-line input.
-// The name is kept for brevity since all .text access is identical on both types.
-@property (nonatomic, strong) UITextView    *messageTextField;
-@property (nonatomic, strong) UILabel       *inputPlaceholderLabel;
-@property (nonatomic, strong) NSLayoutConstraint *inputViewHeightConstraint;
+@property (nonatomic, strong) UITextField   *messageTextField;
 @property (nonatomic, strong) UIButton      *sendButton;
 @property (nonatomic, strong) UIButton      *modelButton;
 @property (nonatomic, strong) UIButton      *attachButton;
@@ -469,7 +463,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     // Chat view
     self.chatHistoryView = [[UITextView alloc] init];
     self.chatHistoryView.editable          = NO;
-    self.chatHistoryView.selectable        = YES;   // required for link tap handling
+    self.chatHistoryView.selectable        = YES;
     self.chatHistoryView.font              = [UIFont systemFontOfSize:16];
     self.chatHistoryView.dataDetectorTypes = UIDataDetectorTypeLink;
     self.chatHistoryView.linkTextAttributes = @{
@@ -514,36 +508,14 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.dictateButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.inputContainer addSubview:self.dictateButton];
 
-    // Message input — UITextView so it can expand on focus for multi-line editing.
-    // kInputCollapsedHeight matches a typical single-line UITextField height.
-    static const CGFloat kInputCollapsedHeight = 40.0;
-
-    self.messageTextField = [[UITextView alloc] init];
-    self.messageTextField.delegate              = self;
-    self.messageTextField.font                  = [UIFont systemFontOfSize:16];
-    self.messageTextField.layer.cornerRadius    = 10;
-    self.messageTextField.layer.borderWidth     = 0.5;
-    self.messageTextField.layer.borderColor     = [UIColor systemGray4Color].CGColor;
-    self.messageTextField.backgroundColor       = [UIColor secondarySystemBackgroundColor];
-    self.messageTextField.textContainerInset    = UIEdgeInsetsMake(9, 6, 9, 6);
-    self.messageTextField.scrollEnabled         = NO;
-    self.messageTextField.returnKeyType         = UIReturnKeyDefault;
+    // Text field
+    self.messageTextField = [[UITextField alloc] init];
+    self.messageTextField.placeholder  = @"Type message...";
+    self.messageTextField.borderStyle  = UITextBorderStyleRoundedRect;
+    self.messageTextField.delegate     = self;
+    self.messageTextField.returnKeyType = UIReturnKeyDone;
     self.messageTextField.translatesAutoresizingMaskIntoConstraints = NO;
     [self.inputContainer addSubview:self.messageTextField];
-
-    // Floating placeholder label — hidden once the user types anything
-    self.inputPlaceholderLabel = [[UILabel alloc] init];
-    self.inputPlaceholderLabel.text      = @"Type message...";
-    self.inputPlaceholderLabel.font      = [UIFont systemFontOfSize:16];
-    self.inputPlaceholderLabel.textColor = [UIColor placeholderTextColor];
-    self.inputPlaceholderLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.messageTextField addSubview:self.inputPlaceholderLabel];
-    [NSLayoutConstraint activateConstraints:@[
-        [self.inputPlaceholderLabel.leadingAnchor
-            constraintEqualToAnchor:self.messageTextField.leadingAnchor constant:10],
-        [self.inputPlaceholderLabel.topAnchor
-            constraintEqualToAnchor:self.messageTextField.topAnchor constant:9],
-    ]];
 
     // Send button
     self.sendButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -579,17 +551,12 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         [self.dictateButton.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
         [self.dictateButton.centerYAnchor constraintEqualToAnchor:self.attachButton.centerYAnchor],
         [self.messageTextField.leadingAnchor constraintEqualToAnchor:self.dictateButton.trailingAnchor constant:8],
-        [self.messageTextField.topAnchor constraintEqualToAnchor:self.attachButton.topAnchor],
+        [self.messageTextField.centerYAnchor constraintEqualToAnchor:self.attachButton.centerYAnchor],
         [self.messageTextField.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-8],
         [self.sendButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
-        [self.sendButton.bottomAnchor constraintEqualToAnchor:self.messageTextField.bottomAnchor],
+        [self.sendButton.centerYAnchor constraintEqualToAnchor:self.messageTextField.centerYAnchor],
         [self.inputContainer.bottomAnchor constraintEqualToAnchor:self.messageTextField.bottomAnchor constant:12],
     ]];
-
-    // Stored height constraint — animated between collapsed and expanded in UITextViewDelegate
-    self.inputViewHeightConstraint =
-        [self.messageTextField.heightAnchor constraintEqualToConstant:kInputCollapsedHeight];
-    self.inputViewHeightConstraint.active = YES;
 }
 
 - (UIButton *)_iconButton:(NSString *)sfSymbol tint:(nullable UIColor *)tint action:(SEL)action {
@@ -604,43 +571,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [textField resignFirstResponder]; return YES;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - UITextViewDelegate (input expansion)
-// ─────────────────────────────────────────────────────────────────────────────
-
-- (void)textViewDidBeginEditing:(UITextView *)textView {
-    if (textView != self.messageTextField) return;
-    self.inputPlaceholderLabel.hidden       = YES;
-    self.inputViewHeightConstraint.constant = 130.0;
-    self.messageTextField.scrollEnabled     = YES;
-    [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionCurveEaseOut
-                     animations:^{ [self.view layoutIfNeeded]; }
-                     completion:nil];
-}
-
-- (void)textViewDidEndEditing:(UITextView *)textView {
-    if (textView != self.messageTextField) return;
-    self.inputPlaceholderLabel.hidden = self.messageTextField.text.length > 0;
-    // Collapse only when the field is empty — preserve expanded state while text remains
-    if (self.messageTextField.text.length == 0) {
-        self.inputViewHeightConstraint.constant = 40.0;
-        self.messageTextField.scrollEnabled     = NO;
-        [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionCurveEaseIn
-                         animations:^{ [self.view layoutIfNeeded]; }
-                         completion:nil];
-    }
-}
-
-- (void)textViewDidChange:(UITextView *)textView {
-    if (textView != self.messageTextField) return;
-    self.inputPlaceholderLabel.hidden = textView.text.length > 0;
-}
-
-/// Sets the message input text and keeps the placeholder in sync.
-/// Use this instead of .text = ... directly so the placeholder is always correct.
 - (void)setInputText:(NSString *)text {
-    self.messageTextField.text        = text;
-    self.inputPlaceholderLabel.hidden = text.length > 0;
+    self.messageTextField.text = text;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2439,9 +2371,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
     if (!docsDir) return;
 
-    // Match any path under the iOS app container root (/var/mobile/) with any file extension.
-    // Using the path prefix instead of a whitelist of extensions prevents false negatives
-    // for formats like .ips (crash logs), .json, .csv, .m, .swift, etc.
+    // Match any path under /var/mobile/ with any extension — fixes .ips, .json, etc.
     NSRegularExpression *pathRegex = [NSRegularExpression
         regularExpressionWithPattern:@"(/var/mobile/[^\\s\"'<>]+\\.\\w+)"
                              options:NSRegularExpressionCaseInsensitive error:nil];
