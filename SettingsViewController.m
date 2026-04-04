@@ -15,6 +15,9 @@
 #import "helpers.h"
 #import <objc/runtime.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "TextToSpeechViewController.h"
+#import "ElevenLabsCloneViewController.h"
+
 
 static const void * kEZCloneNameKey     = &kEZCloneNameKey;
 static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
@@ -176,6 +179,7 @@ static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)setupUI {
+    
     self.scrollView = [[UIScrollView alloc] initWithFrame:self.view.bounds];
     self.scrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:self.scrollView];
@@ -272,6 +276,31 @@ static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to
     [getVoicesBtn addTarget:self action:@selector(fetchVoices)
           forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:getVoicesBtn];
+    
+        // ── ADD: Open "Text to Speech…" button ───────────────────────────────────────
+        UIButton *ttsButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        ttsButton.frame = CGRectMake(20, y, w, 44);
+        [ttsButton setTitle:@"Text to Speech…" forState:UIControlStateNormal];
+        ttsButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+        ttsButton.layer.cornerRadius = 8;
+        ttsButton.backgroundColor = [UIColor systemFillColor];
+        [ttsButton setTitleColor:[UIColor labelColor] forState:UIControlStateNormal];
+        [ttsButton addTarget:self action:@selector(openTextToSpeech:) forControlEvents:UIControlEventTouchUpInside];
+        [self.scrollView addSubview:ttsButton];
+        y += 54;
+
+        // ── ADD: Open "Voice Cloner" button (IVC + PVC) ─────────────────────────────
+        UIButton *cloneButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        cloneButton.frame = CGRectMake(20, y, w, 44);
+        [cloneButton setTitle:@"Voice Cloner (Instant + Pro PVC)..." forState:UIControlStateNormal];
+        cloneButton.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+        cloneButton.layer.cornerRadius = 8;
+        cloneButton.backgroundColor = [UIColor secondarySystemFillColor];
+        [cloneButton setTitleColor:[UIColor labelColor] forState:UIControlStateNormal];
+        [cloneButton addTarget:self action:@selector(openVoiceCloner:) forControlEvents:UIControlEventTouchUpInside];
+        [self.scrollView addSubview:cloneButton];
+        y += 54;
+
 
     // ── ElevenLabs Voice Cloning ─────────────────────────────────────────────
     [self addSection:@"🎤 Voice Cloning (ElevenLabs)" y:&y];
@@ -534,6 +563,20 @@ static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - ElevenLabs Voice Fetching
 // ─────────────────────────────────────────────────────────────────────────────
+
+- (void)openTextToSpeech:(id)sender {
+    EZLog(EZLogLevelInfo, @"SETTINGS", @"Opening TextToSpeechViewController");
+    TextToSpeechViewController *vc = [[TextToSpeechViewController alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+- (void)openVoiceCloner:(id)sender {
+    EZLog(EZLogLevelInfo, @"SETTINGS", @"Opening ElevenLabsCloneViewController");
+    ElevenLabsCloneViewController *vc = [[ElevenLabsCloneViewController alloc] init];
+    [self.navigationController pushViewController:vc animated:YES];
+}
+
+
 
 /// Returns the current ElevenLabs key — from vault if masked, from field if being edited.
 - (NSString *)resolvedElevenLabsKey {
