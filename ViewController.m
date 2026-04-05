@@ -1,7 +1,7 @@
 // ViewController.m
-// EZCompleteUI v6.5
+// EZCompleteUI v6.7
 //
-// Changes from v6.2:
+// Changes from v6.6:
 //   - GPT-5 timeout increased (180s solo, 240s with web search)
 //   - Web search now silently skipped with warning for incompatible models
 //   - Copy button shows checkmark confirmation for 1.5s
@@ -14,6 +14,19 @@
 //   - ElevenLabs + Whisper keys now stored via EZKeyVault (Keychain), not NSUserDefaults
 //   - URLs in AI responses are now tappable (dataDetectorTypes) with styled link appearance
 //   - checkReplyForLocalFilePaths regex broadened to /var/mobile/ prefix + any extension
+//   - Bubble chat UI: UITableView replaces UITextView; user (blue, right) and
+//     assistant (gray, left) message bubbles with iMessage-style tail corners
+//   - Code blocks rendered as EZCodeBlockCell with Copy + Share buttons
+//   - Thread title now set from attachment filename when attachment is first action
+//   - Sora: video deferred to pendingVideoURL when app is backgrounded, presented on foreground
+//
+// Changes from v6.5 / v6.6:
+//   - Code blocks fixed at ~1/3 screen height with internal scrolling (restored original look)
+//   - Spurious attachment bug fixed: lastImageLocalPath/pendingImagePath no longer blindly
+//     injected into every chat completion's captured attachments
+//   - gpt-image-1 models expanded: gpt-image-1.5, gpt-image-1-mini, chatgpt-image-latest
+//   - Image generation settings: quality, size, output_format, background, moderation
+//     stored in NSUserDefaults; showImageSettings sheet from model button when image model active
 
 #import "ViewController.h"
 #import "SettingsViewController.h"
@@ -35,12 +48,18 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
 @interface ViewController () <UIDocumentPickerDelegate,
                                UITextFieldDelegate,
+                               UITableViewDataSource,
+                               UITableViewDelegate,
                                QLPreviewControllerDataSource,
                                SFSpeechRecognizerDelegate,
                                ChatHistoryViewControllerDelegate>
 
 // UI
-@property (nonatomic, strong) UITextView    *chatHistoryView;
+/// UITableView that renders all chat messages as bubble / system / code cells.
+@property (nonatomic, strong) UITableView   *chatTableView;
+/// Flat array of display-message dicts driving chatTableView.
+/// Keys: role (@"user"|@"assistant"|@"system"|@"code"), text, language, savedPath.
+@property (nonatomic, strong) NSMutableArray<NSDictionary *> *displayMessages;
 @property (nonatomic, strong) UIView        *inputContainer;
 @property (nonatomic, strong) UITextField   *messageTextField;
 @property (nonatomic, strong) UIButton      *sendButton;
@@ -50,11 +69,17 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) UIButton      *clipboardButton;
 @property (nonatomic, strong) UIButton      *speakButton;
 @property (nonatomic, strong) UIButton      *clearButton;
+/// Appears in input area when an image model is active — opens image parameter sheet.
+@property (nonatomic, strong) UIButton      *imageSettingsButton;
 @property (nonatomic, strong) UIButton      *dictateButton;
 @property (nonatomic, strong) UIButton      *webSearchButton;
 @property (nonatomic, strong) UIButton      *historyButton;
 @property (nonatomic, strong) UIButton      *addChatButton;
 @property (nonatomic, strong) NSLayoutConstraint *containerBottomConstraint;
+/// Tappable label showing the active thread title — tap to rename.
+@property (nonatomic, strong) UILabel       *threadTitleLabel;
+/// Button in top bar that triggers renaming.
+@property (nonatomic, strong) UIButton      *renameButton;
 
 // State
 @property (nonatomic, strong) NSArray       *models;
@@ -67,6 +92,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
 // Media / file state
 @property (nonatomic, strong) NSURL         *previewURL;
+/// Non-nil when a Sora video completed while the app was backgrounded.
+/// Presented the next time the view becomes visible.
+@property (nonatomic, strong) NSURL         *pendingVideoURL;
 @property (nonatomic, strong) NSString      *pendingFileContext;   // text extracted from file
 @property (nonatomic, strong) NSString      *pendingFileName;
 @property (nonatomic, strong) NSString      *pendingImagePath;     // local path of attached image
@@ -86,6 +114,305 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) AVAudioEngine                    *audioEngine;
 @property (nonatomic, assign) BOOL                              isDictating;
 
+@end
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Chat Cell Classes
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── EZBubbleCell ──────────────────────────────────────────────────────────────
+// Renders a single user or assistant chat message as a colored bubble.
+// Uses UITextView (non-editable, selectable) so that:
+//   • Links are detected and tappable
+//   • The user can place the cursor and select any span of text
+//   • The system copy/share/lookup menu appears on selection automatically
+@interface EZBubbleCell : UITableViewCell
+- (void)configureWithText:(NSString *)text isUser:(BOOL)isUser;
+@end
+
+@implementation EZBubbleCell {
+    UIView     *_bubbleView;
+    UITextView *_messageTextView;
+    NSArray<NSLayoutConstraint *> *_alignmentConstraints;
+}
+
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
+    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
+    if (!self) return nil;
+    self.backgroundColor = [UIColor clearColor];
+    self.selectionStyle  = UITableViewCellSelectionStyleNone;
+
+    _bubbleView = [[UIView alloc] init];
+    _bubbleView.translatesAutoresizingMaskIntoConstraints = NO;
+    _bubbleView.layer.cornerRadius = 18.0;
+    _bubbleView.clipsToBounds      = YES;
+
+    // Non-editable, selectable UITextView.
+    // scrollEnabled=NO lets Auto Layout drive cell height from content.
+    _messageTextView = [[UITextView alloc] init];
+    _messageTextView.editable              = NO;
+    _messageTextView.selectable            = YES;
+    _messageTextView.scrollEnabled         = NO;
+    _messageTextView.dataDetectorTypes     = UIDataDetectorTypeLink;
+    _messageTextView.font                  = [UIFont systemFontOfSize:16];
+    _messageTextView.backgroundColor       = [UIColor clearColor];
+    _messageTextView.textContainerInset    = UIEdgeInsetsMake(10, 10, 10, 10);
+    _messageTextView.textContainer.lineFragmentPadding = 0;
+    _messageTextView.translatesAutoresizingMaskIntoConstraints = NO;
+
+    [_bubbleView addSubview:_messageTextView];
+    [self.contentView addSubview:_bubbleView];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [_bubbleView.topAnchor    constraintEqualToAnchor:self.contentView.topAnchor    constant:4],
+        [_bubbleView.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-4],
+        [_messageTextView.topAnchor     constraintEqualToAnchor:_bubbleView.topAnchor],
+        [_messageTextView.bottomAnchor  constraintEqualToAnchor:_bubbleView.bottomAnchor],
+        [_messageTextView.leadingAnchor  constraintEqualToAnchor:_bubbleView.leadingAnchor],
+        [_messageTextView.trailingAnchor constraintEqualToAnchor:_bubbleView.trailingAnchor],
+    ]];
+
+    // Width cap: bubble never wider than ~76% of a standard screen
+    NSLayoutConstraint *maxW = [_bubbleView.widthAnchor constraintLessThanOrEqualToConstant:290];
+    maxW.priority = UILayoutPriorityDefaultHigh;
+    maxW.active   = YES;
+
+    return self;
+}
+
+- (void)configureWithText:(NSString *)text isUser:(BOOL)isUser {
+    _messageTextView.text = text;
+
+    // ── Bubble background ────────────────────────────────────────────────────
+    _bubbleView.backgroundColor      = isUser
+        ? [UIColor systemBlueColor]
+        : [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
+               return tc.userInterfaceStyle == UIUserInterfaceStyleDark
+                   ? [UIColor colorWithRed:0.20 green:0.20 blue:0.22 alpha:1.0]
+                   : [UIColor colorWithRed:0.90 green:0.90 blue:0.92 alpha:1.0];
+           }];
+    _messageTextView.backgroundColor = [UIColor clearColor];
+
+    // ── Text color ───────────────────────────────────────────────────────────
+    _messageTextView.textColor = isUser ? [UIColor whiteColor] : [UIColor labelColor];
+
+    // ── Link color: white on blue (user), system blue on gray (assistant) ────
+    UIColor *linkColor = isUser
+        ? [UIColor colorWithWhite:1.0 alpha:0.90]
+        : [UIColor colorWithRed:0.231 green:0.510 blue:0.965 alpha:1.0];
+    _messageTextView.linkTextAttributes = @{
+        NSForegroundColorAttributeName : linkColor,
+        NSUnderlineStyleAttributeName  : @(NSUnderlineStyleSingle),
+    };
+
+    // Selection handles match bubble context
+    _messageTextView.tintColor = isUser
+        ? [UIColor colorWithWhite:1.0 alpha:0.7]
+        : [UIColor systemBlueColor];
+
+    // ── Tail: one flat corner pointing toward the speaker ────────────────────
+    if (@available(iOS 11.0, *)) {
+        _bubbleView.layer.maskedCorners = isUser
+            // User (right-aligned) → flat bottom-right corner
+            ? (kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner | kCALayerMinXMaxYCorner)
+            // Assistant (left-aligned) → flat bottom-left corner
+            : (kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner | kCALayerMaxXMaxYCorner);
+    }
+
+    // ── Alignment: pin bubble to the appropriate side ────────────────────────
+    if (_alignmentConstraints) [NSLayoutConstraint deactivateConstraints:_alignmentConstraints];
+    NSMutableArray *ac = [NSMutableArray array];
+    if (isUser) {
+        [ac addObject:[_bubbleView.trailingAnchor
+            constraintEqualToAnchor:self.contentView.trailingAnchor constant:-12]];
+        [ac addObject:[_bubbleView.leadingAnchor
+            constraintGreaterThanOrEqualToAnchor:self.contentView.leadingAnchor constant:60]];
+    } else {
+        [ac addObject:[_bubbleView.leadingAnchor
+            constraintEqualToAnchor:self.contentView.leadingAnchor constant:12]];
+        [ac addObject:[_bubbleView.trailingAnchor
+            constraintLessThanOrEqualToAnchor:self.contentView.trailingAnchor constant:-60]];
+    }
+    _alignmentConstraints = [ac copy];
+    [NSLayoutConstraint activateConstraints:_alignmentConstraints];
+}
+@end
+
+// ── EZSystemCell ──────────────────────────────────────────────────────────────
+// Centered small-font text for [System: ...] and [Error: ...] status lines.
+@interface EZSystemCell : UITableViewCell
+@property (nonatomic, strong) UILabel *messageLabel;
+@end
+
+@implementation EZSystemCell
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
+    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
+    if (!self) return nil;
+    self.backgroundColor = [UIColor clearColor];
+    self.selectionStyle  = UITableViewCellSelectionStyleNone;
+
+    _messageLabel                = [[UILabel alloc] init];
+    _messageLabel.numberOfLines  = 0;
+    _messageLabel.textAlignment  = NSTextAlignmentCenter;
+    _messageLabel.font           = [UIFont systemFontOfSize:12];
+    _messageLabel.textColor      = [UIColor secondaryLabelColor];
+    _messageLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.contentView addSubview:_messageLabel];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [_messageLabel.topAnchor      constraintEqualToAnchor:self.contentView.topAnchor      constant:3],
+        [_messageLabel.bottomAnchor   constraintEqualToAnchor:self.contentView.bottomAnchor   constant:-3],
+        [_messageLabel.leadingAnchor  constraintEqualToAnchor:self.contentView.leadingAnchor  constant:16],
+        [_messageLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-16],
+    ]];
+    return self;
+}
+@end
+
+// ── EZCodeBlockCell ───────────────────────────────────────────────────────────
+// Full-width dark code block with language label, Copy button, and Share button.
+@interface EZCodeBlockCell : UITableViewCell
+- (void)configureWithCode:(NSString *)code
+                 language:(NSString *)language
+                savedPath:(nullable NSString *)savedPath
+           viewController:(__weak UIViewController *)vc;
+@end
+
+@implementation EZCodeBlockCell {
+    UILabel    *_langLabel;
+    UIButton   *_copyBtn;
+    UIButton   *_shareBtn;
+    UITextView *_codeView;
+    NSString   *_codeContent;
+    NSString   *_savedPath;
+    __weak UIViewController *_vc;
+}
+
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
+    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
+    if (!self) return nil;
+    self.backgroundColor = [UIColor clearColor];
+    self.selectionStyle  = UITableViewCellSelectionStyleNone;
+
+    UIView *container          = [[UIView alloc] init];
+    container.backgroundColor  = [UIColor colorWithWhite:0.12 alpha:1.0];
+    container.layer.cornerRadius = 10;
+    container.clipsToBounds    = YES;
+    container.layer.borderColor = [UIColor colorWithWhite:0.3 alpha:1.0].CGColor;
+    container.layer.borderWidth = 0.5;
+    container.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.contentView addSubview:container];
+
+    UIView *header              = [[UIView alloc] init];
+    header.backgroundColor      = [UIColor colorWithWhite:0.18 alpha:1.0];
+    header.translatesAutoresizingMaskIntoConstraints = NO;
+    [container addSubview:header];
+
+    _langLabel                  = [[UILabel alloc] init];
+    _langLabel.font             = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightMedium];
+    _langLabel.textColor        = [UIColor colorWithRed:0.6 green:0.8 blue:1.0 alpha:1.0];
+    _langLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    [header addSubview:_langLabel];
+
+    // Share button (todo #5)
+    _shareBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    [_shareBtn setImage:[UIImage systemImageNamed:@"square.and.arrow.up"] forState:UIControlStateNormal];
+    _shareBtn.tintColor = [UIColor colorWithWhite:0.8 alpha:1.0];
+    _shareBtn.translatesAutoresizingMaskIntoConstraints = NO;
+    [_shareBtn addTarget:self action:@selector(_shareTapped) forControlEvents:UIControlEventTouchUpInside];
+    [header addSubview:_shareBtn];
+
+    _copyBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    [_copyBtn setTitle:@"\u2398 Copy" forState:UIControlStateNormal];
+    _copyBtn.tintColor          = [UIColor colorWithWhite:0.8 alpha:1.0];
+    _copyBtn.titleLabel.font    = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
+    _copyBtn.backgroundColor    = [UIColor colorWithWhite:0.28 alpha:1.0];
+    _copyBtn.layer.cornerRadius = 5;
+    _copyBtn.translatesAutoresizingMaskIntoConstraints = NO;
+    [_copyBtn addTarget:self action:@selector(_copyTapped) forControlEvents:UIControlEventTouchUpInside];
+    [header addSubview:_copyBtn];
+
+    _codeView                       = [[UITextView alloc] init];
+    _codeView.editable              = NO;
+    _codeView.selectable            = YES;
+    _codeView.backgroundColor       = [UIColor clearColor];
+    _codeView.textColor             = [UIColor colorWithRed:0.85 green:0.95 blue:0.85 alpha:1.0];
+    _codeView.font                  = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
+    _codeView.textContainerInset    = UIEdgeInsetsMake(8, 10, 8, 10);
+    // scrollEnabled=YES so content scrolls inside the fixed-height cell (original widget look)
+    _codeView.scrollEnabled         = YES;
+    _codeView.translatesAutoresizingMaskIntoConstraints = NO;
+    [container addSubview:_codeView];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [container.topAnchor      constraintEqualToAnchor:self.contentView.topAnchor      constant:4],
+        [container.bottomAnchor   constraintEqualToAnchor:self.contentView.bottomAnchor   constant:-4],
+        [container.leadingAnchor  constraintEqualToAnchor:self.contentView.leadingAnchor  constant:8],
+        [container.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-8],
+
+        [header.topAnchor      constraintEqualToAnchor:container.topAnchor],
+        [header.leadingAnchor  constraintEqualToAnchor:container.leadingAnchor],
+        [header.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
+        [header.heightAnchor   constraintEqualToConstant:36],
+
+        [_langLabel.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:12],
+        [_langLabel.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+
+        [_shareBtn.trailingAnchor  constraintEqualToAnchor:header.trailingAnchor constant:-8],
+        [_shareBtn.centerYAnchor   constraintEqualToAnchor:header.centerYAnchor],
+        [_shareBtn.widthAnchor     constraintEqualToConstant:30],
+        [_shareBtn.heightAnchor    constraintEqualToConstant:30],
+
+        [_copyBtn.trailingAnchor constraintEqualToAnchor:_shareBtn.leadingAnchor constant:-6],
+        [_copyBtn.centerYAnchor  constraintEqualToAnchor:header.centerYAnchor],
+        [_copyBtn.widthAnchor    constraintEqualToConstant:72],
+        [_copyBtn.heightAnchor   constraintEqualToConstant:26],
+
+        [_codeView.topAnchor      constraintEqualToAnchor:header.bottomAnchor],
+        [_codeView.leadingAnchor  constraintEqualToAnchor:container.leadingAnchor],
+        [_codeView.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
+        // Fixed height ~1/3 screen so the cell stays compact and content scrolls inside.
+        // Container bottom is driven by this height rather than expanding to content.
+        [_codeView.heightAnchor   constraintEqualToConstant:
+            MAX(120.0, UIScreen.mainScreen.bounds.size.height / 3.0)],
+        [_codeView.bottomAnchor   constraintEqualToAnchor:container.bottomAnchor],
+    ]];
+    return self;
+}
+
+- (void)configureWithCode:(NSString *)code language:(NSString *)language
+               savedPath:(NSString *)savedPath viewController:(__weak UIViewController *)vc {
+    _codeContent        = code;
+    _savedPath          = savedPath;
+    _vc                 = vc;
+    _langLabel.text     = language.length > 0 ? language.uppercaseString : @"CODE";
+    _codeView.text      = code;
+}
+
+- (void)_copyTapped {
+    if (!_codeContent.length) return;
+    [UIPasteboard generalPasteboard].string = _codeContent;
+    NSString *orig = [_copyBtn titleForState:UIControlStateNormal];
+    [_copyBtn setTitle:@"✓ Copied!" forState:UIControlStateNormal];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{ [self->_copyBtn setTitle:orig forState:UIControlStateNormal]; });
+}
+
+- (void)_shareTapped {
+    if (!_vc) return;
+    NSMutableArray *items = [NSMutableArray array];
+    if (_savedPath.length && [[NSFileManager defaultManager] fileExistsAtPath:_savedPath]) {
+        [items addObject:[NSURL fileURLWithPath:_savedPath]];
+    } else if (_codeContent.length) {
+        [items addObject:_codeContent];
+    }
+    if (!items.count) return;
+    UIActivityViewController *av = [[UIActivityViewController alloc]
+        initWithActivityItems:items applicationActivities:nil];
+    if (av.popoverPresentationController) av.popoverPresentationController.sourceView = _shareBtn;
+    [_vc presentViewController:av animated:YES completion:nil];
+}
 @end
 
 @implementation ViewController
@@ -116,14 +443,18 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
         @"gpt-3.5-turbo",
         // ── Image Generation & Edit ───────────────────────────────────────
-        @"gpt-image-1",   // generation + edit (current, replaces dall-e-3/2)
-        @"dall-e-3",      // generation only (legacy, still active)
+        @"gpt-image-1.5",        // newest image model
+        @"gpt-image-1",          // generation + edit
+        @"gpt-image-1-mini",     // faster/cheaper image generation
+        @"chatgpt-image-latest", // always points to current ChatGPT image model
+        @"dall-e-3",             // generation only (legacy)
         // ── Video ─────────────────────────────────────────────────────────
         @"sora-2", @"sora-2-pro",
         // ── Audio ─────────────────────────────────────────────────────────
         @"whisper-1"
     ];
-    self.chatContext       = [NSMutableArray array];
+    self.chatContext        = [NSMutableArray array];
+    self.displayMessages    = [NSMutableArray array];
     self.speechSynthesizer = [[AVSpeechSynthesizer alloc] init];
     self.selectedModel     = [[NSUserDefaults standardUserDefaults] stringForKey:@"selectedModel"]
                              ?: self.models[0];
@@ -193,22 +524,42 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         for (NSDictionary *msg in self.chatContext) {
             if ([msg[@"role"] isEqualToString:@"user"]) {
                 id content = msg[@"content"];
-                NSString *text = [content isKindOfClass:[NSString class]] ? content : @"";
-                // Strip the Tier-3 context preamble so titles are the actual question
+                NSString *text = @"";
+
+                if ([content isKindOfClass:[NSString class]]) {
+                    text = content;
+                } else if ([content isKindOfClass:[NSArray class]]) {
+                    // Vision attachment: extract text block, or fall back to filename
+                    for (NSDictionary *block in (NSArray *)content) {
+                        NSString *t = block[@"text"];
+                        if (t.length > 0 &&
+                            ![t isEqualToString:@"[image attached \u2014 await user question]"]) {
+                            text = t;
+                            break;
+                        }
+                    }
+                    if (text.length == 0) {
+                        // No text block — use the attachment filename as the title
+                        NSString *fname = self.activeThread.attachmentPaths.lastObject.lastPathComponent;
+                        text = fname.length > 0
+                            ? [@"Attachment: " stringByAppendingString:fname]
+                            : @"[Attachment]";
+                    }
+                }
+
+                // Strip Tier-3 context preamble
                 NSString *contextPrefix = @"[Context from previous conversations]";
                 if ([text hasPrefix:contextPrefix]) {
                     NSRange userMsgRange = [text rangeOfString:@"[User message]\n"];
                     if (userMsgRange.location != NSNotFound) {
                         text = [text substringFromIndex:userMsgRange.location + userMsgRange.length];
-                    } else {
-                        // No user message marker — skip this turn and use the next
-                        continue;
-                    }
+                    } else { continue; }
                 }
+
                 text = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
                 if (text.length == 0) continue;
                 self.activeThread.title = text.length > 60
-                    ? [[text substringToIndex:60] stringByAppendingString:@"…"]
+                    ? [[text substringToIndex:60] stringByAppendingString:@"\u2026"]
                     : text;
                 break;
             }
@@ -217,6 +568,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     // Carry last image path if any
     if (self.lastImageLocalPath) self.activeThread.lastImageLocalPath = self.lastImageLocalPath;
 
+    // Keep visible label in sync whenever the title gets auto-derived
+    dispatch_async(dispatch_get_main_queue(), ^{ [self updateThreadTitleLabel]; });
     EZThreadSave(self.activeThread, nil);
     EZLogf(EZLogLevelInfo, @"THREAD", @"Saved: %@", self.activeThread.threadID);
 }
@@ -226,69 +579,51 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)chatHistoryDidSelectThread:(EZChatThread *)thread {
-    // Restore thread into active state
     [self.chatContext removeAllObjects];
     [self.chatContext addObjectsFromArray:thread.chatContext];
+    [self.displayMessages removeAllObjects];
 
-    self.activeThread      = thread;
-    self.selectedModel     = thread.modelName ?: self.selectedModel;
+    self.activeThread       = thread;
+    self.selectedModel      = thread.modelName ?: self.selectedModel;
     self.lastImageLocalPath = thread.lastImageLocalPath;
-    self.lastUserPrompt    = nil;
-    self.lastAIResponse    = nil;
+    self.lastUserPrompt     = nil;
+    self.lastAIResponse     = nil;
     self.pendingFileContext = nil;
     self.pendingFileName    = nil;
     self.pendingImagePath   = nil;
 
-    // Update model button
     [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", self.selectedModel]
                       forState:UIControlStateNormal];
 
-    // Rebuild chat display from context.
-    // For assistant messages that contain code blocks (``` markers), we run them
-    // through processReplyWithCodeBlocks so the widgets get re-rendered.
-    // We build the text first then let appendToChat handle widget injection.
-    self.chatHistoryView.text = @""; // Clear all existing subviews' space
-
-    // Remove any old code block widgets from a prior restore
-    for (UIView *subview in self.chatHistoryView.subviews) {
-        if (subview.tag == 9001) [subview removeFromSuperview];
-    }
-
+    // Rebuild display messages from saved context
     for (NSDictionary *msg in self.chatContext) {
         NSString *role    = msg[@"role"] ?: @"";
         id        content = msg[@"content"];
-        NSString *text    = [content isKindOfClass:[NSString class]] ? content : @"[attachment]";
+        NSString *text    = [content isKindOfClass:[NSString class]] ? content : nil;
+        if (!text) continue; // skip vision attachment blobs on restore
 
         if ([role isEqualToString:@"user"]) {
-            // User messages: show raw text but strip injected context preambles
-            NSString *displayText = text;
-            if ([displayText hasPrefix:@"[Context from previous conversations]"]) {
-                // Extract just the user message portion after the preamble
-                NSRange userMsgRange = [displayText rangeOfString:@"[User message]\n"];
-                if (userMsgRange.location != NSNotFound) {
-                    displayText = [displayText substringFromIndex:userMsgRange.location + userMsgRange.length];
-                }
+            if ([text hasPrefix:@"[Context from previous conversations]"]) {
+                NSRange r = [text rangeOfString:@"[User message]\n"];
+                if (r.location != NSNotFound) text = [text substringFromIndex:r.location + r.length];
             }
-            [self appendToOldChat:[NSString stringWithFormat:@"You: %@", displayText]];
+            text = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (text.length > 0) [self appendToChat:[NSString stringWithFormat:@"You: %@", text]];
         } else if ([role isEqualToString:@"assistant"]) {
             self.lastAIResponse = text;
             if ([text containsString:@"```"]) {
-                // Re-render code blocks — isRestore:YES prevents re-saving files
-                NSMutableArray<NSString *> *codePaths = [NSMutableArray array];
-                NSString *displayReply = [self processReplyWithCodeBlocks:text
-                                                               savedPaths:codePaths
-                                                                isRestore:YES];
-                [self appendToChat:[NSString stringWithFormat:@"AI: %@", displayReply]];
+                NSMutableArray *cp = [NSMutableArray array];
+                NSString *processed = [self processReplyWithCodeBlocks:text savedPaths:cp isRestore:YES];
+                [self appendToChat:[NSString stringWithFormat:@"AI: %@", processed]];
             } else {
-                [self appendToOldChat:[NSString stringWithFormat:@"AI: %@", text]];
+                [self appendToChat:[NSString stringWithFormat:@"AI: %@", text]];
             }
         }
     }
 
-    [self.chatHistoryView scrollRangeToVisible:
-        NSMakeRange(self.chatHistoryView.text.length > 0 ? self.chatHistoryView.text.length - 1 : 0, 1)];
-
-    [self appendToOldChat:[NSString stringWithFormat:@"[System: Thread \"%@\" restored ✓]", thread.title]];
+    [self appendToChat:[NSString stringWithFormat:@"[System: Thread \"%@\" restored ✓]", thread.title]];
+    [self scrollChatToBottom];
+    [self updateThreadTitleLabel];
     EZLogf(EZLogLevelInfo, @"THREAD", @"Restored: %@ (%lu turns)",
            thread.threadID, (unsigned long)self.chatContext.count);
 }
@@ -447,33 +782,49 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.settingsButton  = [self _iconButton:@"gearshape.fill" tint:nil
                                       action:@selector(openSettings)];
     // Trash = delete current chat (confirm) then start new one
-    self.clearButton     = [self _iconButton:@"trash.fill" tint:[UIColor systemRedColor]
-                                      action:@selector(deleteCurrentChat)];
+    self.clearButton   = [self _iconButton:@"trash.fill" tint:[UIColor systemRedColor]
+                                    action:@selector(deleteCurrentChat)];
+    // Rename thread title
+    self.renameButton  = [self _iconButton:@"pencil.line" tint:nil
+                                    action:@selector(renameThread)];
 
     // Full-width stack — equalSpacing distributes buttons edge to edge
     UIStackView *topStack = [[UIStackView alloc] initWithArrangedSubviews:@[
         self.addChatButton, self.historyButton, self.clipboardButton,
-        self.speakButton, self.webSearchButton, self.settingsButton, self.clearButton
+        self.speakButton, self.webSearchButton, self.settingsButton,
+        self.renameButton, self.clearButton
     ]];
     topStack.distribution = UIStackViewDistributionEqualSpacing;
     topStack.alignment    = UIStackViewAlignmentCenter;
     topStack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:topStack];
 
-    // Chat view
-    self.chatHistoryView = [[UITextView alloc] init];
-    self.chatHistoryView.editable          = NO;
-    self.chatHistoryView.selectable        = YES;
-    self.chatHistoryView.font              = [UIFont systemFontOfSize:16];
-    self.chatHistoryView.dataDetectorTypes = UIDataDetectorTypeLink;
-    self.chatHistoryView.linkTextAttributes = @{
-        NSForegroundColorAttributeName : [UIColor colorWithRed:0.231 green:0.510 blue:0.965 alpha:1.0],
-        NSUnderlineStyleAttributeName  : @(NSUnderlineStyleSingle),
-        NSUnderlineColorAttributeName  : [UIColor colorWithRed:0.231 green:0.510 blue:0.965 alpha:0.5],
-        NSFontAttributeName            : [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold],
-    };
-    self.chatHistoryView.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view addSubview:self.chatHistoryView];
+    // Thread title label — tappable, sits between top bar and chat table
+    self.threadTitleLabel                 = [[UILabel alloc] init];
+    self.threadTitleLabel.text            = @"New Conversation";
+    self.threadTitleLabel.font            = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+    self.threadTitleLabel.textColor       = [UIColor secondaryLabelColor];
+    self.threadTitleLabel.textAlignment   = NSTextAlignmentCenter;
+    self.threadTitleLabel.userInteractionEnabled = YES;
+    self.threadTitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    UITapGestureRecognizer *titleTap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(renameThread)];
+    [self.threadTitleLabel addGestureRecognizer:titleTap];
+    [self.view addSubview:self.threadTitleLabel];
+
+    // Chat table view — each message is a bubble, system, or code cell
+    self.chatTableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+    self.chatTableView.dataSource         = self;
+    self.chatTableView.delegate           = self;
+    self.chatTableView.separatorStyle     = UITableViewCellSeparatorStyleNone;
+    self.chatTableView.backgroundColor    = [UIColor systemBackgroundColor];
+    self.chatTableView.estimatedRowHeight = 60;
+    self.chatTableView.rowHeight          = UITableViewAutomaticDimension;
+    self.chatTableView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.chatTableView registerClass:[EZBubbleCell class]    forCellReuseIdentifier:@"EZBubble"];
+    [self.chatTableView registerClass:[EZSystemCell class]    forCellReuseIdentifier:@"EZSystem"];
+    [self.chatTableView registerClass:[EZCodeBlockCell class] forCellReuseIdentifier:@"EZCodeBlock"];
+    [self.view addSubview:self.chatTableView];
 
     // Input container
     self.inputContainer = [[UIView alloc] init];
@@ -530,6 +881,16 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [self.messageTextField setContentCompressionResistancePriority:UILayoutPriorityDefaultLow
                                                            forAxis:UILayoutConstraintAxisHorizontal];
 
+    // Image settings button — only visible when an image model is selected
+    self.imageSettingsButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.imageSettingsButton setImage:[UIImage systemImageNamed:@"slider.horizontal.3"]
+                              forState:UIControlStateNormal];
+    [self.imageSettingsButton addTarget:self action:@selector(showImageSettings)
+                      forControlEvents:UIControlEventTouchUpInside];
+    self.imageSettingsButton.hidden = YES; // shown when image model active
+    self.imageSettingsButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.inputContainer addSubview:self.imageSettingsButton];
+
     self.containerBottomConstraint =
         [self.inputContainer.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor];
 
@@ -537,15 +898,22 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         [topStack.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:5],
         [topStack.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:12],
         [topStack.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-12],
-        [self.chatHistoryView.topAnchor constraintEqualToAnchor:topStack.bottomAnchor constant:8],
-        [self.chatHistoryView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [self.chatHistoryView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [self.chatHistoryView.bottomAnchor constraintEqualToAnchor:self.inputContainer.topAnchor],
+        [self.threadTitleLabel.topAnchor    constraintEqualToAnchor:topStack.bottomAnchor constant:4],
+        [self.threadTitleLabel.leadingAnchor  constraintEqualToAnchor:self.view.leadingAnchor constant:12],
+        [self.threadTitleLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-12],
+        [self.chatTableView.topAnchor constraintEqualToAnchor:self.threadTitleLabel.bottomAnchor constant:4],
+        [self.chatTableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [self.chatTableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [self.chatTableView.bottomAnchor constraintEqualToAnchor:self.inputContainer.topAnchor],
         [self.inputContainer.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.inputContainer.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         self.containerBottomConstraint,
         [self.modelButton.topAnchor constraintEqualToAnchor:self.inputContainer.topAnchor constant:8],
         [self.modelButton.leadingAnchor constraintEqualToAnchor:self.inputContainer.leadingAnchor constant:12],
+        [self.imageSettingsButton.centerYAnchor constraintEqualToAnchor:self.modelButton.centerYAnchor],
+        [self.imageSettingsButton.leadingAnchor constraintEqualToAnchor:self.modelButton.trailingAnchor constant:8],
+        [self.imageSettingsButton.widthAnchor constraintEqualToConstant:32],
+        [self.imageSettingsButton.heightAnchor constraintEqualToConstant:32],
         [self.attachButton.leadingAnchor constraintEqualToAnchor:self.inputContainer.leadingAnchor constant:12],
         [self.attachButton.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
         [self.dictateButton.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
@@ -591,6 +959,169 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 - (void)updateWebSearchButtonTint {
     [self.webSearchButton setTintColor:self.webSearchEnabled
         ? [UIColor systemGreenColor] : [UIColor systemGrayColor]];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Thread Title Editing
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Syncs the visible threadTitleLabel with the active thread's current title.
+- (void)updateThreadTitleLabel {
+    NSString *title = self.activeThread.title;
+    if (!title.length || [title isEqualToString:@"New Conversation"]) {
+        self.threadTitleLabel.text      = @"New Conversation";
+        self.threadTitleLabel.textColor = [UIColor tertiaryLabelColor];
+    } else {
+        self.threadTitleLabel.text      = title;
+        self.threadTitleLabel.textColor = [UIColor secondaryLabelColor];
+    }
+}
+
+/// Shows an alert with a prefilled text field so the user can rename the thread.
+- (void)renameThread {
+    NSString *current = self.activeThread.title.length > 0
+        ? self.activeThread.title : @"";
+    UIAlertController *alert =
+        [UIAlertController alertControllerWithTitle:@"Rename Thread"
+                                            message:nil
+                                     preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *tf) {
+        tf.text             = current;
+        tf.placeholder      = @"Thread name";
+        tf.clearButtonMode  = UITextFieldViewModeWhileEditing;
+        tf.returnKeyType    = UIReturnKeyDone;
+        tf.autocapitalizationType = UITextAutocapitalizationTypeSentences;
+    }];
+    __weak typeof(self) ws = self;
+    [alert addAction:[UIAlertAction actionWithTitle:@"Save"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *_) {
+        NSString *newTitle = [alert.textFields.firstObject.text
+            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (!newTitle.length) return;
+        ws.activeThread.title = newTitle;
+        [ws updateThreadTitleLabel];
+        [ws saveActiveThread];
+        EZLogf(EZLogLevelInfo, @"THREAD", @"Renamed to: %@", newTitle);
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel"
+                                              style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Image Generation Settings
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Presents a series of action sheets to configure gpt-image-1 generation params.
+/// Settings are persisted in NSUserDefaults and read in callGptImage1 / callImageEdit.
+- (void)showImageSettings {
+        // Creating an instance of NSUserDefaults
+        NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+
+        // Fetching current values with defaults as fallback
+        NSString *curSize = [d stringForKey:@"imgSize"] ?: @"1024x1024";
+        NSString *curQual = [d stringForKey:@"imgQuality"] ?: @"auto";
+        NSString *curFmt = [d stringForKey:@"imgFormat"] ?: @"png";
+        NSString *curBg = [d stringForKey:@"imgBackground"] ?: @"auto";
+        NSString *curMod = [d stringForKey:@"imgModeration"] ?: @"auto";
+
+        // Creating an alert controller
+        UIAlertController *sheet = [UIAlertController
+            alertControllerWithTitle:@"Image Generation Settings"
+            message:[NSString stringWithFormat:
+                    @"Size: %@  |  Quality: %@  |  Format: %@  |  BG: %@  |  Mod: %@",
+                    curSize, curQual, curFmt, curBg, curMod]
+            preferredStyle:UIAlertControllerStyleActionSheet];    // ── Size ────────────────────────────────────────────────────────────────
+    NSDictionary *sizes = @{
+        @"1024x1024": @"Square (1024×1024)",
+        @"1024x1536": @"Portrait (1024×1536)",
+        @"1536x1024": @"Landscape (1536×1024)",
+    };
+    for (NSString *val in @[@"1024x1024", @"1024x1536", @"1536x1024"]) {
+        NSString *label = [NSString stringWithFormat:@"%@ Size: %@",
+                           [curSize isEqualToString:val] ? @"✓" : @" ", sizes[val]];
+        [sheet addAction:[UIAlertAction actionWithTitle:label
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *_) {
+            [d setObject:val forKey:@"imgSize"];
+            EZLogf(EZLogLevelInfo, @"IMGSET", @"Size → %@", val);
+        }]];
+    }
+
+    // ── Quality ─────────────────────────────────────────────────────────────
+    NSDictionary *quals = @{
+        @"auto": @"Quality: Auto (recommended)",
+        @"high": @"Quality: High",
+        @"medium": @"Quality: Medium",
+        @"low": @"Quality: Low (fastest)",
+    };
+    for (NSString *val in @[@"auto", @"high", @"medium", @"low"]) {
+        NSString *label = [NSString stringWithFormat:@"%@ %@",
+                           [curQual isEqualToString:val] ? @"✓" : @" ", quals[val]];
+        [sheet addAction:[UIAlertAction actionWithTitle:label
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *_) {
+            [d setObject:val forKey:@"imgQuality"];
+            EZLogf(EZLogLevelInfo, @"IMGSET", @"Quality → %@", val);
+        }]];
+    }
+
+    // ── Output format ────────────────────────────────────────────────────────
+    NSDictionary *fmts = @{
+        @"png":  @"Format: PNG (lossless, supports transparency)",
+        @"jpeg": @"Format: JPEG (lossy, no transparency)",
+        @"webp": @"Format: WebP (modern, supports transparency)",
+    };
+    for (NSString *val in @[@"png", @"jpeg", @"webp"]) {
+        NSString *label = [NSString stringWithFormat:@"%@ %@",
+                           [curFmt isEqualToString:val] ? @"✓" : @" ", fmts[val]];
+        [sheet addAction:[UIAlertAction actionWithTitle:label
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *_) {
+            [d setObject:val forKey:@"imgFormat"];
+            EZLogf(EZLogLevelInfo, @"IMGSET", @"Format → %@", val);
+        }]];
+    }
+
+    // ── Background ───────────────────────────────────────────────────────────
+    NSDictionary *bgs = @{
+        @"auto":        @"Background: Auto",
+        @"transparent": @"Background: Transparent (PNG/WebP only)",
+        @"opaque":      @"Background: Opaque",
+    };
+    for (NSString *val in @[@"auto", @"transparent", @"opaque"]) {
+        NSString *label = [NSString stringWithFormat:@"%@ %@",
+                           [curBg isEqualToString:val] ? @"✓" : @" ", bgs[val]];
+        [sheet addAction:[UIAlertAction actionWithTitle:label
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *_) {
+            [d setObject:val forKey:@"imgBackground"];
+            EZLogf(EZLogLevelInfo, @"IMGSET", @"Background → %@", val);
+        }]];
+    }
+
+    // ── Moderation ───────────────────────────────────────────────────────────
+    for (NSString *val in @[@"auto", @"low"]) {
+        NSString *label = [NSString stringWithFormat:@"%@ Moderation: %@",
+                           [curMod isEqualToString:val] ? @"✓" : @" ", val];
+        [sheet addAction:[UIAlertAction actionWithTitle:label
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *_) {
+            [d setObject:val forKey:@"imgModeration"];
+            EZLogf(EZLogLevelInfo, @"IMGSET", @"Moderation → %@", val);
+        }]];
+    }
+
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Done"
+                                              style:UIAlertActionStyleCancel handler:nil]];
+
+    // iPad support
+    if (sheet.popoverPresentationController) {
+        sheet.popoverPresentationController.sourceView = self.imageSettingsButton;
+        sheet.popoverPresentationController.sourceRect = self.imageSettingsButton.bounds;
+    }
+    [self presentViewController:sheet animated:YES completion:nil];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -763,8 +1294,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 
     // ── Route based on selected model ─────────────────────────────────────────
-    BOOL inImageGenMode = ([self.selectedModel isEqualToString:@"dall-e-3"] ||
-                           [self.selectedModel isEqualToString:@"gpt-image-1"]);
+    BOOL inImageGenMode = [self isGptImage1Family:self.selectedModel] ||
+                          [self.selectedModel isEqualToString:@"dall-e-3"];
 
     if (inImageGenMode) {
         // Switch to image edit mode — gpt-image-1 handles both gen and edit
@@ -1025,8 +1556,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 
     // ── Image model intent check ──────────────────────────────────────────────
-    BOOL isImageModel = ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
-                         [self.selectedModel isEqualToString:@"dall-e-3"]);
+    BOOL isImageModel = [self isGptImage1Family:self.selectedModel] ||
+                        [self.selectedModel isEqualToString:@"dall-e-3"];
     if (isImageModel) {
         if (!self.lastImageLocalPath.length) {
             NSString *persisted = [[NSUserDefaults standardUserDefaults]
@@ -1055,7 +1586,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 [self callImageEdit:text imagePath:self.lastImageLocalPath];
             } else {
                 EZLogf(EZLogLevelInfo, @"IMAGE", @"Intent=generate");
-                if ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
+                if ([self isGptImage1Family:self.selectedModel] ||
                     [self.selectedModel isEqualToString:@"gpt-image-1-edit"]) {
                     [self callGptImage1:text];
                 } else {
@@ -1255,17 +1786,29 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     EZLogf(EZLogLevelInfo, @"API", @"→ %@ [%@]%@",
            endpointStr, self.selectedModel, useWebSearch ? @" +web" : @"");
 
-    NSString *capturedPrompt     = self.lastUserPrompt;
-    NSString *capturedThreadID   = self.activeThread.threadID;
+    NSString *capturedPrompt   = self.lastUserPrompt;
+    NSString *capturedThreadID = self.activeThread.threadID;
     NSMutableArray *capturedAttachments = [self.activeThread.attachmentPaths mutableCopy];
-    if (self.lastImageLocalPath.length > 0 &&
-        ![capturedAttachments containsObject:self.lastImageLocalPath]) {
-        [capturedAttachments addObject:self.lastImageLocalPath];
+
+    // Only add image paths to this exchange's attachments if there is actually a
+    // vision attachment in the current context — avoids tagging every subsequent
+    // chat turn with a stale image path and confusing the memory classifier.
+    BOOL hasActiveVisionAttachment = NO;
+    for (NSDictionary *msg in self.chatContext) {
+        if ([msg[@"_isVisionAttachment"] boolValue]) { hasActiveVisionAttachment = YES; break; }
     }
-    if (self.pendingImagePath.length > 0 &&
-        ![capturedAttachments containsObject:self.pendingImagePath]) {
-        [capturedAttachments addObject:self.pendingImagePath];
+    if (hasActiveVisionAttachment) {
+        if (self.lastImageLocalPath.length > 0 &&
+            ![capturedAttachments containsObject:self.lastImageLocalPath]) {
+            [capturedAttachments addObject:self.lastImageLocalPath];
+        }
+        if (self.pendingImagePath.length > 0 &&
+            ![capturedAttachments containsObject:self.pendingImagePath]) {
+            [capturedAttachments addObject:self.pendingImagePath];
+        }
     }
+    // Always clear pendingImagePath after capture — it belongs to this turn only
+    self.pendingImagePath = nil;
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:request
         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
@@ -1414,12 +1957,29 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     req.timeoutInterval = 120;
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [req setValue:[NSString stringWithFormat:@"Bearer %@", apiKey] forHTTPHeaderField:@"Authorization"];
-    req.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
-        @"model":  @"gpt-image-1",
-        @"prompt": prompt,
-        @"n":      @1,
-        @"size":   @"1024x1024"
-    } options:0 error:nil];
+    NSUserDefaults *imgDefaults = [NSUserDefaults standardUserDefaults];
+    NSString *imgSize    = [imgDefaults stringForKey:@"imgSize"]    ?: @"1024x1024";
+    NSString *imgQuality = [imgDefaults stringForKey:@"imgQuality"] ?: @"auto";
+    NSString *imgFormat  = [imgDefaults stringForKey:@"imgFormat"]  ?: @"png";
+    NSString *imgBg      = [imgDefaults stringForKey:@"imgBackground"] ?: @"auto";
+    NSString *imgMod     = [imgDefaults stringForKey:@"imgModeration"] ?: @"auto";
+    // Use the actual selected model so gpt-image-1.5, -mini, chatgpt-image-latest all work
+    NSString *imgModel   = self.selectedModel;
+    if ([imgModel isEqualToString:@"gpt-image-1-edit"]) imgModel = @"gpt-image-1";
+    NSMutableDictionary *imgParams = [@{
+        @"model":         imgModel,
+        @"prompt":        prompt,
+        @"n":             @1,
+        @"size":          imgSize,
+        @"quality":       imgQuality,
+        @"output_format": imgFormat,
+        @"background":    imgBg,
+        @"moderation":    imgMod,
+    } mutableCopy];
+    // output_format=png always returns b64_json for gpt-image-1 family.
+    // Request b64 explicitly so we can save directly without a second download.
+    imgParams[@"response_format"] = @"b64_json";
+    req.HTTPBody = [NSJSONSerialization dataWithJSONObject:imgParams options:0 error:nil];
 
     NSString *savedPrompt = prompt;
     [[[NSURLSession sharedSession] dataTaskWithRequest:req
@@ -1516,11 +2076,27 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [body appendData:[@"Content-Disposition: form-data; name=\"prompt\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[prompt dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:[@"Content-Disposition: form-data; name=\"n\"\r\n\r\n1\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:[@"Content-Disposition: form-data; name=\"size\"\r\n\r\n1024x1024\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:[[NSString stringWithFormat:@"--%@--\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
+    NSUserDefaults *editDefaults = [NSUserDefaults standardUserDefaults];
+    NSString *editSize   = [editDefaults stringForKey:@"imgSize"]       ?: @"1024x1024";
+    NSString *editQual   = [editDefaults stringForKey:@"imgQuality"]    ?: @"auto";
+    NSString *editFmt    = [editDefaults stringForKey:@"imgFormat"]     ?: @"png";
+    NSString *editBg     = [editDefaults stringForKey:@"imgBackground"] ?: @"auto";
+
+    // Helper block to append a form field
+    void (^addField)(NSString *, NSString *) = ^(NSString *name, NSString *value) {
+        [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary]
+                         dataUsingEncoding:NSUTF8StringEncoding]];
+        [body appendData:[[NSString stringWithFormat:
+            @"Content-Disposition: form-data; name=\"%@\"\r\n\r\n%@\r\n", name, value]
+            dataUsingEncoding:NSUTF8StringEncoding]];
+    };
+    addField(@"n",             @"1");
+    addField(@"size",          editSize);
+    addField(@"quality",       editQual);
+    addField(@"output_format", editFmt);
+    addField(@"background",    editBg);
+    [body appendData:[[NSString stringWithFormat:@"--%@--\r\n", boundary]
+                     dataUsingEncoding:NSUTF8StringEncoding]];
     req.HTTPBody = body;
 
     EZLogf(EZLogLevelInfo, @"IMGEDIT", @"Sending — prompt: %@", prompt);
@@ -1848,12 +2424,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                     self.activeThread.lastVideoLocalPath = savedPath;
                     [self saveActiveThread];
                 }
-                self.previewURL = tmp;
-                QLPreviewController *ql = [[QLPreviewController alloc] init];
-                ql.dataSource = self;
-                [self presentViewController:ql animated:YES completion:nil];
-                [self appendToChat:@"[Sora: Video ready ✓]"];
-                EZLog(EZLogLevelInfo, @"SORA", @"Video saved and presented");
+                [self appendToChat:@"[Sora: Video ready \u2713]"];
+                // Present immediately if visible; defer to viewWillAppear if backgrounded
+                if (self.view.window) {
+                    self.previewURL = tmp;
+                    QLPreviewController *ql = [[QLPreviewController alloc] init];
+                    ql.dataSource = self;
+                    [self presentViewController:ql animated:YES completion:nil];
+                    EZLog(EZLogLevelInfo, @"SORA", @"Video saved and presented");
+                } else {
+                    self.pendingVideoURL = tmp;
+                    EZLog(EZLogLevelInfo, @"SORA", @"Video saved — deferred (app backgrounded)");
+                }
             });
             return;
         }
@@ -1905,11 +2487,17 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         EZLog(EZLogLevelInfo, @"SORA", @"Video ready");
         dispatch_async(dispatch_get_main_queue(), ^{
-            self.previewURL = tmp;
-            QLPreviewController *ql = [[QLPreviewController alloc] init];
-            ql.dataSource = self;
-            [self presentViewController:ql animated:YES completion:nil];
-            [self appendToChat:@"[Sora: Video ready ✓]"];
+            [self appendToChat:@"[Sora: Video ready \u2713]"];
+            if (self.view.window) {
+                self.previewURL = tmp;
+                QLPreviewController *ql = [[QLPreviewController alloc] init];
+                ql.dataSource = self;
+                [self presentViewController:ql animated:YES completion:nil];
+                EZLog(EZLogLevelInfo, @"SORA", @"Video presented immediately");
+            } else {
+                self.pendingVideoURL = tmp;
+                EZLog(EZLogLevelInfo, @"SORA", @"Video deferred — app backgrounded");
+            }
         });
     }] resume];
 }
@@ -2015,6 +2603,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Misc
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Returns YES for any model that goes to /v1/images/generations (not chat)
+- (BOOL)isGptImage1Family:(NSString *)model {
+    return [model hasPrefix:@"gpt-image-"] || [model isEqualToString:@"chatgpt-image-latest"];
+}
 
 - (BOOL)modelSupportsVision:(NSString *)model {
     NSSet *vision = [NSSet setWithObjects:
@@ -2201,15 +2794,17 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)_resetConversation {
     [self.chatContext removeAllObjects];
-    self.chatHistoryView.text  = @"";
-    self.lastAIResponse        = nil;
-    self.lastUserPrompt        = nil;
-    self.lastImagePrompt       = nil;
-    self.lastImageLocalPath    = nil;
-    self.pendingFileContext    = nil;
-    self.pendingFileName       = nil;
-    self.pendingImagePath      = nil;
+    [self.displayMessages removeAllObjects];
+    [self.chatTableView reloadData];
+    self.lastAIResponse     = nil;
+    self.lastUserPrompt     = nil;
+    self.lastImagePrompt    = nil;
+    self.lastImageLocalPath = nil;
+    self.pendingFileContext = nil;
+    self.pendingFileName    = nil;
+    self.pendingImagePath   = nil;
     [self startNewThread];
+    [self updateThreadTitleLabel];
 }
 
 - (void)clearConversation {
@@ -2244,8 +2839,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         @"gpt-4-turbo":  @"💬 Chat + 👁 Vision",
         @"gpt-4":        @"💬 Chat + 👁 Vision",
         @"gpt-3.5-turbo":@"💬 Chat only",
-        @"gpt-image-1":  @"🖼 Image gen + ✏️ Edit",
-        @"dall-e-3":     @"🖼 Image gen only (legacy)",
+        @"gpt-image-1.5":        @"🖼 Image gen (newest)",
+        @"gpt-image-1":          @"🖼 Image gen + ✏️ Edit",
+        @"gpt-image-1-mini":     @"🖼 Image gen (fast/cheap)",
+        @"chatgpt-image-latest": @"🖼 ChatGPT image (latest)",
+        @"dall-e-3":             @"🖼 Image gen only (legacy)",
         @"sora-2":       @"🎬 Video gen (4/8/12/16s)",
         @"sora-2-pro":   @"🎬 Video gen HQ (5/10/15/20s)",
         @"whisper-1":    @"🎙 Audio transcription only"
@@ -2270,6 +2868,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", model]
                               forState:UIControlStateNormal];
             [[NSUserDefaults standardUserDefaults] setObject:model forKey:@"selectedModel"];
+            // Show image settings button only when an image generation model is active
+            self.imageSettingsButton.hidden = !([self isGptImage1Family:model] ||
+                                               [model isEqualToString:@"dall-e-3"]);
             EZLogf(EZLogLevelInfo, @"APP", @"Model → %@", model);
         }]];
     }
@@ -2564,173 +3165,137 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     return [processed copy];
 }
 
-- (void)appendToChat:(NSString *)text {
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Chat display helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Primary append entry point. Detects role from prefix ("You: ", "AI: "),
+/// splits [CODE:] markers into separate code cells, and reloads the table.
+- (void)appendToChat:(NSString *)rawText {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self appendToChat:rawText]; });
+        return;
+    }
+    NSString *role = @"system";
+    NSString *text = rawText;
+    if ([rawText hasPrefix:@"You: "]) { role = @"user";      text = [rawText substringFromIndex:5]; }
+    else if ([rawText hasPrefix:@"AI: "]) { role = @"assistant"; text = [rawText substringFromIndex:4]; }
+
     if ([text containsString:@"[CODE:"]) {
-        [self appendToChatWithCodeBlocks:text];
+        [self addMessageSegments:text defaultRole:role];
     } else {
-        self.chatHistoryView.text = [self.chatHistoryView.text
-                                     stringByAppendingFormat:@"\n\n%@", text];
-        [self scrollChatToBottom];
+        [self.displayMessages addObject:@{@"role": role, @"text": text}];
+        [self reloadAndScrollTable];
     }
 }
 
-- (void)appendToChatWithCodeBlocks:(NSString *)text {
-    NSError *splitErr;
+/// Splits text containing [CODE:lang:path] / [CODE:lang]...[/CODE] markers
+/// into alternating text + code entries in displayMessages.
+- (void)addMessageSegments:(NSString *)text defaultRole:(NSString *)role {
     NSRegularExpression *re = [NSRegularExpression
-        regularExpressionWithPattern:@"\\[CODE:([^:]+):([^\\]]+)\\]|\\[CODE:([^\\]]+)\\]([\\s\\S]*?)\\[/CODE\\]"
-                             options:0 error:&splitErr];
-    if (splitErr) {
-        self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingFormat:@"\n\n%@", text];
-        [self scrollChatToBottom];
-        return;
+        regularExpressionWithPattern:
+            @"\\[CODE:([^:]+):([^\\]]+)\\]|\\[CODE:([^\\]]+)\\]([\\s\\S]*?)\\[/CODE\\]"
+                             options:0 error:nil];
+    if (!re) {
+        [self.displayMessages addObject:@{@"role": role, @"text": text}];
+        [self reloadAndScrollTable]; return;
     }
-
     NSArray *matches = [re matchesInString:text options:0 range:NSMakeRange(0, text.length)];
     NSInteger lastEnd = 0;
-
     for (NSTextCheckingResult *match in matches) {
+        // Plain text before this code block
         NSRange before = NSMakeRange((NSUInteger)lastEnd,
                                      match.range.location - (NSUInteger)lastEnd);
         if (before.length > 0) {
-            NSString *plainPart = [text substringWithRange:before];
-            plainPart = [plainPart stringByTrimmingCharactersInSet:
-                         [NSCharacterSet whitespaceAndNewlineCharacterSet]];
-            if (plainPart.length > 0) {
-                self.chatHistoryView.text = [self.chatHistoryView.text
-                                             stringByAppendingFormat:@"\n\n%@", plainPart];
-            }
+            NSString *seg = [[text substringWithRange:before]
+                stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if (seg.length) [self.displayMessages addObject:@{@"role": role, @"text": seg}];
         }
-
-        NSString *lang      = @"";
-        NSString *savedPath = nil;
-        NSString *inlineCode = nil;
-
-        NSRange r1 = [match rangeAtIndex:1];
-        NSRange r2 = [match rangeAtIndex:2];
-        NSRange r3 = [match rangeAtIndex:3];
-        NSRange r4 = [match rangeAtIndex:4];
-
+        // Code block
+        NSRange r1=[match rangeAtIndex:1], r2=[match rangeAtIndex:2];
+        NSRange r3=[match rangeAtIndex:3], r4=[match rangeAtIndex:4];
+        NSString *lang=@"", *savedPath=nil, *code=nil;
         if (r1.location != NSNotFound) {
-            lang      = [text substringWithRange:r1];
+            lang = [text substringWithRange:r1];
             savedPath = [text substringWithRange:r2];
-            if (savedPath.length > 0) {
-                inlineCode = [NSString stringWithContentsOfFile:savedPath
-                                                       encoding:NSUTF8StringEncoding error:nil];
-            }
+            code = [NSString stringWithContentsOfFile:savedPath
+                                             encoding:NSUTF8StringEncoding error:nil];
         } else if (r3.location != NSNotFound) {
-            lang       = [text substringWithRange:r3];
-            inlineCode = r4.location != NSNotFound ? [text substringWithRange:r4] : @"";
+            lang = [text substringWithRange:r3];
+            code = r4.location != NSNotFound ? [text substringWithRange:r4] : @"";
         }
-
-        if (!inlineCode) inlineCode = @"(code unavailable)";
-
-        self.chatHistoryView.text = [self.chatHistoryView.text
-                                     stringByAppendingString:@"\n\n"];
-
-        [self insertCodeBlockWidget:inlineCode
-                           language:lang
-                          savedPath:savedPath];
-
+        if (!code) code = @"(code unavailable)";
+        NSMutableDictionary *entry = [@{@"role":@"code",
+                                        @"text": code,
+                                        @"language": lang.length ? lang : @"code"} mutableCopy];
+        if (savedPath) entry[@"savedPath"] = savedPath;
+        [self.displayMessages addObject:[entry copy]];
         lastEnd = (NSInteger)(match.range.location + match.range.length);
     }
-
+    // Remaining text after last code block
     if ((NSUInteger)lastEnd < text.length) {
         NSString *tail = [[text substringFromIndex:(NSUInteger)lastEnd]
-                          stringByTrimmingCharactersInSet:
-                          [NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        if (tail.length > 0) {
-            self.chatHistoryView.text = [self.chatHistoryView.text
-                                         stringByAppendingFormat:@"\n\n%@", tail];
-        }
+            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (tail.length) [self.displayMessages addObject:@{@"role": role, @"text": tail}];
     }
+    [self reloadAndScrollTable];
+}
+
+- (void)reloadAndScrollTable {
+    [self.chatTableView reloadData];
     [self scrollChatToBottom];
 }
 
-- (void)insertCodeBlockWidget:(NSString *)code
-                     language:(NSString *)language
-                    savedPath:(nullable NSString *)savedPath {
+/// Legacy name kept so all existing call sites compile unchanged.
+- (void)appendToOldChat:(NSString *)text { [self appendToChat:text]; }
 
-    CGFloat viewWidth    = self.chatHistoryView.frame.size.width;
-    CGFloat widgetWidth  = viewWidth - 32;
-    NSInteger lineCount  = [[code componentsSeparatedByString:@"\n"] count];
-    CGFloat codeHeight   = MIN(220, MAX(60, (CGFloat)lineCount * 17 + 24));
-    CGFloat headerHeight = 36;
-    CGFloat totalHeight  = headerHeight + codeHeight + 8;
 
-    [self.chatHistoryView layoutIfNeeded];
-    CGSize fitsSize  = [self.chatHistoryView sizeThatFits:
-                        CGSizeMake(self.chatHistoryView.frame.size.width, CGFLOAT_MAX)];
-    CGFloat yPosition = fitsSize.height + 4;
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - UITableViewDataSource / UITableViewDelegate
+// ─────────────────────────────────────────────────────────────────────────────
 
-    CGFloat lineH    = self.chatHistoryView.font.lineHeight;
-    NSUInteger nlines = (NSUInteger)ceil(totalHeight / lineH) + 1;
-    NSMutableString *spacer = [NSMutableString string];
-    for (NSUInteger i = 0; i < nlines; i++) [spacer appendString:@"\n"];
-    self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingString:spacer];
-    [self.chatHistoryView layoutIfNeeded];
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return (NSInteger)self.displayMessages.count;
+}
 
-    EZLogf(EZLogLevelDebug, @"CODE",
-           @"Widget at y=%.0f fitsH=%.0f lineH=%.0f nlines=%lu totalH=%.0f",
-           yPosition, fitsSize.height, lineH, (unsigned long)nlines, totalHeight);
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    NSDictionary *msg = self.displayMessages[(NSUInteger)indexPath.row];
+    NSString *role    = msg[@"role"] ?: @"system";
 
-    UIView *container            = [[UIView alloc] initWithFrame:
-                                     CGRectMake(16, yPosition, widgetWidth, totalHeight)];
-    container.backgroundColor    = [UIColor colorWithWhite:0.12 alpha:1.0];
-    container.layer.cornerRadius = 10;
-    container.clipsToBounds      = YES;
-    container.layer.borderColor  = [UIColor colorWithWhite:0.3 alpha:1.0].CGColor;
-    container.layer.borderWidth  = 0.5;
-    container.tag                = 9001;
-
-    UIView *header         = [[UIView alloc] initWithFrame:CGRectMake(0, 0, widgetWidth, headerHeight)];
-    header.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1.0];
-
-    UILabel *langLabel     = [[UILabel alloc] initWithFrame:
-                               CGRectMake(12, 0, widgetWidth - 100, headerHeight)];
-    langLabel.text         = language.length > 0 ? language.uppercaseString : @"CODE";
-    langLabel.textColor    = [UIColor colorWithRed:0.6 green:0.8 blue:1.0 alpha:1.0];
-    langLabel.font         = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightMedium];
-    [header addSubview:langLabel];
-
-    UIButton *copyBtn          = [UIButton buttonWithType:UIButtonTypeSystem];
-    copyBtn.frame              = CGRectMake(widgetWidth - 88, 5, 80, headerHeight - 10);
-    [copyBtn setTitle:@"\u2398 Copy" forState:UIControlStateNormal];
-    copyBtn.tintColor          = [UIColor colorWithWhite:0.8 alpha:1.0];
-    copyBtn.titleLabel.font    = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
-    copyBtn.layer.cornerRadius = 5;
-    copyBtn.backgroundColor    = [UIColor colorWithWhite:0.28 alpha:1.0];
-    objc_setAssociatedObject(copyBtn, "EZCodeContent", code, OBJC_ASSOCIATION_COPY_NONATOMIC);
-    [copyBtn addTarget:self action:@selector(codeBlockCopyTapped:)
-      forControlEvents:UIControlEventTouchUpInside];
-    [header addSubview:copyBtn];
-
-    if (savedPath) {
-        UIButton *fileBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-        fileBtn.frame     = CGRectMake(0, 0, widgetWidth - 100, headerHeight);
-        objc_setAssociatedObject(fileBtn, "EZCodePath", savedPath, OBJC_ASSOCIATION_COPY_NONATOMIC);
-        [fileBtn addTarget:self action:@selector(codeBlockFileTapped:)
-          forControlEvents:UIControlEventTouchUpInside];
-        [header addSubview:fileBtn];
+    if ([role isEqualToString:@"code"]) {
+        EZCodeBlockCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZCodeBlock"
+                                                                forIndexPath:indexPath];
+        [cell configureWithCode:msg[@"text"]
+                       language:msg[@"language"]
+                      savedPath:msg[@"savedPath"]
+                 viewController:self];
+        return cell;
+    } else if ([role isEqualToString:@"user"] || [role isEqualToString:@"assistant"]) {
+        EZBubbleCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZBubble"
+                                                             forIndexPath:indexPath];
+        [cell configureWithText:msg[@"text"] ?: @""
+                         isUser:[role isEqualToString:@"user"]];
+        return cell;
+    } else {
+        EZSystemCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZSystem"
+                                                             forIndexPath:indexPath];
+        cell.messageLabel.text = msg[@"text"] ?: @"";
+        return cell;
     }
-    [container addSubview:header];
+}
 
-    UITextView *codeView                  = [[UITextView alloc] initWithFrame:
-                                              CGRectMake(0, headerHeight, widgetWidth, codeHeight + 8)];
-    codeView.text                         = code;
-    codeView.editable                     = NO;
-    codeView.selectable                   = YES;
-    codeView.backgroundColor              = [UIColor clearColor];
-    codeView.textColor                    = [UIColor colorWithRed:0.85 green:0.95 blue:0.85 alpha:1.0];
-    codeView.font                         = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
-    codeView.textContainerInset           = UIEdgeInsetsMake(8, 10, 8, 10);
-    codeView.showsVerticalScrollIndicator = YES;
-    [container addSubview:codeView];
-
-    [self.chatHistoryView addSubview:container];
-    [self scrollChatToBottom];
-
-    EZLogf(EZLogLevelInfo, @"CODE", @"Widget inserted: %@ (%lu lines) at y=%.0f",
-           language, (unsigned long)lineCount, yPosition);
+// ── Present deferred Sora video once the view is on screen ──────────────────
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    if (self.pendingVideoURL) {
+        NSURL *url           = self.pendingVideoURL;
+        self.pendingVideoURL = nil;
+        self.previewURL      = url;
+        QLPreviewController *ql = [[QLPreviewController alloc] init];
+        ql.dataSource = self;
+        [self presentViewController:ql animated:YES completion:nil];
+        EZLog(EZLogLevelInfo, @"SORA", @"Deferred Sora video presented on viewWillAppear");
+    }
 }
 
 - (void)codeBlockCopyTapped:(UIButton *)sender {
@@ -2755,14 +3320,15 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)scrollChatToBottom {
-    NSUInteger len = self.chatHistoryView.text.length;
-    if (len > 0) [self.chatHistoryView scrollRangeToVisible:NSMakeRange(len - 1, 1)];
+    NSUInteger count = self.displayMessages.count;
+    if (count == 0) return;
+    NSIndexPath *last = [NSIndexPath indexPathForRow:(NSInteger)(count - 1) inSection:0];
+    [self.chatTableView scrollToRowAtIndexPath:last
+                             atScrollPosition:UITableViewScrollPositionBottom
+                                     animated:YES];
 }
 
-- (void)appendToOldChat:(NSString *)text {
-    self.chatHistoryView.text = [self.chatHistoryView.text stringByAppendingFormat:@"\n\n%@", text];
-    [self scrollChatToBottom];
-}
+// appendToOldChat: implemented above as a wrapper around appendToChat:
 
 - (void)openSettings {
     UINavigationController *nav = [[UINavigationController alloc]
