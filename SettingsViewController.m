@@ -1,23 +1,19 @@
 // SettingsViewController.m
-// EZCompleteUI v2.0
+// EZCompleteUI
 //
-// Changes from v1.0:
-//   - All app settings plus ElevenLabs voice cloning
-//   - API keys stored encrypted via EZKeyVault (AES-256-GCM, Keychain-backed)
-//   - Keys are masked after entry — the plaintext is never shown again
-//   - App version read from Info.plist and displayed at top of settings
-//   - Support & Feedback button opens SupportRequestViewController
+// All app settings plus ElevenLabs voice cloning.
+// API keys are stored encrypted via EZKeyVault (AES-256-GCM, Keychain-backed).
+// Keys are masked after entry — the plaintext is never shown again.
 
 #import "SettingsViewController.h"
 #import "MemoriesViewController.h"
+#import "TextToSpeechViewController.h"
+#import "ElevenLabsCloneViewController.h"
 #import "SupportRequestViewController.h"
 #import "EZKeyVault.h"
 #import "helpers.h"
 #import <objc/runtime.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
-#import "TextToSpeechViewController.h"
-#import "ElevenLabsCloneViewController.h"
-
 
 static const void * kEZCloneNameKey     = &kEZCloneNameKey;
 static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
@@ -179,26 +175,26 @@ static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)setupUI {
-    
     self.scrollView = [[UIScrollView alloc] initWithFrame:self.view.bounds];
     self.scrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:self.scrollView];
 
     CGFloat w = self.view.frame.size.width - 40;
     CGFloat y = 20;
+    
+        // ── App Version (read from Info.plist) ───────────────────────────────────
+           NSDictionary *infoPlist  = [NSBundle mainBundle].infoDictionary;
+           NSString *appVersion     = infoPlist[@"CFBundleShortVersionString"] ?: @"?";
+           NSString *buildNumber    = infoPlist[@"CFBundleVersion"]            ?: @"?";
+           UILabel *versionLabel    = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 20)];
+           versionLabel.text        = [NSString stringWithFormat:@"EZCompleteUI  v%@  (build %@)",
+                                       appVersion, buildNumber];
+           versionLabel.font        = [UIFont systemFontOfSize:12];
+           versionLabel.textColor   = [UIColor tertiaryLabelColor];
+           versionLabel.textAlignment = NSTextAlignmentCenter;
+           [self.scrollView addSubview:versionLabel];
+           y += 30;
 
-    // ── App Version (read from Info.plist) ───────────────────────────────────
-    NSDictionary *infoPlist  = [NSBundle mainBundle].infoDictionary;
-    NSString *appVersion     = infoPlist[@"CFBundleShortVersionString"] ?: @"?";
-    NSString *buildNumber    = infoPlist[@"CFBundleVersion"]            ?: @"?";
-    UILabel *versionLabel    = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 20)];
-    versionLabel.text        = [NSString stringWithFormat:@"EZCompleteUI  v%@  (build %@)",
-                                appVersion, buildNumber];
-    versionLabel.font        = [UIFont systemFontOfSize:12];
-    versionLabel.textColor   = [UIColor tertiaryLabelColor];
-    versionLabel.textAlignment = NSTextAlignmentCenter;
-    [self.scrollView addSubview:versionLabel];
-    y += 30;
 
     // ── OpenAI ───────────────────────────────────────────────────────────────
     [self addSection:@"🤖 OpenAI" y:&y];
@@ -271,47 +267,27 @@ static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to
     self.elVoiceField = [self addField:w - 95 y:&y placeholder:@"Voice ID"];
 
     UIButton *getVoicesBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    getVoicesBtn.frame = CGRectMake(w - 74, y - 50, 84, 40);
+    getVoicesBtn.frame = CGRectMake(w - 84, y - 50, 84, 40);
     [getVoicesBtn setTitle:@"Get Voices" forState:UIControlStateNormal];
+    getVoicesBtn.backgroundColor    = [UIColor systemTealColor];
+    getVoicesBtn.layer.cornerRadius = 8;
+    [getVoicesBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [getVoicesBtn addTarget:self action:@selector(fetchVoices)
           forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:getVoicesBtn];
-    
-        // ── ADD: Open "Text to Speech…" button ───────────────────────────────────────
-        UIButton *ttsButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        ttsButton.frame = CGRectMake(20, y, w, 44);
-        [ttsButton setTitle:@"Text to Speech…" forState:UIControlStateNormal];
-        ttsButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
-        ttsButton.layer.cornerRadius = 8;
-        ttsButton.backgroundColor = [UIColor systemFillColor];
-        [ttsButton setTitleColor:[UIColor labelColor] forState:UIControlStateNormal];
-        [ttsButton addTarget:self action:@selector(openTextToSpeech:) forControlEvents:UIControlEventTouchUpInside];
-        [self.scrollView addSubview:ttsButton];
-        y += 54;
 
-        // ── ADD: Open "Voice Cloner" button (IVC + PVC) ─────────────────────────────
-        UIButton *cloneButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        cloneButton.frame = CGRectMake(20, y, w, 44);
-        [cloneButton setTitle:@"Voice Cloner (Instant + Pro PVC)..." forState:UIControlStateNormal];
-        cloneButton.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
-        cloneButton.layer.cornerRadius = 8;
-        cloneButton.backgroundColor = [UIColor secondarySystemFillColor];
-        [cloneButton setTitleColor:[UIColor labelColor] forState:UIControlStateNormal];
-        [cloneButton addTarget:self action:@selector(openVoiceCloner:) forControlEvents:UIControlEventTouchUpInside];
-        [self.scrollView addSubview:cloneButton];
-        y += 54;
-
+    // Open full Text-to-Speech panel
+    [self addButton:@"🔊 Open Text to Speech"
+              color:[UIColor systemCyanColor]
+             action:@selector(openTextToSpeech)
+                  y:&y w:w];
 
     // ── ElevenLabs Voice Cloning ─────────────────────────────────────────────
     [self addSection:@"🎤 Voice Cloning (ElevenLabs)" y:&y];
     [self addLabel:@"Upload an audio sample to create a custom voice clone." y:&y];
-    [self addButton:@"Create Voice Clone from Audio File"
+    [self addButton:@"🎤 Voice Cloning & Management"
               color:[UIColor systemPurpleColor]
-             action:@selector(createInstantClone)
-                  y:&y w:w];
-    [self addButton:@"My Cloned Voices"
-              color:[UIColor systemTealColor]
-             action:@selector(showClonedVoices)
+             action:@selector(openElevenLabsCloneVC)
                   y:&y w:w];
 
     self.cloneStatusLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 30)];
@@ -563,20 +539,6 @@ static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - ElevenLabs Voice Fetching
 // ─────────────────────────────────────────────────────────────────────────────
-
-- (void)openTextToSpeech:(id)sender {
-    EZLog(EZLogLevelInfo, @"SETTINGS", @"Opening TextToSpeechViewController");
-    TextToSpeechViewController *vc = [[TextToSpeechViewController alloc] init];
-    [self.navigationController pushViewController:vc animated:YES];
-}
-
-- (void)openVoiceCloner:(id)sender {
-    EZLog(EZLogLevelInfo, @"SETTINGS", @"Opening ElevenLabsCloneViewController");
-    ElevenLabsCloneViewController *vc = [[ElevenLabsCloneViewController alloc] init];
-    [self.navigationController pushViewController:vc animated:YES];
-}
-
-
 
 /// Returns the current ElevenLabs key — from vault if masked, from field if being edited.
 - (NSString *)resolvedElevenLabsKey {
@@ -884,6 +846,27 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // MARK: - Memory & Stats Actions
 // ─────────────────────────────────────────────────────────────────────────────
 
+- (void)openElevenLabsCloneVC {
+    ElevenLabsCloneViewController *vc = [[ElevenLabsCloneViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)openSupportRequest {
+    SupportRequestViewController *vc = [[SupportRequestViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)openTextToSpeech {
+    TextToSpeechViewController *vc = [[TextToSpeechViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
 - (void)openMemoriesViewer {
     MemoriesViewController *vc = [[MemoriesViewController alloc] init];
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
@@ -931,14 +914,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         openURL:[NSURL URLWithString:@"https://paypal.me/i0stweak3r"]
         options:@{}
         completionHandler:nil];
-}
-
-- (void)openSupportRequest {
-    SupportRequestViewController *supportVC = [[SupportRequestViewController alloc] init];
-    UINavigationController *nav = [[UINavigationController alloc]
-                                   initWithRootViewController:supportVC];
-    nav.modalPresentationStyle = UIModalPresentationFormSheet;
-    [self presentViewController:nav animated:YES completion:nil];
 }
 
 

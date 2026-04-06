@@ -21,7 +21,7 @@ static NSString * const kDefaultVoiceID = @"JBFqnCBsd6RMkjVDRZzb"; // fallback e
 static NSString * const kDefaultModelID = @"eleven_multilingual_v2";
 static NSString * const kFallbackMP3Format = @"mp3_44100_128";
 
-@interface TextToSpeechViewController : UIViewController <UITableViewDelegate, UITableViewDataSource, UITextViewDelegate>
+@interface TextToSpeechViewController : UIViewController <UITableViewDelegate, UITableViewDataSource, UITextViewDelegate, UITextFieldDelegate>
 @end
 
 @interface TextToSpeechViewController ()
@@ -88,6 +88,8 @@ static NSString *timestampString(void) {
     self.voiceField.autocorrectionType = UITextAutocorrectionTypeNo;
     self.voiceField.autocapitalizationType = UITextAutocapitalizationTypeNone;
     self.voiceField.font = [UIFont systemFontOfSize:14];
+    self.voiceField.returnKeyType = UIReturnKeyDone;
+    self.voiceField.delegate = self;
     [self.container addSubview:self.voiceField];
 
     // Format control
@@ -153,17 +155,43 @@ static NSString *timestampString(void) {
     [self.view addSubview:self.voicesTable];
 
     self.voices = @[];
-    self.stopMeterTimer = nil; // initialize
+    self.stopMeterTimer = nil;
+
+    // Dismiss keyboard when tapping outside the text view
+    UITapGestureRecognizer *dismissTap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(dismissKeyboard)];
+    dismissTap.cancelsTouchesInView = NO;
+    [self.view addGestureRecognizer:dismissTap];
+
+    // Keyboard avoidance — shift the container up so buttons stay visible
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(keyboardWillShow:)
+        name:UIKeyboardWillShowNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(keyboardWillHide:)
+        name:UIKeyboardWillHideNotification object:nil];
 
     EZLog(EZLogLevelInfo, @"TTS_UI", @"TextToSpeechViewController loaded");
 }
 
 - (void)dealloc {
-    // Ensure timer invalidated
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
     [self invalidateStopMeterTimer];
-    // Stop audio if playing
     [self.player stop];
     self.player = nil;
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    // Restore persisted voice ID so it survives VC dismissal and re-open
+    NSString *saved = [[NSUserDefaults standardUserDefaults] stringForKey:@"elevenVoiceID"];
+    if (saved.length > 0 && self.voiceField.text.length == 0) {
+        self.voiceField.text = saved;
+    }
+    // Auto-fetch voices when the VC appears if we have a key and no voices yet
+    if (self.voices.count == 0 && [self elevenLabsAPIKey].length > 0) {
+        [self fetchVoicesTapped:nil];
+    }
 }
 
 - (void)viewDidLayoutSubviews {
@@ -667,6 +695,8 @@ static NSString *timestampString(void) {
          return;
      }
      self.voiceField.text = vid;
+     // Persist so the voice survives leaving and returning to this VC
+     [[NSUserDefaults standardUserDefaults] setObject:vid forKey:@"elevenVoiceID"];
      EZLogf(EZLogLevelInfo, @"TTS", @"Selected voice %@ (%@)", voice[@"name"] ?: @"", vid);
      [self showAlert:@"Voice selected" message:[NSString stringWithFormat:@"Using voice: %@", voice[@"name"] ?: vid]];
 }
@@ -681,6 +711,53 @@ static NSString *timestampString(void) {
     UIImage *img = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     return img;
+}
+
+#pragma mark - UITextFieldDelegate
+
+- (BOOL)textFieldShouldReturn:(UITextField *)textField {
+    [textField resignFirstResponder];
+    // Persist any manually typed voice ID on return
+    if (textField == self.voiceField && textField.text.length > 0) {
+        [[NSUserDefaults standardUserDefaults] setObject:textField.text forKey:@"elevenVoiceID"];
+    }
+    return YES;
+}
+
+#pragma mark - Keyboard handling
+
+- (void)dismissKeyboard {
+    [self.view endEditing:YES];
+}
+
+- (void)keyboardWillShow:(NSNotification *)notification {
+    CGRect kbFrame = [notification.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
+    CGFloat kbH = kbFrame.size.height;
+    NSTimeInterval duration = [notification.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
+    [UIView animateWithDuration:duration animations:^{
+        // Slide container up just enough that the buttons clear the keyboard
+        CGFloat visibleH = self.view.bounds.size.height - kbH;
+        CGFloat containerBottom = self.container.frame.origin.y + self.container.frame.size.height;
+        if (containerBottom > visibleH - 12) {
+            CGFloat shift = containerBottom - (visibleH - 12);
+            CGRect f = self.container.frame;
+            f.origin.y -= shift;
+            if (f.origin.y < self.view.safeAreaInsets.top + 4) f.origin.y = self.view.safeAreaInsets.top + 4;
+            self.container.frame = f;
+            // Hide voices table while keyboard is up — it would be obscured anyway
+            self.voicesTable.alpha = 0;
+        }
+    }];
+}
+
+- (void)keyboardWillHide:(NSNotification *)notification {
+    NSTimeInterval duration = [notification.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
+    [UIView animateWithDuration:duration animations:^{
+        // Let viewDidLayoutSubviews restore the original position
+        [self.view setNeedsLayout];
+        [self.view layoutIfNeeded];
+        self.voicesTable.alpha = 1;
+    }];
 }
 
 #pragma mark - UI helpers

@@ -21,6 +21,7 @@
 #import <QuickLook/QuickLook.h>
 #import "EZKeyVault.h"
 #import "helpers.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 @interface WaveformView : UIView
 @property (nonatomic, strong) NSMutableArray<NSNumber *> *levels;
@@ -70,7 +71,9 @@
 }
 @end
 
-@interface ElevenLabsCloneViewController () <AVAudioRecorderDelegate, AVAudioPlayerDelegate, UITextFieldDelegate, QLPreviewControllerDataSource, QLPreviewControllerDelegate>
+@interface ElevenLabsCloneViewController () <AVAudioRecorderDelegate, AVAudioPlayerDelegate, UITextFieldDelegate,
+ QLPreviewControllerDataSource, QLPreviewControllerDelegate, UIDocumentPickerDelegate>
+@property (nonatomic, strong) UIScrollView *scrollView;
 @property (nonatomic, strong) UITextField *nameField;
 @property (nonatomic, strong) UITextField *langField;
 @property (nonatomic, strong) UISegmentedControl *modeControl; // 0=Instant (IVC) 1=Pro (PVC)
@@ -105,21 +108,37 @@
     self.title = @"Voice Cloner";
     self.view.backgroundColor = [UIColor systemBackgroundColor];
 
-    // Adjust layout to start below the navigation bar dynamically
-    CGFloat topSafeArea = self.view.safeAreaInsets.top;
-    CGFloat m = 20, w = self.view.bounds.size.width - m*2, y = topSafeArea + 20; // added topSafeArea to y initialization
+    // UIScrollView so safe-area is handled automatically and content
+    // never hides under the navigation bar regardless of device/orientation.
+    self.scrollView = [[UIScrollView alloc] initWithFrame:self.view.bounds];
+    self.scrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentAlways;
+    self.scrollView.alwaysBounceVertical = YES;
+    // Dismiss keyboard when scrolling
+    self.scrollView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
+    [self.view addSubview:self.scrollView];
+
+    // Tap outside text fields to dismiss keyboard
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(dismissKeyboard)];
+    tap.cancelsTouchesInView = NO;
+    [self.scrollView addGestureRecognizer:tap];
+
+    // All frame math is relative to scrollView content (y starts at 0).
+    // contentInsetAdjustmentBehavior pushes content below the nav bar automatically.
+    CGFloat m = 20, w = self.view.bounds.size.width - m*2, y = 16;
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w, 22)];
-    title.text = @"Record clean audio, then upload for cloning.";
+    title.text = @"Record or import audio, then upload for cloning.";
     title.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
-    [self.view addSubview:title];
-    y += 26;
+    [self.scrollView addSubview:title];
+    y += 30;
 
     self.nameField = [[UITextField alloc] initWithFrame:CGRectMake(m, y, w, 36)];
     self.nameField.placeholder = @"Voice name (e.g., MyProVoice)";
     self.nameField.borderStyle = UITextBorderStyleRoundedRect;
     self.nameField.delegate = self;
-    [self.view addSubview:self.nameField];
+    [self.scrollView addSubview:self.nameField];
     y += 44;
 
     self.langField = [[UITextField alloc] initWithFrame:CGRectMake(m, y, w, 36)];
@@ -128,22 +147,32 @@
     self.langField.autocapitalizationType = UITextAutocapitalizationTypeNone;
     self.langField.autocorrectionType = UITextAutocorrectionTypeNo;
     self.langField.text = @"en";
-    [self.view addSubview:self.langField];
+    [self.scrollView addSubview:self.langField];
     y += 44;
 
     self.modeControl = [[UISegmentedControl alloc] initWithItems:@[@"Instant (IVC)", @"Professional (PVC)"]];
     self.modeControl.frame = CGRectMake(m, y, w, 32);
-    self.modeControl.selectedSegmentIndex = 1;
-    [self.view addSubview:self.modeControl];
-    y += 44;
+    self.modeControl.selectedSegmentIndex = 0; // default to IVC (no account tier required)
+    [self.modeControl addTarget:self action:@selector(modeChanged:) forControlEvents:UIControlEventValueChanged];
+    [self.scrollView addSubview:self.modeControl];
+    y += 38;
+
+    // Informational label — PVC requires a paid tier
+    UILabel *pvcInfoLbl = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w, 30)];
+    pvcInfoLbl.numberOfLines = 0;
+    pvcInfoLbl.text = @"⚠️ Professional Voice Cloning (PVC) requires a Creator plan or higher.";
+    pvcInfoLbl.font = [UIFont systemFontOfSize:11];
+    pvcInfoLbl.textColor = [UIColor secondaryLabelColor];
+    [self.scrollView addSubview:pvcInfoLbl];
+    y += 36;
 
     UILabel *noiseLbl = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w-60, 24)];
     noiseLbl.text = @"Remove background noise";
     noiseLbl.font = [UIFont systemFontOfSize:13];
-    [self.view addSubview:noiseLbl];
+    [self.scrollView addSubview:noiseLbl];
 
     self.noiseSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(m+w-60, y-4, 60, 32)];
-    [self.view addSubview:self.noiseSwitch];
+    [self.scrollView addSubview:self.noiseSwitch];
     y += 40;
 
     self.recordButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -153,7 +182,7 @@
     self.recordButton.backgroundColor = [UIColor systemRedColor];
     [self.recordButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
     [self.recordButton addTarget:self action:@selector(toggleRecord:) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:self.recordButton];
+    [self.scrollView addSubview:self.recordButton];
     y += 56;
 
     self.playButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -163,24 +192,37 @@
     self.playButton.backgroundColor = [UIColor systemFillColor];
     [self.playButton addTarget:self action:@selector(playRecording:) forControlEvents:UIControlEventTouchUpInside];
     self.playButton.enabled = NO;
-    [self.view addSubview:self.playButton];
+    [self.scrollView addSubview:self.playButton];
+    y += 52;
+
+    // "Choose or Upload" — action sheet lets user pick recorded audio OR a file
+    UIButton *chooseFileBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    chooseFileBtn.frame = CGRectMake(m, y, w, 44);
+    [chooseFileBtn setTitle:@"📂 Choose Audio File…" forState:UIControlStateNormal];
+    chooseFileBtn.layer.cornerRadius = 8;
+    chooseFileBtn.backgroundColor = [UIColor systemGray5Color];
+    [chooseFileBtn setTitleColor:[UIColor labelColor] forState:UIControlStateNormal];
+    chooseFileBtn.layer.borderWidth = 0.5;
+    chooseFileBtn.layer.borderColor = [UIColor systemGray3Color].CGColor;
+    [chooseFileBtn addTarget:self action:@selector(pickAudioFile:) forControlEvents:UIControlEventTouchUpInside];
+    [self.scrollView addSubview:chooseFileBtn];
     y += 52;
 
     self.uploadButton = [UIButton buttonWithType:UIButtonTypeSystem];
     self.uploadButton.frame = CGRectMake(m, y, w, 50);
-    [self.uploadButton setTitle:@"Upload Recording" forState:UIControlStateNormal];
+    [self.uploadButton setTitle:@"Upload & Clone Voice" forState:UIControlStateNormal];
     self.uploadButton.layer.cornerRadius = 8;
     self.uploadButton.backgroundColor = [UIColor systemBlueColor];
     [self.uploadButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
     [self.uploadButton addTarget:self action:@selector(uploadClone:) forControlEvents:UIControlEventTouchUpInside];
     self.uploadButton.enabled = NO;
-    [self.view addSubview:self.uploadButton];
+    [self.scrollView addSubview:self.uploadButton];
     y += 58;
 
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner.center = CGPointMake(self.view.center.x, y);
     self.spinner.hidesWhenStopped = YES;
-    [self.view addSubview:self.spinner];
+    [self.scrollView addSubview:self.spinner];
 
     // Timer label (elapsed recording/playback)
     y += 16;
@@ -188,14 +230,14 @@
     self.recordTimerLabel.text = @"00:00";
     self.recordTimerLabel.font = [UIFont monospacedDigitSystemFontOfSize:16 weight:UIFontWeightMedium];
     self.recordTimerLabel.textAlignment = NSTextAlignmentCenter;
-    [self.view addSubview:self.recordTimerLabel];
+    [self.scrollView addSubview:self.recordTimerLabel];
     y += 26;
 
     // Waveform
     self.waveformView = [[WaveformView alloc] initWithFrame:CGRectMake(m, y, w, 60)];
     self.waveformView.layer.cornerRadius = 8;
     self.waveformView.clipsToBounds = YES;
-    [self.view addSubview:self.waveformView];
+    [self.scrollView addSubview:self.waveformView];
     y += 68;
 
     // Playback controls row: ⏪, ▶︎, ⏸, ⏹, ⏩
@@ -203,19 +245,19 @@
     CGFloat btnW = (w - gap*4)/5.0;
 
     self.skipBackButton = [self makeControlButton:@"⏪ -10s" frame:CGRectMake(m + (btnW+gap)*0, y, btnW, 40) action:@selector(skipBack:)];
-    [self.view addSubview:self.skipBackButton];
+    [self.scrollView addSubview:self.skipBackButton];
 
     self.playButton.frame = CGRectMake(m + (btnW+gap)*1, y, btnW, 40);
     [self.playButton setTitle:@"▶︎ Play" forState:UIControlStateNormal];
 
     self.pauseButton = [self makeControlButton:@"⏸ Pause" frame:CGRectMake(m + (btnW+gap)*2, y, btnW, 40) action:@selector(pausePlayback:)];
-    [self.view addSubview:self.pauseButton];
+    [self.scrollView addSubview:self.pauseButton];
 
     self.stopButton = [self makeControlButton:@"⏹ Stop" frame:CGRectMake(m + (btnW+gap)*3, y, btnW, 40) action:@selector(stopPlayback:)];
-    [self.view addSubview:self.stopButton];
+    [self.scrollView addSubview:self.stopButton];
 
     self.skipFwdButton = [self makeControlButton:@"⏩ +10s" frame:CGRectMake(m + (btnW+gap)*4, y, btnW, 40) action:@selector(skipFwd:)];
-    [self.view addSubview:self.skipFwdButton];
+    [self.scrollView addSubview:self.skipFwdButton];
     y += 48;
 
     // Quick Look button
@@ -226,11 +268,14 @@
     self.quickLookButton.backgroundColor = [UIColor systemGray5Color];
     [self.quickLookButton addTarget:self action:@selector(showQuickLook:) forControlEvents:UIControlEventTouchUpInside];
     self.quickLookButton.enabled = NO;
-    [self.view addSubview:self.quickLookButton];
+    [self.scrollView addSubview:self.quickLookButton];
     y += 52;
 
-    // Reposition spinner if needed
-    self.spinner.center = CGPointMake(self.view.center.x, y);
+    // Reposition spinner
+    self.spinner.center = CGPointMake(self.view.bounds.size.width / 2.0, y + 20);
+
+    // Set scroll content size so everything is reachable
+    self.scrollView.contentSize = CGSizeMake(self.view.bounds.size.width, y + 60);
 }
 
 #pragma mark - UI helpers
@@ -330,7 +375,10 @@
 
 - (void)stopRecording {
     [self.recorder stop];
-    [[AVAudioSession sharedInstance] setActive:NO error:nil];
+    // Deactivate the Measurement session; next action (play/idle) sets its own category
+    [[AVAudioSession sharedInstance] setActive:NO
+                                   withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
+                                         error:nil];
     [self.recordButton setTitle:@"Start Recording" forState:UIControlStateNormal];
     self.recordButton.backgroundColor = [UIColor systemRedColor];
 
@@ -358,6 +406,18 @@
 
 - (void)playRecording:(id)sender {
     if (!self.recordedFileURL) return;
+    // Switch session to Playback so audio goes to loudspeaker + Bluetooth,
+    // not the earpiece that PlayAndRecord+Measurement mode routes to.
+    NSError *sessionErr = nil;
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    [session setCategory:AVAudioSessionCategoryPlayback
+                    mode:AVAudioSessionModeDefault
+                 options:AVAudioSessionCategoryOptionAllowBluetooth |
+                         AVAudioSessionCategoryOptionAllowBluetoothA2DP
+                   error:&sessionErr];
+    if (sessionErr) EZLogf(EZLogLevelWarning, @"REC", @"Playback session: %@", sessionErr);
+    [session setActive:YES error:nil];
+
     NSError *err = nil;
     self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:self.recordedFileURL error:&err];
     if (err) { [self showAlert:@"Play error" message:err.localizedDescription]; return; }
@@ -367,7 +427,6 @@
     [self.player play];
     [self startMeterTimer];
 
-    // Ensure controls are enabled during playback
     self.pauseButton.enabled = YES;
     self.stopButton.enabled = YES;
     self.skipBackButton.enabled = YES;
@@ -457,6 +516,104 @@
     return self.recordedFileURL;
 }
 
+#pragma mark - Keyboard / Misc
+
+- (void)dismissKeyboard {
+    [self.view endEditing:YES];
+}
+
+//- (void)textFieldShouldReturn:(UITextField *)tf {
+  //  [tf resignFirstResponder];
+//}
+
+#pragma mark - Mode Control
+
+/// Called when the user switches between IVC and PVC segments.
+/// PVC requires Creator plan — auto-enable noise removal as a nudge toward
+/// best-quality samples, but leave it user-overridable.
+- (void)modeChanged:(UISegmentedControl *)sender {
+    BOOL isPVC = (sender.selectedSegmentIndex == 1);
+    if (isPVC && !self.noiseSwitch.isOn) {
+        self.noiseSwitch.on = YES; // recommended for PVC quality
+        EZLog(EZLogLevelInfo, @"CLONE", @"PVC selected — noise removal auto-enabled");
+    }
+}
+
+#pragma mark - File Picker
+
+/// Lets the user choose any audio file from Files, and uses it as the
+/// source for cloning — same pipeline as a recorded sample.
+- (void)pickAudioFile:(id)sender {
+    // Import UniformTypeIdentifiers at top if not already — it's already pulled in via QuickLook.
+    NSArray *audioTypes;
+    if (@available(iOS 14.0, *)) {
+        audioTypes = @[
+            [UTType typeWithIdentifier:@"public.audio"],
+            [UTType typeWithIdentifier:@"public.mp3"],
+            [UTType typeWithIdentifier:@"com.microsoft.waveform-audio"], // wav
+            [UTType typeWithIdentifier:@"public.mpeg-4-audio"],           // m4a/aac
+            [UTType typeWithIdentifier:@"public.ogg-audio"],
+        ];
+    } else {
+        audioTypes = @[@"public.audio"];
+    }
+    UIDocumentPickerViewController *picker;
+    if (@available(iOS 14.0, *)) {
+        picker = [[UIDocumentPickerViewController alloc]
+            initForOpeningContentTypes:(NSArray<UTType *> *)audioTypes asCopy:YES];
+    } else {
+        picker = [[UIDocumentPickerViewController alloc]
+            initWithDocumentTypes:audioTypes inMode:UIDocumentPickerModeImport];
+    }
+    picker.delegate = self;
+    picker.allowsMultipleSelection = NO;
+    [self presentViewController:picker animated:YES completion:nil];
+}
+
+/// UIDocumentPickerDelegate — file selected
+- (void)documentPicker:(UIDocumentPickerViewController *)controller
+  didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+    NSURL *chosen = urls.firstObject;
+    if (!chosen) return;
+
+    self.recordedFileURL = chosen;
+    self.hasShownQuickLookForCurrentFile = NO;
+    [self.waveformView reset];
+    self.recordTimerLabel.text = @"00:00";
+
+    // Enable all actions that require a file
+    self.playButton.enabled    = YES;
+    self.pauseButton.enabled   = YES;
+    self.stopButton.enabled    = YES;
+    self.skipBackButton.enabled = YES;
+    self.skipFwdButton.enabled  = YES;
+    self.uploadButton.enabled   = YES;
+    self.quickLookButton.enabled = YES;
+
+    // Offer noise removal for imported files
+    UIAlertController *noiseAlert = [UIAlertController
+        alertControllerWithTitle:@"Noise Removal"
+                         message:@"Would you like ElevenLabs to remove background noise from this file during upload? Works for both IVC and PVC."
+                  preferredStyle:UIAlertControllerStyleAlert];
+    [noiseAlert addAction:[UIAlertAction actionWithTitle:@"Enable"
+                                                   style:UIAlertActionStyleDefault
+                                                 handler:^(UIAlertAction *_) {
+        self.noiseSwitch.on = YES;
+    }]];
+    [noiseAlert addAction:[UIAlertAction actionWithTitle:@"No Thanks"
+                                                   style:UIAlertActionStyleCancel
+                                                 handler:nil]];
+    [self presentViewController:noiseAlert animated:YES completion:nil];
+
+    EZLogf(EZLogLevelInfo, @"CLONE", @"File picked: %@", chosen.lastPathComponent);
+    [self showAlert:@"File Selected"
+            message:[NSString stringWithFormat:@"Ready to clone: %@", chosen.lastPathComponent]];
+}
+
+- (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
+    EZLog(EZLogLevelInfo, @"CLONE", @"File picker cancelled");
+}
+
 #pragma mark - Upload / Clone
 
 - (NSString *)apiKey {
@@ -465,7 +622,11 @@
 }
 
 - (void)uploadClone:(id)sender {
-    if (!self.recordedFileURL) { [self showAlert:@"No recording" message:@"Please record a sample first."]; return; }
+    if (!self.recordedFileURL) {
+        [self showAlert:@"No Audio Selected"
+                message:@"Please record a sample or choose an audio file first."];
+        return;
+    }
     if (self.nameField.text.length == 0) { [self showAlert:@"Missing name" message:@"Enter a voice name."]; return; }
 
     NSString *apiKey = [self apiKey];
@@ -522,7 +683,8 @@
     [body appendData:[[self.nameField.text ?: @"" stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
 
-    // remove_background_noise
+    // remove_background_noise — supported by BOTH IVC (/v1/voices/add) and PVC samples.
+    // Strips non-voice audio server-side before training; safe to enable for any recording.
     NSString *rbn = self.noiseSwitch.isOn ? @"true" : @"false";
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"remove_background_noise\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
@@ -623,7 +785,8 @@
 
     NSMutableData *body = [NSMutableData data];
 
-    // remove_background_noise
+    // remove_background_noise — supported by BOTH IVC (/v1/voices/add) and PVC samples.
+    // Strips non-voice audio server-side before training; safe to enable for any recording.
     NSString *rbn = self.noiseSwitch.isOn ? @"true" : @"false";
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"remove_background_noise\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];

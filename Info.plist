@@ -11,17 +11,19 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.6.1</string>
+	<string>6.6.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.6.1</string>
+	<string>6.6.5</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>EZCompleteUI uses the microphone for voice dictation input.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>EZCompleteUI uses speech recognition to transcribe your voice into text.</string>
 	<key>NSDocumentsFolderUsageDescription</key>
 	<string>EZCompleteUI needs access to your files so you can attach documents, images, and audio to your chats.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>EZCompleteUI saves AI-generated images to your Photo Library.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

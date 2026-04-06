@@ -1,5 +1,12 @@
 // ViewController.m
-// EZCompleteUI v6.7
+// EZCompleteUI v6.8
+//
+// Changes from v6.7:
+//   - Fixed: stale lastImageLocalPath no longer injected into unrelated memory entries
+//     Root cause: chatContext scan for _isVisionAttachment was permanently sticky after
+//     the first image send; replaced with pendingImagePath check (this-turn-only signal)
+//   - Fixed same bug in direct-answer (Tier 1) memory path — same stale injection removed
+//   - pendingImagePath now cleared immediately after capture in both memory paths
 //
 // Changes from v6.6:
 //   - GPT-5 timeout increased (180s solo, 240s with web search)
@@ -39,6 +46,18 @@
 #import <AVFoundation/AVFoundation.h>
 #import <Speech/Speech.h>
 #import <PDFKit/PDFKit.h>
+#import <QuartzCore/QuartzCore.h>
+#import "SidewaysScrollView.h"
+
+@interface ViewController (EZKeepAwakeInjected)
+- (void)ezcui_beginLongOperation:(NSString *)reason;
+- (void)ezcui_endLongOperation;
+@end
+
+
+
+//@class SidewaysScrollView;
+
 
 typedef NS_ENUM(NSInteger, EZAttachMode) {
     EZAttachModeNone,
@@ -54,9 +73,12 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                                SFSpeechRecognizerDelegate,
                                ChatHistoryViewControllerDelegate>
 
+
+
+
 // UI
 /// UITableView that renders all chat messages as bubble / system / code cells.
-@property (nonatomic, strong) UITableView   *chatTableView;
+//@property (nonatomic, strong) UITableView   *chatTableView;
 /// Flat array of display-message dicts driving chatTableView.
 /// Keys: role (@"user"|@"assistant"|@"system"|@"code"), text, language, savedPath.
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *displayMessages;
@@ -114,6 +136,10 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) AVAudioEngine                    *audioEngine;
 @property (nonatomic, assign) BOOL                              isDictating;
 
+
+    // Sideways-scrolling top-row container (inserted)
+    @property (nonatomic, strong) UIView *topButtonsContainer;
+    @property (nonatomic, strong) SidewaysScrollView *sidewaysScrollView;
 @end
 
 
@@ -415,6 +441,225 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 }
 @end
 
+/***/
+//#pragma mark - SidewaysScrollView (inserted by patch_viewcontroller.py)
+
+/*
+ SidewaysScrollView
+ - A lightweight horizontally-scrolling container that creates a seamless
+   circular scroll effect (icons scroll off the left and reappear on the right).
+ - Designed to be embedded inside ViewController.m (no separate header).
+ - Buttons are duplicated internally to achieve wrap-around behavior.
+
+@interface SidewaysScrollView : UIView <UIScrollViewDelegate>
+
+@property (nonatomic, strong) UIScrollView *scrollView;
+@property (nonatomic, strong) NSArray<UIButton *> *sourceButtons; // original button prototypes
+@property (nonatomic, assign) CGFloat buttonWidth;
+@property (nonatomic, assign) CGFloat buttonHeight;
+
+- (void)configureWithButtons:(NSArray<UIButton *> *)buttons doubleSize:(BOOL)doubleSize;
+
+@end
+
+@implementation SidewaysScrollView
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (!self) return nil;
+    self.backgroundColor = [UIColor clearColor];
+
+    _scrollView = [[UIScrollView alloc] initWithFrame:self.bounds];
+    _scrollView.translatesAutoresizingMaskIntoConstraints = NO;
+    _scrollView.showsHorizontalScrollIndicator = NO;
+    _scrollView.delegate = self;
+    _scrollView.alwaysBounceHorizontal = YES;
+    _scrollView.clipsToBounds = NO; // allow shadow to be visible when going off edges
+    [self addSubview:_scrollView];
+
+    // Auto Layout for scrollView to fill self
+    [NSLayoutConstraint activateConstraints:@[
+        [_scrollView.topAnchor constraintEqualToAnchor:self.topAnchor],
+        [_scrollView.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
+        [_scrollView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+        [_scrollView.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
+    ]];
+
+    return self;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    // If button sizes weren't set yet, attempt to relayout based on current size.
+    if (self.sourceButtons && (self.buttonWidth == 0 || self.buttonHeight == 0)) {
+        CGFloat h = CGRectGetHeight(self.bounds);
+        // default: use full height for buttons
+        self.buttonHeight = h;
+        // width will be set proportionally if it was zero
+        if (self.buttonWidth == 0) {
+            self.buttonWidth = self.buttonHeight; // square by default; controller can override
+        }
+        [self rebuildScrollContent];
+    }
+}
+
+- (void)configureWithButtons:(NSArray<UIButton *> *)buttons doubleSize:(BOOL)doubleSize {
+    // Store prototype buttons (we will copy their visuals)
+    NSMutableArray *clones = [NSMutableArray arrayWithCapacity:buttons.count];
+    for (UIButton *b in buttons) {
+        // create a lightweight prototype copy with same title/image/backgroundColor
+        UIButton *copy = [UIButton buttonWithType:UIButtonTypeCustom];
+        copy.tag = b.tag;
+        copy.layer.cornerRadius = b.layer.cornerRadius;
+        copy.layer.borderWidth = b.layer.borderWidth;
+        copy.layer.borderColor = b.layer.borderColor;
+        copy.layer.shadowColor = b.layer.shadowColor;
+        copy.layer.shadowOffset = b.layer.shadowOffset;
+        copy.layer.shadowOpacity = b.layer.shadowOpacity;
+        copy.layer.shadowRadius = b.layer.shadowRadius;
+        copy.titleLabel.font = b.titleLabel.font;
+        copy.adjustsImageWhenHighlighted = NO;
+
+        // copy title / image / background color states conservatively
+        NSString *title = [b titleForState:UIControlStateNormal];
+        if (title) [copy setTitle:title forState:UIControlStateNormal];
+        UIImage *img = [b imageForState:UIControlStateNormal];
+        if (img) [copy setImage:img forState:UIControlStateNormal];
+        copy.backgroundColor = b.backgroundColor ?: [UIColor clearColor];
+
+        [clones addObject:copy];
+    }
+    self.sourceButtons = clones;
+
+    // default sizing: base on our own height; can be doubled by request
+    CGFloat h = CGRectGetHeight(self.bounds);
+    if (h <= 1.0) {
+        // view hasn't been sized yet; pick a reasonable default
+        h = 88.0;
+    }
+    self.buttonHeight = doubleSize ? (h * 2.0) : h;
+    // default width proportional to height (square buttons)
+    self.buttonWidth = self.buttonHeight;
+
+    // rebuild content immediately if possible
+    [self rebuildScrollContent];
+}
+
+- (void)rebuildScrollContent {
+    // remove everything
+    for (UIView *v in self.scrollView.subviews) {
+        [v removeFromSuperview];
+    }
+    if (!self.sourceButtons || self.sourceButtons.count == 0) {
+        self.scrollView.contentSize = CGSizeZero;
+        return;
+    }
+
+    NSInteger n = (NSInteger)self.sourceButtons.count;
+    // We duplicate the sequence twice to allow seamless wrap-around.
+    CGFloat itemW = self.buttonWidth;
+    CGFloat itemH = self.buttonHeight;
+
+    // If the scrollView's height is smaller than itemH, adjust the itemH and keep corner radius reasonable
+    if (CGRectGetHeight(self.bounds) < itemH) {
+        itemH = CGRectGetHeight(self.bounds);
+    }
+
+    // create 2 * n buttons
+    for (NSInteger copyIndex = 0; copyIndex < 2; copyIndex++) {
+        for (NSInteger i = 0; i < n; i++) {
+            UIButton *proto = self.sourceButtons[i];
+            UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+            // copy visuals
+            btn.tag = proto.tag ?: i;
+            NSString *title = [proto titleForState:UIControlStateNormal];
+            if (title) [btn setTitle:title forState:UIControlStateNormal];
+            UIImage *img = [proto imageForState:UIControlStateNormal];
+            if (img) [btn setImage:img forState:UIControlStateNormal];
+            btn.backgroundColor = proto.backgroundColor ?: [UIColor systemBlueColor];
+            btn.titleLabel.font = proto.titleLabel.font ?: [UIFont systemFontOfSize:14];
+            btn.layer.cornerRadius = MAX(8.0, MIN(itemH * 0.15, 16.0));
+            btn.clipsToBounds = YES;
+            // apply vibrant border/shadow styling for visibility
+            btn.layer.borderWidth = 1.0;
+            btn.layer.borderColor = [UIColor colorWithWhite:0.9 alpha:1.0].CGColor;
+            btn.layer.shadowColor = [UIColor colorWithWhite:0.0 alpha:0.25].CGColor;
+            btn.layer.shadowOffset = CGSizeMake(0, 3);
+            btn.layer.shadowOpacity = 0.6;
+            btn.layer.shadowRadius = 6.0;
+            btn.adjustsImageWhenHighlighted = YES;
+            btn.contentEdgeInsets = UIEdgeInsetsMake(8, 12, 8, 12);
+
+            // position
+            CGFloat x = (copyIndex * n + i) * itemW + (itemW - itemW) / 2.0;
+            btn.frame = CGRectMake(x, (CGRectGetHeight(self.bounds) - itemH) / 2.0, itemW, itemH);
+
+            // ensure title color is readable
+            UIColor *titleColor = [UIColor labelColor];
+            if (btn.backgroundColor) {
+                CGFloat white = 0.0;
+                [btn.backgroundColor getWhite:&white alpha:NULL];
+                // if background is dark-ish, use white
+                if (white < 0.6) {
+                    titleColor = [UIColor whiteColor];
+                } else {
+                    titleColor = [UIColor blackColor];
+                }
+            }
+            [btn setTitleColor:titleColor forState:UIControlStateNormal];
+
+            // map action to a generic selector which ViewController will pick up via responder chain
+            [btn addTarget:nil action:@selector(sidewaysTopButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+
+            [self.scrollView addSubview:btn];
+        }
+    }
+
+    CGFloat contentW = itemW * n * 2;
+    self.scrollView.contentSize = CGSizeMake(contentW, CGRectGetHeight(self.bounds));
+
+    // start centered on the first copy (i.e. offset 0)
+    self.scrollView.contentOffset = CGPointMake(0, 0);
+
+    // If content smaller than frame, center horizontally
+    if (self.scrollView.contentSize.width <= CGRectGetWidth(self.scrollView.bounds)) {
+        CGFloat inset = (CGRectGetWidth(self.scrollView.bounds) - self.scrollView.contentSize.width) / 2.0;
+        self.scrollView.contentInset = UIEdgeInsetsMake(0, inset, 0, inset);
+    } else {
+        self.scrollView.contentInset = UIEdgeInsetsZero;
+    }
+}
+
+#pragma mark - UIScrollViewDelegate (circular wrap)
+
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
+    // perform wrap-around whenever the offset crosses the length of the source sequence
+    if (!self.sourceButtons || self.sourceButtons.count == 0) return;
+    CGFloat singleWidth = self.buttonWidth * (CGFloat)self.sourceButtons.count;
+    if (singleWidth <= 0) return;
+
+    CGFloat x = scrollView.contentOffset.x;
+
+    // When we move beyond the first sequence into the second, wrap back by subtracting singleWidth.
+    // When we move left before 0, wrap forward adding singleWidth.
+    if (x >= singleWidth) {
+        // Keep visual continuity by preserving fractional remainder
+        scrollView.contentOffset = CGPointMake(fmod(x, singleWidth), 0);
+    } else if (x < 0) {
+        // Add singleWidth to move into the second copy equivalently
+        CGFloat wrapped = singleWidth + fmod(x, singleWidth);
+        // fmod can be negative; ensure within 0..singleWidth
+        if (wrapped >= singleWidth) wrapped -= singleWidth;
+        scrollView.contentOffset = CGPointMake(wrapped, 0);
+    }
+}
+
+@end
+
+#pragma mark - End SidewaysScrollView
+********************/
+
+
 @implementation ViewController
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -423,6 +668,74 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+
+    // --- START: Sideways scrolling top-row (injected) ---
+    if (!self.topButtonsContainer) {
+        UIView *container = [[UIView alloc] init];
+        container.translatesAutoresizingMaskIntoConstraints = NO;
+        container.backgroundColor = [UIColor clearColor];
+        container.clipsToBounds = NO;
+        [self.view addSubview:container];
+        self.topButtonsContainer = container;
+
+        CGFloat injectedHeight = 120.0; // double-size visual row (buttons will be ~240pt tall, centered)
+        [NSLayoutConstraint activateConstraints:@[
+            [container.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8.0],
+            [container.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:8.0],
+            [container.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-8.0],
+            [container.heightAnchor constraintEqualToConstant:injectedHeight]
+        ]];
+
+        SidewaysScrollView *ssv = [[SidewaysScrollView alloc] initWithFrame:CGRectZero];
+        ssv.translatesAutoresizingMaskIntoConstraints = NO;
+        [container addSubview:ssv];
+        [NSLayoutConstraint activateConstraints:@[
+            [ssv.topAnchor constraintEqualToAnchor:container.topAnchor],
+            [ssv.bottomAnchor constraintEqualToAnchor:container.bottomAnchor],
+            [ssv.leadingAnchor constraintEqualToAnchor:container.leadingAnchor],
+            [ssv.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
+        ]];
+        self.sidewaysScrollView = ssv;
+
+        NSMutableArray<UIButton *> *protoButtons = [NSMutableArray array];
+        NSArray<UIColor *> *colors = @[
+            [UIColor colorWithRed:0.95 green:0.38 blue:0.38 alpha:1.0],
+            [UIColor colorWithRed:0.95 green:0.70 blue:0.28 alpha:1.0],
+            [UIColor colorWithRed:0.45 green:0.77 blue:0.33 alpha:1.0],
+            [UIColor colorWithRed:0.36 green:0.66 blue:0.96 alpha:1.0],
+            [UIColor colorWithRed:0.70 green:0.49 blue:0.96 alpha:1.0],
+            [UIColor colorWithRed:0.95 green:0.55 blue:0.80 alpha:1.0],
+            [UIColor colorWithRed:0.40 green:0.80 blue:0.72 alpha:1.0],
+            [UIColor colorWithRed:0.98 green:0.62 blue:0.25 alpha:1.0],
+            [UIColor colorWithRed:0.56 green:0.76 blue:0.98 alpha:1.0],
+            [UIColor colorWithRed:0.85 green:0.46 blue:0.36 alpha:1.0],
+        ];
+        for (NSInteger i = 0; i < 10; i++) {
+            UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+            b.tag = (int)i + 1000;
+            [b setTitle:[NSString stringWithFormat:@"Item %ld", (long)i+1] forState:UIControlStateNormal];
+            b.backgroundColor = colors[i % colors.count];
+            b.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+            b.layer.cornerRadius = 12.0;
+            [protoButtons addObject:b];
+        }
+        [self.sidewaysScrollView configureWithButtons:protoButtons doubleSize:YES];
+
+        // Avoid overlaying the chat table: inset its content from the top if present
+        if (self.chatTableView) {
+            UIEdgeInsets insets = self.chatTableView.contentInset;
+            CGFloat neededTop = injectedHeight + 12.0;
+            if (insets.top < neededTop) {
+                insets.top = neededTop;
+                self.chatTableView.contentInset = insets;
+                self.chatTableView.scrollIndicatorInsets = insets;
+            }
+        }
+        [self.view bringSubviewToFront:self.topButtonsContainer];
+    }
+    // --- END: Sideways scrolling top-row (injected) ---
+
+
     EZLogRotateIfNeeded(512 * 1024);
     EZLog(EZLogLevelInfo, @"APP", @"EZCompleteUI v4.0 viewDidLoad");
     [self setupData];
@@ -1507,7 +1820,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)handleSend {
-    NSString *text = self.messageTextField.text;
+    
+    @try { [self ezcui_beginLongOperation:@"ChatCompletion"]; } @catch (NSException *e) { EZLogf(EZLogLevelWarning, @"EZKeepAwake", @"begin failed in handleSend: %@", e); }
+NSString *text = self.messageTextField.text;
     if (text.length == 0) return;
     if (self.isDictating) [self stopDictation];
 
@@ -1640,15 +1955,15 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [self appendToChat:[NSString stringWithFormat:@"AI: %@", answer]];
             [self appendToChat:@"[System: Answered directly by helper model ⚡]"];
             EZLogf(EZLogLevelInfo, @"SEND", @"Tier 1 direct answer displayed");
+            // Only include the image that was explicitly attached THIS turn (pendingImagePath).
+            // Never inject lastImageLocalPath here — it is a stale sticky path from a prior
+            // turn or a prior DALL-E generation and has no guaranteed relevance to this exchange.
             NSMutableArray *attachmentsAtSend = [self.activeThread.attachmentPaths mutableCopy];
-            if (self.lastImageLocalPath.length > 0 &&
-                ![attachmentsAtSend containsObject:self.lastImageLocalPath]) {
-                [attachmentsAtSend addObject:self.lastImageLocalPath];
-            }
             if (self.pendingImagePath.length > 0 &&
                 ![attachmentsAtSend containsObject:self.pendingImagePath]) {
                 [attachmentsAtSend addObject:self.pendingImagePath];
             }
+            self.pendingImagePath = nil; // consumed — belongs to this turn only
             createMemoryFromCompletion(text, answer, apiKey, self.activeThread.threadID,
                                        attachmentsAtSend,
                                        ^(NSString *entry) {
@@ -1790,24 +2105,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSString *capturedThreadID = self.activeThread.threadID;
     NSMutableArray *capturedAttachments = [self.activeThread.attachmentPaths mutableCopy];
 
-    // Only add image paths to this exchange's attachments if there is actually a
-    // vision attachment in the current context — avoids tagging every subsequent
-    // chat turn with a stale image path and confusing the memory classifier.
-    BOOL hasActiveVisionAttachment = NO;
-    for (NSDictionary *msg in self.chatContext) {
-        if ([msg[@"_isVisionAttachment"] boolValue]) { hasActiveVisionAttachment = YES; break; }
+    // pendingImagePath is set only when the user explicitly attaches a file THIS turn.
+    // It is the sole reliable indicator that this exchange actually involves an image.
+    // Scanning chatContext for _isVisionAttachment was NOT sufficient — that flag persists
+    // on historical messages indefinitely, causing lastImageLocalPath to be injected into
+    // every subsequent memory even when the image has nothing to do with the current turn.
+    // lastImageLocalPath is intentionally excluded: it is a sticky path from a prior
+    // generation/import and injecting it into unrelated memories is the reported bug.
+    if (self.pendingImagePath.length > 0 &&
+        ![capturedAttachments containsObject:self.pendingImagePath]) {
+        [capturedAttachments addObject:self.pendingImagePath];
     }
-    if (hasActiveVisionAttachment) {
-        if (self.lastImageLocalPath.length > 0 &&
-            ![capturedAttachments containsObject:self.lastImageLocalPath]) {
-            [capturedAttachments addObject:self.lastImageLocalPath];
-        }
-        if (self.pendingImagePath.length > 0 &&
-            ![capturedAttachments containsObject:self.pendingImagePath]) {
-            [capturedAttachments addObject:self.pendingImagePath];
-        }
-    }
-    // Always clear pendingImagePath after capture — it belongs to this turn only
+    // Always clear pendingImagePath after capture — it belongs to this turn only.
     self.pendingImagePath = nil;
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:request
@@ -3336,7 +3645,127 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self presentViewController:nav animated:YES completion:nil];
 }
 
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    @try {
+        [self ezcui_endLongOperation];
+    } @catch (NSException *e) {
+        EZLogf(EZLogLevelWarning, @"EZKeepAwake", @"viewWillDisappear end failed: %@", e);
+    }
+}
+
+
+- (void)dealloc {
+    @try {
+        [self ezcui_endLongOperation];
+    } @catch (NSException *e) {
+        EZLogf(EZLogLevelWarning, @"EZKeepAwake", @"dealloc end failed: %@", e);
+    }
+#if !__has_feature(objc_arc)
+    [super dealloc];
+#endif
+}
+
 @end
 
+    @interface ViewController (EZTitleFix) @end
+    @implementation ViewController (EZTitleFix)
+    - (void)setTitle:(NSString *)title {
+        [super setTitle:title];
+        // If the top-buttons category is present, let it sync its label.
+        if ([self respondsToSelector:@selector(ezcui_setTopTitle:)]) {
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            [self performSelector:@selector(ezcui_setTopTitle:) withObject:(title ?: @"")];
+    #pragma clang diagnostic pop
+        }
+    }
+    @end
+#pragma mark - EZKeepAwake
 
-// ─────────────────────────────────────────────────────────────────────────────
+#import <UIKit/UIKit.h>
+#import <objc/runtime.h>
+#import "helpers.h"
+
+static const void *kEZKA_Count  = &kEZKA_Count;
+static const void *kEZKA_BGTask = &kEZKA_BGTask;
+static const void *kEZKA_Timer  = &kEZKA_Timer;
+
+static inline NSInteger ezka_getCount(id vc) {
+    NSNumber *n = objc_getAssociatedObject(vc, kEZKA_Count);
+    return n ? n.integerValue : 0;
+}
+static inline void ezka_setCount(id vc, NSInteger c) {
+    objc_setAssociatedObject(vc, kEZKA_Count, @(c), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+#if TARGET_OS_IOS
+static inline UIBackgroundTaskIdentifier ezka_getBG(id vc) {
+    NSNumber *n = objc_getAssociatedObject(vc, kEZKA_BGTask);
+    return n ? (UIBackgroundTaskIdentifier)n.unsignedIntegerValue : UIBackgroundTaskInvalid;
+}
+static inline void ezka_setBG(id vc, UIBackgroundTaskIdentifier t) {
+    objc_setAssociatedObject(vc, kEZKA_BGTask, @(t), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+#endif
+
+@interface ViewController (EZKeepAwakeInjected)
+- (void)ezcui_beginLongOperation:(NSString *)reason;
+- (void)ezcui_endLongOperation;
+@end
+
+@implementation ViewController (EZKeepAwakeInjected)
+
+- (void)ezcui_beginLongOperation:(NSString *)reason {
+    @synchronized (self) {
+        NSInteger c = ezka_getCount(self) + 1;
+        ezka_setCount(self, c);
+#if TARGET_OS_IOS
+        if (c == 1) {
+            [UIApplication sharedApplication].idleTimerDisabled = YES;
+            EZLogf(EZLogLevelInfo, @"EZKeepAwake", @"Starting keep-awake: %@", reason ?: @"op");
+
+            UIBackgroundTaskIdentifier bg = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
+                EZLog(EZLogLevelWarning, @"EZKeepAwake", @"BG task expired; ending");
+                UIBackgroundTaskIdentifier cur = ezka_getBG(self);
+                if (cur != UIBackgroundTaskInvalid) {
+                    [[UIApplication sharedApplication] endBackgroundTask:cur];
+                    ezka_setBG(self, UIBackgroundTaskInvalid);
+                }
+            }];
+            ezka_setBG(self, bg);
+
+            NSTimer *t = [NSTimer scheduledTimerWithTimeInterval:480.0 repeats:NO block:^(NSTimer * _Nonnull timer) {
+                EZLog(EZLogLevelWarning, @"EZKeepAwake", @"Failsafe timer fired; forcing end");
+                [self ezcui_endLongOperation];
+            }];
+            objc_setAssociatedObject(self, kEZKA_Timer, t, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        }
+#endif
+    }
+}
+
+- (void)ezcui_endLongOperation {
+    @synchronized (self) {
+        NSInteger c = MAX(0, ezka_getCount(self) - 1);
+        ezka_setCount(self, c);
+#if TARGET_OS_IOS
+        if (c == 0) {
+            [UIApplication sharedApplication].idleTimerDisabled = NO;
+            EZLog(EZLogLevelInfo, @"EZKeepAwake", @"Idle timer re-enabled");
+
+            NSTimer *t = objc_getAssociatedObject(self, kEZKA_Timer);
+            if (t) { [t invalidate]; objc_setAssociatedObject(self, kEZKA_Timer, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
+
+            UIBackgroundTaskIdentifier bg = ezka_getBG(self);
+            if (bg != UIBackgroundTaskInvalid) {
+                [[UIApplication sharedApplication] endBackgroundTask:bg];
+                ezka_setBG(self, UIBackgroundTaskInvalid);
+                EZLog(EZLogLevelInfo, @"EZKeepAwake", @"Background task ended");
+            }
+        }
+#endif
+    }
+}
+
+@end

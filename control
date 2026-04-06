@@ -5,5 +5,5 @@ Description: Let's chat gpt and DallE Whisper Sora chit up...with a UI. And memo
 Depends: firmware (>= 15.0)
 Maintainer: i0s_tweak3r <djvs23@gmail.com>
 Architecture: iphoneos-arm64
-Section: Applications
-Version: 6.6.1
+Section: Utilities
+Version: 6.6.5

@@ -3,6 +3,7 @@
 @interface ViewController : UIViewController
 //@property (nonatomic, strong) UIView *inputContainer;
 @property (nonatomic, strong) UITextView *promptInput;
+@property (nonatomic, strong) UITableView   *chatTableView;
 @property (nonatomic, strong) NSLayoutConstraint *inputHeightConstraint;
 //@property (nonatomic, strong) UIButton *sendButton;
 @end
