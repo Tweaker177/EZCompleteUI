@@ -1,27 +1,21 @@
-// ElevenLabsCloneViewController.m
-// - Record audio (48kHz / 16-bit mono WAV) for high-quality cloning
-// - Instant Voice Cloning (IVC): POST /v1/voices/add (multipart)
-// - Professional Voice Cloning (PVC): POST /v1/voices/pvc then POST /v1/voices/pvc/:voice_id/samples
-// - Hooks/logs for optional verification+training
-//
-// Key endpoints:
-//   IVC  : POST https://api.elevenlabs.io/v1/voices/add (multipart form: name, files[], remove_background_noise?)
-//   PVC  : POST https://api.elevenlabs.io/v1/voices/pvc (JSON: {name, language})
-//          POST https://api.elevenlabs.io/v1/voices/pvc/:voice_id/samples (multipart: files[], remove_background_noise?)
-//          GET/POST verification captcha; POST /v1/voices/pvc/:voice_id/train for model_id
-// Docs:  https://elevenlabs.io/docs/api-reference/voices/ivc/create
-//        https://elevenlabs.io/docs/api-reference/voices/pvc/create
-//        https://elevenlabs.io/docs/api-reference/voices/pvc/samples/create
-//        https://elevenlabs.io/docs/api-reference/voices/pvc/verification/captcha
-//        https://elevenlabs.io/docs/api-reference/voices/pvc/verification/captcha/verify
-//        https://elevenlabs.io/docs/api-reference/voices/pvc/train
+// Objective-C  ElevenLabsCloneViewController.m
+// Complete, compiler-ready drop-in replacement.
+// - Records 48kHz / 16-bit mono WAV
+// - Live elapsed timer + rolling waveform while recording
+// - Playback transport: Play/Pause/Stop/Skip ±10s
+// - Import audio via Files (UIDocumentPicker)
+// - One-time Quick Look preview after capture/import + button to open again
+// - IVC upload (POST /v1/voices/add) and PVC create + sample upload
+// - Robust error handling, logging, and UI state management
 
 #import "ElevenLabsCloneViewController.h"
 #import <AVFoundation/AVFoundation.h>
 #import <QuickLook/QuickLook.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "EZKeyVault.h"
 #import "helpers.h"
-#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+
+#pragma mark - Lightweight waveform view
 
 @interface WaveformView : UIView
 @property (nonatomic, strong) NSMutableArray<NSNumber *> *levels;
@@ -53,8 +47,6 @@
     [self setNeedsDisplay];
 }
 - (void)drawRect:(CGRect)rect {
-    CGContextRef ctx = UIGraphicsGetCurrentContext();
-    (void)ctx;
     CGFloat w = rect.size.width, h = rect.size.height;
     NSUInteger n = self.levels.count; if (n == 0) return;
     CGFloat barW = MAX(1.0, w / (CGFloat)self.maxSamples);
@@ -71,8 +63,9 @@
 }
 @end
 
-@interface ElevenLabsCloneViewController () <AVAudioRecorderDelegate, AVAudioPlayerDelegate, UITextFieldDelegate,
- QLPreviewControllerDataSource, QLPreviewControllerDelegate, UIDocumentPickerDelegate>
+#pragma mark - Controller
+
+@interface ElevenLabsCloneViewController () <AVAudioRecorderDelegate, AVAudioPlayerDelegate, UITextFieldDelegate, QLPreviewControllerDataSource, QLPreviewControllerDelegate, UIDocumentPickerDelegate>
 @property (nonatomic, strong) UIScrollView *scrollView;
 @property (nonatomic, strong) UITextField *nameField;
 @property (nonatomic, strong) UITextField *langField;
@@ -90,48 +83,44 @@
 @property (nonatomic, strong) UIButton *skipBackButton;
 @property (nonatomic, strong) UIButton *skipFwdButton;
 @property (nonatomic, strong) UIButton *quickLookButton;
+@property (nonatomic, strong) UIButton *chooseFileButton;
 
 @property (nonatomic, strong) AVAudioRecorder *recorder;
 @property (nonatomic, strong) AVAudioPlayer *player;
 @property (nonatomic, strong) NSURL *recordedFileURL;
 
 @property (nonatomic, copy) NSString *createdPVCVoiceID; // remember last created PVC voice
-
 @property (nonatomic, strong) NSTimer *meterTimer;
 @property (nonatomic) BOOL hasShownQuickLookForCurrentFile;
 @end
 
 @implementation ElevenLabsCloneViewController
 
+#pragma mark - Lifecycle / UI
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"Voice Cloner";
     self.view.backgroundColor = [UIColor systemBackgroundColor];
 
-    // UIScrollView so safe-area is handled automatically and content
-    // never hides under the navigation bar regardless of device/orientation.
+    // Scroll view host (keeps layout safe under nav bars, keyboards, rotations)
     self.scrollView = [[UIScrollView alloc] initWithFrame:self.view.bounds];
     self.scrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentAlways;
     self.scrollView.alwaysBounceVertical = YES;
-    // Dismiss keyboard when scrolling
     self.scrollView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
     [self.view addSubview:self.scrollView];
 
-    // Tap outside text fields to dismiss keyboard
-    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc]
-        initWithTarget:self action:@selector(dismissKeyboard)];
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dismissKeyboard)];
     tap.cancelsTouchesInView = NO;
     [self.scrollView addGestureRecognizer:tap];
 
-    // All frame math is relative to scrollView content (y starts at 0).
-    // contentInsetAdjustmentBehavior pushes content below the nav bar automatically.
     CGFloat m = 20, w = self.view.bounds.size.width - m*2, y = 16;
 
-    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w, 22)];
-    title.text = @"Record or import audio, then upload for cloning.";
-    title.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
-    [self.scrollView addSubview:title];
+    UILabel *titleLbl = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w, 22)];
+    titleLbl.text = @"Record or import audio, then upload for cloning.";
+    titleLbl.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+    [self.scrollView addSubview:titleLbl];
     y += 30;
 
     self.nameField = [[UITextField alloc] initWithFrame:CGRectMake(m, y, w, 36)];
@@ -152,15 +141,14 @@
 
     self.modeControl = [[UISegmentedControl alloc] initWithItems:@[@"Instant (IVC)", @"Professional (PVC)"]];
     self.modeControl.frame = CGRectMake(m, y, w, 32);
-    self.modeControl.selectedSegmentIndex = 0; // default to IVC (no account tier required)
+    self.modeControl.selectedSegmentIndex = 0; // default to IVC
     [self.modeControl addTarget:self action:@selector(modeChanged:) forControlEvents:UIControlEventValueChanged];
     [self.scrollView addSubview:self.modeControl];
     y += 38;
 
-    // Informational label — PVC requires a paid tier
     UILabel *pvcInfoLbl = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w, 30)];
     pvcInfoLbl.numberOfLines = 0;
-    pvcInfoLbl.text = @"⚠️ Professional Voice Cloning (PVC) requires a Creator plan or higher.";
+    pvcInfoLbl.text = @"⚠️ PVC requires a Creator plan or higher.";
     pvcInfoLbl.font = [UIFont systemFontOfSize:11];
     pvcInfoLbl.textColor = [UIColor secondaryLabelColor];
     [self.scrollView addSubview:pvcInfoLbl];
@@ -195,17 +183,16 @@
     [self.scrollView addSubview:self.playButton];
     y += 52;
 
-    // "Choose or Upload" — action sheet lets user pick recorded audio OR a file
-    UIButton *chooseFileBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    chooseFileBtn.frame = CGRectMake(m, y, w, 44);
-    [chooseFileBtn setTitle:@"📂 Choose Audio File…" forState:UIControlStateNormal];
-    chooseFileBtn.layer.cornerRadius = 8;
-    chooseFileBtn.backgroundColor = [UIColor systemGray5Color];
-    [chooseFileBtn setTitleColor:[UIColor labelColor] forState:UIControlStateNormal];
-    chooseFileBtn.layer.borderWidth = 0.5;
-    chooseFileBtn.layer.borderColor = [UIColor systemGray3Color].CGColor;
-    [chooseFileBtn addTarget:self action:@selector(pickAudioFile:) forControlEvents:UIControlEventTouchUpInside];
-    [self.scrollView addSubview:chooseFileBtn];
+    self.chooseFileButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.chooseFileButton.frame = CGRectMake(m, y, w, 44);
+    [self.chooseFileButton setTitle:@"📂 Choose Audio File…" forState:UIControlStateNormal];
+    self.chooseFileButton.layer.cornerRadius = 8;
+    self.chooseFileButton.backgroundColor = [UIColor systemGray5Color];
+    [self.chooseFileButton setTitleColor:[UIColor labelColor] forState:UIControlStateNormal];
+    self.chooseFileButton.layer.borderWidth = 0.5;
+    self.chooseFileButton.layer.borderColor = [UIColor systemGray3Color].CGColor;
+    [self.chooseFileButton addTarget:self action:@selector(pickAudioFile:) forControlEvents:UIControlEventTouchUpInside];
+    [self.scrollView addSubview:self.chooseFileButton];
     y += 52;
 
     self.uploadButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -247,6 +234,7 @@
     self.skipBackButton = [self makeControlButton:@"⏪ -10s" frame:CGRectMake(m + (btnW+gap)*0, y, btnW, 40) action:@selector(skipBack:)];
     [self.scrollView addSubview:self.skipBackButton];
 
+    // Reposition the existing play button in the control row
     self.playButton.frame = CGRectMake(m + (btnW+gap)*1, y, btnW, 40);
     [self.playButton setTitle:@"▶︎ Play" forState:UIControlStateNormal];
 
@@ -271,14 +259,20 @@
     [self.scrollView addSubview:self.quickLookButton];
     y += 52;
 
-    // Reposition spinner
-    self.spinner.center = CGPointMake(self.view.bounds.size.width / 2.0, y + 20);
-
-    // Set scroll content size so everything is reachable
-    self.scrollView.contentSize = CGSizeMake(self.view.bounds.size.width, y + 60);
+    // Final content size
+    self.scrollView.contentSize = CGSizeMake(self.view.bounds.size.width, y + 20);
 }
 
 #pragma mark - UI helpers
+
+- (void)dismissKeyboard {
+    [self.view endEditing:YES];
+}
+
+- (void)modeChanged:(UISegmentedControl *)seg {
+    // Currently informational only; uploadClone: decides which flow to use
+    EZLogf(EZLogLevelInfo, @"ELEVEN", @"Mode changed to %@", seg.selectedSegmentIndex == 0 ? @"IVC" : @"PVC");
+}
 
 - (UIButton *)makeControlButton:(NSString *)title frame:(CGRect)frame action:(SEL)action {
     UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -292,11 +286,7 @@
 }
 
 - (void)setLoading:(BOOL)loading {
-    if (loading) {
-        [self.spinner startAnimating];
-    } else {
-        [self.spinner stopAnimating];
-    }
+    if (loading) { [self.spinner startAnimating]; } else { [self.spinner stopAnimating]; }
     self.view.userInteractionEnabled = !loading;
     self.navigationItem.hidesBackButton = loading;
 }
@@ -320,8 +310,24 @@
 - (void)startRecording {
     AVAudioSession *session = [AVAudioSession sharedInstance];
     NSError *err = nil;
+
+    // Request permission if needed
+    if (session.recordPermission == AVAudioSessionRecordPermissionUndetermined) {
+        [session requestRecordPermission:^(BOOL granted) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (granted) { [self startRecording]; }
+                else { [self showAlert:@"Microphone Access Denied" message:@"Enable microphone access in Settings to record."]; }
+            });
+        }];
+        return;
+    }
+    if (session.recordPermission != AVAudioSessionRecordPermissionGranted) {
+        [self showAlert:@"Microphone Access Denied" message:@"Enable microphone access in Settings to record."];
+        return;
+    }
+
     [session setCategory:AVAudioSessionCategoryPlayAndRecord mode:AVAudioSessionModeMeasurement options:AVAudioSessionCategoryOptionDefaultToSpeaker error:&err];
-    if (err) { EZLogf(EZLogLevelError, @"REC", @"Session cat error: %@", err.localizedDescription); }
+    if (err) { EZLogf(EZLogLevelError, @"REC", @"Session setCategory error: %@", err.localizedDescription); }
 
     [session setActive:YES error:&err];
     if (err) { EZLogf(EZLogLevelError, @"REC", @"Session activate error: %@", err.localizedDescription); }
@@ -375,10 +381,7 @@
 
 - (void)stopRecording {
     [self.recorder stop];
-    // Deactivate the Measurement session; next action (play/idle) sets its own category
-    [[AVAudioSession sharedInstance] setActive:NO
-                                   withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
-                                         error:nil];
+    [[AVAudioSession sharedInstance] setActive:NO error:nil];
     [self.recordButton setTitle:@"Start Recording" forState:UIControlStateNormal];
     self.recordButton.backgroundColor = [UIColor systemRedColor];
 
@@ -406,18 +409,6 @@
 
 - (void)playRecording:(id)sender {
     if (!self.recordedFileURL) return;
-    // Switch session to Playback so audio goes to loudspeaker + Bluetooth,
-    // not the earpiece that PlayAndRecord+Measurement mode routes to.
-    NSError *sessionErr = nil;
-    AVAudioSession *session = [AVAudioSession sharedInstance];
-    [session setCategory:AVAudioSessionCategoryPlayback
-                    mode:AVAudioSessionModeDefault
-                 options:AVAudioSessionCategoryOptionAllowBluetooth |
-                         AVAudioSessionCategoryOptionAllowBluetoothA2DP
-                   error:&sessionErr];
-    if (sessionErr) EZLogf(EZLogLevelWarning, @"REC", @"Playback session: %@", sessionErr);
-    [session setActive:YES error:nil];
-
     NSError *err = nil;
     self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:self.recordedFileURL error:&err];
     if (err) { [self showAlert:@"Play error" message:err.localizedDescription]; return; }
@@ -427,6 +418,7 @@
     [self.player play];
     [self startMeterTimer];
 
+    // Ensure controls are enabled during playback
     self.pauseButton.enabled = YES;
     self.stopButton.enabled = YES;
     self.skipBackButton.enabled = YES;
@@ -477,7 +469,7 @@
     } else if (self.player && self.player.isPlaying) {
         [self.player updateMeters];
         self.recordTimerLabel.text = [self mmssFromTime:self.player.currentTime];
-        // If you'd like to show waveform during playback as well:
+        // To also visualize playback, uncomment:
         // float avg = [self.player averagePowerForChannel:0];
         // [self.waveformView addLevel:powf(10.0f, 0.05f * avg)];
     }
@@ -499,7 +491,7 @@
 
 - (void)showQuickLook:(id)sender {
     if (!self.recordedFileURL) {
-        [self showAlert:@"No recording" message:@"Please record a sample first."];
+        [self showAlert:@"No recording" message:@"Please record or import a sample first."];
         return;
     }
     QLPreviewController *ql = [QLPreviewController new];
@@ -516,102 +508,67 @@
     return self.recordedFileURL;
 }
 
-#pragma mark - Keyboard / Misc
+#pragma mark - File picking (import)
 
-- (void)dismissKeyboard {
-    [self.view endEditing:YES];
-}
-
-//- (void)textFieldShouldReturn:(UITextField *)tf {
-  //  [tf resignFirstResponder];
-//}
-
-#pragma mark - Mode Control
-
-/// Called when the user switches between IVC and PVC segments.
-/// PVC requires Creator plan — auto-enable noise removal as a nudge toward
-/// best-quality samples, but leave it user-overridable.
-- (void)modeChanged:(UISegmentedControl *)sender {
-    BOOL isPVC = (sender.selectedSegmentIndex == 1);
-    if (isPVC && !self.noiseSwitch.isOn) {
-        self.noiseSwitch.on = YES; // recommended for PVC quality
-        EZLog(EZLogLevelInfo, @"CLONE", @"PVC selected — noise removal auto-enabled");
-    }
-}
-
-#pragma mark - File Picker
-
-/// Lets the user choose any audio file from Files, and uses it as the
-/// source for cloning — same pipeline as a recorded sample.
 - (void)pickAudioFile:(id)sender {
-    // Import UniformTypeIdentifiers at top if not already — it's already pulled in via QuickLook.
-    NSArray *audioTypes;
-    if (@available(iOS 14.0, *)) {
-        audioTypes = @[
-            [UTType typeWithIdentifier:@"public.audio"],
-            [UTType typeWithIdentifier:@"public.mp3"],
-            [UTType typeWithIdentifier:@"com.microsoft.waveform-audio"], // wav
-            [UTType typeWithIdentifier:@"public.mpeg-4-audio"],           // m4a/aac
-            [UTType typeWithIdentifier:@"public.ogg-audio"],
-        ];
-    } else {
-        audioTypes = @[@"public.audio"];
-    }
-    UIDocumentPickerViewController *picker;
-    if (@available(iOS 14.0, *)) {
-        picker = [[UIDocumentPickerViewController alloc]
-            initForOpeningContentTypes:(NSArray<UTType *> *)audioTypes asCopy:YES];
-    } else {
-        picker = [[UIDocumentPickerViewController alloc]
-            initWithDocumentTypes:audioTypes inMode:UIDocumentPickerModeImport];
-    }
+    NSArray<UTType *> *types = @[UTTypeAudio, UTTypeWAV, UTTypeMPEG4Audio];
+    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:types asCopy:YES];
     picker.delegate = self;
-    picker.allowsMultipleSelection = NO;
+    picker.modalPresentationStyle = UIModalPresentationFormSheet;
     [self presentViewController:picker animated:YES completion:nil];
 }
 
-/// UIDocumentPickerDelegate — file selected
-- (void)documentPicker:(UIDocumentPickerViewController *)controller
-  didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
-    NSURL *chosen = urls.firstObject;
-    if (!chosen) return;
+- (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+    NSURL *url = urls.firstObject;
+    if (!url) return;
 
-    self.recordedFileURL = chosen;
-    self.hasShownQuickLookForCurrentFile = NO;
-    [self.waveformView reset];
-    self.recordTimerLabel.text = @"00:00";
+    // Security-scoped resource handling
+    BOOL needsRelease = [url startAccessingSecurityScopedResource];
+    @try {
+        // Copy to a temp location with .wav or original extension
+        NSString *ext = url.pathExtension.length ? url.pathExtension : @"wav";
+        NSString *fn = [NSString stringWithFormat:@"picked_%@.%@", @((long)NSDate.date.timeIntervalSince1970), ext];
+        NSURL *dest = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:fn]];
 
-    // Enable all actions that require a file
-    self.playButton.enabled    = YES;
-    self.pauseButton.enabled   = YES;
-    self.stopButton.enabled    = YES;
-    self.skipBackButton.enabled = YES;
-    self.skipFwdButton.enabled  = YES;
-    self.uploadButton.enabled   = YES;
-    self.quickLookButton.enabled = YES;
+        NSError *err = nil;
+        if ([NSFileManager.defaultManager fileExistsAtPath:dest.path]) {
+            [NSFileManager.defaultManager removeItemAtURL:dest error:nil];
+        }
+        BOOL ok = [NSFileManager.defaultManager copyItemAtURL:url toURL:dest error:&err];
+        if (!ok || err) {
+            EZLogf(EZLogLevelError, @"PICK", @"Copy failed: %@", err.localizedDescription);
+            [self showAlert:@"Import Failed" message:err.localizedDescription ?: @"Unable to import the selected file."];
+            return;
+        }
 
-    // Offer noise removal for imported files
-    UIAlertController *noiseAlert = [UIAlertController
-        alertControllerWithTitle:@"Noise Removal"
-                         message:@"Would you like ElevenLabs to remove background noise from this file during upload? Works for both IVC and PVC."
-                  preferredStyle:UIAlertControllerStyleAlert];
-    [noiseAlert addAction:[UIAlertAction actionWithTitle:@"Enable"
-                                                   style:UIAlertActionStyleDefault
-                                                 handler:^(UIAlertAction *_) {
-        self.noiseSwitch.on = YES;
-    }]];
-    [noiseAlert addAction:[UIAlertAction actionWithTitle:@"No Thanks"
-                                                   style:UIAlertActionStyleCancel
-                                                 handler:nil]];
-    [self presentViewController:noiseAlert animated:YES completion:nil];
+        self.recordedFileURL = dest;
+        self.hasShownQuickLookForCurrentFile = NO;
 
-    EZLogf(EZLogLevelInfo, @"CLONE", @"File picked: %@", chosen.lastPathComponent);
-    [self showAlert:@"File Selected"
-            message:[NSString stringWithFormat:@"Ready to clone: %@", chosen.lastPathComponent]];
+        // Enable actions
+        BOOL hasFile = (self.recordedFileURL != nil);
+        self.playButton.enabled = hasFile;
+        self.pauseButton.enabled = hasFile;
+        self.stopButton.enabled = hasFile;
+        self.skipBackButton.enabled = hasFile;
+        self.skipFwdButton.enabled = hasFile;
+        self.uploadButton.enabled = hasFile;
+        self.quickLookButton.enabled = hasFile;
+
+        // Auto preview once
+        if (hasFile && !self.hasShownQuickLookForCurrentFile) {
+            self.hasShownQuickLookForCurrentFile = YES;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self showQuickLook:nil];
+            });
+        }
+        EZLogf(EZLogLevelInfo, @"PICK", @"Imported audio to %@", dest.lastPathComponent);
+    } @finally {
+        if (needsRelease) { [url stopAccessingSecurityScopedResource]; }
+    }
 }
 
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
-    EZLog(EZLogLevelInfo, @"CLONE", @"File picker cancelled");
+    EZLog(EZLogLevelInfo, @"PICK", @"User canceled document picker");
 }
 
 #pragma mark - Upload / Clone
@@ -622,11 +579,7 @@
 }
 
 - (void)uploadClone:(id)sender {
-    if (!self.recordedFileURL) {
-        [self showAlert:@"No Audio Selected"
-                message:@"Please record a sample or choose an audio file first."];
-        return;
-    }
+    if (!self.recordedFileURL) { [self showAlert:@"No recording" message:@"Please record or import a sample first."]; return; }
     if (self.nameField.text.length == 0) { [self showAlert:@"Missing name" message:@"Enter a voice name."]; return; }
 
     NSString *apiKey = [self apiKey];
@@ -639,8 +592,13 @@
         [self uploadIVCWithAPIKey:apiKey completion:^(NSString *voiceID, NSError *err) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self setLoading:NO];
-                if (err) { [self showAlert:@"IVC upload failed" message:err.localizedDescription]; return; }
+                if (err) {
+                    [self showAlert:@"IVC upload failed" message:err.localizedDescription];
+                    EZLogf(EZLogLevelError, @"IVC", @"Upload failed: %@", err);
+                    return;
+                }
                 [self showAlert:@"Instant Clone Created" message:[NSString stringWithFormat:@"Voice ID: %@", voiceID]];
+                EZLogf(EZLogLevelInfo, @"IVC", @"Created IVC voice %@", voiceID);
             });
         }];
     } else {
@@ -650,6 +608,7 @@
                 dispatch_async(dispatch_get_main_queue(), ^{
                     [self setLoading:NO];
                     [self showAlert:@"PVC create failed" message:err.localizedDescription ?: @"No voice id returned."];
+                    EZLogf(EZLogLevelError, @"PVC", @"Create failed: %@", err ?: @"No voice id");
                 });
                 return;
             }
@@ -657,7 +616,11 @@
             [self uploadPVCSampleWithAPIKey:apiKey voiceID:voiceID completion:^(NSError *uErr) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     [self setLoading:NO];
-                    if (uErr) { [self showAlert:@"PVC sample upload failed" message:uErr.localizedDescription]; return; }
+                    if (uErr) {
+                        [self showAlert:@"PVC sample upload failed" message:uErr.localizedDescription];
+                        EZLogf(EZLogLevelError, @"PVC", @"Sample upload failed for %@: %@", voiceID, uErr);
+                        return;
+                    }
                     [self showAlert:@"PVC Voice Updated" message:[NSString stringWithFormat:@"Voice ID: %@\nNext: complete verification and training.", voiceID]];
                     EZLogf(EZLogLevelInfo, @"PVC", @"Uploaded sample to PVC voice %@", voiceID);
                 });
@@ -666,11 +629,25 @@
     }
 }
 
+#pragma mark IVC: POST /v1/voices/add (multipart: files, name, remove_background_noise?)
+
 - (void)uploadIVCWithAPIKey:(NSString *)apiKey completion:(void(^)(NSString *voiceID, NSError *err))completion {
+    // Validate file
+    if (!self.recordedFileURL || ![NSFileManager.defaultManager fileExistsAtPath:self.recordedFileURL.path]) {
+        completion(nil, [NSError errorWithDomain:@"VoiceCloner" code:-10 userInfo:@{NSLocalizedDescriptionKey: @"No recorded file on disk."}]);
+        return;
+    }
+    NSData *fileData = [NSData dataWithContentsOfURL:self.recordedFileURL];
+    if (fileData.length == 0) {
+        completion(nil, [NSError errorWithDomain:@"VoiceCloner" code:-11 userInfo:@{NSLocalizedDescriptionKey: @"Recorded file is empty."}]);
+        return;
+    }
+
     NSString *endpoint = @"https://api.elevenlabs.io/v1/voices/add";
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:endpoint]];
     req.HTTPMethod = @"POST";
     [req setValue:apiKey forHTTPHeaderField:@"xi-api-key"];
+    [req setValue:@"application/json" forHTTPHeaderField:@"Accept"];
 
     NSString *boundary = [NSUUID UUID].UUIDString;
     [req setValue:[NSString stringWithFormat:@"multipart/form-data; boundary=%@", boundary] forHTTPHeaderField:@"Content-Type"];
@@ -680,27 +657,21 @@
     // name
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"name\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:[[self.nameField.text ?: @"" stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] dataUsingEncoding:NSUTF8StringEncoding]];
+    NSString *voiceName = [self.nameField.text ?: @"" stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    [body appendData:[(voiceName.length ? voiceName : @"My Voice") dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
 
-    // remove_background_noise — supported by BOTH IVC (/v1/voices/add) and PVC samples.
-    // Strips non-voice audio server-side before training; safe to enable for any recording.
+    // remove_background_noise
     NSString *rbn = self.noiseSwitch.isOn ? @"true" : @"false";
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"remove_background_noise\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[rbn dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
 
-    // file: files[]
-    NSData *fileData = [NSData dataWithContentsOfURL:self.recordedFileURL];
-    if (!fileData) {
-        NSError *e = [NSError errorWithDomain:@"VoiceCloner" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"Failed to read recorded file."}];
-        completion(nil, e);
-        return;
-    }
+    // files (not files[])
     NSString *filename = self.recordedFileURL.lastPathComponent ?: @"sample.wav";
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"files[]\"; filename=\"%@\"\r\n", filename] dataUsingEncoding:NSUTF8StringEncoding]];
+    [body appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"files\"; filename=\"%@\"\r\n", filename] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Type: audio/wav\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:fileData];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
@@ -713,7 +684,7 @@
         if (error) { completion(nil, error); return; }
         NSHTTPURLResponse *hr = (NSHTTPURLResponse *)resp;
         if (hr.statusCode < 200 || hr.statusCode >= 300) {
-            NSString *msg = [[NSString alloc] initWithData:data ?: NSData.new encoding:NSUTF8StringEncoding] ?: @"Server error";
+            NSString *msg = [self.class prettyAPIErrMsgFromData:data defaultMsg:@"Server error"];
             NSError *e = [NSError errorWithDomain:@"VoiceCloner" code:hr.statusCode userInfo:@{NSLocalizedDescriptionKey: msg}];
             completion(nil, e); return;
         }
@@ -724,7 +695,6 @@
             return;
         }
         NSDictionary *dict = (NSDictionary *)obj;
-        // Docs: returns "voice_id"
         NSString *voiceID = dict[@"voice_id"] ?: dict[@"voiceId"] ?: dict[@"id"];
         if (!voiceID) {
             completion(nil, [NSError errorWithDomain:@"VoiceCloner" code:-3 userInfo:@{NSLocalizedDescriptionKey: @"No voice_id in response"}]);
@@ -734,12 +704,15 @@
     }] resume];
 }
 
+#pragma mark PVC: POST /v1/voices/pvc (JSON: {name, language})
+
 - (void)createPVCWithAPIKey:(NSString *)apiKey completion:(void(^)(NSString *voiceID, NSError *err))completion {
     NSString *endpoint = @"https://api.elevenlabs.io/v1/voices/pvc";
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:endpoint]];
     req.HTTPMethod = @"POST";
     [req setValue:apiKey forHTTPHeaderField:@"xi-api-key"];
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [req setValue:@"application/json" forHTTPHeaderField:@"Accept"];
 
     NSString *name = [self.nameField.text ?: @"" stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     NSString *lang = [self.langField.text ?: @"en" stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
@@ -754,7 +727,7 @@
         if (error) { completion(nil, error); return; }
         NSHTTPURLResponse *hr = (NSHTTPURLResponse *)resp;
         if (hr.statusCode < 200 || hr.statusCode >= 300) {
-            NSString *msg = [[NSString alloc] initWithData:data ?: NSData.new encoding:NSUTF8StringEncoding] ?: @"Server error";
+            NSString *msg = [self.class prettyAPIErrMsgFromData:data defaultMsg:@"Server error"];
             NSError *e = [NSError errorWithDomain:@"VoiceCloner" code:hr.statusCode userInfo:@{NSLocalizedDescriptionKey: msg}];
             completion(nil, e); return;
         }
@@ -774,35 +747,42 @@
     }] resume];
 }
 
+#pragma mark PVC Samples: POST /v1/voices/pvc/:voice_id/samples (multipart: files, remove_background_noise?)
+
 - (void)uploadPVCSampleWithAPIKey:(NSString *)apiKey voiceID:(NSString *)voiceID completion:(void(^)(NSError *err))completion {
+    // Validate file
+    if (!self.recordedFileURL || ![NSFileManager.defaultManager fileExistsAtPath:self.recordedFileURL.path]) {
+        completion([NSError errorWithDomain:@"VoiceCloner" code:-10 userInfo:@{NSLocalizedDescriptionKey: @"No recorded file on disk."}]);
+        return;
+    }
+    NSData *fileData = [NSData dataWithContentsOfURL:self.recordedFileURL];
+    if (fileData.length == 0) {
+        completion([NSError errorWithDomain:@"VoiceCloner" code:-11 userInfo:@{NSLocalizedDescriptionKey: @"Recorded file is empty."}]);
+        return;
+    }
+
     NSString *endpoint = [NSString stringWithFormat:@"https://api.elevenlabs.io/v1/voices/pvc/%@/samples", voiceID];
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:endpoint]];
     req.HTTPMethod = @"POST";
     [req setValue:apiKey forHTTPHeaderField:@"xi-api-key"];
+    [req setValue:@"application/json" forHTTPHeaderField:@"Accept"];
 
     NSString *boundary = [NSUUID UUID].UUIDString;
     [req setValue:[NSString stringWithFormat:@"multipart/form-data; boundary=%@", boundary] forHTTPHeaderField:@"Content-Type"];
 
     NSMutableData *body = [NSMutableData data];
 
-    // remove_background_noise — supported by BOTH IVC (/v1/voices/add) and PVC samples.
-    // Strips non-voice audio server-side before training; safe to enable for any recording.
+    // remove_background_noise
     NSString *rbn = self.noiseSwitch.isOn ? @"true" : @"false";
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Disposition: form-data; name=\"remove_background_noise\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[rbn dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
 
-    // file: files[]
-    NSData *fileData = [NSData dataWithContentsOfURL:self.recordedFileURL];
-    if (!fileData) {
-        NSError *e = [NSError errorWithDomain:@"VoiceCloner" code:-1 userInfo:@{NSLocalizedDescriptionKey: @"Failed to read recorded file."}];
-        completion(e);
-        return;
-    }
+    // files (not files[])
     NSString *filename = self.recordedFileURL.lastPathComponent ?: @"sample.wav";
     [body appendData:[[NSString stringWithFormat:@"--%@\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
-    [body appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"files[]\"; filename=\"%@\"\r\n", filename] dataUsingEncoding:NSUTF8StringEncoding]];
+    [body appendData:[[NSString stringWithFormat:@"Content-Disposition: form-data; name=\"files\"; filename=\"%@\"\r\n", filename] dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:[@"Content-Type: audio/wav\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
     [body appendData:fileData];
     [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
@@ -815,12 +795,34 @@
         if (error) { completion(error); return; }
         NSHTTPURLResponse *hr = (NSHTTPURLResponse *)resp;
         if (hr.statusCode < 200 || hr.statusCode >= 300) {
-            NSString *msg = [[NSString alloc] initWithData:data ?: NSData.new encoding:NSUTF8StringEncoding] ?: @"Server error";
+            NSString *msg = [self.class prettyAPIErrMsgFromData:data defaultMsg:@"Server error"];
             NSError *e = [NSError errorWithDomain:@"VoiceCloner" code:hr.statusCode userInfo:@{NSLocalizedDescriptionKey: msg}];
             completion(e); return;
         }
         completion(nil);
     }] resume];
+}
+
+#pragma mark - Error message helper
+
++ (NSString *)prettyAPIErrMsgFromData:(NSData *)data defaultMsg:(NSString *)fallback {
+    if (!data.length) return fallback;
+    NSString *asString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+    NSError *jsonErr = nil;
+    id obj = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonErr];
+    if (!jsonErr && [obj isKindOfClass:NSDictionary.class]) {
+        NSDictionary *d = (NSDictionary *)obj;
+        NSString *detailMessage = nil;
+        id detail = d[@"detail"];
+        if ([detail isKindOfClass:NSDictionary.class]) {
+            detailMessage = ((NSDictionary *)detail)[@"message"] ?: ((NSDictionary *)detail)[@"detail"];
+        } else if ([detail isKindOfClass:NSString.class]) {
+            detailMessage = (NSString *)detail;
+        }
+        NSString *msg = d[@"message"] ?: d[@"error"] ?: detailMessage;
+        if ([msg isKindOfClass:NSString.class] && ((NSString *)msg).length) return (NSString *)msg;
+    }
+    return asString.length ? asString : fallback;
 }
 
 #pragma mark - Cleanup

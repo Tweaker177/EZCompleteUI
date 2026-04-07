@@ -40,21 +40,25 @@ static const void *kInstalledKey    = &kInstalledKey;
         [weakSelf ez_installSidewaysIfNeeded];
     });
 }
-
+/****
 - (void)ez_viewDidLayoutSubviews_swizzled {
-    [self ez_viewDidLayoutSubviews_swizzled];
-
-    UIView *header = objc_getAssociatedObject(self, kTopContainerKey);
-    if (header && [self.chatTableView.tableHeaderView isEqual:header]) {
-        CGFloat targetW = CGRectGetWidth(self.chatTableView.bounds);
-        if (fabs(header.frame.size.width - targetW) > 0.5) {
-            CGRect f = header.frame;
-            f.size.width = targetW;
-            header.frame = f;
-            self.chatTableView.tableHeaderView = header; // force table to re-measure
+  
+        [self ez_viewDidLayoutSubviews_swizzled];
+        UIView *header = objc_getAssociatedObject(self, kTopContainerKey);
+        if (header && [self.chatTableView.tableHeaderView isEqual:header]) {
+            CGFloat targetW = CGRectGetWidth(self.chatTableView.bounds);
+            if (fabs(header.frame.size.width - targetW) > 0.5) {
+                CGRect f = header.frame;
+                f.size.width = targetW;
+                header.frame = f;
+                self.chatTableView.tableHeaderView = header; // force table to re-measure
+            }
         }
     }
-}
+        
+
+   ****/
+
 
 #pragma mark - Install
 

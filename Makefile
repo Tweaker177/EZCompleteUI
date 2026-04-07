@@ -8,10 +8,10 @@ include $(THEOS)/makefiles/common.mk
 
 APPLICATION_NAME = EZCompleteUI
 
-EZCompleteUI_FILES = main.m AppDelegate.m ViewController.m helpers.m ViewController+EZTopButtons.m SidewaysScrollView.m  ChatHistoryViewController.m SettingsViewController.m MemoriesViewController.m EZKeyVault.m SupportRequestViewController.m TextToSpeechViewController.m ElevenLabsCloneViewController.m iCarousel.m ViewController+EZKeepAwake.m
+EZCompleteUI_FILES = main.m AppDelegate.m helpers.m  ViewController+EZTopButtons.m  ViewController+EZKeepAwake.m ViewController.m SidewaysScrollView.m  ChatHistoryViewController.m SettingsViewController.m MemoriesViewController.m EZKeyVault.m SupportRequestViewController.m TextToSpeechViewController.m ElevenLabsCloneViewController.m iCarousel.m ViewController+SidewaysTopRow.m ViewController+EZTitleResolver.m UIViewController+EZViewDidLayoutSwizzle.m
 
 EZCompleteUI_FRAMEWORKS = UIKit Foundation AVFoundation Speech QuickLook \
-UniformTypeIdentifiers PDFKit QuickLookThumbnailing Security PhotosUI
+UniformTypeIdentifiers PDFKit QuickLookThumbnailing Security PhotosUI QuartzCore
 
 EZCompleteUI_CFLAGS = -fobjc-arc -Wno-deprecated -Wno-deprecated-declarations -Wno-error
 EZCompleteUI_CODESIGN_FLAGS = -Sent.plist

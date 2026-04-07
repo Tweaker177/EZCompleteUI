@@ -1,5 +1,5 @@
 // ViewController.m
-// EZCompleteUI v6.8
+// EZCompleteUI v6.9
 //
 // Changes from v6.7:
 //   - Fixed: stale lastImageLocalPath no longer injected into unrelated memory entries
@@ -46,17 +46,11 @@
 #import <AVFoundation/AVFoundation.h>
 #import <Speech/Speech.h>
 #import <PDFKit/PDFKit.h>
+#import <Photos/Photos.h>
+#import <PhotosUI/PhotosUI.h>
 #import <QuartzCore/QuartzCore.h>
 #import "SidewaysScrollView.h"
-
-@interface ViewController (EZKeepAwakeInjected)
-- (void)ezcui_beginLongOperation:(NSString *)reason;
-- (void)ezcui_endLongOperation;
-@end
-
-
-
-//@class SidewaysScrollView;
+#import "ViewController+EZKeepAwake.h"
 
 
 typedef NS_ENUM(NSInteger, EZAttachMode) {
@@ -70,6 +64,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                                UITableViewDataSource,
                                UITableViewDelegate,
                                QLPreviewControllerDataSource,
+                               PHPickerViewControllerDelegate,
                                SFSpeechRecognizerDelegate,
                                ChatHistoryViewControllerDelegate>
 
@@ -140,6 +135,11 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     // Sideways-scrolling top-row container (inserted)
     @property (nonatomic, strong) UIView *topButtonsContainer;
     @property (nonatomic, strong) SidewaysScrollView *sidewaysScrollView;
+@property (nonatomic, strong) UIView        *statusBannerView;
+@property (nonatomic, strong) UILabel       *statusBannerLabel;
+@property (nonatomic, strong) UIActivityIndicatorView *statusBannerSpinner;
+@property (nonatomic, strong) NSTimer       *statusBannerTimer;
+@property (nonatomic, assign) NSInteger      statusBannerPhase;
 @end
 
 
@@ -1139,6 +1139,28 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [self.chatTableView registerClass:[EZCodeBlockCell class] forCellReuseIdentifier:@"EZCodeBlock"];
     [self.view addSubview:self.chatTableView];
 
+    self.statusBannerView = [[UIView alloc] init];
+    self.statusBannerView.backgroundColor = [UIColor colorWithDynamicProvider:
+        ^UIColor *(UITraitCollection *tc) {
+            return tc.userInterfaceStyle == UIUserInterfaceStyleDark
+                ? [UIColor colorWithRed:0.12 green:0.12 blue:0.16 alpha:0.96]
+                : [UIColor colorWithRed:0.95 green:0.95 blue:0.98 alpha:0.97];
+        }];
+    self.statusBannerView.layer.cornerRadius = 10;
+    self.statusBannerView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.statusBannerView.alpha = 0;
+    [self.view addSubview:self.statusBannerView];
+    self.statusBannerSpinner = [[UIActivityIndicatorView alloc]
+        initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    self.statusBannerSpinner.translatesAutoresizingMaskIntoConstraints = NO;
+    self.statusBannerSpinner.hidesWhenStopped = NO;
+    [self.statusBannerView addSubview:self.statusBannerSpinner];
+    self.statusBannerLabel = [[UILabel alloc] init];
+    self.statusBannerLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+    self.statusBannerLabel.textColor = [UIColor secondaryLabelColor];
+    self.statusBannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.statusBannerView addSubview:self.statusBannerLabel];
+
     // Input container
     self.inputContainer = [[UIView alloc] init];
     self.inputContainer.backgroundColor = [UIColor secondarySystemBackgroundColor];
@@ -1237,6 +1259,17 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         [self.sendButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
         [self.sendButton.centerYAnchor constraintEqualToAnchor:self.messageTextField.centerYAnchor],
         [self.inputContainer.bottomAnchor constraintEqualToAnchor:self.messageTextField.bottomAnchor constant:12],
+    ]];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.statusBannerView.bottomAnchor constraintEqualToAnchor:self.inputContainer.topAnchor constant:-8],
+        [self.statusBannerView.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [self.statusBannerView.widthAnchor constraintLessThanOrEqualToAnchor:self.view.widthAnchor constant:-32],
+        [self.statusBannerSpinner.leadingAnchor constraintEqualToAnchor:self.statusBannerView.leadingAnchor constant:12],
+        [self.statusBannerSpinner.centerYAnchor constraintEqualToAnchor:self.statusBannerView.centerYAnchor],
+        [self.statusBannerLabel.leadingAnchor constraintEqualToAnchor:self.statusBannerSpinner.trailingAnchor constant:8],
+        [self.statusBannerLabel.trailingAnchor constraintEqualToAnchor:self.statusBannerView.trailingAnchor constant:-12],
+        [self.statusBannerLabel.topAnchor constraintEqualToAnchor:self.statusBannerView.topAnchor constant:10],
+        [self.statusBannerLabel.bottomAnchor constraintEqualToAnchor:self.statusBannerView.bottomAnchor constant:-10],
     ]];
 }
 
@@ -1466,12 +1499,14 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                                            handler:^(UIAlertAction *a) {
         [self presentFilePickerForMode:EZAttachModeAnalyze];
     }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"🖼 Attach Image (Vision / Edit)"
+    [sheet addAction:[UIAlertAction actionWithTitle:@"🖼 Attach Image from Files"
                                              style:UIAlertActionStyleDefault
                                            handler:^(UIAlertAction *a) {
-        [self presentFilePickerForMode:EZAttachModeAnalyze
-                           forceTypes:@[UTTypeImage]];
+        [self presentFilePickerForMode:EZAttachModeAnalyze forceTypes:@[UTTypeImage]];
     }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"📷 Choose from Photo Library"
+                                             style:UIAlertActionStyleDefault
+                                           handler:^(UIAlertAction *a) { [self presentPhotoLibraryPicker]; }]];
     [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel"
                                              style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:sheet animated:YES completion:nil];
@@ -1535,6 +1570,60 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
     EZLog(EZLogLevelInfo, @"FILE", @"Document picker cancelled by user");
 }
+
+- (void)presentPhotoLibraryPicker {
+    PHPickerConfiguration *cfg = [[PHPickerConfiguration alloc] initWithPhotoLibrary:[PHPhotoLibrary sharedPhotoLibrary]];
+    cfg.filter = [PHPickerFilter imagesFilter]; cfg.selectionLimit = 1;
+    PHPickerViewController *p = [[PHPickerViewController alloc] initWithConfiguration:cfg];
+    p.delegate = self; [self presentViewController:p animated:YES completion:nil];
+}
+- (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results {
+    [picker dismissViewControllerAnimated:YES completion:nil];
+    PHPickerResult *r = results.firstObject; if (!r) return;
+    NSItemProvider *pv = r.itemProvider;
+    if ([pv hasItemConformingToTypeIdentifier:UTTypeImage.identifier]) {
+        [pv loadFileRepresentationForTypeIdentifier:UTTypeImage.identifier completionHandler:^(NSURL *url, NSError *e) {
+            if (!url) { dispatch_async(dispatch_get_main_queue(), ^{ [self appendToChat:@"[Error: Could not load photo]"]; }); return; }
+            NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:url.lastPathComponent];
+            [[NSFileManager defaultManager] removeItemAtPath:tmp error:nil];
+            NSError *ce; [[NSFileManager defaultManager] copyItemAtURL:url toURL:[NSURL fileURLWithPath:tmp] error:&ce];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (ce) { [self appendToChat:@"[Error: Could not copy photo]"]; return; }
+                [self attachImage:[NSURL fileURLWithPath:tmp]];
+            });
+        }];
+    } else if ([pv canLoadObjectOfClass:[UIImage class]]) {
+        [pv loadObjectOfClass:[UIImage class] completionHandler:^(UIImage *img, NSError *e) {
+            if (!img) return;
+            NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:@"photo_pick.jpg"];
+            [UIImageJPEGRepresentation(img, 0.92) writeToFile:tmp atomically:YES];
+            dispatch_async(dispatch_get_main_queue(), ^{ [self attachImage:[NSURL fileURLWithPath:tmp]]; });
+        }];
+    }
+}
+- (void)offerSaveToPhotos:(NSString *)path {
+    if (!path.length) return;
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Save to Photos?"
+        message:@"Save this image to your Photo Library." preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault
+        handler:^(UIAlertAction *_) { [self saveImageToPhotos:path]; }]];
+    [a addAction:[UIAlertAction actionWithTitle:@"Not Now" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:a animated:YES completion:nil];
+}
+- (void)saveImageToPhotos:(NSString *)localPath {
+    if (![[NSFileManager defaultManager] fileExistsAtPath:localPath]) {
+        [self appendToChat:@"[Error: Image not found]"]; return;
+    }
+    UIImage *img = [UIImage imageWithContentsOfFile:localPath];
+    if (!img) { [self appendToChat:@"[Error: Cannot decode image]"]; return; }
+    UIImageWriteToSavedPhotosAlbum(img, self,
+        @selector(ezPhotoSaved:didFinishSavingWithError:contextInfo:), NULL);
+}
+- (void)ezPhotoSaved:(UIImage *)img didFinishSavingWithError:(NSError *)err contextInfo:(void *)ctx {
+    if (err) [self appendToChat:[NSString stringWithFormat:@"[Error: Save failed \u2014 %@]", err.localizedDescription ?: @"?"]];
+    else [self appendToChat:@"[System: Image saved to Photo Library \u2713]"];
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Image Attachment
@@ -2100,6 +2189,7 @@ NSString *text = self.messageTextField.text;
 
     EZLogf(EZLogLevelInfo, @"API", @"→ %@ [%@]%@",
            endpointStr, self.selectedModel, useWebSearch ? @" +web" : @"");
+    if (isGPT5) { dispatch_async(dispatch_get_main_queue(), ^{ [self showGPT5StatusBanner]; }); }
 
     NSString *capturedPrompt   = self.lastUserPrompt;
     NSString *capturedThreadID = self.activeThread.threadID;
@@ -2121,7 +2211,10 @@ NSString *text = self.messageTextField.text;
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:request
         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-        if (error) { [self handleAPIError:error.localizedDescription]; return; }
+        if (error) {
+            dispatch_async(dispatch_get_main_queue(), ^{ [self hideGPT5StatusBanner]; });
+            [self handleAPIError:error.localizedDescription]; return;
+        }
 
         NSError *jsonErr;
         id jsonObj = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonErr];
@@ -2180,6 +2273,7 @@ NSString *text = self.messageTextField.text;
         EZLogf(EZLogLevelInfo, @"API", @"Reply %lu chars", (unsigned long)reply.length);
 
         dispatch_async(dispatch_get_main_queue(), ^{
+            [self hideGPT5StatusBanner];
             self.lastAIResponse = reply;
             [self.chatContext addObject:@{@"role": @"assistant", @"content": reply}];
 
@@ -2847,6 +2941,7 @@ NSString *text = self.messageTextField.text;
             QLPreviewController *ql = [[QLPreviewController alloc] init];
             ql.dataSource = self;
             [self presentViewController:ql animated:YES completion:nil];
+            if (savedPath.length) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.7*NSEC_PER_SEC)),dispatch_get_main_queue(),^{[self offerSaveToPhotos:savedPath];});
         });
     }] resume];
 }
@@ -3325,8 +3420,10 @@ NSString *text = self.messageTextField.text;
     QLPreviewController *ql = [[QLPreviewController alloc] init];
     ql.dataSource = self;
     [self presentViewController:ql animated:YES completion:nil];
-    [self appendToChat:[NSString stringWithFormat:@"[System: Opening %@]",
-                        path.lastPathComponent]];
+    [self appendToChat:[NSString stringWithFormat:@"[System: Opening %@]", path.lastPathComponent]];
+    NSString *ext = path.pathExtension.lowercaseString;
+    if ([@[@"jpg",@"jpeg",@"png",@"gif",@"webp",@"heic"] containsObject:ext])
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.7*NSEC_PER_SEC)),dispatch_get_main_queue(),^{[self offerSaveToPhotos:path];});
 }
 
 - (NSString *)fileExtensionForLanguage:(NSString *)lang {
@@ -3639,6 +3736,28 @@ NSString *text = self.messageTextField.text;
 
 // appendToOldChat: implemented above as a wrapper around appendToChat:
 
+- (void)showGPT5StatusBanner {
+    self.statusBannerPhase = 0; [self.statusBannerSpinner startAnimating]; [self tickStatusBanner];
+    self.statusBannerTimer = [NSTimer scheduledTimerWithTimeInterval:4.0 target:self
+        selector:@selector(tickStatusBanner) userInfo:nil repeats:YES];
+    [[NSRunLoop mainRunLoop] addTimer:self.statusBannerTimer forMode:NSRunLoopCommonModes];
+    [UIView animateWithDuration:0.3 animations:^{ self.statusBannerView.alpha = 1.0; }];
+}
+- (void)hideGPT5StatusBanner {
+    [self.statusBannerTimer invalidate]; self.statusBannerTimer = nil;
+    [UIView animateWithDuration:0.3 animations:^{ self.statusBannerView.alpha = 0.0; }
+     completion:^(BOOL _) { [self.statusBannerSpinner stopAnimating]; }];
+}
+- (void)tickStatusBanner {
+    NSArray<NSString *> *m = @[@"GPT-5 is thinking…",@"Processing your request…",
+        @"Still working — GPT-5 can take up to 3 min",@"Reasoning through your prompt…",
+        @"Almost there — complex requests take longer",@"Hang tight, GPT-5 is thorough",
+        @"Working hard on your answer…"];
+    [UIView transitionWithView:self.statusBannerLabel duration:0.4
+        options:UIViewAnimationOptionTransitionCrossDissolve
+        animations:^{ self.statusBannerLabel.text = m[self.statusBannerPhase % m.count]; } completion:nil];
+    self.statusBannerPhase++;
+}
 - (void)openSettings {
     UINavigationController *nav = [[UINavigationController alloc]
         initWithRootViewController:[[SettingsViewController alloc] init]];
@@ -3682,6 +3801,8 @@ NSString *text = self.messageTextField.text;
         }
     }
     @end
+
+/***
 #pragma mark - EZKeepAwake
 
 #import <UIKit/UIKit.h>
@@ -3769,3 +3890,4 @@ static inline void ezka_setBG(id vc, UIBackgroundTaskIdentifier t) {
 }
 
 @end
+***/
