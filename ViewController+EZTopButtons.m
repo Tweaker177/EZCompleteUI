@@ -245,6 +245,8 @@ static inline void ezcui_copyTargetsFromTo(UIButton *src, UIButton *dst) {
 
 #pragma mark - Decorative helpers (blur + border + wiggle)
 
+    UIView *fallback = nil;
+    CGFloat fallbackArea = 0.0;
 @implementation ViewController (EZTopButtons_Deco)
 
 - (UIBlurEffectStyle)ezcui_blurStyleForCurrentTrait {
@@ -379,6 +381,7 @@ static inline void ezcui_copyTargetsFromTo(UIButton *src, UIButton *dst) {
 
 @end
 
+    return fallback;
 #pragma mark - Installer
 
 @implementation ViewController (EZTopButtons)
