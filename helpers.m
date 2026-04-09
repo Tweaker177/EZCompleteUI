@@ -1,4 +1,4 @@
-// helpers.m
+                                                    // helpers.m
 // EZCompleteUI v5.0
 //
 // This file implements all background intelligence for EZCompleteUI:
@@ -517,7 +517,7 @@ void analyzePromptForContext(NSString *userPrompt,
         if (isContextClassification && memorySufficient && memoryContext.length > 0) {
             // Build enriched prompt: memory context as preamble, then user message
             NSString *enrichedPrompt = [NSString stringWithFormat:
-                @"[Context from previous conversations]\n%@\n\n[User message]\n%@",
+                @"[Memories with possible relevance:]\n%@\n\n[User message]\n%@",
                 memoryContext, userPrompt];
             result.tier            = EZRoutingTierMemory;
             result.needsContext    = YES;
@@ -554,7 +554,7 @@ void analyzePromptForContext(NSString *userPrompt,
         // ── Fallback: best-effort with whatever memory we have ────────────────
         if (memoryContext.length > 0) {
             NSString *enrichedPrompt = [NSString stringWithFormat:
-                @"[Context from previous conversations]\n%@\n\n[User message]\n%@",
+                @"[Memories with possible relevance: ]\n%@\n\n[User message]\n%@",
                 memoryContext, userPrompt];
             result.tier            = EZRoutingTierMemory;
             result.needsContext    = YES;
@@ -742,7 +742,7 @@ void createMemoryFromCompletion(NSString *userPrompt,
         }
 
         NSString *systemPrompt =
-            @"You are a memory indexer for an AI chat app. Write ONE factual sentence (max 100 words) "
+            @"You are a memory indexer for an AI chat app. Write ONE factual sentence "
              "describing exactly what was asked and answered. Rules:\n"
              "1. Keep the SAME specific words, names, file names, paths, and technical terms — do NOT paraphrase or generalize.\n"
              "2. If a file path is provided (full_path=...) include the COMPLETE path verbatim in the summary.\n"
@@ -750,7 +750,21 @@ void createMemoryFromCompletion(NSString *userPrompt,
              "4. Never say 'the user expressed frustration' — say what they actually asked.\n"
              "5. Never say 'the assistant explained it cannot...' — say what the assistant actually did or provided.\n"
              "6. Be specific: 'user asked for lyrics to Give Me Love by Ed Sheeran' not 'user asked about a song'.\n"
+             "7. When files are involved, LIST EACH filename explicitly — never say 'multiple files' or 'several .m files'.\n\n"
+             "GOOD EXAMPLE:\n"
+             "Input: User asked about duplicate methods ezcui_resolvedTopTitle and ezcui_beginLongOperation "
+             "in ViewController+EZTopButtons.m, ViewController+EZTitleResolver.m, and ViewController+EZKeepAwake.m. "
+             "[file: ViewController+EZTopButtons.m full_path=/var/mobile/Containers/.../ViewController+EZTopButtons.m]\n"
+             "Output: User asked about duplicate category methods ezcui_resolvedTopTitle and ezcui_beginLongOperation "
+             "found in ViewController+EZTopButtons.m, ViewController+EZTitleResolver.m, and ViewController+EZKeepAwake.m "
+             "and sought grep commands to identify and consolidate them; "
+             "full path: /var/mobile/Containers/.../ViewController+EZTopButtons.m\n\n"
+             "BAD EXAMPLE:\n"
+             "Input: (same as above)\n"
+             "Output: User asked about duplicate category methods in multiple .m files and sought steps to fix them.\n"
+             "(BAD: 'multiple .m files' is a generalization — list each filename explicitly)\n\n"
              "Only the summary sentence, no labels or preamble.";
+
 
         // Truncate long replies to avoid burning too many tokens on the summarizer
         NSString *truncatedReply = assistantReply.length > 1200
@@ -860,10 +874,7 @@ NSString *EZThreadSearchMemory(NSString *searchQuery, NSString *apiKey) {
     // memory with no network call. We then take the top candidates and pass
     // only those to the AI for final ranking.
     //
-    // This two-stage approach solves the original bug: the old code sent ALL
-    // 162+ entries to the API with a 400-token limit, which meant most entries
-    // were silently truncated and the model returned garbage.
-
+    
     NSArray<NSDictionary *> *allEntries = _loadMemoryEntries();
     if (!allEntries.count) {
         EZLogf(EZLogLevelInfo, @"MEMORY", @"Search: memory store is empty");
@@ -964,9 +975,24 @@ NSString *EZThreadSearchMemory(NSString *searchQuery, NSString *apiKey) {
         @"Rules:\n"
         @"1. Prefer entries with SPECIFIC details (exact file paths, filenames, values, names) over vague ones.\n"
         @"2. Do NOT return multiple entries that say essentially the same thing — pick the most specific version.\n"
-        @"3. If an entry contains a file path, prefer it over one that only has a filename.\n"
+        @"3. If an entry contains a file path, prefer it over one that only has a filename, if it's otherwise equally relevant.\n"
         @"4. Return selected entries VERBATIM (copy them exactly), one per line.\n"
-        @"5. If fewer than 3 are truly relevant, return only those. If none relevant, return empty string.\n"
+        @"5. If fewer than 3 are truly relevant, return only those. If none relevant, return a single zero,.\n"
+        @"6. CRITICAL: Your input is a list of memory entries. Return ONLY lines from that list — "
+        @"never return grep output, tmp file paths, or any content that was not in the memory entries list.\n\n"
+        @"GOOD EXAMPLE:\n"
+        @"Search query: \"duplicate category methods\"\n"
+        @"Memory entries:\n"
+        @"[2026-03-20 09:15:00] [chatKey=2026-03-20T09:14:00] User asked about duplicate ezcui_resolvedTopTitle in ViewController+EZTopButtons.m and ViewController+EZTitleResolver.m\n"
+        @"[2026-03-19 14:22:00] [chatKey=2026-03-19T14:21:00] User generated image of a sunset, saved to /var/mobile/.../sunset.png\n\n"
+        @"Correct output:\n"
+        @"[2026-03-20 09:15:00] [chatKey=2026-03-20T09:14:00] User asked about duplicate ezcui_resolvedTopTitle in ViewController+EZTopButtons.m and ViewController+EZTitleResolver.m\n\n"
+        @"BAD EXAMPLE:\n"
+        @"Search query: \"duplicate category methods\"\n"
+        @"(same memory entries as above)\n\n"
+        @"Bad output:\n"
+        @"[ViewController+EZTopButtons.m:20:- (NSString *)ezcui_resolvedTopTitle; ./ViewController+EZTopButtons.m:20]\n"
+        @"(BAD: this is grep output — you must only return lines from the memory entries list, verbatim)\n\n"
         @"No preamble, no explanation, no numbering — just the entries.";
 
     NSString *rankerUserMessage = [NSString stringWithFormat:
