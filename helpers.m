@@ -10,6 +10,8 @@
 //   6. Stats          — human-readable diagnostic summary
 
 #import "helpers.h"
+#include <stdarg.h>
+#include <stdint.h>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Constants
@@ -324,12 +326,45 @@ NSString *EZLogGetPath(void) {
     return [_documentsDirectory() stringByAppendingPathComponent:kLogFileName];
 }
 
-void EZLog(EZLogLevel level, NSString *tag, NSString *message) {
+void EZLog(EZLogLevel level, ...) {
+    EZLogLevel resolvedLevel = level;
+    NSString *resolvedTag = nil;
+    NSString *resolvedMessage = nil;
+
+    va_list args;
+    va_start(args, level);
+
+    if (level >= EZLogLevelDebug && level <= EZLogLevelError) {
+        id tagArg = va_arg(args, id);
+        id messageArg = va_arg(args, id);
+        if ([tagArg isKindOfClass:[NSString class]] && [messageArg isKindOfClass:[NSString class]]) {
+            resolvedTag = (NSString *)tagArg;
+            resolvedMessage = (NSString *)messageArg;
+        } else {
+            // Fallback: treat this as a legacy format invocation.
+            NSString *legacyFormat = [tagArg isKindOfClass:[NSString class]] ? (NSString *)tagArg : @"(invalid legacy log format)";
+            resolvedLevel = EZLogLevelInfo;
+            resolvedTag = @"EZLegacyLog";
+            resolvedMessage = [[NSString alloc] initWithFormat:legacyFormat arguments:args];
+        }
+    } else {
+        // Legacy invocation where the first parameter was actually an NSString *format.
+        NSString *legacyFormat = (__bridge id)(void *)(uintptr_t)level;
+        if (![legacyFormat isKindOfClass:[NSString class]]) {
+            legacyFormat = @"(invalid legacy log format)";
+        }
+        resolvedLevel = EZLogLevelInfo;
+        resolvedTag = @"EZLegacyLog";
+        resolvedMessage = [[NSString alloc] initWithFormat:legacyFormat arguments:args];
+    }
+
+    va_end(args);
+
     NSString *logLine = [NSString stringWithFormat:@"[%@] [%@] [%@] %@",
                          _timestampForDisplay(),
-                         _logLevelString(level),
-                         tag ?: @"GENERAL",
-                         message ?: @""];
+                         _logLevelString(resolvedLevel),
+                         resolvedTag ?: @"GENERAL",
+                         resolvedMessage ?: @""];
 #ifdef DEBUG
     NSLog(@"%@", logLine);
 #endif

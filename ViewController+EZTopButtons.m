@@ -382,20 +382,6 @@ static inline void ezcui_copyTargetsFromTo(UIButton *src, UIButton *dst) {
 @end
 
     return fallback;
-#pragma mark - Installer
-
-@implementation ViewController (EZTopButtons)
-
-+ (void)load {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        Class c = self;
-        SEL orig = @selector(viewDidLoad);
-        SEL repl = @selector(ezcui_viewDidLoad__installTopRow);
-        Method m1 = class_getInstanceMethod(c, orig);
-        Method m2 = class_getInstanceMethod(c, repl);
-        if (m1 && m2) method_exchangeImplementations(m1, m2);
-    });
 }
 
 - (void)ezcui_viewDidLoad__installTopRow {
@@ -498,7 +484,7 @@ static inline void ezcui_copyTargetsFromTo(UIButton *src, UIButton *dst) {
             {@"webSearchButton",    @"Web Search",         4},
             {@"historyButton",      @"Chat History",       6},
             {@"addChatButton",      @"New Conversation",   1},
-            {@"renameButton",       @"Rename",             5},
+          {@"renameButton",       @"Rename",             5},
         };
         const NSInteger mapCount = (NSInteger)(sizeof(map)/sizeof(map[0]));
 
