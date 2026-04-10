@@ -65,6 +65,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
 @interface ViewController () <UIDocumentPickerDelegate,
                                UITextFieldDelegate,
+                               UITextViewDelegate,
                                UITableViewDataSource,
                                UITableViewDelegate,
                                QLPreviewControllerDataSource,
@@ -82,7 +83,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 /// Keys: role (@"user"|@"assistant"|@"system"|@"code"), text, language, savedPath.
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *displayMessages;
 @property (nonatomic, strong) UIView        *inputContainer;
-@property (nonatomic, strong) UITextField   *messageTextField;
+@property (nonatomic, strong) UITextView    *messageTextField;  // was UITextField; now expanding UITextView
 @property (nonatomic, strong) UIButton      *sendButton;
 @property (nonatomic, strong) UIButton      *modelButton;
 @property (nonatomic, strong) UIButton      *attachButton;
@@ -103,6 +104,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 //@property (nonatomic, strong) UIButton      *textToSpeechButton;
 
 @property (nonatomic, strong) NSLayoutConstraint *containerBottomConstraint;
+/// Height constraint on the message input view — animated on focus/blur.
+@property (nonatomic, strong) NSLayoutConstraint *messageInputHeightConstraint;
 /// Tappable label showing the active thread title — tap to rename.
 @property (nonatomic, strong) UILabel       *threadTitleLabel;
 /// Button in top bar that triggers renaming.
@@ -1300,14 +1303,51 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.dictateButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.inputContainer addSubview:self.dictateButton];
 
-    // Text field
-    self.messageTextField = [[UITextField alloc] init];
-    self.messageTextField.placeholder  = @"Type message...";
-    self.messageTextField.borderStyle  = UITextBorderStyleRoundedRect;
-    self.messageTextField.delegate     = self;
-    self.messageTextField.returnKeyType = UIReturnKeyDone;
+    // Message input — UITextView so it can expand to multiple lines.
+    // Wrapped in a rounded container view to replicate UITextBorderStyleRoundedRect look.
+    UIView *inputWrapper = [[UIView alloc] init];
+    inputWrapper.backgroundColor   = [UIColor systemBackgroundColor];
+    inputWrapper.layer.cornerRadius = 10.0;
+    inputWrapper.layer.borderWidth  = 0.5;
+    inputWrapper.layer.borderColor  = [UIColor separatorColor].CGColor;
+    inputWrapper.clipsToBounds      = YES;
+    inputWrapper.translatesAutoresizingMaskIntoConstraints = NO;
+
+    self.messageTextField = [[UITextView alloc] init];
+    self.messageTextField.font                  = [UIFont systemFontOfSize:16];
+    self.messageTextField.textColor             = [UIColor labelColor];
+    self.messageTextField.backgroundColor       = [UIColor clearColor];
+    self.messageTextField.textContainerInset    = UIEdgeInsetsMake(8, 6, 8, 6);
+    self.messageTextField.textContainer.lineFragmentPadding = 0;
+    self.messageTextField.scrollEnabled         = YES;
+    self.messageTextField.delegate              = self;
+    self.messageTextField.returnKeyType         = UIReturnKeyDefault;
     self.messageTextField.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.inputContainer addSubview:self.messageTextField];
+
+    // Placeholder label — UITextView has no built-in placeholder
+    UILabel *placeholder = [[UILabel alloc] init];
+    placeholder.text      = @"Type message...";
+    placeholder.font      = [UIFont systemFontOfSize:16];
+    placeholder.textColor = [UIColor placeholderTextColor];
+    placeholder.tag       = 9001;   // retrieved to show/hide as user types
+    placeholder.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.messageTextField addSubview:placeholder];
+    [NSLayoutConstraint activateConstraints:@[
+        [placeholder.leadingAnchor  constraintEqualToAnchor:self.messageTextField.leadingAnchor  constant:10],
+        [placeholder.topAnchor      constraintEqualToAnchor:self.messageTextField.topAnchor      constant:9],
+    ]];
+
+    [inputWrapper addSubview:self.messageTextField];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.messageTextField.topAnchor      constraintEqualToAnchor:inputWrapper.topAnchor],
+        [self.messageTextField.bottomAnchor   constraintEqualToAnchor:inputWrapper.bottomAnchor],
+        [self.messageTextField.leadingAnchor  constraintEqualToAnchor:inputWrapper.leadingAnchor],
+        [self.messageTextField.trailingAnchor constraintEqualToAnchor:inputWrapper.trailingAnchor],
+    ]];
+    [self.inputContainer addSubview:inputWrapper];
+
+    // Store inputWrapper so constraints can reference it below
+    inputWrapper.tag = 9002;
 
     // Send button
     self.sendButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -1360,13 +1400,18 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         [self.attachButton.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
         [self.dictateButton.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
         [self.dictateButton.centerYAnchor constraintEqualToAnchor:self.attachButton.centerYAnchor],
-        [self.messageTextField.leadingAnchor constraintEqualToAnchor:self.dictateButton.trailingAnchor constant:8],
-        [self.messageTextField.centerYAnchor constraintEqualToAnchor:self.attachButton.centerYAnchor],
-        [self.messageTextField.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-8],
+        [inputWrapper.leadingAnchor constraintEqualToAnchor:self.dictateButton.trailingAnchor constant:8],
+        [inputWrapper.topAnchor     constraintEqualToAnchor:self.attachButton.topAnchor],
+        [inputWrapper.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-8],
         [self.sendButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
-        [self.sendButton.centerYAnchor constraintEqualToAnchor:self.messageTextField.centerYAnchor],
-        [self.inputContainer.bottomAnchor constraintEqualToAnchor:self.messageTextField.bottomAnchor constant:12],
+        [self.sendButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
+        [self.inputContainer.bottomAnchor constraintEqualToAnchor:inputWrapper.bottomAnchor constant:12],
     ]];
+    // Collapsed height: ~2 lines (72pt). Expanded: ~4 lines (136pt).
+    // The constraint is animated in textViewDidBeginEditing / textViewDidEndEditing.
+    self.messageInputHeightConstraint = [inputWrapper.heightAnchor constraintEqualToConstant:72.0];
+    self.messageInputHeightConstraint.active = YES;
+
     [NSLayoutConstraint activateConstraints:@[
         [self.statusBannerView.bottomAnchor constraintEqualToAnchor:self.inputContainer.topAnchor constant:-8],
         [self.statusBannerView.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
@@ -1392,8 +1437,57 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [textField resignFirstResponder]; return YES;
 }
 
+// ── UITextViewDelegate — expanding input ─────────────────────────────────────
+
+- (void)textViewDidBeginEditing:(UITextView *)textView {
+    if (textView != self.messageTextField) return;
+    self.messageInputHeightConstraint.constant = 136.0;
+    [UIView animateWithDuration:0.25
+                          delay:0
+         usingSpringWithDamping:0.85
+          initialSpringVelocity:0.3
+                        options:UIViewAnimationOptionBeginFromCurrentState
+                     animations:^{ [self.inputContainer layoutIfNeeded]; }
+                     completion:nil];
+}
+
+- (void)textViewDidEndEditing:(UITextView *)textView {
+    if (textView != self.messageTextField) return;
+    self.messageInputHeightConstraint.constant = 72.0;
+    [UIView animateWithDuration:0.25
+                          delay:0
+         usingSpringWithDamping:0.85
+          initialSpringVelocity:0.3
+                        options:UIViewAnimationOptionBeginFromCurrentState
+                     animations:^{ [self.inputContainer layoutIfNeeded]; }
+                     completion:nil];
+}
+
+- (void)textViewDidChange:(UITextView *)textView {
+    if (textView != self.messageTextField) return;
+    // Show/hide placeholder
+    UILabel *ph = (UILabel *)[textView viewWithTag:9001];
+    ph.hidden = textView.text.length > 0;
+}
+
+// Return key sends — Shift+Return inserts newline
+- (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range
+                                                replacementText:(NSString *)text {
+    if (textView != self.messageTextField) return YES;
+    if ([text isEqualToString:@"\n"]) {
+        // Plain return → send; shift is not detectable via delegate,
+        // so we treat return as send (matches iMessage behaviour on iPhone).
+        [self handleSend];
+        return NO;
+    }
+    return YES;
+}
+
 - (void)setInputText:(NSString *)text {
     self.messageTextField.text = text;
+    // Keep placeholder in sync when text is set programmatically
+    UILabel *ph = (UILabel *)[self.messageTextField viewWithTag:9001];
+    if (ph) ph.hidden = text.length > 0;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2156,12 +2250,12 @@ NSString *text = self.messageTextField.text;
             // Only include the image that was explicitly attached THIS turn (pendingImagePath).
             // Never inject lastImageLocalPath here — it is a stale sticky path from a prior
             // turn or a prior DALL-E generation and has no guaranteed relevance to this exchange.
-            NSMutableArray *attachmentsAtSend = [self.activeThread.attachmentPaths mutableCopy];
-            if (self.pendingImagePath.length > 0 &&
-                ![attachmentsAtSend containsObject:self.pendingImagePath]) {
+            NSMutableArray *attachmentsAtSend = [NSMutableArray array];
+            if (self.pendingImagePath.length > 0) {
                 [attachmentsAtSend addObject:self.pendingImagePath];
             }
-            self.pendingImagePath = nil; // consumed — belongs to this turn only
+            self.pendingImagePath = nil;
+
             createMemoryFromCompletion(text, answer, apiKey, self.activeThread.threadID,
                                        attachmentsAtSend,
                                        ^(NSString *entry) {
@@ -2302,8 +2396,7 @@ NSString *text = self.messageTextField.text;
 
     NSString *capturedPrompt   = self.lastUserPrompt;
     NSString *capturedThreadID = self.activeThread.threadID;
-    NSMutableArray *capturedAttachments = [self.activeThread.attachmentPaths mutableCopy];
-
+   
     // pendingImagePath is set only when the user explicitly attaches a file THIS turn.
     // It is the sole reliable indicator that this exchange actually involves an image.
     // Scanning chatContext for _isVisionAttachment was NOT sufficient — that flag persists
@@ -2311,12 +2404,15 @@ NSString *text = self.messageTextField.text;
     // every subsequent memory even when the image has nothing to do with the current turn.
     // lastImageLocalPath is intentionally excluded: it is a sticky path from a prior
     // generation/import and injecting it into unrelated memories is the reported bug.
-    if (self.pendingImagePath.length > 0 &&
-        ![capturedAttachments containsObject:self.pendingImagePath]) {
+    // Only capture attachments that belong to THIS turn specifically.
+    // activeThread.attachmentPaths is the full historical list for the thread —
+    // copying it here causes every memory entry to re-report old attachments.
+    NSMutableArray *capturedAttachments = [NSMutableArray array];
+    if (self.pendingImagePath.length > 0) {
         [capturedAttachments addObject:self.pendingImagePath];
     }
-    // Always clear pendingImagePath after capture — it belongs to this turn only.
     self.pendingImagePath = nil;
+
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:request
         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {

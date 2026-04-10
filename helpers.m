@@ -1,5 +1,13 @@
 // helpers.m
 // EZCompleteUI v6.0
+//
+// Low-risk update:
+// - implements EZCreateMemoryEntry(...) declared in helpers.h
+// - keeps createMemoryFromCompletion(...) as a backwards-compatible wrapper
+// - avoids returning unrelated "recent memories" when search has zero keyword overlap
+// - makes broader thread fallback compatible with current ViewController injection logic
+// - skips duplicate consecutive memory entries
+// - adds a few classifier examples without changing the overall prompt structure
 
 #import "helpers.h"
 
@@ -631,8 +639,8 @@ NSString *EZThreadSearchMemory(NSString *searchQuery, NSString *apiKey) {
         }
     }
     if (!anyPositive) {
-        EZLog(EZLogLevelInfo, @"MEMORY", @"Search: no keyword overlap found — returning 5 most recent entries");
-        return loadMemoryContext(5);
+        EZLog(EZLogLevelInfo, @"MEMORY", @"Search: no keyword overlap found — returning empty result");
+        return @"";
     }
 
     NSMutableArray<NSString *> *candidateLines = [NSMutableArray array];
@@ -669,14 +677,14 @@ NSString *EZThreadSearchMemory(NSString *searchQuery, NSString *apiKey) {
         @"6. CRITICAL: Your input is a list of memory entries. Return ONLY lines from that list — "
         @"never return grep output, tmp file paths, or any content that was not in the memory entries list.\n\n"
         @"GOOD EXAMPLE:\n"
-        @"Search query: \"duplicate category methods\"\n"
+        @"Search query: ""duplicate category methods""\n"
         @"Memory entries:\n"
         @"[2026-03-20 09:15:00] [chatKey=2026-03-20T09:14:00] User asked about duplicate ezcui_resolvedTopTitle in ViewController+EZTopButtons.m and ViewController+EZTitleResolver.m\n"
         @"[2026-03-19 14:22:00] [chatKey=2026-03-19T14:21:00] User generated image of a sunset, saved to /var/mobile/.../sunset.png\n\n"
         @"Correct output:\n"
         @"[2026-03-20 09:15:00] [chatKey=2026-03-20T09:14:00] User asked about duplicate ezcui_resolvedTopTitle in ViewController+EZTopButtons.m and ViewController+EZTitleResolver.m\n\n"
         @"BAD EXAMPLE:\n"
-        @"Search query: \"duplicate category methods\"\n"
+        @"Search query: ""duplicate category methods""\n"
         @"(same memory entries as above)\n\n"
         @"Bad output:\n"
         @"[ViewController+EZTopButtons.m:20:- (NSString *)ezcui_resolvedTopTitle; ./ViewController+EZTopButtons.m:20]\n"
@@ -1034,14 +1042,24 @@ void analyzePromptForContext(NSString *userPrompt,
             @"  NEEDS_HISTORY — references prior conversation BUT summaries lack enough detail; full chat turns needed\n\n"
             @"If the user is asking about an ATTACHED FILE that was just added to context this session, "
             @"classify as COMPLEX (the file content is already in the conversation — no memory needed).\n\n"
+            @"EXAMPLES:\n"
+            @"1. User: ""Summarize the PDF I just attached.""\n"
+            @"   Classification: COMPLEX\n"
+            @"   Why: The file contents are already in current context.\n\n"
+            @"2. User: ""What plugin name did we settle on yesterday?""\n"
+            @"   Classification: NEEDS_CONTEXT\n"
+            @"   Why: A memory summary with the chosen name is likely enough.\n\n"
+            @"3. User: ""What exact horse did I bet on last week that came in 2nd?""\n"
+            @"   Classification: NEEDS_HISTORY\n"
+            @"   Why: Exact wording/details are needed from the original thread, not just a summary.\n\n"
             @"Return this JSON with no extra text:\n"
             @"{\n"
-            @"  \"classification\": \"SIMPLE\" | \"COMPLEX\" | \"NEEDS_CONTEXT\" | \"NEEDS_HISTORY\",\n"
-            @"  \"confidence\": <float 0.0-1.0>,\n"
-            @"  \"reason\": \"<one sentence explaining the classification>\",\n"
-            @"  \"direct_answer\": \"<your answer if SIMPLE + confidence>=0.85, else null>\",\n"
-            @"  \"memory_sufficient\": <true if memory summaries are enough, false if full history needed>,\n"
-            @"  \"chat_key\": \"<the threadID from the most relevant memory [chatKey=...] tag, or null>\"\n"
+            @"  ""classification"": ""SIMPLE"" | ""COMPLEX"" | ""NEEDS_CONTEXT"" | ""NEEDS_HISTORY"",\n"
+            @"  ""confidence"": <float 0.0-1.0>,\n"
+            @"  ""reason"": ""<one sentence explaining the classification>"",\n"
+            @"  ""direct_answer"": ""<your answer if SIMPLE + confidence>=0.85, else null>"",\n"
+            @"  ""memory_sufficient"": <true if memory summaries are enough, false if full history needed>,\n"
+            @"  ""chat_key"": ""<the threadID from the most relevant memory [chatKey=...] tag, or null>""\n"
             @"}";
 
         NSString *userMessage = [NSString stringWithFormat:
@@ -1144,11 +1162,13 @@ void analyzePromptForContext(NSString *userPrompt,
 
             NSArray<NSDictionary *> *conversationTurns = EZThreadLoadContext(resolvedChatKey, kTier4MaxTokens);
             if (conversationTurns.count > 0) {
-                result.tier = EZRoutingTierFullThread;
+                result.tier = EZRoutingTierFullHistory;
                 result.needsContext = YES;
                 result.finalPrompt = userPrompt;
                 result.injectedHistory = conversationTurns;
                 result.estimatedTokens = kTier4MaxTokens;
+                EZLogf(EZLogLevelInfo, @"CONTEXT", @"Tier 4 broader thread window — %lu turns from thread %@",
+                       (unsigned long)conversationTurns.count, resolvedChatKey);
                 dispatch_async(dispatch_get_main_queue(), ^{ completion(result); });
                 return;
             }
@@ -1173,12 +1193,38 @@ void analyzePromptForContext(NSString *userPrompt,
     });
 }
 
-void createMemoryFromCompletion(NSString *userPrompt,
-                                NSString *assistantReply,
-                                NSString *apiKey,
-                                NSString * _Nullable chatKey,
-                                NSArray<NSString *> * _Nullable attachmentPaths,
-                                void (^completion)(NSString * _Nullable entry)) {
+static BOOL _attachmentPathArraysEqual(NSArray<NSString *> *a, NSArray<NSString *> *b) {
+    if (a == b) return YES;
+    if (a.count != b.count) return NO;
+    for (NSUInteger i = 0; i < a.count; i++) {
+        NSString *lhs = _safeString(a[i]);
+        NSString *rhs = _safeString(b[i]);
+        if (![lhs isEqualToString:rhs]) return NO;
+    }
+    return YES;
+}
+
+static BOOL _memoryEntryLooksDuplicate(NSDictionary *candidate, NSDictionary *existing) {
+    NSString *candidateSummary = _safeString(candidate[@"summary"]);
+    NSString *existingSummary  = _safeString(existing[@"summary"]);
+    NSString *candidateChatKey = _safeString(candidate[@"chatKey"]);
+    NSString *existingChatKey  = _safeString(existing[@"chatKey"]);
+    NSArray<NSString *> *candidatePaths = _safeArray(candidate[@"attachmentPaths"]);
+    NSArray<NSString *> *existingPaths  = _safeArray(existing[@"attachmentPaths"]);
+
+    return candidateSummary.length > 0 &&
+           [candidateSummary isEqualToString:existingSummary] &&
+           [candidateChatKey isEqualToString:existingChatKey] &&
+           _attachmentPathArraysEqual(candidatePaths, existingPaths);
+}
+
+void EZCreateMemoryEntry(NSString *userPrompt,
+                         NSString *assistantReply,
+                         NSString *apiKey,
+                         NSString * _Nullable promptID,
+                         NSString * _Nullable threadID,
+                         NSArray<NSString *> * _Nullable attachmentPaths,
+                         void (^completion)(NSString * _Nullable entry)) {
     NSCParameterAssert(userPrompt);
     NSCParameterAssert(assistantReply);
     NSCParameterAssert(apiKey);
@@ -1237,21 +1283,47 @@ void createMemoryFromCompletion(NSString *userPrompt,
         NSMutableDictionary *newEntry = [NSMutableDictionary dictionaryWithDictionary:@{
             @"timestamp": _timestampForDisplay(),
             @"summary": summary,
-            @"chatKey": chatKey ?: @""
+            @"chatKey": threadID ?: @""
         }];
+        if (promptID.length > 0) newEntry[@"promptID"] = promptID;
         if (validPaths.count > 0) newEntry[@"attachmentPaths"] = [validPaths copy];
 
+        __block BOOL didSkipDuplicate = NO;
         dispatch_sync(_fileWriteQueue(), ^{
             NSMutableArray *allEntries = _loadMemoryEntries();
+            NSDictionary *lastEntry = allEntries.lastObject;
+            if ([lastEntry isKindOfClass:[NSDictionary class]] &&
+                _memoryEntryLooksDuplicate(newEntry, lastEntry)) {
+                didSkipDuplicate = YES;
+                EZLog(EZLogLevelInfo, @"MEMORY", @"Skipped duplicate memory entry");
+                return;
+            }
             [allEntries addObject:[newEntry copy]];
             _saveMemoryEntries(allEntries);
         });
 
         NSString *formattedEntry = [NSString stringWithFormat:@"[%@] [chatKey=%@]%@ %@",
                                     newEntry[@"timestamp"], newEntry[@"chatKey"], attachmentContext, summary];
-        EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved: %@", formattedEntry);
+        if (!didSkipDuplicate) {
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved: %@", formattedEntry);
+        }
         dispatch_async(dispatch_get_main_queue(), ^{ completion(formattedEntry); });
     });
+}
+
+void createMemoryFromCompletion(NSString *userPrompt,
+                                NSString *assistantReply,
+                                NSString *apiKey,
+                                NSString * _Nullable chatKey,
+                                NSArray<NSString *> * _Nullable attachmentPaths,
+                                void (^completion)(NSString * _Nullable entry)) {
+    EZCreateMemoryEntry(userPrompt,
+                        assistantReply,
+                        apiKey,
+                        nil,
+                        chatKey,
+                        attachmentPaths,
+                        completion);
 }
 
 static NSString *_attachmentDirectory(void) {
