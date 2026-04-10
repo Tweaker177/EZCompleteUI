@@ -187,7 +187,6 @@ static const void *kEZTB_InstalledOnceKey       = &kEZTB_InstalledOnceKey;
 - (UIView *)eztb_findCarouselContainerIn:(UIView *)root {
     if (!root) return nil;
 
-    UIView *firstGood = nil;
     UIView *fallback = nil;
     CGFloat fallbackArea = 0.0;
 
@@ -227,7 +226,7 @@ static const void *kEZTB_InstalledOnceKey       = &kEZTB_InstalledOnceKey;
         }
     }
 
-    return firstGood ?: fallback;
+    return fallback;
 }
 #pragma mark - Button handlers (kept for compatibility)
 

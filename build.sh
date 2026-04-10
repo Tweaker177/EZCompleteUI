@@ -12,18 +12,18 @@ SAVED_APP="/tmp/${APP_NAME}_patched.app"
 patch_plist() {
     local target="$1"
     echo "  Patching: ${target}"
-    python3 << PYEOF
+    python3 - "${target}" <<'PYEOF'
 import plistlib, sys
-path = "${target}"
+path = sys.argv[1]
 try:
     with open(path, 'rb') as f:
         d = plistlib.load(f)
 except Exception as e:
     print(f"ERROR reading plist: {e}", file=sys.stderr)
     sys.exit(1)
-d['NSMicrophoneUsageDescription'] = 'EZCompleteUI uses the microphone for voice dictation.'
-d['NSSpeechRecognitionUsageDescription'] = 'EZCompleteUI uses speech recognition to transcribe your voice.'
-d['NSDocumentsFolderUsageDescription'] = 'EZCompleteUI needs access to your files so you can attach documents, images, and audio to your chats.'
+d["NSMicrophoneUsageDescription"] = "EZCompleteUI uses the microphone for voice dictation."
+d["NSSpeechRecognitionUsageDescription"] = "EZCompleteUI uses speech recognition to transcribe your voice."
+d["NSDocumentsFolderUsageDescription"] = "EZCompleteUI needs access to your files so you can attach documents, images, and audio to your chats."
 d['UIFileSharingEnabled'] = True
 d['LSSupportsOpeningDocumentsInPlace'] = True
 # UISupportsDocumentBrowser = True breaks UIDocumentPickerViewController on iOS 15 — remove it

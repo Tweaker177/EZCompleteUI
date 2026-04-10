@@ -26,7 +26,11 @@ typedef NS_ENUM(NSInteger, EZLogLevel) {
 };
 
 NSString *EZLogGetPath(void);
-void EZLog(EZLogLevel level, NSString *tag, NSString *message);
+/// Primary logger. Supports both:
+///   1) Structured form: EZLog(level, tag, message)
+///   2) Legacy format form: EZLog(@"fmt %@", arg1, ...)
+/// Legacy calls are logged at Info level with tag "EZLegacyLog".
+void EZLog(EZLogLevel level, ...);
 #define EZLogf(level, tag, fmt, ...) EZLog((level),(tag),[NSString stringWithFormat:(fmt),##__VA_ARGS__])
 void EZLogRotateIfNeeded(NSUInteger maxBytes);
 
