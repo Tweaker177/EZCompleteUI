@@ -51,6 +51,10 @@
 #import <QuartzCore/QuartzCore.h>
 #import "SidewaysScrollView.h"
 #import "ViewController+EZKeepAwake.h"
+#import "ElevenLabsCloneViewController.h"
+#import "TextToSpeechViewController.h"
+#import "MemoriesViewController.h"
+#import "SupportRequestViewController.h"
 
 
 typedef NS_ENUM(NSInteger, EZAttachMode) {
@@ -92,6 +96,12 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) UIButton      *webSearchButton;
 @property (nonatomic, strong) UIButton      *historyButton;
 @property (nonatomic, strong) UIButton      *addChatButton;
+@property (nonatomic, strong) UIButton      *memoriesButton;
+@property (nonatomic, strong) UIButton      *supportRequestButton;
+@property (nonatomic, strong) UIButton      *textToSpeechButton;
+@property (nonatomic, strong) UIButton      *cloningButton;
+//@property (nonatomic, strong) UIButton      *textToSpeechButton;
+
 @property (nonatomic, strong) NSLayoutConstraint *containerBottomConstraint;
 /// Tappable label showing the active thread title — tap to rename.
 @property (nonatomic, strong) UILabel       *threadTitleLabel;
@@ -140,6 +150,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) UIActivityIndicatorView *statusBannerSpinner;
 @property (nonatomic, strong) NSTimer       *statusBannerTimer;
 @property (nonatomic, assign) NSInteger      statusBannerPhase;
+- (void)setupKeyboardObservers;
 @end
 
 
@@ -153,29 +164,53 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 //   • Links are detected and tappable
 //   • The user can place the cursor and select any span of text
 //   • The system copy/share/lookup menu appears on selection automatically
-@interface EZBubbleCell : UITableViewCell
+@interface EZBubbleCell : UITableViewCell <UIGestureRecognizerDelegate>
 - (void)configureWithText:(NSString *)text isUser:(BOOL)isUser;
+- (void)configureWithText:(NSString *)text
+                   isUser:(BOOL)isUser
+                timestamp:(nullable NSString *)timestamp
+                  chatKey:(nullable NSString *)chatKey
+                 threadID:(nullable NSString *)threadID;
 @end
+
 
 @implementation EZBubbleCell {
     UIView     *_bubbleView;
     UITextView *_messageTextView;
+    UILabel    *_metaLabel;          // shown when swiped left
     NSArray<NSLayoutConstraint *> *_alignmentConstraints;
+    NSLayoutConstraint *_bubbleLeading;   // re-activated on swipe for user bubbles
+    NSLayoutConstraint *_bubbleTrailing;  // re-activated on swipe for assistant bubbles
+    NSLayoutConstraint *_metaTrailing;    // pins meta label to right of content view
+    NSLayoutConstraint *_metaLeading;     // pins meta label to left of content view
+    BOOL _isUser;
+    CGFloat _swipeOffset;                 // current horizontal offset of bubbleView
 }
+
+// ─── init ──────────────────────────────────────────────────────────────────
 
 - (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
     self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
     if (!self) return nil;
     self.backgroundColor = [UIColor clearColor];
     self.selectionStyle  = UITableViewCellSelectionStyleNone;
+    self.clipsToBounds   = YES;   // keep swiped bubble from rendering outside cell
 
+    // ── Meta label (hidden until swipe) ─────────────────────────────────────
+    _metaLabel = [[UILabel alloc] init];
+    _metaLabel.numberOfLines  = 0;
+    _metaLabel.font           = [UIFont systemFontOfSize:11];
+    _metaLabel.textColor      = [UIColor secondaryLabelColor];
+    _metaLabel.alpha          = 0.0;
+    _metaLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.contentView addSubview:_metaLabel];
+
+    // ── Bubble view ──────────────────────────────────────────────────────────
     _bubbleView = [[UIView alloc] init];
     _bubbleView.translatesAutoresizingMaskIntoConstraints = NO;
     _bubbleView.layer.cornerRadius = 18.0;
     _bubbleView.clipsToBounds      = YES;
 
-    // Non-editable, selectable UITextView.
-    // scrollEnabled=NO lets Auto Layout drive cell height from content.
     _messageTextView = [[UITextView alloc] init];
     _messageTextView.editable              = NO;
     _messageTextView.selectable            = YES;
@@ -190,6 +225,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [_bubbleView addSubview:_messageTextView];
     [self.contentView addSubview:_bubbleView];
 
+    // Text view fills bubble
     [NSLayoutConstraint activateConstraints:@[
         [_bubbleView.topAnchor    constraintEqualToAnchor:self.contentView.topAnchor    constant:4],
         [_bubbleView.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-4],
@@ -204,14 +240,47 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     maxW.priority = UILayoutPriorityDefaultHigh;
     maxW.active   = YES;
 
+    // Meta label constraints — vertically centred, width up to 160 pt
+    [NSLayoutConstraint activateConstraints:@[
+        [_metaLabel.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        [_metaLabel.widthAnchor   constraintLessThanOrEqualToConstant:160],
+    ]];
+    // Horizontal pin constraints are created lazily in configure because
+    // they depend on whether this is a user or assistant bubble.
+
+    // ── Pan gesture for swipe-to-reveal ─────────────────────────────────────
+    UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc]
+        initWithTarget:self action:@selector(_handleSwipePan:)];
+    pan.delegate = self;
+    pan.delaysTouchesBegan = NO;
+    [self.contentView addGestureRecognizer:pan];
+
+
     return self;
 }
 
+// ─── configure (legacy — no metadata) ────────────────────────────────────────
+
 - (void)configureWithText:(NSString *)text isUser:(BOOL)isUser {
+    [self configureWithText:text isUser:isUser timestamp:nil chatKey:nil threadID:nil];
+}
+
+// ─── configure (with metadata) ───────────────────────────────────────────────
+
+- (void)configureWithText:(NSString *)text
+                   isUser:(BOOL)isUser
+                timestamp:(nullable NSString *)timestamp
+                  chatKey:(nullable NSString *)chatKey
+                 threadID:(nullable NSString *)threadID {
+
+    _isUser = isUser;
+    _swipeOffset = 0.0;
+    _bubbleView.transform = CGAffineTransformIdentity;
+
     _messageTextView.text = text;
 
     // ── Bubble background ────────────────────────────────────────────────────
-    _bubbleView.backgroundColor      = isUser
+    _bubbleView.backgroundColor = isUser
         ? [UIColor systemBlueColor]
         : [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
                return tc.userInterfaceStyle == UIUserInterfaceStyleDark
@@ -219,11 +288,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                    : [UIColor colorWithRed:0.90 green:0.90 blue:0.92 alpha:1.0];
            }];
     _messageTextView.backgroundColor = [UIColor clearColor];
-
-    // ── Text color ───────────────────────────────────────────────────────────
     _messageTextView.textColor = isUser ? [UIColor whiteColor] : [UIColor labelColor];
 
-    // ── Link color: white on blue (user), system blue on gray (assistant) ────
     UIColor *linkColor = isUser
         ? [UIColor colorWithWhite:1.0 alpha:0.90]
         : [UIColor colorWithRed:0.231 green:0.510 blue:0.965 alpha:1.0];
@@ -231,22 +297,18 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         NSForegroundColorAttributeName : linkColor,
         NSUnderlineStyleAttributeName  : @(NSUnderlineStyleSingle),
     };
-
-    // Selection handles match bubble context
     _messageTextView.tintColor = isUser
         ? [UIColor colorWithWhite:1.0 alpha:0.7]
         : [UIColor systemBlueColor];
 
-    // ── Tail: one flat corner pointing toward the speaker ────────────────────
+    // ── Tail ─────────────────────────────────────────────────────────────────
     if (@available(iOS 11.0, *)) {
         _bubbleView.layer.maskedCorners = isUser
-            // User (right-aligned) → flat bottom-right corner
             ? (kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner | kCALayerMinXMaxYCorner)
-            // Assistant (left-aligned) → flat bottom-left corner
             : (kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner | kCALayerMaxXMaxYCorner);
     }
 
-    // ── Alignment: pin bubble to the appropriate side ────────────────────────
+    // ── Bubble alignment ─────────────────────────────────────────────────────
     if (_alignmentConstraints) [NSLayoutConstraint deactivateConstraints:_alignmentConstraints];
     NSMutableArray *ac = [NSMutableArray array];
     if (isUser) {
@@ -262,7 +324,95 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     }
     _alignmentConstraints = [ac copy];
     [NSLayoutConstraint activateConstraints:_alignmentConstraints];
+
+    // ── Meta label horizontal pin (once per isUser value) ────────────────────
+    // Deactivate old pins first
+    if (_metaLeading)  { _metaLeading.active  = NO; _metaLeading  = nil; }
+    if (_metaTrailing) { _metaTrailing.active = NO; _metaTrailing = nil; }
+
+    if (isUser) {
+        // Meta text sits to the LEFT of the user bubble (like iMessage)
+        _metaTrailing = [_metaLabel.trailingAnchor
+            constraintEqualToAnchor:self.contentView.trailingAnchor constant:-12];
+    } else {
+        // Meta text sits to the RIGHT of the assistant bubble
+        _metaLeading = [_metaLabel.leadingAnchor
+            constraintEqualToAnchor:self.contentView.leadingAnchor constant:12];
+    }
+    if (_metaLeading)  _metaLeading.active  = YES;
+    if (_metaTrailing) _metaTrailing.active = YES;
+
+    // ── Meta label content ────────────────────────────────────────────────────
+    NSMutableArray<NSString *> *lines = [NSMutableArray array];
+    if (timestamp.length > 0) [lines addObject:timestamp];
+    if (chatKey.length  > 0) [lines addObject:[NSString stringWithFormat:@"key: %@", chatKey]];
+    if (threadID.length > 0) [lines addObject:[NSString stringWithFormat:@"thread: %@", threadID]];
+    _metaLabel.text  = [lines componentsJoinedByString:@"\n"];
+    _metaLabel.alpha = 0.0;
+
+    // Alignment: user messages → right-align the meta text; assistant → left
+    _metaLabel.textAlignment = isUser ? NSTextAlignmentRight : NSTextAlignmentLeft;
 }
+
+// ─── Pan gesture handler ──────────────────────────────────────────────────────
+// iMessage behaviour:
+//   • Drag left  → bubble slides left, meta label fades in on the right
+//   • Release    → springs back to origin, meta label fades out
+//
+// For assistant (left-aligned) bubbles we mirror: drag right reveals meta on left.
+
+- (void)_handleSwipePan:(UIPanGestureRecognizer *)pan {
+    static const CGFloat kMaxReveal = 140.0;
+    static const CGFloat kFadeStart =  20.0;
+
+    CGPoint translation = [pan translationInView:self.contentView];
+    CGFloat raw     = _isUser ? -translation.x : translation.x;
+    CGFloat clamped = MAX(0.0, MIN(raw, kMaxReveal));
+
+    switch (pan.state) {
+        case UIGestureRecognizerStateChanged: {
+            _swipeOffset = clamped;
+            CGFloat tx = _isUser ? -clamped : clamped;
+            _bubbleView.transform = CGAffineTransformMakeTranslation(tx, 0);
+            CGFloat progress = MAX(0.0, (clamped - kFadeStart) / (kMaxReveal - kFadeStart));
+            _metaLabel.alpha = progress;
+            break;
+        }
+        case UIGestureRecognizerStateEnded:
+        case UIGestureRecognizerStateCancelled:
+        case UIGestureRecognizerStateFailed: {
+            _swipeOffset = 0.0;
+            [UIView animateWithDuration:0.35
+                                  delay:0.0
+                 usingSpringWithDamping:0.75
+                  initialSpringVelocity:0.5
+                                options:UIViewAnimationOptionBeginFromCurrentState
+                             animations:^{
+                self->_bubbleView.transform = CGAffineTransformIdentity;
+                self->_metaLabel.alpha = 0.0;
+            } completion:nil];
+            break;
+        }
+        default: break;
+    }
+}
+
+
+    // Only begin if the gesture is more horizontal than vertical.
+    // This is checked before any touch is claimed, so the table's vertical
+    // scroll recognizer never loses its touch sequence.
+    - (BOOL)gestureRecognizerShouldBegin:(UIPanGestureRecognizer *)pan {
+        CGPoint v = [pan velocityInView:self.contentView];
+        return ABS(v.x) > ABS(v.y);
+    }
+
+    // Let the table scroll simultaneously so a slow diagonal drag doesn't
+    // freeze the table mid-scroll.
+    - (BOOL)gestureRecognizer:(UIGestureRecognizer *)a
+    shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)b {
+        return YES;
+    }
+
 @end
 
 // ── EZSystemCell ──────────────────────────────────────────────────────────────
@@ -441,7 +591,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 }
 @end
 
-/***/
+
 //#pragma mark - SidewaysScrollView (inserted by patch_viewcontroller.py)
 
 /*
@@ -657,7 +807,16 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @end
 
 #pragma mark - End SidewaysScrollView
-********************/
+*****/
+
+@interface ViewController (EZPrivateForward)
+- (void)scrollChatToBottom;
+- (void)transcribeAudio:(NSURL *)fileURL;
+- (BOOL)isGptImage1Family:(NSString *)model;
+- (void)analyzeFile:(NSURL *)fileURL;
+- (void)setupKeyboardObservers;
+@end
+
 
 
 @implementation ViewController
@@ -669,75 +828,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 - (void)viewDidLoad {
     [super viewDidLoad];
 
-    // --- START: Sideways scrolling top-row (injected) ---
-    if (!self.topButtonsContainer) {
-        UIView *container = [[UIView alloc] init];
-        container.translatesAutoresizingMaskIntoConstraints = NO;
-        container.backgroundColor = [UIColor clearColor];
-        container.clipsToBounds = NO;
-        [self.view addSubview:container];
-        self.topButtonsContainer = container;
-
-        CGFloat injectedHeight = 120.0; // double-size visual row (buttons will be ~240pt tall, centered)
-        [NSLayoutConstraint activateConstraints:@[
-            [container.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:8.0],
-            [container.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:8.0],
-            [container.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-8.0],
-            [container.heightAnchor constraintEqualToConstant:injectedHeight]
-        ]];
-
-        SidewaysScrollView *ssv = [[SidewaysScrollView alloc] initWithFrame:CGRectZero];
-        ssv.translatesAutoresizingMaskIntoConstraints = NO;
-        [container addSubview:ssv];
-        [NSLayoutConstraint activateConstraints:@[
-            [ssv.topAnchor constraintEqualToAnchor:container.topAnchor],
-            [ssv.bottomAnchor constraintEqualToAnchor:container.bottomAnchor],
-            [ssv.leadingAnchor constraintEqualToAnchor:container.leadingAnchor],
-            [ssv.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
-        ]];
-        self.sidewaysScrollView = ssv;
-
-        NSMutableArray<UIButton *> *protoButtons = [NSMutableArray array];
-        NSArray<UIColor *> *colors = @[
-            [UIColor colorWithRed:0.95 green:0.38 blue:0.38 alpha:1.0],
-            [UIColor colorWithRed:0.95 green:0.70 blue:0.28 alpha:1.0],
-            [UIColor colorWithRed:0.45 green:0.77 blue:0.33 alpha:1.0],
-            [UIColor colorWithRed:0.36 green:0.66 blue:0.96 alpha:1.0],
-            [UIColor colorWithRed:0.70 green:0.49 blue:0.96 alpha:1.0],
-            [UIColor colorWithRed:0.95 green:0.55 blue:0.80 alpha:1.0],
-            [UIColor colorWithRed:0.40 green:0.80 blue:0.72 alpha:1.0],
-            [UIColor colorWithRed:0.98 green:0.62 blue:0.25 alpha:1.0],
-            [UIColor colorWithRed:0.56 green:0.76 blue:0.98 alpha:1.0],
-            [UIColor colorWithRed:0.85 green:0.46 blue:0.36 alpha:1.0],
-        ];
-        for (NSInteger i = 0; i < 10; i++) {
-            UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-            b.tag = (int)i + 1000;
-            [b setTitle:[NSString stringWithFormat:@"Item %ld", (long)i+1] forState:UIControlStateNormal];
-            b.backgroundColor = colors[i % colors.count];
-            b.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
-            b.layer.cornerRadius = 12.0;
-            [protoButtons addObject:b];
-        }
-        [self.sidewaysScrollView configureWithButtons:protoButtons doubleSize:YES];
-
-        // Avoid overlaying the chat table: inset its content from the top if present
-        if (self.chatTableView) {
-            UIEdgeInsets insets = self.chatTableView.contentInset;
-            CGFloat neededTop = injectedHeight + 12.0;
-            if (insets.top < neededTop) {
-                insets.top = neededTop;
-                self.chatTableView.contentInset = insets;
-                self.chatTableView.scrollIndicatorInsets = insets;
-            }
-        }
-        [self.view bringSubviewToFront:self.topButtonsContainer];
-    }
-    // --- END: Sideways scrolling top-row (injected) ---
-
-
+   
     EZLogRotateIfNeeded(512 * 1024);
-    EZLog(EZLogLevelInfo, @"APP", @"EZCompleteUI v4.0 viewDidLoad");
+    EZLog(EZLogLevelInfo, @"APP", @"EZCompleteUI v6.7 viewDidLoad");
     [self setupData];
     [self setupUI];
     [self setupKeyboardObservers];
@@ -750,17 +843,18 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
 - (void)setupData {
     // Model list — internal identifiers. Display labels added in showModelPicker.
+    //added several gpt 5 models that are new, need to check any other references to gpt 5 includes them
     self.models = @[
-        // ── Chat / Reasoning ──────────────────────────────────────────────
-        @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
-        @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
-        @"gpt-3.5-turbo",
-        // ── Image Generation & Edit ───────────────────────────────────────
-        @"gpt-image-1.5",        // newest image model
-        @"gpt-image-1",          // generation + edit
-        @"gpt-image-1-mini",     // faster/cheaper image generation
-        @"chatgpt-image-latest", // always points to current ChatGPT image model
-        @"dall-e-3",             // generation only (legacy)
+           // ── Chat / Reasoning ──────────────────────────────────────────────
+           @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
+           @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
+           @"gpt-3.5-turbo",
+           // ── Image Generation & Edit ───────────────────────────────────────
+           @"gpt-image-1.5",        // newest image model
+           @"gpt-image-1",          // generation + edit
+           @"gpt-image-1-mini",     // faster/cheaper image generation
+           @"chatgpt-image-latest", // always points to current ChatGPT image model
+           @"dall-e-3",             // generation only (legacy)
         // ── Video ─────────────────────────────────────────────────────────
         @"sora-2", @"sora-2-pro",
         // ── Audio ─────────────────────────────────────────────────────────
@@ -861,7 +955,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                 }
 
                 // Strip Tier-3 context preamble
-                NSString *contextPrefix = @"[Context from previous conversations]";
+                NSString *contextPrefix = @"[Memories with possible relevance:]";
                 if ([text hasPrefix:contextPrefix]) {
                     NSRange userMsgRange = [text rangeOfString:@"[User message]\n"];
                     if (userMsgRange.location != NSNotFound) {
@@ -916,7 +1010,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         if (!text) continue; // skip vision attachment blobs on restore
 
         if ([role isEqualToString:@"user"]) {
-            if ([text hasPrefix:@"[Context from previous conversations]"]) {
+            if ([text hasPrefix:@"[Memories with possible relevance:]"]) {
                 NSRange r = [text rangeOfString:@"[User message]\n"];
                 if (r.location != NSNotFound) text = [text substringFromIndex:r.location + r.length];
             }
@@ -1078,6 +1172,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     // + New chat (save current, start fresh)
     self.addChatButton   = [self _iconButton:@"square.and.pencil" tint:[UIColor systemGreenColor]
                                       action:@selector(newChat)];
+    self.supportRequestButton = [self _iconButton:@"questionmark.circle.fill" tint:[UIColor systemRedColor] action:@selector(openSupport)];
     // History (browse/restore past threads)
     self.historyButton   = [self _iconButton:@"clock.arrow.circlepath" tint:nil
                                       action:@selector(openHistory)];
@@ -1087,6 +1182,16 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     // Speak last AI response
     self.speakButton     = [self _iconButton:@"speaker.wave.2.fill" tint:nil
                                       action:@selector(speakLastResponse)];
+    
+    self.cloningButton = [self _iconButton:@"doc.richtext" tint:nil action:@selector(openCloning)];
+    
+    self.textToSpeechButton = [self _iconButton:@"play.circle.fill" tint:nil action:@selector(openTTS)];
+    
+    
+    
+    
+    self.memoriesButton   = [self _iconButton:@"memory" tint:nil
+                                      action:@selector(openMemories)];
     // Web search toggle
     self.webSearchButton = [self _iconButton:@"globe" tint:nil
                                       action:@selector(toggleWebSearch)];
@@ -1105,7 +1210,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     UIStackView *topStack = [[UIStackView alloc] initWithArrangedSubviews:@[
         self.addChatButton, self.historyButton, self.clipboardButton,
         self.speakButton, self.webSearchButton, self.settingsButton,
-        self.renameButton, self.clearButton
+        self.renameButton, self.clearButton, self.memoriesButton, self.cloningButton, self.supportRequestButton,
+        self.textToSpeechButton
     ]];
     topStack.distribution = UIStackViewDistributionEqualSpacing;
     topStack.alignment    = UIStackViewAlignmentCenter;
@@ -1115,7 +1221,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     // Thread title label — tappable, sits between top bar and chat table
     self.threadTitleLabel                 = [[UILabel alloc] init];
     self.threadTitleLabel.text            = @"New Conversation";
-    self.threadTitleLabel.font            = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+    self.threadTitleLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     self.threadTitleLabel.textColor       = [UIColor secondaryLabelColor];
     self.threadTitleLabel.textAlignment   = NSTextAlignmentCenter;
     self.threadTitleLabel.userInteractionEnabled = YES;
@@ -1210,6 +1316,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
               forControlEvents:UIControlEventTouchUpInside];
     self.sendButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.inputContainer addSubview:self.sendButton];
+    self.inputContainer.backgroundColor = [UIColor colorWithRed:0 green:0.2 blue:0.7 alpha:0.6];
 
     [self.sendButton setContentCompressionResistancePriority:UILayoutPriorityRequired
                                                      forAxis:UILayoutConstraintAxisHorizontal];
@@ -1756,6 +1863,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     // Save a copy for persistence
     NSData *fileData = [NSData dataWithContentsOfURL:fileURL];
+                    
+    // Save a copy for persistataWithContentsOfURL:fileURL];
     if (fileData) {
         NSString *savedPath = EZAttachmentSave(fileData, name);
         if (savedPath) {
@@ -2063,7 +2172,7 @@ NSString *text = self.messageTextField.text;
             return;
         }
 
-        if (result.tier == EZRoutingTierFullChat && result.injectedHistory.count > 0) {
+        if (result.tier == EZRoutingTierFullHistory && result.injectedHistory.count > 0) {
             if (self.chatContext.count > 0) [self.chatContext removeLastObject];
             NSMutableArray *rebuilt = [NSMutableArray array];
             [rebuilt addObjectsFromArray:result.injectedHistory];
@@ -3587,10 +3696,28 @@ NSString *text = self.messageTextField.text;
     if ([rawText hasPrefix:@"You: "]) { role = @"user";      text = [rawText substringFromIndex:5]; }
     else if ([rawText hasPrefix:@"AI: "]) { role = @"assistant"; text = [rawText substringFromIndex:4]; }
 
+    // Stamp timestamp + thread metadata so bubble cells can show them on swipe.
+    static NSDateFormatter *_ezFmt;
+
+    static dispatch_once_t _ezFmtOnce;
+    dispatch_once(&_ezFmtOnce, ^{
+        _ezFmt = [[NSDateFormatter alloc] init];
+        _ezFmt.dateFormat = @"MMM d, h:mm a";
+    });
+    NSString *_ts = [_ezFmt stringFromDate:[NSDate date]];
+    NSString *_ck    = self.activeThread.threadID ?: @"";
+    NSString *_tid   = self.activeThread.threadID ?: @"";
+
     if ([text containsString:@"[CODE:"]) {
         [self addMessageSegments:text defaultRole:role];
     } else {
-        [self.displayMessages addObject:@{@"role": role, @"text": text}];
+        [self.displayMessages addObject:@{
+            @"role":     role,
+            @"text":     text,
+            @"timestamp": _ts,
+            @"chatKey":  _ck,
+            @"threadID": _tid,
+        }];
         [self reloadAndScrollTable];
     }
 }
@@ -3680,7 +3807,10 @@ NSString *text = self.messageTextField.text;
         EZBubbleCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZBubble"
                                                              forIndexPath:indexPath];
         [cell configureWithText:msg[@"text"] ?: @""
-                         isUser:[role isEqualToString:@"user"]];
+                         isUser:[role isEqualToString:@"user"]
+                      timestamp:msg[@"timestamp"]
+                        chatKey:msg[@"chatKey"]
+                       threadID:msg[@"threadID"]];
         return cell;
     } else {
         EZSystemCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZSystem"
@@ -3764,6 +3894,29 @@ NSString *text = self.messageTextField.text;
     [self presentViewController:nav animated:YES completion:nil];
 }
 
+- (void)openSupport {
+    UINavigationController *nav = [[UINavigationController alloc]
+        initWithRootViewController:[[SupportRequestViewController alloc] init]];
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)openMemories {
+    UINavigationController *nav = [[UINavigationController alloc]
+        initWithRootViewController:[[MemoriesViewController alloc] init]];
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)openTTS {
+    UINavigationController *nav = [[UINavigationController alloc]
+        initWithRootViewController:[[TextToSpeechViewController alloc] init]];
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)openCloning {
+    UINavigationController *nav = [[UINavigationController alloc]
+        initWithRootViewController:[[ElevenLabsCloneViewController alloc] init]];
+    [self presentViewController:nav animated:YES completion:nil];
+}
 
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
@@ -3788,8 +3941,9 @@ NSString *text = self.messageTextField.text;
 
 @end
 
-    @interface ViewController (EZTitleFix) @end
-    @implementation ViewController (EZTitleFix)
+@interface ViewController (EZTitleFix)
+@end
+@implementation ViewController (EZTitleFix)
     - (void)setTitle:(NSString *)title {
         [super setTitle:title];
         // If the top-buttons category is present, let it sync its label.
@@ -3800,7 +3954,7 @@ NSString *text = self.messageTextField.text;
     #pragma clang diagnostic pop
         }
     }
-    @end
+@end
 
 /***
 #pragma mark - EZKeepAwake
@@ -3888,6 +4042,6 @@ static inline void ezka_setBG(id vc, UIBackgroundTaskIdentifier t) {
 #endif
     }
 }
+*/
+//@end
 
-@end
-***/
