@@ -820,6 +820,169 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 - (void)setupKeyboardObservers;
 @end
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - EZModelPickerViewController
+// ─────────────────────────────────────────────────────────────────────────────
+
+@interface EZModelPickerViewController : UITableViewController
+@property (nonatomic, copy) NSArray<NSString *> *models;
+@property (nonatomic, copy) NSString            *selectedModel;
+@property (nonatomic, copy) void (^onModelSelected)(NSString *model);
+- (instancetype)initWithModels:(NSArray<NSString *> *)models selectedModel:(NSString *)selected;
+@end
+
+@implementation EZModelPickerViewController
+
+static NSDictionary<NSString *, NSString *> *EZModelLabels(void) {
+    return @{
+        @"gpt-5-pro":            @"💬 Chat + 👁 Vision",
+        @"gpt-5":                @"💬 Chat + 👁 Vision",
+        @"gpt-5-mini":           @"💬 Chat + 👁 Vision",
+        @"gpt-4o":               @"💬 Chat + 👁 Vision ⭐",
+        @"gpt-4o-mini":          @"💬 Chat + 👁 Vision (fast)",
+        @"gpt-4-turbo":          @"💬 Chat + 👁 Vision",
+        @"gpt-4":                @"💬 Chat + 👁 Vision",
+        @"gpt-3.5-turbo":        @"💬 Chat only",
+        @"gpt-image-1.5":        @"🖼 Image gen (newest)",
+        @"gpt-image-1":          @"🖼 Image gen + ✏️ Edit",
+        @"gpt-image-1-mini":     @"🖼 Image gen (fast/cheap)",
+        @"chatgpt-image-latest": @"🖼 ChatGPT image (latest)",
+        @"dall-e-3":             @"🖼 Image gen only (legacy)",
+        @"sora-2":               @"🎬 Video gen (4/8/12/16s)",
+        @"sora-2-pro":           @"🎬 Video gen HQ (5/10/15/20s)",
+        @"whisper-1":            @"🎙 Audio transcription only",
+    };
+}
+static NSArray<NSString *> *EZModelSectionTitles(void) {
+    return @[@"GPT-5 Reasoning", @"GPT-4 Chat", @"Image Generation", @"Video", @"Audio"];
+}
+static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
+    return @[
+        @[@"gpt-5-pro", @"gpt-5", @"gpt-5-mini"],
+        @[@"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4", @"gpt-3.5-turbo"],
+        @[@"gpt-image-1.5", @"gpt-image-1", @"gpt-image-1-mini", @"chatgpt-image-latest", @"dall-e-3"],
+        @[@"sora-2", @"sora-2-pro"],
+        @[@"whisper-1"],
+    ];
+}
+
+- (instancetype)initWithModels:(NSArray<NSString *> *)models selectedModel:(NSString *)selected {
+    self = [super initWithStyle:UITableViewStyleInsetGrouped];
+    if (!self) return nil;
+    self.models        = models;
+    self.selectedModel = selected;
+    return self;
+}
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"Select Model";
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                             target:self action:@selector(_dismiss)];
+}
+- (void)_dismiss { [self dismissViewControllerAnimated:YES completion:nil]; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv {
+    return (NSInteger)EZModelSections().count;
+}
+- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
+    return EZModelSectionTitles()[(NSUInteger)section];
+}
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
+    return (NSInteger)EZModelSections()[(NSUInteger)section].count;
+}
+- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
+    UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:@"ModelCell"];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
+                                      reuseIdentifier:@"ModelCell"];
+    }
+    NSString *model = EZModelSections()[(NSUInteger)ip.section][(NSUInteger)ip.row];
+    cell.textLabel.text            = model;
+    cell.textLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
+    cell.detailTextLabel.text      = EZModelLabels()[model] ?: @"";
+    cell.detailTextLabel.font      = [UIFont systemFontOfSize:12];
+    cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
+    cell.accessoryType             = [model isEqualToString:self.selectedModel]
+                                     ? UITableViewCellAccessoryCheckmark
+                                     : UITableViewCellAccessoryNone;
+    return cell;
+}
+- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
+    [tv deselectRowAtIndexPath:ip animated:YES];
+    NSString *model = EZModelSections()[(NSUInteger)ip.section][(NSUInteger)ip.row];
+    self.selectedModel = model;
+    [tv reloadData];
+    if (self.onModelSelected) self.onModelSelected(model);
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+@end
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - EZImageSettingsViewController
+// ─────────────────────────────────────────────────────────────────────────────
+
+@interface EZImageSettingsViewController : UITableViewController
+@end
+
+@implementation EZImageSettingsViewController {
+    NSArray<NSDictionary *> *_sections;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"Image Settings";
+    _sections = @[
+        @{ @"title": @"Size",       @"key": @"imgSize",       @"default": @"1024x1024",
+           @"options": @[@"1024x1024", @"1024x1536", @"1536x1024"],
+           @"labels":  @[@"Square — 1024 × 1024", @"Portrait — 1024 × 1536", @"Landscape — 1536 × 1024"] },
+        @{ @"title": @"Quality",    @"key": @"imgQuality",    @"default": @"auto",
+           @"options": @[@"auto", @"high", @"medium", @"low"],
+           @"labels":  @[@"Auto (recommended)", @"High", @"Medium", @"Low (fastest)"] },
+        @{ @"title": @"Format",     @"key": @"imgFormat",     @"default": @"png",
+           @"options": @[@"png", @"jpeg", @"webp"],
+           @"labels":  @[@"PNG — lossless, transparency OK", @"JPEG — lossy, no transparency", @"WebP — modern, transparency OK"] },
+        @{ @"title": @"Background", @"key": @"imgBackground", @"default": @"auto",
+           @"options": @[@"auto", @"transparent", @"opaque"],
+           @"labels":  @[@"Auto", @"Transparent (PNG/WebP only)", @"Opaque"] },
+        @{ @"title": @"Moderation", @"key": @"imgModeration", @"default": @"auto",
+           @"options": @[@"auto", @"low"],
+           @"labels":  @[@"Auto", @"Low"] },
+    ];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                             target:self action:@selector(_dismiss)];
+}
+- (void)_dismiss { [self dismissViewControllerAnimated:YES completion:nil]; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return (NSInteger)_sections.count; }
+- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s {
+    return _sections[(NSUInteger)s][@"title"];
+}
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
+    return (NSInteger)[_sections[(NSUInteger)s][@"options"] count];
+}
+- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
+    UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:@"ImgCell"];
+    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"ImgCell"];
+    NSDictionary *sec  = _sections[(NSUInteger)ip.section];
+    NSString *val      = sec[@"options"][(NSUInteger)ip.row];
+    NSString *current  = [[NSUserDefaults standardUserDefaults] stringForKey:sec[@"key"]] ?: sec[@"default"];
+    cell.textLabel.text  = sec[@"labels"][(NSUInteger)ip.row];
+    cell.textLabel.font  = [UIFont systemFontOfSize:15];
+    cell.accessoryType   = [val isEqualToString:current]
+                           ? UITableViewCellAccessoryCheckmark
+                           : UITableViewCellAccessoryNone;
+    return cell;
+}
+- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
+    [tv deselectRowAtIndexPath:ip animated:YES];
+    NSDictionary *sec = _sections[(NSUInteger)ip.section];
+    NSString *val     = sec[@"options"][(NSUInteger)ip.row];
+    [[NSUserDefaults standardUserDefaults] setObject:val forKey:sec[@"key"]];
+    EZLogf(EZLogLevelInfo, @"IMGSET", @"%@ → %@", sec[@"key"], val);
+    [tv reloadSections:[NSIndexSet indexSetWithIndex:(NSUInteger)ip.section]
+      withRowAnimation:UITableViewRowAnimationNone];
+}
+@end
 
 
 @implementation ViewController
@@ -836,6 +999,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     EZLog(EZLogLevelInfo, @"APP", @"EZCompleteUI v6.7 viewDidLoad");
     [self setupData];
     [self setupUI];
+    if (@available(iOS 14.0, *)) { [self _configureAttachButtonMenu]; }
     [self setupKeyboardObservers];
     [self setupDictation];
     [self requestSpeechPermissionsIfNeeded];
@@ -1356,7 +1520,11 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
               forControlEvents:UIControlEventTouchUpInside];
     self.sendButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.inputContainer addSubview:self.sendButton];
-    self.inputContainer.backgroundColor = [UIColor colorWithRed:0 green:0.2 blue:0.7 alpha:0.6];
+    self.inputContainer.backgroundColor = [UIColor colorWithRed:0 green:0.44 blue:0.34 alpha:0.8];
+    self.inputContainer.layer.borderWidth = 2.0;
+    self.inputContainer.layer.borderColor = [UIColor secondaryLabelColor].CGColor;
+    self.inputContainer.layer.masksToBounds = YES;
+    self.inputContainer.layer.cornerRadius = 5.0;
 
     [self.sendButton setContentCompressionResistancePriority:UILayoutPriorityRequired
                                                      forAxis:UILayoutConstraintAxisHorizontal];
@@ -1447,7 +1615,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
          usingSpringWithDamping:0.85
           initialSpringVelocity:0.3
                         options:UIViewAnimationOptionBeginFromCurrentState
-                     animations:^{ [self.inputContainer layoutIfNeeded]; }
+                     animations:^{ [self.view layoutIfNeeded]; }
                      completion:nil];
 }
 
@@ -1459,7 +1627,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
          usingSpringWithDamping:0.85
           initialSpringVelocity:0.3
                         options:UIViewAnimationOptionBeginFromCurrentState
-                     animations:^{ [self.inputContainer layoutIfNeeded]; }
+                     animations:^{ [self.view layoutIfNeeded]; }
                      completion:nil];
 }
 
@@ -1475,8 +1643,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                                                 replacementText:(NSString *)text {
     if (textView != self.messageTextField) return YES;
     if ([text isEqualToString:@"\n"]) {
-        // Plain return → send; shift is not detectable via delegate,
-        // so we treat return as send (matches iMessage behaviour on iPhone).
+        // Explicitly resign first so textViewDidEndEditing fires and collapses the input
+        // before handleSend starts its work. Without this the constraint animation races.
+        [textView resignFirstResponder];
         [self handleSend];
         return NO;
     }
@@ -1563,112 +1732,14 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 /// Presents a series of action sheets to configure gpt-image-1 generation params.
 /// Settings are persisted in NSUserDefaults and read in callGptImage1 / callImageEdit.
 - (void)showImageSettings {
-        // Creating an instance of NSUserDefaults
-        NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-
-        // Fetching current values with defaults as fallback
-        NSString *curSize = [d stringForKey:@"imgSize"] ?: @"1024x1024";
-        NSString *curQual = [d stringForKey:@"imgQuality"] ?: @"auto";
-        NSString *curFmt = [d stringForKey:@"imgFormat"] ?: @"png";
-        NSString *curBg = [d stringForKey:@"imgBackground"] ?: @"auto";
-        NSString *curMod = [d stringForKey:@"imgModeration"] ?: @"auto";
-
-        // Creating an alert controller
-        UIAlertController *sheet = [UIAlertController
-            alertControllerWithTitle:@"Image Generation Settings"
-            message:[NSString stringWithFormat:
-                    @"Size: %@  |  Quality: %@  |  Format: %@  |  BG: %@  |  Mod: %@",
-                    curSize, curQual, curFmt, curBg, curMod]
-            preferredStyle:UIAlertControllerStyleActionSheet];    // ── Size ────────────────────────────────────────────────────────────────
-    NSDictionary *sizes = @{
-        @"1024x1024": @"Square (1024×1024)",
-        @"1024x1536": @"Portrait (1024×1536)",
-        @"1536x1024": @"Landscape (1536×1024)",
-    };
-    for (NSString *val in @[@"1024x1024", @"1024x1536", @"1536x1024"]) {
-        NSString *label = [NSString stringWithFormat:@"%@ Size: %@",
-                           [curSize isEqualToString:val] ? @"✓" : @" ", sizes[val]];
-        [sheet addAction:[UIAlertAction actionWithTitle:label
-                                                  style:UIAlertActionStyleDefault
-                                                handler:^(UIAlertAction *_) {
-            [d setObject:val forKey:@"imgSize"];
-            EZLogf(EZLogLevelInfo, @"IMGSET", @"Size → %@", val);
-        }]];
+    EZImageSettingsViewController *vc = [[EZImageSettingsViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    if (@available(iOS 15.0, *)) {
+        UISheetPresentationController *sheet = nav.sheetPresentationController;
+        sheet.detents = @[UISheetPresentationControllerDetent.mediumDetent];
+        sheet.prefersGrabberVisible = YES;
     }
-
-    // ── Quality ─────────────────────────────────────────────────────────────
-    NSDictionary *quals = @{
-        @"auto": @"Quality: Auto (recommended)",
-        @"high": @"Quality: High",
-        @"medium": @"Quality: Medium",
-        @"low": @"Quality: Low (fastest)",
-    };
-    for (NSString *val in @[@"auto", @"high", @"medium", @"low"]) {
-        NSString *label = [NSString stringWithFormat:@"%@ %@",
-                           [curQual isEqualToString:val] ? @"✓" : @" ", quals[val]];
-        [sheet addAction:[UIAlertAction actionWithTitle:label
-                                                  style:UIAlertActionStyleDefault
-                                                handler:^(UIAlertAction *_) {
-            [d setObject:val forKey:@"imgQuality"];
-            EZLogf(EZLogLevelInfo, @"IMGSET", @"Quality → %@", val);
-        }]];
-    }
-
-    // ── Output format ────────────────────────────────────────────────────────
-    NSDictionary *fmts = @{
-        @"png":  @"Format: PNG (lossless, supports transparency)",
-        @"jpeg": @"Format: JPEG (lossy, no transparency)",
-        @"webp": @"Format: WebP (modern, supports transparency)",
-    };
-    for (NSString *val in @[@"png", @"jpeg", @"webp"]) {
-        NSString *label = [NSString stringWithFormat:@"%@ %@",
-                           [curFmt isEqualToString:val] ? @"✓" : @" ", fmts[val]];
-        [sheet addAction:[UIAlertAction actionWithTitle:label
-                                                  style:UIAlertActionStyleDefault
-                                                handler:^(UIAlertAction *_) {
-            [d setObject:val forKey:@"imgFormat"];
-            EZLogf(EZLogLevelInfo, @"IMGSET", @"Format → %@", val);
-        }]];
-    }
-
-    // ── Background ───────────────────────────────────────────────────────────
-    NSDictionary *bgs = @{
-        @"auto":        @"Background: Auto",
-        @"transparent": @"Background: Transparent (PNG/WebP only)",
-        @"opaque":      @"Background: Opaque",
-    };
-    for (NSString *val in @[@"auto", @"transparent", @"opaque"]) {
-        NSString *label = [NSString stringWithFormat:@"%@ %@",
-                           [curBg isEqualToString:val] ? @"✓" : @" ", bgs[val]];
-        [sheet addAction:[UIAlertAction actionWithTitle:label
-                                                  style:UIAlertActionStyleDefault
-                                                handler:^(UIAlertAction *_) {
-            [d setObject:val forKey:@"imgBackground"];
-            EZLogf(EZLogLevelInfo, @"IMGSET", @"Background → %@", val);
-        }]];
-    }
-
-    // ── Moderation ───────────────────────────────────────────────────────────
-    for (NSString *val in @[@"auto", @"low"]) {
-        NSString *label = [NSString stringWithFormat:@"%@ Moderation: %@",
-                           [curMod isEqualToString:val] ? @"✓" : @" ", val];
-        [sheet addAction:[UIAlertAction actionWithTitle:label
-                                                  style:UIAlertActionStyleDefault
-                                                handler:^(UIAlertAction *_) {
-            [d setObject:val forKey:@"imgModeration"];
-            EZLogf(EZLogLevelInfo, @"IMGSET", @"Moderation → %@", val);
-        }]];
-    }
-
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Done"
-                                              style:UIAlertActionStyleCancel handler:nil]];
-
-    // iPad support
-    if (sheet.popoverPresentationController) {
-        sheet.popoverPresentationController.sourceView = self.imageSettingsButton;
-        sheet.popoverPresentationController.sourceRect = self.imageSettingsButton.bounds;
-    }
-    [self presentViewController:sheet animated:YES completion:nil];
+    [self presentViewController:nav animated:YES completion:nil];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1687,6 +1758,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)showAttachMenu {
+    // iOS 13 fallback only — on iOS 14+ the UIMenu is set directly on the button
+    // in viewDidLoad via -_configureAttachButtonMenu, so this method is never called there.
     UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Attach File"
                                                                    message:nil
                                                             preferredStyle:UIAlertControllerStyleActionSheet];
@@ -1711,6 +1784,39 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel"
                                              style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:sheet animated:YES completion:nil];
+}
+
+/// Called from viewDidLoad after setupUI on iOS 14+.
+/// Replaces the tap-target with a UIMenu so no alert sheet is needed.
+- (void)_configureAttachButtonMenu API_AVAILABLE(ios(14.0)) {
+    __weak typeof(self) ws = self;
+    UIAction *whisper = [UIAction
+        actionWithTitle:@"Transcribe Audio/Video (Whisper)"
+                  image:[UIImage systemImageNamed:@"waveform"]
+             identifier:nil
+                handler:^(__kindof UIAction *_) { [ws presentFilePickerForMode:EZAttachModeWhisper]; }];
+    UIAction *analyze = [UIAction
+        actionWithTitle:@"Analyze PDF / ePub / Text"
+                  image:[UIImage systemImageNamed:@"doc.text"]
+             identifier:nil
+                handler:^(__kindof UIAction *_) { [ws presentFilePickerForMode:EZAttachModeAnalyze]; }];
+    UIAction *imageFiles = [UIAction
+        actionWithTitle:@"Attach Image from Files"
+                  image:[UIImage systemImageNamed:@"photo.on.rectangle"]
+             identifier:nil
+                handler:^(__kindof UIAction *_) {
+        [ws presentFilePickerForMode:EZAttachModeAnalyze forceTypes:@[UTTypeImage]];
+    }];
+    UIAction *photoLib = [UIAction
+        actionWithTitle:@"Choose from Photo Library"
+                  image:[UIImage systemImageNamed:@"photo.stack"]
+             identifier:nil
+                handler:^(__kindof UIAction *_) { [ws presentPhotoLibraryPicker]; }];
+    // Remove the old tap target so it doesn't fight the menu
+    [self.attachButton removeTarget:self action:@selector(showAttachMenu)
+                   forControlEvents:UIControlEventTouchUpInside];
+    self.attachButton.menu = [UIMenu menuWithTitle:@"" children:@[whisper, analyze, imageFiles, photoLib]];
+    self.attachButton.showsMenuAsPrimaryAction = YES;
 }
 
 - (void)presentFilePickerForMode:(EZAttachMode)mode {
@@ -2133,8 +2239,8 @@ NSString *text = self.messageTextField.text;
 
     [self appendToChat:[NSString stringWithFormat:@"You: %@", text]];
     [self.chatContext addObject:@{@"role": @"user", @"content": fullPrompt}];
+    [self.view endEditing:YES];   // resign first → textViewDidEndEditing collapses input
     [self setInputText:@""];
-    [self.view endEditing:YES];
 
     NSString *apiKey = [EZKeyVault loadKeyForIdentifier:EZVaultKeyOpenAI];
 
@@ -3439,52 +3545,30 @@ NSString *text = self.messageTextField.text;
 }
 
 - (void)showModelPicker {
-    NSDictionary *labels = @{
-        @"gpt-5-pro":    @"💬 Chat + 👁 Vision",
-        @"gpt-5":        @"💬 Chat + 👁 Vision",
-        @"gpt-5-mini":   @"💬 Chat + 👁 Vision",
-        @"gpt-4o":       @"💬 Chat + 👁 Vision ⭐",
-        @"gpt-4o-mini":  @"💬 Chat + 👁 Vision (fast)",
-        @"gpt-4-turbo":  @"💬 Chat + 👁 Vision",
-        @"gpt-4":        @"💬 Chat + 👁 Vision",
-        @"gpt-3.5-turbo":@"💬 Chat only",
-        @"gpt-image-1.5":        @"🖼 Image gen (newest)",
-        @"gpt-image-1":          @"🖼 Image gen + ✏️ Edit",
-        @"gpt-image-1-mini":     @"🖼 Image gen (fast/cheap)",
-        @"chatgpt-image-latest": @"🖼 ChatGPT image (latest)",
-        @"dall-e-3":             @"🖼 Image gen only (legacy)",
-        @"sora-2":       @"🎬 Video gen (4/8/12/16s)",
-        @"sora-2-pro":   @"🎬 Video gen HQ (5/10/15/20s)",
-        @"whisper-1":    @"🎙 Audio transcription only"
+    EZModelPickerViewController *picker = [[EZModelPickerViewController alloc]
+        initWithModels:self.models selectedModel:self.selectedModel];
+    __weak typeof(self) ws = self;
+    picker.onModelSelected = ^(NSString *model) {
+        if ([ws.selectedModel isEqualToString:@"gpt-image-1-edit"] ||
+            [ws.selectedModel isEqualToString:@"dall-e-2-edit"]) {
+            ws.pendingImagePath = nil;
+        }
+        ws.selectedModel = model;
+        [ws.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", model]
+                        forState:UIControlStateNormal];
+        [[NSUserDefaults standardUserDefaults] setObject:model forKey:@"selectedModel"];
+        ws.imageSettingsButton.hidden = !([ws isGptImage1Family:model] ||
+                                          [model isEqualToString:@"dall-e-3"]);
+        EZLogf(EZLogLevelInfo, @"APP", @"Model → %@", model);
     };
-
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Select Model"
-                                                                   message:nil
-                                                            preferredStyle:UIAlertControllerStyleActionSheet];
-    for (NSString *model in self.models) {
-        NSString *cap   = labels[model] ?: @"";
-        NSString *title = cap.length > 0
-            ? [NSString stringWithFormat:@"%@  —  %@", model, cap]
-            : model;
-        [alert addAction:[UIAlertAction actionWithTitle:title
-                                                 style:UIAlertActionStyleDefault
-                                               handler:^(UIAlertAction *action) {
-            if ([self.selectedModel isEqualToString:@"gpt-image-1-edit"] ||
-                [self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
-                self.pendingImagePath = nil;
-            }
-            self.selectedModel = model;
-            [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", model]
-                              forState:UIControlStateNormal];
-            [[NSUserDefaults standardUserDefaults] setObject:model forKey:@"selectedModel"];
-            // Show image settings button only when an image generation model is active
-            self.imageSettingsButton.hidden = !([self isGptImage1Family:model] ||
-                                               [model isEqualToString:@"dall-e-3"]);
-            EZLogf(EZLogLevelInfo, @"APP", @"Model → %@", model);
-        }]];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:picker];
+    if (@available(iOS 15.0, *)) {
+        UISheetPresentationController *sheet = nav.sheetPresentationController;
+        sheet.detents = @[UISheetPresentationControllerDetent.mediumDetent,
+                          UISheetPresentationControllerDetent.largeDetent];
+        sheet.prefersGrabberVisible = YES;
     }
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [self presentViewController:nav animated:YES completion:nil];
 }
 
 - (void)persistImagePath:(NSString *)path prompt:(NSString *)prompt {
