@@ -154,6 +154,13 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) NSTimer       *statusBannerTimer;
 @property (nonatomic, assign) NSInteger      statusBannerPhase;
 - (void)setupKeyboardObservers;
+
+// History drawer (slide-in panel from left)
+@property (nonatomic, strong) UIView                 *drawerContainerView;
+@property (nonatomic, strong) UIView                 *drawerDimView;
+@property (nonatomic, strong) UINavigationController *drawerNavController;
+@property (nonatomic, strong) NSLayoutConstraint     *drawerLeadingConstraint;
+@property (nonatomic, assign) BOOL                    drawerOpen;
 @end
 
 
@@ -494,7 +501,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     _langLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [header addSubview:_langLabel];
 
-    // Share button (todo #5)
+    // Share button 
     _shareBtn = [UIButton buttonWithType:UIButtonTypeSystem];
     [_shareBtn setImage:[UIImage systemImageNamed:@"square.and.arrow.up"] forState:UIControlStateNormal];
     _shareBtn.tintColor = [UIColor colorWithWhite:0.8 alpha:1.0];
@@ -818,6 +825,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 - (BOOL)isGptImage1Family:(NSString *)model;
 - (void)analyzeFile:(NSURL *)fileURL;
 - (void)setupKeyboardObservers;
+- (void)closeDrawer;
 @end
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1119,7 +1127,7 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
              "When the user references a previous file, image, or conversation, use the context provided. "
              "When providing code, always do so inside a codeblock, with the language and filename(or snippet name),"
               "as that will both create a code block and a new file the user can export."
-             "You can display images by providing their exact local file path starting with \@\"EZPrefix/\". "
+             "You can display images by providing their exact local file path starting with \"EZPrefix/\". "
              "Be direct, specific and concise in responses, unless directed otherwise."
                      forKey:@"systemMessage"];
     }
@@ -1229,6 +1237,7 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)chatHistoryDidSelectThread:(EZChatThread *)thread {
+    [self closeDrawer];
     [self.chatContext removeAllObjects];
     [self.chatContext addObjectsFromArray:thread.chatContext];
     [self.displayMessages removeAllObjects];
@@ -1425,6 +1434,7 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
     // Speak last AI response
     self.speakButton     = [self _iconButton:@"speaker.wave.2.fill" tint:nil
                                       action:@selector(speakLastResponse)];
+
     
     self.cloningButton = [self _iconButton:@"doc.richtext" tint:nil action:@selector(openCloning)];
     
@@ -1515,6 +1525,15 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
     self.inputContainer.backgroundColor = [UIColor secondarySystemBackgroundColor];
     self.inputContainer.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.inputContainer];
+    
+        // Dictate button
+        self.dictateButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        [self.dictateButton setImage:[UIImage systemImageNamed:@"mic.fill"] forState:UIControlStateNormal];
+        [self.dictateButton setTintColor:[UIColor systemBlueColor]];
+        [self.dictateButton addTarget:self action:@selector(toggleDictation)
+                     forControlEvents:UIControlEventTouchUpInside];
+        self.dictateButton.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.inputContainer addSubview:self.dictateButton];
 
     // Model picker button
     self.modelButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -1534,21 +1553,14 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
     self.attachButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.inputContainer addSubview:self.attachButton];
 
-    // Dictate button
-    self.dictateButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [self.dictateButton setImage:[UIImage systemImageNamed:@"mic.fill"] forState:UIControlStateNormal];
-    [self.dictateButton setTintColor:[UIColor systemBlueColor]];
-    [self.dictateButton addTarget:self action:@selector(toggleDictation)
-                 forControlEvents:UIControlEventTouchUpInside];
-    self.dictateButton.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.inputContainer addSubview:self.dictateButton];
+    
 
     // Message input — UITextView so it can expand to multiple lines.
     // Wrapped in a rounded container view to replicate UITextBorderStyleRoundedRect look.
     UIView *inputWrapper = [[UIView alloc] init];
     inputWrapper.backgroundColor   = [UIColor systemBackgroundColor];
     inputWrapper.layer.cornerRadius = 10.0;
-    inputWrapper.layer.borderWidth  = 1;
+    inputWrapper.layer.borderWidth  = 1.5;
     inputWrapper.layer.borderColor  = [UIColor separatorColor].CGColor;
     inputWrapper.clipsToBounds      = YES;
     inputWrapper.translatesAutoresizingMaskIntoConstraints = NO;
@@ -1563,6 +1575,10 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
     self.messageTextField.delegate              = self;
     self.messageTextField.returnKeyType         = UIReturnKeyDefault;
     self.messageTextField.translatesAutoresizingMaskIntoConstraints = NO;
+    
+    self.messageTextField.layer.cornerRadius = 10;
+    self.messageTextField.layer.masksToBounds = YES;
+    self.messageTextField.layer.borderColor = [UIColor secondaryLabelColor];
 
     // Placeholder label — UITextView has no built-in placeholder
     UILabel *placeholder = [[UILabel alloc] init];
@@ -1823,10 +1839,98 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)openHistory {
-    ChatHistoryViewController *vc = [[ChatHistoryViewController alloc] initWithStyle:UITableViewStylePlain];
-    vc.delegate = self;
-    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
-    [self presentViewController:nav animated:YES completion:nil];
+    if (self.drawerOpen) { [self closeDrawer]; return; }
+
+    // ── Lazy build — only on first open ──────────────────────────────────────
+    if (!self.drawerContainerView) {
+        CGFloat drawerWidth = self.view.bounds.size.width * 0.75;
+
+        // Dim overlay — full screen, tap anywhere right of drawer to close
+        self.drawerDimView = [[UIView alloc] init];
+        self.drawerDimView.backgroundColor = [UIColor colorWithWhite:0 alpha:0.45];
+        self.drawerDimView.alpha = 0;
+        self.drawerDimView.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.view addSubview:self.drawerDimView];
+        [NSLayoutConstraint activateConstraints:@[
+            [self.drawerDimView.topAnchor     constraintEqualToAnchor:self.view.topAnchor],
+            [self.drawerDimView.bottomAnchor  constraintEqualToAnchor:self.view.bottomAnchor],
+            [self.drawerDimView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+            [self.drawerDimView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        ]];
+        UITapGestureRecognizer *dimTap = [[UITapGestureRecognizer alloc]
+            initWithTarget:self action:@selector(closeDrawer)];
+        [self.drawerDimView addGestureRecognizer:dimTap];
+
+        // Drawer container — slides in from left
+        self.drawerContainerView = [[UIView alloc] init];
+        self.drawerContainerView.backgroundColor = [UIColor systemBackgroundColor];
+        self.drawerContainerView.translatesAutoresizingMaskIntoConstraints = NO;
+        self.drawerContainerView.layer.shadowColor   = [UIColor blackColor].CGColor;
+        self.drawerContainerView.layer.shadowOpacity = 0.22;
+        self.drawerContainerView.layer.shadowRadius  = 14;
+        self.drawerContainerView.layer.shadowOffset  = CGSizeMake(6, 0);
+        [self.view addSubview:self.drawerContainerView];
+
+        // Start fully off-screen to the left
+        self.drawerLeadingConstraint = [self.drawerContainerView.leadingAnchor
+            constraintEqualToAnchor:self.view.leadingAnchor constant:-drawerWidth];
+        [NSLayoutConstraint activateConstraints:@[
+            self.drawerLeadingConstraint,
+            [self.drawerContainerView.topAnchor    constraintEqualToAnchor:self.view.topAnchor],
+            [self.drawerContainerView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+            [self.drawerContainerView.widthAnchor  constraintEqualToConstant:drawerWidth],
+        ]];
+
+        // Embed ChatHistoryViewController as a child VC
+        ChatHistoryViewController *historyVC = [[ChatHistoryViewController alloc]
+            initWithStyle:UITableViewStylePlain];
+        historyVC.delegate = self;
+        self.drawerNavController = [[UINavigationController alloc]
+            initWithRootViewController:historyVC];
+        [self addChildViewController:self.drawerNavController];
+        self.drawerNavController.view.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.drawerContainerView addSubview:self.drawerNavController.view];
+        [NSLayoutConstraint activateConstraints:@[
+            [self.drawerNavController.view.topAnchor    constraintEqualToAnchor:self.drawerContainerView.topAnchor],
+            [self.drawerNavController.view.bottomAnchor constraintEqualToAnchor:self.drawerContainerView.bottomAnchor],
+            [self.drawerNavController.view.leadingAnchor constraintEqualToAnchor:self.drawerContainerView.leadingAnchor],
+            [self.drawerNavController.view.trailingAnchor constraintEqualToAnchor:self.drawerContainerView.trailingAnchor],
+        ]];
+        [self.drawerNavController didMoveToParentViewController:self];
+        [self.view layoutIfNeeded];
+    }
+
+    // ── Animate in ───────────────────────────────────────────────────────────
+    self.drawerOpen = YES;
+    self.drawerDimView.hidden = NO;
+    self.drawerLeadingConstraint.constant = 0;
+    [UIView animateWithDuration:0.32
+                          delay:0
+         usingSpringWithDamping:0.88
+          initialSpringVelocity:0.4
+                        options:UIViewAnimationOptionCurveEaseOut
+                     animations:^{
+        self.drawerDimView.alpha = 1.0;
+        [self.view layoutIfNeeded];
+    } completion:nil];
+}
+
+- (void)closeDrawer {
+    if (!self.drawerOpen) return;
+    self.drawerOpen = NO;
+    CGFloat drawerWidth = self.drawerContainerView.bounds.size.width;
+    self.drawerLeadingConstraint.constant = -drawerWidth;
+    [UIView animateWithDuration:0.26
+                          delay:0
+         usingSpringWithDamping:1.0
+          initialSpringVelocity:0
+                        options:UIViewAnimationOptionCurveEaseIn
+                     animations:^{
+        self.drawerDimView.alpha = 0;
+        [self.view layoutIfNeeded];
+    } completion:^(BOOL _) {
+        self.drawerDimView.hidden = YES;
+    }];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
