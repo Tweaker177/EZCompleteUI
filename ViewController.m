@@ -984,6 +984,83 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
 }
 @end
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - EZAttachMenuViewController
+// Replaces the attach action sheet with a grouped UITableView sheet.
+// ─────────────────────────────────────────────────────────────────────────────
+
+typedef void (^EZAttachAction)(void);
+
+@interface EZAttachMenuViewController : UITableViewController
+@property (nonatomic, copy) EZAttachAction onWhisper;
+@property (nonatomic, copy) EZAttachAction onAnalyze;
+@property (nonatomic, copy) EZAttachAction onImageFiles;
+@property (nonatomic, copy) EZAttachAction onPhotoLibrary;
+@end
+
+@implementation EZAttachMenuViewController
+
+static NSArray<NSDictionary *> *EZAttachRows(void) {
+    return @[
+        @{ @"title": @"Transcribe Audio / Video",   @"subtitle": @"Whisper transcription",         @"icon": @"waveform" },
+        @{ @"title": @"Analyze PDF / ePub / Text File",  @"subtitle": @"Extracts and summarizes text",   @"icon": @"doc.text" },
+        @{ @"title": @"Attach Image from Files",    @"subtitle": @"Vision analysis or image edit",  @"icon": @"photo.on.rectangle" },
+        @{ @"title": @"Choose from Photo Library",  @"subtitle": @"Pick a photo from your library", @"icon": @"photo.stack" },
+    ];
+}
+
+- (instancetype)init {
+    return [super initWithStyle:UITableViewStyleInsetGrouped];
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"Attach";
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
+                             target:self action:@selector(_dismiss)];
+}
+
+- (void)_dismiss { [self dismissViewControllerAnimated:YES completion:nil]; }
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 1; }
+
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
+    return (NSInteger)EZAttachRows().count;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
+    UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:@"AttachCell"];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
+                                      reuseIdentifier:@"AttachCell"];
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    }
+    NSDictionary *row = EZAttachRows()[(NSUInteger)ip.row];
+    cell.textLabel.text            = row[@"title"];
+    cell.textLabel.font            = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
+    cell.detailTextLabel.text      = row[@"subtitle"];
+    cell.detailTextLabel.font      = [UIFont systemFontOfSize:13];
+    cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
+    cell.imageView.image           = [UIImage systemImageNamed:row[@"icon"]];
+    cell.imageView.tintColor       = [UIColor systemBlueColor];
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
+    [tv deselectRowAtIndexPath:ip animated:YES];
+    [self dismissViewControllerAnimated:YES completion:^{
+        switch (ip.row) {
+            case 0: if (self.onWhisper)     self.onWhisper();     break;
+            case 1: if (self.onAnalyze)     self.onAnalyze();     break;
+            case 2: if (self.onImageFiles)  self.onImageFiles();  break;
+            case 3: if (self.onPhotoLibrary)self.onPhotoLibrary();break;
+        }
+    }];
+}
+
+@end
+
 
 @implementation ViewController
 
@@ -996,10 +1073,9 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
 
    
     EZLogRotateIfNeeded(512 * 1024);
-    EZLog(EZLogLevelInfo, @"APP", @"EZCompleteUI v6.7 viewDidLoad");
+    EZLog(EZLogLevelInfo, @"APP", @"EZCompleteUI v6.9 viewDidLoad");
     [self setupData];
     [self setupUI];
-    if (@available(iOS 14.0, *)) { [self _configureAttachButtonMenu]; }
     [self setupKeyboardObservers];
     [self setupDictation];
     [self requestSpeechPermissionsIfNeeded];
@@ -1041,10 +1117,10 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
         [defaults setObject:
             @"You are a capable AI assistant with access to the user's conversation history and memories. "
              "When the user references a previous file, image, or conversation, use the context provided. "
-             "If a local file path is provided in your context (e.g. in a memory entry), "
-             "provide it exactly as given — never fabricate paths. "
-             "You can display images by providing their exact local file path starting with /var/mobile/. "
-             "Be direct and specific in responses."
+             "When providing code, always do so inside a codeblock, with the language and filename(or snippet name),"
+              "as that will both create a code block and a new file the user can export."
+             "You can display images by providing their exact local file path starting with \@\"EZPrefix/\". "
+             "Be direct, specific and concise in responses, unless directed otherwise."
                      forKey:@"systemMessage"];
     }
 
@@ -1472,7 +1548,7 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
     UIView *inputWrapper = [[UIView alloc] init];
     inputWrapper.backgroundColor   = [UIColor systemBackgroundColor];
     inputWrapper.layer.cornerRadius = 10.0;
-    inputWrapper.layer.borderWidth  = 0.5;
+    inputWrapper.layer.borderWidth  = 1;
     inputWrapper.layer.borderColor  = [UIColor separatorColor].CGColor;
     inputWrapper.clipsToBounds      = YES;
     inputWrapper.translatesAutoresizingMaskIntoConstraints = NO;
@@ -1524,7 +1600,7 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
     self.inputContainer.layer.borderWidth = 2.0;
     self.inputContainer.layer.borderColor = [UIColor secondaryLabelColor].CGColor;
     self.inputContainer.layer.masksToBounds = YES;
-    self.inputContainer.layer.cornerRadius = 5.0;
+    self.inputContainer.layer.cornerRadius = 10.0;
 
     [self.sendButton setContentCompressionResistancePriority:UILayoutPriorityRequired
                                                      forAxis:UILayoutConstraintAxisHorizontal];
@@ -1609,7 +1685,7 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
 
 - (void)textViewDidBeginEditing:(UITextView *)textView {
     if (textView != self.messageTextField) return;
-    self.messageInputHeightConstraint.constant = 136.0;
+    self.messageInputHeightConstraint.constant = 120.0;  //was 136
     [UIView animateWithDuration:0.25
                           delay:0
          usingSpringWithDamping:0.85
@@ -1677,7 +1753,7 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
         ? [UIColor systemGreenColor] : [UIColor systemGrayColor]];
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Thread Title Editing
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1758,65 +1834,19 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)showAttachMenu {
-    // iOS 13 fallback only — on iOS 14+ the UIMenu is set directly on the button
-    // in viewDidLoad via -_configureAttachButtonMenu, so this method is never called there.
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Attach File"
-                                                                   message:nil
-                                                            preferredStyle:UIAlertControllerStyleActionSheet];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"🎙 Transcribe Audio/Video (Whisper)"
-                                             style:UIAlertActionStyleDefault
-                                           handler:^(UIAlertAction *a) {
-        [self presentFilePickerForMode:EZAttachModeWhisper];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"📄 Analyze PDF / ePub / Text"
-                                             style:UIAlertActionStyleDefault
-                                           handler:^(UIAlertAction *a) {
-        [self presentFilePickerForMode:EZAttachModeAnalyze];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"🖼 Attach Image from Files"
-                                             style:UIAlertActionStyleDefault
-                                           handler:^(UIAlertAction *a) {
-        [self presentFilePickerForMode:EZAttachModeAnalyze forceTypes:@[UTTypeImage]];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"📷 Choose from Photo Library"
-                                             style:UIAlertActionStyleDefault
-                                           handler:^(UIAlertAction *a) { [self presentPhotoLibraryPicker]; }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel"
-                                             style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:sheet animated:YES completion:nil];
-}
-
-/// Called from viewDidLoad after setupUI on iOS 14+.
-/// Replaces the tap-target with a UIMenu so no alert sheet is needed.
-- (void)_configureAttachButtonMenu API_AVAILABLE(ios(14.0)) {
+    EZAttachMenuViewController *vc = [[EZAttachMenuViewController alloc] init];
     __weak typeof(self) ws = self;
-    UIAction *whisper = [UIAction
-        actionWithTitle:@"Transcribe Audio/Video (Whisper)"
-                  image:[UIImage systemImageNamed:@"waveform"]
-             identifier:nil
-                handler:^(__kindof UIAction *_) { [ws presentFilePickerForMode:EZAttachModeWhisper]; }];
-    UIAction *analyze = [UIAction
-        actionWithTitle:@"Analyze PDF / ePub / Text"
-                  image:[UIImage systemImageNamed:@"doc.text"]
-             identifier:nil
-                handler:^(__kindof UIAction *_) { [ws presentFilePickerForMode:EZAttachModeAnalyze]; }];
-    UIAction *imageFiles = [UIAction
-        actionWithTitle:@"Attach Image from Files"
-                  image:[UIImage systemImageNamed:@"photo.on.rectangle"]
-             identifier:nil
-                handler:^(__kindof UIAction *_) {
-        [ws presentFilePickerForMode:EZAttachModeAnalyze forceTypes:@[UTTypeImage]];
-    }];
-    UIAction *photoLib = [UIAction
-        actionWithTitle:@"Choose from Photo Library"
-                  image:[UIImage systemImageNamed:@"photo.stack"]
-             identifier:nil
-                handler:^(__kindof UIAction *_) { [ws presentPhotoLibraryPicker]; }];
-    // Remove the old tap target so it doesn't fight the menu
-    [self.attachButton removeTarget:self action:@selector(showAttachMenu)
-                   forControlEvents:UIControlEventTouchUpInside];
-    self.attachButton.menu = [UIMenu menuWithTitle:@"" children:@[whisper, analyze, imageFiles, photoLib]];
-    self.attachButton.showsMenuAsPrimaryAction = YES;
+    vc.onWhisper     = ^{ [ws presentFilePickerForMode:EZAttachModeWhisper]; };
+    vc.onAnalyze     = ^{ [ws presentFilePickerForMode:EZAttachModeAnalyze]; };
+    vc.onImageFiles  = ^{ [ws presentFilePickerForMode:EZAttachModeAnalyze forceTypes:@[UTTypeImage]]; };
+    vc.onPhotoLibrary= ^{ [ws presentPhotoLibraryPicker]; };
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    if (@available(iOS 15.0, *)) {
+        UISheetPresentationController *sheet = nav.sheetPresentationController;
+        sheet.detents = @[UISheetPresentationControllerDetent.mediumDetent];
+        sheet.prefersGrabberVisible = YES;
+    }
+    [self presentViewController:nav animated:YES completion:nil];
 }
 
 - (void)presentFilePickerForMode:(EZAttachMode)mode {
