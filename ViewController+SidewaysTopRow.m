@@ -6,10 +6,13 @@
 #import "ViewController+SidewaysTopRow.h"
 #import "SidewaysScrollView.h"
 #import <objc/runtime.h>
+#import "helpers.h"
+#import "ViewController.h"
 
-static const void *kTopContainerKey = &kTopContainerKey;
-static const void *kSidewaysKey     = &kSidewaysKey;
-static const void *kInstalledKey    = &kInstalledKey;
+static const void *kTopContainerKey    = &kTopContainerKey;
+static const void *kSidewaysKey        = &kSidewaysKey;
+static const void *kInstalledKey       = &kInstalledKey;
+static const void *kTableTopConstraint = &kTableTopConstraint;
 
 @implementation ViewController (SidewaysTopRow)
 
@@ -22,43 +25,17 @@ static const void *kInstalledKey    = &kInstalledKey;
         SEL swiz1 = @selector(ez_viewDidLoad_swizzled);
         method_exchangeImplementations(class_getInstanceMethod(c, orig1),
                                        class_getInstanceMethod(c, swiz1));
-
-        SEL orig2 = @selector(viewDidLayoutSubviews);
-        SEL swiz2 = @selector(ez_viewDidLayoutSubviews_swizzled);
-        method_exchangeImplementations(class_getInstanceMethod(c, orig2),
-                                       class_getInstanceMethod(c, swiz2));
     });
 }
 
 - (void)ez_viewDidLoad_swizzled {
-    // Call original
     [self ez_viewDidLoad_swizzled];
 
-    // Defer installation to the next runloop to ensure chatTableView exists
     __weak typeof(self) weakSelf = self;
     dispatch_async(dispatch_get_main_queue(), ^{
         [weakSelf ez_installSidewaysIfNeeded];
     });
 }
-/****
-- (void)ez_viewDidLayoutSubviews_swizzled {
-  
-        [self ez_viewDidLayoutSubviews_swizzled];
-        UIView *header = objc_getAssociatedObject(self, kTopContainerKey);
-        if (header && [self.chatTableView.tableHeaderView isEqual:header]) {
-            CGFloat targetW = CGRectGetWidth(self.chatTableView.bounds);
-            if (fabs(header.frame.size.width - targetW) > 0.5) {
-                CGRect f = header.frame;
-                f.size.width = targetW;
-                header.frame = f;
-                self.chatTableView.tableHeaderView = header; // force table to re-measure
-            }
-        }
-    }
-        
-
-   ****/
-
 
 #pragma mark - Install
 
@@ -66,57 +43,71 @@ static const void *kInstalledKey    = &kInstalledKey;
     NSNumber *installed = objc_getAssociatedObject(self, kInstalledKey);
     if (installed.boolValue) return;
     if (!self.chatTableView) return;
+    if (!self.threadTitleLabel) return;
 
-    // Build prototype buttons from known properties if present
     NSMutableArray<UIButton *> *protos = [NSMutableArray array];
 
-    NSArray<NSString *> *names = @[
-        @"modelButton", @"attachButton", @"settingsButton", @"clipboardButton",
-        @"speakButton", @"clearButton", @"imageSettingsButton", @"dictateButton",
-        @"webSearchButton", @"historyButton", @"addChatButton"
-    ];
-    for (NSString *key in names) {
+    NSDictionary<NSString *, NSString *> *buttonLabels = @{
+        @"modelButton":          @"Model",
+        @"attachButton":         @"Attach",
+        @"settingsButton":       @"Settings",
+        @"clipboardButton":      @"Copy",
+        @"clearButton":          @"Clear",
+        @"imageSettingsButton":  @"Img Settings",
+        @"dictateButton":        @"Dictate",
+        @"speakButton":          @"Speak",
+        @"webSearchButton":      @"Web Search",
+        @"historyButton":        @"History",
+        @"addChatButton":        @"New Chat",
+        @"memoriesButton":       @"Memories",
+        @"textToSpeechButton":   @"TTS",
+        @"supportRequestButton": @"Support",
+        @"cloningButton":        @"Clone Voice",
+    };
+
+    for (NSString *key in buttonLabels) {
         @try {
             id obj = [self valueForKey:key];
             if ([obj isKindOfClass:[UIButton class]]) {
                 UIButton *orig = (UIButton *)obj;
                 UIButton *p = [UIButton buttonWithType:UIButtonTypeCustom];
                 p.tag = orig.tag;
-                [p setTitle:[orig titleForState:UIControlStateNormal] forState:UIControlStateNormal];
-                [p setImage:[orig imageForState:UIControlStateNormal] forState:UIControlStateNormal];
-                p.backgroundColor = orig.backgroundColor ?: [UIColor systemBlueColor];
-                p.titleLabel.font = orig.titleLabel.font ?: [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
 
-                // Copy actions to prototype so SidewaysScrollView can clone including actions
+                NSString *label = buttonLabels[key] ?: key;
+                [p setTitle:label forState:UIControlStateNormal];
+                [p setImage:[orig imageForState:UIControlStateNormal]
+                   forState:UIControlStateNormal];
+                p.backgroundColor = orig.backgroundColor ?: [UIColor systemBlueColor];
+                p.titleLabel.font = [UIFont systemFontOfSize:14
+                                                      weight:UIFontWeightSemibold];
+
                 for (id target in orig.allTargets) {
-                    NSArray<NSString *> *actsUp = [orig actionsForTarget:target forControlEvent:UIControlEventTouchUpInside] ?: @[];
+                    NSArray<NSString *> *actsUp = [orig actionsForTarget:target
+                                                        forControlEvent:UIControlEventTouchUpInside] ?: @[];
                     for (NSString *name in actsUp) {
-                        SEL sel = NSSelectorFromString(name);
-                        [p addTarget:target action:sel forControlEvents:UIControlEventTouchUpInside];
+                        [p addTarget:target action:NSSelectorFromString(name)
+                            forControlEvents:UIControlEventTouchUpInside];
                     }
 #ifdef UIControlEventPrimaryActionTriggered
-                    NSArray<NSString *> *actsPrim = [orig actionsForTarget:target forControlEvent:UIControlEventPrimaryActionTriggered] ?: @[];
+                    NSArray<NSString *> *actsPrim = [orig actionsForTarget:target
+                                                          forControlEvent:UIControlEventPrimaryActionTriggered] ?: @[];
                     for (NSString *name in actsPrim) {
-                        SEL sel = NSSelectorFromString(name);
-                        [p addTarget:target action:sel forControlEvents:UIControlEventPrimaryActionTriggered];
+                        [p addTarget:target action:NSSelectorFromString(name)
+                            forControlEvents:UIControlEventPrimaryActionTriggered];
                     }
 #endif
                 }
 
                 [protos addObject:p];
 
-                // Hide the original to avoid visual duplication; keep constraints intact
                 orig.hidden = YES;
                 orig.alpha = 0.0;
                 orig.accessibilityElementsHidden = YES;
             }
-        } @catch (__unused NSException *e) {
-            // Ignore if property doesn't exist
-        }
+        } @catch (__unused NSException *e) {}
     }
 
     if (protos.count == 0) {
-        // Fallback: create some colorful actions so UI is still useful
         NSArray<UIColor *> *colors = @[
             [UIColor colorWithRed:0.95 green:0.38 blue:0.38 alpha:1.0],
             [UIColor colorWithRed:0.95 green:0.70 blue:0.28 alpha:1.0],
@@ -129,29 +120,72 @@ static const void *kInstalledKey    = &kInstalledKey;
         ];
         for (NSInteger i = 0; i < 8; i++) {
             UIButton *p = [UIButton buttonWithType:UIButtonTypeCustom];
-            [p setTitle:[NSString stringWithFormat:@"Action %ld", (long)i+1] forState:UIControlStateNormal];
+            [p setTitle:[NSString stringWithFormat:@"Action %ld", (long)i+1]
+               forState:UIControlStateNormal];
             p.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
             p.backgroundColor = colors[i % colors.count];
             [protos addObject:p];
         }
     }
 
-    // Build header container
-    CGFloat headerH = 120.0; // buttons will be ~240pt tall, centered
-    UIView *container = [[UIView alloc] initWithFrame:CGRectMake(0, 0, CGRectGetWidth(self.view.bounds), headerH)];
-    container.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    // Build container
+    CGFloat headerH = 90.0;
+    UIView *container = [[UIView alloc] init];
+    container.translatesAutoresizingMaskIntoConstraints = NO;
     container.backgroundColor = UIColor.clearColor;
     container.clipsToBounds = NO;
 
-    // Scroller
-    SidewaysScrollView *ssv = [[SidewaysScrollView alloc] initWithFrame:container.bounds];
-    ssv.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    SidewaysScrollView *ssv = [[SidewaysScrollView alloc] initWithFrame:CGRectZero];
+    ssv.translatesAutoresizingMaskIntoConstraints = NO;
     [container addSubview:ssv];
-    [ssv configureWithButtons:protos doubleSize:YES];
+    [NSLayoutConstraint activateConstraints:@[
+        [ssv.topAnchor constraintEqualToAnchor:container.topAnchor],
+        [ssv.bottomAnchor constraintEqualToAnchor:container.bottomAnchor],
+        [ssv.leadingAnchor constraintEqualToAnchor:container.leadingAnchor],
+        [ssv.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
+    ]];
+    [ssv configureWithButtons:protos doubleSize:NO];
 
-    // Install as table header
-    self.chatTableView.tableHeaderView = container;
+    // Add container to self.view -- NOT as tableHeaderView
+    [self.view addSubview:container];
 
+    // Deactivate any existing top constraint on chatTableView --
+    // check both self.view.constraints and threadTitleLabel.constraints
+    // since AL can store the constraint on either view
+    for (NSLayoutConstraint *c in [self.view.constraints copy]) {
+        BOOL tableIsFirst  = (c.firstItem  == self.chatTableView &&
+                              c.firstAttribute  == NSLayoutAttributeTop);
+        BOOL tableIsSecond = (c.secondItem == self.chatTableView &&
+                              c.secondAttribute == NSLayoutAttributeTop);
+        if (tableIsFirst || tableIsSecond) {
+            EZLogf(EZLogLevelDebug, @"EZSideways", @"Deactivating from self.view: %@", c);
+            c.active = NO;
+        }
+    }
+    for (NSLayoutConstraint *c in [self.threadTitleLabel.constraints copy]) {
+        BOOL tableIsFirst  = (c.firstItem  == self.chatTableView &&
+                              c.firstAttribute  == NSLayoutAttributeTop);
+        BOOL tableIsSecond = (c.secondItem == self.chatTableView &&
+                              c.secondAttribute == NSLayoutAttributeTop);
+        if (tableIsFirst || tableIsSecond) {
+            EZLogf(EZLogLevelDebug, @"EZSideways", @"Deactivating from threadTitleLabel: %@", c);
+            c.active = NO;
+        }
+    }
+
+    // Pin container below threadTitleLabel, push chatTableView below container
+    NSLayoutConstraint *tableTop =
+        [self.chatTableView.topAnchor constraintEqualToAnchor:container.bottomAnchor];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [container.topAnchor constraintEqualToAnchor:self.threadTitleLabel.bottomAnchor constant:4],
+        [container.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [container.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [container.heightAnchor constraintEqualToConstant:headerH],
+        tableTop,
+    ]];
+
+    objc_setAssociatedObject(self, kTableTopConstraint, tableTop, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(self, kTopContainerKey, container, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(self, kSidewaysKey, ssv, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(self, kInstalledKey, @(YES), OBJC_ASSOCIATION_RETAIN_NONATOMIC);

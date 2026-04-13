@@ -107,7 +107,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 /// Height constraint on the message input view — animated on focus/blur.
 @property (nonatomic, strong) NSLayoutConstraint *messageInputHeightConstraint;
 /// Tappable label showing the active thread title — tap to rename.
-@property (nonatomic, strong) UILabel       *threadTitleLabel;
+
 /// Button in top bar that triggers renaming.
 @property (nonatomic, strong) UIButton      *renameButton;
 
@@ -1578,7 +1578,7 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
     
     self.messageTextField.layer.cornerRadius = 10;
     self.messageTextField.layer.masksToBounds = YES;
-    self.messageTextField.layer.borderColor = [UIColor secondaryLabelColor];
+    self.messageTextField.layer.borderColor = [UIColor secondaryLabelColor].CGColor;
 
     // Placeholder label — UITextView has no built-in placeholder
     UILabel *placeholder = [[UILabel alloc] init];
