@@ -17,6 +17,7 @@
 
 static const void * kEZCloneNameKey     = &kEZCloneNameKey;
 static const void * kEZPickerPurposeKey = &kEZPickerPurposeKey;
+static NSString * const kHelperTemperatureDefaultsKey = @"helperTemperature";
 
 // Placeholder shown in a key field once a key has been saved
 static NSString * const kAPIKeyMaskedPlaceholder    = @"API key saved — tap to replace";
@@ -44,8 +45,10 @@ static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to
 
 // ── Sliders ───────────────────────────────────────────────────────────────────
 @property (nonatomic, strong) UISlider     *tempSlider;
+@property (nonatomic, strong) UISlider     *helperTempSlider;
 @property (nonatomic, strong) UISlider     *freqSlider;
 @property (nonatomic, strong) UILabel      *tempLabel;
+@property (nonatomic, strong) UILabel      *helperTempLabel;
 @property (nonatomic, strong) UILabel      *freqLabel;
 
 // ── Web search ────────────────────────────────────────────────────────────────
@@ -234,6 +237,8 @@ static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to
     // ── Sliders ───────────────────────────────────────────────────────────
     self.tempLabel  = [self addLabel:@"Temperature: 0.70" y:&y];
     self.tempSlider = [self addSlider:w y:&y min:0 max:2];
+    self.helperTempLabel  = [self addLabel:@"Helper Temperature: 0.20" y:&y];
+    self.helperTempSlider = [self addSlider:w y:&y min:0 max:0.5f];
     self.freqLabel  = [self addLabel:@"Freq Penalty: 0.00" y:&y];
     self.freqSlider = [self addSlider:w y:&y min:-2 max:2];
 
@@ -464,6 +469,8 @@ static NSString * const kELKeyMaskedPlaceholder     = @"API key saved — tap to
 
 - (void)updateLabels {
     self.tempLabel.text = [NSString stringWithFormat:@"Temperature: %.2f", self.tempSlider.value];
+    self.helperTempLabel.text = [NSString stringWithFormat:@"Helper Temperature: %.2f",
+                                 self.helperTempSlider.value];
     self.freqLabel.text = [NSString stringWithFormat:@"Freq Penalty: %.2f", self.freqSlider.value];
 }
 
@@ -959,6 +966,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // ── Non-sensitive settings stay in UserDefaults ───────────────────────────
     self.systemMsgView.text        = [defaults stringForKey:@"systemMessage"] ?: @"";
     self.tempSlider.value          = [defaults floatForKey:@"temperature"] ?: 0.7f;
+    id helperTempRaw = [defaults objectForKey:kHelperTemperatureDefaultsKey];
+    float helperTemp = [helperTempRaw respondsToSelector:@selector(floatValue)]
+        ? [helperTempRaw floatValue]
+        : 0.2f;
+    self.helperTempSlider.value    = MIN(0.5f, MAX(0.0f, helperTemp));
     self.freqSlider.value          = [defaults floatForKey:@"frequency"];
     self.elVoiceField.text         = [defaults stringForKey:@"elevenVoiceID"];
     self.webSearchSwitch.on        = [defaults boolForKey:@"webSearchEnabled"];
@@ -992,6 +1004,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // ── Non-sensitive settings ────────────────────────────────────────────────
     [defaults setObject:self.systemMsgView.text      forKey:@"systemMessage"];
     [defaults setFloat:self.tempSlider.value         forKey:@"temperature"];
+    [defaults setFloat:self.helperTempSlider.value   forKey:kHelperTemperatureDefaultsKey];
     [defaults setFloat:self.freqSlider.value         forKey:@"frequency"];
     [defaults setObject:self.elVoiceField.text       forKey:@"elevenVoiceID"];
     [defaults setBool:self.webSearchSwitch.isOn      forKey:@"webSearchEnabled"];

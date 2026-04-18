@@ -56,7 +56,7 @@
         // Big, easy-to-hit cards. Height is doubled if requested.
         self.buttonHeight = self.doubleSize ? (h * 2.0) : h;
         // Slightly wider than tall so titles fit nicely.
-        self.buttonWidth  = MAX(88.0, self.buttonHeight * 1.1);
+        self.buttonWidth  = MAX(88.0, self.buttonHeight * 1.5);
 
         [self rebuildContent];
     }

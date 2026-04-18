@@ -161,6 +161,13 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) UINavigationController *drawerNavController;
 @property (nonatomic, strong) NSLayoutConstraint     *drawerLeadingConstraint;
 @property (nonatomic, assign) BOOL                    drawerOpen;
+
+// Memories drawer (slide-in panel from right)
+@property (nonatomic, strong) UIView                 *memoriesDrawerContainerView;
+@property (nonatomic, strong) UIView                 *memoriesDrawerDimView;
+@property (nonatomic, strong) UINavigationController *memoriesDrawerNavController;
+@property (nonatomic, strong) NSLayoutConstraint     *memoriesDrawerTrailingConstraint;
+@property (nonatomic, assign) BOOL                    memoriesDrawerOpen;
 @end
 
 
@@ -1090,6 +1097,9 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
     [[NSNotificationCenter defaultCenter] addObserver:self
         selector:@selector(resumePendingSoraJobIfNeeded)
         name:@"EZAppDidBecomeActive" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(handleOpenChatThread:)
+        name:@"EZOpenChatThread" object:nil];
 }
 
 - (void)setupData {
@@ -1285,6 +1295,64 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
     [self updateThreadTitleLabel];
     EZLogf(EZLogLevelInfo, @"THREAD", @"Restored: %@ (%lu turns)",
            thread.threadID, (unsigned long)self.chatContext.count);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - EZOpenChatThread notification (from MemoriesViewController)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Handles the "EZOpenChatThread" notification posted by MemoriesViewController
+/// when the user taps a memory's timestamp label.
+///
+/// userInfo[@"threadID"] is the stem of the thread filename WITHOUT the .json
+/// extension, using dashes for the time component, e.g. "2026-04-05T14-29-20".
+/// EZChatThread.threadID uses colons internally ("2026-04-05T14:29:20"), so we
+/// normalise before calling EZThreadLoad.
+- (void)handleOpenChatThread:(NSNotification *)notification {
+    NSString *rawID = notification.userInfo[@"threadID"];
+    if (!rawID.length) {
+        EZLog(EZLogLevelWarning, @"THREAD", @"handleOpenChatThread: missing threadID");
+        return;
+    }
+
+    // Normalise: the memory helper emits "yyyy-MM-dd'T'HH-mm-ss" (dashes in
+    // the time part).  EZChatThread.threadID and EZThreadLoad expect colons.
+    // Replace only the time-separator dashes (after the 'T') with colons.
+    NSString *threadID = rawID;
+    NSRange tRange = [rawID rangeOfString:@"T"];
+    if (tRange.location != NSNotFound) {
+        NSString *datePart = [rawID substringToIndex:tRange.location + 1]; // "yyyy-MM-ddT"
+        NSString *timePart = [rawID substringFromIndex:tRange.location + 1]; // "HH-mm-ss"
+        timePart  = [timePart stringByReplacingOccurrencesOfString:@"-" withString:@":"];
+        threadID  = [datePart stringByAppendingString:timePart];
+    }
+
+    EZLogf(EZLogLevelInfo, @"THREAD", @"Opening thread from memory tap: %@", threadID);
+
+    // Save current work before switching away
+    [self saveActiveThread];
+
+    // Load the requested thread via the helpers API
+    EZChatThread *thread = EZThreadLoad(threadID);
+    if (!thread) {
+        EZLogf(EZLogLevelWarning, @"THREAD", @"EZThreadLoad returned nil for: %@", threadID);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            UIAlertController *a = [UIAlertController
+                alertControllerWithTitle:@"Thread Not Found"
+                                 message:[NSString stringWithFormat:
+                                    @"Could not load thread %@ \n\nThe file may have been deleted.", threadID]
+                          preferredStyle:UIAlertControllerStyleAlert];
+            [a addAction:[UIAlertAction actionWithTitle:@"OK"
+                                                  style:UIAlertActionStyleDefault handler:nil]];
+            [self presentViewController:a animated:YES completion:nil];
+        });
+        return;
+    }
+
+    // Hand off to the existing delegate method which rebuilds the full UI
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self chatHistoryDidSelectThread:thread];
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1839,6 +1907,9 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)openHistory {
+    if (self.memoriesDrawerOpen) {
+        [self closeMemoriesDrawerWithCompletion:nil];
+    }
     if (self.drawerOpen) { [self closeDrawer]; return; }
 
     // ── Lazy build — only on first open ──────────────────────────────────────
@@ -1930,6 +2001,33 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
         [self.view layoutIfNeeded];
     } completion:^(BOOL _) {
         self.drawerDimView.hidden = YES;
+    }];
+}
+
+- (void)closeMemoriesDrawer {
+    [self closeMemoriesDrawerWithCompletion:nil];
+}
+
+- (void)closeMemoriesDrawerWithCompletion:(dispatch_block_t)completion {
+    if (!self.memoriesDrawerOpen) {
+        if (completion) completion();
+        return;
+    }
+
+    self.memoriesDrawerOpen = NO;
+    CGFloat drawerWidth = self.memoriesDrawerContainerView.bounds.size.width;
+    self.memoriesDrawerTrailingConstraint.constant = drawerWidth;
+    [UIView animateWithDuration:0.26
+                          delay:0
+         usingSpringWithDamping:1.0
+          initialSpringVelocity:0
+                        options:UIViewAnimationOptionCurveEaseIn
+                     animations:^{
+        self.memoriesDrawerDimView.alpha = 0;
+        [self.view layoutIfNeeded];
+    } completion:^(BOOL _) {
+        self.memoriesDrawerDimView.hidden = YES;
+        if (completion) completion();
     }];
 }
 
@@ -2810,23 +2908,30 @@ NSString *text = self.messageTextField.text;
     NSString *imgQuality = [imgDefaults stringForKey:@"imgQuality"] ?: @"auto";
     NSString *imgFormat  = [imgDefaults stringForKey:@"imgFormat"]  ?: @"png";
     NSString *imgBg      = [imgDefaults stringForKey:@"imgBackground"] ?: @"auto";
-    NSString *imgMod     = [imgDefaults stringForKey:@"imgModeration"] ?: @"auto";
+    
     // Use the actual selected model so gpt-image-1.5, -mini, chatgpt-image-latest all work
     NSString *imgModel   = self.selectedModel;
     if ([imgModel isEqualToString:@"gpt-image-1-edit"]) imgModel = @"gpt-image-1";
     NSMutableDictionary *imgParams = [@{
-        @"model":         imgModel,
-        @"prompt":        prompt,
-        @"n":             @1,
-        @"size":          imgSize,
-        @"quality":       imgQuality,
-        @"output_format": imgFormat,
-        @"background":    imgBg,
-        @"moderation":    imgMod,
+        @"model":           imgModel,
+        @"prompt":          prompt,
+        @"n":               @1,
+        @"size":            imgSize,
+        @"quality":         imgQuality,
+        @"output_format":   imgFormat
     } mutableCopy];
+
+    // background is only valid when output_format supports transparency (png/webp).
+    // Skip it when format is jpeg to avoid an API error.
+    if (![imgFormat isEqualToString:@"jpeg"]) {
+        imgParams[@"background"] = imgBg;
+    }
+    // NOTE: "moderation" is NOT a valid parameter for the generations endpoint —
+    // it is edits-only. Removed entirely.
+
     // output_format=png always returns b64_json for gpt-image-1 family.
     // Request b64 explicitly so we can save directly without a second download.
-    imgParams[@"response_format"] = @"b64_json";
+    //imgParams[@"response_format"] = @"b64_json";
     req.HTTPBody = [NSJSONSerialization dataWithJSONObject:imgParams options:0 error:nil];
 
     NSString *savedPrompt = prompt;
@@ -2929,6 +3034,7 @@ NSString *text = self.messageTextField.text;
     NSString *editQual   = [editDefaults stringForKey:@"imgQuality"]    ?: @"auto";
     NSString *editFmt    = [editDefaults stringForKey:@"imgFormat"]     ?: @"png";
     NSString *editBg     = [editDefaults stringForKey:@"imgBackground"] ?: @"auto";
+    NSString *editModeration = [editDefaults stringForKey:@"imgModeration"] ?: @"low";
 
     // Helper block to append a form field
     void (^addField)(NSString *, NSString *) = ^(NSString *name, NSString *value) {
@@ -2943,6 +3049,7 @@ NSString *text = self.messageTextField.text;
     addField(@"quality",       editQual);
     addField(@"output_format", editFmt);
     addField(@"background",    editBg);
+    addField(@"moderation",    editModeration);
     [body appendData:[[NSString stringWithFormat:@"--%@--\r\n", boundary]
                      dataUsingEncoding:NSUTF8StringEncoding]];
     req.HTTPBody = body;
@@ -3723,7 +3830,7 @@ NSString *text = self.messageTextField.text;
 
     NSArray *reopenSignals = @[
         @"again", @"reopen", @"re-open", @"pull up", @"pull it up",
-        @"show it", @"display it", @"view it", @"see it again",
+        @"see it again",
         @"missed it", @"didn't see", @"can't see", @"lost it",
         @"bring it back", @"show me again", @"display again",
         @"open it again", @"show that image", @"that image again",
@@ -3733,8 +3840,7 @@ NSString *text = self.messageTextField.text;
     NSArray *generateSignals = @[
         @"create", @"generate", @"make", @"draw", @"paint",
         @"a picture of", @"an image of", @"image of", @"picture of",
-        @"new image", @"different image"
-    ];
+        @"new image"];
 
     NSArray *editSignals = @[
         @"edit", @"change", @"modify", @"adjust", @"alter",
@@ -4215,9 +4321,89 @@ NSString *text = self.messageTextField.text;
 }
 
 - (void)openMemories {
-    UINavigationController *nav = [[UINavigationController alloc]
-        initWithRootViewController:[[MemoriesViewController alloc] init]];
-    [self presentViewController:nav animated:YES completion:nil];
+    if (self.drawerOpen) {
+        [self closeDrawer];
+    }
+    if (self.memoriesDrawerOpen) {
+        [self closeMemoriesDrawerWithCompletion:nil];
+        return;
+    }
+
+    if (!self.memoriesDrawerContainerView) {
+        CGFloat drawerWidth = self.view.bounds.size.width * 0.75;
+
+        self.memoriesDrawerDimView = [[UIView alloc] init];
+        self.memoriesDrawerDimView.backgroundColor = [UIColor colorWithWhite:0 alpha:0.45];
+        self.memoriesDrawerDimView.alpha = 0;
+        self.memoriesDrawerDimView.hidden = YES;
+        self.memoriesDrawerDimView.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.view addSubview:self.memoriesDrawerDimView];
+        [NSLayoutConstraint activateConstraints:@[
+            [self.memoriesDrawerDimView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+            [self.memoriesDrawerDimView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+            [self.memoriesDrawerDimView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+            [self.memoriesDrawerDimView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        ]];
+        UITapGestureRecognizer *dimTap = [[UITapGestureRecognizer alloc]
+            initWithTarget:self action:@selector(closeMemoriesDrawer)];
+        [self.memoriesDrawerDimView addGestureRecognizer:dimTap];
+
+        self.memoriesDrawerContainerView = [[UIView alloc] init];
+        self.memoriesDrawerContainerView.backgroundColor = [UIColor systemBackgroundColor];
+        self.memoriesDrawerContainerView.translatesAutoresizingMaskIntoConstraints = NO;
+        self.memoriesDrawerContainerView.layer.shadowColor = [UIColor blackColor].CGColor;
+        self.memoriesDrawerContainerView.layer.shadowOpacity = 0.22;
+        self.memoriesDrawerContainerView.layer.shadowRadius = 14;
+        self.memoriesDrawerContainerView.layer.shadowOffset = CGSizeMake(-6, 0);
+        [self.view addSubview:self.memoriesDrawerContainerView];
+
+        self.memoriesDrawerTrailingConstraint = [self.memoriesDrawerContainerView.trailingAnchor
+            constraintEqualToAnchor:self.view.trailingAnchor constant:drawerWidth];
+        [NSLayoutConstraint activateConstraints:@[
+            self.memoriesDrawerTrailingConstraint,
+            [self.memoriesDrawerContainerView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+            [self.memoriesDrawerContainerView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+            [self.memoriesDrawerContainerView.widthAnchor constraintEqualToConstant:drawerWidth],
+        ]];
+
+        MemoriesViewController *memoriesVC = [[MemoriesViewController alloc] init];
+        __weak typeof(self) weakSelf = self;
+        memoriesVC.closeRequestHandler = ^(dispatch_block_t completion) {
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            if (!strongSelf) {
+                if (completion) completion();
+                return;
+            }
+            [strongSelf closeMemoriesDrawerWithCompletion:completion];
+        };
+
+        self.memoriesDrawerNavController = [[UINavigationController alloc]
+            initWithRootViewController:memoriesVC];
+        [self addChildViewController:self.memoriesDrawerNavController];
+        self.memoriesDrawerNavController.view.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.memoriesDrawerContainerView addSubview:self.memoriesDrawerNavController.view];
+        [NSLayoutConstraint activateConstraints:@[
+            [self.memoriesDrawerNavController.view.topAnchor constraintEqualToAnchor:self.memoriesDrawerContainerView.topAnchor],
+            [self.memoriesDrawerNavController.view.bottomAnchor constraintEqualToAnchor:self.memoriesDrawerContainerView.bottomAnchor],
+            [self.memoriesDrawerNavController.view.leadingAnchor constraintEqualToAnchor:self.memoriesDrawerContainerView.leadingAnchor],
+            [self.memoriesDrawerNavController.view.trailingAnchor constraintEqualToAnchor:self.memoriesDrawerContainerView.trailingAnchor],
+        ]];
+        [self.memoriesDrawerNavController didMoveToParentViewController:self];
+        [self.view layoutIfNeeded];
+    }
+
+    self.memoriesDrawerOpen = YES;
+    self.memoriesDrawerDimView.hidden = NO;
+    self.memoriesDrawerTrailingConstraint.constant = 0;
+    [UIView animateWithDuration:0.32
+                          delay:0
+         usingSpringWithDamping:0.88
+          initialSpringVelocity:0.4
+                        options:UIViewAnimationOptionCurveEaseOut
+                     animations:^{
+        self.memoriesDrawerDimView.alpha = 1.0;
+        [self.view layoutIfNeeded];
+    } completion:nil];
 }
 
 - (void)openTTS {
@@ -4358,4 +4544,3 @@ static inline void ezka_setBG(id vc, UIBackgroundTaskIdentifier t) {
 }
 */
 //@end
-

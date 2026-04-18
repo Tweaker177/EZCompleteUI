@@ -5,6 +5,8 @@ APP_NAME="EZCompleteUI"
 STAGED_APP=".theos/_/Applications/${APP_NAME}.app"
 STAGED_PLIST="${STAGED_APP}/Info.plist"
 SAVED_APP="/tmp/${APP_NAME}_patched.app"
+export XDG_CACHE_HOME="${PWD}/.cache"
+mkdir -p "${XDG_CACHE_HOME}/clang/ModuleCache"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # patch_plist <path>

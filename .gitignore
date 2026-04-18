@@ -1,0 +1,11 @@
+.deb
+.ipa
+.theos
+.bak
+.cache
+.git
+/packages/
+EZKeyVault.m
+/junkcopies/
+*[0-9].*
+[0-9]*.*

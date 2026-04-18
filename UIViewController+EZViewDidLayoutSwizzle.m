@@ -2,9 +2,11 @@
 #import <objc/runtime.h>
 #import <objc/message.h>
 
+
+
 /// Single TU-local key for associated object storage used in this file.
 /// If other files also need this same key, move this to a shared header as `extern` and define once.
-static const void *kTopContainerKey = &kTopContainerKey;
+ const void *kTopContainerKey = &kTopContainerKey;
 
 static UITableView *EZFindFirstTableView(UIView *root) {
     if (!root) return nil;
@@ -38,7 +40,7 @@ static UITableView *EZFindFirstTableView(UIView *root) {
 
 - (void)ez_viewDidLayoutSubviews {
     // Call the original implementation (swizzled)
-    [self viewDidLayoutSubviews];
+    [self ez_viewDidLayoutSubviews];
 
     // Retrieve the associated header view (if any)
     UIView *header = objc_getAssociatedObject(self, kTopContainerKey);

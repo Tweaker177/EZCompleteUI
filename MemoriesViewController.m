@@ -16,6 +16,7 @@
 @protocol EZMemoryCellDelegate <NSObject>
 - (void)cellDidEndEditingWithText:(NSString *)text atIndex:(NSUInteger)index;
 - (void)cellDidTapAttachmentAtIndex:(NSUInteger)index;
+- (void)cellDidTapTimestampAtIndex:(NSUInteger)index;
 @end
 
 @interface EZMemoryCell : UITableViewCell <UITextViewDelegate>
@@ -76,11 +77,15 @@
         [card.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-12],
     ]];
 
-    // ── Timestamp — prominent, not faint ─────────────────────────────────────
+    // ── Timestamp — tappable link to source thread ────────────────────────────
     _timestampLabel = [[UILabel alloc] init];
     _timestampLabel.font      = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightSemibold];
     _timestampLabel.textColor = [UIColor systemBlueColor];
     _timestampLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    _timestampLabel.userInteractionEnabled = YES;
+    UITapGestureRecognizer *tsTap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(timestampTapped)];
+    [_timestampLabel addGestureRecognizer:tsTap];
     [card addSubview:_timestampLabel];
 
     // ── Thumbnail ─────────────────────────────────────────────────────────────
@@ -238,6 +243,10 @@
     });
 }
 
+- (void)timestampTapped {
+    [self.memoryDelegate cellDidTapTimestampAtIndex:self.memoryIndex];
+}
+
 - (void)attachmentTapped {
     [self.memoryDelegate cellDidTapAttachmentAtIndex:self.memoryIndex];
 }
@@ -274,12 +283,18 @@
 
 @interface MemoriesViewController () <UITableViewDelegate,
                                       UITableViewDataSource,
+                                      UISearchBarDelegate,
                                       EZMemoryCellDelegate,
                                       QLPreviewControllerDataSource,
                                       QLPreviewControllerDelegate>
 
+@property (nonatomic, strong) NSArray<NSMutableDictionary *> *displayedMemories;
+
+
 @property (nonatomic, strong) UITableView  *tableView;
 @property (nonatomic, strong) NSMutableArray<NSMutableDictionary *> *memories;
+@property (nonatomic, copy) NSString *searchTerm;
+@property (nonatomic, strong) UISearchBar *searchBar;
 @property (nonatomic, strong) UILabel      *emptyLabel;
 @property (nonatomic, strong) NSURL        *previewURL;
 @property (nonatomic, strong) NSMutableDictionary<NSNumber *, UIImage *> *thumbCache;
@@ -289,14 +304,32 @@
 @implementation MemoriesViewController
 
 static NSString * const kCellID = @"EZMemoryCell";
+static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"Memories";
     self.view.backgroundColor = [UIColor systemGroupedBackgroundColor];
     self.thumbCache = [NSMutableDictionary dictionary];
-    self.navigationItem.rightBarButtonItem = self.editButtonItem;
+    UIBarButtonItem *searchItem = nil;
+    if (@available(iOS 13.0, *)) {
+        searchItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"magnifyingglass"]
+                                                      style:UIBarButtonItemStylePlain
+                                                     target:self
+                                                     action:@selector(focusSearch)];
+    } else {
+        searchItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemSearch
+                                                                   target:self
+                                                                   action:@selector(focusSearch)];
+    }
+    self.navigationItem.leftBarButtonItem = searchItem;
+    UIBarButtonItem *closeItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemClose
+                             target:self
+                             action:@selector(dismissSelf)];
+    self.navigationItem.rightBarButtonItems = @[closeItem, self.editButtonItem];
     [self setupTableView];
+    [self setupSearchBar];
     [self setupEmptyLabel];
     [self loadMemories];
 }
@@ -311,7 +344,18 @@ static NSString * const kCellID = @"EZMemoryCell";
     self.tableView.separatorStyle     = UITableViewCellSeparatorStyleNone;
     self.tableView.autoresizingMask   = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.tableView registerClass:[EZMemoryCell class] forCellReuseIdentifier:kCellID];
+    [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:kEmptyCellID];
     [self.view addSubview:self.tableView];
+}
+
+- (void)setupSearchBar {
+    if (self.searchBar) return;
+    self.searchBar = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 44)];
+    self.searchBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    self.searchBar.placeholder = @"Search memories";
+    self.searchBar.delegate = self;
+    self.searchBar.showsCancelButton = NO;
+    self.tableView.tableHeaderView = self.searchBar;
 }
 
 - (void)setupEmptyLabel {
@@ -351,9 +395,58 @@ static NSString * const kCellID = @"EZMemoryCell";
     [self.memories sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
         return [(b[@"timestamp"] ?: @"") compare:(a[@"timestamp"] ?: @"")];
     }];
-    self.emptyLabel.hidden = (self.memories.count > 0);
-    [self.tableView reloadData];
+    if (!self.searchTerm) self.searchTerm = @"";
+    [self applyMemorySearch:self.searchTerm];
     [self generateThumbnailsIfNeeded];
+}
+
+- (void)applyMemorySearch:(NSString *)term {
+    NSString *trimmed = [term stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    self.searchTerm = trimmed;
+    self.searchBar.text = trimmed;
+    if (trimmed.length == 0) {
+        self.displayedMemories = [self.memories copy];
+    } else {
+        NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(NSDictionary *memory, NSDictionary *bindings) {
+            NSString *summary = memory[@"summary"] ?: @"";
+            return [summary rangeOfString:trimmed options:NSCaseInsensitiveSearch].location != NSNotFound;
+        }];
+        self.displayedMemories = [self.memories filteredArrayUsingPredicate:predicate];
+    }
+    BOOL hasResults = self.displayedMemories.count > 0;
+    self.emptyLabel.hidden = hasResults;
+    if (!hasResults) {
+        self.emptyLabel.text = trimmed.length ? @"No memories match that search." : @"No memories saved yet.";
+    }
+    [self.tableView reloadData];
+}
+
+- (void)focusSearch {
+    CGPoint topOffset = CGPointMake(0, -self.tableView.adjustedContentInset.top);
+    [self.tableView setContentOffset:topOffset animated:NO];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.searchBar becomeFirstResponder];
+    });
+}
+
+- (void)dismissSelf {
+    [self requestCloseWithCompletion:nil];
+}
+
+- (void)requestCloseWithCompletion:(dispatch_block_t)completion {
+    if (self.closeRequestHandler) {
+        self.closeRequestHandler(completion);
+        return;
+    }
+    [self dismissViewControllerAnimated:YES completion:completion];
+}
+
+- (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText {
+    [self applyMemorySearch:searchText];
+}
+
+- (void)searchBarSearchButtonClicked:(UISearchBar *)searchBar {
+    [searchBar resignFirstResponder];
 }
 
 - (BOOL)persistMemories {
@@ -395,15 +488,17 @@ static NSString * const kCellID = @"EZMemoryCell";
                             NSError *error) {
             UIImage *img = thumb.UIImage;
             if (!img || error) return;
-            dispatch_async(dispatch_get_main_queue(), ^{
-                __strong typeof(weakSelf) strongSelf = weakSelf;
-                if (!strongSelf) return;
-                strongSelf.thumbCache[@(capturedIndex)] = img;
-                NSIndexPath *ip = [NSIndexPath indexPathForRow:(NSInteger)capturedIndex
-                                                     inSection:0];
-                EZMemoryCell *cell = (EZMemoryCell *)[strongSelf.tableView cellForRowAtIndexPath:ip];
-                [cell setThumbnailImage:img];
-            });
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            if (!strongSelf) return;
+            strongSelf.thumbCache[@(capturedIndex)] = img;
+            NSMutableDictionary *memory = strongSelf.memories[capturedIndex];
+            NSInteger row = [strongSelf.displayedMemories indexOfObjectIdenticalTo:memory];
+            if (row == NSNotFound) return;
+            NSIndexPath *ip = [NSIndexPath indexPathForRow:(NSInteger)row inSection:0];
+            EZMemoryCell *cell = (EZMemoryCell *)[strongSelf.tableView cellForRowAtIndexPath:ip];
+            [cell setThumbnailImage:img];
+        });
         }];
     }
 }
@@ -421,16 +516,46 @@ static NSString * const kCellID = @"EZMemoryCell";
 
 - (NSInteger)tableView:(UITableView *)tableView
  numberOfRowsInSection:(NSInteger)section {
-    return (NSInteger)self.memories.count;
+    if (self.displayedMemories.count == 0) return 1;
+    return (NSInteger)self.displayedMemories.count;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView
          cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (self.displayedMemories.count == 0) {
+        UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:kEmptyCellID
+                                                                forIndexPath:indexPath];
+        if (@available(iOS 14.0, *)) {
+            UIListContentConfiguration *cfg = cell.defaultContentConfiguration;
+            if (self.searchTerm.length > 0) {
+                cfg.text = @"No memories match that search.";
+            } else {
+                cfg.text = @"No memories saved yet.";
+            }
+            cfg.textProperties.color = [UIColor secondaryLabelColor];
+            cell.contentConfiguration = cfg;
+        } else {
+            if (self.searchTerm.length > 0) {
+                cell.textLabel.text = @"No memories match that search.";
+            } else {
+                cell.textLabel.text = @"No memories saved yet.";
+            }
+            cell.textLabel.textColor = [UIColor secondaryLabelColor];
+        }
+        cell.userInteractionEnabled = NO;
+        cell.selectionStyle = UITableViewCellSelectionStyleNone;
+        cell.accessoryType = UITableViewCellAccessoryNone;
+        return cell;
+    }
+
     EZMemoryCell *cell = [tableView dequeueReusableCellWithIdentifier:kCellID
                                                          forIndexPath:indexPath];
-    NSUInteger idx = (NSUInteger)indexPath.row;
-    [cell configureWithMemory:self.memories[idx] index:idx delegate:self];
-    UIImage *cached = self.thumbCache[@(idx)];
+    NSUInteger displayedIndex = (NSUInteger)indexPath.row;
+    NSMutableDictionary *memory = self.displayedMemories[displayedIndex];
+    NSUInteger actualIndex = [self.memories indexOfObjectIdenticalTo:memory];
+    if (actualIndex == NSNotFound) actualIndex = displayedIndex;
+    [cell configureWithMemory:memory index:actualIndex delegate:self];
+    UIImage *cached = self.thumbCache[@(actualIndex)];
     if (cached) [cell setThumbnailImage:cached];
     return cell;
 }
@@ -438,6 +563,11 @@ static NSString * const kCellID = @"EZMemoryCell";
 - (NSString *)tableView:(UITableView *)tableView
 titleForHeaderInSection:(NSInteger)section {
     if (self.memories.count == 0) return nil;
+    if (self.searchTerm.length > 0) {
+        return [NSString stringWithFormat:@"%lu matching %@",
+                (unsigned long)self.displayedMemories.count,
+                self.displayedMemories.count == 1 ? @"memory" : @"memories"];
+    }
     return [NSString stringWithFormat:@"%lu saved %@",
             (unsigned long)self.memories.count,
             self.memories.count == 1 ? @"memory" : @"memories"];
@@ -452,7 +582,10 @@ titleForHeaderInSection:(NSInteger)section {
 commitEditingStyle:(UITableViewCellEditingStyle)editingStyle
 forRowAtIndexPath:(NSIndexPath *)indexPath {
     if (editingStyle != UITableViewCellEditingStyleDelete) return;
-    NSUInteger idx = (NSUInteger)indexPath.row;
+    if (self.displayedMemories.count == 0) return;
+    NSMutableDictionary *memory = self.displayedMemories[(NSUInteger)indexPath.row];
+    NSUInteger idx = [self.memories indexOfObjectIdenticalTo:memory];
+    if (idx == NSNotFound) return;
 
     UIAlertController *confirm = [UIAlertController
         alertControllerWithTitle:@"Delete Memory?"
@@ -470,12 +603,8 @@ forRowAtIndexPath:(NSIndexPath *)indexPath {
             else if (k > idx) rebuilt[@(k - 1)] = img;
         }];
         self.thumbCache = rebuilt;
-        [tableView deleteRowsAtIndexPaths:@[indexPath]
-                         withRowAnimation:UITableViewRowAnimationAutomatic];
         [self persistMemories];
-        self.emptyLabel.hidden = (self.memories.count > 0);
-        [tableView reloadSections:[NSIndexSet indexSetWithIndex:0]
-                 withRowAnimation:UITableViewRowAnimationNone];
+        [self applyMemorySearch:self.searchTerm ?: @""];
         EZLog(EZLogLevelInfo, @"MEMORIES", @"Memory entry deleted");
     }]];
     [confirm addAction:[UIAlertAction actionWithTitle:@"Cancel"
@@ -501,6 +630,7 @@ didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     if (trimmed.length == 0) return;
     self.memories[index][@"summary"] = trimmed;
     BOOL ok = [self persistMemories];
+    [self applyMemorySearch:self.searchTerm ?: @""];
     [self showToast:ok ? @"✅ Memory updated" : @"⚠️ Save failed"];
     if (ok) EZLog(EZLogLevelInfo, @"MEMORIES", @"Memory entry edited inline");
 }
@@ -519,6 +649,90 @@ didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     ql.dataSource = self;
     ql.delegate   = self;
     [self presentViewController:ql animated:YES completion:nil];
+}
+
+// ── Thread navigation ─────────────────────────────────────────────────────────
+
+/// Converts a memory entry to the thread filename key (without .json extension).
+/// Strategy:
+///   1. Use the stored "chatKey" field if present — it is already the raw
+///      ISO-8601-style key used as the filename, e.g. "2026-04-05T14-29-20".
+///   2. Fall back to parsing the display timestamp string by re-formatting it
+///      through NSDateFormatter so we produce the same "yyyy-MM-dd'T'HH-mm-ss"
+///      pattern the app uses when naming thread files.
+- (nullable NSString *)threadIDFromMemory:(NSDictionary *)memory {
+
+    // ── Preferred path: chatKey stored directly on the memory entry ───────────
+    NSString *chatKey = memory[@"chatKey"];
+    if (chatKey.length > 0) {
+        // Strip .json suffix if someone stored it with the extension
+        if ([chatKey hasSuffix:@".json"]) {
+            chatKey = [chatKey substringToIndex:chatKey.length - 5];
+        }
+        return chatKey;
+    }
+
+    // ── Fallback: derive from the display timestamp string ────────────────────
+    // The display format written by EZCompleteUI is, for example:
+    //   "Apr 5, 2026 at 2:29 PM"  (MMM d, yyyy 'at' h:mm a)
+    // Thread filenames use:
+    //   "2026-04-05T14-29-20"     (yyyy-MM-dd'T'HH-mm-ss)
+    // We parse with a loose formatter, then reformat to the filename pattern.
+    // Seconds are unknown from the display string so we default to "00".
+    NSString *displayTS = memory[@"timestamp"];
+    if (!displayTS.length) return nil;
+
+    NSDateFormatter *parser = [[NSDateFormatter alloc] init];
+    parser.locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+
+    // Try common display formats the app may have written
+    NSArray<NSString *> *inputFormats = @[
+        @"MMM d, yyyy 'at' h:mm a",
+        @"MMM d, yyyy 'at' h:mm:ss a",
+        @"yyyy-MM-dd'T'HH:mm:ss",
+        @"yyyy-MM-dd'T'HH-mm-ss",
+    ];
+
+    NSDate *parsed = nil;
+    for (NSString *fmt in inputFormats) {
+        parser.dateFormat = fmt;
+        parsed = [parser dateFromString:displayTS];
+        if (parsed) break;
+    }
+    if (!parsed) {
+        EZLog(EZLogLevelWarning, @"MEMORIES", [NSString stringWithFormat:@"Could not parse timestamp for thread nav: %@", displayTS]);
+        return nil;
+    }
+
+    NSDateFormatter *writer = [[NSDateFormatter alloc] init];
+    writer.locale     = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    writer.dateFormat = @"yyyy-MM-dd'T'HH-mm-ss";
+    return [writer stringFromDate:parsed];
+}
+
+- (void)cellDidTapTimestampAtIndex:(NSUInteger)index {
+    if (index >= self.memories.count) return;
+    NSDictionary *memory = self.memories[index];
+
+    NSString *threadID = [self threadIDFromMemory:memory];
+    if (!threadID.length) {
+        [self showToast:@"⚠️ Cannot locate source thread"];
+        EZLog(EZLogLevelWarning, @"MEMORIES", [NSString stringWithFormat:@"Timestamp tap — no threadID for index %lu", (unsigned long)index]);
+        return;
+    }
+
+    EZLog(EZLogLevelInfo, @"MEMORIES",[NSString stringWithFormat:@"Opening source thread: %@", threadID]);
+
+    // MemoriesViewController is presented modally inside a UINavigationController.
+    // We must dismiss the whole modal stack first, then post the notification inside
+    // the completion block — that way ViewController is fully visible and on-screen
+    // before it receives the notification and loads the thread.
+    [self requestCloseWithCompletion:^{
+        [[NSNotificationCenter defaultCenter]
+            postNotificationName:@"EZOpenChatThread"
+                          object:nil
+                        userInfo:@{ @"threadID" : threadID }];
+    }];
 }
 
 // ── QLPreviewControllerDataSource ────────────────────────────────────────────

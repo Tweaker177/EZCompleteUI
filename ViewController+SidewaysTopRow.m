@@ -48,16 +48,8 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
     NSMutableArray<UIButton *> *protos = [NSMutableArray array];
 
     NSDictionary<NSString *, NSString *> *buttonLabels = @{
-        @"modelButton":          @"Model",
-        @"attachButton":         @"Attach",
-        @"settingsButton":       @"Settings",
-        @"clipboardButton":      @"Copy",
-        @"clearButton":          @"Clear",
-        @"imageSettingsButton":  @"Img Settings",
-        @"dictateButton":        @"Dictate",
         @"speakButton":          @"Speak",
         @"webSearchButton":      @"Web Search",
-        @"historyButton":        @"History",
         @"addChatButton":        @"New Chat",
         @"memoriesButton":       @"Memories",
         @"textToSpeechButton":   @"TTS",
@@ -78,7 +70,7 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
                 [p setImage:[orig imageForState:UIControlStateNormal]
                    forState:UIControlStateNormal];
                 p.backgroundColor = orig.backgroundColor ?: [UIColor systemBlueColor];
-                p.titleLabel.font = [UIFont systemFontOfSize:14
+                p.titleLabel.font = [UIFont systemFontOfSize:15
                                                       weight:UIFontWeightSemibold];
 
                 for (id target in orig.allTargets) {
@@ -123,7 +115,7 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
             [p setTitle:[NSString stringWithFormat:@"Action %ld", (long)i+1]
                forState:UIControlStateNormal];
             p.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
-            p.backgroundColor = colors[i % colors.count];
+            p.backgroundColor = colors[i];
             [protos addObject:p];
         }
     }

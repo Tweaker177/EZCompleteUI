@@ -8,6 +8,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface MemoriesViewController : UIViewController
+@property (nonatomic, copy, nullable) void (^closeRequestHandler)(dispatch_block_t completion);
 
 @end
 
