@@ -50,11 +50,22 @@
 #import <PhotosUI/PhotosUI.h>
 #import <QuartzCore/QuartzCore.h>
 #import "SidewaysScrollView.h"
+#import "EZModelPickerViewController.h"
+#import "EZImageSettingsViewController.h"
+#import "EZAttachMenuViewController.h"
 #import "ViewController+EZKeepAwake.h"
 #import "ElevenLabsCloneViewController.h"
+#import "EZCoinStoreViewController.h"
+#import "EZCoinPotView.h"
 #import "TextToSpeechViewController.h"
 #import "MemoriesViewController.h"
 #import "SupportRequestViewController.h"
+#import "EZBubbleCell.h"
+#import "EZSystemCell.h"
+#import "EZCodeBlockCell.h"
+#import "EZEntitlementManager.h"
+#import "HelperLogViewController.h"
+
 
 
 typedef NS_ENUM(NSInteger, EZAttachMode) {
@@ -168,664 +179,10 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) UINavigationController *memoriesDrawerNavController;
 @property (nonatomic, strong) NSLayoutConstraint     *memoriesDrawerTrailingConstraint;
 @property (nonatomic, assign) BOOL                    memoriesDrawerOpen;
-@end
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - Chat Cell Classes
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ── EZBubbleCell ──────────────────────────────────────────────────────────────
-// Renders a single user or assistant chat message as a colored bubble.
-// Uses UITextView (non-editable, selectable) so that:
-//   • Links are detected and tappable
-//   • The user can place the cursor and select any span of text
-//   • The system copy/share/lookup menu appears on selection automatically
-@interface EZBubbleCell : UITableViewCell <UIGestureRecognizerDelegate>
-- (void)configureWithText:(NSString *)text isUser:(BOOL)isUser;
-- (void)configureWithText:(NSString *)text
-                   isUser:(BOOL)isUser
-                timestamp:(nullable NSString *)timestamp
-                  chatKey:(nullable NSString *)chatKey
-                 threadID:(nullable NSString *)threadID;
-@end
-
-
-@implementation EZBubbleCell {
-    UIView     *_bubbleView;
-    UITextView *_messageTextView;
-    UILabel    *_metaLabel;          // shown when swiped left
-    NSArray<NSLayoutConstraint *> *_alignmentConstraints;
-    NSLayoutConstraint *_bubbleLeading;   // re-activated on swipe for user bubbles
-    NSLayoutConstraint *_bubbleTrailing;  // re-activated on swipe for assistant bubbles
-    NSLayoutConstraint *_metaTrailing;    // pins meta label to right of content view
-    NSLayoutConstraint *_metaLeading;     // pins meta label to left of content view
-    BOOL _isUser;
-    CGFloat _swipeOffset;                 // current horizontal offset of bubbleView
-}
-
-// ─── init ──────────────────────────────────────────────────────────────────
-
-- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
-    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
-    if (!self) return nil;
-    self.backgroundColor = [UIColor clearColor];
-    self.selectionStyle  = UITableViewCellSelectionStyleNone;
-    self.clipsToBounds   = YES;   // keep swiped bubble from rendering outside cell
-
-    // ── Meta label (hidden until swipe) ─────────────────────────────────────
-    _metaLabel = [[UILabel alloc] init];
-    _metaLabel.numberOfLines  = 0;
-    _metaLabel.font           = [UIFont systemFontOfSize:11];
-    _metaLabel.textColor      = [UIColor secondaryLabelColor];
-    _metaLabel.alpha          = 0.0;
-    _metaLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.contentView addSubview:_metaLabel];
-
-    // ── Bubble view ──────────────────────────────────────────────────────────
-    _bubbleView = [[UIView alloc] init];
-    _bubbleView.translatesAutoresizingMaskIntoConstraints = NO;
-    _bubbleView.layer.cornerRadius = 18.0;
-    _bubbleView.clipsToBounds      = YES;
-
-    _messageTextView = [[UITextView alloc] init];
-    _messageTextView.editable              = NO;
-    _messageTextView.selectable            = YES;
-    _messageTextView.scrollEnabled         = NO;
-    _messageTextView.dataDetectorTypes     = UIDataDetectorTypeLink;
-    _messageTextView.font                  = [UIFont systemFontOfSize:16];
-    _messageTextView.backgroundColor       = [UIColor clearColor];
-    _messageTextView.textContainerInset    = UIEdgeInsetsMake(10, 10, 10, 10);
-    _messageTextView.textContainer.lineFragmentPadding = 0;
-    _messageTextView.translatesAutoresizingMaskIntoConstraints = NO;
-
-    [_bubbleView addSubview:_messageTextView];
-    [self.contentView addSubview:_bubbleView];
-
-    // Text view fills bubble
-    [NSLayoutConstraint activateConstraints:@[
-        [_bubbleView.topAnchor    constraintEqualToAnchor:self.contentView.topAnchor    constant:4],
-        [_bubbleView.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-4],
-        [_messageTextView.topAnchor     constraintEqualToAnchor:_bubbleView.topAnchor],
-        [_messageTextView.bottomAnchor  constraintEqualToAnchor:_bubbleView.bottomAnchor],
-        [_messageTextView.leadingAnchor  constraintEqualToAnchor:_bubbleView.leadingAnchor],
-        [_messageTextView.trailingAnchor constraintEqualToAnchor:_bubbleView.trailingAnchor],
-    ]];
-
-    // Width cap: bubble never wider than ~76% of a standard screen
-    NSLayoutConstraint *maxW = [_bubbleView.widthAnchor constraintLessThanOrEqualToConstant:290];
-    maxW.priority = UILayoutPriorityDefaultHigh;
-    maxW.active   = YES;
-
-    // Meta label constraints — vertically centred, width up to 160 pt
-    [NSLayoutConstraint activateConstraints:@[
-        [_metaLabel.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-        [_metaLabel.widthAnchor   constraintLessThanOrEqualToConstant:160],
-    ]];
-    // Horizontal pin constraints are created lazily in configure because
-    // they depend on whether this is a user or assistant bubble.
-
-    // ── Pan gesture for swipe-to-reveal ─────────────────────────────────────
-    UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc]
-        initWithTarget:self action:@selector(_handleSwipePan:)];
-    pan.delegate = self;
-    pan.delaysTouchesBegan = NO;
-    [self.contentView addGestureRecognizer:pan];
-
-
-    return self;
-}
-
-// ─── configure (legacy — no metadata) ────────────────────────────────────────
-
-- (void)configureWithText:(NSString *)text isUser:(BOOL)isUser {
-    [self configureWithText:text isUser:isUser timestamp:nil chatKey:nil threadID:nil];
-}
-
-// ─── configure (with metadata) ───────────────────────────────────────────────
-
-- (void)configureWithText:(NSString *)text
-                   isUser:(BOOL)isUser
-                timestamp:(nullable NSString *)timestamp
-                  chatKey:(nullable NSString *)chatKey
-                 threadID:(nullable NSString *)threadID {
-
-    _isUser = isUser;
-    _swipeOffset = 0.0;
-    _bubbleView.transform = CGAffineTransformIdentity;
-
-    _messageTextView.text = text;
-
-    // ── Bubble background ────────────────────────────────────────────────────
-    _bubbleView.backgroundColor = isUser
-        ? [UIColor systemBlueColor]
-        : [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
-               return tc.userInterfaceStyle == UIUserInterfaceStyleDark
-                   ? [UIColor colorWithRed:0.20 green:0.20 blue:0.22 alpha:1.0]
-                   : [UIColor colorWithRed:0.90 green:0.90 blue:0.92 alpha:1.0];
-           }];
-    _messageTextView.backgroundColor = [UIColor clearColor];
-    _messageTextView.textColor = isUser ? [UIColor whiteColor] : [UIColor labelColor];
-
-    UIColor *linkColor = isUser
-        ? [UIColor colorWithWhite:1.0 alpha:0.90]
-        : [UIColor colorWithRed:0.231 green:0.510 blue:0.965 alpha:1.0];
-    _messageTextView.linkTextAttributes = @{
-        NSForegroundColorAttributeName : linkColor,
-        NSUnderlineStyleAttributeName  : @(NSUnderlineStyleSingle),
-    };
-    _messageTextView.tintColor = isUser
-        ? [UIColor colorWithWhite:1.0 alpha:0.7]
-        : [UIColor systemBlueColor];
-
-    // ── Tail ─────────────────────────────────────────────────────────────────
-    if (@available(iOS 11.0, *)) {
-        _bubbleView.layer.maskedCorners = isUser
-            ? (kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner | kCALayerMinXMaxYCorner)
-            : (kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner | kCALayerMaxXMaxYCorner);
-    }
-
-    // ── Bubble alignment ─────────────────────────────────────────────────────
-    if (_alignmentConstraints) [NSLayoutConstraint deactivateConstraints:_alignmentConstraints];
-    NSMutableArray *ac = [NSMutableArray array];
-    if (isUser) {
-        [ac addObject:[_bubbleView.trailingAnchor
-            constraintEqualToAnchor:self.contentView.trailingAnchor constant:-12]];
-        [ac addObject:[_bubbleView.leadingAnchor
-            constraintGreaterThanOrEqualToAnchor:self.contentView.leadingAnchor constant:60]];
-    } else {
-        [ac addObject:[_bubbleView.leadingAnchor
-            constraintEqualToAnchor:self.contentView.leadingAnchor constant:12]];
-        [ac addObject:[_bubbleView.trailingAnchor
-            constraintLessThanOrEqualToAnchor:self.contentView.trailingAnchor constant:-60]];
-    }
-    _alignmentConstraints = [ac copy];
-    [NSLayoutConstraint activateConstraints:_alignmentConstraints];
-
-    // ── Meta label horizontal pin (once per isUser value) ────────────────────
-    // Deactivate old pins first
-    if (_metaLeading)  { _metaLeading.active  = NO; _metaLeading  = nil; }
-    if (_metaTrailing) { _metaTrailing.active = NO; _metaTrailing = nil; }
-
-    if (isUser) {
-        // Meta text sits to the LEFT of the user bubble (like iMessage)
-        _metaTrailing = [_metaLabel.trailingAnchor
-            constraintEqualToAnchor:self.contentView.trailingAnchor constant:-12];
-    } else {
-        // Meta text sits to the RIGHT of the assistant bubble
-        _metaLeading = [_metaLabel.leadingAnchor
-            constraintEqualToAnchor:self.contentView.leadingAnchor constant:12];
-    }
-    if (_metaLeading)  _metaLeading.active  = YES;
-    if (_metaTrailing) _metaTrailing.active = YES;
-
-    // ── Meta label content ────────────────────────────────────────────────────
-    NSMutableArray<NSString *> *lines = [NSMutableArray array];
-    if (timestamp.length > 0) [lines addObject:timestamp];
-    if (chatKey.length  > 0) [lines addObject:[NSString stringWithFormat:@"key: %@", chatKey]];
-    if (threadID.length > 0) [lines addObject:[NSString stringWithFormat:@"thread: %@", threadID]];
-    _metaLabel.text  = [lines componentsJoinedByString:@"\n"];
-    _metaLabel.alpha = 0.0;
-
-    // Alignment: user messages → right-align the meta text; assistant → left
-    _metaLabel.textAlignment = isUser ? NSTextAlignmentRight : NSTextAlignmentLeft;
-}
-
-// ─── Pan gesture handler ──────────────────────────────────────────────────────
-// iMessage behaviour:
-//   • Drag left  → bubble slides left, meta label fades in on the right
-//   • Release    → springs back to origin, meta label fades out
-//
-// For assistant (left-aligned) bubbles we mirror: drag right reveals meta on left.
-
-- (void)_handleSwipePan:(UIPanGestureRecognizer *)pan {
-    static const CGFloat kMaxReveal = 140.0;
-    static const CGFloat kFadeStart =  20.0;
-
-    CGPoint translation = [pan translationInView:self.contentView];
-    CGFloat raw     = _isUser ? -translation.x : translation.x;
-    CGFloat clamped = MAX(0.0, MIN(raw, kMaxReveal));
-
-    switch (pan.state) {
-        case UIGestureRecognizerStateChanged: {
-            _swipeOffset = clamped;
-            CGFloat tx = _isUser ? -clamped : clamped;
-            _bubbleView.transform = CGAffineTransformMakeTranslation(tx, 0);
-            CGFloat progress = MAX(0.0, (clamped - kFadeStart) / (kMaxReveal - kFadeStart));
-            _metaLabel.alpha = progress;
-            break;
-        }
-        case UIGestureRecognizerStateEnded:
-        case UIGestureRecognizerStateCancelled:
-        case UIGestureRecognizerStateFailed: {
-            _swipeOffset = 0.0;
-            [UIView animateWithDuration:0.35
-                                  delay:0.0
-                 usingSpringWithDamping:0.75
-                  initialSpringVelocity:0.5
-                                options:UIViewAnimationOptionBeginFromCurrentState
-                             animations:^{
-                self->_bubbleView.transform = CGAffineTransformIdentity;
-                self->_metaLabel.alpha = 0.0;
-            } completion:nil];
-            break;
-        }
-        default: break;
-    }
-}
-
-
-    // Only begin if the gesture is more horizontal than vertical.
-    // This is checked before any touch is claimed, so the table's vertical
-    // scroll recognizer never loses its touch sequence.
-    - (BOOL)gestureRecognizerShouldBegin:(UIPanGestureRecognizer *)pan {
-        CGPoint v = [pan velocityInView:self.contentView];
-        return ABS(v.x) > ABS(v.y);
-    }
-
-    // Let the table scroll simultaneously so a slow diagonal drag doesn't
-    // freeze the table mid-scroll.
-    - (BOOL)gestureRecognizer:(UIGestureRecognizer *)a
-    shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)b {
-        return YES;
-    }
+@property (nonatomic, strong) UILabel *coinBalanceLabel; // kept for compatibility
+@property (nonatomic, strong) EZCoinPotView *coinPotView;
 
 @end
-
-// ── EZSystemCell ──────────────────────────────────────────────────────────────
-// Centered small-font text for [System: ...] and [Error: ...] status lines.
-@interface EZSystemCell : UITableViewCell
-@property (nonatomic, strong) UILabel *messageLabel;
-@end
-
-@implementation EZSystemCell
-- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
-    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
-    if (!self) return nil;
-    self.backgroundColor = [UIColor clearColor];
-    self.selectionStyle  = UITableViewCellSelectionStyleNone;
-
-    _messageLabel                = [[UILabel alloc] init];
-    _messageLabel.numberOfLines  = 0;
-    _messageLabel.textAlignment  = NSTextAlignmentCenter;
-    _messageLabel.font           = [UIFont systemFontOfSize:12];
-    _messageLabel.textColor      = [UIColor secondaryLabelColor];
-    _messageLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.contentView addSubview:_messageLabel];
-
-    [NSLayoutConstraint activateConstraints:@[
-        [_messageLabel.topAnchor      constraintEqualToAnchor:self.contentView.topAnchor      constant:3],
-        [_messageLabel.bottomAnchor   constraintEqualToAnchor:self.contentView.bottomAnchor   constant:-3],
-        [_messageLabel.leadingAnchor  constraintEqualToAnchor:self.contentView.leadingAnchor  constant:16],
-        [_messageLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-16],
-    ]];
-    return self;
-}
-@end
-
-// ── EZCodeBlockCell ───────────────────────────────────────────────────────────
-// Full-width dark code block with language label, Copy button, and Share button.
-@interface EZCodeBlockCell : UITableViewCell
-- (void)configureWithCode:(NSString *)code
-                 language:(NSString *)language
-                savedPath:(nullable NSString *)savedPath
-           viewController:(__weak UIViewController *)vc;
-@end
-
-@implementation EZCodeBlockCell {
-    UILabel    *_langLabel;
-    UIButton   *_copyBtn;
-    UIButton   *_shareBtn;
-    UITextView *_codeView;
-    NSString   *_codeContent;
-    NSString   *_savedPath;
-    __weak UIViewController *_vc;
-}
-
-- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
-    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
-    if (!self) return nil;
-    self.backgroundColor = [UIColor clearColor];
-    self.selectionStyle  = UITableViewCellSelectionStyleNone;
-
-    UIView *container          = [[UIView alloc] init];
-    container.backgroundColor  = [UIColor colorWithWhite:0.12 alpha:1.0];
-    container.layer.cornerRadius = 10;
-    container.clipsToBounds    = YES;
-    container.layer.borderColor = [UIColor colorWithWhite:0.3 alpha:1.0].CGColor;
-    container.layer.borderWidth = 0.5;
-    container.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.contentView addSubview:container];
-
-    UIView *header              = [[UIView alloc] init];
-    header.backgroundColor      = [UIColor colorWithWhite:0.18 alpha:1.0];
-    header.translatesAutoresizingMaskIntoConstraints = NO;
-    [container addSubview:header];
-
-    _langLabel                  = [[UILabel alloc] init];
-    _langLabel.font             = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightMedium];
-    _langLabel.textColor        = [UIColor colorWithRed:0.6 green:0.8 blue:1.0 alpha:1.0];
-    _langLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    [header addSubview:_langLabel];
-
-    // Share button 
-    _shareBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    [_shareBtn setImage:[UIImage systemImageNamed:@"square.and.arrow.up"] forState:UIControlStateNormal];
-    _shareBtn.tintColor = [UIColor colorWithWhite:0.8 alpha:1.0];
-    _shareBtn.translatesAutoresizingMaskIntoConstraints = NO;
-    [_shareBtn addTarget:self action:@selector(_shareTapped) forControlEvents:UIControlEventTouchUpInside];
-    [header addSubview:_shareBtn];
-
-    _copyBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    [_copyBtn setTitle:@"\u2398 Copy" forState:UIControlStateNormal];
-    _copyBtn.tintColor          = [UIColor colorWithWhite:0.8 alpha:1.0];
-    _copyBtn.titleLabel.font    = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
-    _copyBtn.backgroundColor    = [UIColor colorWithWhite:0.28 alpha:1.0];
-    _copyBtn.layer.cornerRadius = 5;
-    _copyBtn.translatesAutoresizingMaskIntoConstraints = NO;
-    [_copyBtn addTarget:self action:@selector(_copyTapped) forControlEvents:UIControlEventTouchUpInside];
-    [header addSubview:_copyBtn];
-
-    _codeView                       = [[UITextView alloc] init];
-    _codeView.editable              = NO;
-    _codeView.selectable            = YES;
-    _codeView.backgroundColor       = [UIColor clearColor];
-    _codeView.textColor             = [UIColor colorWithRed:0.85 green:0.95 blue:0.85 alpha:1.0];
-    _codeView.font                  = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
-    _codeView.textContainerInset    = UIEdgeInsetsMake(8, 10, 8, 10);
-    // scrollEnabled=YES so content scrolls inside the fixed-height cell (original widget look)
-    _codeView.scrollEnabled         = YES;
-    _codeView.translatesAutoresizingMaskIntoConstraints = NO;
-    [container addSubview:_codeView];
-
-    [NSLayoutConstraint activateConstraints:@[
-        [container.topAnchor      constraintEqualToAnchor:self.contentView.topAnchor      constant:4],
-        [container.bottomAnchor   constraintEqualToAnchor:self.contentView.bottomAnchor   constant:-4],
-        [container.leadingAnchor  constraintEqualToAnchor:self.contentView.leadingAnchor  constant:8],
-        [container.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-8],
-
-        [header.topAnchor      constraintEqualToAnchor:container.topAnchor],
-        [header.leadingAnchor  constraintEqualToAnchor:container.leadingAnchor],
-        [header.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
-        [header.heightAnchor   constraintEqualToConstant:36],
-
-        [_langLabel.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:12],
-        [_langLabel.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
-
-        [_shareBtn.trailingAnchor  constraintEqualToAnchor:header.trailingAnchor constant:-8],
-        [_shareBtn.centerYAnchor   constraintEqualToAnchor:header.centerYAnchor],
-        [_shareBtn.widthAnchor     constraintEqualToConstant:30],
-        [_shareBtn.heightAnchor    constraintEqualToConstant:30],
-
-        [_copyBtn.trailingAnchor constraintEqualToAnchor:_shareBtn.leadingAnchor constant:-6],
-        [_copyBtn.centerYAnchor  constraintEqualToAnchor:header.centerYAnchor],
-        [_copyBtn.widthAnchor    constraintEqualToConstant:72],
-        [_copyBtn.heightAnchor   constraintEqualToConstant:26],
-
-        [_codeView.topAnchor      constraintEqualToAnchor:header.bottomAnchor],
-        [_codeView.leadingAnchor  constraintEqualToAnchor:container.leadingAnchor],
-        [_codeView.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
-        // Fixed height ~1/3 screen so the cell stays compact and content scrolls inside.
-        // Container bottom is driven by this height rather than expanding to content.
-        [_codeView.heightAnchor   constraintEqualToConstant:
-            MAX(120.0, UIScreen.mainScreen.bounds.size.height / 3.0)],
-        [_codeView.bottomAnchor   constraintEqualToAnchor:container.bottomAnchor],
-    ]];
-    return self;
-}
-
-- (void)configureWithCode:(NSString *)code language:(NSString *)language
-               savedPath:(NSString *)savedPath viewController:(__weak UIViewController *)vc {
-    _codeContent        = code;
-    _savedPath          = savedPath;
-    _vc                 = vc;
-    _langLabel.text     = language.length > 0 ? language.uppercaseString : @"CODE";
-    _codeView.text      = code;
-}
-
-- (void)_copyTapped {
-    if (!_codeContent.length) return;
-    [UIPasteboard generalPasteboard].string = _codeContent;
-    NSString *orig = [_copyBtn titleForState:UIControlStateNormal];
-    [_copyBtn setTitle:@"✓ Copied!" forState:UIControlStateNormal];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{ [self->_copyBtn setTitle:orig forState:UIControlStateNormal]; });
-}
-
-- (void)_shareTapped {
-    if (!_vc) return;
-    NSMutableArray *items = [NSMutableArray array];
-    if (_savedPath.length && [[NSFileManager defaultManager] fileExistsAtPath:_savedPath]) {
-        [items addObject:[NSURL fileURLWithPath:_savedPath]];
-    } else if (_codeContent.length) {
-        [items addObject:_codeContent];
-    }
-    if (!items.count) return;
-    UIActivityViewController *av = [[UIActivityViewController alloc]
-        initWithActivityItems:items applicationActivities:nil];
-    if (av.popoverPresentationController) av.popoverPresentationController.sourceView = _shareBtn;
-    [_vc presentViewController:av animated:YES completion:nil];
-}
-@end
-
-
-//#pragma mark - SidewaysScrollView (inserted by patch_viewcontroller.py)
-
-/*
- SidewaysScrollView
- - A lightweight horizontally-scrolling container that creates a seamless
-   circular scroll effect (icons scroll off the left and reappear on the right).
- - Designed to be embedded inside ViewController.m (no separate header).
- - Buttons are duplicated internally to achieve wrap-around behavior.
-
-@interface SidewaysScrollView : UIView <UIScrollViewDelegate>
-
-@property (nonatomic, strong) UIScrollView *scrollView;
-@property (nonatomic, strong) NSArray<UIButton *> *sourceButtons; // original button prototypes
-@property (nonatomic, assign) CGFloat buttonWidth;
-@property (nonatomic, assign) CGFloat buttonHeight;
-
-- (void)configureWithButtons:(NSArray<UIButton *> *)buttons doubleSize:(BOOL)doubleSize;
-
-@end
-
-@implementation SidewaysScrollView
-
-- (instancetype)initWithFrame:(CGRect)frame {
-    self = [super initWithFrame:frame];
-    if (!self) return nil;
-    self.backgroundColor = [UIColor clearColor];
-
-    _scrollView = [[UIScrollView alloc] initWithFrame:self.bounds];
-    _scrollView.translatesAutoresizingMaskIntoConstraints = NO;
-    _scrollView.showsHorizontalScrollIndicator = NO;
-    _scrollView.delegate = self;
-    _scrollView.alwaysBounceHorizontal = YES;
-    _scrollView.clipsToBounds = NO; // allow shadow to be visible when going off edges
-    [self addSubview:_scrollView];
-
-    // Auto Layout for scrollView to fill self
-    [NSLayoutConstraint activateConstraints:@[
-        [_scrollView.topAnchor constraintEqualToAnchor:self.topAnchor],
-        [_scrollView.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
-        [_scrollView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
-        [_scrollView.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
-    ]];
-
-    return self;
-}
-
-- (void)layoutSubviews {
-    [super layoutSubviews];
-    // If button sizes weren't set yet, attempt to relayout based on current size.
-    if (self.sourceButtons && (self.buttonWidth == 0 || self.buttonHeight == 0)) {
-        CGFloat h = CGRectGetHeight(self.bounds);
-        // default: use full height for buttons
-        self.buttonHeight = h;
-        // width will be set proportionally if it was zero
-        if (self.buttonWidth == 0) {
-            self.buttonWidth = self.buttonHeight; // square by default; controller can override
-        }
-        [self rebuildScrollContent];
-    }
-}
-
-- (void)configureWithButtons:(NSArray<UIButton *> *)buttons doubleSize:(BOOL)doubleSize {
-    // Store prototype buttons (we will copy their visuals)
-    NSMutableArray *clones = [NSMutableArray arrayWithCapacity:buttons.count];
-    for (UIButton *b in buttons) {
-        // create a lightweight prototype copy with same title/image/backgroundColor
-        UIButton *copy = [UIButton buttonWithType:UIButtonTypeCustom];
-        copy.tag = b.tag;
-        copy.layer.cornerRadius = b.layer.cornerRadius;
-        copy.layer.borderWidth = b.layer.borderWidth;
-        copy.layer.borderColor = b.layer.borderColor;
-        copy.layer.shadowColor = b.layer.shadowColor;
-        copy.layer.shadowOffset = b.layer.shadowOffset;
-        copy.layer.shadowOpacity = b.layer.shadowOpacity;
-        copy.layer.shadowRadius = b.layer.shadowRadius;
-        copy.titleLabel.font = b.titleLabel.font;
-        copy.adjustsImageWhenHighlighted = NO;
-
-        // copy title / image / background color states conservatively
-        NSString *title = [b titleForState:UIControlStateNormal];
-        if (title) [copy setTitle:title forState:UIControlStateNormal];
-        UIImage *img = [b imageForState:UIControlStateNormal];
-        if (img) [copy setImage:img forState:UIControlStateNormal];
-        copy.backgroundColor = b.backgroundColor ?: [UIColor clearColor];
-
-        [clones addObject:copy];
-    }
-    self.sourceButtons = clones;
-
-    // default sizing: base on our own height; can be doubled by request
-    CGFloat h = CGRectGetHeight(self.bounds);
-    if (h <= 1.0) {
-        // view hasn't been sized yet; pick a reasonable default
-        h = 88.0;
-    }
-    self.buttonHeight = doubleSize ? (h * 2.0) : h;
-    // default width proportional to height (square buttons)
-    self.buttonWidth = self.buttonHeight;
-
-    // rebuild content immediately if possible
-    [self rebuildScrollContent];
-}
-
-- (void)rebuildScrollContent {
-    // remove everything
-    for (UIView *v in self.scrollView.subviews) {
-        [v removeFromSuperview];
-    }
-    if (!self.sourceButtons || self.sourceButtons.count == 0) {
-        self.scrollView.contentSize = CGSizeZero;
-        return;
-    }
-
-    NSInteger n = (NSInteger)self.sourceButtons.count;
-    // We duplicate the sequence twice to allow seamless wrap-around.
-    CGFloat itemW = self.buttonWidth;
-    CGFloat itemH = self.buttonHeight;
-
-    // If the scrollView's height is smaller than itemH, adjust the itemH and keep corner radius reasonable
-    if (CGRectGetHeight(self.bounds) < itemH) {
-        itemH = CGRectGetHeight(self.bounds);
-    }
-
-    // create 2 * n buttons
-    for (NSInteger copyIndex = 0; copyIndex < 2; copyIndex++) {
-        for (NSInteger i = 0; i < n; i++) {
-            UIButton *proto = self.sourceButtons[i];
-            UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
-            // copy visuals
-            btn.tag = proto.tag ?: i;
-            NSString *title = [proto titleForState:UIControlStateNormal];
-            if (title) [btn setTitle:title forState:UIControlStateNormal];
-            UIImage *img = [proto imageForState:UIControlStateNormal];
-            if (img) [btn setImage:img forState:UIControlStateNormal];
-            btn.backgroundColor = proto.backgroundColor ?: [UIColor systemBlueColor];
-            btn.titleLabel.font = proto.titleLabel.font ?: [UIFont systemFontOfSize:14];
-            btn.layer.cornerRadius = MAX(8.0, MIN(itemH * 0.15, 16.0));
-            btn.clipsToBounds = YES;
-            // apply vibrant border/shadow styling for visibility
-            btn.layer.borderWidth = 1.0;
-            btn.layer.borderColor = [UIColor colorWithWhite:0.9 alpha:1.0].CGColor;
-            btn.layer.shadowColor = [UIColor colorWithWhite:0.0 alpha:0.25].CGColor;
-            btn.layer.shadowOffset = CGSizeMake(0, 3);
-            btn.layer.shadowOpacity = 0.6;
-            btn.layer.shadowRadius = 6.0;
-            btn.adjustsImageWhenHighlighted = YES;
-            btn.contentEdgeInsets = UIEdgeInsetsMake(8, 12, 8, 12);
-
-            // position
-            CGFloat x = (copyIndex * n + i) * itemW + (itemW - itemW) / 2.0;
-            btn.frame = CGRectMake(x, (CGRectGetHeight(self.bounds) - itemH) / 2.0, itemW, itemH);
-
-            // ensure title color is readable
-            UIColor *titleColor = [UIColor labelColor];
-            if (btn.backgroundColor) {
-                CGFloat white = 0.0;
-                [btn.backgroundColor getWhite:&white alpha:NULL];
-                // if background is dark-ish, use white
-                if (white < 0.6) {
-                    titleColor = [UIColor whiteColor];
-                } else {
-                    titleColor = [UIColor blackColor];
-                }
-            }
-            [btn setTitleColor:titleColor forState:UIControlStateNormal];
-
-            // map action to a generic selector which ViewController will pick up via responder chain
-            [btn addTarget:nil action:@selector(sidewaysTopButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-
-            [self.scrollView addSubview:btn];
-        }
-    }
-
-    CGFloat contentW = itemW * n * 2;
-    self.scrollView.contentSize = CGSizeMake(contentW, CGRectGetHeight(self.bounds));
-
-    // start centered on the first copy (i.e. offset 0)
-    self.scrollView.contentOffset = CGPointMake(0, 0);
-
-    // If content smaller than frame, center horizontally
-    if (self.scrollView.contentSize.width <= CGRectGetWidth(self.scrollView.bounds)) {
-        CGFloat inset = (CGRectGetWidth(self.scrollView.bounds) - self.scrollView.contentSize.width) / 2.0;
-        self.scrollView.contentInset = UIEdgeInsetsMake(0, inset, 0, inset);
-    } else {
-        self.scrollView.contentInset = UIEdgeInsetsZero;
-    }
-}
-
-#pragma mark - UIScrollViewDelegate (circular wrap)
-
-- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
-    // perform wrap-around whenever the offset crosses the length of the source sequence
-    if (!self.sourceButtons || self.sourceButtons.count == 0) return;
-    CGFloat singleWidth = self.buttonWidth * (CGFloat)self.sourceButtons.count;
-    if (singleWidth <= 0) return;
-
-    CGFloat x = scrollView.contentOffset.x;
-
-    // When we move beyond the first sequence into the second, wrap back by subtracting singleWidth.
-    // When we move left before 0, wrap forward adding singleWidth.
-    if (x >= singleWidth) {
-        // Keep visual continuity by preserving fractional remainder
-        scrollView.contentOffset = CGPointMake(fmod(x, singleWidth), 0);
-    } else if (x < 0) {
-        // Add singleWidth to move into the second copy equivalently
-        CGFloat wrapped = singleWidth + fmod(x, singleWidth);
-        // fmod can be negative; ensure within 0..singleWidth
-        if (wrapped >= singleWidth) wrapped -= singleWidth;
-        scrollView.contentOffset = CGPointMake(wrapped, 0);
-    }
-}
-
-@end
-
-#pragma mark - End SidewaysScrollView
-*****/
-
 @interface ViewController (EZPrivateForward)
 - (void)scrollChatToBottom;
 - (void)transcribeAudio:(NSURL *)fileURL;
@@ -834,248 +191,6 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 - (void)setupKeyboardObservers;
 - (void)closeDrawer;
 @end
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - EZModelPickerViewController
-// ─────────────────────────────────────────────────────────────────────────────
-
-@interface EZModelPickerViewController : UITableViewController
-@property (nonatomic, copy) NSArray<NSString *> *models;
-@property (nonatomic, copy) NSString            *selectedModel;
-@property (nonatomic, copy) void (^onModelSelected)(NSString *model);
-- (instancetype)initWithModels:(NSArray<NSString *> *)models selectedModel:(NSString *)selected;
-@end
-
-@implementation EZModelPickerViewController
-
-static NSDictionary<NSString *, NSString *> *EZModelLabels(void) {
-    return @{
-        @"gpt-5-pro":            @"💬 Chat + 👁 Vision",
-        @"gpt-5":                @"💬 Chat + 👁 Vision",
-        @"gpt-5-mini":           @"💬 Chat + 👁 Vision",
-        @"gpt-4o":               @"💬 Chat + 👁 Vision ⭐",
-        @"gpt-4o-mini":          @"💬 Chat + 👁 Vision (fast)",
-        @"gpt-4-turbo":          @"💬 Chat + 👁 Vision",
-        @"gpt-4":                @"💬 Chat + 👁 Vision",
-        @"gpt-3.5-turbo":        @"💬 Chat only",
-        @"gpt-image-1.5":        @"🖼 Image gen (newest)",
-        @"gpt-image-1":          @"🖼 Image gen + ✏️ Edit",
-        @"gpt-image-1-mini":     @"🖼 Image gen (fast/cheap)",
-        @"chatgpt-image-latest": @"🖼 ChatGPT image (latest)",
-        @"dall-e-3":             @"🖼 Image gen only (legacy)",
-        @"sora-2":               @"🎬 Video gen (4/8/12/16s)",
-        @"sora-2-pro":           @"🎬 Video gen HQ (5/10/15/20s)",
-        @"whisper-1":            @"🎙 Audio transcription only",
-    };
-}
-static NSArray<NSString *> *EZModelSectionTitles(void) {
-    return @[@"GPT-5 Reasoning", @"GPT-4 Chat", @"Image Generation", @"Video", @"Audio"];
-}
-static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
-    return @[
-        @[@"gpt-5-pro", @"gpt-5", @"gpt-5-mini"],
-        @[@"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4", @"gpt-3.5-turbo"],
-        @[@"gpt-image-1.5", @"gpt-image-1", @"gpt-image-1-mini", @"chatgpt-image-latest", @"dall-e-3"],
-        @[@"sora-2", @"sora-2-pro"],
-        @[@"whisper-1"],
-    ];
-}
-
-- (instancetype)initWithModels:(NSArray<NSString *> *)models selectedModel:(NSString *)selected {
-    self = [super initWithStyle:UITableViewStyleInsetGrouped];
-    if (!self) return nil;
-    self.models        = models;
-    self.selectedModel = selected;
-    return self;
-}
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.title = @"Select Model";
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
-        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
-                             target:self action:@selector(_dismiss)];
-}
-- (void)_dismiss { [self dismissViewControllerAnimated:YES completion:nil]; }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv {
-    return (NSInteger)EZModelSections().count;
-}
-- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
-    return EZModelSectionTitles()[(NSUInteger)section];
-}
-- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
-    return (NSInteger)EZModelSections()[(NSUInteger)section].count;
-}
-- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
-    UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:@"ModelCell"];
-    if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
-                                      reuseIdentifier:@"ModelCell"];
-    }
-    NSString *model = EZModelSections()[(NSUInteger)ip.section][(NSUInteger)ip.row];
-    cell.textLabel.text            = model;
-    cell.textLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
-    cell.detailTextLabel.text      = EZModelLabels()[model] ?: @"";
-    cell.detailTextLabel.font      = [UIFont systemFontOfSize:12];
-    cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
-    cell.accessoryType             = [model isEqualToString:self.selectedModel]
-                                     ? UITableViewCellAccessoryCheckmark
-                                     : UITableViewCellAccessoryNone;
-    return cell;
-}
-- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
-    [tv deselectRowAtIndexPath:ip animated:YES];
-    NSString *model = EZModelSections()[(NSUInteger)ip.section][(NSUInteger)ip.row];
-    self.selectedModel = model;
-    [tv reloadData];
-    if (self.onModelSelected) self.onModelSelected(model);
-    [self dismissViewControllerAnimated:YES completion:nil];
-}
-@end
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - EZImageSettingsViewController
-// ─────────────────────────────────────────────────────────────────────────────
-
-@interface EZImageSettingsViewController : UITableViewController
-@end
-
-@implementation EZImageSettingsViewController {
-    NSArray<NSDictionary *> *_sections;
-}
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.title = @"Image Settings";
-    _sections = @[
-        @{ @"title": @"Size",       @"key": @"imgSize",       @"default": @"1024x1024",
-           @"options": @[@"1024x1024", @"1024x1536", @"1536x1024"],
-           @"labels":  @[@"Square — 1024 × 1024", @"Portrait — 1024 × 1536", @"Landscape — 1536 × 1024"] },
-        @{ @"title": @"Quality",    @"key": @"imgQuality",    @"default": @"auto",
-           @"options": @[@"auto", @"high", @"medium", @"low"],
-           @"labels":  @[@"Auto (recommended)", @"High", @"Medium", @"Low (fastest)"] },
-        @{ @"title": @"Format",     @"key": @"imgFormat",     @"default": @"png",
-           @"options": @[@"png", @"jpeg", @"webp"],
-           @"labels":  @[@"PNG — lossless, transparency OK", @"JPEG — lossy, no transparency", @"WebP — modern, transparency OK"] },
-        @{ @"title": @"Background", @"key": @"imgBackground", @"default": @"auto",
-           @"options": @[@"auto", @"transparent", @"opaque"],
-           @"labels":  @[@"Auto", @"Transparent (PNG/WebP only)", @"Opaque"] },
-        @{ @"title": @"Moderation", @"key": @"imgModeration", @"default": @"auto",
-           @"options": @[@"auto", @"low"],
-           @"labels":  @[@"Auto", @"Low"] },
-    ];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
-        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
-                             target:self action:@selector(_dismiss)];
-}
-- (void)_dismiss { [self dismissViewControllerAnimated:YES completion:nil]; }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return (NSInteger)_sections.count; }
-- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s {
-    return _sections[(NSUInteger)s][@"title"];
-}
-- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
-    return (NSInteger)[_sections[(NSUInteger)s][@"options"] count];
-}
-- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
-    UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:@"ImgCell"];
-    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"ImgCell"];
-    NSDictionary *sec  = _sections[(NSUInteger)ip.section];
-    NSString *val      = sec[@"options"][(NSUInteger)ip.row];
-    NSString *current  = [[NSUserDefaults standardUserDefaults] stringForKey:sec[@"key"]] ?: sec[@"default"];
-    cell.textLabel.text  = sec[@"labels"][(NSUInteger)ip.row];
-    cell.textLabel.font  = [UIFont systemFontOfSize:15];
-    cell.accessoryType   = [val isEqualToString:current]
-                           ? UITableViewCellAccessoryCheckmark
-                           : UITableViewCellAccessoryNone;
-    return cell;
-}
-- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
-    [tv deselectRowAtIndexPath:ip animated:YES];
-    NSDictionary *sec = _sections[(NSUInteger)ip.section];
-    NSString *val     = sec[@"options"][(NSUInteger)ip.row];
-    [[NSUserDefaults standardUserDefaults] setObject:val forKey:sec[@"key"]];
-    EZLogf(EZLogLevelInfo, @"IMGSET", @"%@ → %@", sec[@"key"], val);
-    [tv reloadSections:[NSIndexSet indexSetWithIndex:(NSUInteger)ip.section]
-      withRowAnimation:UITableViewRowAnimationNone];
-}
-@end
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - EZAttachMenuViewController
-// Replaces the attach action sheet with a grouped UITableView sheet.
-// ─────────────────────────────────────────────────────────────────────────────
-
-typedef void (^EZAttachAction)(void);
-
-@interface EZAttachMenuViewController : UITableViewController
-@property (nonatomic, copy) EZAttachAction onWhisper;
-@property (nonatomic, copy) EZAttachAction onAnalyze;
-@property (nonatomic, copy) EZAttachAction onImageFiles;
-@property (nonatomic, copy) EZAttachAction onPhotoLibrary;
-@end
-
-@implementation EZAttachMenuViewController
-
-static NSArray<NSDictionary *> *EZAttachRows(void) {
-    return @[
-        @{ @"title": @"Transcribe Audio / Video",   @"subtitle": @"Whisper transcription",         @"icon": @"waveform" },
-        @{ @"title": @"Analyze PDF / ePub / Text File",  @"subtitle": @"Extracts and summarizes text",   @"icon": @"doc.text" },
-        @{ @"title": @"Attach Image from Files",    @"subtitle": @"Vision analysis or image edit",  @"icon": @"photo.on.rectangle" },
-        @{ @"title": @"Choose from Photo Library",  @"subtitle": @"Pick a photo from your library", @"icon": @"photo.stack" },
-    ];
-}
-
-- (instancetype)init {
-    return [super initWithStyle:UITableViewStyleInsetGrouped];
-}
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.title = @"Attach";
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
-        initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
-                             target:self action:@selector(_dismiss)];
-}
-
-- (void)_dismiss { [self dismissViewControllerAnimated:YES completion:nil]; }
-
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 1; }
-
-- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
-    return (NSInteger)EZAttachRows().count;
-}
-
-- (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
-    UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:@"AttachCell"];
-    if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
-                                      reuseIdentifier:@"AttachCell"];
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-    }
-    NSDictionary *row = EZAttachRows()[(NSUInteger)ip.row];
-    cell.textLabel.text            = row[@"title"];
-    cell.textLabel.font            = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
-    cell.detailTextLabel.text      = row[@"subtitle"];
-    cell.detailTextLabel.font      = [UIFont systemFontOfSize:13];
-    cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
-    cell.imageView.image           = [UIImage systemImageNamed:row[@"icon"]];
-    cell.imageView.tintColor       = [UIColor systemBlueColor];
-    return cell;
-}
-
-- (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
-    [tv deselectRowAtIndexPath:ip animated:YES];
-    [self dismissViewControllerAnimated:YES completion:^{
-        switch (ip.row) {
-            case 0: if (self.onWhisper)     self.onWhisper();     break;
-            case 1: if (self.onAnalyze)     self.onAnalyze();     break;
-            case 2: if (self.onImageFiles)  self.onImageFiles();  break;
-            case 3: if (self.onPhotoLibrary)self.onPhotoLibrary();break;
-        }
-    }];
-}
-
-@end
-
 
 @implementation ViewController
 
@@ -1100,6 +215,13 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
     [[NSNotificationCenter defaultCenter] addObserver:self
         selector:@selector(handleOpenChatThread:)
         name:@"EZOpenChatThread" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(handleSubscriptionUpdated)
+        name:@"EZSubscriptionUpdated" object:nil];
+    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+        [self updateCoinBalanceDisplay];
+    }];
+
 }
 
 - (void)setupData {
@@ -1363,6 +485,9 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
 
 - (void)motionEnded:(UIEventSubtype)motion withEvent:(UIEvent *)event {
     if (motion == UIEventSubtypeMotionShake) {
+        HelperLogViewController *helperLogVC = [[HelperLogViewController alloc] init];
+        [self presentViewController: helperLogVC animated:YES completion:nil];
+        /*
         NSString *stats = EZHelperStats();
         UIAlertController *a = [UIAlertController alertControllerWithTitle:@"EZHelper Stats"
                                                                    message:stats
@@ -1372,6 +497,7 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
         }]];
         [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
         [self presentViewController:a animated:YES completion:nil];
+         */
     }
 }
 
@@ -1538,6 +664,28 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
     topStack.alignment    = UIStackViewAlignmentCenter;
     topStack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:topStack];
+        // ── Coin pot view ─────────────────────────────────────────────────────
+        self.coinPotView = [[EZCoinPotView alloc] init];
+        self.coinPotView.coinImage = [UIImage imageNamed:@"EZCoin"];
+        self.coinPotView.translatesAutoresizingMaskIntoConstraints = NO;
+        self.coinPotView.userInteractionEnabled = YES;
+        UITapGestureRecognizer *potTap = [[UITapGestureRecognizer alloc]
+            initWithTarget:self action:@selector(coinPotTapped)];
+        [self.coinPotView addGestureRecognizer:potTap];
+        [self.view addSubview:self.coinPotView];
+
+        // Legacy label — hidden, kept so any remaining references don't crash
+        self.coinBalanceLabel = [[UILabel alloc] init];
+        self.coinBalanceLabel.hidden = YES;
+        self.coinBalanceLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.view addSubview:self.coinBalanceLabel];
+
+        [NSLayoutConstraint activateConstraints:@[
+            [self.coinPotView.topAnchor constraintEqualToAnchor:topStack.bottomAnchor constant:2],
+            [self.coinPotView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:14],
+            [self.coinPotView.widthAnchor constraintEqualToConstant:44],
+            [self.coinPotView.heightAnchor constraintEqualToConstant:44],
+        ]];
 
     // Thread title label — tappable, sits between top bar and chat table
     self.threadTitleLabel                 = [[UILabel alloc] init];
@@ -1751,6 +899,12 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
         [self.statusBannerLabel.topAnchor constraintEqualToAnchor:self.statusBannerView.topAnchor constant:10],
         [self.statusBannerLabel.bottomAnchor constraintEqualToAnchor:self.statusBannerView.bottomAnchor constant:-10],
     ]];
+
+    // Tap anywhere outside the input field to dismiss the keyboard
+    UITapGestureRecognizer *dismissTap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(dismissKeyboard)];
+    dismissTap.cancelsTouchesInView = NO;
+    [self.view addGestureRecognizer:dismissTap];
 }
 
 - (UIButton *)_iconButton:(NSString *)sfSymbol tint:(nullable UIColor *)tint action:(SEL)action {
@@ -1764,6 +918,67 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
 - (BOOL)textFieldShouldReturn:(UITextField *)textField {
     [textField resignFirstResponder]; return YES;
 }
+
+- (void)updateCoinBalanceDisplay {
+    NSInteger balance      = [EZEntitlementManager shared].coinBalance;
+    NSString  *tier        = [EZEntitlementManager shared].currentTier ?: @"basic";
+    NSInteger includedCoins = 400; // default basic
+
+    NSDictionary *tierCoins = @{
+        @"basic":    @(400),
+        @"standard": @(900),
+        @"pro":      @(1600),
+        @"ultra":    @(2500),
+    };
+    NSNumber *included = tierCoins[tier.lowercaseString];
+    if (included) includedCoins = included.integerValue;
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.coinPotView updateBalance:balance
+                          includedCoins:includedCoins
+                               animated:YES];
+        // Legacy label kept in sync in case anything still reads it
+        self.coinBalanceLabel.text = [NSString stringWithFormat:@"🪙 %ld", (long)balance];
+    });
+}
+
+- (void)coinPotTapped {
+    [self presentCoinStoreForFeature:nil];
+}
+
+- (void)handleSubscriptionUpdated {
+    NSInteger previousBalance = [EZEntitlementManager shared].coinBalance;
+    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger newBalance) {
+        NSInteger gained = newBalance - previousBalance;
+        if (gained > 0) {
+            [self animateCoinGain:gained newBalance:newBalance];
+        } else {
+            [self updateCoinBalanceDisplay];
+        }
+    }];
+}
+
+/// Called after coins are added (top-up or subscription) to play the toss animation
+/// then update the pot fill level.
+- (void)animateCoinGain:(NSInteger)coinsAdded newBalance:(NSInteger)newBalance {
+    NSString  *tier         = [EZEntitlementManager shared].currentTier ?: @"basic";
+    NSDictionary *tierCoins = @{
+        @"basic":    @(400),
+        @"standard": @(900),
+        @"pro":      @(1600),
+        @"ultra":    @(2500),
+    };
+    NSInteger includedCoins = [tierCoins[tier.lowercaseString] integerValue] ?: 400;
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.coinPotView animateCoinToss:coinsAdded completion:^{
+            [self.coinPotView updateBalance:newBalance
+                              includedCoins:includedCoins
+                                   animated:YES];
+        }];
+    });
+}
+
 
 // ── UITextViewDelegate — expanding input ─────────────────────────────────────
 
@@ -1798,17 +1013,10 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
     ph.hidden = textView.text.length > 0;
 }
 
-// Return key sends — Shift+Return inserts newline
+// Return key inserts a newline. Send button is the only send trigger.
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range
                                                 replacementText:(NSString *)text {
     if (textView != self.messageTextField) return YES;
-    if ([text isEqualToString:@"\n"]) {
-        // Explicitly resign first so textViewDidEndEditing fires and collapses the input
-        // before handleSend starts its work. Without this the constraint animation races.
-        [textView resignFirstResponder];
-        [self handleSend];
-        return NO;
-    }
     return YES;
 }
 
@@ -1817,6 +1025,10 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
     // Keep placeholder in sync when text is set programmatically
     UILabel *ph = (UILabel *)[self.messageTextField viewWithTag:9001];
     if (ph) ph.hidden = text.length > 0;
+}
+
+- (void)dismissKeyboard {
+    [self.view endEditing:YES];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1930,8 +1142,8 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
         ]];
         UITapGestureRecognizer *dimTap = [[UITapGestureRecognizer alloc]
             initWithTarget:self action:@selector(closeDrawer)];
-        [self.drawerDimView addGestureRecognizer:dimTap];
-
+        [self.drawerDimView addGestureRecognizer:dimTap];\
+        
         // Drawer container — slides in from left
         self.drawerContainerView = [[UIView alloc] init];
         self.drawerContainerView.backgroundColor = [UIColor systemBackgroundColor];
@@ -2450,10 +1662,74 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)handleSend {
-    
-    @try { [self ezcui_beginLongOperation:@"ChatCompletion"]; } @catch (NSException *e) { EZLogf(EZLogLevelWarning, @"EZKeepAwake", @"begin failed in handleSend: %@", e); }
-NSString *text = self.messageTextField.text;
+
+    @try { [self ezcui_beginLongOperation:@"ChatCompletion"]; } @catch (NSException *e) {
+        EZLogf(EZLogLevelWarning, @"EZKeepAwake", @"begin failed in handleSend: %@", e);
+    }
+
+    NSString *text = self.messageTextField.text;
     if (text.length == 0) return;
+
+    // ── Determine feature for entitlement check ───────────────────────────────
+    EZFeature feature = EZFeatureChatMini;
+
+    if ([self.selectedModel isEqualToString:@"gpt-4o"] ||
+        [self.selectedModel isEqualToString:@"gpt-4o-mini"] == NO) {
+        feature = EZFeatureChatGPT4o;
+    }
+    if ([self isGptImage1Family:self.selectedModel] ||
+        [self.selectedModel isEqualToString:@"gpt-image-1-edit"] ||
+        [self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
+        feature = EZFeatureImageMedium;
+    }
+    if ([self.selectedModel isEqualToString:@"dall-e-3"]) {
+        feature = EZFeatureDalle3Standard;
+    }
+    if ([self.selectedModel hasPrefix:@"sora-"]) {
+        feature = EZFeatureSora10s;
+    }
+
+    // ── Entitlement check moved to callChatCompletions where we know the actual
+    // token count from the assembled payload. For image/sora models we still
+    // gate here since those don't go through callChatCompletions.
+    BOOL isChatModel = ![self isGptImage1Family:self.selectedModel]
+        && ![self.selectedModel isEqualToString:@"dall-e-3"]
+        && ![self.selectedModel isEqualToString:@"dall-e-2-edit"]
+        && ![self.selectedModel isEqualToString:@"gpt-image-1-edit"]
+        && ![self.selectedModel hasPrefix:@"sora-"];
+
+    if (isChatModel) {
+        // Chat models — defer entitlement check to callChatCompletions
+        // so we can pass the actual assembled token count.
+        [self handleSendAuthorized:text];
+        return;
+    }
+
+    // Non-chat models — check entitlement now with flat cost.
+    [[EZEntitlementManager shared] checkEntitlementForFeature:feature
+                                                   completion:^(BOOL allowed,
+                                                                NSInteger balance,
+                                                                NSString *reason) {
+        if (!allowed) {
+            if ([reason isEqualToString:@"Not logged in"]) {
+                [self appendToChat:@"[Error: Please sign in to use EZCompleteUI]"];
+            } else if ([reason isEqualToString:@"Insufficient coins"] ||
+                       [reason isEqualToString:@"No account found"]) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self presentCoinStoreForFeature:nil];
+                });
+            } else {
+                [self appendToChat:[NSString stringWithFormat:
+                    @"[Error: %@]", reason ?: @"Access denied"]];
+            }
+            return;
+        }
+        [self handleSendAuthorized:text];
+    }];
+}
+
+- (void)handleSendAuthorized:(NSString *)text {
+
     if (self.isDictating) [self stopDictation];
 
     self.lastUserPrompt = text;
@@ -2471,7 +1747,7 @@ NSString *text = self.messageTextField.text;
 
     [self appendToChat:[NSString stringWithFormat:@"You: %@", text]];
     [self.chatContext addObject:@{@"role": @"user", @"content": fullPrompt}];
-    [self.view endEditing:YES];   // resign first → textViewDidEndEditing collapses input
+    [self.view endEditing:YES];
     [self setInputText:@""];
 
     NSString *apiKey = [EZKeyVault loadKeyForIdentifier:EZVaultKeyOpenAI];
@@ -2492,7 +1768,7 @@ NSString *text = self.messageTextField.text;
         return;
     }
 
-    // ── Legacy dall-e-2-edit fallback (in case old state persists) ───────────
+    // ── Legacy dall-e-2-edit fallback ────────────────────────────────────────
     if ([self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
         self.selectedModel = @"gpt-image-1-edit";
         [self callImageEdit:text imagePath:self.pendingImagePath ?: self.lastImageLocalPath];
@@ -2560,7 +1836,7 @@ NSString *text = self.messageTextField.text;
         return;
     }
 
-    // ── Sora ─────────────────────────────────────────────────────────────────
+    // ── Sora ──────────────────────────────────────────────────────────────────
     if ([self.selectedModel hasPrefix:@"sora-"]) {
         [self callSora:fullPrompt];
         return;
@@ -2571,57 +1847,59 @@ NSString *text = self.messageTextField.text;
 
     [self fetchRelevantMemories:text apiKey:apiKey completion:^(NSString *memories) {
         analyzePromptForContext(text, memories, apiKey, self.activeThread.threadID,
-    ^(EZContextResult *result) {
-        self.sendButton.enabled = YES;
-        EZLogf(EZLogLevelInfo, @"SEND",
-               @"Tier %ld — conf=%.2f tokens≈%ld reason: %@",
-               (long)result.tier, result.confidence,
-               (long)result.estimatedTokens, result.reason);
+        ^(EZContextResult *result) {
+            self.sendButton.enabled = YES;
+            EZLogf(EZLogLevelInfo, @"SEND",
+                   @"Tier %ld — conf=%.2f tokens≈%ld reason: %@",
+                   (long)result.tier, result.confidence,
+                   (long)result.estimatedTokens, result.reason);
 
-        if (result.tier == EZRoutingTierDirect && result.shortCircuitAnswer.length > 0) {
-            NSString *answer = result.shortCircuitAnswer;
-            self.lastAIResponse = answer;
-            [self.chatContext addObject:@{@"role": @"assistant", @"content": answer}];
-            [self appendToChat:[NSString stringWithFormat:@"AI: %@", answer]];
-            [self appendToChat:@"[System: Answered directly by helper model ⚡]"];
-            EZLogf(EZLogLevelInfo, @"SEND", @"Tier 1 direct answer displayed");
-            // Only include the image that was explicitly attached THIS turn (pendingImagePath).
-            // Never inject lastImageLocalPath here — it is a stale sticky path from a prior
-            // turn or a prior DALL-E generation and has no guaranteed relevance to this exchange.
-            NSMutableArray *attachmentsAtSend = [NSMutableArray array];
-            if (self.pendingImagePath.length > 0) {
-                [attachmentsAtSend addObject:self.pendingImagePath];
+            if (result.tier == EZRoutingTierDirect && result.shortCircuitAnswer.length > 0) {
+                NSString *answer = result.shortCircuitAnswer;
+                self.lastAIResponse = answer;
+                [self.chatContext addObject:@{@"role": @"assistant", @"content": answer}];
+                [self appendToChat:[NSString stringWithFormat:@"AI: %@", answer]];
+                [self appendToChat:@"[System: Answered directly by helper model ⚡]"];
+                EZLogf(EZLogLevelInfo, @"SEND", @"Tier 1 direct answer displayed");
+
+                NSMutableArray *attachmentsAtSend = [NSMutableArray array];
+                if (self.pendingImagePath.length > 0) {
+                    [attachmentsAtSend addObject:self.pendingImagePath];
+                }
+                self.pendingImagePath = nil;
+
+                createMemoryFromCompletion(text, answer, apiKey,
+                                           self.activeThread.threadID,
+                                           attachmentsAtSend,
+                                           ^(NSString *entry) {
+                    if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved: %lu chars",
+                                      (unsigned long)entry.length);
+                });
+                [self saveActiveThread];
+                return;
             }
-            self.pendingImagePath = nil;
 
-            createMemoryFromCompletion(text, answer, apiKey, self.activeThread.threadID,
-                                       attachmentsAtSend,
-                                       ^(NSString *entry) {
-                if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved: %lu chars",
-                                  (unsigned long)entry.length);
-            });
-            [self saveActiveThread];
-            return;
-        }
+            if (result.tier == EZRoutingTierFullHistory &&
+                result.injectedHistory.count > 0) {
+                if (self.chatContext.count > 0) [self.chatContext removeLastObject];
+                NSMutableArray *rebuilt = [NSMutableArray array];
+                [rebuilt addObjectsFromArray:result.injectedHistory];
+                [rebuilt addObjectsFromArray:self.chatContext];
+                [rebuilt addObject:@{@"role": @"user", @"content": result.finalPrompt}];
+                self.chatContext = rebuilt;
+                [self appendToChat:@"[System: Full chat history injected ✓]"];
+            } else if (result.tier >= EZRoutingTierMemory) {
+                if (self.chatContext.count > 0) [self.chatContext removeLastObject];
+                [self.chatContext addObject:@{@"role": @"user",
+                                              @"content": result.finalPrompt}];
+                [self appendToChat:@"[System: Memory context included ✓]"];
+            }
 
-        if (result.tier == EZRoutingTierFullHistory && result.injectedHistory.count > 0) {
-            if (self.chatContext.count > 0) [self.chatContext removeLastObject];
-            NSMutableArray *rebuilt = [NSMutableArray array];
-            [rebuilt addObjectsFromArray:result.injectedHistory];
-            [rebuilt addObjectsFromArray:self.chatContext];
-            [rebuilt addObject:@{@"role": @"user", @"content": result.finalPrompt}];
-            self.chatContext = rebuilt;
-            [self appendToChat:@"[System: Full chat history injected ✓]"];
-        } else if (result.tier >= EZRoutingTierMemory) {
-            if (self.chatContext.count > 0) [self.chatContext removeLastObject];
-            [self.chatContext addObject:@{@"role": @"user", @"content": result.finalPrompt}];
-            [self appendToChat:@"[System: Memory context included ✓]"];
-        }
-
-        [self callChatCompletions];
-    });
+            [self callChatCompletions];
+        });
     }];
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Memory Search
@@ -2725,32 +2003,96 @@ NSString *text = self.messageTextField.text;
     }
 
     NSError *bodyErr;
-    request.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:&bodyErr];
+    NSData *bodyData = [NSJSONSerialization dataWithJSONObject:body options:0 error:&bodyErr];
     if (bodyErr) { [self handleAPIError:@"Failed to build request"]; return; }
+    request.HTTPBody = bodyData;
 
-    EZLogf(EZLogLevelInfo, @"API", @"→ %@ [%@]%@",
-           endpointStr, self.selectedModel, useWebSearch ? @" +web" : @"");
-    if (isGPT5) { dispatch_async(dispatch_get_main_queue(), ^{ [self showGPT5StatusBanner]; }); }
+    // ── Token estimation from actual assembled payload ────────────────────────
+    // Input tokens: payload byte length / 4 (UTF-8 chars ≈ tokens for English).
+    // Output estimate: 800 tokens for standard models, 1500 for GPT-5 (tends
+    // toward longer reasoning responses). These are conservative — any overage
+    // gets refunded after the real usage comes back from the API.
+    NSInteger inputTokenEstimate  = (NSInteger)(bodyData.length / 4);
+    NSInteger outputTokenEstimate = isGPT5 ? 1500 : 800;
+    NSInteger totalTokenEstimate  = inputTokenEstimate + outputTokenEstimate;
 
+    // Map selected model to entitlement tier string
+    NSString *featureTier;
+    if (isGPT5 || [self.selectedModel hasPrefix:@"o1"] || [self.selectedModel hasPrefix:@"o3"]) {
+        featureTier = @"chat_premium";
+    } else if ([self.selectedModel isEqualToString:@"gpt-4o-mini"] ||
+               [self.selectedModel isEqualToString:@"gpt-4.1-mini"] ||
+               [self.selectedModel isEqualToString:@"gpt-4o-mini-2024-07-18"]) {
+        featureTier = @"chat_mini";
+    } else {
+        featureTier = @"chat_standard";
+    }
+
+    EZLogf(EZLogLevelInfo, @"COINS",
+           @"Token estimate: input=%ld output=%ld total=%ld tier=%@",
+           (long)inputTokenEstimate, (long)outputTokenEstimate,
+           (long)totalTokenEstimate, featureTier);
+
+    // Check entitlement and deduct estimated coins before firing the API call.
     NSString *capturedPrompt   = self.lastUserPrompt;
     NSString *capturedThreadID = self.activeThread.threadID;
-   
-    // pendingImagePath is set only when the user explicitly attaches a file THIS turn.
-    // It is the sole reliable indicator that this exchange actually involves an image.
-    // Scanning chatContext for _isVisionAttachment was NOT sufficient — that flag persists
-    // on historical messages indefinitely, causing lastImageLocalPath to be injected into
-    // every subsequent memory even when the image has nothing to do with the current turn.
-    // lastImageLocalPath is intentionally excluded: it is a sticky path from a prior
-    // generation/import and injecting it into unrelated memories is the reported bug.
-    // Only capture attachments that belong to THIS turn specifically.
-    // activeThread.attachmentPaths is the full historical list for the thread —
-    // copying it here causes every memory entry to re-report old attachments.
     NSMutableArray *capturedAttachments = [NSMutableArray array];
     if (self.pendingImagePath.length > 0) {
         [capturedAttachments addObject:self.pendingImagePath];
     }
     self.pendingImagePath = nil;
 
+    EZLogf(EZLogLevelInfo, @"API", @"→ %@ [%@]%@",
+           endpointStr, self.selectedModel, useWebSearch ? @" +web" : @"");
+    if (isGPT5) { dispatch_async(dispatch_get_main_queue(), ^{ [self showGPT5StatusBanner]; }); }
+
+    [[EZEntitlementManager shared] checkEntitlementForFeature:EZFeatureChatMini
+                                              estimatedTokens:totalTokenEstimate
+                                                 featureTier:featureTier
+                                                   completion:^(BOOL allowed,
+                                                                NSInteger balance,
+                                                                NSString *reason) {
+        if (!allowed) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideGPT5StatusBanner];
+                if ([reason isEqualToString:@"Not logged in"]) {
+                    [self appendToChat:@"[Error: Please sign in to use EZCompleteUI]"];
+                } else if ([reason isEqualToString:@"Insufficient coins"] ||
+                           [reason isEqualToString:@"No account found"]) {
+                    [self presentCoinStoreForFeature:featureTier];
+                } else {
+                    [self appendToChat:[NSString stringWithFormat:
+                        @"[Error: %@]", reason ?: @"Access denied"]];
+                }
+            });
+            return;
+        }
+
+        [self fireAPIRequest:request
+                 featureTier:featureTier
+            estimatedTokens:totalTokenEstimate
+             capturedPrompt:capturedPrompt
+           capturedThreadID:capturedThreadID
+        capturedAttachments:capturedAttachments
+                     apiKey:apiKey
+             useResponsesAPI:useResponsesAPI
+                     isGPT5:isGPT5];
+    }];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Fire API Request (after entitlement check passes)
+// ─────────────────────────────────────────────────────────────────────────────
+
+- (void)fireAPIRequest:(NSMutableURLRequest *)request
+           featureTier:(NSString *)featureTier
+       estimatedTokens:(NSInteger)estimatedTokens
+        capturedPrompt:(NSString *)capturedPrompt
+      capturedThreadID:(NSString *)capturedThreadID
+   capturedAttachments:(NSArray *)capturedAttachments
+                apiKey:(NSString *)apiKey
+       useResponsesAPI:(BOOL)useResponsesAPI
+               isGPT5:(BOOL)isGPT5 {
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:request
         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
@@ -2772,6 +2114,24 @@ NSString *text = self.messageTextField.text;
             [self handleAPIError:(msg && ![msg isKindOfClass:[NSNull class]])
                 ? (NSString *)msg : @"Unknown API error"];
             return;
+        }
+
+        // ── Parse actual token usage and refund overage ───────────────────────
+        NSInteger actualTokens = 0;
+        id usageObj = json[@"usage"];
+        if (usageObj && ![usageObj isKindOfClass:[NSNull class]]) {
+            id total = ((NSDictionary *)usageObj)[@"total_tokens"];
+            if (total && ![total isKindOfClass:[NSNull class]]) {
+                actualTokens = [total integerValue];
+            }
+        }
+        if (actualTokens > 0 && estimatedTokens > 0) {
+            EZLogf(EZLogLevelInfo, @"COINS",
+                   @"Actual tokens=%ld estimated=%ld",
+                   (long)actualTokens, (long)estimatedTokens);
+            [[EZEntitlementManager shared] refundTokensForTier:featureTier
+                                               estimatedTokens:estimatedTokens
+                                                  actualTokens:actualTokens];
         }
 
         NSString *reply = nil;
@@ -2831,6 +2191,11 @@ NSString *text = self.messageTextField.text;
             [self appendToChat:[NSString stringWithFormat:@"AI: %@", displayReply]];
             [self saveActiveThread];
             [self checkReplyForLocalFilePaths:reply];
+
+            // Refresh coin display after refund settles
+            [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+                [self updateCoinBalanceDisplay];
+            }];
         });
 
         createMemoryFromCompletion(capturedPrompt ?: @"", reply, apiKey, capturedThreadID,
@@ -2841,9 +2206,6 @@ NSString *text = self.messageTextField.text;
         });
     }] resume];
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - DALL-E 3 Generation
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)callDalle3:(NSString *)prompt {
@@ -4243,6 +3605,7 @@ NSString *text = self.messageTextField.text;
 // ── Present deferred Sora video once the view is on screen ──────────────────
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [self updateCoinBalanceDisplay];
     if (self.pendingVideoURL) {
         NSURL *url           = self.pendingVideoURL;
         self.pendingVideoURL = nil;
@@ -4311,6 +3674,16 @@ NSString *text = self.messageTextField.text;
 - (void)openSettings {
     UINavigationController *nav = [[UINavigationController alloc]
         initWithRootViewController:[[SettingsViewController alloc] init]];
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)presentCoinStoreForFeature:(NSString * _Nullable)featureName {
+    EZCoinStoreViewController *store = [[EZCoinStoreViewController alloc] init];
+    store.showLowCoinsWarning   = YES;
+    store.triggeringFeatureName = featureName ?: @"this feature";
+    UINavigationController *nav = [[UINavigationController alloc]
+        initWithRootViewController:store];
+    nav.modalPresentationStyle = UIModalPresentationFormSheet;
     [self presentViewController:nav animated:YES completion:nil];
 }
 
@@ -4455,92 +3828,3 @@ NSString *text = self.messageTextField.text;
         }
     }
 @end
-
-/***
-#pragma mark - EZKeepAwake
-
-#import <UIKit/UIKit.h>
-#import <objc/runtime.h>
-#import "helpers.h"
-
-static const void *kEZKA_Count  = &kEZKA_Count;
-static const void *kEZKA_BGTask = &kEZKA_BGTask;
-static const void *kEZKA_Timer  = &kEZKA_Timer;
-
-static inline NSInteger ezka_getCount(id vc) {
-    NSNumber *n = objc_getAssociatedObject(vc, kEZKA_Count);
-    return n ? n.integerValue : 0;
-}
-static inline void ezka_setCount(id vc, NSInteger c) {
-    objc_setAssociatedObject(vc, kEZKA_Count, @(c), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-#if TARGET_OS_IOS
-static inline UIBackgroundTaskIdentifier ezka_getBG(id vc) {
-    NSNumber *n = objc_getAssociatedObject(vc, kEZKA_BGTask);
-    return n ? (UIBackgroundTaskIdentifier)n.unsignedIntegerValue : UIBackgroundTaskInvalid;
-}
-static inline void ezka_setBG(id vc, UIBackgroundTaskIdentifier t) {
-    objc_setAssociatedObject(vc, kEZKA_BGTask, @(t), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-#endif
-
-@interface ViewController (EZKeepAwakeInjected)
-- (void)ezcui_beginLongOperation:(NSString *)reason;
-- (void)ezcui_endLongOperation;
-@end
-
-@implementation ViewController (EZKeepAwakeInjected)
-
-- (void)ezcui_beginLongOperation:(NSString *)reason {
-    @synchronized (self) {
-        NSInteger c = ezka_getCount(self) + 1;
-        ezka_setCount(self, c);
-#if TARGET_OS_IOS
-        if (c == 1) {
-            [UIApplication sharedApplication].idleTimerDisabled = YES;
-            EZLogf(EZLogLevelInfo, @"EZKeepAwake", @"Starting keep-awake: %@", reason ?: @"op");
-
-            UIBackgroundTaskIdentifier bg = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
-                EZLog(EZLogLevelWarning, @"EZKeepAwake", @"BG task expired; ending");
-                UIBackgroundTaskIdentifier cur = ezka_getBG(self);
-                if (cur != UIBackgroundTaskInvalid) {
-                    [[UIApplication sharedApplication] endBackgroundTask:cur];
-                    ezka_setBG(self, UIBackgroundTaskInvalid);
-                }
-            }];
-            ezka_setBG(self, bg);
-
-            NSTimer *t = [NSTimer scheduledTimerWithTimeInterval:480.0 repeats:NO block:^(NSTimer * _Nonnull timer) {
-                EZLog(EZLogLevelWarning, @"EZKeepAwake", @"Failsafe timer fired; forcing end");
-                [self ezcui_endLongOperation];
-            }];
-            objc_setAssociatedObject(self, kEZKA_Timer, t, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        }
-#endif
-    }
-}
-
-- (void)ezcui_endLongOperation {
-    @synchronized (self) {
-        NSInteger c = MAX(0, ezka_getCount(self) - 1);
-        ezka_setCount(self, c);
-#if TARGET_OS_IOS
-        if (c == 0) {
-            [UIApplication sharedApplication].idleTimerDisabled = NO;
-            EZLog(EZLogLevelInfo, @"EZKeepAwake", @"Idle timer re-enabled");
-
-            NSTimer *t = objc_getAssociatedObject(self, kEZKA_Timer);
-            if (t) { [t invalidate]; objc_setAssociatedObject(self, kEZKA_Timer, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }
-
-            UIBackgroundTaskIdentifier bg = ezka_getBG(self);
-            if (bg != UIBackgroundTaskInvalid) {
-                [[UIApplication sharedApplication] endBackgroundTask:bg];
-                ezka_setBG(self, UIBackgroundTaskInvalid);
-                EZLog(EZLogLevelInfo, @"EZKeepAwake", @"Background task ended");
-            }
-        }
-#endif
-    }
-}
-*/
-//@end

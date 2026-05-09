@@ -1,108 +1,94 @@
-
-from pathlib import Path
 import re
+import sys
+from pathlib import Path
 
-p = Path("helpers.m")
-src = p.read_text(encoding="utf-8")
+FILE = "ViewController.m"
 
-# Find and replace the entire _EZOpenAICall function
-old_func = re.search(
-    r'(// FIX 1:.*?^static NSString \*_EZOpenAICall.*?^\})',
-    src, re.DOTALL | re.MULTILINE
-)
+def patch_file(path):
+    content = Path(path).read_text()
 
-if not old_func:
-    # Try without the comment
-    old_func = re.search(
-        r'^static NSString \*_EZOpenAICall.*?^\}',
-        src, re.DOTALL | re.MULTILINE
+    # --- 1. FIX TEXTVIEW TRAILING (avoid conflict with send button) ---
+    content = re.sub(
+        r'\[self\.promptInput\.trailingAnchor constraintEqualToAnchor:self\.inputContainer\.trailingAnchor constant:-10\]',
+        '[self.promptInput.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-8]',
+        content
     )
 
-if not old_func:
-    print("ERROR: Could not find _EZOpenAICall — printing lines 90-180 for debug:")
-    lines = src.splitlines()
-    for i, l in enumerate(lines[89:179], 90):
-        print(f"{i}: {l}")
-else:
-    print(f"Found function at chars {old_func.start()}-{old_func.end()}")
-    new_func = '''\
-// FIX 1: Replaced removed sendSynchronousRequest API with semaphore wrapper.
-// Fully null-safe: guards every JSON field against NSNull before subscripting.
-static NSString *_EZOpenAICall(NSString *systemPrompt, NSString *userMessage,
-                                NSString *apiKey, NSInteger maxTokens) {
-    NSURL *url = [NSURL URLWithString:kOpenAIEndpoint];
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
-    req.HTTPMethod = @"POST";
-    [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    [req setValue:[NSString stringWithFormat:@"Bearer %@", apiKey]
-       forHTTPHeaderField:@"Authorization"];
+    # --- 2. ADD SEND BUTTON INTO INPUT CONTAINER ---
+    send_button_block = r"""
+#pragma mark - Send Button Setup (Patched)
 
-    NSDictionary *body = @{
-        @"model"      : kEZHelperModel,
-        @"max_tokens" : @(maxTokens),
-        @"temperature": @0.2,
-        @"messages"   : @[
-            @{ @"role": @"system", @"content": systemPrompt },
-            @{ @"role": @"user",   @"content": userMessage  }
-        ]
-    };
+- (void)setupSendButton {
 
-    NSError *jsonErr;
-    req.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:&jsonErr];
-    if (jsonErr) { NSLog(@"[EZHelper] JSON encode error: %@", jsonErr); return nil; }
+    self.sendButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.sendButton.translatesAutoresizingMaskIntoConstraints = NO;
 
-    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
-    __block NSData  *responseData = nil;
-    __block NSError *netErr       = nil;
+    [self.sendButton setTitle:@"Send" forState:UIControlStateNormal];
+    [self.sendButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    self.sendButton.titleLabel.font = [UIFont boldSystemFontOfSize:16];
 
-    NSURLSessionDataTask *task =
-        [[NSURLSession sharedSession] dataTaskWithRequest:req
-                                       completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) {
-            responseData = d;
-            netErr = e;
-            dispatch_semaphore_signal(sem);
-        }];
-    [task resume];
-    dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
+    self.sendButton.backgroundColor = [UIColor colorWithRed:0.20 green:0.55 blue:1.0 alpha:1.0];
+    self.sendButton.layer.cornerRadius = 10.0;
 
-    if (netErr || !responseData) { NSLog(@"[EZHelper] Network error: %@", netErr); return nil; }
+    [self.inputContainer addSubview:self.sendButton];
 
-    NSError *parseErr;
-    id jsonObj = [NSJSONSerialization JSONObjectWithData:responseData options:0 error:&parseErr];
-    if (parseErr || !jsonObj || [jsonObj isKindOfClass:[NSNull class]]) {
-        NSLog(@"[EZHelper] JSON parse error: %@", parseErr); return nil;
+    [NSLayoutConstraint activateConstraints:@[
+        [self.sendButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-10],
+        [self.sendButton.topAnchor constraintEqualToAnchor:self.inputContainer.topAnchor constant:8],
+        [self.sendButton.bottomAnchor constraintEqualToAnchor:self.inputContainer.bottomAnchor constant:-8],
+        [self.sendButton.widthAnchor constraintEqualToConstant:60],
+    ]];
+}
+"""
+
+    if "setupSendButton" not in content:
+        content += "\n\n" + send_button_block
+
+    # --- 3. CALL setupSendButton IN viewDidLoad ---
+    content = re.sub(
+        r'(\[self setupInputUI\];)',
+        r'\1\n    [self setupSendButton];',
+        content
+    )
+
+    # --- 4. REMOVE BAD BOTTOM ANCHORS (tableView tied to screen bottom) ---
+    content = re.sub(
+        r'\[self\.(tableView|collectionView).*?bottomAnchor constraintEqualToAnchor:self\.view\.(safeAreaLayoutGuide\.)?bottomAnchor.*?\];',
+        '// removed bad bottom constraint',
+        content
+    )
+
+    # --- 5. ADD CORRECT BOTTOM ANCHOR TO INPUT CONTAINER ---
+    table_fix = r"""
+#pragma mark - TableView Bottom Fix (Patched)
+
+- (void)fixTableViewLayout {
+
+    if (self.tableView) {
+        [NSLayoutConstraint activateConstraints:@[
+            [self.tableView.bottomAnchor constraintEqualToAnchor:self.inputContainer.topAnchor constant:-8]
+        ]];
     }
-    NSDictionary *json = jsonObj;
+}
+"""
+    if "fixTableViewLayout" not in content:
+        content += "\n\n" + table_fix
 
-    id choicesObj = json[@"choices"];
-    if (!choicesObj || [choicesObj isKindOfClass:[NSNull class]]) {
-        NSLog(@"[EZHelper] Missing choices in response"); return nil;
-    }
-    NSArray *choices = choicesObj;
-    if (choices.count == 0) {
-        NSLog(@"[EZHelper] Empty choices array"); return nil;
-    }
+    # --- 6. CALL FIX METHOD ---
+    content = re.sub(
+        r'(\[self setupSendButton\];)',
+        r'\1\n    [self fixTableViewLayout];',
+        content
+    )
 
-    id firstChoice = choices[0];
-    if (!firstChoice || [firstChoice isKindOfClass:[NSNull class]]) {
-        NSLog(@"[EZHelper] Null first choice"); return nil;
-    }
+    Path(path).write_text(content)
+    print("Patched v2 successfully. Your layout should now behave like it has adult supervision.")
 
-    id msgObj = ((NSDictionary *)firstChoice)[@"message"];
-    if (!msgObj || [msgObj isKindOfClass:[NSNull class]]) {
-        NSLog(@"[EZHelper] Null message object"); return nil;
-    }
+if __name__ == "__main__":
+    file_path = sys.argv[1] if len(sys.argv) > 1 else FILE
 
-    id contentObj = ((NSDictionary *)msgObj)[@"content"];
-    if (!contentObj || [contentObj isKindOfClass:[NSNull class]]) {
-        NSLog(@"[EZHelper] Null content — model may have refused"); return nil;
-    }
+    if not Path(file_path).exists():
+        print(f"File not found: {file_path}")
+        sys.exit(1)
 
-    return [((NSString *)contentObj) stringByTrimmingCharactersInSet:
-            [NSCharacterSet whitespaceAndNewlineCharacterSet]];
-}'''
-
-    src = src[:old_func.start()] + new_func + src[old_func.end():]
-    p.write_text(src, encoding="utf-8")
-    print("Done. _EZOpenAICall fully replaced with null-safe version.")
-
+    patch_file(file_path)

@@ -6,8 +6,10 @@
 
 static NSString * const kCellID = @"EZThreadCell";
 
-@interface ChatHistoryViewController ()
+@interface ChatHistoryViewController () <UISearchBarDelegate>
+@property (nonatomic, strong) NSArray<EZChatThread *> *allThreads;
 @property (nonatomic, strong) NSArray<EZChatThread *> *threads;
+@property (nonatomic, strong) UISearchBar *searchBar;
 @end
 
 @implementation ChatHistoryViewController
@@ -21,19 +23,21 @@ static NSString * const kCellID = @"EZThreadCell";
     self.title = @"Chat History";
 
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc]
+        initWithImage:[UIImage systemImageNamed:@"magnifyingglass"]
+                style:UIBarButtonItemStylePlain
+               target:self
+               action:@selector(focusSearch)];
+
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
         initWithBarButtonSystemItem:UIBarButtonSystemItemClose
                              target:self
                              action:@selector(dismissSelf)];
-
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
-        initWithBarButtonSystemItem:UIBarButtonSystemItemTrash
-                             target:self
-                             action:@selector(confirmDeleteAll)];
 
     [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:kCellID];
     self.tableView.rowHeight          = UITableViewAutomaticDimension;
     self.tableView.estimatedRowHeight = 70;
 
+    [self setupSearchBar];
     [self reload];
 }
 
@@ -43,14 +47,53 @@ static NSString * const kCellID = @"EZThreadCell";
 }
 
 - (void)reload {
-    self.threads = EZThreadList();
+    self.allThreads = EZThreadList();
+    [self applySearchFilter];
+
+    // Disable close button when no threads exist? keep enabled to allow dismiss.
+    self.navigationItem.rightBarButtonItem.enabled = (self.allThreads.count > 0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+- (void)setupSearchBar {
+    if (self.searchBar) return;
+    self.searchBar                     = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 44)];
+    self.searchBar.autoresizingMask    = UIViewAutoresizingFlexibleWidth;
+    self.searchBar.placeholder         = @"Search titles";
+    self.searchBar.delegate            = self;
+    self.searchBar.showsCancelButton   = NO;
+    self.tableView.tableHeaderView     = self.searchBar;
+}
+
+- (void)applySearchFilter {
+    NSString *text = [self.searchBar.text stringByTrimmingCharactersInSet:
+                      [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (text.length == 0) {
+        self.threads = self.allThreads;
+    } else {
+        NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(EZChatThread *thread, NSDictionary *bindings) {
+            NSString *title = thread.title ?: @"";
+            return [title rangeOfString:text options:NSCaseInsensitiveSearch].location != NSNotFound;
+        }];
+        self.threads = [self.allThreads filteredArrayUsingPredicate:predicate];
+    }
     [self.tableView reloadData];
-    // Hide trash button if nothing to delete
-    self.navigationItem.rightBarButtonItem.enabled = (self.threads.count > 0);
 }
 
 - (void)dismissSelf {
     [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)focusSearch {
+    [self.searchBar becomeFirstResponder];
+}
+
+- (void)searchBar:(UISearchBar *)searchBar textDidChange:(NSString *)searchText {
+    [self applySearchFilter];
+}
+
+- (void)searchBarSearchButtonClicked:(UISearchBar *)searchBar {
+    [searchBar resignFirstResponder];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
