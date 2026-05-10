@@ -56,6 +56,7 @@
 #import "ViewController+EZKeepAwake.h"
 #import "ElevenLabsCloneViewController.h"
 #import "EZCoinStoreViewController.h"
+#import "EZPhotoGalleryViewController.h"
 #import "EZCoinPotView.h"
 #import "TextToSpeechViewController.h"
 #import "MemoriesViewController.h"
@@ -112,6 +113,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) UIButton      *supportRequestButton;
 @property (nonatomic, strong) UIButton      *textToSpeechButton;
 @property (nonatomic, strong) UIButton      *cloningButton;
+@property (nonatomic, strong) UIButton      *galleryButton;
 //@property (nonatomic, strong) UIButton      *textToSpeechButton;
 
 @property (nonatomic, strong) NSLayoutConstraint *containerBottomConstraint;
@@ -140,6 +142,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) NSString      *pendingFileName;
 @property (nonatomic, strong) NSString      *pendingImagePath;     // local path of attached image
 @property (nonatomic, strong) NSString      *lastImagePrompt;      // last DALL-E prompt (for follow-ups)
+@property (nonatomic, strong) NSString      *lastVideoPrompt;      // last Sora prompt (for memory indexing)
 @property (nonatomic, strong) NSString      *lastImageLocalPath;   // local path of last generated image
 
 // TTS / audio
@@ -218,6 +221,12 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [[NSNotificationCenter defaultCenter] addObserver:self
         selector:@selector(handleSubscriptionUpdated)
         name:@"EZSubscriptionUpdated" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(handleAttachImageToChat:)
+        name:EZAttachImageToChat object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(handleEditImageInChat:)
+        name:EZEditImageInChat object:nil];
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
         [self updateCoinBalanceDisplay];
     }];
@@ -632,6 +641,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     
     self.cloningButton = [self _iconButton:@"doc.richtext" tint:nil action:@selector(openCloning)];
     
+    self.galleryButton = [self _iconButton:@"photo.on.rectangle.angled" tint:nil action:@selector(openGallery)];
+    
     self.textToSpeechButton = [self _iconButton:@"play.circle.fill" tint:nil action:@selector(openTTS)];
     
     
@@ -658,7 +669,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         self.addChatButton, self.historyButton, self.clipboardButton,
         self.speakButton, self.webSearchButton, self.settingsButton,
         self.renameButton, self.clearButton, self.memoriesButton, self.cloningButton, self.supportRequestButton,
-        self.textToSpeechButton
+        self.textToSpeechButton, self.galleryButton
     ]];
     topStack.distribution = UIStackViewDistributionEqualSpacing;
     topStack.alignment    = UIStackViewAlignmentCenter;
@@ -681,10 +692,10 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         [self.view addSubview:self.coinBalanceLabel];
 
         [NSLayoutConstraint activateConstraints:@[
-            [self.coinPotView.topAnchor constraintEqualToAnchor:topStack.bottomAnchor constant:2],
+            [self.coinPotView.topAnchor constraintEqualToAnchor:topStack.bottomAnchor constant:8],
             [self.coinPotView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:14],
             [self.coinPotView.widthAnchor constraintEqualToConstant:44],
-            [self.coinPotView.heightAnchor constraintEqualToConstant:44],
+            [self.coinPotView.heightAnchor constraintEqualToConstant:48],
         ]];
 
     // Thread title label — tappable, sits between top bar and chat table
@@ -859,7 +870,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         [self.threadTitleLabel.topAnchor    constraintEqualToAnchor:topStack.bottomAnchor constant:4],
         [self.threadTitleLabel.leadingAnchor  constraintEqualToAnchor:self.view.leadingAnchor constant:12],
         [self.threadTitleLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-12],
-        [self.chatTableView.topAnchor constraintEqualToAnchor:self.threadTitleLabel.bottomAnchor constant:4],
+        [self.chatTableView.topAnchor constraintEqualToAnchor:self.threadTitleLabel.bottomAnchor constant:52],
         [self.chatTableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.chatTableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.chatTableView.bottomAnchor constraintEqualToAnchor:self.inputContainer.topAnchor],
@@ -1804,7 +1815,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 self.selectedModel = @"gpt-image-1-edit";
                 [self.modelButton setTitle:@"Model: gpt-image-1 (edit mode)"
                                   forState:UIControlStateNormal];
-                [self callImageEdit:text imagePath:self.lastImageLocalPath];
+                NSString *editPath = self.pendingImagePath ?: self.lastImageLocalPath;
+                self.pendingImagePath = nil;
+                [self callImageEdit:text imagePath:editPath];
             } else {
                 EZLogf(EZLogLevelInfo, @"IMAGE", @"Intent=generate");
                 if ([self isGptImage1Family:self.selectedModel] ||
@@ -2301,7 +2314,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *error) {
         if (!data) { [self handleAPIError:error.localizedDescription ?: @"gpt-image-1 request failed"]; return; }
         NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-        EZLogf(EZLogLevelDebug, @"GPTIMAGE", @"Response: %@", json);
+        // Log sanitized response — never dump b64 image data into the log
+        NSMutableDictionary *logJson = [json mutableCopy];
+        if ([logJson[@"data"] isKindOfClass:[NSArray class]]) {
+            NSMutableArray *sanitized = [NSMutableArray array];
+            for (NSDictionary *item in logJson[@"data"]) {
+                NSMutableDictionary *s = [item mutableCopy];
+                if (s[@"b64_json"]) s[@"b64_json"] = [NSString stringWithFormat:@"<b64 %lu bytes>", (unsigned long)[(NSString *)s[@"b64_json"] length]];
+                [sanitized addObject:s];
+            }
+            logJson[@"data"] = sanitized;
+        }
+        EZLogf(EZLogLevelDebug, @"GPTIMAGE", @"Response: %@", logJson);
         id errObj = json[@"error"];
         if (errObj && ![errObj isKindOfClass:[NSNull class]]) {
             id m = ((NSDictionary *)errObj)[@"message"];
@@ -2422,7 +2446,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *error) {
         if (!data) { [self handleAPIError:error.localizedDescription ?: @"Image edit failed"]; return; }
         NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-        EZLogf(EZLogLevelDebug, @"IMGEDIT", @"Response: %@", json);
+        // Log sanitized response — never dump b64 image data into the log
+        NSMutableDictionary *logJson = [json mutableCopy];
+        if ([logJson[@"data"] isKindOfClass:[NSArray class]]) {
+            NSMutableArray *sanitized = [NSMutableArray array];
+            for (NSDictionary *item in logJson[@"data"]) {
+                NSMutableDictionary *s = [item mutableCopy];
+                if (s[@"b64_json"]) s[@"b64_json"] = [NSString stringWithFormat:@"<b64 %lu bytes>", (unsigned long)[(NSString *)s[@"b64_json"] length]];
+                [sanitized addObject:s];
+            }
+            logJson[@"data"] = sanitized;
+        }
+        EZLogf(EZLogLevelDebug, @"IMGEDIT", @"Response: %@", logJson);
         id errObj = json[@"error"];
         if (errObj && ![errObj isKindOfClass:[NSNull class]]) {
             id m = ((NSDictionary *)errObj)[@"message"];
@@ -3679,7 +3714,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)presentCoinStoreForFeature:(NSString * _Nullable)featureName {
     EZCoinStoreViewController *store = [[EZCoinStoreViewController alloc] init];
-    store.showLowCoinsWarning   = YES;
+    store.showLowCoinsWarning   = (featureName != nil);
     store.triggeringFeatureName = featureName ?: @"this feature";
     UINavigationController *nav = [[UINavigationController alloc]
         initWithRootViewController:store];
@@ -3789,6 +3824,76 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     UINavigationController *nav = [[UINavigationController alloc]
         initWithRootViewController:[[ElevenLabsCloneViewController alloc] init]];
     [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)openGallery {
+    EZPhotoGalleryViewController *gallery = [EZPhotoGalleryViewController new];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:gallery];
+    nav.modalPresentationStyle = UIModalPresentationPageSheet;
+    if (@available(iOS 15, *)) {
+        UISheetPresentationController *sheet = nav.sheetPresentationController;
+        sheet.detents = @[UISheetPresentationControllerDetent.largeDetent];
+        sheet.prefersGrabberVisible = YES;
+    }
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+/// Called when user taps "Ask a Question" in the gallery detail view.
+/// Attaches the image to the chat input so the user can type their question.
+- (void)handleAttachImageToChat:(NSNotification *)notification {
+    UIImage *image = notification.userInfo[@"image"];
+    if (!image) return;
+
+    // Save the image into EZAttachments so pendingImagePath works normally
+    NSString *dir  = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
+                      stringByAppendingPathComponent:@"EZAttachments"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:dir
+                              withIntermediateDirectories:YES attributes:nil error:nil];
+    NSString *filename = [NSString stringWithFormat:@"gallery_ask_%@.jpg",
+                          [NSUUID UUID].UUIDString];
+    NSString *path = [dir stringByAppendingPathComponent:filename];
+    [UIImageJPEGRepresentation(image, 0.92) writeToFile:path atomically:YES];
+
+    self.pendingImagePath = path;
+    [self appendToChat:@"[Image attached from Gallery — type your question below]"];
+    [self.messageTextField becomeFirstResponder];
+}
+
+/// Called when user taps "Edit with AI" in the gallery detail view.
+/// Attaches the image and pre-fills the input with an edit prompt.
+- (void)handleEditImageInChat:(NSNotification *)notification {
+    UIImage *image = notification.userInfo[@"image"];
+    if (!image) return;
+
+    NSString *dir  = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
+                      stringByAppendingPathComponent:@"EZAttachments"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:dir
+                              withIntermediateDirectories:YES attributes:nil error:nil];
+    NSString *filename = [NSString stringWithFormat:@"gallery_edit_%@.jpg",
+                          [NSUUID UUID].UUIDString];
+    NSString *path = [dir stringByAppendingPathComponent:filename];
+    [UIImageJPEGRepresentation(image, 0.92) writeToFile:path atomically:YES];
+
+    self.pendingImagePath = path;
+
+    // Switch to edit mode — gpt-image-1-edit takes the direct path (line 1765)
+    // which correctly uses pendingImagePath. Do NOT use a generation model here
+    // or the intent classifier will be called and will ignore pendingImagePath.
+    NSArray *imageModels = @[@"gpt-image-1.5", @"gpt-image-1", @"chatgpt-image-latest"];
+    if (![imageModels containsObject:self.selectedModel]) {
+        // wasn't on an image model at all — switch to edit mode directly
+    }
+    self.selectedModel = @"gpt-image-1-edit";
+    [self.modelButton setTitle:@"Model: gpt-image-1 (edit mode)"
+                      forState:UIControlStateNormal];
+
+    [self appendToChat:@"[Image attached from Gallery — ready to edit]"];
+    self.messageTextField.text = @"Edit this image: ";
+    [self.messageTextField becomeFirstResponder];
+    // Move cursor to end
+    UITextRange *end = [self.messageTextField textRangeFromPosition:self.messageTextField.endOfDocument
+                                                         toPosition:self.messageTextField.endOfDocument];
+    self.messageTextField.selectedTextRange = end;
 }
 
 - (void)viewWillDisappear:(BOOL)animated {

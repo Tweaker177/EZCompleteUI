@@ -55,6 +55,7 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
         @"textToSpeechButton":   @"TTS",
         @"supportRequestButton": @"Support",
         @"cloningButton":        @"Clone Voice",
+        @"galleryButton":        @"Gallery",
     };
     NSDictionary<NSString *, NSString *> *buttonImageNames = @{
         @"speakButton":          @"SpeakButton.PNG",
@@ -64,6 +65,7 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
         @"textToSpeechButton":   @"TTSButton.PNG",
         @"supportRequestButton": @"SupportButton.PNG",
         @"cloningButton":        @"VoiceCloneButton.PNG",
+        @"galleryButton":        @"galleryButton.png",
     };
 
     // Preserve original button order for consistent display
@@ -75,6 +77,7 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
         @"webSearchButton",
         @"addChatButton",
         @"cloningButton",
+        @"galleryButton",
     ];
 
     for (NSString *key in buttonOrder) {
@@ -158,7 +161,7 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
 
     // ── Container ──────────────────────────────────────────────────────────
     // Taller row so icon cards have more breathing room.
-    CGFloat headerH = 110.0;
+    CGFloat headerH = 120.0;
 
     UIView *container = [[UIView alloc] init];
     container.translatesAutoresizingMaskIntoConstraints = NO;
@@ -168,7 +171,7 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
     UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark];
     UIVisualEffectView *blurView = [[UIVisualEffectView alloc] initWithEffect:blur];
     blurView.translatesAutoresizingMaskIntoConstraints = NO;
-    blurView.alpha = 0.92;
+    blurView.alpha = 0.72;
     [container addSubview:blurView];
     [NSLayoutConstraint activateConstraints:@[
         [blurView.topAnchor    constraintEqualToAnchor:container.topAnchor],
