@@ -64,6 +64,7 @@
 #import "EZBubbleCell.h"
 #import "EZSystemCell.h"
 #import "EZCodeBlockCell.h"
+#import "EZImageGridCell.h"
 #import "EZEntitlementManager.h"
 #import "HelperLogViewController.h"
 
@@ -422,6 +423,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     }
 
     [self appendToChat:[NSString stringWithFormat:@"[System: Thread \"%@\" restored ✓]", thread.title]];
+    [self restoreImageGridCellsForThread:thread.threadID];
     [self scrollChatToBottom];
     [self updateThreadTitleLabel];
     EZLogf(EZLogLevelInfo, @"THREAD", @"Restored: %@ (%lu turns)",
@@ -723,6 +725,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [self.chatTableView registerClass:[EZBubbleCell class]    forCellReuseIdentifier:@"EZBubble"];
     [self.chatTableView registerClass:[EZSystemCell class]    forCellReuseIdentifier:@"EZSystem"];
     [self.chatTableView registerClass:[EZCodeBlockCell class] forCellReuseIdentifier:@"EZCodeBlock"];
+    [self.chatTableView registerClass:[EZImageGridCell class] forCellReuseIdentifier:@"EZImageGrid"];
+    [self.chatTableView registerClass:[EZAttachmentPreviewCell class] forCellReuseIdentifier:@"EZAttachment"];
     [self.view addSubview:self.chatTableView];
 
     self.statusBannerView = [[UIView alloc] init];
@@ -1450,6 +1454,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         : name;
     NSString *localPath = EZAttachmentSave(imageData, saveName);
     self.pendingImagePath = localPath ?: fileURL.path;
+    [self appendAttachmentBubble:self.pendingImagePath];
 
     if (localPath) {
         NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
@@ -1717,6 +1722,62 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 
     // Non-chat models — check entitlement now with flat cost.
+    // For image models, pick the feature tier by quality setting and multiply by n.
+    if ([self isGptImage1Family:self.selectedModel] ||
+        [self.selectedModel isEqualToString:@"gpt-image-1-edit"] ||
+        [self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
+
+        NSUserDefaults *d  = [NSUserDefaults standardUserDefaults];
+        NSString *quality  = [d stringForKey:@"imgQuality"] ?: @"auto";
+        NSString *size     = [d stringForKey:@"imgSize"]    ?: @"1024x1024";
+        NSInteger n        = [d integerForKey:@"imgVariations"];
+        if (n < 1) n = 1;
+
+        // Map quality → feature tier
+        EZFeature imageFeature;
+        if ([quality isEqualToString:@"high"]) {
+            imageFeature = EZFeatureImageHigh;
+        } else if ([quality isEqualToString:@"low"]) {
+            imageFeature = EZFeatureImageLow;
+        } else {
+            imageFeature = EZFeatureImageMedium; // "auto" or "medium"
+        }
+
+        // Non-square sizes cost 25% more — round up to nearest whole image unit
+        // so the edge function only needs to multiply by an integer quantity.
+        CGFloat sizeMultiplier = [size isEqualToString:@"1024x1024"] ? 1.0 : 1.25;
+        NSInteger quantity = (NSInteger)ceil(n * sizeMultiplier);
+
+        EZLogf(EZLogLevelInfo, @"COINS",
+               @"Image cost: feature=%@ n=%ld size=%@ sizeMultiplier=%.2f quantity=%ld",
+               [self featureLabel:imageFeature], (long)n, size, sizeMultiplier, (long)quantity);
+
+        [[EZEntitlementManager shared] checkEntitlementForFeature:imageFeature
+                                                         quantity:quantity
+                                                           prompt:text
+                                                            model:self.selectedModel
+                                                       completion:^(BOOL allowed,
+                                                                    NSInteger balance,
+                                                                    NSString *reason) {
+            if (!allowed) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if ([reason isEqualToString:@"Not logged in"]) {
+                        [self appendToChat:@"[Error: Please sign in to use EZCompleteUI]"];
+                    } else if ([reason isEqualToString:@"Insufficient coins"] ||
+                               [reason isEqualToString:@"No account found"]) {
+                        [self presentCoinStoreForFeature:nil];
+                    } else {
+                        [self appendToChat:[NSString stringWithFormat:
+                            @"[Error: %@]", reason ?: @"Access denied"]];
+                    }
+                });
+                return;
+            }
+            [self handleSendAuthorized:text];
+        }];
+        return;
+    }
+
     [[EZEntitlementManager shared] checkEntitlementForFeature:feature
                                                    completion:^(BOOL allowed,
                                                                 NSInteger balance,
@@ -2287,10 +2348,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // Use the actual selected model so gpt-image-1.5, -mini, chatgpt-image-latest all work
     NSString *imgModel   = self.selectedModel;
     if ([imgModel isEqualToString:@"gpt-image-1-edit"]) imgModel = @"gpt-image-1";
+    NSInteger imgN = [[NSUserDefaults standardUserDefaults] integerForKey:@"imgVariations"];
+    if (imgN < 1 || imgN > 4) imgN = 1;
     NSMutableDictionary *imgParams = [@{
         @"model":           imgModel,
         @"prompt":          prompt,
-        @"n":               @1,
+        @"n":               @(imgN),
         @"size":            imgSize,
         @"quality":         imgQuality,
         @"output_format":   imgFormat
@@ -2314,7 +2377,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         completionHandler:^(NSData *data, NSURLResponse *resp, NSError *error) {
         if (!data) { [self handleAPIError:error.localizedDescription ?: @"gpt-image-1 request failed"]; return; }
         NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-        // Log sanitized response — never dump b64 image data into the log
+        // Sanitized log — never dump b64 image data into the log
         NSMutableDictionary *logJson = [json mutableCopy];
         if ([logJson[@"data"] isKindOfClass:[NSArray class]]) {
             NSMutableArray *sanitized = [NSMutableArray array];
@@ -2329,41 +2392,77 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         id errObj = json[@"error"];
         if (errObj && ![errObj isKindOfClass:[NSNull class]]) {
             id m = ((NSDictionary *)errObj)[@"message"];
-            [self handleAPIError:(m && ![m isKindOfClass:[NSNull class]]) ? m : @"gpt-image-1 error"];
+            NSString *errMsg = (m && ![m isKindOfClass:[NSNull class]]) ? m : @"gpt-image-1 error";
+            [self handleAPIError:errMsg];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self appendImageGridToChat:@[] prompt:savedPrompt isError:YES errorText:errMsg];
+            });
             return;
         }
         id dataArr = json[@"data"];
         if (!dataArr || [dataArr isKindOfClass:[NSNull class]] || [(NSArray *)dataArr count] == 0) {
-            [self handleAPIError:@"No image in response"]; return;
+            NSString *errMsg = @"No image in response";
+            [self handleAPIError:errMsg];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self appendImageGridToChat:@[] prompt:savedPrompt isError:YES errorText:errMsg];
+            });
+            return;
         }
-        id imgObj  = ((NSArray *)dataArr)[0];
-        id imgURL  = ([imgObj isKindOfClass:[NSDictionary class]]) ? imgObj[@"url"]      : nil;
-        id b64     = ([imgObj isKindOfClass:[NSDictionary class]]) ? imgObj[@"b64_json"] : nil;
+        // Collect all returned images (n variations)
+        NSMutableArray<NSString *> *savedPaths = [NSMutableArray array];
+        for (NSDictionary *imgObj in (NSArray *)dataArr) {
+            NSString *imgURL = [imgObj isKindOfClass:[NSDictionary class]] ? imgObj[@"url"]      : nil;
+            NSString *b64    = [imgObj isKindOfClass:[NSDictionary class]] ? imgObj[@"b64_json"] : nil;
+            if (b64 && ![b64 isKindOfClass:[NSNull class]]) {
+                NSData *imgData = [[NSData alloc] initWithBase64EncodedString:b64 options:0];
+                if (imgData) {
+                    NSString *fname = [NSString stringWithFormat:@"gptimage_%lu.png",
+                                      (unsigned long)savedPaths.count + 1];
+                    NSString *path = EZAttachmentSave(imgData, fname);
+                    if (path) [savedPaths addObject:path];
+                }
+            } else if (imgURL && ![imgURL isKindOfClass:[NSNull class]]) {
+                // URL-format: download synchronously on this background thread
+                NSData *imgData = [NSData dataWithContentsOfURL:[NSURL URLWithString:imgURL]];
+                if (imgData) {
+                    NSString *fname = [NSString stringWithFormat:@"gptimage_%lu.png",
+                                      (unsigned long)savedPaths.count + 1];
+                    NSString *path = EZAttachmentSave(imgData, fname);
+                    if (path) [savedPaths addObject:path];
+                }
+            }
+        }
+        NSString *firstPath = savedPaths.firstObject;
         dispatch_async(dispatch_get_main_queue(), ^{
             self.lastImagePrompt = savedPrompt;
-        });
-        if (imgURL && ![imgURL isKindOfClass:[NSNull class]]) {
-            EZLog(EZLogLevelInfo, @"GPTIMAGE", @"URL received");
-            [self downloadAndSaveImage:(NSString *)imgURL purpose:@"gptimage"];
-        } else if (b64 && ![b64 isKindOfClass:[NSNull class]]) {
-            EZLog(EZLogLevelInfo, @"GPTIMAGE", @"b64_json received");
-            NSData *imgData = [[NSData alloc] initWithBase64EncodedString:(NSString *)b64 options:0];
-            if (imgData) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    NSString *savedPath = EZAttachmentSave(imgData, @"gptimage_result.png");
-                    if (savedPath) self.lastImageLocalPath = savedPath;
-                    NSURL *tmp = [NSURL fileURLWithPath:
-                        [NSTemporaryDirectory() stringByAppendingPathComponent:@"gptimage_gen.png"]];
-                    [imgData writeToURL:tmp atomically:YES];
-                    self.previewURL = tmp;
-                    QLPreviewController *ql = [[QLPreviewController alloc] init];
-                    ql.dataSource = self;
-                    [self presentViewController:ql animated:YES completion:nil];
-                });
+            if (firstPath) {
+                self.lastImageLocalPath = firstPath;
+                self.activeThread.lastImageLocalPath = firstPath;
+                NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
+                [att addObjectsFromArray:savedPaths];
+                self.activeThread.attachmentPaths = [att copy];
+                [self saveActiveThread];
+                [self persistImagePath:firstPath prompt:savedPrompt];
             }
-        } else {
-            [self handleAPIError:@"No image URL or data in gpt-image-1 response"];
-        }
+            if (savedPaths.count > 0) {
+                [self appendImageGridToChat:[savedPaths copy]
+                                     prompt:savedPrompt
+                                    isError:NO
+                                  errorText:nil];
+                [[EZEntitlementManager shared]
+                    completeUsageLogWithImagesReturned:(NSInteger)savedPaths.count
+                                            errorText:nil];
+            } else {
+                NSString *errMsg = @"Image generated but could not be saved.";
+                [self appendImageGridToChat:@[]
+                                     prompt:savedPrompt
+                                    isError:YES
+                                  errorText:errMsg];
+                [[EZEntitlementManager shared]
+                    completeUsageLogWithImagesReturned:0
+                                            errorText:errMsg];
+            }
+        });
     }] resume];
 }
 
@@ -2430,7 +2529,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             @"Content-Disposition: form-data; name=\"%@\"\r\n\r\n%@\r\n", name, value]
             dataUsingEncoding:NSUTF8StringEncoding]];
     };
-    addField(@"n",             @"1");
+    NSInteger editN = [[NSUserDefaults standardUserDefaults] integerForKey:@"imgVariations"];
+    if (editN < 1 || editN > 4) editN = 1;
+    addField(@"n",             [NSString stringWithFormat:@"%ld", (long)editN]);
     addField(@"size",          editSize);
     addField(@"quality",       editQual);
     addField(@"output_format", editFmt);
@@ -2461,70 +2562,74 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         id errObj = json[@"error"];
         if (errObj && ![errObj isKindOfClass:[NSNull class]]) {
             id m = ((NSDictionary *)errObj)[@"message"];
-            [self handleAPIError:(m && ![m isKindOfClass:[NSNull class]]) ? m : @"Image edit error"];
+            NSString *errMsg = (m && ![m isKindOfClass:[NSNull class]]) ? m : @"Image edit error";
+            [self handleAPIError:errMsg];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self appendImageGridToChat:@[] prompt:prompt isError:YES errorText:errMsg];
+            });
             return;
         }
         id dataArr = json[@"data"];
         if (!dataArr || [dataArr isKindOfClass:[NSNull class]] || [(NSArray *)dataArr count] == 0) {
-            [self handleAPIError:@"No image in edit response"]; return;
+            NSString *errMsg = @"No image in edit response";
+            [self handleAPIError:errMsg];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self appendImageGridToChat:@[] prompt:prompt isError:YES errorText:errMsg];
+            });
+            return;
         }
-        id imgObj = ((NSArray *)dataArr)[0];
-        id imgURL = ([imgObj isKindOfClass:[NSDictionary class]]) ? imgObj[@"url"] : nil;
-        id b64    = ([imgObj isKindOfClass:[NSDictionary class]]) ? imgObj[@"b64_json"] : nil;
+        // Collect all returned edit images
+        NSMutableArray<NSString *> *savedPaths = [NSMutableArray array];
+        for (NSDictionary *imgObj in (NSArray *)dataArr) {
+            NSString *imgURL = [imgObj isKindOfClass:[NSDictionary class]] ? imgObj[@"url"]      : nil;
+            NSString *b64    = [imgObj isKindOfClass:[NSDictionary class]] ? imgObj[@"b64_json"] : nil;
+            NSData *imgData = nil;
+            if (b64 && ![b64 isKindOfClass:[NSNull class]]) {
+                imgData = [[NSData alloc] initWithBase64EncodedString:b64 options:0];
+            } else if (imgURL && ![imgURL isKindOfClass:[NSNull class]]) {
+                imgData = [NSData dataWithContentsOfURL:[NSURL URLWithString:imgURL]];
+            }
+            if (imgData) {
+                NSString *fname = [NSString stringWithFormat:@"edit_%lu.png",
+                                  (unsigned long)savedPaths.count + 1];
+                NSString *path = EZAttachmentSave(imgData, fname);
+                if (path) [savedPaths addObject:path];
+            }
+        }
+        NSString *firstPath = savedPaths.firstObject;
         dispatch_async(dispatch_get_main_queue(), ^{
             self.lastImagePrompt = prompt;
-            self.selectedModel = @"gpt-image-1-edit";
+            self.selectedModel   = @"gpt-image-1-edit";
             [self.modelButton setTitle:@"Model: gpt-image-1 (edit mode)" forState:UIControlStateNormal];
             [self appendToChat:@"[System: Edit complete — still in edit mode. Attach a new image or type another edit prompt.]"];
-        });
-        if (imgURL && ![imgURL isKindOfClass:[NSNull class]]) {
-            EZLog(EZLogLevelInfo, @"IMGEDIT", @"URL received");
-            [[[NSURLSession sharedSession] downloadTaskWithURL:[NSURL URLWithString:(NSString *)imgURL]
-                completionHandler:^(NSURL *location, NSURLResponse *resp, NSError *err) {
-                if (!location) { [self handleAPIError:@"Edit result download failed"]; return; }
-                NSURL *tmp = [NSURL fileURLWithPath:
-                    [NSTemporaryDirectory() stringByAppendingPathComponent:@"edit_gen.png"]];
-                [[NSFileManager defaultManager] removeItemAtURL:tmp error:nil];
-                [[NSFileManager defaultManager] copyItemAtURL:location toURL:tmp error:nil];
-                NSData *imgData = [NSData dataWithContentsOfURL:tmp];
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    NSString *savedPath = imgData ? EZAttachmentSave(imgData, @"edit_result.png") : nil;
-                    if (savedPath) {
-                        self.lastImageLocalPath = savedPath;
-                        self.activeThread.lastImageLocalPath = savedPath;
-                        [self saveActiveThread];
-                        [self persistImagePath:savedPath prompt:self.lastImagePrompt];
-                    }
-                    self.previewURL = tmp;
-                    QLPreviewController *ql = [[QLPreviewController alloc] init];
-                    ql.dataSource = self;
-                    [self presentViewController:ql animated:YES completion:nil];
-                });
-            }] resume];
-        } else if (b64 && ![b64 isKindOfClass:[NSNull class]]) {
-            EZLog(EZLogLevelInfo, @"IMGEDIT", @"b64_json received");
-            NSData *imgData = [[NSData alloc] initWithBase64EncodedString:(NSString *)b64 options:0];
-            if (imgData) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    NSString *savedPath = EZAttachmentSave(imgData, @"edit_result.png");
-                    if (savedPath) {
-                        self.lastImageLocalPath = savedPath;
-                        self.activeThread.lastImageLocalPath = savedPath;
-                        [self saveActiveThread];
-                        [self persistImagePath:savedPath prompt:self.lastImagePrompt];
-                    }
-                    NSURL *tmp = [NSURL fileURLWithPath:
-                        [NSTemporaryDirectory() stringByAppendingPathComponent:@"edit_gen.png"]];
-                    [imgData writeToURL:tmp atomically:YES];
-                    self.previewURL = tmp;
-                    QLPreviewController *ql = [[QLPreviewController alloc] init];
-                    ql.dataSource = self;
-                    [self presentViewController:ql animated:YES completion:nil];
-                });
+            if (firstPath) {
+                self.lastImageLocalPath = firstPath;
+                self.activeThread.lastImageLocalPath = firstPath;
+                NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
+                [att addObjectsFromArray:savedPaths];
+                self.activeThread.attachmentPaths = [att copy];
+                [self saveActiveThread];
+                [self persistImagePath:firstPath prompt:prompt];
             }
-        } else {
-            [self handleAPIError:@"No image URL or data in edit response"];
-        }
+            if (savedPaths.count > 0) {
+                [self appendImageGridToChat:[savedPaths copy]
+                                     prompt:prompt
+                                    isError:NO
+                                  errorText:nil];
+                [[EZEntitlementManager shared]
+                    completeUsageLogWithImagesReturned:(NSInteger)savedPaths.count
+                                            errorText:nil];
+            } else {
+                NSString *errMsg = @"Edit produced no image output.";
+                [self appendImageGridToChat:@[]
+                                     prompt:prompt
+                                    isError:YES
+                                  errorText:errMsg];
+                [[EZEntitlementManager shared]
+                    completeUsageLogWithImagesReturned:0
+                                            errorText:errMsg];
+            }
+        });
     }] resume];
 }
 
@@ -3094,6 +3199,15 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     return [result copy];
 }
 
+- (NSString *)featureLabel:(EZFeature)feature {
+    switch (feature) {
+        case EZFeatureImageLow:    return @"image_low";
+        case EZFeatureImageMedium: return @"image_medium";
+        case EZFeatureImageHigh:   return @"image_high";
+        default:                   return @"image_medium";
+    }
+}
+
 - (void)handleAPIError:(NSString *)msg {
     EZLogf(EZLogLevelError, @"API", @"Error: %@", msg);
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -3187,10 +3301,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         initWithModels:self.models selectedModel:self.selectedModel];
     __weak typeof(self) ws = self;
     picker.onModelSelected = ^(NSString *model) {
-        if ([ws.selectedModel isEqualToString:@"gpt-image-1-edit"] ||
-            [ws.selectedModel isEqualToString:@"dall-e-2-edit"]) {
-            ws.pendingImagePath = nil;
-        }
         ws.selectedModel = model;
         [ws.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", model]
                         forState:UIControlStateNormal];
@@ -3599,6 +3709,91 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 /// Legacy name kept so all existing call sites compile unchanged.
 - (void)appendToOldChat:(NSString *)text { [self appendToChat:text]; }
 
+// ── Inline image grid insertion ───────────────────────────────────────────────
+
+/// Inserts an image grid cell into the chat for one or more generated/edited images.
+/// On success, imagePaths contains 1–4 local EZAttachments paths.
+/// On error, isError = YES and errorText describes what went wrong.
+/// Also persists to NSUserDefaults so image cells survive thread restore.
+- (void)appendImageGridToChat:(NSArray<NSString *> *)imagePaths
+                       prompt:(NSString *)prompt
+                      isError:(BOOL)isError
+                    errorText:(nullable NSString *)errorText {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self appendImageGridToChat:imagePaths prompt:prompt isError:isError errorText:errorText];
+        });
+        return;
+    }
+
+    NSMutableDictionary *entry = [@{
+        @"role":       @"imagegrid",
+        @"imagePaths": imagePaths ?: @[],
+        @"prompt":     prompt ?: @"",
+        @"isError":    @(isError),
+    } mutableCopy];
+    if (errorText) entry[@"errorText"] = errorText;
+
+    [self.displayMessages addObject:[entry copy]];
+    [self reloadAndScrollTable];
+
+    // Persist image cells keyed by threadID so they survive restore
+    [self persistImageGridCells];
+}
+
+/// Appends the saved imagegrid cells for this threadID to NSUserDefaults.
+- (void)persistImageGridCells {
+    NSString *threadID = self.activeThread.threadID;
+    if (!threadID.length) return;
+    NSString *key = [NSString stringWithFormat:@"EZImageCells_%@", threadID];
+    NSMutableArray *cells = [NSMutableArray array];
+    for (NSDictionary *msg in self.displayMessages) {
+        if ([msg[@"role"] isEqualToString:@"imagegrid"]) [cells addObject:msg];
+    }
+    NSData *data = [NSJSONSerialization dataWithJSONObject:cells options:0 error:nil];
+    if (data) [[NSUserDefaults standardUserDefaults] setObject:data forKey:key];
+}
+
+/// Restores image grid cells after a thread is loaded and displayMessages rebuilt.
+- (void)restoreImageGridCellsForThread:(NSString *)threadID {
+    if (!threadID.length) return;
+    NSString *key  = [NSString stringWithFormat:@"EZImageCells_%@", threadID];
+    NSData   *data = [[NSUserDefaults standardUserDefaults] objectForKey:key];
+    if (!data) return;
+    NSArray *saved = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+    if (![saved isKindOfClass:[NSArray class]]) return;
+    for (NSDictionary *cell in saved) {
+        if (![cell[@"role"] isEqualToString:@"imagegrid"]) continue;
+        // Only restore cells whose images still exist on disk
+        NSArray<NSString *> *paths = cell[@"imagePaths"] ?: @[];
+        NSMutableArray *validPaths = [NSMutableArray array];
+        for (NSString *p in paths) {
+            if ([[NSFileManager defaultManager] fileExistsAtPath:p]) [validPaths addObject:p];
+        }
+        if (validPaths.count == 0 && ![cell[@"isError"] boolValue]) continue;
+        NSMutableDictionary *entry = [cell mutableCopy];
+        entry[@"imagePaths"] = [validPaths copy];
+        [self.displayMessages addObject:[entry copy]];
+    }
+    [self reloadAndScrollTable];
+}
+
+/// Shows an inline attachment preview bubble when the user attaches an image.
+- (void)appendAttachmentBubble:(NSString *)imagePath {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self appendAttachmentBubble:imagePath];
+        });
+        return;
+    }
+    if (!imagePath.length) return;
+    [self.displayMessages addObject:@{
+        @"role":      @"attachment",
+        @"imagePath": imagePath,
+    }];
+    [self reloadAndScrollTable];
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - UITableViewDataSource / UITableViewDelegate
@@ -3608,9 +3803,43 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     return (NSInteger)self.displayMessages.count;
 }
 
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    NSDictionary *msg = self.displayMessages[(NSUInteger)indexPath.row];
+    NSString *role    = msg[@"role"] ?: @"system";
+    if ([role isEqualToString:@"imagegrid"]) {
+        NSArray *paths = msg[@"imagePaths"] ?: @[];
+        BOOL isError   = [msg[@"isError"] boolValue];
+        return [EZImageGridCell heightForImageCount:(NSInteger)paths.count
+                                        tableWidth:tableView.bounds.size.width
+                                           isError:isError];
+    }
+    if ([role isEqualToString:@"attachment"]) {
+        return [EZAttachmentPreviewCell heightForTableWidth:tableView.bounds.size.width];
+    }
+    return UITableViewAutomaticDimension;
+}
+
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     NSDictionary *msg = self.displayMessages[(NSUInteger)indexPath.row];
     NSString *role    = msg[@"role"] ?: @"system";
+
+    if ([role isEqualToString:@"imagegrid"]) {
+        EZImageGridCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZImageGrid"
+                                                                forIndexPath:indexPath];
+        [cell configureWithImagePaths:msg[@"imagePaths"] ?: @[]
+                               prompt:msg[@"prompt"] ?: @""
+                              isError:[msg[@"isError"] boolValue]
+                            errorText:msg[@"errorText"]
+                 presentingController:self];
+        return cell;
+    }
+
+    if ([role isEqualToString:@"attachment"]) {
+        EZAttachmentPreviewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZAttachment"
+                                                                        forIndexPath:indexPath];
+        [cell configureWithImagePath:msg[@"imagePath"] ?: @""];
+        return cell;
+    }
 
     if ([role isEqualToString:@"code"]) {
         EZCodeBlockCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZCodeBlock"

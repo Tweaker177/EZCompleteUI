@@ -29,6 +29,9 @@
         @{ @"title": @"Moderation", @"key": @"imgModeration", @"default": @"auto",
            @"options": @[@"auto", @"low"],
            @"labels":  @[@"Auto", @"Low"] },
+        @{ @"title": @"Variations", @"key": @"imgVariations", @"default": @"1",
+           @"options": @[@"1", @"2", @"4"],
+           @"labels":  @[@"1 — Single result", @"2 — Two variations", @"4 — Four variations (grid)"] },
     ];
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
         initWithBarButtonSystemItem:UIBarButtonSystemItemDone

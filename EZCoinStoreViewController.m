@@ -314,6 +314,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     storeTitle.textColor     = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0];
     storeTitle.textAlignment = NSTextAlignmentCenter;
     [self.headerView addSubview:storeTitle];
+    
+    [self addUseageButton];
 
     self.balanceLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 62, self.view.bounds.size.width, 22)];
     self.balanceLabel.font          = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
@@ -431,6 +433,33 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     return cell;
 }
 
+   
+- (void)addUseageButton {
+        UIButton *useageButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        [useageButton setTitle:@"useage" forState:UIControlStateNormal];
+        useageButton.translatesAutoresizingMaskIntoConstraints = NO;
+        useageButton.contentEdgeInsets = UIEdgeInsetsMake(6, 10, 6, 10);
+        useageButton.titleLabel.font = [UIFont systemFontOfSize:16.0];
+        [useageButton addTarget:self action:@selector(useageButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+        [self.view addSubview:useageButton];
+
+        UILayoutGuide *safeArea = self.view.safeAreaLayoutGuide;
+        [NSLayoutConstraint activateConstraints:@[
+            [useageButton.topAnchor constraintEqualToAnchor:safeArea.topAnchor constant:8.0],
+            [useageButton.trailingAnchor constraintEqualToAnchor:safeArea.trailingAnchor constant:-12.0]
+        ]];
+    }
+
+- (void)useageButtonTapped:(UIButton *)sender {
+        EZCoinLedgerViewController *ledgerVC = [[EZCoinLedgerViewController alloc] init];
+        if (self.navigationController) {
+            [self.navigationController pushViewController:ledgerVC animated:YES];
+        } else {
+            UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:ledgerVC];
+            nav.modalPresentationStyle = UIModalPresentationFullScreen;
+            [self presentViewController:nav animated:YES completion:nil];
+        }
+    }
 // ── Purchase flow ─────────────────────────────────────────────────────────────
 
 - (void)handlePurchaseForItem:(EZStoreItem *)item {
