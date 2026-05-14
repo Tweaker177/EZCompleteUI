@@ -1,5 +1,27 @@
 // ViewController.m
-// EZCompleteUI v6.9
+// EZCompleteUI v7.0
+//
+// Changes from v6.9:
+//   - handleSend now disables send button and shows user bubble IMMEDIATELY on
+//     tap, before any entitlement check or API call — eliminates the visible
+//     delay where text sat in the input field doing nothing
+//   - Same early UI commit (clear field, dismiss keyboard) now applies to all
+//     model types: chat, image, sora — previously only chat got it synchronously
+//   - Duplicate-send bug fixed: send button is disabled at the very top of
+//     handleSend, so rapid taps during the async entitlement network round-trip
+//     can no longer queue up extra calls
+//   - handleSendAuthorized: removed redundant appendToChat/endEditing/setInputText
+//     (already done in handleSend); chatContext addObject kept since it still
+//     needs the fully-assembled fullPrompt (with file context injected)
+//   - Removed two redundant sendButton.enabled = NO lines in handleSendAuthorized
+//     (image intent path and chat path) — button is already disabled on entry
+//   - handleAPIError now re-enables send button on main thread so any API failure
+//     path correctly unlocks the button
+//   - Both entitlement-denied blocks in handleSend now re-enable send button
+//     before showing the error/coin-store so user can retry
+//   - No-API-key early return in handleSendAuthorized re-enables send button
+//   - callImageEdit early-exit guards (no path, bad data, decode fail, PNG fail)
+//     all re-enable send button before returning
 //
 // Changes from v6.7:
 //   - Fixed: stale lastImageLocalPath no longer injected into unrelated memory entries
@@ -61,6 +83,7 @@
 #import "TextToSpeechViewController.h"
 #import "MemoriesViewController.h"
 #import "SupportRequestViewController.h"
+#import "BrainRotViewController.h"
 #import "EZBubbleCell.h"
 #import "EZSystemCell.h"
 #import "EZCodeBlockCell.h"
@@ -115,6 +138,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) UIButton      *textToSpeechButton;
 @property (nonatomic, strong) UIButton      *cloningButton;
 @property (nonatomic, strong) UIButton      *galleryButton;
+@property (nonatomic, strong) UIButton      *brainRotButton;
 //@property (nonatomic, strong) UIButton      *textToSpeechButton;
 
 @property (nonatomic, strong) NSLayoutConstraint *containerBottomConstraint;
@@ -207,7 +231,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
    
     EZLogRotateIfNeeded(512 * 1024);
-    EZLog(EZLogLevelInfo, @"APP", @"EZCompleteUI v6.9 viewDidLoad");
+    EZLog(EZLogLevelInfo, @"APP", @"EZCompleteUI v7.0 viewDidLoad");
     [self setupData];
     [self setupUI];
     [self setupKeyboardObservers];
@@ -644,6 +668,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.cloningButton = [self _iconButton:@"doc.richtext" tint:nil action:@selector(openCloning)];
     
     self.galleryButton = [self _iconButton:@"photo.on.rectangle.angled" tint:nil action:@selector(openGallery)];
+    self.brainRotButton = [self _iconButton:@"brain.head.profile" tint:nil action:@selector(openBrainRot)];
     
     self.textToSpeechButton = [self _iconButton:@"play.circle.fill" tint:nil action:@selector(openTTS)];
     
@@ -1688,6 +1713,16 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSString *text = self.messageTextField.text;
     if (text.length == 0) return;
 
+    // ── Immediate UI feedback ─────────────────────────────────────────────────
+    // Show the user bubble, clear the input field, and dismiss the keyboard NOW,
+    // before any async entitlement check or API call. This eliminates the delay
+    // where the user sees nothing happen after tapping Send. Disabling the button
+    // here also blocks duplicate submissions during the async round-trip.
+    self.sendButton.enabled = NO;
+    [self appendToChat:[NSString stringWithFormat:@"You: %@", text]];
+    [self.view endEditing:YES];
+    [self setInputText:@""];
+
     // ── Determine feature for entitlement check ───────────────────────────────
     EZFeature feature = EZFeatureChatMini;
 
@@ -1767,6 +1802,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                                                     NSString *reason) {
             if (!allowed) {
                 dispatch_async(dispatch_get_main_queue(), ^{
+                    self.sendButton.enabled = YES;
                     if ([reason isEqualToString:@"Not logged in"]) {
                         [self appendToChat:@"[Error: Please sign in to use EZCompleteUI]"];
                     } else if ([reason isEqualToString:@"Insufficient coins"] ||
@@ -1792,17 +1828,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                                                     NSInteger balance,
                                                                     NSString *reason) {
             if (!allowed) {
-                if ([reason isEqualToString:@"Not logged in"]) {
-                    [self appendToChat:@"[Error: Please sign in to use EZCompleteUI]"];
-                } else if ([reason isEqualToString:@"Insufficient coins"] ||
-                           [reason isEqualToString:@"No account found"]) {
-                    dispatch_async(dispatch_get_main_queue(), ^{
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.sendButton.enabled = YES;
+                    if ([reason isEqualToString:@"Not logged in"]) {
+                        [self appendToChat:@"[Error: Please sign in to use EZCompleteUI]"];
+                    } else if ([reason isEqualToString:@"Insufficient coins"] ||
+                               [reason isEqualToString:@"No account found"]) {
                         [self presentCoinStoreForFeature:nil];
-                    });
-                } else {
-                    [self appendToChat:[NSString stringWithFormat:
-                        @"[Error: %@]", reason ?: @"Access denied-please reopen app and log in."]];
-                }
+                    } else {
+                        [self appendToChat:[NSString stringWithFormat:
+                            @"[Error: %@]", reason ?: @"Access denied-please reopen app and log in."]];
+                    }
+                });
                 return;
             }
             [self handleSendAuthorized:text];
@@ -1826,14 +1863,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         [self appendToChat:@"[System: File context injected ✓]"];
     }
 
-    [self appendToChat:[NSString stringWithFormat:@"You: %@", text]];
     [self.chatContext addObject:@{@"role": @"user", @"content": fullPrompt}];
-    [self.view endEditing:YES];
-    [self setInputText:@""];
 
     NSString *apiKey = [EZKeyVault loadKeyForIdentifier:EZVaultKeyOpenAI];
 
-    if (!apiKey.length) { [self appendToChat:@"[Error: No API Key]"]; return; }
+    if (!apiKey.length) { self.sendButton.enabled = YES; [self appendToChat:@"[Error: No API Key]"]; return; }
 
     // ── Guard: Whisper is transcription-only, not a chat model ───────────────
     if ([self.selectedModel isEqualToString:@"whisper-1"]) {
@@ -1871,7 +1905,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
         BOOL hasLocal = self.lastImageLocalPath.length > 0;
 
-        self.sendButton.enabled = NO;
         [self classifyImageIntent:text hasLocalImage:hasLocal apiKey:apiKey
                        completion:^(NSString *intent) {
             self.sendButton.enabled = YES;
@@ -1926,8 +1959,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 
     // ── Chat / reasoning models ───────────────────────────────────────────────
-    self.sendButton.enabled = NO;
-
     [self fetchRelevantMemories:text apiKey:apiKey completion:^(NSString *memories) {
         analyzePromptForContext(text, memories, apiKey, self.activeThread.threadID,
         ^(EZContextResult *result) {
@@ -2483,6 +2514,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath {
     if (!imagePath) {
+        self.sendButton.enabled = YES;
         [self appendToChat:@"[Error: No image attached for editing]"]; return;
     }
     [self appendToChat:@"[System: Editing image with gpt-image-1...]"];
@@ -2493,13 +2525,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSData *imageData = [NSData dataWithContentsOfFile:imagePath]
                      ?: [NSData dataWithContentsOfURL:[NSURL fileURLWithPath:imagePath]];
     if (!imageData) {
+        self.sendButton.enabled = YES;
         [self appendToChat:@"[Error: Could not read image for editing]"]; return;
     }
 
     UIImage *img = [UIImage imageWithData:imageData];
-    if (!img) { [self appendToChat:@"[Error: Could not decode image for editing]"]; return; }
+    if (!img) { self.sendButton.enabled = YES; [self appendToChat:@"[Error: Could not decode image for editing]"]; return; }
     NSData *pngData = UIImagePNGRepresentation(img);
-    if (!pngData) { [self appendToChat:@"[Error: Could not convert image to PNG]"]; return; }
+    if (!pngData) { self.sendButton.enabled = YES; [self appendToChat:@"[Error: Could not convert image to PNG]"]; return; }
     EZLogf(EZLogLevelInfo, @"IMGEDIT", @"PNG ready: %lu bytes", (unsigned long)pngData.length);
 
     NSString *boundary = [NSString stringWithFormat:@"Boundary-%@", [[NSUUID UUID] UUIDString]];
@@ -3222,6 +3255,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)handleAPIError:(NSString *)msg {
     EZLogf(EZLogLevelError, @"API", @"Error: %@", msg);
     dispatch_async(dispatch_get_main_queue(), ^{
+        self.sendButton.enabled = YES;
         [self appendToChat:[NSString stringWithFormat:@"[API Error]: %@", msg]];
     });
 }
@@ -3949,6 +3983,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)openSettings {
     UINavigationController *nav = [[UINavigationController alloc]
         initWithRootViewController:[[SettingsViewController alloc] init]];
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)openBrainRot {
+    BrainRotViewController *brainRot = [[BrainRotViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc]
+        initWithRootViewController:brainRot];
+    nav.modalPresentationStyle = UIModalPresentationPageSheet;
     [self presentViewController:nav animated:YES completion:nil];
 }
 
