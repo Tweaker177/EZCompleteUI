@@ -10,6 +10,8 @@
 #import "EZEntitlementManager.h"
 #import "EZCoinPotView.h"
 #import "helpers.h"
+#import "EZCoinLedgerViewController.h"
+#import "EZCoinUsageViewController.h"
 
 // ── Supabase / PayPal constants ───────────────────────────────────────────────
 
@@ -207,12 +209,23 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
                              target:self
                              action:@selector(closeTapped)];
 
+    // "History" — user-facing coin usage log (right nav bar button)
+    UIBarButtonItem *historyBtn = [[UIBarButtonItem alloc]
+        initWithImage:[UIImage systemImageNamed:@"clock.arrow.circlepath"]
+                style:UIBarButtonItemStylePlain
+               target:self
+               action:@selector(historyTapped)];
+    historyBtn.tintColor = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0];
+    self.navigationItem.rightBarButtonItem = historyBtn;
+
     // Load coin image from bundle
     self.coinImage = [UIImage imageNamed:@"EZCoin"];
 
     [self buildItems];
     [self setupUI];
     [self refreshBalance];
+    [self addUseageButton];
+
 }
 
 - (void)closeTapped {
@@ -315,7 +328,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     storeTitle.textAlignment = NSTextAlignmentCenter;
     [self.headerView addSubview:storeTitle];
     
-    [self addUseageButton];
 
     self.balanceLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 62, self.view.bounds.size.width, 22)];
     self.balanceLabel.font          = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
@@ -435,31 +447,45 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
    
 - (void)addUseageButton {
-        UIButton *useageButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [useageButton setTitle:@"useage" forState:UIControlStateNormal];
-        useageButton.translatesAutoresizingMaskIntoConstraints = NO;
-        useageButton.contentEdgeInsets = UIEdgeInsetsMake(6, 10, 6, 10);
-        useageButton.titleLabel.font = [UIFont systemFontOfSize:16.0];
-        [useageButton addTarget:self action:@selector(useageButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-        [self.view addSubview:useageButton];
+    UIButton *useageButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [useageButton setTitle:@"Ledger" forState:UIControlStateNormal];
+    useageButton.translatesAutoresizingMaskIntoConstraints = NO;
+    useageButton.contentEdgeInsets = UIEdgeInsetsMake(6, 10, 6, 10);
+    useageButton.titleLabel.font = [UIFont systemFontOfSize:16.0];
+    [useageButton addTarget:self action:@selector(useageButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:useageButton];
 
-        UILayoutGuide *safeArea = self.view.safeAreaLayoutGuide;
-        [NSLayoutConstraint activateConstraints:@[
-            [useageButton.topAnchor constraintEqualToAnchor:safeArea.topAnchor constant:8.0],
-            [useageButton.trailingAnchor constraintEqualToAnchor:safeArea.trailingAnchor constant:-12.0]
-        ]];
-    }
+    UILayoutGuide *safeArea = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [useageButton.topAnchor constraintEqualToAnchor:safeArea.topAnchor constant:8.0],
+        [useageButton.trailingAnchor constraintEqualToAnchor:safeArea.trailingAnchor constant:-12.0]
+    ]];
+}
 
+/// Internal cost ledger — floating "Ledger" button
 - (void)useageButtonTapped:(UIButton *)sender {
-        EZCoinLedgerViewController *ledgerVC = [[EZCoinLedgerViewController alloc] init];
-        if (self.navigationController) {
-            [self.navigationController pushViewController:ledgerVC animated:YES];
-        } else {
-            UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:ledgerVC];
-            nav.modalPresentationStyle = UIModalPresentationFullScreen;
-            [self presentViewController:nav animated:YES completion:nil];
-        }
+    EZCoinLedgerViewController *ledgerVC = [[EZCoinLedgerViewController alloc] init];
+    if (self.navigationController) {
+        [self.navigationController pushViewController:ledgerVC animated:YES];
+    } else {
+        UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:ledgerVC];
+        nav.modalPresentationStyle = UIModalPresentationFullScreen;
+        [self presentViewController:nav animated:YES completion:nil];
     }
+}
+
+/// User-facing coin usage history — nav bar clock button
+- (void)historyTapped {
+    EZCoinUsageViewController *usageVC = [[EZCoinUsageViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:usageVC];
+    nav.modalPresentationStyle = UIModalPresentationPageSheet;
+    if (@available(iOS 15, *)) {
+        UISheetPresentationController *sheet = nav.sheetPresentationController;
+        sheet.detents = @[UISheetPresentationControllerDetent.largeDetent];
+        sheet.prefersGrabberVisible = YES;
+    }
+    [self presentViewController:nav animated:YES completion:nil];
+}
 // ── Purchase flow ─────────────────────────────────────────────────────────────
 
 - (void)handlePurchaseForItem:(EZStoreItem *)item {

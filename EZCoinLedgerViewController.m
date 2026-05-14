@@ -111,14 +111,22 @@ static NSDateFormatter *sharedFormatter(void) {
 }
 
 - (void)configureWithRow:(NSDictionary *)row {
+    // Helper: return an NSString for common types, never NSNull or nil.
+    NSString *(^S)(id) = ^NSString *(id v) {
+        if (v == nil || v == (id)[NSNull null]) return @"";
+        if ([v isKindOfClass:[NSString class]]) return (NSString *)v;
+        if ([v respondsToSelector:@selector(stringValue)]) return [v stringValue];
+        return @"";
+    };
+
     // Feature + model
-    NSString *feature = row[@"feature"] ?: @"unknown";
-    NSString *model   = row[@"model"];
-    _featureLabel.text = [self friendlyFeature:feature];
+    NSString *feature = S(row[@"feature"]);
+    NSString *model   = S(row[@"model"]);
+    _featureLabel.text = [self friendlyFeature:feature.length ? feature : @"unknown"];
     _modelLabel.text   = model.length ? model : @"";
 
     // Prompt
-    NSString *prompt = row[@"prompt"];
+    NSString *prompt = S(row[@"prompt"]);
     _promptLabel.text = prompt.length ? prompt : @"(no prompt recorded)";
     _promptLabel.textColor = prompt.length
         ? [UIColor colorWithWhite:0.78 alpha:1] : EZMuted();
@@ -172,7 +180,7 @@ static NSDateFormatter *sharedFormatter(void) {
     }
 
     // Timestamp
-    NSString *isoDate = row[@"created_at"] ?: @"";
+    NSString *isoDate = S(row[@"created_at"]);
     if (isoDate.length >= 19) {
         NSDateFormatter *iso = [NSDateFormatter new];
         iso.locale     = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
@@ -184,7 +192,8 @@ static NSDateFormatter *sharedFormatter(void) {
     }
 
     // Status dot
-    NSString *status = row[@"status"] ?: @"complete";
+    NSString *status = S(row[@"status"]);
+    if (status.length == 0) status = @"complete";
     if ([status isEqualToString:@"pending"]) {
         _statusDot.backgroundColor = [UIColor systemYellowColor];
     } else if ([status isEqualToString:@"error"]) {

@@ -1,5 +1,32 @@
 // ViewController.m
-// EZCompleteUI v7.0
+// EZCompleteUI v7.2
+//
+// Changes from v7.1:
+//   - Fixed: tapping Send while keyboard is visible caused first tap to dismiss
+//     keyboard but not send. Root cause: the view-wide UITapGestureRecognizer
+//     (dismissTap) was firing on the same touch as the send button, starting a
+//     keyboard-hide layout animation that repositioned the inputContainer mid-
+//     touch, causing UIKit to cancel the button's touchUpInside before it fired.
+//   - Fix: ViewController now adopts UIGestureRecognizerDelegate and implements
+//     gestureRecognizer:shouldReceiveTouch: to return NO when the touch lands on
+//     any UIControl (button, switch, etc.). The dismissTap gesture is therefore
+//     skipped entirely on button taps — no animation race, send always fires.
+//   - dismissTap.delegate = self wired in setupUI.
+//
+// Changes from v7.1:
+//   - TTS now routed through ez-elevenlabs Supabase edge function (server-side
+//     ElevenLabs key via Supabase secret) instead of the user's own API key.
+//     Coins are deducted server-side at 1 coin per 50 chars (rounded up).
+//   - speakLastResponse: responses > 160 chars now show a UIAlertController
+//     warning with estimated coin cost, offering: Use ElevenLabs, Use Apple
+//     TTS (free), or Don't Read — prevents accidentally reading huge responses.
+//   - Insufficient-coins response (HTTP 402) from edge function shows its own
+//     alert: Apple TTS fallback or Get Coins (opens coin store).
+//   - All ElevenLabs error paths fall back to Apple TTS with a chat notice.
+//   - Coin balance display is refreshed after a successful TTS call.
+//   - Old direct-to-ElevenLabs code (user API key path) commented out, not
+//     deleted, in case user keys need to be restored in the future.
+//   - Added #import "EZAuthManager.h" for JWT access ([EZAuthManager shared].accessToken).
 //
 // Changes from v6.9:
 //   - handleSend now disables send button and shows user bubble IMMEDIATELY on
@@ -89,6 +116,7 @@
 #import "EZCodeBlockCell.h"
 #import "EZImageGridCell.h"
 #import "EZEntitlementManager.h"
+#import "EZAuthManager.h"         // needed for [EZAuthManager shared].accessToken (edge function JWT)
 #import "HelperLogViewController.h"
 
 
@@ -107,6 +135,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                                QLPreviewControllerDataSource,
                                PHPickerViewControllerDelegate,
                                SFSpeechRecognizerDelegate,
+                               UIGestureRecognizerDelegate,
                                ChatHistoryViewControllerDelegate>
 
 
@@ -231,7 +260,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
    
     EZLogRotateIfNeeded(512 * 1024);
-    EZLog(EZLogLevelInfo, @"APP", @"EZCompleteUI v7.0 viewDidLoad");
+    EZLog(EZLogLevelInfo, @"APP", @"EZCompleteUI v7.2 viewDidLoad");
     [self setupData];
     [self setupUI];
     [self setupKeyboardObservers];
@@ -669,7 +698,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     
     self.galleryButton = [self _iconButton:@"photo.on.rectangle.angled" tint:nil action:@selector(openGallery)];
     self.brainRotButton = [self _iconButton:@"brain.head.profile" tint:nil action:@selector(openBrainRot)];
-    
+
     self.textToSpeechButton = [self _iconButton:@"play.circle.fill" tint:nil action:@selector(openTTS)];
     
     
@@ -942,10 +971,14 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         [self.statusBannerLabel.bottomAnchor constraintEqualToAnchor:self.statusBannerView.bottomAnchor constant:-10],
     ]];
 
-    // Tap anywhere outside the input field to dismiss the keyboard
+    // Tap anywhere outside the input field to dismiss the keyboard.
+    // delegate set to self so gestureRecognizer:shouldReceiveTouch: can
+    // prevent the gesture from firing on buttons (avoids a layout-animation
+    // race that cancelled touchUpInside on the first send tap).
     UITapGestureRecognizer *dismissTap = [[UITapGestureRecognizer alloc]
         initWithTarget:self action:@selector(dismissKeyboard)];
     dismissTap.cancelsTouchesInView = NO;
+    dismissTap.delegate = self;
     [self.view addGestureRecognizer:dismissTap];
 }
 
@@ -1071,6 +1104,15 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
 - (void)dismissKeyboard {
     [self.view endEditing:YES];
+}
+
+// The dismissTap gesture must not fire when the touch lands on a UIControl
+// (UIButton, UISwitch, etc.). Without this, tapping Send while the keyboard
+// is visible starts a keyboard-hide layout animation mid-touch that moves the
+// inputContainer, causing UIKit to cancel the button's touchUpInside event.
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+       shouldReceiveTouch:(UITouch *)touch {
+    return ![touch.view isKindOfClass:[UIControl class]];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1633,14 +1675,70 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)speakLastResponse {
     if (!self.lastAIResponse) return;
-    NSUserDefaults *d  = [NSUserDefaults standardUserDefaults];
-    // CHANGED: ElevenLabs key now loaded from EZKeyVault (Keychain) instead of NSUserDefaults
-    NSString *elKey    = [EZKeyVault loadKeyForIdentifier:EZVaultKeyElevenLabs];
-    NSString *elVoice  = [d stringForKey:@"elevenVoiceID"];
-    if (elKey.length > 0 && elVoice.length > 0) {
-        [self speakWithElevenLabs:self.lastAIResponse key:elKey voiceID:elVoice];
+
+    NSString *voiceID     = [[NSUserDefaults standardUserDefaults] stringForKey:@"elevenVoiceID"];
+    NSString *textToSpeak = self.lastAIResponse;
+    NSInteger charCount   = (NSInteger)textToSpeak.length;
+
+    // ── Old user-API-key path — commented out, kept in case user keys return ──
+    // NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    // // CHANGED: ElevenLabs key now loaded from EZKeyVault (Keychain) instead of NSUserDefaults
+    // NSString *elKey   = [EZKeyVault loadKeyForIdentifier:EZVaultKeyElevenLabs];
+    // NSString *elVoice = [d stringForKey:@"elevenVoiceID"];
+    // if (elKey.length > 0 && elVoice.length > 0) {
+    //     [self speakWithElevenLabs:textToSpeak key:elKey voiceID:elVoice];
+    // } else {
+    //     [self speakWithApple:textToSpeak];
+    // }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // No voice configured — fall back to Apple TTS silently
+    if (voiceID.length == 0) {
+        [self speakWithApple:textToSpeak];
+        return;
+    }
+
+    // ── Long-response guard (> 160 chars) ────────────────────────────────────
+    // Coin cost mirrors the edge function: ceil(charCount / 50)
+    NSInteger estimatedCoins = (NSInteger)ceil(charCount / 50.0);
+
+    if (charCount > 160) {
+        NSString *alertMessage = [NSString stringWithFormat:
+            @"This response is %ld characters long.\n\n"
+            @"Reading it with ElevenLabs will cost approximately %ld coins.\n\n"
+            @"Choose an option:",
+            (long)charCount, (long)estimatedCoins];
+
+        UIAlertController *lengthAlert = [UIAlertController
+            alertControllerWithTitle:@"Long Response"
+                             message:alertMessage
+                      preferredStyle:UIAlertControllerStyleAlert];
+
+        NSString *elevenLabsLabel = [NSString stringWithFormat:
+            @"ElevenLabs (≈%ld coins)", (long)estimatedCoins];
+        [lengthAlert addAction:[UIAlertAction
+            actionWithTitle:elevenLabsLabel
+                      style:UIAlertActionStyleDefault
+                    handler:^(UIAlertAction *action) {
+            [self speakWithElevenLabsEdge:textToSpeak voiceID:voiceID];
+        }]];
+
+        [lengthAlert addAction:[UIAlertAction
+            actionWithTitle:@"Apple TTS (free)"
+                      style:UIAlertActionStyleDefault
+                    handler:^(UIAlertAction *action) {
+            [self speakWithApple:textToSpeak];
+        }]];
+
+        [lengthAlert addAction:[UIAlertAction
+            actionWithTitle:@"Don't Read"
+                      style:UIAlertActionStyleCancel
+                    handler:nil]];
+
+        [self presentViewController:lengthAlert animated:YES completion:nil];
     } else {
-        [self speakWithApple:self.lastAIResponse];
+        // Short response — go straight to ElevenLabs, no warning needed
+        [self speakWithElevenLabsEdge:textToSpeak voiceID:voiceID];
     }
 }
 
@@ -1657,45 +1755,198 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self.speechSynthesizer speakUtterance:u];
 }
 
-- (void)speakWithElevenLabs:(NSString *)text key:(NSString *)key voiceID:(NSString *)voiceID {
-    EZLogf(EZLogLevelInfo, @"TTS", @"ElevenLabs voiceID=%@", voiceID);
-    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:
-        @"https://api.elevenlabs.io/v1/text-to-speech/%@", voiceID]];
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
+// ── speakWithElevenLabs:key:voiceID: — COMMENTED OUT (user API key path) ────
+// Kept in case user-supplied ElevenLabs keys need to be restored later.
+// All TTS now routes through the ez-elevenlabs Supabase edge function.
+//
+// - (void)speakWithElevenLabs:(NSString *)text key:(NSString *)key voiceID:(NSString *)voiceID {
+//     EZLogf(EZLogLevelInfo, @"TTS", @"ElevenLabs voiceID=%@", voiceID);
+//     NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:
+//         @"https://api.elevenlabs.io/v1/text-to-speech/%@", voiceID]];
+//     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
+//     req.HTTPMethod = @"POST";
+//     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+//     [req setValue:key forHTTPHeaderField:@"xi-api-key"];
+//     req.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
+//         @"text": text, @"model_id": @"eleven_turbo_v2_5",
+//         @"voice_settings": @{@"stability": @0.5, @"similarity_boost": @0.5}
+//     } options:0 error:nil];
+//     [[[NSURLSession sharedSession] dataTaskWithRequest:req
+//         completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+//         if (error) {
+//             dispatch_async(dispatch_get_main_queue(), ^{ [self speakWithApple:text]; });
+//             return;
+//         }
+//         NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
+//         if (http.statusCode != 200) {
+//             NSString *body = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+//             EZLogf(EZLogLevelError, @"TTS", @"ElevenLabs %ld: %@", (long)http.statusCode, body);
+//             dispatch_async(dispatch_get_main_queue(), ^{
+//                 [self appendToChat:[NSString stringWithFormat:
+//                     @"[ElevenLabs HTTP %ld — falling back to Apple TTS]", (long)http.statusCode]];
+//                 [self speakWithApple:text];
+//             });
+//             return;
+//         }
+//         dispatch_async(dispatch_get_main_queue(), ^{
+//             [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback
+//                                                     mode:AVAudioSessionModeDefault
+//                                                  options:0 error:nil];
+//             [[AVAudioSession sharedInstance] setActive:YES error:nil];
+//             NSError *playerErr;
+//             self.audioPlayer = [[AVAudioPlayer alloc] initWithData:data error:&playerErr];
+//             if (playerErr) { [self speakWithApple:text]; return; }
+//             [self.audioPlayer prepareToPlay];
+//             [self.audioPlayer play];
+//         });
+//     }] resume];
+// }
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── speakWithElevenLabsEdge:voiceID: — routes through ez-elevenlabs edge fn ─
+// Sends text to the Supabase edge function which uses the server-side
+// ElevenLabs API key (Supabase secret). Coins are deducted server-side at
+// 1 coin per 50 characters, rounded up. Returns base64-encoded audio.
+- (void)speakWithElevenLabsEdge:(NSString *)text voiceID:(NSString *)voiceID {
+    NSString *jwt = [EZAuthManager shared].accessToken;
+    if (!jwt.length) {
+        EZLog(EZLogLevelError, @"TTS", @"No auth token — cannot call TTS edge function");
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self appendToChat:@"[TTS Error: Not signed in — using Apple TTS]"];
+            [self speakWithApple:text];
+        });
+        return;
+    }
+
+    NSInteger charCount = (NSInteger)text.length;
+    EZLogf(EZLogLevelInfo, @"TTS", @"ElevenLabs edge TTS voiceID=%@ chars=%ld",
+           voiceID, (long)charCount);
+
+    NSURL *edgeURL = [NSURL URLWithString:
+        @"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-elevenlabs"];
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:edgeURL];
     req.HTTPMethod = @"POST";
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    [req setValue:key forHTTPHeaderField:@"xi-api-key"];
+    [req setValue:[NSString stringWithFormat:@"Bearer %@", jwt]
+       forHTTPHeaderField:@"Authorization"];
     req.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
-        @"text": text, @"model_id": @"eleven_turbo_v2_5",
-        @"voice_settings": @{@"stability": @0.5, @"similarity_boost": @0.5}
+        @"action":     @"tts",
+        @"text":       text,
+        @"voice_id":   voiceID,
+        @"char_count": @(charCount),
     } options:0 error:nil];
+
     [[[NSURLSession sharedSession] dataTaskWithRequest:req
-        completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-        if (error) {
-            dispatch_async(dispatch_get_main_queue(), ^{ [self speakWithApple:text]; });
-            return;
-        }
+        completionHandler:^(NSData *responseData, NSURLResponse *response, NSError *networkError) {
+
         NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
-        if (http.statusCode != 200) {
-            NSString *body = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-            EZLogf(EZLogLevelError, @"TTS", @"ElevenLabs %ld: %@", (long)http.statusCode, body);
+
+        // ── Network-level failure ─────────────────────────────────────────────
+        if (networkError) {
+            EZLogf(EZLogLevelError, @"TTS", @"Network error: %@",
+                   networkError.localizedDescription);
             dispatch_async(dispatch_get_main_queue(), ^{
-                [self appendToChat:[NSString stringWithFormat:
-                    @"[ElevenLabs HTTP %ld — falling back to Apple TTS]", (long)http.statusCode]];
+                [self appendToChat:@"[TTS: Network error — using Apple TTS]"];
                 [self speakWithApple:text];
             });
             return;
         }
+
+        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:responseData
+                                                             options:0 error:nil];
+
+        // ── Insufficient coins (402) ──────────────────────────────────────────
+        if (http.statusCode == 402) {
+            NSInteger costNeeded   = [json[@"cost"] integerValue];
+            NSInteger currentCoins = [json[@"balance"] integerValue];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                NSString *coinMessage = [NSString stringWithFormat:
+                    @"This TTS request costs %ld coins but your balance is %ld.\n\n"
+                    @"Use Apple TTS for free, or top up your coins.",
+                    (long)costNeeded, (long)currentCoins];
+                UIAlertController *coinAlert = [UIAlertController
+                    alertControllerWithTitle:@"Not Enough Coins"
+                                     message:coinMessage
+                              preferredStyle:UIAlertControllerStyleAlert];
+                [coinAlert addAction:[UIAlertAction
+                    actionWithTitle:@"Use Apple TTS (free)"
+                              style:UIAlertActionStyleDefault
+                            handler:^(UIAlertAction *a) { [self speakWithApple:text]; }]];
+                [coinAlert addAction:[UIAlertAction
+                    actionWithTitle:@"Get Coins"
+                              style:UIAlertActionStyleDefault
+                            handler:^(UIAlertAction *a) {
+                    [self presentCoinStoreForFeature:nil];
+                }]];
+                [coinAlert addAction:[UIAlertAction
+                    actionWithTitle:@"Cancel"
+                              style:UIAlertActionStyleCancel handler:nil]];
+                [self presentViewController:coinAlert animated:YES completion:nil];
+            });
+            return;
+        }
+
+        // ── Any other non-200 ─────────────────────────────────────────────────
+        if (http.statusCode != 200) {
+            NSString *errorDetail = json[@"error"] ?: @"Unknown error";
+            EZLogf(EZLogLevelError, @"TTS", @"Edge function HTTP %ld: %@",
+                   (long)http.statusCode, errorDetail);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self appendToChat:[NSString stringWithFormat:
+                    @"[TTS Error %ld — using Apple TTS]", (long)http.statusCode]];
+                [self speakWithApple:text];
+            });
+            return;
+        }
+
+        // ── Success ───────────────────────────────────────────────────────────
+        NSString *audioB64   = json[@"audio_b64"];
+        NSInteger newBalance = [json[@"balance"] integerValue];
+        NSInteger coinsSpent = [json[@"coins_spent"] integerValue];
+
+        if (!audioB64.length) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self appendToChat:@"[TTS Error: No audio in response — using Apple TTS]"];
+                [self speakWithApple:text];
+            });
+            return;
+        }
+
+        NSData *audioData = [[NSData alloc]
+            initWithBase64EncodedString:audioB64
+                                options:NSDataBase64DecodingIgnoreUnknownCharacters];
+        if (!audioData) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self appendToChat:@"[TTS Error: Could not decode audio — using Apple TTS]"];
+                [self speakWithApple:text];
+            });
+            return;
+        }
+
         dispatch_async(dispatch_get_main_queue(), ^{
             [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback
                                                     mode:AVAudioSessionModeDefault
                                                  options:0 error:nil];
             [[AVAudioSession sharedInstance] setActive:YES error:nil];
-            NSError *playerErr;
-            self.audioPlayer = [[AVAudioPlayer alloc] initWithData:data error:&playerErr];
-            if (playerErr) { [self speakWithApple:text]; return; }
+            NSError *playerErr = nil;
+            self.audioPlayer = [[AVAudioPlayer alloc] initWithData:audioData error:&playerErr];
+            if (playerErr) {
+                EZLogf(EZLogLevelError, @"TTS", @"AVAudioPlayer error: %@",
+                       playerErr.localizedDescription);
+                [self speakWithApple:text];
+                return;
+            }
             [self.audioPlayer prepareToPlay];
             [self.audioPlayer play];
+
+            // Refresh coin display — edge function already deducted server-side
+            [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+                [self updateCoinBalanceDisplay];
+            }];
+
+            EZLogf(EZLogLevelInfo, @"TTS",
+                   @"ElevenLabs audio playing — spent %ld coins, balance now %ld",
+                   (long)coinsSpent, (long)newBalance);
         });
     }] resume];
 }

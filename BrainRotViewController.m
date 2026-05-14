@@ -1,4 +1,3 @@
-//
 //  BrainRotViewController.m
 //  BrainRotGame
 //
@@ -12,7 +11,10 @@
 #import "BRGameModel.h"
 #import "BRGameView.h"
 
-@interface BrainRotViewController ()
+@interface BrainRotViewController () {
+    // track whether we've already shown the end-of-run alert for the current run
+    BOOL alertFired;
+}
 
 // UI
 @property (nonatomic, strong) BRGameView *gameView;
@@ -41,6 +43,11 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor systemBackgroundColor];
+
+    // Ensure alert flag starts cleared in memory and persisted state for a fresh run
+    alertFired = NO;
+    [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"BRAlertFired"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
 
     // Top flavor
     self.flavorLabel = [[UILabel alloc] initWithFrame:CGRectZero];
@@ -138,7 +145,7 @@
 - (void)tick {
     [self.gameView setNeedsDisplay];
     [self updateStatus];
-    [self.checkForWinOrLoss];
+    [self checkForWinOrLoss];
 }
 
 - (void)updateStatus {
@@ -149,14 +156,29 @@
 
 - (void)checkForWinOrLoss {
     if (!self.model) return;
+
+    // Read persistent flag once (useful if app-wide persistence is desired)
+    BOOL persistedFired = [[NSUserDefaults standardUserDefaults] boolForKey:@"BRAlertFired"];
+
     if (self.model.playerHP <= 0) {
-        [self showAlertWithTitle:@"Defeat" message:@"You collapsed in the cell. The run is over. Tap New Run to try again."];
-        [self.tickTimer invalidate];
-        self.tickTimer = nil;
+        // Only show the alert if we haven't already fired it for this run
+        if (!alertFired && !persistedFired) {
+            [self showAlertWithTitle:@"Defeat" message:@"You collapsed in the cell. The run is over. Tap New Run to try again."];
+            alertFired = YES;
+            [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"BRAlertFired"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+            [self.tickTimer invalidate];
+            self.tickTimer = nil;
+        }
     } else if (self.model.playerCol == self.model.exitCol && self.model.playerRow == self.model.exitRow) {
-        [self showAlertWithTitle:@"Freed" message:@"You found the exit and slipped out. Symbolic jailbreak success. New run?"];
-        [self.tickTimer invalidate];
-        self.tickTimer = nil;
+        if (!alertFired && !persistedFired) {
+            [self showAlertWithTitle:@"Freed" message:@"You found the vulnerabilities and exploited them. Jailbreak successful. New run?"];
+            alertFired = YES;
+            [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"BRAlertFired"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+            [self.tickTimer invalidate];
+            self.tickTimer = nil;
+        }
     }
 }
 
@@ -267,6 +289,11 @@
 #pragma mark - New Run / AI integration
 
 - (void)startNewRun {
+    // Reset the alert flag for the new run (both in-memory and persisted so the alert can fire once this run)
+    alertFired = NO;
+    [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"BRAlertFired"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+
     // Create a new model with a random seed so layout differs.
     NSNumber *seed = @((NSInteger)arc4random());
     NSInteger cols = 17; NSInteger rows = 13;
