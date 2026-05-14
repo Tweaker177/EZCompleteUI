@@ -56,6 +56,7 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
         @"supportRequestButton": @"Support",
         @"cloningButton":        @"Clone Voice",
         @"galleryButton":        @"Gallery",
+        @"settingsButton":       @"Settings",
     };
     NSDictionary<NSString *, NSString *> *buttonImageNames = @{
         @"speakButton":          @"SpeakButton.PNG",
@@ -66,6 +67,7 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
         @"supportRequestButton": @"SupportButton.PNG",
         @"cloningButton":        @"VoiceCloneButton.PNG",
         @"galleryButton":        @"galleryButton.png",
+        @"settingsButton":       @"SettingsButton.png",
     };
 
     // Preserve original button order for consistent display
@@ -75,6 +77,7 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
         @"supportRequestButton",
         @"textToSpeechButton",
         @"webSearchButton",
+        @"settingsButton",
         @"addChatButton",
         @"cloningButton",
         @"galleryButton",

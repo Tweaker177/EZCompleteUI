@@ -666,10 +666,19 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.renameButton  = [self _iconButton:@"pencil.line" tint:nil
                                     action:@selector(renameThread)];
 
+    // Create Coin Pot placeholder used inside the top row
+    self.coinPotView = [[EZCoinPotView alloc] init];
+    self.coinPotView.coinImage = [UIImage imageNamed:@"EZCoin"];
+    self.coinPotView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.coinPotView.userInteractionEnabled = YES;
+    UITapGestureRecognizer *potTap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(coinPotTapped)];
+    [self.coinPotView addGestureRecognizer:potTap];
+
     // Full-width stack — equalSpacing distributes buttons edge to edge
     UIStackView *topStack = [[UIStackView alloc] initWithArrangedSubviews:@[
         self.addChatButton, self.historyButton, self.clipboardButton,
-        self.speakButton, self.webSearchButton, self.settingsButton,
+        self.speakButton, self.webSearchButton, self.coinPotView,
         self.renameButton, self.clearButton, self.memoriesButton, self.cloningButton, self.supportRequestButton,
         self.textToSpeechButton, self.galleryButton
     ]];
@@ -677,28 +686,21 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     topStack.alignment    = UIStackViewAlignmentCenter;
     topStack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:topStack];
-        // ── Coin pot view ─────────────────────────────────────────────────────
-        self.coinPotView = [[EZCoinPotView alloc] init];
-        self.coinPotView.coinImage = [UIImage imageNamed:@"EZCoin"];
-        self.coinPotView.translatesAutoresizingMaskIntoConstraints = NO;
-        self.coinPotView.userInteractionEnabled = YES;
-        UITapGestureRecognizer *potTap = [[UITapGestureRecognizer alloc]
-            initWithTarget:self action:@selector(coinPotTapped)];
-        [self.coinPotView addGestureRecognizer:potTap];
-        [self.view addSubview:self.coinPotView];
 
-        // Legacy label — hidden, kept so any remaining references don't crash
-        self.coinBalanceLabel = [[UILabel alloc] init];
-        self.coinBalanceLabel.hidden = YES;
-        self.coinBalanceLabel.translatesAutoresizingMaskIntoConstraints = NO;
-        [self.view addSubview:self.coinBalanceLabel];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.coinPotView.widthAnchor constraintEqualToConstant:48],
+        [self.coinPotView.heightAnchor constraintEqualToConstant:52],
+    ]];
+    [self.coinPotView setContentHuggingPriority:UILayoutPriorityRequired
+                                        forAxis:UILayoutConstraintAxisHorizontal];
+    [self.coinPotView setContentHuggingPriority:UILayoutPriorityRequired
+                                        forAxis:UILayoutConstraintAxisVertical];
 
-        [NSLayoutConstraint activateConstraints:@[
-            [self.coinPotView.topAnchor constraintEqualToAnchor:topStack.bottomAnchor constant:8],
-            [self.coinPotView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:14],
-            [self.coinPotView.widthAnchor constraintEqualToConstant:44],
-            [self.coinPotView.heightAnchor constraintEqualToConstant:48],
-        ]];
+    // Legacy label — hidden, kept so any remaining references don't crash
+    self.coinBalanceLabel = [[UILabel alloc] init];
+    self.coinBalanceLabel.hidden = YES;
+    self.coinBalanceLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:self.coinBalanceLabel];
 
     // Thread title label — tappable, sits between top bar and chat table
     self.threadTitleLabel                 = [[UILabel alloc] init];
@@ -1748,14 +1750,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         CGFloat sizeMultiplier = [size isEqualToString:@"1024x1024"] ? 1.0 : 1.25;
         NSInteger quantity = (NSInteger)ceil(n * sizeMultiplier);
 
+        BOOL isEdit = [self.selectedModel isEqualToString:@"gpt-image-1-edit"] ||
+                      [self.selectedModel isEqualToString:@"dall-e-2-edit"];
+        NSString *apiModel = isEdit ? @"gpt-image-1" : self.selectedModel;
+
         EZLogf(EZLogLevelInfo, @"COINS",
-               @"Image cost: feature=%@ n=%ld size=%@ sizeMultiplier=%.2f quantity=%ld",
-               [self featureLabel:imageFeature], (long)n, size, sizeMultiplier, (long)quantity);
+               @"Image cost: feature=%@ n=%ld size=%@ sizeMultiplier=%.2f quantity=%ld isEdit=%d",
+               [self featureLabel:imageFeature], (long)n, size, sizeMultiplier, (long)quantity, isEdit);
 
         [[EZEntitlementManager shared] checkEntitlementForFeature:imageFeature
                                                          quantity:quantity
                                                            prompt:text
-                                                            model:self.selectedModel
+                                                            model:apiModel
                                                        completion:^(BOOL allowed,
                                                                     NSInteger balance,
                                                                     NSString *reason) {
@@ -1768,7 +1774,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                         [self presentCoinStoreForFeature:nil];
                     } else {
                         [self appendToChat:[NSString stringWithFormat:
-                            @"[Error: %@]", reason ?: @"Access denied"]];
+                            @"[Error: %@]", reason ?: @"Access denied-please close app and log back in,"]];
                     }
                 });
                 return;
@@ -1779,26 +1785,29 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 
     [[EZEntitlementManager shared] checkEntitlementForFeature:feature
-                                                   completion:^(BOOL allowed,
-                                                                NSInteger balance,
-                                                                NSString *reason) {
-        if (!allowed) {
-            if ([reason isEqualToString:@"Not logged in"]) {
-                [self appendToChat:@"[Error: Please sign in to use EZCompleteUI]"];
-            } else if ([reason isEqualToString:@"Insufficient coins"] ||
-                       [reason isEqualToString:@"No account found"]) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [self presentCoinStoreForFeature:nil];
-                });
-            } else {
-                [self appendToChat:[NSString stringWithFormat:
-                    @"[Error: %@]", reason ?: @"Access denied"]];
+                                                         quantity:1
+                                                           prompt:text
+                                                            model:self.selectedModel
+                                                       completion:^(BOOL allowed,
+                                                                    NSInteger balance,
+                                                                    NSString *reason) {
+            if (!allowed) {
+                if ([reason isEqualToString:@"Not logged in"]) {
+                    [self appendToChat:@"[Error: Please sign in to use EZCompleteUI]"];
+                } else if ([reason isEqualToString:@"Insufficient coins"] ||
+                           [reason isEqualToString:@"No account found"]) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [self presentCoinStoreForFeature:nil];
+                    });
+                } else {
+                    [self appendToChat:[NSString stringWithFormat:
+                        @"[Error: %@]", reason ?: @"Access denied-please reopen app and log in."]];
+                }
+                return;
             }
-            return;
-        }
-        [self handleSendAuthorized:text];
-    }];
-}
+            [self handleSendAuthorized:text];
+        }];
+    }
 
 - (void)handleSendAuthorized:(NSString *)text {
 
@@ -2121,11 +2130,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     if (isGPT5) { dispatch_async(dispatch_get_main_queue(), ^{ [self showGPT5StatusBanner]; }); }
 
     [[EZEntitlementManager shared] checkEntitlementForFeature:EZFeatureChatMini
-                                              estimatedTokens:totalTokenEstimate
-                                                 featureTier:featureTier
-                                                   completion:^(BOOL allowed,
-                                                                NSInteger balance,
-                                                                NSString *reason) {
+                                                  estimatedTokens:totalTokenEstimate
+                                                      featureTier:featureTier
+                                                           prompt:capturedPrompt
+                                                            model:self.selectedModel
+                                                       completion:^(BOOL allowed,
+                                                                    NSInteger balance,
+                                                                    NSString *reason) {
         if (!allowed) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self hideGPT5StatusBanner];
