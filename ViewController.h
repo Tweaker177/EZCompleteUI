@@ -1,6 +1,10 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <QuartzCore/QuartzCore.h>
+
+/// Posted by AppDelegate after Files/Open In hands the app a text document.
+FOUNDATION_EXPORT NSNotificationName const EZAttachExternalDocumentToChat;
+
 @interface ViewController : UIViewController
 //@property (nonatomic, strong) UIView *inputContainer;
 @property (nonatomic, strong) UITextView *messageTextView;

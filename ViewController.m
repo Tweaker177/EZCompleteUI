@@ -577,6 +577,10 @@
 #import "HelperLogViewController.h"
 #import <CommonCrypto/CommonDigest.h>
 
+NSNotificationName const EZAttachExternalDocumentToChat = @"EZAttachExternalDocumentToChat";
+static NSString *const kPendingExternalDocumentPath = @"EZPendingExternalDocumentPath";
+static NSString *const kPendingExternalImageAskPath = @"EZPendingExternalImageAskPath";
+
 // Stable, non-reversible identifier for OpenAI safety tracking.  Keep this a
 // raw SHA-256 hex digest: OpenAI's maximum is 64 characters, and a SHA-256
 // digest is exactly 64.  Do not add the old "user_" prefix.
@@ -648,6 +652,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) UIButton      *cloningButton;
 @property (nonatomic, strong) UIButton      *galleryButton;
 @property (nonatomic, strong) UIButton      *brainRotButton;
+/// The cell currently editing a code/document block, if any. The composer
+/// remains visible but is deliberately inactive during that focused edit.
+@property (nonatomic, weak) EZCodeBlockCell *activeDocumentEditingCell;
 //@property (nonatomic, strong) UIButton      *textToSpeechButton;
 
 @property (nonatomic, strong) NSLayoutConstraint *containerBottomConstraint;
@@ -790,6 +797,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 - (void)callChatCompletionsWithRetryCount:(NSInteger)retryCount;
 - (void)recoverUndeliveredGalleryImagesIfNeeded;
 - (void)consumePendingExternalImageEdit;
+- (void)consumePendingExternalImageQuestion;
+- (void)consumePendingExternalDocument;
+- (void)handleExternalDocumentOpen:(NSNotification *)notification;
 
 @end
 @interface ViewController (EZPrivateForward)
@@ -837,12 +847,88 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [[NSNotificationCenter defaultCenter] addObserver:self
         selector:@selector(handleEditImageInChat:)
         name:EZEditImageInChat object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(handleCodeBlockEditingState:)
+        name:EZCodeBlockEditingStateDidChangeNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(handleExternalDocumentOpen:)
+        name:EZAttachExternalDocumentToChat object:nil];
     [self consumePendingExternalImageEdit];
+    [self consumePendingExternalImageQuestion];
+    [self consumePendingExternalDocument];
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
         [self updateCoinBalanceDisplay];
     }];
     [self recoverUndeliveredGalleryImagesIfNeeded];
 
+}
+
+- (void)consumePendingExternalDocument {
+    NSString *path = [[NSUserDefaults standardUserDefaults]
+        stringForKey:kPendingExternalDocumentPath];
+    if (!path.length) return;
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path]) {
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:kPendingExternalDocumentPath];
+        return;
+    }
+    [self handleExternalDocumentOpen:[NSNotification notificationWithName:EZAttachExternalDocumentToChat
+                                                                     object:nil
+                                                                   userInfo:@{ @"filePath": path }]];
+}
+
+- (void)consumePendingExternalImageQuestion {
+    NSString *path = [[NSUserDefaults standardUserDefaults]
+        stringForKey:kPendingExternalImageAskPath];
+    if (!path.length) return;
+    if (![[NSFileManager defaultManager] fileExistsAtPath:path]) {
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:kPendingExternalImageAskPath];
+        return;
+    }
+    [self handleAttachImageToChat:[NSNotification notificationWithName:EZAttachImageToChat
+                                                                 object:nil
+                                                               userInfo:@{ @"filePath": path }]];
+}
+
+- (void)handleExternalDocumentOpen:(NSNotification *)notification {
+    NSString *path = [notification.userInfo[@"filePath"] isKindOfClass:[NSString class]]
+        ? notification.userInfo[@"filePath"] : nil;
+    if (!path.length || ![[NSFileManager defaultManager] fileExistsAtPath:path]) return;
+
+    // Make the normal attachment path wait for a usable session. A launch
+    // from Files can happen while restoration is still underway; refreshing
+    // here means the document is immediately question-ready instead of
+    // requiring a relaunch before the first chat request succeeds.
+    [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (!token.length) {
+                // Keep the copied document for the next successful login.
+                [[NSUserDefaults standardUserDefaults] setObject:path
+                                                            forKey:kPendingExternalDocumentPath];
+                [self appendToChat:@"[System: Document saved. Sign in to ask a question about it.]"];
+                return;
+            }
+            [[NSUserDefaults standardUserDefaults] removeObjectForKey:kPendingExternalDocumentPath];
+            [self analyzeFile:[NSURL fileURLWithPath:path]];
+        });
+    }];
+}
+
+- (void)handleCodeBlockEditingState:(NSNotification *)notification {
+    EZCodeBlockCell *cell = [notification.object isKindOfClass:[EZCodeBlockCell class]]
+        ? notification.object : nil;
+    BOOL editing = [notification.userInfo[@"editing"] boolValue];
+    if (editing) {
+        self.activeDocumentEditingCell = cell;
+    } else if (!self.activeDocumentEditingCell || self.activeDocumentEditingCell == cell) {
+        self.activeDocumentEditingCell = nil;
+    }
+
+    BOOL composerActive = self.activeDocumentEditingCell != nil;
+    self.inputContainer.userInteractionEnabled = !composerActive;
+    self.inputContainer.alpha = composerActive ? 0.58 : 1.0;
+    self.inputContainer.accessibilityHint = composerActive
+        ? @"Finish editing the open document to use chat input."
+        : nil;
 }
 
 - (void)consumePendingExternalImageEdit {
@@ -2362,31 +2448,21 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         self.activeThread.attachmentPaths = [att copy];
     }
 
-    // ── Route based on selected model ─────────────────────────────────────────
-    BOOL inImageGenMode = [self isGptImage1Family:self.selectedModel];
-
-    if (inImageGenMode) {
-        // Switch to image edit mode — gpt-image-1 handles both gen and edit
-        [self enterImageEditModeFromCurrentSelection];
+    // An attached image is not inherently an edit request. Preserve the
+    // selected model and let the send-time intent router choose chat, edit,
+    // or generation from the actual prompt. Only Photo Detail's explicit
+    // Edit with AI action enters edit mode immediately.
+    if (![self modelSupportsVision:self.selectedModel] &&
+        ![self isGptImage1Family:self.selectedModel]) {
+        NSString *prev     = self.selectedModel;
+        self.selectedModel = @"gpt-4o";
+        [self.modelButton setTitle:@"Model: gpt-4o" forState:UIControlStateNormal];
         [self appendToChat:[NSString stringWithFormat:
-            @"[System: Image %@ attached — switched to image edit mode. "
-            @"Type a prompt describing your edits.]", saveName]];
+            @"[System: Image attached — %@ doesn't support vision. "
+            @"Switched to gpt-4o. Ask a question or describe an edit.]", prev]];
     } else {
-        // Vision analysis mode — ensure model supports vision.
-        // Delegates to modelSupportsVision: (single source of truth) rather
-        // than keeping a second hardcoded list here that drifts out of sync
-        // every time a new model family ships.
-        if (![self modelSupportsVision:self.selectedModel]) {
-            NSString *prev     = self.selectedModel;
-            self.selectedModel = @"gpt-4o";
-            [self.modelButton setTitle:@"Model: gpt-4o" forState:UIControlStateNormal];
-            [self appendToChat:[NSString stringWithFormat:
-                @"[System: Image attached — %@ doesn't support vision. "
-                @"Switched to gpt-4o. Type a prompt to analyze the image.]", prev]];
-        } else {
-            [self appendToChat:[NSString stringWithFormat:
-                @"[System: Image %@ attached. Type a prompt to analyze or describe it.]", saveName]];
-        }
+        [self appendToChat:[NSString stringWithFormat:
+            @"[System: Image %@ attached. Ask a question, describe an edit, or request a new image.]", saveName]];
     }
 
     // Add vision message to context — use base64 data URL. Runs regardless
@@ -2478,6 +2554,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             extractedText = [self extractTextFromPDF:fileURL];
         } else if ([ext isEqualToString:@"epub"]) {
             extractedText = [self extractTextFromEPUB:fileURL];
+        } else if ([@[@"rtf", @"html", @"htm", @"doc", @"docx", @"odt"] containsObject:ext]) {
+            // UIKit's document reader handles rich text and supported Office/
+            // OpenDocument files. Keep the plain-text fallback below for
+            // source, CSV, JSON, XML, Markdown, and unknown text formats.
+            extractedText = [self extractTextFromRichDocument:fileURL];
         } else {
             extractedText = [NSString stringWithContentsOfURL:fileURL
                                                      encoding:NSUTF8StringEncoding error:nil]
@@ -2501,10 +2582,20 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [self appendToChat:[NSString stringWithFormat:
                 @"[System: %@ ready (%lu chars). Ask me anything about it.]",
                 name, (unsigned long)extractedText.length]];
+            [self.messageTextField becomeFirstResponder];
             EZLogf(EZLogLevelInfo, @"FILE", @"Context ready: %@ (%lu chars)",
                    name, (unsigned long)extractedText.length);
         });
     });
+}
+
+- (NSString *)extractTextFromRichDocument:(NSURL *)url {
+    NSError *error = nil;
+    NSAttributedString *document = [[NSAttributedString alloc]
+        initWithURL:url options:@{} documentAttributes:nil error:&error];
+    if (document.string.length > 0) return document.string;
+    if (error) EZLogf(EZLogLevelWarning, @"FILE", @"Rich document extraction failed: %@", error.localizedDescription);
+    return nil;
 }
 
 - (NSString *)extractTextFromPDF:(NSURL *)url {
@@ -3058,7 +3149,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     // ── Image model intent check ──────────────────────────────────────────────
     BOOL isImageModel = [self isGptImage1Family:self.selectedModel];
-    if (isImageModel) {
+    // A pending source image deserves intent routing even if the person had a
+    // chat model selected when they attached it. This is what makes “what is
+    // this?” stay conversational while “remove the background” becomes an
+    // edit, rather than attachment itself deciding for them.
+    if (isImageModel || self.pendingImagePaths.count > 0) {
         if (!self.lastImageLocalPath.length) {
             NSString *persisted = [[NSUserDefaults standardUserDefaults]
                                    stringForKey:@"lastImageLocalPath"];
@@ -3077,8 +3172,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         // itself, which could independently steer a plain generation into
         // edit mode via the classifier even when selectedModel was never
         // stuck on gpt-image-1-edit to begin with.
-        BOOL hasLocal = self.lastImageLocalPath.length > 0 &&
-            [[NSFileManager defaultManager] fileExistsAtPath:self.lastImageLocalPath];
+        NSString *pendingImagePath = self.pendingImagePaths.lastObject;
+        BOOL hasLocal = (pendingImagePath.length > 0 &&
+                         [[NSFileManager defaultManager] fileExistsAtPath:pendingImagePath]) ||
+                        (self.lastImageLocalPath.length > 0 &&
+                         [[NSFileManager defaultManager] fileExistsAtPath:self.lastImageLocalPath]);
 
         [self classifyImageIntent:text hasLocalImage:hasLocal
                        completion:^(NSString *intent) {
@@ -3096,13 +3194,19 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 [self.pendingImagePaths removeAllObjects];
                 [self callImageEdit:text imagePath:editPath];
             } else if ([intent isEqualToString:@"chat"]) {
-                self.selectedModel = @"gpt-5.6-luna";
-                [self.modelButton setTitle:@"Model: gpt-5.6-luna" forState:UIControlStateNormal];
-                [self appendToChat:@"[System: Switched to gpt-5.6-luna for this text request]"];
+                if (isImageModel || ![self modelSupportsVision:self.selectedModel]) {
+                    self.selectedModel = @"gpt-5.6-luna";
+                    [self.modelButton setTitle:@"Model: gpt-5.6-luna" forState:UIControlStateNormal];
+                    [self appendToChat:@"[System: Switched to gpt-5.6-luna to discuss the attached image]"];
+                }
                 [self callChatCompletions];
             } else {
                 EZLogf(EZLogLevelInfo, @"IMAGE", @"Intent=generate");
                 [self exitImageEditModeIfNeeded];
+                if (![self isGptImage1Family:self.selectedModel]) {
+                    self.selectedModel = @"gpt-image-2.5-flare";
+                    [self.modelButton setTitle:@"Model: gpt-image-2.5-flare" forState:UIControlStateNormal];
+                }
                 // Both branches used to diverge here: gpt-image-family
                 // models went straight to callGptImage1 with no memory
                 // context, while anything else (previously dall-e-3, now
@@ -3404,18 +3508,21 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                      modelSupportsVision:[self modelSupportsVision:self.selectedModel]
                                          useResponsesAPI:useResponsesAPI];
 
-    // The original GPT-4 alias is limited to an 8K context window. Keep the
-    // newest turns (including the just-submitted prompt) within a conservative
-    // character budget before calculating its output allowance. Newer GPT-4
-    // variants have much larger windows and do not need history pruning here.
-    if ([self.selectedModel isEqualToString:@"gpt-4"]) {
-        static const NSInteger kLegacyGPT4CharacterBudget = 18000;
+    // The original GPT-4 alias is limited to an 8K context window. GPT-3.5
+    // Turbo has a 16,385-token window but allows at most 4,096 output tokens;
+    // reserve ample room for the system prompt, completion, and token-estimate
+    // variance by retaining no more than ~8K input tokens (24K characters).
+    // Newer GPT-4 variants have much larger windows and do not need history
+    // pruning here.
+    BOOL isLegacyGPT35 = [self.selectedModel hasPrefix:@"gpt-3.5"];
+    if ([self.selectedModel isEqualToString:@"gpt-4"] || isLegacyGPT35) {
+        NSInteger characterBudget = isLegacyGPT35 ? 24000 : 18000;
         NSMutableArray *newestFirst = [NSMutableArray array];
         NSInteger retainedCharacters = 0;
         for (NSDictionary *message in cleanContext.reverseObjectEnumerator) {
             id content = message[@"content"];
             NSInteger characters = [content isKindOfClass:[NSString class]] ? [content length] : 0;
-            if (newestFirst.count > 0 && retainedCharacters + characters > kLegacyGPT4CharacterBudget) continue;
+            if (newestFirst.count > 0 && retainedCharacters + characters > characterBudget) continue;
             [newestFirst addObject:message];
             retainedCharacters += characters;
         }
@@ -3454,6 +3561,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     if ([self.selectedModel isEqualToString:@"gpt-4"]) {
         NSInteger conservativeInputEstimate = MAX(inputEstimate, (contentCharCount + 2) / 3);
         maxCompletionTokens = MIN(6000, MAX(256, 8192 - conservativeInputEstimate - 512));
+    } else if (isLegacyGPT35) {
+        // Official GPT-3.5 Turbo limit: 16,385 total context / 4,096 output.
+        // The server independently clamps this too, so a modified client
+        // cannot recreate the context-window error.
+        maxCompletionTokens = 4096;
     } else if ([self.selectedModel hasPrefix:@"gpt-4"]) {
         // GPT-4 mini and GPT-4 Turbo deployments cap one completion at 4,096
         // tokens. Use that safe ceiling for all non-legacy GPT-4 variants,
@@ -4833,6 +4945,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         return;
     }
 
+    // A question about an attached image is a first-class intent. Do not send
+    // it to an image generator merely because a local source exists.
+    if (hasLocalImage && textScore > 0 && textScore >= generateScore && textScore >= editScore) {
+        EZLogf(EZLogLevelInfo, @"IMAGE", @"Tier 1: chat (score %ld)", (long)textScore);
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(@"chat"); });
+        return;
+    }
+
     if (!hasLocalImage) {
         // With no source image, recognizable text work should never become a
         // drawing just because an image model was left selected.
@@ -4851,8 +4971,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         @"You classify user intent for an AI image app. The user may want to:\n"
          "  REOPEN — view/display a previously generated image they already have\n"
          "  GENERATE — create a brand new image from a description\n"
-         "  EDIT — modify/edit a previously generated image\n\n"
-         "Reply with exactly one word: REOPEN, GENERATE, or EDIT. Nothing else.";
+         "  EDIT — modify/edit a previously generated image\n"
+         "  CHAT — answer a question about the attached image\n\n"
+         "Reply with exactly one word: REOPEN, GENERATE, EDIT, or CHAT. Nothing else.";
     NSString *msg = [NSString stringWithFormat:
         @"User prompt: \"%@\"\nContext: User has a previously generated image available.",
         prompt];
@@ -4868,6 +4989,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         NSString *intent = @"generate";
         if ([result isEqualToString:@"REOPEN"]) intent = @"reopen";
         else if ([result isEqualToString:@"EDIT"]) intent = @"edit";
+        else if ([result isEqualToString:@"CHAT"]) intent = @"chat";
         dispatch_async(dispatch_get_main_queue(), ^{ completion(intent); });
     }];
 }
@@ -6033,6 +6155,15 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 /// Called when user taps "Ask a Question" in the gallery detail view.
 /// Attaches the image to the chat input so the user can type their question.
 - (void)handleAttachImageToChat:(NSNotification *)notification {
+    NSString *incomingPath = [notification.userInfo[@"filePath"] isKindOfClass:[NSString class]]
+        ? notification.userInfo[@"filePath"] : nil;
+    if (incomingPath.length && [[NSFileManager defaultManager] fileExistsAtPath:incomingPath]) {
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:kPendingExternalImageAskPath];
+        [self attachImage:[NSURL fileURLWithPath:incomingPath]];
+        [self.messageTextField becomeFirstResponder];
+        return;
+    }
+
     UIImage *image = notification.userInfo[@"image"];
     if (!image) return;
 

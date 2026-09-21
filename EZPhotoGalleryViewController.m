@@ -969,7 +969,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // The approved usage log is reused by automatic network retries.
     if (!_imageEditUsageAuthorized) {
         NSUserDefaults *billingDefaults = [NSUserDefaults standardUserDefaults];
-        NSString *billingQuality = [billingDefaults stringForKey:@"imgQuality"] ?: @"auto";
+        // Gallery edits should be predictable and available to every user by
+        // default. "auto" is a server-side premium-quality choice; Medium is
+        // the intended baseline until someone explicitly selects another tier.
+        NSString *billingQuality = [billingDefaults stringForKey:@"imgQuality"] ?: @"medium";
         NSString *billingSize = [billingDefaults stringForKey:@"imgSize"] ?: @"1024x1024";
         NSInteger billingN = [billingDefaults integerForKey:@"imgVariations"];
         if (billingN < 1 || billingN > 4) billingN = 1;
@@ -1021,7 +1024,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSInteger variationCount = [defaults integerForKey:@"imgVariations"];
     if (variationCount < 1 || variationCount > 4) variationCount = 1;
     NSString *size = [defaults stringForKey:@"imgSize"] ?: @"1024x1024";
-    NSString *quality = [defaults stringForKey:@"imgQuality"] ?: @"auto";
+    NSString *quality = [defaults stringForKey:@"imgQuality"] ?: @"medium";
     NSString *format = [defaults stringForKey:@"imgFormat"] ?: @"png";
     NSString *background = [defaults stringForKey:@"imgBackground"] ?: @"auto";
     NSString *moderation = [defaults stringForKey:@"imgModeration"] ?: @"low";

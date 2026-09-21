@@ -5,8 +5,37 @@ APP_NAME="EZCompleteUI"
 STAGED_APP=".theos/_/Applications/${APP_NAME}.app"
 STAGED_PLIST="${STAGED_APP}/Info.plist"
 SAVED_APP="/tmp/${APP_NAME}_patched.app"
+BUILD_MODE="${1:-debug}"
 export XDG_CACHE_HOME="${PWD}/.cache"
 mkdir -p "${XDG_CACHE_HOME}/clang/ModuleCache"
+
+# Local builds are deliberately Debug by default so the developer keeps the
+# in-app diagnostics and debug-only tools. A public-facing artifact must be
+# requested explicitly: ./build.sh release
+case "${BUILD_MODE}" in
+    debug)
+        MAKE_BUILD_ARGS=(FINALPACKAGE=0 DEBUG=1 debug=1)
+        ;;
+    release)
+        MAKE_BUILD_ARGS=(FINALPACKAGE=1 DEBUG=0 debug=0)
+        ;;
+    *)
+        echo "Usage: ./build.sh [debug|release]" >&2
+        exit 64
+        ;;
+esac
+echo "==> Build mode: ${BUILD_MODE}"
+
+# IPA files do not carry Theos's useful +debug package suffix. Put the bundle
+# version and requested build mode directly in the filename so GitHub assets
+# are unambiguous at a glance.
+VERSION=$(python3 - <<'PY'
+import plistlib
+with open('Resources/Info.plist', 'rb') as f:
+    print(plistlib.load(f).get('CFBundleShortVersionString', '1.0'))
+PY
+)
+IPA_NAME="${APP_NAME}-${VERSION}-${BUILD_MODE}.ipa"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # patch_plist <path>
@@ -47,7 +76,7 @@ PYEOF
 # ─────────────────────────────────────────────────────────────────────────────
 echo ""
 echo "==> [1/5] Compiling..."
-make clean && make stage FINALPACKAGE=1 DEBUG=0 debug=0
+make clean && make stage "${MAKE_BUILD_ARGS[@]}"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Patch staged plist
@@ -76,14 +105,14 @@ cp -r "${SAVED_APP}" "Payload/${APP_NAME}.app"
 # zip updates an existing archive but does not remove files that disappeared
 # from Payload.  Start fresh so an old case-variant such as
 # en.lproj/localizable.strings cannot survive alongside Localizable.strings.
-rm -f "${APP_NAME}.ipa"
-zip -r9 "${APP_NAME}.ipa" Payload > /dev/null
-if unzip -Z1 "${APP_NAME}.ipa" | grep -qx "Payload/${APP_NAME}.app/en.lproj/localizable.strings"; then
+rm -f "${IPA_NAME}"
+zip -r9 "${IPA_NAME}" Payload > /dev/null
+if unzip -Z1 "${IPA_NAME}" | grep -qx "Payload/${APP_NAME}.app/en.lproj/localizable.strings"; then
     echo "ERROR: stale en.lproj/localizable.strings found in IPA"
     exit 1
 fi
 rm -rf Payload
-echo "  ${APP_NAME}.ipa ready"
+echo "  ${IPA_NAME} ready"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Build .deb
@@ -95,7 +124,7 @@ echo "  ${APP_NAME}.ipa ready"
 # ─────────────────────────────────────────────────────────────────────────────
 echo ""
 echo "==> [5/5] Building .deb..."
-make package FINALPACKAGE=1 DEBUG=0 debug=0
+make package "${MAKE_BUILD_ARGS[@]}"
 
 DEB=$(ls -t packages/*.deb 2>/dev/null | head -1)
 if [ -z "${DEB}" ]; then
@@ -188,6 +217,6 @@ echo ""
 echo "╔══════════════════════════════════════════════════════╗"
 printf  "║  Build Complete  v%-35s║\n" "${VERSION}"
 echo "╠══════════════════════════════════════════════════════╣"
-printf  "║  IPA  %-47s║\n" "${APP_NAME}.ipa"
+printf  "║  IPA  %-47s║\n" "${IPA_NAME}"
 printf  "║  DEB  %-47s║\n" "${DEB}"
 echo "╚══════════════════════════════════════════════════════╝"

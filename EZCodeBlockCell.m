@@ -52,10 +52,13 @@
 //
 
 #import "EZCodeBlockCell.h"
+#import "helpers.h"
 #import <QuickLook/QuickLook.h>
 #import <QuickLookThumbnailing/QuickLookThumbnailing.h>
 
-@interface EZCodeBlockCell () <QLPreviewControllerDataSource>
+NSNotificationName const EZCodeBlockEditingStateDidChangeNotification = @"EZCodeBlockEditingStateDidChangeNotification";
+
+@interface EZCodeBlockCell () <QLPreviewControllerDataSource, UITextViewDelegate>
 @end
 
 // Shared across every cell instance, keyed by file path rather than row
@@ -80,6 +83,7 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
 
 @implementation EZCodeBlockCell {
     UILabel    *_langLabel;
+    UIButton   *_lockBtn;
     UIButton   *_copyBtn;
     UIButton   *_shareBtn;
     UITextView *_codeView;
@@ -87,6 +91,8 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
     NSString   *_codeContent;
     NSString   *_savedPath;
     __weak UIViewController *_vc;
+    BOOL        _isEditingDocument;
+    BOOL        _documentHasUnsavedChanges;
 
     // Inline preview — same pattern as EZMemoryCell in
     // MemoriesViewController.m: a badge shown while the async thumbnail
@@ -124,6 +130,22 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
     _langLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [header addSubview:_langLabel];
 
+    // A compact lock makes a code block feel like a small, safe document:
+    // locked = read/preview mode; unlocked = edit in place. Saving happens
+    // when it is locked again or when editing ends.
+    _lockBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    UIImage *lockedImage = [UIImage systemImageNamed:@"lock.fill"];
+    [_lockBtn setImage:lockedImage forState:UIControlStateNormal];
+    // The deployed minimum is iOS 15, which has this symbol. Keep a text
+    // fallback anyway so a missing/custom Symbol font never makes the action
+    // appear to be absent.
+    if (!lockedImage) [_lockBtn setTitle:@"Lock" forState:UIControlStateNormal];
+    _lockBtn.tintColor = [UIColor colorWithRed:0.05 green:0.92 blue:0.72 alpha:1.0];
+    _lockBtn.accessibilityLabel = @"Unlock document for editing";
+    _lockBtn.translatesAutoresizingMaskIntoConstraints = NO;
+    [_lockBtn addTarget:self action:@selector(_lockTapped) forControlEvents:UIControlEventTouchUpInside];
+    [header addSubview:_lockBtn];
+
     // Share button 
     _shareBtn = [UIButton buttonWithType:UIButtonTypeSystem];
     [_shareBtn setImage:[UIImage systemImageNamed:@"square.and.arrow.up"] forState:UIControlStateNormal];
@@ -145,6 +167,7 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
     _codeView                       = [[UITextView alloc] init];
     _codeView.editable              = NO;
     _codeView.selectable            = YES;
+    _codeView.delegate              = self;
     _codeView.backgroundColor       = [UIColor clearColor];
     _codeView.textColor             = [UIColor colorWithRed:0.85 green:0.95 blue:0.85 alpha:1.0];
     _codeView.font                  = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
@@ -211,6 +234,11 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
         [_copyBtn.widthAnchor    constraintEqualToConstant:72],
         [_copyBtn.heightAnchor   constraintEqualToConstant:26],
 
+        [_lockBtn.trailingAnchor constraintEqualToAnchor:_copyBtn.leadingAnchor constant:-6],
+        [_lockBtn.centerYAnchor  constraintEqualToAnchor:header.centerYAnchor],
+        [_lockBtn.widthAnchor    constraintEqualToConstant:30],
+        [_lockBtn.heightAnchor   constraintEqualToConstant:30],
+
         [_codeView.topAnchor      constraintEqualToAnchor:header.bottomAnchor],
         [_codeView.leadingAnchor  constraintEqualToAnchor:container.leadingAnchor],
         [_codeView.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
@@ -239,18 +267,47 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
     return self;
 }
 
+- (void)prepareForReuse {
+    [self _saveEditedDocumentIfNeeded];
+    if (_isEditingDocument) [self _postEditingState:NO];
+    [super prepareForReuse];
+    _isEditingDocument = NO;
+    _documentHasUnsavedChanges = NO;
+}
+
+- (void)didMoveToWindow {
+    [super didMoveToWindow];
+    // A chat reload, navigation change, or dismissal can remove a cell before
+    // the person taps its lock again. Persist any outstanding change on exit.
+    if (!self.window) {
+        [self _saveEditedDocumentIfNeeded];
+        if (_isEditingDocument) [self _postEditingState:NO];
+    }
+}
+
 - (void)configureWithCode:(NSString *)code language:(NSString *)language
                savedPath:(NSString *)savedPath viewController:(__weak UIViewController *)vc {
     _codeContent        = code;
     _savedPath          = savedPath;
     _vc                 = vc;
     _langLabel.text     = language.length > 0 ? language.uppercaseString : @"CODE";
-    _codeView.text      = code;
+    _isEditingDocument = NO;
+    _documentHasUnsavedChanges = NO;
+    _codeView.editable = NO;
+    [self _setDocumentEditorAppearance:NO];
+    [_lockBtn setImage:[UIImage systemImageNamed:@"lock.fill"] forState:UIControlStateNormal];
+    _lockBtn.accessibilityLabel = @"Unlock document for editing";
+
+    // A prior inline edit belongs to the existing attachment, not merely the
+    // transient chat-cell string. Prefer the saved file when it is plain text
+    // so edits remain visible after reload, scrolling, and thread restore.
+    NSString *savedText = [self _plainTextFromSavedFile];
+    _codeView.text = savedText ?: code;
 
     // Short snippets should read like compact chat content rather than a
     // full-screen terminal. Longer snippets retain the scrollable 1/3-screen
     // editor, while fewer than 12 source lines use roughly half that height.
-    NSArray<NSString *> *lines = [code componentsSeparatedByString:@"\n"];
+    NSArray<NSString *> *lines = [_codeView.text componentsSeparatedByString:@"\n"];
     NSUInteger lineCount = lines.count;
     if (lineCount > 1 && [lines.lastObject length] == 0) lineCount--;
     CGFloat normalHeight = MAX(120.0, UIScreen.mainScreen.bounds.size.height / 3.0);
@@ -282,6 +339,7 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
     BOOL hasSavedFile = savedPath.length > 0
         && [[NSFileManager defaultManager] fileExistsAtPath:savedPath];
     BOOL isPreviewable = hasSavedFile && [previewableExts containsObject:ext];
+    _lockBtn.hidden = ![self _canEditDocument];
     if (!isPreviewable) return;
 
     _codeView.hidden = YES;
@@ -292,6 +350,167 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
         _thumbBadge.hidden = NO;
         [self _generateThumbnailForPath:savedPath];
     }
+}
+
+// MARK: - Inline document editing
+
+- (BOOL)_isRTFDocument {
+    return [[_savedPath.pathExtension lowercaseString] isEqualToString:@"rtf"];
+}
+
+- (BOOL)_canEditDocument {
+    // PDF is intentionally preview/share-only. CSV, RTF, and the text code
+    // files produced by this cell can round-trip through UITextView safely.
+    NSString *extension = _savedPath.pathExtension.lowercaseString;
+    if ([extension isEqualToString:@"pdf"]) return NO;
+
+    if (_savedPath.length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:_savedPath]) return YES;
+
+    // A code cell may be restored from its transcript before its attachment
+    // path is available (or a previous file write may have failed). The text
+    // in the cell is still enough to recreate a safe editable source file.
+    // RTF cannot be reconstructed from its human-readable placeholder, but
+    // ordinary code and CSV can.
+    return _codeContent.length > 0 && ![extension isEqualToString:@"rtf"];
+}
+
+- (BOOL)_ensureEditableBackingFile {
+    if (_savedPath.length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:_savedPath]) return YES;
+    if (_codeContent.length == 0 || [self _isRTFDocument]) return NO;
+
+    NSString *extension = _savedPath.pathExtension.lowercaseString;
+    if (extension.length == 0) extension = @"txt";
+    NSString *fileName = [NSString stringWithFormat:@"code-%@.%@",
+                          NSUUID.UUID.UUIDString, extension];
+    NSString *recreatedPath = EZAttachmentSave([_codeContent dataUsingEncoding:NSUTF8StringEncoding], fileName);
+    if (!recreatedPath) return NO;
+    _savedPath = recreatedPath;
+    return YES;
+}
+
+- (NSString *)_plainTextFromSavedFile {
+    if (![self _canEditDocument] || [self _isRTFDocument] || _savedPath.length == 0 ||
+        ![[NSFileManager defaultManager] fileExistsAtPath:_savedPath]) return nil;
+    NSData *data = [NSData dataWithContentsOfFile:_savedPath];
+    return data.length ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
+}
+
+- (BOOL)_loadDocumentIntoEditor {
+    if (![self _canEditDocument] || ![self _ensureEditableBackingFile]) return NO;
+    if ([self _isRTFDocument]) {
+        NSError *error = nil;
+        NSData *rtfData = [NSData dataWithContentsOfFile:_savedPath];
+        NSAttributedString *document = [[NSAttributedString alloc]
+            initWithData:rtfData
+                 options:@{ NSDocumentTypeDocumentAttribute: NSRTFTextDocumentType }
+          documentAttributes:nil error:&error];
+        if (!document || error) return NO;
+        _codeView.attributedText = document;
+        return YES;
+    }
+
+    NSString *text = [self _plainTextFromSavedFile];
+    if (!text) return NO;
+    _codeView.text = text;
+    return YES;
+}
+
+- (void)_lockTapped {
+    if (_isEditingDocument) {
+        [self _finishDocumentEditing];
+    } else {
+        [self _beginDocumentEditing];
+    }
+}
+
+- (void)_beginDocumentEditing {
+    if (![self _canEditDocument] || ![self _loadDocumentIntoEditor]) return;
+
+    _isEditingDocument = YES;
+    _documentHasUnsavedChanges = NO;
+    _thumbView.hidden = YES;
+    _thumbButton.hidden = YES;
+    _thumbBadge.hidden = YES;
+    _codeView.hidden = NO;
+    _codeView.editable = YES;
+    _codeView.selectable = YES;
+    [self _setDocumentEditorAppearance:YES];
+    [_lockBtn setImage:[UIImage systemImageNamed:@"lock.open.fill"] forState:UIControlStateNormal];
+    _lockBtn.accessibilityLabel = @"Save changes and lock document";
+    [self _postEditingState:YES];
+    [_codeView becomeFirstResponder];
+}
+
+- (void)_finishDocumentEditing {
+    [self _saveEditedDocumentIfNeeded];
+    _isEditingDocument = NO;
+    _codeView.editable = NO;
+    [_codeView resignFirstResponder];
+    [self _setDocumentEditorAppearance:NO];
+    [_lockBtn setImage:[UIImage systemImageNamed:@"lock.fill"] forState:UIControlStateNormal];
+    _lockBtn.accessibilityLabel = @"Unlock document for editing";
+    [self _postEditingState:NO];
+
+    // Restore the rich-file preview after saving and invalidate its cached
+    // thumbnail so Quick Look represents the newly written RTF/CSV bytes.
+    NSString *ext = [_savedPath.pathExtension lowercaseString];
+    if ([ext isEqualToString:@"rtf"] || [ext isEqualToString:@"csv"]) {
+        [EZCodeBlockThumbCache() removeObjectForKey:_savedPath];
+        _codeView.hidden = YES;
+        _thumbView.image = nil;
+        _thumbView.hidden = YES;
+        _thumbButton.hidden = YES;
+        _thumbBadge.hidden = NO;
+        [self _generateThumbnailForPath:_savedPath];
+    }
+}
+
+- (void)_saveEditedDocumentIfNeeded {
+    if (!_documentHasUnsavedChanges || ![self _canEditDocument]) return;
+
+    NSData *data = nil;
+    NSError *error = nil;
+    if ([self _isRTFDocument]) {
+        data = [_codeView.attributedText dataFromRange:NSMakeRange(0, _codeView.attributedText.length)
+                                    documentAttributes:@{ NSDocumentTypeDocumentAttribute: NSRTFTextDocumentType }
+                                                 error:&error];
+    } else {
+        _codeContent = _codeView.text ?: @"";
+        data = [_codeContent dataUsingEncoding:NSUTF8StringEncoding];
+    }
+
+    if (data.length && [data writeToFile:_savedPath options:NSDataWritingAtomic error:&error]) {
+        _documentHasUnsavedChanges = NO;
+        return;
+    }
+    NSLog(@"[EZCodeBlockCell] Could not save edited document %@: %@", _savedPath, error.localizedDescription);
+}
+
+- (void)textViewDidChange:(UITextView *)textView {
+    if (textView == _codeView && _isEditingDocument) _documentHasUnsavedChanges = YES;
+}
+
+- (void)textViewDidEndEditing:(UITextView *)textView {
+    if (textView == _codeView && _isEditingDocument) [self _saveEditedDocumentIfNeeded];
+}
+
+- (void)_setDocumentEditorAppearance:(BOOL)editing {
+    // The rest of the app intentionally stays dark. A document editor is the
+    // exception: user text must remain legible while the insertion cursor and
+    // keyboard are active.
+    _codeView.backgroundColor = editing ? [UIColor whiteColor] : [UIColor clearColor];
+    _codeView.textColor = editing ? [UIColor blackColor]
+                                  : [UIColor colorWithRed:0.85 green:0.95 blue:0.85 alpha:1.0];
+    _codeView.tintColor = editing ? [UIColor systemGreenColor]
+                                  : [UIColor colorWithRed:0.05 green:0.92 blue:0.72 alpha:1.0];
+    _codeView.keyboardAppearance = editing ? UIKeyboardAppearanceLight : UIKeyboardAppearanceDark;
+}
+
+- (void)_postEditingState:(BOOL)editing {
+    [[NSNotificationCenter defaultCenter]
+        postNotificationName:EZCodeBlockEditingStateDidChangeNotification
+                      object:self
+                    userInfo:@{ @"editing": @(editing) }];
 }
 
 /// Same QLThumbnailGenerator call as MemoriesViewController's
@@ -389,7 +608,6 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
 }
 
 - (void)_shareTapped {
-    if (!_vc) return;
     NSMutableArray *items = [NSMutableArray array];
     if (_savedPath.length && [[NSFileManager defaultManager] fileExistsAtPath:_savedPath]) {
         [items addObject:[NSURL fileURLWithPath:_savedPath]];
@@ -397,9 +615,26 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
         [items addObject:_codeContent];
     }
     if (!items.count) return;
-    UIActivityViewController *av = [[UIActivityViewController alloc]
-        initWithActivityItems:items applicationActivities:nil];
-    if (av.popoverPresentationController) av.popoverPresentationController.sourceView = _shareBtn;
-    [_vc presentViewController:av animated:YES completion:nil];
+
+    // A document can be tapped just as its chat cell is being recycled or
+    // while the controller is dismissing. Presenting from such a controller
+    // is a common source of share-sheet crashes/warnings on older iOS. Take a
+    // strong snapshot and validate it again on the main queue.
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        UIViewController *presenter = self->_vc;
+        if (!presenter || !presenter.viewIfLoaded.window ||
+            presenter.isBeingDismissed || presenter.isBeingPresented) return;
+
+        UIActivityViewController *av = [[UIActivityViewController alloc]
+            initWithActivityItems:items applicationActivities:nil];
+        if (av.popoverPresentationController) {
+            av.popoverPresentationController.sourceView = self->_shareBtn;
+            av.popoverPresentationController.sourceRect = self->_shareBtn.bounds;
+        }
+        [presenter presentViewController:av animated:YES completion:nil];
+    });
 }
 @end

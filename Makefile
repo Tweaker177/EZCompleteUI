@@ -1,7 +1,7 @@
 export TARGET := iphone:clang:latest:15.0
 export ARCHS = arm64 arm64e
-export FINALPACKAGE = 0
-export DEBUG = 1
+export FINALPACKAGE = 1
+export DEBUG = 0
 export THEOS_PACKAGE_SCHEME = rootless
 export GO_EASY_ON_ME = 1
 

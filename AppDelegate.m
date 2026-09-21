@@ -30,7 +30,8 @@
 #import "EZPhotoGalleryViewController.h"
 #import "helpers.h"
 
-static NSString *const kPendingExternalImageEditPath = @"EZPendingExternalImageEditPath";
+static NSString *const kPendingExternalImageAskPath = @"EZPendingExternalImageAskPath";
+static NSString *const kPendingExternalDocumentPath = @"EZPendingExternalDocumentPath";
 
 
 @implementation AppDelegate
@@ -64,30 +65,42 @@ static NSString *const kPendingExternalImageEditPath = @"EZPendingExternalImageE
     }];
 
     NSURL *launchURL = launchOptions[UIApplicationLaunchOptionsURLKey];
-    if (launchURL.isFileURL) [self acceptIncomingImageURL:launchURL];
+    if (launchURL.isFileURL) [self acceptIncomingFileURL:launchURL];
 
     return YES;
 }
 
-// Copies an Open In / Files-provider image while its security-scoped access is
-// valid.  The chat controller consumes this temporary copy and sends it through
-// the normal attachment pipeline, which makes the permanent gallery copy and
-// immediately enters image-edit mode.
-- (BOOL)acceptIncomingImageURL:(NSURL *)url {
+// Copies an Open In / Files-provider item while its security-scoped access is
+// valid. Images keep their established image-edit route; text documents go to
+// the normal chat file-analysis pipeline, ready for a question.
+- (BOOL)acceptIncomingFileURL:(NSURL *)url {
     if (!url.isFileURL) return NO;
     BOOL scoped = [url startAccessingSecurityScopedResource];
     NSData *data = [NSData dataWithContentsOfURL:url];
     if (scoped) [url stopAccessingSecurityScopedResource];
-    if (!data.length || ![UIImage imageWithData:data]) return NO;
+    if (!data.length) return NO;
 
-    NSString *fileName = url.lastPathComponent.length ? url.lastPathComponent : @"open-in-image.png";
+    NSString *fileName = url.lastPathComponent.length ? url.lastPathComponent : @"open-in-document.txt";
     NSString *destination = [NSTemporaryDirectory() stringByAppendingPathComponent:
         [NSString stringWithFormat:@"open-in-%@-%@", NSUUID.UUID.UUIDString, fileName]];
     if (![data writeToFile:destination atomically:YES]) return NO;
-    [[NSUserDefaults standardUserDefaults] setObject:destination forKey:kPendingExternalImageEditPath];
 
+    if ([UIImage imageWithData:data]) {
+        // Open In is conversational by default. Gallery's explicit Edit with
+        // AI action is the sole route that should enter image-edit mode
+        // without first reading the person's prompt.
+        [[NSUserDefaults standardUserDefaults] setObject:destination forKey:kPendingExternalImageAskPath];
+        if ([self.window.rootViewController isKindOfClass:[ViewController class]]) {
+            [[NSNotificationCenter defaultCenter] postNotificationName:EZAttachImageToChat
+                                                                object:nil
+                                                              userInfo:@{ @"filePath": destination }];
+        }
+        return YES;
+    }
+
+    [[NSUserDefaults standardUserDefaults] setObject:destination forKey:kPendingExternalDocumentPath];
     if ([self.window.rootViewController isKindOfClass:[ViewController class]]) {
-        [[NSNotificationCenter defaultCenter] postNotificationName:EZEditImageInChat
+        [[NSNotificationCenter defaultCenter] postNotificationName:EZAttachExternalDocumentToChat
                                                             object:nil
                                                           userInfo:@{ @"filePath": destination }];
     }
@@ -119,7 +132,7 @@ static NSString *const kPendingExternalImageEditPath = @"EZPendingExternalImageE
             openURL:(NSURL *)url
             options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options {
 
-    if (url.isFileURL) return [self acceptIncomingImageURL:url];
+    if (url.isFileURL) return [self acceptIncomingFileURL:url];
 
     if (![url.scheme isEqualToString:@"ezcomplete"]) return NO;
 
