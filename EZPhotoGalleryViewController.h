@@ -29,4 +29,15 @@ extern NSNotificationName const EZEditImageInChat;
 @interface EZPhotoGalleryViewController : UIViewController
 @end
 
+/// Reusable image detail/editor used by the gallery and image-backed memories.
+/// It provides the Ask in Chat and Edit Image actions, plus the same sharing UI.
+@interface EZPhotoDetailViewController : UIViewController
+@property (nonatomic, strong) UIImage *image;
+@property (nonatomic, copy) NSString *filePath;
+@property (nonatomic, copy, nullable) NSString *imagePrompt;
+@property (nonatomic, copy) NSArray<NSString *> *galleryFilePaths;
+@property (nonatomic, assign) NSUInteger galleryIndex;
+@property (nonatomic, copy, nullable) void (^onDeleted)(void);
+@end
+
 NS_ASSUME_NONNULL_END

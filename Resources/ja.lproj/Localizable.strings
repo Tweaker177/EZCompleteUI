@@ -322,3 +322,36 @@
 "EZGallery.Export.ShareClean" = "ブランド付き画像を共有";
 "EZGallery.Export.Download" = "画像をダウンロード";
 "EZGallery.Export.Cancel" = "キャンセル";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "新規チャット";
+"EZNav.PhotoGallery" = "フォトギャラリー";
+"EZNav.TextToSpeech" = "テキスト読み上げ";
+"EZNav.VoiceCloning" = "音声クローン";
+"EZNav.BrainRot" = "ブレインロット";
+"EZNav.Memories" = "メモリー";
+"EZNav.CoinStore" = "コインストア";
+"EZNav.Settings" = "設定";
+"EZNav.RecentChats" = "最近のチャット";
+/* First-run tutorial */
+"EZTutorial.Skip" = "スキップ"; "EZTutorial.Back" = "戻る"; "EZTutorial.Next" = "次へ"; "EZTutorial.GetStarted" = "始める";
+"EZTutorial.Welcome.Title" = "EZCompleteUI へようこそ"; "EZTutorial.Welcome.Body" = "短いツアーで各機能の場所をご案内します。いつでもスキップできます。";
+"EZTutorial.Chat.Title" = "チャットして作成"; "EZTutorial.Chat.Body" = "上部でモデルを選びます。クリップでファイルや写真を添付、マイクで音声入力、地球儀でWeb検索、稲妻で直接回答を有効にします。送信でリクエストを開始します。";
+"EZTutorial.Navigate.Title" = "メニューとチャット"; "EZTutorial.Navigate.Body" = "左上のメニューからギャラリー、音声ツール、Brain Rot、メモリー、コインストア、設定、最近のチャットを開けます。検索で会話を見つけられます。";
+"EZTutorial.Gallery.Title" = "フォトギャラリー"; "EZTutorial.Gallery.Body" = "左上の + で写真を追加します。ピンチでグリッドを2〜5列に変更できます。選択を使うと複数の写真を共有または削除できます。";
+"EZTutorial.Detail.Title" = "写真の詳細"; "EZTutorial.Detail.Body" = "質問すると、この画像をチャットに戻せます。下に編集内容を入力するか、+ で最大4枚の参照画像を追加して新しい作品に組み合わせます。"; "EZTutorial.Detail.Prompt" = "編集内容を入力…"; "EZTutorial.Detail.Ask" = "質問する"; "EZTutorial.Detail.Edit" = "AIで編集";
+"EZTutorial.Tools.Title" = "メモリーとコイン"; "EZTutorial.Tools.Body" = "メモリーには役立つ結果を保存できます。コインストアではプランとコインを管理します。残高はメイン画面からいつでも確認できます。";
+"EZTutorial.Memories.Title" = "メモリー"; "EZTutorial.Memories.Body" = "保存したメモリーを検索し、テキストをタップして編集します。もう一度タップすると編集を閉じます。青いリンクで作成元の正確なチャットターンを開き、添付画像で写真の詳細を開けます。"; "EZTutorial.Memories.Search" = "メモリーを検索"; "EZTutorial.Memories.Source" = "元のチャットターンを開く"; "EZTutorial.Memories.Editable" = "このメモリーをタップして編集";
+"EZTutorial.CoinStore.Title" = "コインストア"; "EZTutorial.CoinStore.Body" = "右上の利用ログにはすべての加算と差し引きが表示されます。無料コインは1日4回受け取れ、通知を許可すると準備できたときにお知らせします。一部のプレミアムモデルと機能は購入で解除されます。PayPalサブスクリプションは自動で付与され、1回限りのチャージも利用できます。"; "EZTutorial.CoinStore.Usage" = "利用ログ"; "EZTutorial.CoinStore.Free" = "無料コインは1日4回 • リマインダーを有効にする"; "EZTutorial.CoinStore.Offer" = "1つ買うと1つ無料"; "EZTutorial.CoinStore.Select" = "始める準備はできましたか？ニーズに合うプランを選びましょう。";
+"EZTutorial.CoinStore.Bonus" = "サブスク加入者は1回20コイン • プランなしは10コイン";
+"EZTutorial.CoinStore.Claim" = "無料コインを受け取る"; "EZTutorial.Memories.Intro" = "メモリーには役立つ結果を保存できます。";
+"EZTutorial.CoinStore.Next" = "次回: 6時間00分"; "EZCoinStore.UsageLog" = "利用ログ";
+"EZTutorial.CoinStore.BodyTop" = "• 利用ログではすべての加算と差し引きを確認できます。\n\n• 無料コインは1日4回受け取れ、通知を有効にするとリマインダーが届きます。"; "EZTutorial.CoinStore.BodyBottom" = "• 一部のプレミアムモデルと機能は購入で解除されます。";
+"EZGameMode.Title" = "ゲームを選択"; "EZGameMode.Maze" = "迷路アドベンチャー"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "キャンセル";
+"EZGameMode.Subtitle" = "遊び方を選択してください。"; "EZGameMode.MazeDescription" = "カスタムゲーム素材で生成された迷路を探索します。"; "EZGameMode.RicochetDescription" = "音楽、アイテム、MIDIとともにオープンアリーナを跳ね回ります。";
+"EZThread.NewConversation" = "新規チャット";
+"EZMemories.Title" = "メモリー"; "EZMemories.Search" = "メモリーを検索"; "EZMemories.NoneSaved" = "保存されたメモリーはありません。"; "EZMemories.NoMatches" = "検索に一致するメモリーはありません。"; "EZMemories.SavedFormat" = "%lu 件の保存済みメモリー"; "EZMemories.MatchingFormat" = "%lu 件の一致するメモリー";
+"EZTutorial.Demo.ModelPicker" = "モデル選択"; "EZTutorial.Demo.Model" = "モデル: gpt-6-astra"; "EZTutorial.Demo.Controls" = "操作"; "EZTutorial.Demo.Placeholder" = "メッセージを入力…"; "EZTutorial.Demo.Send" = "送信";
+"EZTutorial.Feedback" = "質問やフィードバックがありますか？こちらをタップしてください。";
+"EZTutorial.Menu.SampleChat" = "最近の会話";
+"EZGallery.Title" = "フォトギャラリー"; "EZGallery.Select" = "選択"; "EZGallery.Done" = "完了"; "EZGallery.SelectedCount" = "%lu 件を選択"; "EZGallery.DeleteTitle" = "写真を削除しますか？"; "EZGallery.DeleteMessage" = "選択した %lu 枚の写真を完全に削除しますか？"; "EZGallery.Delete" = "削除"; "EZGallery.Cancel" = "キャンセル";

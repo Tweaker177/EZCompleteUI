@@ -170,7 +170,7 @@ static BOOL _helperDirectAnswersEnabled(void) {
     self = [super init];
     if (self) {
         _threadID        = @"";
-        _title           = @"New Conversation";
+        _title           = NSLocalizedString(@"EZThread.NewConversation", nil);
         _displayText     = @"";
         _chatContext     = @[];   // array of {role, content} NSDictionary messages
         _modelName       = @"";
@@ -344,7 +344,7 @@ static BOOL _helperDirectAnswersEnabled(void) {
     }
 
     // Final safety net — these properties must never be nil or empty.
-    if (thread.title.length == 0)       thread.title       = @"New Conversation";
+    if (thread.title.length == 0)       thread.title       = NSLocalizedString(@"EZThread.NewConversation", nil);
     if (thread.displayText.length == 0) thread.displayText = thread.title ?: @"";
     if (thread.chatContext == nil)       thread.chatContext  = @[];
     if (thread.attachmentPaths == nil)   thread.attachmentPaths = @[];
@@ -1390,7 +1390,7 @@ void EZThreadSave(EZChatThread *thread, void (^ _Nullable completionCallback)(BO
     // Stamp timestamps before serialization.
     thread.updatedAt = _timestampISO8601();
     if (thread.createdAt.length == 0) thread.createdAt = thread.updatedAt;
-    if (thread.title.length       == 0) thread.title       = @"New Conversation";
+    if (thread.title.length       == 0) thread.title       = NSLocalizedString(@"EZThread.NewConversation", nil);
     if (thread.displayText.length == 0) thread.displayText = thread.title;
 
     NSDictionary *threadDict = [thread toDictionary];

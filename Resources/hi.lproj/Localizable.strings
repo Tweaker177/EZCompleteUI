@@ -322,3 +322,36 @@
 "EZGallery.Export.ShareClean" = "ब्रांडेड इमेज साझा करें";
 "EZGallery.Export.Download" = "इमेज डाउनलोड करें";
 "EZGallery.Export.Cancel" = "रद्द करें";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "नई चैट";
+"EZNav.PhotoGallery" = "फ़ोटो गैलरी";
+"EZNav.TextToSpeech" = "टेक्स्ट से आवाज़";
+"EZNav.VoiceCloning" = "आवाज़ क्लोनिंग";
+"EZNav.BrainRot" = "ब्रेन रॉट";
+"EZNav.Memories" = "यादें";
+"EZNav.CoinStore" = "कॉइन स्टोर";
+"EZNav.Settings" = "सेटिंग्स";
+"EZNav.RecentChats" = "हाल की चैट";
+/* First-run tutorial */
+"EZTutorial.Skip" = "छोड़ें"; "EZTutorial.Back" = "वापस"; "EZTutorial.Next" = "आगे"; "EZTutorial.GetStarted" = "शुरू करें";
+"EZTutorial.Welcome.Title" = "EZCompleteUI में आपका स्वागत है"; "EZTutorial.Welcome.Body" = "यह छोटा टूर आपको हर चीज़ की जगह दिखाएगा। आप इसे कभी भी छोड़ सकते हैं।";
+"EZTutorial.Chat.Title" = "चैट करें और बनाएं"; "EZTutorial.Chat.Body" = "ऊपर मॉडल चुनें। फ़ाइल या फ़ोटो जोड़ने के लिए क्लिप, बोलकर लिखने के लिए माइक्रोफ़ोन, वेब खोज के लिए ग्लोब और सीधे सहायक उत्तरों के लिए बिजली का उपयोग करें। भेजें आपका अनुरोध शुरू करता है।";
+"EZTutorial.Navigate.Title" = "मेनू और चैट"; "EZTutorial.Navigate.Body" = "गैलरी, वॉइस टूल्स, Brain Rot, यादें, कॉइन स्टोर, सेटिंग्स और हाल की चैट के लिए ऊपर बाएँ मेनू पर टैप करें। बातचीत खोजने के लिए खोज का उपयोग करें।";
+"EZTutorial.Gallery.Title" = "फ़ोटो गैलरी"; "EZTutorial.Gallery.Body" = "फ़ोटो जोड़ने के लिए ऊपर बाईं ओर + दबाएँ। ग्रिड को 2 से 5 कॉलम तक बदलने के लिए पिंच करें। कई फ़ोटो साझा या हटाने के लिए चुनें का उपयोग करें।";
+"EZTutorial.Detail.Title" = "फ़ोटो विवरण"; "EZTutorial.Detail.Body" = "प्रश्न पूछने पर यह चित्र चैट में वापस आ जाता है। नीचे संपादन लिखें, या + से अधिकतम चार संदर्भ चित्र जोड़कर उन्हें एक नई रचना में मिलाएँ।"; "EZTutorial.Detail.Prompt" = "अपना संपादन बताएँ…"; "EZTutorial.Detail.Ask" = "प्रश्न पूछें"; "EZTutorial.Detail.Edit" = "AI से संपादित करें";
+"EZTutorial.Tools.Title" = "यादें और कॉइन"; "EZTutorial.Tools.Body" = "यादें उपयोगी परिणाम पास रखती हैं। कॉइन स्टोर योजनाओं और कॉइन का प्रबंधन करता है। आपका बैलेंस मुख्य स्क्रीन से हमेशा उपलब्ध है।";
+"EZTutorial.Memories.Title" = "यादें"; "EZTutorial.Memories.Body" = "सहेजी गई यादें खोजें, फिर संपादित करने के लिए उनके टेक्स्ट पर टैप करें। संपादन बंद करने के लिए फिर टैप करें। नीला लिंक उसी चैट टर्न को खोलता है जहाँ याद बनाई गई थी, और संलग्न चित्र फ़ोटो विवरण खोलता है।"; "EZTutorial.Memories.Search" = "यादें खोजें"; "EZTutorial.Memories.Source" = "मूल चैट टर्न खोलें"; "EZTutorial.Memories.Editable" = "संपादित करने के लिए इस याद पर टैप करें।";
+"EZTutorial.CoinStore.Title" = "कॉइन स्टोर"; "EZTutorial.CoinStore.Body" = "ऊपर दाईं ओर उपयोग लॉग हर क्रेडिट और कटौती दिखाता है। दिन में चार बार मुफ्त कॉइन लें और याद दिलाने के लिए नोटिफिकेशन की अनुमति दें। कुछ प्रीमियम मॉडल और सुविधाओं को अनलॉक करने के लिए खरीद आवश्यक है। PayPal सदस्यताएँ स्वचालित रूप से क्रेडिट होती हैं और एकमुश्त टॉप-अप उपलब्ध हैं।"; "EZTutorial.CoinStore.Usage" = "उपयोग लॉग"; "EZTutorial.CoinStore.Free" = "दिन में चार बार मुफ्त कॉइन • रिमाइंडर चालू करें"; "EZTutorial.CoinStore.Offer" = "1 खरीदें, 1 मुफ्त पाएं"; "EZTutorial.CoinStore.Select" = "शुरू करने के लिए तैयार? अपनी जरूरत के अनुसार स्तर चुनें।";
+"EZTutorial.CoinStore.Bonus" = "सदस्य: हर क्लेम पर 20 कॉइन • बिना प्लान: 10";
+"EZTutorial.CoinStore.Claim" = "मुफ्त कॉइन लें"; "EZTutorial.Memories.Intro" = "यादें उपयोगी परिणाम पास रखती हैं।";
+"EZTutorial.CoinStore.Next" = "अगला: 6 घं 00 मि"; "EZCoinStore.UsageLog" = "उपयोग लॉग";
+"EZTutorial.CoinStore.BodyTop" = "• हर क्रेडिट और कटौती देखने के लिए उपयोग लॉग का प्रयोग करें।\n\n• दिन में चार बार मुफ्त कॉइन लें और रिमाइंडर के लिए नोटिफिकेशन चालू करें।"; "EZTutorial.CoinStore.BodyBottom" = "• कुछ प्रीमियम मॉडल और सुविधाओं को अनलॉक करने के लिए खरीद जरूरी है।";
+"EZGameMode.Title" = "गेम चुनें"; "EZGameMode.Maze" = "भूलभुलैया साहसिक"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "रद्द करें";
+"EZGameMode.Subtitle" = "चुनें कि आप कैसे खेलना चाहते हैं।"; "EZGameMode.MazeDescription" = "अपने कस्टम गेम एसेट्स के साथ बनी भूलभुलैया का अन्वेषण करें।"; "EZGameMode.RicochetDescription" = "संगीत, पिकअप और MIDI के साथ खुले एरिना में उछलें।";
+"EZThread.NewConversation" = "नई बातचीत";
+"EZMemories.Title" = "यादें"; "EZMemories.Search" = "यादें खोजें"; "EZMemories.NoneSaved" = "अभी कोई यादें सहेजी नहीं गई हैं।"; "EZMemories.NoMatches" = "खोज से मेल खाती कोई यादें नहीं हैं।"; "EZMemories.SavedFormat" = "%lu सहेजी गई यादें"; "EZMemories.MatchingFormat" = "%lu मिलती-जुलती यादें";
+"EZTutorial.Demo.ModelPicker" = "मॉडल चयनकर्ता"; "EZTutorial.Demo.Model" = "मॉडल: gpt-6-astra"; "EZTutorial.Demo.Controls" = "नियंत्रण"; "EZTutorial.Demo.Placeholder" = "संदेश लिखें…"; "EZTutorial.Demo.Send" = "भेजें";
+"EZTutorial.Feedback" = "क्या अभी भी प्रश्न हैं या सुझाव भेजना चाहते हैं? यहाँ टैप करें।";
+"EZTutorial.Menu.SampleChat" = "आपकी हाल की बातचीत";
+"EZGallery.Title" = "फ़ोटो गैलरी"; "EZGallery.Select" = "चुनें"; "EZGallery.Done" = "पूर्ण"; "EZGallery.SelectedCount" = "%lu चयनित"; "EZGallery.DeleteTitle" = "फ़ोटो हटाएं?"; "EZGallery.DeleteMessage" = "%lu चयनित फ़ोटो स्थायी रूप से हटाएं?"; "EZGallery.Delete" = "हटाएं"; "EZGallery.Cancel" = "रद्द करें";

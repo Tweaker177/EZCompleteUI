@@ -322,3 +322,36 @@
 "EZGallery.Export.ShareClean" = "แชร์ภาพพร้อมแบรนด์";
 "EZGallery.Export.Download" = "ดาวน์โหลดรูปภาพ";
 "EZGallery.Export.Cancel" = "ยกเลิก";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "แชตใหม่";
+"EZNav.PhotoGallery" = "แกลเลอรีรูปภาพ";
+"EZNav.TextToSpeech" = "ข้อความเป็นเสียง";
+"EZNav.VoiceCloning" = "โคลนเสียง";
+"EZNav.BrainRot" = "เบรนร็อต";
+"EZNav.Memories" = "ความทรงจำ";
+"EZNav.CoinStore" = "ร้านเหรียญ";
+"EZNav.Settings" = "การตั้งค่า";
+"EZNav.RecentChats" = "แชตล่าสุด";
+/* First-run tutorial */
+"EZTutorial.Skip" = "ข้าม"; "EZTutorial.Back" = "ย้อนกลับ"; "EZTutorial.Next" = "ถัดไป"; "EZTutorial.GetStarted" = "เริ่มต้น";
+"EZTutorial.Welcome.Title" = "ยินดีต้อนรับสู่ EZCompleteUI"; "EZTutorial.Welcome.Body" = "ทัวร์สั้น ๆ นี้จะแสดงว่าฟีเจอร์ต่าง ๆ อยู่ที่ไหน คุณข้ามได้ทุกเมื่อ";
+"EZTutorial.Chat.Title" = "แชตและสร้างสรรค์"; "EZTutorial.Chat.Body" = "เลือกโมเดลด้านบน ใช้คลิปหนีบเพื่อแนบไฟล์หรือรูปภาพ ใช้ไมโครโฟนเพื่อพูด ใช้ลูกโลกเพื่อค้นเว็บ และใช้สายฟ้าเพื่อคำตอบโดยตรง กดส่งเพื่อเริ่มคำขอ";
+"EZTutorial.Navigate.Title" = "เมนูและแชตของคุณ"; "EZTutorial.Navigate.Body" = "แตะเมนูด้านซ้ายบนเพื่อเปิดแกลเลอรี เครื่องมือเสียง Brain Rot ความทรงจำ ร้านเหรียญ การตั้งค่า และแชตล่าสุด ใช้การค้นหาเพื่อหาบทสนทนา";
+"EZTutorial.Gallery.Title" = "แกลเลอรีรูปภาพ"; "EZTutorial.Gallery.Body" = "แตะ + ที่มุมซ้ายบนเพื่อเพิ่มรูปภาพ บีบเพื่อปรับตารางจาก 2 เป็น 5 คอลัมน์ ใช้เลือกเพื่อแชร์หรือลบหลายรูปพร้อมกัน";
+"EZTutorial.Detail.Title" = "รายละเอียดรูปภาพ"; "EZTutorial.Detail.Body" = "ถามคำถามเพื่อส่งรูปนี้กลับไปที่แชท อธิบายการแก้ไขด้านล่าง หรือใช้ + เพื่อเพิ่มรูปอ้างอิงได้สูงสุดสี่รูปและรวมเป็นผลงานใหม่"; "EZTutorial.Detail.Prompt" = "อธิบายการแก้ไขของคุณ…"; "EZTutorial.Detail.Ask" = "ถามคำถาม"; "EZTutorial.Detail.Edit" = "แก้ไขด้วย AI";
+"EZTutorial.Tools.Title" = "ความทรงจำและเหรียญ"; "EZTutorial.Tools.Body" = "ความทรงจำเก็บผลลัพธ์ที่มีประโยชน์ไว้ใกล้มือ ร้านเหรียญจัดการแผนและเหรียญ ยอดคงเหลือของคุณดูได้เสมอจากหน้าจอหลัก";
+"EZTutorial.Memories.Title" = "ความทรงจำ"; "EZTutorial.Memories.Body" = "ค้นหาความทรงจำที่บันทึกไว้ แล้วแตะข้อความเพื่อแก้ไข แตะอีกครั้งเพื่อปิดการแก้ไข ลิงก์สีน้ำเงินจะเปิดข้อความแชทต้นทาง และรูปที่แนบจะเปิดรายละเอียดรูปภาพ"; "EZTutorial.Memories.Search" = "ค้นหาความทรงจำ"; "EZTutorial.Memories.Source" = "เปิดข้อความแชทต้นฉบับ"; "EZTutorial.Memories.Editable" = "แตะความทรงจำนี้เพื่อแก้ไข";
+"EZTutorial.CoinStore.Title" = "ร้านเหรียญ"; "EZTutorial.CoinStore.Body" = "บันทึกการใช้งานด้านขวาบนจะแสดงทุกเครดิตและการหักเงิน รับเหรียญฟรีได้สี่ครั้งต่อวัน และอนุญาตการแจ้งเตือนเพื่อรับการเตือน โมเดลและฟีเจอร์พรีเมียมบางอย่างต้องซื้อเพื่อปลดล็อก การสมัครสมาชิก PayPal จะถูกเพิ่มเครดิตอัตโนมัติ และมีแพ็กเกจเติมเงินครั้งเดียว"; "EZTutorial.CoinStore.Usage" = "บันทึกการใช้งาน"; "EZTutorial.CoinStore.Free" = "เหรียญฟรีสี่ครั้งต่อวัน • เปิดการเตือน"; "EZTutorial.CoinStore.Offer" = "ซื้อ 1 รับฟรี 1"; "EZTutorial.CoinStore.Select" = "พร้อมเริ่มหรือยัง เลือกระดับที่เหมาะกับความต้องการของคุณ";
+"EZTutorial.CoinStore.Bonus" = "สมาชิกได้ 20 เหรียญต่อการรับ • ไม่มีแผนได้ 10";
+"EZTutorial.CoinStore.Claim" = "รับเหรียญฟรี"; "EZTutorial.Memories.Intro" = "ความทรงจำเก็บผลลัพธ์ที่มีประโยชน์ไว้ใกล้มือ";
+"EZTutorial.CoinStore.Next" = "ครั้งถัดไป: 6 ชม. 00 นาที"; "EZCoinStore.UsageLog" = "บันทึกการใช้งาน";
+"EZTutorial.CoinStore.BodyTop" = "• ใช้บันทึกการใช้งานเพื่อตรวจสอบทุกเครดิตและการหักเงิน\n\n• รับเหรียญฟรีได้สี่ครั้งต่อวัน และเปิดการแจ้งเตือนเพื่อรับการเตือน"; "EZTutorial.CoinStore.BodyBottom" = "• โมเดลและฟีเจอร์พรีเมียมบางอย่างต้องซื้อเพื่อปลดล็อก";
+"EZGameMode.Title" = "เลือกเกม"; "EZGameMode.Maze" = "ผจญภัยเขาวงกต"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "ยกเลิก";
+"EZGameMode.Subtitle" = "เลือกรูปแบบการเล่นของคุณ"; "EZGameMode.MazeDescription" = "สำรวจเขาวงกตที่สร้างจากทรัพยากรเกมของคุณ"; "EZGameMode.RicochetDescription" = "เด้งไปมาในสนามเปิดพร้อมดนตรี ไอเท็ม และ MIDI";
+"EZThread.NewConversation" = "แชตใหม่";
+"EZMemories.Title" = "ความทรงจำ"; "EZMemories.Search" = "ค้นหาความทรงจำ"; "EZMemories.NoneSaved" = "ยังไม่มีความทรงจำที่บันทึกไว้"; "EZMemories.NoMatches" = "ไม่พบความทรงจำที่ตรงกับการค้นหา"; "EZMemories.SavedFormat" = "บันทึกความทรงจำแล้ว %lu รายการ"; "EZMemories.MatchingFormat" = "พบความทรงจำที่ตรงกัน %lu รายการ";
+"EZTutorial.Demo.ModelPicker" = "ตัวเลือกโมเดล"; "EZTutorial.Demo.Model" = "โมเดล: gpt-6-astra"; "EZTutorial.Demo.Controls" = "ตัวควบคุม"; "EZTutorial.Demo.Placeholder" = "พิมพ์ข้อความ…"; "EZTutorial.Demo.Send" = "ส่ง";
+"EZTutorial.Feedback" = "ยังมีคำถามหรือต้องการส่งความคิดเห็นไหม? แตะที่นี่";
+"EZTutorial.Menu.SampleChat" = "การสนทนาล่าสุดของคุณ";
+"EZGallery.Title" = "แกลเลอรีรูปภาพ"; "EZGallery.Select" = "เลือก"; "EZGallery.Done" = "เสร็จสิ้น"; "EZGallery.SelectedCount" = "เลือกแล้ว %lu รายการ"; "EZGallery.DeleteTitle" = "ลบรูปภาพ?"; "EZGallery.DeleteMessage" = "ลบรูปภาพที่เลือก %lu รูปอย่างถาวร?"; "EZGallery.Delete" = "ลบ"; "EZGallery.Cancel" = "ยกเลิก";

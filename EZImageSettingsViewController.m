@@ -58,7 +58,7 @@ static BOOL EZImageSettingRequiresSubscription(NSString *key, NSString *value) {
     self.title = @"Image Settings";
 
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    NSString *selectedModel  = [defaults stringForKey:@"selectedModel"] ?: @"";
+    NSString *selectedModel  = self.modelIdentifier ?: [defaults stringForKey:@"selectedModel"] ?: @"";
     BOOL supportsXhighMax    = [EZModelsSupportingXhighMax() containsObject:selectedModel];
 
     NSArray<NSString *> *qualityOptions = supportsXhighMax

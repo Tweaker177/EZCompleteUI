@@ -61,7 +61,7 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
         @[@"gpt-6-astra", @"gpt-5.6-sol", @"gpt-5.6-terra", @"gpt-5.6-luna", //@"gpt-5-pro",
           @"gpt-5-mini"],
         @[@"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4", @"gpt-3.5-turbo"],
-        @[@"gpt-image-2.5-flare", @"gpt-image-2.5-sunburst", @"gpt-image-2", @"gpt-image-1.5", @"gpt-image-1", @"gpt-image-1-mini", @"chatgpt-image-latest"],
+        @[@"gpt-image-2.5-sunburst", @"gpt-image-2.5-flare", @"gpt-image-2", @"gpt-image-1.5", @"gpt-image-1", @"gpt-image-1-mini", @"chatgpt-image-latest"],
         @[@"whisper-1"]
     ];
 }

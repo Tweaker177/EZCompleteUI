@@ -257,7 +257,7 @@ static NSString *const kTierUltraAnnual    = @"ultra_annual";
 
 // GET-style status check mirroring refreshDailyCoinsStatus's pattern.
 
-static CGFloat const kPromoBannerHeight = 88.0;
+static CGFloat const kPromoBannerHeight = 108.0;
 
 // Now 0 — the Daily Coins button moved into the nav bar, so nothing floats
 
@@ -371,6 +371,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         self.titleLabel.textColor = [UIColor labelColor];
 
+        self.titleLabel.numberOfLines = 2;
+        self.titleLabel.adjustsFontSizeToFitWidth = YES;
+        self.titleLabel.minimumScaleFactor = 0.75;
+
         [self.cardView addSubview:self.titleLabel];
 
         self.subtitleLabel = [[UILabel alloc] init];
@@ -379,7 +383,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         self.subtitleLabel.textColor     = [UIColor secondaryLabelColor];
 
-        self.subtitleLabel.numberOfLines = 2;
+        self.subtitleLabel.numberOfLines = 3;
 
         [self.cardView addSubview:self.subtitleLabel];
 
@@ -388,6 +392,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         self.priceLabel.font          = [UIFont boldSystemFontOfSize:15];
 
         self.priceLabel.textAlignment = NSTextAlignmentRight;
+
+        self.priceLabel.numberOfLines = 2;
+        self.priceLabel.adjustsFontSizeToFitWidth = YES;
+        self.priceLabel.minimumScaleFactor = 0.65;
 
         [self.cardView addSubview:self.priceLabel];
 
@@ -409,6 +417,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         self.badgeLabel.minimumScaleFactor          = 0.6; // room for longer text like "+2500 FREE Coins*"
 
+        self.badgeLabel.numberOfLines               = 2;
+
         [self.cardView addSubview:self.badgeLabel];
 
         // Small disclaimer shown under badgeLabel for subscription promo
@@ -425,7 +435,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         self.footnoteLabel.textAlignment = NSTextAlignmentCenter;
 
-        self.footnoteLabel.numberOfLines = 3;
+        self.footnoteLabel.numberOfLines = 4;
 
         self.footnoteLabel.hidden        = YES;
 
@@ -543,29 +553,39 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.cardView.frame  = CGRectMake(16, 8, cardWidth, cardHeight);
 
-    CGFloat coinSize = 52;
-
-    self.coinImageView.frame = CGRectMake(cellPadding, (cardHeight - coinSize) / 2, coinSize, coinSize);
+    // The purchase button owns the bottom of every card. Center artwork in the
+    // information area above it, rather than the entire card, so shorter
+    // top-up cards do not make the coin appear to sink toward the bottom.
+    CGFloat buttonHeight = 40;
+    CGFloat actionTop = cardHeight - buttonHeight - cellPadding;
+    CGFloat infoTop = cellPadding;
+    CGFloat infoBottom = MAX(infoTop, actionTop - 8);
+    CGFloat infoHeight = infoBottom - infoTop;
+    CGFloat coinSize = MIN(60, MAX(42, infoHeight - 10));
+    CGFloat coinY = infoTop + (infoHeight - coinSize) / 2.0;
+    self.coinImageView.frame = CGRectMake(cellPadding, coinY, coinSize, coinSize);
 
     CGFloat textX = coinSize + cellPadding * 2;
 
-    CGFloat textW = cardWidth - textX - 90 - cellPadding;
+    // Reserve a flexible right column for prices and sale text. It wraps
+    // localized content instead of clipping it on narrow screens.
+    CGFloat rightColumnWidth = MIN(140, MAX(112, floor(cardWidth * 0.34)));
+    CGFloat rightX = cardWidth - rightColumnWidth - cellPadding;
+    CGFloat textW = MAX(92, rightX - textX - 8);
 
-    self.titleLabel.frame    = CGRectMake(textX, cellPadding, textW, 22);
+    self.titleLabel.frame    = CGRectMake(textX, cellPadding, textW, 40);
 
-    self.subtitleLabel.frame = CGRectMake(textX, cellPadding + 24, textW, 34);
+    self.subtitleLabel.frame = CGRectMake(textX, cellPadding + 42, textW, 54);
 
-    self.priceLabel.frame = CGRectMake(cardWidth - 90 - cellPadding, cellPadding, 90, 22);
+    self.priceLabel.frame = CGRectMake(rightX, cellPadding, rightColumnWidth, 38);
 
-    self.badgeLabel.frame = CGRectMake(cardWidth - 90 - cellPadding, cellPadding + 26, 90, 18);
+    self.badgeLabel.frame = CGRectMake(rightX, cellPadding + 42, rightColumnWidth, 30);
 
-    self.footnoteLabel.frame = CGRectMake(cardWidth - 90 - cellPadding, cellPadding + 46, 90, 30);
+    self.footnoteLabel.frame = CGRectMake(rightX, cellPadding + 74, rightColumnWidth, 48);
 
-    CGFloat buttonWidth  = cardWidth - textX - cellPadding;
+    CGFloat buttonWidth  = cardWidth - cellPadding * 2;
 
-    CGFloat buttonHeight = 40;
-
-    self.actionButton.frame = CGRectMake(textX, cardHeight - buttonHeight - cellPadding, buttonWidth, buttonHeight);
+    self.actionButton.frame = CGRectMake(cellPadding, cardHeight - buttonHeight - cellPadding, buttonWidth, buttonHeight);
 
 }
 
@@ -605,6 +625,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, strong) UIButton  *dailyCoinsButton;       // Floating button top-left
 
+@property (nonatomic, strong) UIButton  *usageLogButton;
+
 @property (nonatomic, assign) BOOL       isDailyCoinsAvailable;  // Whether the server says coins can be claimed now
 
 @property (nonatomic, strong) NSDate    *nextDailyClaimDate;     // ISO date from server; drives the countdown label
@@ -633,20 +655,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     // "History" — user-facing coin usage log (right nav bar button)
 
-    UIBarButtonItem *historyBarButton = [[UIBarButtonItem alloc]
-
-        initWithImage:[UIImage systemImageNamed:@"clock.arrow.circlepath"]
-
-                style:UIBarButtonItemStylePlain
-
-               target:self
-
-               action:@selector(historyTapped)];
-
-    historyBarButton.tintColor = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0];
-
-    self.navigationItem.rightBarButtonItem = historyBarButton;
-
     self.coinImage = [UIImage imageNamed:@"EZCoin"];
 
     // ⚠️ Flip this manually to match whatever promo rows are active/unexpired
@@ -674,9 +682,9 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [self refreshDailyCoinsStatus];
 
 #if DEBUG
-
+    // Debug-only transaction inspector lives on the title row; customer-facing
+    // builds never compile this control, while Usage Log remains below.
     [self addLedgerButton];
-
 #endif
 
 }
@@ -1045,15 +1053,17 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     UILabel *headlineLabel = [[UILabel alloc]
 
-        initWithFrame:CGRectMake(12, 10, self.view.bounds.size.width - 24, 30)];
+        initWithFrame:CGRectMake(12, 7, self.view.bounds.size.width - 24, 48)];
 
     headlineLabel.text          = NSLocalizedString(@"EZCoinStore.Promo.Headline", @"Promo banner headline");
 
-    headlineLabel.font          = [UIFont boldSystemFontOfSize:23];
+    headlineLabel.font          = [UIFont boldSystemFontOfSize:22];
 
     headlineLabel.textColor     = [UIColor whiteColor];
 
     headlineLabel.textAlignment = NSTextAlignmentCenter;
+
+    headlineLabel.numberOfLines = 2;
 
     headlineLabel.adjustsFontSizeToFitWidth = YES;
 
@@ -1061,7 +1071,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     UILabel *subtextLabel = [[UILabel alloc]
 
-        initWithFrame:CGRectMake(12, 44, self.view.bounds.size.width - 24, 36)];
+        initWithFrame:CGRectMake(12, 57, self.view.bounds.size.width - 24, 44)];
 
     subtextLabel.text          = NSLocalizedString(@"EZCoinStore.Promo.Subtitle", @"Promo banner subtitle");
 
@@ -1109,7 +1119,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     CGFloat promoOffset = self.isPromoActive ? kPromoBannerHeight : 0;
 
-    CGFloat headerHeight = 62 + promoOffset;
+    static CGFloat const kStoreControlsHeight = 48.0;
+    CGFloat headerHeight = 62 + promoOffset + kStoreControlsHeight;
 
     // Leave enough clearance above the balance label for the floating
 
@@ -1121,11 +1132,15 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (self.isPromoActive) {
 
-        [self.headerView addSubview:[self buildPromoBannerView]];
+        UIView *promoBanner = [self buildPromoBannerView];
+        CGRect promoFrame = promoBanner.frame;
+        promoFrame.origin.y = kStoreControlsHeight;
+        promoBanner.frame = promoFrame;
+        [self.headerView addSubview:promoBanner];
 
     }
 
-    self.balanceLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 8 + promoOffset, self.view.bounds.size.width, 22)];
+    self.balanceLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 8 + promoOffset + kStoreControlsHeight, self.view.bounds.size.width, 22)];
 
     self.balanceLabel.font          = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
 
@@ -1141,7 +1156,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     // the user ran out mid-session (triggeringFeatureName is set by the caller)
 
-    self.warningLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 34 + promoOffset, self.view.bounds.size.width, 28)];
+    self.warningLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 34 + promoOffset + kStoreControlsHeight, self.view.bounds.size.width, 28)];
 
     self.warningLabel.backgroundColor = [UIColor systemRedColor];
 
@@ -1164,6 +1179,19 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     }
 
     [self.headerView addSubview:self.warningLabel];
+
+    self.usageLogButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.usageLogButton setImage:[UIImage systemImageNamed:@"clock.arrow.circlepath"] forState:UIControlStateNormal];
+    [self.usageLogButton setTitle:[NSString stringWithFormat:@" %@", NSLocalizedString(@"EZCoinStore.UsageLog", @"Usage Log")] forState:UIControlStateNormal];
+    self.usageLogButton.tintColor = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0];
+    self.usageLogButton.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+    [self.usageLogButton addTarget:self action:@selector(historyTapped) forControlEvents:UIControlEventTouchUpInside];
+    self.usageLogButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.headerView addSubview:self.usageLogButton];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.usageLogButton.trailingAnchor constraintEqualToAnchor:self.headerView.trailingAnchor constant:-16],
+        [self.usageLogButton.centerYAnchor constraintEqualToAnchor:self.headerView.topAnchor constant:kStoreControlsHeight / 2.0],
+    ]];
 
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
 
@@ -1310,11 +1338,11 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (indexPath.section == 0 && self.isPromoActive) {
 
-        return 182;
+        return 222;
 
     }
 
-        return 168;
+        return 184;
 
 }
 
@@ -1364,7 +1392,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.dailyCoinsButton.contentEdgeInsets = UIEdgeInsetsMake(0, 0, 0, 0);
 
-    self.dailyCoinsButton.titleLabel.font   = [UIFont systemFontOfSize:15.0];
+    self.dailyCoinsButton.titleLabel.font   = [UIFont systemFontOfSize:14.0 weight:UIFontWeightSemibold];
+    self.dailyCoinsButton.titleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
 
     // Muted until the server confirms eligibility
 
@@ -1380,23 +1409,16 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.dailyCoinsButton.translatesAutoresizingMaskIntoConstraints = NO;
 
-    // Lives in the nav bar's left slot now — this is the space the close (X)
-
-    // button used to occupy. Frees the header content area entirely for the
-
-    // promo banner instead of the two competing for the same cramped row.
-
-    // translatesAutoresizingMaskIntoConstraints = NO (rather than a one-time
-
-    // sizeToFit) so the nav bar re-measures the button's intrinsicContentSize
-
-    // as its title text changes every second from the countdown timer —
-
-    // otherwise a frozen frame would clip longer/shorter countdown strings.
-
-    self.navigationItem.leftBarButtonItem =
-
-        [[UIBarButtonItem alloc] initWithCustomView:self.dailyCoinsButton];
+    // Keep the claim countdown on its own row directly under the title.
+    // This leaves the navigation title centered and keeps it independent from
+    // the Usage Log control on the same row's right edge.
+    [self.headerView addSubview:self.dailyCoinsButton];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.dailyCoinsButton.leadingAnchor constraintEqualToAnchor:self.headerView.leadingAnchor constant:16],
+        [self.dailyCoinsButton.centerYAnchor constraintEqualToAnchor:self.headerView.topAnchor constant:24],
+        [self.dailyCoinsButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.usageLogButton.leadingAnchor constant:-8],
+        [self.dailyCoinsButton.widthAnchor constraintLessThanOrEqualToAnchor:self.headerView.widthAnchor multiplier:0.52],
+    ]];
 
 }
 
@@ -1859,8 +1881,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     [ledgerButton setTitle:NSLocalizedString(@"EZCoinStore.Ledger", @"Debug ledger button title") forState:UIControlStateNormal];
 
-    ledgerButton.translatesAutoresizingMaskIntoConstraints = NO;
-
     ledgerButton.contentEdgeInsets = UIEdgeInsetsMake(6, 10, 6, 10);
 
     ledgerButton.titleLabel.font   = [UIFont systemFontOfSize:16.0];
@@ -1871,17 +1891,15 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
            forControlEvents:UIControlEventTouchUpInside];
 
-    [self.view addSubview:ledgerButton];
-
-    UILayoutGuide *safeArea = self.view.safeAreaLayoutGuide;
-
-    [NSLayoutConstraint activateConstraints:@[
-
-        [ledgerButton.topAnchor      constraintEqualToAnchor:safeArea.topAnchor      constant:8.0],
-
-        [ledgerButton.trailingAnchor constraintEqualToAnchor:safeArea.trailingAnchor constant:-12.0],
-
-    ]];
+    // Keep debug controls in the navigation bar so they never cover promo text.
+    UIBarButtonItem *ledgerItem = [[UIBarButtonItem alloc] initWithCustomView:ledgerButton];
+    if (self.navigationItem.rightBarButtonItem) {
+        self.navigationItem.rightBarButtonItems = @[
+            self.navigationItem.rightBarButtonItem, ledgerItem
+        ];
+    } else {
+        self.navigationItem.rightBarButtonItem = ledgerItem;
+    }
 
 }
 

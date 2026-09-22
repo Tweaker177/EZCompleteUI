@@ -322,3 +322,36 @@
 "EZGallery.Export.ShareClean" = "分享品牌图片";
 "EZGallery.Export.Download" = "下载图片";
 "EZGallery.Export.Cancel" = "取消";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "新建对话";
+"EZNav.PhotoGallery" = "照片图库";
+"EZNav.TextToSpeech" = "文字转语音";
+"EZNav.VoiceCloning" = "声音克隆";
+"EZNav.BrainRot" = "脑洞乐园";
+"EZNav.Memories" = "记忆";
+"EZNav.CoinStore" = "金币商店";
+"EZNav.Settings" = "设置";
+"EZNav.RecentChats" = "最近对话";
+/* First-run tutorial */
+"EZTutorial.Skip" = "跳过"; "EZTutorial.Back" = "返回"; "EZTutorial.Next" = "下一步"; "EZTutorial.GetStarted" = "开始使用";
+"EZTutorial.Welcome.Title" = "欢迎使用 EZCompleteUI"; "EZTutorial.Welcome.Body" = "这个简短导览会介绍各项功能的位置。您随时可以跳过。";
+"EZTutorial.Chat.Title" = "聊天与创作"; "EZTutorial.Chat.Body" = "在顶部选择模型。用回形针附加文件或照片，用麦克风听写，用地球仪进行网页搜索，用闪电开启直接助手回答。点击发送即可开始请求。";
+"EZTutorial.Navigate.Title" = "菜单和对话"; "EZTutorial.Navigate.Body" = "轻点左上角菜单可打开图库、语音工具、Brain Rot、记忆、金币商店、设置和最近对话。可在此搜索对话。";
+"EZTutorial.Gallery.Title" = "照片图库"; "EZTutorial.Gallery.Body" = "轻点左上角的 + 添加照片。双指缩放可将网格调整为 2 至 5 列。使用“选择”可分享或删除多张照片。";
+"EZTutorial.Detail.Title" = "照片详情"; "EZTutorial.Detail.Body" = "提问会将此图片带回聊天。请在下方描述编辑内容，或使用 + 添加最多四张参考图片并合成为新的作品。"; "EZTutorial.Detail.Prompt" = "描述你的编辑…"; "EZTutorial.Detail.Ask" = "提问"; "EZTutorial.Detail.Edit" = "用 AI 编辑";
+"EZTutorial.Tools.Title" = "记忆与金币"; "EZTutorial.Tools.Body" = "记忆会保存有用的结果。金币商店用于管理套餐和金币。余额始终可从主屏幕查看。";
+"EZTutorial.Memories.Title" = "记忆"; "EZTutorial.Memories.Body" = "搜索已保存的记忆，然后轻点文字进行编辑。再次轻点即可结束编辑。顶部蓝色链接会打开创建该记忆的确切聊天轮次，附加图片会打开照片详情。"; "EZTutorial.Memories.Search" = "搜索记忆"; "EZTutorial.Memories.Source" = "打开原始聊天轮次"; "EZTutorial.Memories.Editable" = "轻点此记忆进行编辑。";
+"EZTutorial.CoinStore.Title" = "金币商店"; "EZTutorial.CoinStore.Body" = "右上角的使用记录会列出每一笔扣除和充值。每天可领取四次免费金币；允许通知即可在金币准备好时收到提醒。部分高级模型和功能需要购买后解锁。PayPal 订阅会自动计入账户，也提供一次性充值套餐。"; "EZTutorial.CoinStore.Usage" = "使用记录"; "EZTutorial.CoinStore.Free" = "每天四次免费金币 • 开启提醒"; "EZTutorial.CoinStore.Offer" = "买一送一"; "EZTutorial.CoinStore.Select" = "准备好开始了吗？请选择最适合您需求的级别。";
+"EZTutorial.CoinStore.Bonus" = "订阅用户每次可领 20 金币 • 无套餐为 10 金币";
+"EZTutorial.CoinStore.Claim" = "领取免费金币"; "EZTutorial.Memories.Intro" = "记忆会保存有用的结果。";
+"EZTutorial.CoinStore.Next" = "下次：6小时00分"; "EZCoinStore.UsageLog" = "使用记录";
+"EZTutorial.CoinStore.BodyTop" = "• 使用记录可查看每一笔扣除和充值。\n\n• 每天可领取四次免费金币，并开启通知以接收提醒。"; "EZTutorial.CoinStore.BodyBottom" = "• 部分高级模型和功能需要购买后解锁。";
+"EZGameMode.Title" = "选择游戏"; "EZGameMode.Maze" = "迷宫冒险"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "取消";
+"EZGameMode.Subtitle" = "选择你的游玩方式。"; "EZGameMode.MazeDescription" = "使用自定义游戏素材探索生成的迷宫。"; "EZGameMode.RicochetDescription" = "在开放竞技场中伴随音乐、拾取物和 MIDI 弹跳。";
+"EZThread.NewConversation" = "新建对话";
+"EZMemories.Title" = "记忆"; "EZMemories.Search" = "搜索记忆"; "EZMemories.NoneSaved" = "尚无已保存的记忆。"; "EZMemories.NoMatches" = "没有与搜索匹配的记忆。"; "EZMemories.SavedFormat" = "%lu 条已保存记忆"; "EZMemories.MatchingFormat" = "%lu 条匹配记忆";
+"EZTutorial.Demo.ModelPicker" = "模型选择器"; "EZTutorial.Demo.Model" = "模型：gpt-6-astra"; "EZTutorial.Demo.Controls" = "控件"; "EZTutorial.Demo.Placeholder" = "输入消息…"; "EZTutorial.Demo.Send" = "发送";
+"EZTutorial.Feedback" = "还有问题或想提交反馈？请点这里。";
+"EZTutorial.Menu.SampleChat" = "您的最近对话";
+"EZGallery.Title" = "照片图库"; "EZGallery.Select" = "选择"; "EZGallery.Done" = "完成"; "EZGallery.SelectedCount" = "已选择 %lu 张"; "EZGallery.DeleteTitle" = "删除照片？"; "EZGallery.DeleteMessage" = "永久删除选中的 %lu 张照片？"; "EZGallery.Delete" = "删除"; "EZGallery.Cancel" = "取消";

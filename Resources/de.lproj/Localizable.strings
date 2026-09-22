@@ -322,3 +322,36 @@
 "EZGallery.Export.ShareClean" = "Gebrandetes Bild teilen";
 "EZGallery.Export.Download" = "Bild herunterladen";
 "EZGallery.Export.Cancel" = "Abbrechen";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "Neuer Chat";
+"EZNav.PhotoGallery" = "Fotogalerie";
+"EZNav.TextToSpeech" = "Text-zu-Sprache";
+"EZNav.VoiceCloning" = "Stimmklonen";
+"EZNav.BrainRot" = "Brain Rot";
+"EZNav.Memories" = "Erinnerungen";
+"EZNav.CoinStore" = "Coin-Shop";
+"EZNav.Settings" = "Einstellungen";
+"EZNav.RecentChats" = "Letzte Chats";
+/* First-run tutorial */
+"EZTutorial.Skip" = "Überspringen"; "EZTutorial.Back" = "Zurück"; "EZTutorial.Next" = "Weiter"; "EZTutorial.GetStarted" = "Loslegen";
+"EZTutorial.Welcome.Title" = "Willkommen bei EZCompleteUI"; "EZTutorial.Welcome.Body" = "Diese kurze Tour zeigt dir, wo alles zu finden ist. Du kannst sie jederzeit überspringen.";
+"EZTutorial.Chat.Title" = "Chatten und erstellen"; "EZTutorial.Chat.Body" = "Wähle oben ein Modell. Nutze die Büroklammer für Dateien oder Fotos, das Mikrofon zum Diktieren, den Globus für die Websuche und den Blitz für direkte Antworten. Senden startet deine Anfrage.";
+"EZTutorial.Navigate.Title" = "Menü und Chats"; "EZTutorial.Navigate.Body" = "Tippe oben links auf das Menü für Galerie, Sprachwerkzeuge, Brain Rot, Erinnerungen, Coin-Shop, Einstellungen und letzte Chats. Mit der Suche findest du Unterhaltungen.";
+"EZTutorial.Gallery.Title" = "Fotogalerie"; "EZTutorial.Gallery.Body" = "Tippe oben links auf +, um Fotos hinzuzufügen. Ziehe die Ansicht auf oder zu, um das Raster von 2 auf 5 Spalten zu ändern. Mit Auswählen kannst du mehrere Fotos teilen oder löschen.";
+"EZTutorial.Detail.Title" = "Fotodetails"; "EZTutorial.Detail.Body" = "Eine Frage bringt dieses Bild zurück in den Chat. Beschreibe unten eine Bearbeitung oder nutze +, um bis zu vier Referenzbilder hinzuzufügen und zu einer neuen Kreation zu verbinden."; "EZTutorial.Detail.Prompt" = "Beschreibe deine Bearbeitung…"; "EZTutorial.Detail.Ask" = "Frage stellen"; "EZTutorial.Detail.Edit" = "Mit KI bearbeiten";
+"EZTutorial.Tools.Title" = "Erinnerungen und Coins"; "EZTutorial.Tools.Body" = "Erinnerungen halten nützliche Ergebnisse bereit. Der Coin-Shop verwaltet Pläne und Coins. Dein Guthaben ist auf dem Hauptbildschirm verfügbar.";
+"EZTutorial.Memories.Title" = "Erinnerungen"; "EZTutorial.Memories.Body" = "Durchsuche gespeicherte Erinnerungen und tippe auf ihren Text, um ihn zu bearbeiten. Nochmals tippen beendet die Bearbeitung. Der blaue Link öffnet den genauen Chat-Beitrag, und ein Bild öffnet die Fotodetails."; "EZTutorial.Memories.Search" = "Erinnerungen suchen"; "EZTutorial.Memories.Source" = "Ursprünglichen Chat öffnen"; "EZTutorial.Memories.Editable" = "Tippe auf diese Erinnerung, um sie zu bearbeiten.";
+"EZTutorial.CoinStore.Title" = "Coin-Shop"; "EZTutorial.CoinStore.Body" = "Das Nutzungsprotokoll oben rechts zeigt jede Gutschrift und Abbuchung. Sammle viermal täglich kostenlose Coins; erlaube Mitteilungen für Erinnerungen. Manche Premium-Modelle und Funktionen erfordern einen Kauf. PayPal-Abos werden automatisch gutgeschrieben, und Einmal-Aufladungen sind verfügbar."; "EZTutorial.CoinStore.Usage" = "Nutzungsprotokoll"; "EZTutorial.CoinStore.Free" = "Kostenlose Coins viermal täglich • Erinnerungen aktivieren"; "EZTutorial.CoinStore.Offer" = "1 KAUFEN, 1 GRATIS"; "EZTutorial.CoinStore.Select" = "Bereit? Wähle das Niveau, das zu dir passt.";
+"EZTutorial.CoinStore.Bonus" = "Abonnenten: 20 Coins je Abholung • Ohne Plan: 10";
+"EZTutorial.CoinStore.Claim" = "Kostenlose Coins abholen"; "EZTutorial.Memories.Intro" = "Erinnerungen halten nützliche Ergebnisse bereit.";
+"EZTutorial.CoinStore.Next" = "Nächste: 6 Std. 00 Min."; "EZCoinStore.UsageLog" = "Nutzungsprotokoll";
+"EZTutorial.CoinStore.BodyTop" = "• Im Nutzungsprotokoll siehst du jede Gutschrift und Abbuchung.\n\n• Sammle viermal täglich kostenlose Coins und aktiviere Mitteilungen für Erinnerungen."; "EZTutorial.CoinStore.BodyBottom" = "• Manche Premium-Modelle und Funktionen erfordern einen Kauf zum Freischalten.";
+"EZGameMode.Title" = "Spiel auswählen"; "EZGameMode.Maze" = "Labyrinth-Abenteuer"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "Abbrechen";
+"EZGameMode.Subtitle" = "Wähle, wie du spielen möchtest."; "EZGameMode.MazeDescription" = "Erkunde ein generiertes Labyrinth mit deinen eigenen Spiel-Assets."; "EZGameMode.RicochetDescription" = "Pralle durch eine offene Arena mit Musik, Extras und MIDI.";
+"EZThread.NewConversation" = "Neue Unterhaltung";
+"EZMemories.Title" = "Erinnerungen"; "EZMemories.Search" = "Erinnerungen durchsuchen"; "EZMemories.NoneSaved" = "Noch keine Erinnerungen gespeichert."; "EZMemories.NoMatches" = "Keine Erinnerungen entsprechen der Suche."; "EZMemories.SavedFormat" = "%lu gespeicherte Erinnerungen"; "EZMemories.MatchingFormat" = "%lu passende Erinnerungen";
+"EZTutorial.Demo.ModelPicker" = "Modellauswahl"; "EZTutorial.Demo.Model" = "Modell: gpt-6-astra"; "EZTutorial.Demo.Controls" = "Steuerung"; "EZTutorial.Demo.Placeholder" = "Nachricht eingeben…"; "EZTutorial.Demo.Send" = "Senden";
+"EZTutorial.Feedback" = "Noch Fragen oder Feedback? Tippe hier.";
+"EZTutorial.Menu.SampleChat" = "Deine letzte Unterhaltung";
+"EZGallery.Title" = "Fotogalerie"; "EZGallery.Select" = "Auswählen"; "EZGallery.Done" = "Fertig"; "EZGallery.SelectedCount" = "%lu ausgewählt"; "EZGallery.DeleteTitle" = "Fotos löschen?"; "EZGallery.DeleteMessage" = "%lu ausgewählte Fotos dauerhaft löschen?"; "EZGallery.Delete" = "Löschen"; "EZGallery.Cancel" = "Abbrechen";

@@ -420,6 +420,17 @@
 //     real billing is computed server-side in ez-chat off the exact model
 //     string, this just keeps ez_usage_log's feature column meaningful.
 //
+// Changes from v7.5:
+//   - Added insurancePolicyButton to the top button row, wired to
+//     openInsurancePolicy, presenting EZInsuranceLandingViewController the
+//     same way openSupport/openTTS/openCloning present their view
+//     controllers. Added to the existing fixed-width topStack for now —
+//     that stack isn't actually inside the SidewaysScrollView the class
+//     declares a property for (see the unused sidewaysScrollView property
+//     below); it's a plain UIStackView pinned to the view's edges. Worth
+//     revisiting once SidewaysScrollView.h is available, since the row is
+//     now at 14 icons in a fixed width.
+//
 // Changes from v7.4:
 //   - sanitizedContextForAPI: Responses API image blocks now use
 //     { type:"input_image", source_type:"base64", data:<b64>, media_type:<mime> }
@@ -542,21 +553,19 @@
 #import <Photos/Photos.h>
 #import <PhotosUI/PhotosUI.h>
 #import <QuartzCore/QuartzCore.h>
+#import "SidewaysScrollView.h"
 #import "EZModelPickerViewController.h"
 #import "EZImageSettingsViewController.h"
 #import "EZAttachMenuViewController.h"
 #import "ViewController+EZKeepAwake.h"
 #import "ElevenLabsCloneViewController.h"
 #import "EZCoinStoreViewController.h"
-#import "EZFirstRunTutorialViewController.h"
 #import "EZPhotoGalleryViewController.h"
 #import "EZCoinPotView.h"
 #import "TextToSpeechViewController.h"
 #import "MemoriesViewController.h"
 #import "SupportRequestViewController.h"
 #import "BrainRotViewController.h"
-#import "BRRicochetViewController.h"
-#import "BRGameModePickerViewController.h"
 #import "EZBubbleCell.h"
 #import "EZSystemCell.h"
 #import "EZCodeBlockCell.h"
@@ -718,6 +727,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, assign) BOOL                              isDictating;
 
 
+    // Sideways-scrolling top-row container (inserted)
+    @property (nonatomic, strong) UIView *topButtonsContainer;
+    @property (nonatomic, strong) SidewaysScrollView *sidewaysScrollView;
 @property (nonatomic, strong) UIView        *statusBannerView;
 @property (nonatomic, strong) UILabel       *statusBannerLabel;
 @property (nonatomic, strong) UIActivityIndicatorView *statusBannerSpinner;
@@ -1022,8 +1034,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
            @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
            @"gpt-3.5-turbo",
            // ── Image Generation & Edit ───────────────────────────────────────
-           @"gpt-image-2.5-sunburst", // recommended precision image editing — low/medium/high/xhigh/max
            @"gpt-image-2.5-flare",    // newest, fastest — low/medium/high/xhigh/max
+           @"gpt-image-2.5-sunburst", // precision editing — low/medium/high/xhigh/max
            @"gpt-image-2",          // low/medium/high only
            @"gpt-image-1.5",
            @"gpt-image-1",          // generation + edit
@@ -1104,9 +1116,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
     // Set title from first user message if not set.
     // Strip Tier-3 context preamble if present — we want the raw user question, not the injected context.
-    NSString *defaultThreadTitle = NSLocalizedString(@"EZThread.NewConversation", nil);
-    if ([self.activeThread.title isEqualToString:defaultThreadTitle] ||
-        [self.activeThread.title isEqualToString:@"New Conversation"] ||
+    if ([self.activeThread.title isEqualToString:@"New Conversation"] ||
         self.activeThread.title.length == 0) {
         for (NSDictionary *msg in self.chatContext) {
             if ([msg[@"role"] isEqualToString:@"user"]) {
@@ -1514,12 +1524,10 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     // + New chat (save current, start fresh)
     self.addChatButton   = [self _iconButton:@"square.and.pencil" tint:[UIColor systemGreenColor]
                                       action:@selector(newChat)];
-    self.supportRequestButton = [self _iconButton:@"questionmark.circle.fill" tint:[UIColor systemRedColor] action:@selector(openTutorial)];
-    self.supportRequestButton.accessibilityLabel = @"Tutorial";
-    // One compact entry point for app navigation and recent chats.
-    self.historyButton   = [self _iconButton:@"line.3.horizontal" tint:nil
+    self.supportRequestButton = [self _iconButton:@"questionmark.circle.fill" tint:[UIColor systemRedColor] action:@selector(openSupport)];
+    // History (browse/restore past threads)
+    self.historyButton   = [self _iconButton:@"clock.arrow.circlepath" tint:nil
                                       action:@selector(openHistory)];
-    self.historyButton.accessibilityLabel = @"Navigation and recent chats";
     // Copy last AI response
     self.clipboardButton = [self _iconButton:@"doc.on.doc" tint:nil
                                       action:@selector(copyLastResponse)];
@@ -1564,28 +1572,20 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         initWithTarget:self action:@selector(coinPotTapped)];
     [self.coinPotView addGestureRecognizer:potTap];
 
-    // Keep the main chat screen calm: navigation on the left, balance centered,
-    // and memories on the right. The full navigation list lives in the drawer.
-    UIView *topStack = [[UIView alloc] init];
+    // Full-width stack — equalSpacing distributes buttons edge to edge
+    UIStackView *topStack = [[UIStackView alloc] initWithArrangedSubviews:@[
+        self.addChatButton, self.historyButton, self.clipboardButton,
+        self.speakButton, self.webSearchButton, self.helperDirectAnswersButton, self.coinPotView,
+        self.renameButton, self.clearButton, self.memoriesButton, self.cloningButton, self.supportRequestButton,
+        self.textToSpeechButton, self.galleryButton]];
+    topStack.distribution = UIStackViewDistributionEqualSpacing;
+    topStack.alignment    = UIStackViewAlignmentCenter;
     topStack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:topStack];
-    [topStack addSubview:self.historyButton];
-    [topStack addSubview:self.coinPotView];
-    [topStack addSubview:self.memoriesButton];
-    [topStack addSubview:self.supportRequestButton];
 
     [NSLayoutConstraint activateConstraints:@[
         [self.coinPotView.widthAnchor constraintEqualToConstant:48],
         [self.coinPotView.heightAnchor constraintEqualToConstant:52],
-        [self.coinPotView.centerXAnchor constraintEqualToAnchor:topStack.centerXAnchor],
-        [self.coinPotView.topAnchor constraintEqualToAnchor:topStack.topAnchor],
-        [self.coinPotView.bottomAnchor constraintEqualToAnchor:topStack.bottomAnchor],
-        [self.historyButton.leadingAnchor constraintEqualToAnchor:topStack.leadingAnchor],
-        [self.historyButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
-        [self.supportRequestButton.trailingAnchor constraintEqualToAnchor:topStack.trailingAnchor],
-        [self.supportRequestButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
-        [self.memoriesButton.trailingAnchor constraintEqualToAnchor:self.supportRequestButton.leadingAnchor constant:-18],
-        [self.memoriesButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
     ]];
     [self.coinPotView setContentHuggingPriority:UILayoutPriorityRequired
                                         forAxis:UILayoutConstraintAxisHorizontal];
@@ -1600,7 +1600,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
     // Thread title label — tappable, sits between top bar and chat table
     self.threadTitleLabel                 = [[UILabel alloc] init];
-    self.threadTitleLabel.text            = NSLocalizedString(@"EZThread.NewConversation", nil);
+    self.threadTitleLabel.text            = @"New Conversation";
     self.threadTitleLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     self.threadTitleLabel.textColor       = [UIColor secondaryLabelColor];
     self.threadTitleLabel.textAlignment   = NSTextAlignmentCenter;
@@ -1654,11 +1654,6 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.inputContainer.backgroundColor = [UIColor secondarySystemBackgroundColor];
     self.inputContainer.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.inputContainer];
-
-    // These toggles belong with the message being composed, rather than in the
-    // app navigation bar. Keeping them adjacent makes their scope obvious.
-    [self.inputContainer addSubview:self.webSearchButton];
-    [self.inputContainer addSubview:self.helperDirectAnswersButton];
     
         // Dictate button
         self.dictateButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -1804,7 +1799,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         [self.threadTitleLabel.topAnchor    constraintEqualToAnchor:topStack.bottomAnchor constant:4],
         [self.threadTitleLabel.leadingAnchor  constraintEqualToAnchor:self.view.leadingAnchor constant:12],
         [self.threadTitleLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-12],
-        [self.chatTableView.topAnchor constraintEqualToAnchor:self.threadTitleLabel.bottomAnchor constant:8],
+        [self.chatTableView.topAnchor constraintEqualToAnchor:self.threadTitleLabel.bottomAnchor constant:52],
         [self.chatTableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.chatTableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.chatTableView.bottomAnchor constraintEqualToAnchor:self.inputContainer.topAnchor],
@@ -1826,21 +1821,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         [self.imageSettingsButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.triageUncertainTurnsLabel.leadingAnchor constant:-6],
         [self.attachButton.leadingAnchor constraintEqualToAnchor:self.inputContainer.leadingAnchor constant:12],
         [self.attachButton.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
-        [self.attachButton.widthAnchor constraintEqualToConstant:32],
-        [self.attachButton.heightAnchor constraintEqualToConstant:32],
         [self.dictateButton.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
         [self.dictateButton.centerYAnchor constraintEqualToAnchor:self.attachButton.centerYAnchor],
-        [self.dictateButton.widthAnchor constraintEqualToConstant:32],
-        [self.dictateButton.heightAnchor constraintEqualToConstant:32],
-        [self.webSearchButton.leadingAnchor constraintEqualToAnchor:self.attachButton.leadingAnchor],
-        [self.webSearchButton.topAnchor constraintEqualToAnchor:self.attachButton.bottomAnchor constant:4],
-        [self.webSearchButton.widthAnchor constraintEqualToConstant:30],
-        [self.webSearchButton.heightAnchor constraintEqualToConstant:30],
-        [self.helperDirectAnswersButton.leadingAnchor constraintEqualToAnchor:self.dictateButton.leadingAnchor],
-        [self.helperDirectAnswersButton.centerYAnchor constraintEqualToAnchor:self.webSearchButton.centerYAnchor],
-        [self.helperDirectAnswersButton.widthAnchor constraintEqualToConstant:30],
-        [self.helperDirectAnswersButton.heightAnchor constraintEqualToConstant:30],
-        [inputWrapper.leadingAnchor constraintEqualToAnchor:self.helperDirectAnswersButton.trailingAnchor constant:8],
+        [inputWrapper.leadingAnchor constraintEqualToAnchor:self.dictateButton.trailingAnchor constant:8],
         [inputWrapper.topAnchor     constraintEqualToAnchor:self.attachButton.topAnchor],
         [inputWrapper.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-8],
         [self.sendButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
@@ -1894,7 +1877,6 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [b setImage:[UIImage systemImageNamed:sfSymbol] forState:UIControlStateNormal];
     if (tint) [b setTintColor:tint];
     [b addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
-    b.translatesAutoresizingMaskIntoConstraints = NO;
     return b;
 }
 
@@ -2074,9 +2056,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 /// Syncs the visible threadTitleLabel with the active thread's current title.
 - (void)updateThreadTitleLabel {
     NSString *title = self.activeThread.title;
-    if (!title.length || [title isEqualToString:NSLocalizedString(@"EZThread.NewConversation", nil)] ||
-        [title isEqualToString:@"New Conversation"]) {
-        self.threadTitleLabel.text      = NSLocalizedString(@"EZThread.NewConversation", nil);
+    if (!title.length || [title isEqualToString:@"New Conversation"]) {
+        self.threadTitleLabel.text      = @"New Conversation";
         self.threadTitleLabel.textColor = [UIColor tertiaryLabelColor];
     } else {
         self.threadTitleLabel.text      = title;
@@ -2187,26 +2168,6 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         ChatHistoryViewController *historyVC = [[ChatHistoryViewController alloc]
             initWithStyle:UITableViewStylePlain];
         historyVC.delegate = self;
-        __weak typeof(self) weakSelf = self;
-        historyVC.closeHandler = ^{
-            [weakSelf closeDrawer];
-        };
-        historyVC.navigationActionHandler = ^(NSString *action) {
-            [weakSelf closeDrawer];
-            // Let the drawer begin its exit animation before presenting another
-            // controller, which prevents a new sheet from inheriting its frame.
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.18 * NSEC_PER_SEC)),
-                           dispatch_get_main_queue(), ^{
-                if ([action isEqualToString:@"newChat"]) [weakSelf newChat];
-                else if ([action isEqualToString:@"gallery"]) [weakSelf openGallery];
-                else if ([action isEqualToString:@"tts"]) [weakSelf openTTS];
-                else if ([action isEqualToString:@"cloning"]) [weakSelf openCloning];
-                else if ([action isEqualToString:@"brainRot"]) [weakSelf openBrainRot];
-                else if ([action isEqualToString:@"memories"]) [weakSelf openMemories];
-                else if ([action isEqualToString:@"coinStore"]) [weakSelf presentCoinStoreForFeature:nil];
-                else if ([action isEqualToString:@"settings"]) [weakSelf openSettings];
-            });
-        };
         self.drawerNavController = [[UINavigationController alloc]
             initWithRootViewController:historyVC];
         [self addChildViewController:self.drawerNavController];
@@ -4420,7 +4381,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     if ([editCapableModels containsObject:self.selectedModel]) {
         self.preEditModeModel = self.selectedModel;
     } else if (self.preEditModeModel.length == 0) {
-        self.preEditModeModel = @"gpt-image-2.5-sunburst"; // recommended default for image editing
+        self.preEditModeModel = @"gpt-image-1"; // sensible default, matches old hardcoded behavior
     }
     self.selectedModel = @"gpt-image-1-edit";
     [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@ (edit mode)", self.preEditModeModel]
@@ -4433,7 +4394,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)exitImageEditModeIfNeeded {
     if (![self.selectedModel isEqualToString:@"gpt-image-1-edit"]) return;
 
-    NSString *model = self.preEditModeModel.length ? self.preEditModeModel : @"gpt-image-2.5-sunburst";
+    NSString *model = self.preEditModeModel.length ? self.preEditModeModel : @"gpt-image-1";
     self.selectedModel = model;
     [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", model]
                       forState:UIControlStateNormal];
@@ -5921,17 +5882,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             acceptanceVC.modalPresentationStyle = UIModalPresentationOverFullScreen;
             acceptanceVC.modalTransitionStyle   = UIModalTransitionStyleCrossDissolve;
             [self presentViewController:acceptanceVC animated:YES completion:nil];
-            return;
         }
-    }
-    // After accepting updated terms, viewDidAppear is invoked again. Keeping
-    // this outside the one-time terms check makes the tutorial appear in that
-    // same first verified session without ever stacking two modals at once.
-    if (!self.presentedViewController && [EZFirstRunTutorialViewController shouldShowTutorial]) {
-        EZFirstRunTutorialViewController *tutorial = [EZFirstRunTutorialViewController new];
-        tutorial.modalPresentationStyle = UIModalPresentationFullScreen;
-        tutorial.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
-        [self presentViewController:tutorial animated:YES completion:nil];
     }
 }
 
@@ -6036,22 +5987,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)openBrainRot {
-    BRGameModePickerViewController *picker = [BRGameModePickerViewController new];
-    __weak typeof(self) weakSelf = self;
-    picker.onMazeSelected = ^{
-        BrainRotViewController *maze = [BrainRotViewController new];
-        [weakSelf presentGameController:maze];
-    };
-    picker.onRicochetSelected = ^{
-        BRRicochetViewController *ricochet = [BRRicochetViewController ricochetController];
-        [weakSelf presentGameController:ricochet];
-    };
-    picker.modalPresentationStyle = UIModalPresentationFormSheet;
-    [self presentViewController:picker animated:YES completion:nil];
-}
-
-- (void)presentGameController:(UIViewController *)gameController {
-    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:gameController];
+    BrainRotViewController *brainRot = [[BrainRotViewController alloc] init];
+    UINavigationController *nav = [[UINavigationController alloc]
+        initWithRootViewController:brainRot];
     nav.modalPresentationStyle = UIModalPresentationPageSheet;
     [self presentViewController:nav animated:NO completion:nil];
 }
@@ -6097,13 +6035,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             checkDismissed();
         });
     }
-}
-
-- (void)openTutorial {
-    EZFirstRunTutorialViewController *tutorial = [EZFirstRunTutorialViewController new];
-    tutorial.modalPresentationStyle = UIModalPresentationFullScreen;
-    tutorial.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
-    [self presentViewController:tutorial animated:YES completion:nil];
 }
 
 - (void)openSupport {

@@ -356,3 +356,36 @@
 "EZGallery.Export.ShareClean" = "Share Branded Image";
 "EZGallery.Export.Download" = "Download Image";
 "EZGallery.Export.Cancel" = "Cancel";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "New Chat";
+"EZNav.PhotoGallery" = "Photo Gallery";
+"EZNav.TextToSpeech" = "Text to Speech";
+"EZNav.VoiceCloning" = "Voice Cloning";
+"EZNav.BrainRot" = "Brain Rot";
+"EZNav.Memories" = "Memories";
+"EZNav.CoinStore" = "Coin Store";
+"EZNav.Settings" = "Settings";
+"EZNav.RecentChats" = "Recent Chats";
+/* First-run tutorial */
+"EZTutorial.Skip" = "Skip"; "EZTutorial.Back" = "Back"; "EZTutorial.Next" = "Next"; "EZTutorial.GetStarted" = "Get Started";
+"EZTutorial.Welcome.Title" = "Welcome to EZCompleteUI"; "EZTutorial.Welcome.Body" = "A quick tour will show you where everything lives. You can skip it any time.";
+"EZTutorial.Chat.Title" = "Chat and create"; "EZTutorial.Chat.Body" = "Choose a model at the top. Use the paperclip to attach files or photos, the mic to dictate, the globe for web search, and the lightning bolt for direct helper answers. Send starts your request.";
+"EZTutorial.Navigate.Title" = "Your menu and chats"; "EZTutorial.Navigate.Body" = "Tap the menu in the upper-left for Gallery, voice tools, Brain Rot, Memories, Coin Store, Settings, and your recent chats. Use search there to find a conversation.";
+"EZTutorial.Gallery.Title" = "Photo Gallery"; "EZTutorial.Gallery.Body" = "Tap + in the upper left to add photos. Pinch to resize the grid from 2 to 5 columns. Use Select to share or delete multiple photos.";
+"EZTutorial.Detail.Title" = "Photo Detail"; "EZTutorial.Detail.Body" = "Ask a question returns this image to chat. Describe an edit below, or use + to add up to four reference images and combine them into one new creation."; "EZTutorial.Detail.Prompt" = "Describe your edit…"; "EZTutorial.Detail.Ask" = "Ask a Question"; "EZTutorial.Detail.Edit" = "Edit with AI";
+"EZTutorial.Tools.Title" = "Memories and coins"; "EZTutorial.Tools.Body" = "Memories keep useful results close. Coin Store manages plans and coins. Your balance is always available from the main screen.";
+"EZTutorial.Memories.Title" = "Memories"; "EZTutorial.Memories.Body" = "Search saved memories, then tap their text to edit it. Tap again to dismiss editing. The blue link opens the exact chat turn where it was created, and an attached image opens Photo Detail."; "EZTutorial.Memories.Search" = "Search memories"; "EZTutorial.Memories.Source" = "Open original chat turn"; "EZTutorial.Memories.Editable" = "Tap this saved memory to edit it.";
+"EZTutorial.CoinStore.Title" = "Coin Store"; "EZTutorial.CoinStore.Body" = "The usage log in the upper right lists every credit and deduction. Collect free coins four times a day; allow notifications for a reminder when they are ready. Some premium models and features require a purchase to unlock. PayPal subscriptions are credited automatically, and one-time top-ups are available."; "EZTutorial.CoinStore.Usage" = "Usage Log"; "EZTutorial.CoinStore.Free" = "Free coins ready four times a day • Enable reminders"; "EZTutorial.CoinStore.Offer" = "BUY 1, GET 1 FREE"; "EZTutorial.CoinStore.Select" = "Ready to get started? Select the level that fits your needs.";
+"EZTutorial.CoinStore.Bonus" = "Subscribers receive 20 coins per claim • 10 without a plan";
+"EZTutorial.CoinStore.Claim" = "Claim free coins"; "EZTutorial.Memories.Intro" = "Memories keep useful results close.";
+"EZTutorial.CoinStore.Next" = "Next: 6h 00m"; "EZCoinStore.UsageLog" = "Usage Log";
+"EZTutorial.CoinStore.BodyTop" = "• Use the Usage Log to review every credit and deduction.\n\n• Claim free coins four times a day, and enable notifications for reminders."; "EZTutorial.CoinStore.BodyBottom" = "• Some premium models and features require a purchase to unlock.";
+"EZGameMode.Title" = "Choose a game"; "EZGameMode.Maze" = "Maze Adventure"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "Cancel";
+"EZGameMode.Subtitle" = "Choose how you want to play."; "EZGameMode.MazeDescription" = "Explore a generated maze with your custom game assets."; "EZGameMode.RicochetDescription" = "Bounce through an open arena with music, pickups, and MIDI.";
+"EZThread.NewConversation" = "New Conversation";
+"EZMemories.Title" = "Memories"; "EZMemories.Search" = "Search memories"; "EZMemories.NoneSaved" = "No memories saved yet."; "EZMemories.NoMatches" = "No memories match that search."; "EZMemories.SavedFormat" = "%lu saved memories"; "EZMemories.MatchingFormat" = "%lu matching memories";
+"EZTutorial.Demo.ModelPicker" = "Model picker"; "EZTutorial.Demo.Model" = "Model: gpt-6-astra"; "EZTutorial.Demo.Controls" = "Controls"; "EZTutorial.Demo.Placeholder" = "Type a message…"; "EZTutorial.Demo.Send" = "Send";
+"EZTutorial.Feedback" = "Still have questions or want to share feedback? Tap here.";
+"EZTutorial.Menu.SampleChat" = "Your recent conversation";
+"EZGallery.Title" = "Photo Gallery"; "EZGallery.Select" = "Select"; "EZGallery.Done" = "Done"; "EZGallery.SelectedCount" = "%lu selected"; "EZGallery.DeleteTitle" = "Delete Photos?"; "EZGallery.DeleteMessage" = "Permanently delete %lu selected photos?"; "EZGallery.Delete" = "Delete"; "EZGallery.Cancel" = "Cancel";

@@ -19,6 +19,7 @@
 
 #import "MemoriesViewController.h"
 #import "helpers.h"
+#import "EZPhotoGalleryViewController.h"
 #import <QuickLook/QuickLook.h>
 #import <QuickLookThumbnailing/QuickLookThumbnailing.h>
 
@@ -328,7 +329,7 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"Memories";
+    self.title = NSLocalizedString(@"EZMemories.Title", nil);
     self.view.backgroundColor = [UIColor systemGroupedBackgroundColor];
 
     // ── Left nav bar: search (refresh handled automatically via file watch) ───
@@ -400,7 +401,7 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
     if (self.searchBar) return;
     self.searchBar = [[UISearchBar alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 44)];
     self.searchBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-    self.searchBar.placeholder = @"Search memories";
+    self.searchBar.placeholder = NSLocalizedString(@"EZMemories.Search", nil);
     self.searchBar.delegate = self;
     self.searchBar.showsCancelButton = NO;
     self.tableView.tableHeaderView = self.searchBar;
@@ -408,7 +409,7 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
 
 - (void)setupEmptyLabel {
     self.emptyLabel = [[UILabel alloc] init];
-    self.emptyLabel.text          = @"No memories saved yet.";
+    self.emptyLabel.text          = NSLocalizedString(@"EZMemories.NoneSaved", nil);
     self.emptyLabel.textColor     = [UIColor secondaryLabelColor];
     self.emptyLabel.font          = [UIFont systemFontOfSize:16];
     self.emptyLabel.textAlignment = NSTextAlignmentCenter;
@@ -692,17 +693,17 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
         if (@available(iOS 14.0, *)) {
             UIListContentConfiguration *cfg = cell.defaultContentConfiguration;
             if (self.searchTerm.length > 0) {
-                cfg.text = @"No memories match that search.";
+                cfg.text = NSLocalizedString(@"EZMemories.NoMatches", nil);
             } else {
-                cfg.text = @"No memories saved yet.";
+                cfg.text = NSLocalizedString(@"EZMemories.NoneSaved", nil);
             }
             cfg.textProperties.color = [UIColor secondaryLabelColor];
             cell.contentConfiguration = cfg;
         } else {
             if (self.searchTerm.length > 0) {
-                cell.textLabel.text = @"No memories match that search.";
+                cell.textLabel.text = NSLocalizedString(@"EZMemories.NoMatches", nil);
             } else {
-                cell.textLabel.text = @"No memories saved yet.";
+                cell.textLabel.text = NSLocalizedString(@"EZMemories.NoneSaved", nil);
             }
             cell.textLabel.textColor = [UIColor secondaryLabelColor];
         }
@@ -728,13 +729,11 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
 titleForHeaderInSection:(NSInteger)section {
     if (self.memories.count == 0) return nil;
     if (self.searchTerm.length > 0) {
-        return [NSString stringWithFormat:@"%lu matching %@",
-                (unsigned long)self.displayedMemories.count,
-                self.displayedMemories.count == 1 ? @"memory" : @"memories"];
+        return [NSString stringWithFormat:NSLocalizedString(@"EZMemories.MatchingFormat", nil),
+                (unsigned long)self.displayedMemories.count];
     }
-    return [NSString stringWithFormat:@"%lu saved %@",
-            (unsigned long)self.memories.count,
-            self.memories.count == 1 ? @"memory" : @"memories"];
+    return [NSString stringWithFormat:NSLocalizedString(@"EZMemories.SavedFormat", nil),
+            (unsigned long)self.memories.count];
 }
 
 - (UITableViewCellEditingStyle)tableView:(UITableView *)tableView
@@ -807,6 +806,22 @@ didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
         return;
     }
     NSString *filePath = paths.firstObject;
+    UIImage *image = [UIImage imageWithContentsOfFile:filePath];
+    if (image) {
+        EZPhotoDetailViewController *detail = [EZPhotoDetailViewController new];
+        detail.image = image;
+        detail.filePath = filePath;
+        detail.imagePrompt = self.memories[index][@"summary"];
+        detail.galleryFilePaths = paths;
+        detail.galleryIndex = 0;
+        if (self.navigationController) {
+            [self.navigationController pushViewController:detail animated:YES];
+        } else {
+            UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:detail];
+            [self presentViewController:nav animated:YES completion:nil];
+        }
+        return;
+    }
     self.previewURL = [NSURL fileURLWithPath:filePath];
     QLPreviewController *ql = [[QLPreviewController alloc] init];
     ql.dataSource = self;

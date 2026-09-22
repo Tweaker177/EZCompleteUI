@@ -10,6 +10,7 @@
 #import "BrainRotViewController.h"
 #import "EZAuthManager.h"
 #import "EZEntitlementManager.h"
+#import "EZImageSettingsViewController.h"
 #import "EZSupabaseConfig.h"
 #import "helpers.h"
 #import <SafariServices/SafariServices.h>
@@ -17,6 +18,7 @@
 #import <PhotosUI/PhotosUI.h>
 #import <ImageIO/ImageIO.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import <CommonCrypto/CommonDigest.h>
 
 // ── Notification names ────────────────────────────────────────────────────────
 
@@ -34,6 +36,16 @@ static NSInteger const kMaxColumns      = 5;
 static NSInteger const kDefaultColumns  = 3;
 static NSString *const kGalleryImagePromptsKey = @"EZGalleryImagePrompts";
 static NSUInteger const kMaxImageEditSources = 4;
+
+static NSString *EZGalleryContentDigest(NSString *path) {
+    NSData *data = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:nil];
+    if (!data.length) return nil;
+    unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256(data.bytes, (CC_LONG)data.length, digest);
+    NSMutableString *result = [NSMutableString stringWithCapacity:CC_SHA256_DIGEST_LENGTH * 2];
+    for (NSUInteger i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) [result appendFormat:@"%02x", digest[i]];
+    return result;
+}
 
 typedef NS_ENUM(NSInteger, EZShareGIFStyle) {
     EZShareGIFStyleOriginalReveal = 0,
@@ -360,19 +372,15 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     }];
 }
 
+- (void)setSelected:(BOOL)selected {
+    [super setSelected:selected];
+    self.selectionOverlay.alpha = selected ? 1.0 : 0.0;
+}
+
 @end
 
 // ── Detail / preview view controller ─────────────────────────────────────────
 // Presented as a sheet from within the gallery.
-
-@interface EZPhotoDetailViewController : UIViewController
-@property (nonatomic, strong) UIImage  *image;
-@property (nonatomic, copy)   NSString *filePath;
-@property (nonatomic, copy, nullable) NSString *imagePrompt;
-@property (nonatomic, copy) NSArray<NSString *> *galleryFilePaths;
-@property (nonatomic, assign) NSUInteger galleryIndex;
-@property (nonatomic, copy)   void (^onDeleted)(void);
-@end
 
 @interface EZPhotoDetailViewController () <UITextViewDelegate, PHPickerViewControllerDelegate, UIDocumentPickerDelegate,
                                             UIContextMenuInteractionDelegate>
@@ -406,6 +414,7 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 - (void)shareBrandedImageWithOriginalCard:(BOOL)showOriginalCard;
 - (void)shareGIFWithStyle:(EZShareGIFStyle)style;
 - (void)downloadTapped;
+- (void)showImageSettings;
 - (void)showPhotoAtGalleryIndex:(NSUInteger)index animated:(BOOL)animated;
 @end
 
@@ -426,6 +435,7 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     UIButton          *_useInGameButton;
     UIButton          *_shareButton;
     UIButton          *_downloadButton;
+    UIButton          *_imageSettingsButton;
     UIButton          *_deleteButton;
     UILabel           *_filenameLabel;
 
@@ -503,9 +513,16 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     _downloadButton.frame = CGRectMake(0, 0, 36, 36);
     [_downloadButton addTarget:self action:@selector(downloadTapped)
               forControlEvents:UIControlEventTouchUpInside];
+    _imageSettingsButton = [self makeIconButton:@"slider.horizontal.3"
+                                           color:[UIColor colorWithRed:0.10 green:0.64 blue:1.0 alpha:1.0]];
+    _imageSettingsButton.frame = CGRectMake(0, 0, 36, 36);
+    [_imageSettingsButton addTarget:self action:@selector(showImageSettings)
+                   forControlEvents:UIControlEventTouchUpInside];
+    _imageSettingsButton.accessibilityLabel = @"Image Settings";
     self.navigationItem.leftBarButtonItems = @[
         dismissItem,
-        [[UIBarButtonItem alloc] initWithCustomView:_downloadButton]
+        [[UIBarButtonItem alloc] initWithCustomView:_downloadButton],
+        [[UIBarButtonItem alloc] initWithCustomView:_imageSettingsButton]
     ];
 
     _shareButton = [self makeIconButton:@"square.and.arrow.up" color:[UIColor colorWithWhite:0.75 alpha:1]];
@@ -1166,6 +1183,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     _useInGameButton.enabled = !editing;
     _shareButton.enabled = !editing;
     _downloadButton.enabled = !editing;
+    _imageSettingsButton.enabled = !editing;
     _deleteButton.enabled = !editing;
     _sendEditButton.alpha = editing ? 0.92 : 1.0;
 
@@ -1781,6 +1799,17 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         @selector(image:didFinishSavingWithError:contextInfo:), NULL);
 }
 
+- (void)showImageSettings {
+    EZImageSettingsViewController *settings = [EZImageSettingsViewController new];
+    settings.modelIdentifier = @"gpt-image-2.5-sunburst";
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:settings];
+    if (@available(iOS 15.0, *)) {
+        nav.sheetPresentationController.detents = @[UISheetPresentationControllerDetent.mediumDetent];
+        nav.sheetPresentationController.prefersGrabberVisible = YES;
+    }
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
 - (void)image:(UIImage *)image didFinishSavingWithError:(NSError *)error
  contextInfo:(void *)contextInfo {
     _downloadButton.enabled = YES;
@@ -1981,6 +2010,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 @property (nonatomic, assign) NSInteger              columnCount;
 @property (nonatomic, strong) UILabel               *emptyLabel;
 @property (nonatomic, strong) UILabel               *countLabel;
+@property (nonatomic, strong) UIBarButtonItem       *selectButton;
+@property (nonatomic, strong) UIBarButtonItem       *shareSelectedButton;
+@property (nonatomic, strong) UIBarButtonItem       *deleteSelectedButton;
+@property (nonatomic, assign) BOOL                   selectingPhotos;
 @end
 
 @implementation EZPhotoGalleryViewController
@@ -2010,7 +2043,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)styleNavBar {
-    self.title = @"EZ Attachments";
+    self.title = NSLocalizedString(@"EZGallery.Title", nil);
 
     UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
     [appearance configureWithOpaqueBackground];
@@ -2039,11 +2072,15 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     closeItem.tintColor = [UIColor colorWithWhite:0.65 alpha:1];
     self.navigationItem.leftBarButtonItems = @[addItem, closeItem];
 
-    // Count label as right item (updated after load)
+    // Count label plus an explicit multi-select entry point.
     self.countLabel = [[UILabel alloc] init];
     self.countLabel.font      = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
     self.countLabel.textColor = [UIColor colorWithWhite:0.5 alpha:1];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:self.countLabel];
+    UIBarButtonItem *countItem = [[UIBarButtonItem alloc] initWithCustomView:self.countLabel];
+    self.selectButton = [[UIBarButtonItem alloc]
+        initWithTitle:NSLocalizedString(@"EZGallery.Select", nil)
+                style:UIBarButtonItemStylePlain target:self action:@selector(selectTapped)];
+    self.navigationItem.rightBarButtonItems = @[self.selectButton, countItem];
 }
 
 - (void)setupCollectionView {
@@ -2059,6 +2096,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     self.collectionView.delegate         = self;
     self.collectionView.dataSource       = self;
     self.collectionView.alwaysBounceVertical = YES;
+    self.collectionView.allowsMultipleSelection = YES;
     [self.collectionView registerClass:[EZGalleryCell class] forCellWithReuseIdentifier:kGalleryCellID];
     [self.view addSubview:self.collectionView];
 }
@@ -2127,9 +2165,17 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     NSArray<NSString *> *imageExts = @[@"jpg", @"jpeg", @"png", @"heic", @"gif", @"webp", @"tiff", @"bmp"];
     NSMutableArray *paths = [NSMutableArray array];
+    NSMutableSet<NSString *> *seenDigests = [NSMutableSet set];
     for (NSString *name in all) {
         if ([imageExts containsObject:name.pathExtension.lowercaseString]) {
-            [paths addObject:[dir stringByAppendingPathComponent:name]];
+            NSString *path = [dir stringByAppendingPathComponent:name];
+            NSString *digest = EZGalleryContentDigest(path);
+            if (digest.length && [seenDigests containsObject:digest]) {
+                EZLogf(EZLogLevelInfo, @"GALLERY", @"Hiding duplicate image %@", name);
+                continue;
+            }
+            if (digest.length) [seenDigests addObject:digest];
+            [paths addObject:path];
         }
     }
 
@@ -2239,6 +2285,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)collectionView:(UICollectionView *)cv didSelectItemAtIndexPath:(NSIndexPath *)indexPath {
+    if (self.selectingPhotos) {
+        [self updateSelectionControls];
+        return;
+    }
     NSString *path  = self.filePaths[indexPath.item];
     UIImage  *image = [UIImage imageWithContentsOfFile:path];
     if (!image) return;
@@ -2256,6 +2306,75 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     };
 
     [self.navigationController pushViewController:detail animated:YES];
+}
+
+- (void)collectionView:(UICollectionView *)collectionView didDeselectItemAtIndexPath:(NSIndexPath *)indexPath {
+    if (self.selectingPhotos) [self updateSelectionControls];
+}
+
+- (void)selectTapped {
+    self.selectingPhotos = !self.selectingPhotos;
+    if (!self.selectingPhotos) [self.collectionView selectItemAtIndexPath:nil animated:NO scrollPosition:UICollectionViewScrollPositionNone];
+    [self updateSelectionControls];
+}
+
+- (void)updateSelectionControls {
+    if (!self.selectingPhotos) {
+        [self.collectionView.indexPathsForSelectedItems enumerateObjectsUsingBlock:^(NSIndexPath *path, NSUInteger idx, BOOL *stop) {
+            [self.collectionView deselectItemAtIndexPath:path animated:NO];
+        }];
+        self.selectButton.title = NSLocalizedString(@"EZGallery.Select", nil);
+        UIBarButtonItem *countItem = [[UIBarButtonItem alloc] initWithCustomView:self.countLabel];
+        self.navigationItem.rightBarButtonItems = @[self.selectButton, countItem];
+        return;
+    }
+    NSUInteger count = self.collectionView.indexPathsForSelectedItems.count;
+    self.selectButton.title = NSLocalizedString(@"EZGallery.Done", nil);
+    if (!self.shareSelectedButton) {
+        self.shareSelectedButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAction target:self action:@selector(shareSelectedTapped)];
+        self.deleteSelectedButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemTrash target:self action:@selector(deleteSelectedTapped)];
+    }
+    self.shareSelectedButton.enabled = count > 0;
+    self.deleteSelectedButton.enabled = count > 0;
+    self.countLabel.text = [NSString stringWithFormat:NSLocalizedString(@"EZGallery.SelectedCount", nil), (unsigned long)count];
+    self.navigationItem.rightBarButtonItems = @[self.deleteSelectedButton, self.shareSelectedButton, self.selectButton];
+}
+
+- (NSArray<NSString *> *)selectedPhotoPaths {
+    NSArray<NSIndexPath *> *selected = [self.collectionView.indexPathsForSelectedItems sortedArrayUsingSelector:@selector(compare:)];
+    NSMutableArray<NSString *> *paths = [NSMutableArray arrayWithCapacity:selected.count];
+    for (NSIndexPath *indexPath in selected) {
+        if ((NSUInteger)indexPath.item < self.filePaths.count) [paths addObject:self.filePaths[(NSUInteger)indexPath.item]];
+    }
+    return paths;
+}
+
+- (void)shareSelectedTapped {
+    NSArray<NSString *> *paths = [self selectedPhotoPaths];
+    if (!paths.count) return;
+    NSMutableArray<NSURL *> *urls = [NSMutableArray arrayWithCapacity:paths.count];
+    for (NSString *path in paths) [urls addObject:[NSURL fileURLWithPath:path]];
+    UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:urls applicationActivities:nil];
+    share.popoverPresentationController.barButtonItem = self.shareSelectedButton;
+    [self presentViewController:share animated:YES completion:nil];
+}
+
+- (void)deleteSelectedTapped {
+    NSArray<NSString *> *paths = [self selectedPhotoPaths];
+    if (!paths.count) return;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"EZGallery.DeleteTitle", nil)
+        message:[NSString stringWithFormat:NSLocalizedString(@"EZGallery.DeleteMessage", nil), (unsigned long)paths.count]
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZGallery.Delete", nil) style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
+        NSFileManager *fm = [NSFileManager defaultManager];
+        for (NSString *path in paths) [fm removeItemAtPath:path error:nil];
+        [self.thumbnailCache removeAllObjects];
+        self.selectingPhotos = NO;
+        [self loadFilePaths];
+        [self updateSelectionControls];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZGallery.Cancel", nil) style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 // ── Close ─────────────────────────────────────────────────────────────────────

@@ -322,3 +322,36 @@
 "EZGallery.Export.ShareClean" = "Chia sẻ ảnh có thương hiệu";
 "EZGallery.Export.Download" = "Tải ảnh xuống";
 "EZGallery.Export.Cancel" = "Hủy";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "Trò chuyện mới";
+"EZNav.PhotoGallery" = "Thư viện ảnh";
+"EZNav.TextToSpeech" = "Chuyển văn bản thành giọng nói";
+"EZNav.VoiceCloning" = "Nhân bản giọng nói";
+"EZNav.BrainRot" = "Brain Rot";
+"EZNav.Memories" = "Ký ức";
+"EZNav.CoinStore" = "Cửa hàng xu";
+"EZNav.Settings" = "Cài đặt";
+"EZNav.RecentChats" = "Trò chuyện gần đây";
+/* First-run tutorial */
+"EZTutorial.Skip" = "Bỏ qua"; "EZTutorial.Back" = "Quay lại"; "EZTutorial.Next" = "Tiếp theo"; "EZTutorial.GetStarted" = "Bắt đầu";
+"EZTutorial.Welcome.Title" = "Chào mừng đến với EZCompleteUI"; "EZTutorial.Welcome.Body" = "Chuyến tham quan ngắn này cho bạn biết mọi thứ ở đâu. Bạn có thể bỏ qua bất cứ lúc nào.";
+"EZTutorial.Chat.Title" = "Trò chuyện và sáng tạo"; "EZTutorial.Chat.Body" = "Chọn mô hình ở trên. Dùng kẹp giấy để đính kèm tệp hoặc ảnh, micrô để đọc, quả địa cầu để tìm web và tia sét cho câu trả lời trực tiếp. Gửi sẽ bắt đầu yêu cầu của bạn.";
+"EZTutorial.Navigate.Title" = "Menu và trò chuyện"; "EZTutorial.Navigate.Body" = "Chạm menu ở góc trên trái để mở Thư viện ảnh, công cụ giọng nói, Brain Rot, Ký ức, Cửa hàng xu, Cài đặt và trò chuyện gần đây. Dùng tìm kiếm để tìm cuộc trò chuyện.";
+"EZTutorial.Gallery.Title" = "Thư viện ảnh"; "EZTutorial.Gallery.Body" = "Chạm + ở góc trên trái để thêm ảnh. Chụm để đổi lưới từ 2 đến 5 cột. Dùng Chọn để chia sẻ hoặc xóa nhiều ảnh.";
+"EZTutorial.Detail.Title" = "Chi tiết ảnh"; "EZTutorial.Detail.Body" = "Đặt câu hỏi sẽ đưa ảnh này trở lại cuộc trò chuyện. Mô tả chỉnh sửa bên dưới hoặc dùng + để thêm tối đa bốn ảnh tham chiếu và kết hợp thành một tác phẩm mới."; "EZTutorial.Detail.Prompt" = "Mô tả chỉnh sửa của bạn…"; "EZTutorial.Detail.Ask" = "Đặt câu hỏi"; "EZTutorial.Detail.Edit" = "Chỉnh sửa bằng AI";
+"EZTutorial.Tools.Title" = "Ký ức và xu"; "EZTutorial.Tools.Body" = "Ký ức lưu các kết quả hữu ích. Cửa hàng xu quản lý gói và xu. Số dư luôn có sẵn từ màn hình chính.";
+"EZTutorial.Memories.Title" = "Ký ức"; "EZTutorial.Memories.Body" = "Tìm kiếm các ký ức đã lưu, rồi chạm vào văn bản để chỉnh sửa. Chạm lại để đóng chỉnh sửa. Liên kết màu xanh mở đúng lượt trò chuyện nơi ký ức được tạo, và ảnh đính kèm mở Chi tiết ảnh."; "EZTutorial.Memories.Search" = "Tìm kiếm ký ức"; "EZTutorial.Memories.Source" = "Mở lượt trò chuyện gốc"; "EZTutorial.Memories.Editable" = "Chạm vào ký ức này để chỉnh sửa.";
+"EZTutorial.CoinStore.Title" = "Cửa hàng xu"; "EZTutorial.CoinStore.Body" = "Nhật ký sử dụng ở góc trên bên phải liệt kê mọi khoản cộng và trừ. Nhận xu miễn phí bốn lần mỗi ngày và cho phép thông báo để được nhắc nhở. Một số mẫu và tính năng cao cấp cần mua để mở khóa. Gói đăng ký PayPal được cộng tự động và có các gói nạp một lần."; "EZTutorial.CoinStore.Usage" = "Nhật ký sử dụng"; "EZTutorial.CoinStore.Free" = "Xu miễn phí bốn lần mỗi ngày • Bật nhắc nhở"; "EZTutorial.CoinStore.Offer" = "MUA 1, TẶNG 1"; "EZTutorial.CoinStore.Select" = "Sẵn sàng bắt đầu? Chọn cấp độ phù hợp với nhu cầu của bạn.";
+"EZTutorial.CoinStore.Bonus" = "Người đăng ký: 20 xu mỗi lần nhận • Không có gói: 10";
+"EZTutorial.CoinStore.Claim" = "Nhận xu miễn phí"; "EZTutorial.Memories.Intro" = "Ký ức lưu các kết quả hữu ích.";
+"EZTutorial.CoinStore.Next" = "Lần tiếp: 6 giờ 00 phút"; "EZCoinStore.UsageLog" = "Nhật ký sử dụng";
+"EZTutorial.CoinStore.BodyTop" = "• Dùng Nhật ký sử dụng để xem mọi khoản cộng và trừ.\n\n• Nhận xu miễn phí bốn lần mỗi ngày và bật thông báo để được nhắc nhở."; "EZTutorial.CoinStore.BodyBottom" = "• Một số mẫu và tính năng cao cấp cần mua để mở khóa.";
+"EZGameMode.Title" = "Chọn trò chơi"; "EZGameMode.Maze" = "Phiêu lưu mê cung"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "Hủy";
+"EZGameMode.Subtitle" = "Chọn cách bạn muốn chơi."; "EZGameMode.MazeDescription" = "Khám phá mê cung được tạo từ tài nguyên trò chơi tùy chỉnh của bạn."; "EZGameMode.RicochetDescription" = "Nảy qua đấu trường mở với âm nhạc, vật phẩm và MIDI.";
+"EZThread.NewConversation" = "Trò chuyện mới";
+"EZMemories.Title" = "Ký ức"; "EZMemories.Search" = "Tìm kiếm ký ức"; "EZMemories.NoneSaved" = "Chưa có ký ức nào được lưu."; "EZMemories.NoMatches" = "Không có ký ức nào khớp với tìm kiếm."; "EZMemories.SavedFormat" = "%lu ký ức đã lưu"; "EZMemories.MatchingFormat" = "%lu ký ức phù hợp";
+"EZTutorial.Demo.ModelPicker" = "Bộ chọn mô hình"; "EZTutorial.Demo.Model" = "Mô hình: gpt-6-astra"; "EZTutorial.Demo.Controls" = "Điều khiển"; "EZTutorial.Demo.Placeholder" = "Nhập tin nhắn…"; "EZTutorial.Demo.Send" = "Gửi";
+"EZTutorial.Feedback" = "Bạn vẫn còn câu hỏi hoặc muốn gửi phản hồi? Chạm vào đây.";
+"EZTutorial.Menu.SampleChat" = "Cuộc trò chuyện gần đây của bạn";
+"EZGallery.Title" = "Thư viện ảnh"; "EZGallery.Select" = "Chọn"; "EZGallery.Done" = "Xong"; "EZGallery.SelectedCount" = "Đã chọn %lu"; "EZGallery.DeleteTitle" = "Xóa ảnh?"; "EZGallery.DeleteMessage" = "Xóa vĩnh viễn %lu ảnh đã chọn?"; "EZGallery.Delete" = "Xóa"; "EZGallery.Cancel" = "Hủy";

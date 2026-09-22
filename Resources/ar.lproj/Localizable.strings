@@ -322,3 +322,36 @@
 "EZGallery.Export.ShareClean" = "مشاركة صورة بعلامة";
 "EZGallery.Export.Download" = "تنزيل الصورة";
 "EZGallery.Export.Cancel" = "إلغاء";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "محادثة جديدة";
+"EZNav.PhotoGallery" = "معرض الصور";
+"EZNav.TextToSpeech" = "تحويل النص إلى كلام";
+"EZNav.VoiceCloning" = "استنساخ الصوت";
+"EZNav.BrainRot" = "براين روت";
+"EZNav.Memories" = "الذكريات";
+"EZNav.CoinStore" = "متجر العملات";
+"EZNav.Settings" = "الإعدادات";
+"EZNav.RecentChats" = "المحادثات الأخيرة";
+/* First-run tutorial */
+"EZTutorial.Skip" = "تخطي"; "EZTutorial.Back" = "رجوع"; "EZTutorial.Next" = "التالي"; "EZTutorial.GetStarted" = "ابدأ";
+"EZTutorial.Welcome.Title" = "مرحبًا بك في EZCompleteUI"; "EZTutorial.Welcome.Body" = "ستعرض لك هذه الجولة السريعة مكان كل شيء. يمكنك تخطيها في أي وقت.";
+"EZTutorial.Chat.Title" = "دردش وأنشئ"; "EZTutorial.Chat.Body" = "اختر نموذجًا من الأعلى. استخدم مشبك الورق لإرفاق الملفات أو الصور، والميكروفون للإملاء، والكرة الأرضية للبحث في الويب، والبرق للإجابات المباشرة. يبدأ الإرسال طلبك.";
+"EZTutorial.Navigate.Title" = "القائمة والمحادثات"; "EZTutorial.Navigate.Body" = "اضغط القائمة أعلى اليسار للوصول إلى المعرض وأدوات الصوت وBrain Rot والذكريات ومتجر العملات والإعدادات والمحادثات الأخيرة. استخدم البحث للعثور على محادثة.";
+"EZTutorial.Gallery.Title" = "معرض الصور"; "EZTutorial.Gallery.Body" = "اضغط + في أعلى اليسار لإضافة الصور. قرّب أو بعّد لتغيير الشبكة من عمودين إلى خمسة أعمدة. استخدم تحديد لمشاركة أو حذف عدة صور.";
+"EZTutorial.Detail.Title" = "تفاصيل الصورة"; "EZTutorial.Detail.Body" = "طرح سؤال يعيد هذه الصورة إلى الدردشة. صف تعديلاً أدناه، أو استخدم + لإضافة حتى أربع صور مرجعية ودمجها في إنشاء جديد."; "EZTutorial.Detail.Prompt" = "صف تعديلك…"; "EZTutorial.Detail.Ask" = "اطرح سؤالاً"; "EZTutorial.Detail.Edit" = "تعديل بالذكاء الاصطناعي";
+"EZTutorial.Tools.Title" = "الذكريات والعملات"; "EZTutorial.Tools.Body" = "تحفظ الذكريات النتائج المفيدة بالقرب منك. يدير المتجر الخطط والعملات. رصيدك متاح دائمًا من الشاشة الرئيسية.";
+"EZTutorial.Memories.Title" = "الذكريات"; "EZTutorial.Memories.Body" = "ابحث في الذكريات المحفوظة ثم اضغط على النص لتعديله. اضغط مرة أخرى لإنهاء التعديل. يفتح الرابط الأزرق دور الدردشة الدقيق الذي أُنشئت منه الذكرى، وتفتح الصورة المرفقة تفاصيل الصورة."; "EZTutorial.Memories.Search" = "البحث في الذكريات"; "EZTutorial.Memories.Source" = "فتح دور الدردشة الأصلي"; "EZTutorial.Memories.Editable" = "اضغط على هذه الذكرى لتعديلها.";
+"EZTutorial.CoinStore.Title" = "متجر العملات"; "EZTutorial.CoinStore.Body" = "يسرد سجل الاستخدام أعلى اليمين كل عملية إضافة وخصم. اجمع عملات مجانية أربع مرات يوميًا، واسمح بالإشعارات للتذكير. تتطلب بعض النماذج والميزات المميزة شراءً. تُضاف اشتراكات PayPal تلقائيًا وتتوفر حزم شحن لمرة واحدة."; "EZTutorial.CoinStore.Usage" = "سجل الاستخدام"; "EZTutorial.CoinStore.Free" = "عملات مجانية أربع مرات يوميًا • فعّل التذكيرات"; "EZTutorial.CoinStore.Offer" = "اشترِ واحدًا واحصل على واحد مجانًا"; "EZTutorial.CoinStore.Select" = "هل أنت مستعد؟ اختر المستوى المناسب لاحتياجاتك.";
+"EZTutorial.CoinStore.Bonus" = "المشتركون: 20 عملة لكل جمع • بدون خطة: 10";
+"EZTutorial.CoinStore.Claim" = "اجمع عملات مجانية"; "EZTutorial.Memories.Intro" = "تحفظ الذكريات النتائج المفيدة بالقرب منك.";
+"EZTutorial.CoinStore.Next" = "التالي: 6 س 00 د"; "EZCoinStore.UsageLog" = "سجل الاستخدام";
+"EZTutorial.CoinStore.BodyTop" = "• استخدم سجل الاستخدام لمراجعة كل عملية إضافة وخصم.\n\n• اجمع عملات مجانية أربع مرات يوميًا وفعل الإشعارات للتذكير."; "EZTutorial.CoinStore.BodyBottom" = "• تتطلب بعض النماذج والميزات المميزة شراءً لفتحها.";
+"EZGameMode.Title" = "اختر لعبة"; "EZGameMode.Maze" = "مغامرة المتاهة"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "إلغاء";
+"EZGameMode.Subtitle" = "اختر الطريقة التي تريد اللعب بها."; "EZGameMode.MazeDescription" = "استكشف متاهة مُنشأة باستخدام أصول لعبتك المخصصة."; "EZGameMode.RicochetDescription" = "ارتد داخل ساحة مفتوحة مع الموسيقى والمكافآت وMIDI.";
+"EZThread.NewConversation" = "محادثة جديدة";
+"EZMemories.Title" = "الذكريات"; "EZMemories.Search" = "البحث في الذكريات"; "EZMemories.NoneSaved" = "لا توجد ذكريات محفوظة بعد."; "EZMemories.NoMatches" = "لا توجد ذكريات تطابق البحث."; "EZMemories.SavedFormat" = "%lu ذكريات محفوظة"; "EZMemories.MatchingFormat" = "%lu ذكريات مطابقة";
+"EZTutorial.Demo.ModelPicker" = "محدد النموذج"; "EZTutorial.Demo.Model" = "النموذج: gpt-6-astra"; "EZTutorial.Demo.Controls" = "عناصر التحكم"; "EZTutorial.Demo.Placeholder" = "اكتب رسالة…"; "EZTutorial.Demo.Send" = "إرسال";
+"EZTutorial.Feedback" = "هل ما زالت لديك أسئلة أو تريد إرسال ملاحظات؟ اضغط هنا.";
+"EZTutorial.Menu.SampleChat" = "محادثتك الأخيرة";
+"EZGallery.Title" = "معرض الصور"; "EZGallery.Select" = "تحديد"; "EZGallery.Done" = "تم"; "EZGallery.SelectedCount" = "تم تحديد %lu"; "EZGallery.DeleteTitle" = "حذف الصور؟"; "EZGallery.DeleteMessage" = "حذف %lu صورة محددة نهائيًا؟"; "EZGallery.Delete" = "حذف"; "EZGallery.Cancel" = "إلغاء";
