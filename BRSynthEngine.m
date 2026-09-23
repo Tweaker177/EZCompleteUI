@@ -25,6 +25,7 @@ static const double kBRSynthNoteSeconds = 0.35;
 @property (nonatomic, strong, nullable) AVAudioEngine *engine;
 @property (nonatomic, strong, nullable) AVAudioPlayerNode *playerNode;
 @property (nonatomic, strong, nullable) AVAudioFormat *pcmFormat;
+@property (nonatomic, strong, nullable) AVAudioUnitReverb *reverbNode;
 @property (nonatomic, strong) NSMutableArray<NSNumber *> *hitQueue; // queued velocities, oldest first
 @property (nonatomic, assign) CFTimeInterval lastScheduleTime;
 @property (nonatomic, assign) CFTimeInterval lastMIDIClockTime;
@@ -48,6 +49,11 @@ static const double kBRSynthNoteSeconds = 0.35;
         _rootSemitone = 7; // G — matches the default the prototype shipped with
         _scale        = BRSynthScalePentatonic;
         _tempoBPM     = 120;
+        _octaveOffset = 0;
+        _attackSeconds = 0.015f;
+        _releaseSeconds = 0.32f;
+        _filterBrightness = 0.72f;
+        _reverbMix = 0.18f;
         _midiClockEnabled = NO;
         _hitQueue     = [NSMutableArray array];
     }
@@ -61,7 +67,12 @@ static const double kBRSynthNoteSeconds = 0.35;
 
     NSError *sessionError = nil;
     AVAudioSession *session = [AVAudioSession sharedInstance];
-    [session setCategory:AVAudioSessionCategoryAmbient error:&sessionError];
+    // Playback (rather than Ambient) keeps the sequencer alive when the app is
+    // backgrounded. MixWithOthers leaves a user's music or podcast playing.
+    [session setCategory:AVAudioSessionCategoryPlayback
+                    mode:AVAudioSessionModeDefault
+                 options:AVAudioSessionCategoryOptionMixWithOthers
+                   error:&sessionError];
     if (!sessionError) [session setActive:YES error:&sessionError];
     if (sessionError) {
         NSLog(@"[BRSynthEngine] audio session activation failed: %@", sessionError.localizedDescription);
@@ -69,11 +80,16 @@ static const double kBRSynthNoteSeconds = 0.35;
 
     self.engine     = [[AVAudioEngine alloc] init];
     self.playerNode = [[AVAudioPlayerNode alloc] init];
+    self.reverbNode = [[AVAudioUnitReverb alloc] init];
+    [self.reverbNode loadFactoryPreset:AVAudioUnitReverbPresetMediumHall];
+    self.reverbNode.wetDryMix = MAX(0, MIN(100, self.reverbMix * 100.0f));
     self.pcmFormat  = [[AVAudioFormat alloc] initStandardFormatWithSampleRate:kBRSynthSampleRate
                                                                       channels:1];
 
     [self.engine attachNode:self.playerNode];
-    [self.engine connect:self.playerNode to:self.engine.mainMixerNode format:self.pcmFormat];
+    [self.engine attachNode:self.reverbNode];
+    [self.engine connect:self.playerNode to:self.reverbNode format:self.pcmFormat];
+    [self.engine connect:self.reverbNode to:self.engine.mainMixerNode format:self.pcmFormat];
 
     NSError *startError = nil;
     [self.engine startAndReturnError:&startError];
@@ -81,6 +97,7 @@ static const double kBRSynthNoteSeconds = 0.35;
         NSLog(@"[BRSynthEngine] engine start failed: %@", startError.localizedDescription);
         self.engine = nil;
         self.playerNode = nil;
+        self.reverbNode = nil;
         return;
     }
 
@@ -109,6 +126,7 @@ static const double kBRSynthNoteSeconds = 0.35;
     [self.engine stop];
     self.engine     = nil;
     self.playerNode = nil;
+    self.reverbNode = nil;
     self.isStarted  = NO;
     [self.hitQueue removeAllObjects];
 }
@@ -120,6 +138,11 @@ static const double kBRSynthNoteSeconds = 0.35;
     _midiClockEnabled = midiClockEnabled;
     if (midiClockEnabled && self.isStarted) [self startMIDITransportIfNeeded];
     if (!midiClockEnabled) [self stopMIDITransport];
+}
+
+- (void)setReverbMix:(float)reverbMix {
+    _reverbMix = MAX(0.0f, MIN(1.0f, reverbMix));
+    self.reverbNode.wetDryMix = _reverbMix * 100.0f;
 }
 
 - (BOOL)ensureMIDISource {
@@ -246,11 +269,12 @@ static const double kBRSynthNoteSeconds = 0.35;
     NSArray<NSNumber *> *degrees = [self currentScaleDegrees];
     NSInteger degree    = degrees[arc4random_uniform((uint32_t)degrees.count)].integerValue;
     NSInteger octaveUp  = (arc4random_uniform(2) == 1) ? 12 : 0;
-    NSInteger semitone  = self.rootSemitone + degree + octaveUp;
+    NSInteger semitone  = self.rootSemitone + degree + octaveUp + self.octaveOffset * 12;
     NSInteger midiNote  = 57 + semitone; // A3 is MIDI note 57
     double freqHz = kBRSynthBaseFreqHz * pow(2.0, semitone / 12.0);
 
-    AVAudioFrameCount frameCount = (AVAudioFrameCount)(kBRSynthSampleRate * kBRSynthNoteSeconds);
+    double noteSeconds = MAX(kBRSynthNoteSeconds, MIN(0.90, self.attackSeconds + self.releaseSeconds + 0.10));
+    AVAudioFrameCount frameCount = (AVAudioFrameCount)(kBRSynthSampleRate * noteSeconds);
     AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:self.pcmFormat
                                                               frameCapacity:frameCount];
     if (!buffer) return;
@@ -258,12 +282,22 @@ static const double kBRSynthNoteSeconds = 0.35;
     float *samples = buffer.floatChannelData[0];
 
     float peakAmplitude = MIN(0.35f, 0.12f + velocity * 0.10f);
+    double attack = MAX(0.005, MIN(0.25, self.attackSeconds));
+    double release = MAX(0.04, MIN(noteSeconds, self.releaseSeconds));
+    // One-pole low-pass filter: lower brightness audibly softens the triangle
+    // harmonics while high brightness leaves its crisp collision character.
+    double cutoffHz = 350.0 + MAX(0.0, MIN(1.0, self.filterBrightness)) * 8200.0;
+    double rc = 1.0 / (2.0 * M_PI * cutoffHz);
+    double alpha = (1.0 / kBRSynthSampleRate) / (rc + (1.0 / kBRSynthSampleRate));
+    double filtered = 0;
     for (AVAudioFrameCount i = 0; i < frameCount; i++) {
         double t = (double)i / kBRSynthSampleRate;
         double phase = 2.0 * M_PI * freqHz * t;
         double triangle = (2.0 / M_PI) * asin(sin(phase));      // triangle wave, no aliasing tables needed
-        double envelope = exp(-t * 7.0);                        // short percussive decay
-        samples[i] = (float)(triangle * envelope * peakAmplitude);
+        double attackEnvelope = MIN(1.0, t / attack);
+        double releaseEnvelope = MIN(1.0, MAX(0.0, (noteSeconds - t) / release));
+        filtered += alpha * (triangle - filtered);
+        samples[i] = (float)(filtered * attackEnvelope * releaseEnvelope * peakAmplitude);
     }
 
     [self.playerNode scheduleBuffer:buffer completionHandler:nil];

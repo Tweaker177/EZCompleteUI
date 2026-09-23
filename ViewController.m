@@ -747,6 +747,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, assign) BOOL                    memoriesDrawerOpen;
 @property (nonatomic, strong) UILabel *coinBalanceLabel; // kept for compatibility
 @property (nonatomic, strong) EZCoinPotView *coinPotView;
+@property (nonatomic, copy) NSString *chatImageSourcePath;
 
 // Private helpers added since previous interface
 - (void)restoreImageGridCellsForThread:(NSString *)threadID;
@@ -778,6 +779,10 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                       isError:(BOOL)isError
                     errorText:(nullable NSString *)errorText;
 - (void)persistImagePath:(NSString *)path prompt:(NSString *)prompt;
+- (void)performChatImageRequest:(NSDictionary *)imageRequest sourcePath:(NSString *)sourcePath;
+- (void)callGptImage1:(NSString *)prompt model:(NSString *)imageModel;
+- (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath
+               model:(NSString *)imageModel preserveChatModel:(BOOL)preserveChatModel;
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath;
 - (void)triageUncertainTurnsChanged:(UIStepper *)sender;
 - (void)toggleHelperDirectAnswers;
@@ -1017,6 +1022,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.models = @[
            // ── Chat / Reasoning ──────────────────────────────────────────────
            @"gpt-6-astra", // newest flagship reasoning model
+           @"gpt-6-sol", @"gpt-6-luna",
            @"gpt-5.6-sol", @"gpt-5.6-terra", @"gpt-5.6-luna",
            @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
            @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
@@ -2314,9 +2320,17 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                   UTTypeRTF,
                   UTTypeHTML,
                   UTTypeImage,
+                  [UTType typeWithIdentifier:@"org.openxmlformats.wordprocessingml.document"],
+                  [UTType typeWithIdentifier:@"com.microsoft.word.doc"],
+                  [UTType typeWithIdentifier:@"org.openxmlformats.spreadsheetml.sheet"],
+                  [UTType typeWithIdentifier:@"com.microsoft.excel.xls"],
                   [UTType typeWithIdentifier:@"public.comma-separated-values-text"],
                   [UTType typeWithIdentifier:@"public.json"],
-                  [UTType typeWithIdentifier:@"public.xml"]];
+                  [UTType typeWithIdentifier:@"public.xml"],
+                  [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.typescript"],
+                  [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.objective-c-source"],
+                  [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.objective-c-header"],
+                  [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.objective-cpp-source"]];
     }
     [self presentFilePickerForMode:mode forceTypes:types];
 }
@@ -2986,6 +3000,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)handleSend {
+    if (!self.sendButton.enabled) return;
     NSString *text = self.messageTextField.text;
     if (text.length == 0) return;
 
@@ -3188,11 +3203,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     // ── Image model intent check ──────────────────────────────────────────────
     BOOL isImageModel = [self isGptImage1Family:self.selectedModel];
-    // A pending source image deserves intent routing even if the person had a
-    // chat model selected when they attached it. This is what makes “what is
-    // this?” stay conversational while “remove the background” becomes an
-    // edit, rather than attachment itself deciding for them.
-    if (isImageModel || self.pendingImagePaths.count > 0) {
+    // Chat models now choose analysis/generation/editing with an actual tool
+    // call. Keep the legacy classifier only for explicit image-model mode.
+    if (isImageModel) {
         if (!self.lastImageLocalPath.length) {
             NSString *persisted = [[NSUserDefaults standardUserDefaults]
                                    stringForKey:@"lastImageLocalPath"];
@@ -3291,42 +3304,15 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self fetchRelevantMemories:text completion:^(NSString *memories) {
         analyzePromptForContext(text, memories, jwtToken, self.activeThread.threadID,
         ^(EZContextResult *result) {
-            self.sendButton.enabled = YES;
             EZLogf(EZLogLevelInfo, @"SEND",
                    @"Tier %ld — conf=%.2f tokens≈%ld reason: %@",
                    (long)result.tier, result.confidence,
                    (long)result.estimatedTokens, result.reason);
 
-            // Helpers classify only the short typed question, never the full
-            // attached-file payload or image bytes. A helper direct answer
-            // would therefore bypass the main model without seeing either.
+            // Helpers enrich context, but the selected model owns the final
+            // answer/tool decision. A helper short-circuit can otherwise say
+            // "I cannot generate images" before the image tool is even offered.
             BOOL hasAttachedFileContext = ![fullPrompt isEqualToString:text];
-            BOOL hasPendingImageAttachment = self.pendingImagePaths.count > 0;
-            if (result.tier == EZRoutingTierDirect && result.shortCircuitAnswer.length > 0 &&
-                !hasAttachedFileContext && !hasPendingImageAttachment) {
-                NSString *answer = result.shortCircuitAnswer;
-                self.lastAIResponse = answer;
-                [self.chatContext addObject:@{@"role": @"assistant", @"content": answer}];
-                [self appendToChat:[NSString stringWithFormat:@"AI: %@", answer]];
-                [self appendToChat:@"[System: Answered directly by helper model ⚡]"];
-                EZLogf(EZLogLevelInfo, @"SEND", @"Tier 1 direct answer displayed");
-
-                NSMutableArray *attachmentsAtSend = [NSMutableArray array];
-                if (self.pendingImagePaths.count > 0) {
-                    [attachmentsAtSend addObjectsFromArray:self.pendingImagePaths];
-                }
-                [self.pendingImagePaths removeAllObjects];
-
-                createMemoryFromCompletion(text, answer, jwtToken,
-                                           self.activeThread.threadID,
-                                           attachmentsAtSend,
-                                           ^(NSString *entry) {
-                    if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved: %lu chars",
-                                      (unsigned long)entry.length);
-                });
-                [self saveActiveThread];
-                return;
-            }
 
             // Triage/memory routing enriches the short typed question. When a
             // file was attached, replace that trailing question with the full
@@ -3513,6 +3499,19 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)callChatCompletionsWithRetryCount:(NSInteger)retryCount {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
 
+    // GPT-4 Turbo cannot use the Responses web-search tool. Keep a search
+    // request useful by moving to the next higher compatible chat choice in
+    // the picker (GPT-4o), rather than silently dropping search or failing the
+    // whole request. This happens before context, token, and billing setup so
+    // every downstream decision uses the actual model being sent.
+    if (self.webSearchEnabled && [self.selectedModel isEqualToString:@"gpt-4-turbo"]) {
+        self.selectedModel = @"gpt-4o";
+        [self.modelButton setTitle:@"Model: gpt-4o" forState:UIControlStateNormal];
+        [defaults setObject:self.selectedModel forKey:@"selectedModel"];
+        [self appendToChat:@"[System: GPT-4 Turbo does not support web search — switched to GPT-4o for this request.]"];
+        EZLog(EZLogLevelInfo, @"WEBSEARCH", @"GPT-4 Turbo → GPT-4o for web search");
+    }
+
     // GPT-5.x models and GPT-6 Astra use the Responses API.
     // "gpt-5-pro" is a ChatGPT subscription tier name, not an API model string —
     // sending it to the API returns a model-not-found error. Remove it from
@@ -3520,7 +3519,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // gpt-5.4-nano, gpt-5.5, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna. All are
     // correctly matched by hasPrefix:@"gpt-5".
     BOOL isGPT5 = [self.selectedModel hasPrefix:@"gpt-5"] ||
-                  [self.selectedModel isEqualToString:@"gpt-6-astra"];
+                  [self.selectedModel isEqualToString:@"gpt-6-astra"] ||
+                  [self.selectedModel isEqualToString:@"gpt-6-sol"] ||
+                  [self.selectedModel isEqualToString:@"gpt-6-luna"];
     // Web search works on gpt-5.x (via Responses API), gpt-4.1.x, and listed gpt-4o models.
     // Prefix checks cover all sub-variants without needing to enumerate each.
     BOOL modelSupportsWebSearch = isGPT5
@@ -3528,12 +3529,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         || [self.selectedModel hasPrefix:@"o3"]
         || [self.selectedModel hasPrefix:@"o4"]
         || [self.selectedModel isEqualToString:@"gpt-4o"]
-        || [self.selectedModel isEqualToString:@"gpt-4o-mini"]
-        || [self.selectedModel isEqualToString:@"gpt-4-turbo"];
+        || [self.selectedModel isEqualToString:@"gpt-4o-mini"];
     BOOL useWebSearch    = self.webSearchEnabled && modelSupportsWebSearch;
     // gpt-4.1 family uses the Responses API natively; also required for web search.
     BOOL isGPT41       = [self.selectedModel hasPrefix:@"gpt-4.1"];
-    BOOL useResponsesAPI = isGPT5 || isGPT41 || useWebSearch;
+    BOOL useResponsesAPI = isGPT5 || isGPT41 || [self.selectedModel hasPrefix:@"o"] || useWebSearch;
 
     if (self.webSearchEnabled && !modelSupportsWebSearch) {
         [self appendToChat:[NSString stringWithFormat:
@@ -3615,7 +3615,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // featureTier is only used for logging context in ez-chat.
     // Actual coin cost is computed per exact model string server-side.
     NSString *featureTier;
-    if ([self.selectedModel hasPrefix:@"o1"] || [self.selectedModel hasPrefix:@"o3"]) {
+    if ([self.selectedModel isEqualToString:@"gpt-6-sol"]) {
+        featureTier = @"chat_standard";
+    } else if ([self.selectedModel hasPrefix:@"o1"] || [self.selectedModel hasPrefix:@"o3"]) {
         featureTier = @"chat_premium"; // reasoning models
     } else if (isGPT5) {
         // gpt-5, gpt-5.4, gpt-5.5 = premium; mini/nano variants = mini.
@@ -3626,7 +3628,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         static NSSet<NSString *> *cheapGPT56Tiers;
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            cheapGPT56Tiers = [NSSet setWithObjects:@"gpt-5.6-luna", nil];
+            cheapGPT56Tiers = [NSSet setWithObjects:@"gpt-5.6-luna", @"gpt-6-luna", nil];
         });
         if ([self.selectedModel hasSuffix:@"-mini"] ||
             [self.selectedModel hasSuffix:@"-nano"] ||
@@ -3653,6 +3655,31 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSString *capturedThreadID    = self.activeThread.threadID;
     NSMutableArray *capturedAttachments = [NSMutableArray array];
     if (self.pendingImagePaths.count > 0) [capturedAttachments addObjectsFromArray:self.pendingImagePaths];
+    if (retryCount == 0) {
+        // Never borrow a persisted image from a different conversation.
+        NSString *candidate = self.pendingImagePaths.lastObject;
+        if (!candidate.length) {
+            // A follow-up can edit an earlier upload even if the preceding
+            // turn merely analyzed it. Prefer the newest image event in this
+            // thread, not an older generated image or another thread's cache.
+            for (NSDictionary *message in self.chatContext.reverseObjectEnumerator) {
+                if ([message[@"role"] isEqualToString:@"_ui_imagegrid"] && ![message[@"isError"] boolValue]) {
+                    NSArray *paths = [message[@"imagePaths"] isKindOfClass:[NSArray class]] ? message[@"imagePaths"] : nil;
+                    candidate = paths.firstObject;
+                    if (candidate.length) break;
+                }
+                if ([message[@"_isVisionAttachment"] boolValue] && [message[@"content"] isKindOfClass:[NSArray class]]) {
+                    candidate = [self ez_recoverImagePathsFromVisionContent:message[@"content"]].lastObject;
+                    if (candidate.length) break;
+                }
+            }
+        }
+        if (!candidate.length) candidate = self.activeThread.lastImageLocalPath;
+        NSString *resolved = candidate.length ? EZAttachmentPath(candidate) : nil;
+        self.chatImageSourcePath = resolved.length && [[NSFileManager defaultManager] fileExistsAtPath:resolved]
+            ? resolved : nil;
+    }
+    NSString *capturedImageSource = self.chatImageSourcePath;
     [self.pendingImagePaths removeAllObjects];
 
     if (isGPT5) { dispatch_async(dispatch_get_main_queue(), ^{ [self showGPT5StatusBanner]; }); }
@@ -3664,6 +3691,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     ezBody[@"estimated_tokens"] = @(totalEstimate);
     ezBody[@"max_tokens"]        = @(maxCompletionTokens);
     ezBody[@"feature_tier"]     = featureTier;
+    ezBody[@"image_tools"] = @YES;
+    ezBody[@"image_source_available"] = @(capturedImageSource.length > 0);
     if (userPreferences.length > 0) ezBody[@"user_preferences"] = userPreferences;
     if (useWebSearch)           ezBody[@"web_search"] = @YES;
     if (capturedPrompt.length > 0) {
@@ -3683,6 +3712,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:ezURL];
     request.HTTPMethod = @"POST";
     BOOL isHeavyReasoningModel = [self.selectedModel isEqualToString:@"gpt-5.6-sol"] ||
+                                  [self.selectedModel isEqualToString:@"gpt-6-sol"] ||
                                   [self.selectedModel isEqualToString:@"gpt-6-astra"];
     // Leave headroom beyond ez-chat's server-side OpenAI deadline. Previously
     // the 90s/180s client deadlines could cancel a request the server was still
@@ -3745,11 +3775,31 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             if ([errMsg isEqualToString:@"Insufficient coins"] ||
                 [json[@"reason"] isEqualToString:@"Insufficient coins"]) {
                 dispatch_async(dispatch_get_main_queue(), ^{
+                    self.sendButton.enabled = YES;
                     [self presentCoinStoreForFeature:featureTier];
                 });
             } else {
                 [self handleAPIError:errMsg];
             }
+            return;
+        }
+
+        NSDictionary *imageRequest = [json[@"image_request"] isKindOfClass:[NSDictionary class]]
+            ? json[@"image_request"] : nil;
+        if (imageRequest) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                id imageBalance = json[@"balance"];
+                if ([imageBalance respondsToSelector:@selector(integerValue)]) {
+                    [[EZEntitlementManager shared] applyKnownBalance:[imageBalance integerValue]];
+                }
+                [self updateCoinBalanceDisplay];
+                if (![self.activeThread.threadID isEqualToString:capturedThreadID]) {
+                    self.sendButton.enabled = YES;
+                    [self appendToChat:@"[System: Image request stopped because the conversation changed. Please resend it in the original chat.]"];
+                    return;
+                }
+                [self performChatImageRequest:imageRequest sourcePath:capturedImageSource];
+            });
             return;
         }
 
@@ -3800,7 +3850,68 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // MARK: - GPT Image Text-to-Image Generation (gpt-image-1/1.5/mini/2/2.5)
 // ─────────────────────────────────────────────────────────────────────────────
 
+- (void)performChatImageRequest:(NSDictionary *)imageRequest sourcePath:(NSString *)sourcePath {
+    NSString *action = [imageRequest[@"action"] isKindOfClass:[NSString class]] ? imageRequest[@"action"] : nil;
+    NSString *prompt = [imageRequest[@"prompt"] isKindOfClass:[NSString class]] ? imageRequest[@"prompt"] : nil;
+    BOOL isEdit = [action isEqualToString:@"edit"];
+    if ((!isEdit && ![action isEqualToString:@"generate"]) || !prompt.length || prompt.length > 32000) {
+        [self handleAPIError:@"The image request was incomplete. Please try again."];
+        return;
+    }
+    if (isEdit && (!sourcePath.length || ![[NSFileManager defaultManager] fileExistsAtPath:sourcePath])) {
+        [self handleAPIError:@"Please attach the image you want to edit and send your request again."];
+        return;
+    }
+
+    // Keep billing/quality enforcement in the same pipeline as direct images.
+    // Do not accept a renderer, price or source path supplied by a chat model.
+    NSString *imageModel = @"gpt-image-2.5-flare";
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSString *quality = [defaults stringForKey:@"imgQuality"] ?: @"auto";
+    NSString *size = [defaults stringForKey:@"imgSize"] ?: @"1024x1024";
+    NSInteger count = [defaults integerForKey:@"imgVariations"];
+    if (count < 1 || count > 4) count = 1;
+    EZFeature feature = [quality isEqualToString:@"low"] ? EZFeatureImageLow
+        : [quality isEqualToString:@"high"] ? EZFeatureImageHigh : EZFeatureImageMedium;
+    NSInteger quantity = (NSInteger)ceil(count * ([size isEqualToString:@"1024x1024"] ? 1.0 : 1.25));
+    NSString *threadID = self.activeThread.threadID;
+    self.sendButton.enabled = NO;
+    [self appendToChat:@"[System: Using GPT Image 2.5 Flare for this image request. Your chat model stays selected. Normal image charges apply in addition to chat tokens.]"];
+    [[EZEntitlementManager shared] checkEntitlementForFeature:feature quantity:quantity
+        prompt:prompt model:imageModel quality:quality size:size isEdit:isEdit
+        completion:^(BOOL allowed, NSInteger balance, NSString *reason) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (![self.activeThread.threadID isEqualToString:threadID]) {
+                self.sendButton.enabled = YES;
+                return;
+            }
+            if (!allowed) {
+                self.sendButton.enabled = YES;
+                if ([reason isEqualToString:@"Insufficient coins"] || [reason isEqualToString:@"No account found"]) {
+                    [self presentCoinStoreForFeature:nil];
+                } else {
+                    [self handleAPIError:reason ?: @"Image generation is not available."];
+                }
+                return;
+            }
+            if (isEdit) {
+                [self callImageEdit:prompt imagePath:sourcePath model:imageModel preserveChatModel:YES];
+            } else {
+                [self callGptImage1:prompt model:imageModel];
+            }
+        });
+    }];
+}
+
 - (void)callGptImage1:(NSString *)prompt {
+    NSString *model = self.selectedModel;
+    if ([model isEqualToString:@"gpt-image-1-edit"]) model = self.preEditModeModel ?: @"gpt-image-1";
+    [self callGptImage1:prompt model:model];
+}
+
+// Explicit model argument lets a chat tool render without changing the picker.
+- (void)callGptImage1:(NSString *)prompt model:(NSString *)imageModel {
+    self.sendButton.enabled = NO;
     EZLog(EZLogLevelInfo, @"GPTIMAGE", @"Sending generation request via ez-image");
 
     NSString *token = [EZAuthManager shared].accessToken;
@@ -3812,8 +3923,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSString *imgFormat  = [d stringForKey:@"imgFormat"]     ?: @"png";
     NSString *imgBg      = [d stringForKey:@"imgBackground"] ?: @"auto";
     NSString *imgExtension = [imgFormat isEqualToString:@"jpeg"] ? @"jpg" : imgFormat;
-    NSString *imgModel   = self.selectedModel;
-    if ([imgModel isEqualToString:@"gpt-image-1-edit"]) imgModel = self.preEditModeModel ?: @"gpt-image-1";
+    NSString *imgModel   = imageModel;
     NSInteger imgN = [d integerForKey:@"imgVariations"];
     if (imgN < 1 || imgN > 4) imgN = 1;
 
@@ -3834,8 +3944,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self showImageGenStatusBanner];
     [self postToEZFunction:@"ez-image" token:token body:body
                 completion:^(NSDictionary *json, NSError *error) {
-        [self hideStatusBanner];
-        if (error) { [self handleAPIError:error.localizedDescription]; return; }
+        if (error) {
+            dispatch_async(dispatch_get_main_queue(), ^{ [self hideStatusBanner]; [self handleAPIError:error.localizedDescription]; });
+            return;
+        }
         id errObj = json[@"error"];
         if (errObj && ![errObj isKindOfClass:[NSNull class]]) {
             NSString *errMsg = [errObj isKindOfClass:[NSString class]] ? errObj : @"Image error";
@@ -3846,6 +3958,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             NSString *fullMsg = reason.length ? [NSString stringWithFormat:@"%@ %@", errMsg, reason] : errMsg;
             [self handleAPIError:fullMsg];
             dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideStatusBanner];
                 [self appendImageGridToChat:@[] prompt:savedPrompt isError:YES errorText:fullMsg];
             });
             return;
@@ -3860,6 +3973,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             NSString *errMsg = @"No image in response";
             [self handleAPIError:errMsg];
             dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideStatusBanner];
                 [self appendImageGridToChat:@[] prompt:savedPrompt isError:YES errorText:errMsg];
             });
             return;
@@ -3916,6 +4030,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 [self appendImageGridToChat:@[] prompt:savedPrompt isError:YES errorText:errMsg];
             }
             [self updateCoinBalanceDisplay];
+            [self hideStatusBanner];
+            self.sendButton.enabled = YES;
         });
     }];
 }
@@ -3925,12 +4041,19 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath {
+    [self callImageEdit:prompt imagePath:imagePath model:self.preEditModeModel ?: @"gpt-image-1"
+     preserveChatModel:NO];
+}
+
+- (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath
+               model:(NSString *)imageModel preserveChatModel:(BOOL)preserveChatModel {
+    self.sendButton.enabled = NO;
     if (!imagePath) {
         self.sendButton.enabled = YES;
         [self appendToChat:@"[Error: No image attached for editing]"]; return;
     }
     [self appendToChat:[NSString stringWithFormat:
-        @"[System: Editing image with %@...]", self.preEditModeModel ?: @"gpt-image-1"]];
+        @"[System: Editing image with %@...]", imageModel]];
     EZLog(EZLogLevelInfo, @"IMGEDIT", @"Sending image edit request via ez-image");
 
     NSString *token = [EZAuthManager shared].accessToken;
@@ -3964,7 +4087,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         // Was hardcoded to gpt-image-1 regardless of what the user picked —
         // now sends whatever enterImageEditModeFromCurrentSelection
         // remembered as the real model active before edit mode started.
-        @"model":         self.preEditModeModel ?: @"gpt-image-1",
+        @"model":         imageModel,
         @"prompt":        prompt,
         @"image_b64":     b64Image,
         @"n":             @(editN),
@@ -3978,8 +4101,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self showImageGenStatusBanner];
     [self postToEZFunction:@"ez-image" token:token body:body
                 completion:^(NSDictionary *json, NSError *error) {
-        [self hideStatusBanner];
-        if (error) { [self handleAPIError:error.localizedDescription]; return; }
+        if (error) {
+            dispatch_async(dispatch_get_main_queue(), ^{ [self hideStatusBanner]; [self handleAPIError:error.localizedDescription]; });
+            return;
+        }
         id errObj = json[@"error"];
         if (errObj && ![errObj isKindOfClass:[NSNull class]]) {
             NSString *errMsg = [errObj isKindOfClass:[NSString class]] ? errObj : @"Image edit error";
@@ -3989,6 +4114,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             NSString *fullMsg = reason.length ? [NSString stringWithFormat:@"%@ %@", errMsg, reason] : errMsg;
             [self handleAPIError:fullMsg];
             dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideStatusBanner];
                 [self appendImageGridToChat:@[] prompt:prompt isError:YES errorText:fullMsg];
             });
             return;
@@ -4003,6 +4129,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             NSString *errMsg = @"No image in edit response";
             [self handleAPIError:errMsg];
             dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideStatusBanner];
                 [self appendImageGridToChat:@[] prompt:prompt isError:YES errorText:errMsg];
             });
             return;
@@ -4023,11 +4150,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         NSString *firstPath = savedPaths.firstObject;
         dispatch_async(dispatch_get_main_queue(), ^{
             self.lastImagePrompt = prompt;
-            self.selectedModel   = @"gpt-image-1-edit";
-            [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@ (edit mode)",
-                                         self.preEditModeModel ?: @"gpt-image-1"]
-                              forState:UIControlStateNormal];
-            [self appendToChat:@"[System: Edit complete — still in edit mode. Attach a new image or type another edit prompt.]"];
+            if (!preserveChatModel) {
+                self.selectedModel = @"gpt-image-1-edit";
+                [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@ (edit mode)", imageModel]
+                                  forState:UIControlStateNormal];
+                [self appendToChat:@"[System: Edit complete — still in edit mode. Attach a new image or type another edit prompt.]"];
+            }
             if (firstPath) {
                 self.lastImageLocalPath = firstPath;
                 self.activeThread.lastImageLocalPath = firstPath;
@@ -4060,6 +4188,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 [self appendImageGridToChat:@[] prompt:prompt isError:YES errorText:errMsg];
             }
             [self updateCoinBalanceDisplay];
+            [self hideStatusBanner];
+            self.sendButton.enabled = YES;
         });
     }];
 }
@@ -4442,7 +4572,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (BOOL)modelSupportsVision:(NSString *)model {
     // gpt-5.x and gpt-4.1.x all support vision via the Responses API.
     // Prefix checks cover all variants (gpt-5, gpt-5.1-mini, gpt-4.1, gpt-4.1-mini, etc.)
-    if ([model hasPrefix:@"gpt-5"] || [model isEqualToString:@"gpt-6-astra"]) return YES;
+    if ([model hasPrefix:@"gpt-5"] || [model isEqualToString:@"gpt-6-astra"] ||
+        [model isEqualToString:@"gpt-6-sol"] || [model isEqualToString:@"gpt-6-luna"]) return YES;
     if ([model hasPrefix:@"gpt-4.1"]) return YES;
     if ([model hasPrefix:@"o3"])      return YES;
     if ([model hasPrefix:@"o4"])      return YES;
@@ -4547,9 +4678,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         NSDictionary *msg = context[i];
 
-        // Ordered image-grid records are for reconstruction of the local UI;
-        // they are not chat turns and must never be sent to an API model.
-        if ([msg[@"_uiOnly"] boolValue]) continue;
+        // Preserve the result as text context (not the UI dictionary) so the
+        // chat model knows whether rendering succeeded before a follow-up.
+        if ([msg[@"_uiOnly"] boolValue]) {
+            if ([msg[@"role"] isEqualToString:@"_ui_imagegrid"]) {
+                BOOL failed = [msg[@"isError"] boolValue];
+                NSString *summary = [NSString stringWithFormat:@"Image rendering %@. Request: %@%@",
+                    failed ? @"failed" : @"completed; the image is displayed in chat and saved in the gallery",
+                    msg[@"prompt"] ?: @"", failed ? [NSString stringWithFormat:@". Error: %@", msg[@"errorText"] ?: @"Unknown error"] : @""];
+                [result addObject:@{@"role": @"assistant", @"content": summary}];
+            }
+            continue;
+        }
 
         // Strip internal metadata keys
         NSMutableDictionary *clean =
@@ -6002,25 +6142,33 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // generation/reasoning operation.  Tie screen wakefulness to it instead
     // of the broad send action, whose many early-return paths could leave the
     // old reference count unbalanced.
-    @try { [self ezcui_beginLongOperation:@"Visible long operation"]; } @catch (NSException *e) {
-        EZLogf(EZLogLevelWarning, @"EZKeepAwake", @"begin failed for status banner: %@", e);
+    if (!self.statusBannerTimer) {
+        @try { [self ezcui_beginLongOperation:@"Visible long operation"]; } @catch (NSException *e) {
+            EZLogf(EZLogLevelWarning, @"EZKeepAwake", @"begin failed for status banner: %@", e);
+        }
     }
+    [self.statusBannerTimer invalidate];
     self.statusBannerMessages = messages.count ? messages : @[@"Working…"];
     self.statusBannerPhase = 0; [self.statusBannerSpinner startAnimating]; [self tickStatusBanner];
     self.statusBannerTimer = [NSTimer scheduledTimerWithTimeInterval:4.0 target:self
         selector:@selector(tickStatusBanner) userInfo:nil repeats:YES];
     [[NSRunLoop mainRunLoop] addTimer:self.statusBannerTimer forMode:NSRunLoopCommonModes];
-    [UIView animateWithDuration:0.3 animations:^{ self.statusBannerView.alpha = 1.0; }];
+    [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionBeginFromCurrentState
+        animations:^{ self.statusBannerView.alpha = 1.0; } completion:nil];
 }
 - (void)hideStatusBanner {
+    BOOL wasActive = self.statusBannerTimer != nil;
     [self.statusBannerTimer invalidate]; self.statusBannerTimer = nil;
-    [UIView animateWithDuration:0.3 animations:^{ self.statusBannerView.alpha = 0.0; }
-     completion:^(BOOL _) {
-        [self.statusBannerSpinner stopAnimating];
+    [self.statusBannerSpinner stopAnimating];
+    // Release the old operation now, not in an animation completion that can
+    // fire after a chat-to-image handoff has already started the next spinner.
+    if (wasActive) {
         @try { [self ezcui_endLongOperation]; } @catch (NSException *e) {
             EZLogf(EZLogLevelWarning, @"EZKeepAwake", @"end failed for status banner: %@", e);
         }
-    }];
+    }
+    [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionBeginFromCurrentState
+        animations:^{ self.statusBannerView.alpha = 0.0; } completion:nil];
 }
 - (void)tickStatusBanner {
     NSArray<NSString *> *m = self.statusBannerMessages.count ? self.statusBannerMessages : @[@"Working…"];

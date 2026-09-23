@@ -75,6 +75,7 @@ typedef NS_ENUM(NSInteger, BRRicochetPickupKind) {
 @property (nonatomic, readonly) CGFloat enemySpeed;
 @property (nonatomic, assign) CGPoint enemyPosition;
 @property (nonatomic, assign) CGVector enemyVelocity;
+@property (nonatomic, readonly) BOOL enemyActive;
 
 @property (nonatomic, assign) NSInteger score;
 @property (nonatomic, assign) NSInteger lives;
@@ -104,6 +105,10 @@ typedef NS_ENUM(NSInteger, BRRicochetPickupKind) {
 /// Instantly clears every obstacle within radius of the player's current
 /// position, regardless of remaining HP. Returns the number cleared.
 - (NSInteger)blastAtPlayerWithRadius:(CGFloat)radius;
+
+/// Defeats the enemy when the same Use radius overlaps its collision body.
+/// Returns YES only for a hit; a defeated enemy remains out for this level.
+- (BOOL)defeatEnemyWithBlastRadius:(CGFloat)radius;
 
 @end
 

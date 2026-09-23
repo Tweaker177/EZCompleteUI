@@ -12,6 +12,7 @@
 #import "EZEntitlementManager.h"
 #import "EZImageSettingsViewController.h"
 #import "EZSupabaseConfig.h"
+#import "ViewController+EZKeepAwake.h"
 #import "helpers.h"
 #import <SafariServices/SafariServices.h>
 #import <QuartzCore/QuartzCore.h>
@@ -19,6 +20,8 @@
 #import <ImageIO/ImageIO.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <CommonCrypto/CommonDigest.h>
+#import <AVFoundation/AVFoundation.h>
+#import <AVKit/AVKit.h>
 
 // ── Notification names ────────────────────────────────────────────────────────
 
@@ -109,7 +112,8 @@ static CGRect EZAspectFitRect(CGSize imageSize, CGRect bounds) {
 // back to a plain system action sheet.
 static void EZPresentPhotoSourcePicker(UIViewController *presenter,
                                        void (^openPhotos)(void),
-                                       void (^openFiles)(void)) {
+                                       void (^openFiles)(void),
+                                       void (^openGallery)(void)) {
     UIView *overlay = [[UIView alloc] initWithFrame:presenter.view.bounds];
     overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     overlay.backgroundColor = [UIColor colorWithWhite:0 alpha:0.72];
@@ -117,7 +121,7 @@ static void EZPresentPhotoSourcePicker(UIViewController *presenter,
     [presenter.view addSubview:overlay];
 
     CGFloat cardWidth = MIN(340.0, presenter.view.bounds.size.width - 36.0);
-    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, 354.0)];
+    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, openGallery ? 435.0 : 354.0)];
     card.center = CGPointMake(CGRectGetMidX(presenter.view.bounds), CGRectGetMidY(presenter.view.bounds));
     card.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin |
                             UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
@@ -187,9 +191,13 @@ static void EZPresentPhotoSourcePicker(UIViewController *presenter,
                     [UIColor colorWithRed:0.05 green:0.92 blue:0.72 alpha:1.0], 112.0, openPhotos);
     addSourceButton(@"Files & Cloud Providers", @"Files, Dropbox, Google Drive, Box, and more", @"folder.fill",
                     [UIColor colorWithRed:0.47 green:0.52 blue:1.0 alpha:1.0], 193.0, openFiles);
+    if (openGallery) {
+        addSourceButton(@"Open from Gallery", @"Use a saved image without importing it again", @"photo.stack",
+                        [UIColor systemPurpleColor], 274.0, openGallery);
+    }
 
     UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem];
-    cancel.frame = CGRectMake(40, 282, cardWidth - 80, 42);
+    cancel.frame = CGRectMake(40, openGallery ? 363.0 : 282.0, cardWidth - 80, 42);
     [cancel setTitle:@"Cancel" forState:UIControlStateNormal];
     [cancel setTitleColor:[UIColor colorWithWhite:0.75 alpha:1.0] forState:UIControlStateNormal];
     cancel.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
@@ -881,6 +889,14 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
         picker.delegate = self;
         picker.allowsMultipleSelection = YES;
         [self presentViewController:picker animated:YES completion:nil];
+    }, ^{
+        typeof(self) self = weakSelf;
+        if (!self) return;
+        EZPhotoGalleryViewController *gallery = [EZPhotoGalleryViewController new];
+        gallery.onSelectImage = ^(UIImage *image) { [self addPickedEditImage:image]; };
+        UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:gallery];
+        nav.modalPresentationStyle = UIModalPresentationPageSheet;
+        [self presentViewController:nav animated:YES completion:nil];
     });
 }
 
@@ -2011,9 +2027,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 @property (nonatomic, strong) UILabel               *emptyLabel;
 @property (nonatomic, strong) UILabel               *countLabel;
 @property (nonatomic, strong) UIBarButtonItem       *selectButton;
-@property (nonatomic, strong) UIBarButtonItem       *shareSelectedButton;
-@property (nonatomic, strong) UIBarButtonItem       *deleteSelectedButton;
+@property (nonatomic, strong) UIBarButtonItem       *selectionMenuButton;
 @property (nonatomic, assign) BOOL                   selectingPhotos;
+@property (nonatomic, copy) NSArray<NSString *>     *musicVideoSourcePaths;
+@property (nonatomic, strong) UIView                 *musicRenderingOverlay;
+@property (nonatomic, strong) UIVisualEffectView     *musicRenderingBlur;
+@property (nonatomic, strong) UIActivityIndicatorView *musicRenderingSpinner;
+@property (nonatomic, strong) CAGradientLayer        *musicWaveLayer;
 @end
 
 @implementation EZPhotoGalleryViewController
@@ -2103,7 +2123,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)setupEmptyState {
     self.emptyLabel = [[UILabel alloc] init];
-    self.emptyLabel.text          = @"No attachments yet.\nImages saved from chats appear here.";
+    self.emptyLabel.text          = @"No media yet.\nImages, GIFs, and videos saved from chats appear here.";
     self.emptyLabel.numberOfLines = 2;
     self.emptyLabel.textAlignment = NSTextAlignmentCenter;
     self.emptyLabel.font          = [UIFont systemFontOfSize:15 weight:UIFontWeightRegular];
@@ -2164,10 +2184,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         contentsOfDirectoryAtPath:dir error:nil] ?: @[];
 
     NSArray<NSString *> *imageExts = @[@"jpg", @"jpeg", @"png", @"heic", @"gif", @"webp", @"tiff", @"bmp"];
+    NSArray<NSString *> *videoExts = @[@"mov", @"mp4", @"m4v", @"avi"];
     NSMutableArray *paths = [NSMutableArray array];
     NSMutableSet<NSString *> *seenDigests = [NSMutableSet set];
     for (NSString *name in all) {
-        if ([imageExts containsObject:name.pathExtension.lowercaseString]) {
+        if ([imageExts containsObject:name.pathExtension.lowercaseString] ||
+            [videoExts containsObject:name.pathExtension.lowercaseString]) {
             NSString *path = [dir stringByAppendingPathComponent:name];
             NSString *digest = EZGalleryContentDigest(path);
             if (digest.length && [seenDigests containsObject:digest]) {
@@ -2192,7 +2214,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     NSInteger count = paths.count;
     self.countLabel.text = count == 0 ? @"" :
-        [NSString stringWithFormat:@"%ld %@", (long)count, count == 1 ? @"photo" : @"photos"];
+        [NSString stringWithFormat:@"%ld %@", (long)count, count == 1 ? @"item" : @"items"];
     self.emptyLabel.hidden = count > 0;
 }
 
@@ -2271,6 +2293,16 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (UIImage *)thumbnailForPath:(NSString *)path side:(CGFloat)side {
+    NSString *ext = path.pathExtension.lowercaseString;
+    if ([@[@"mov", @"mp4", @"m4v", @"avi"] containsObject:ext]) {
+        AVAssetImageGenerator *generator = [[AVAssetImageGenerator alloc] initWithAsset:[AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:path] options:nil]];
+        generator.appliesPreferredTrackTransform = YES;
+        generator.maximumSize = CGSizeMake(side, side);
+        CGImageRef frame = [generator copyCGImageAtTime:kCMTimeZero actualTime:nil error:nil];
+        UIImage *image = frame ? [UIImage imageWithCGImage:frame] : nil;
+        if (frame) CGImageRelease(frame);
+        return image;
+    }
     UIImage *full = [UIImage imageWithContentsOfFile:path];
     if (!full) return nil;
     CGSize  sz     = CGSizeMake(side, side);
@@ -2290,8 +2322,20 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         return;
     }
     NSString *path  = self.filePaths[indexPath.item];
+    if ([@[@"mov", @"mp4", @"m4v", @"avi"] containsObject:path.pathExtension.lowercaseString]) {
+        AVPlayerViewController *player = [AVPlayerViewController new];
+        player.player = [AVPlayer playerWithURL:[NSURL fileURLWithPath:path]];
+        [self presentViewController:player animated:YES completion:^{ [player.player play]; }];
+        return;
+    }
     UIImage  *image = [UIImage imageWithContentsOfFile:path];
     if (!image) return;
+
+    if (self.onSelectImage) {
+        self.onSelectImage(image);
+        [self dismissViewControllerAnimated:YES completion:nil];
+        return;
+    }
 
     EZPhotoDetailViewController *detail = [EZPhotoDetailViewController new];
     detail.image    = image;
@@ -2330,14 +2374,26 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
     NSUInteger count = self.collectionView.indexPathsForSelectedItems.count;
     self.selectButton.title = NSLocalizedString(@"EZGallery.Done", nil);
-    if (!self.shareSelectedButton) {
-        self.shareSelectedButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAction target:self action:@selector(shareSelectedTapped)];
-        self.deleteSelectedButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemTrash target:self action:@selector(deleteSelectedTapped)];
+    __weak typeof(self) weakSelf = self;
+    UIAction *share = [UIAction actionWithTitle:@"Share" image:[UIImage systemImageNamed:@"square.and.arrow.up"] identifier:nil handler:^(__kindof UIAction *action) {
+        [weakSelf shareSelectedTapped];
+    }];
+    UIAction *musicVideo = [UIAction actionWithTitle:@"Make Music Video" image:[UIImage systemImageNamed:@"film.stack"] identifier:nil handler:^(__kindof UIAction *action) {
+        [weakSelf makeMusicVideoTapped];
+    }];
+    UIAction *delete = [UIAction actionWithTitle:@"Delete" image:[UIImage systemImageNamed:@"trash"] identifier:nil handler:^(__kindof UIAction *action) {
+        [weakSelf deleteSelectedTapped];
+    }];
+    if (count == 0) {
+        share.attributes = UIMenuElementAttributesDisabled;
+        musicVideo.attributes = UIMenuElementAttributesDisabled;
+        delete.attributes = UIMenuElementAttributesDisabled;
     }
-    self.shareSelectedButton.enabled = count > 0;
-    self.deleteSelectedButton.enabled = count > 0;
+    delete.attributes |= UIMenuElementAttributesDestructive;
+    UIMenu *menu = [UIMenu menuWithTitle:@"Selected Media" children:@[share, musicVideo, delete]];
+    self.selectionMenuButton = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"ellipsis.circle"] menu:menu];
     self.countLabel.text = [NSString stringWithFormat:NSLocalizedString(@"EZGallery.SelectedCount", nil), (unsigned long)count];
-    self.navigationItem.rightBarButtonItems = @[self.deleteSelectedButton, self.shareSelectedButton, self.selectButton];
+    self.navigationItem.rightBarButtonItems = @[self.selectionMenuButton, self.selectButton];
 }
 
 - (NSArray<NSString *> *)selectedPhotoPaths {
@@ -2355,8 +2411,178 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSMutableArray<NSURL *> *urls = [NSMutableArray arrayWithCapacity:paths.count];
     for (NSString *path in paths) [urls addObject:[NSURL fileURLWithPath:path]];
     UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:urls applicationActivities:nil];
-    share.popoverPresentationController.barButtonItem = self.shareSelectedButton;
+    share.popoverPresentationController.barButtonItem = self.selectionMenuButton;
     [self presentViewController:share animated:YES completion:nil];
+}
+
+- (void)startMusicRenderingOverlay {
+    if (self.musicRenderingOverlay) return;
+    EZKeepDeviceAwakeBegin(@"Music video rendering");
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.backgroundColor = [UIColor colorWithRed:0.03 green:0.10 blue:0.18 alpha:0.18];
+    overlay.clipsToBounds = YES;
+    self.musicRenderingOverlay = overlay;
+    [self.view addSubview:overlay];
+
+    UIBlurEffect *effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark];
+    self.musicRenderingBlur = [[UIVisualEffectView alloc] initWithEffect:effect];
+    self.musicRenderingBlur.frame = overlay.bounds;
+    self.musicRenderingBlur.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.musicRenderingBlur.alpha = 0;
+    [overlay addSubview:self.musicRenderingBlur];
+
+    self.musicRenderingSpinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
+    self.musicRenderingSpinner.color = [UIColor colorWithRed:0.05 green:0.92 blue:0.72 alpha:1.0];
+    self.musicRenderingSpinner.transform = CGAffineTransformMakeScale(1.7, 1.7);
+    self.musicRenderingSpinner.center = CGPointMake(CGRectGetMidX(overlay.bounds), CGRectGetMidY(overlay.bounds) - 24);
+    self.musicRenderingSpinner.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+    [overlay addSubview:self.musicRenderingSpinner];
+    [self.musicRenderingSpinner startAnimating];
+
+    UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(28, CGRectGetMidY(overlay.bounds) + 20, overlay.bounds.size.width - 56, 54)];
+    label.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleWidth;
+    label.text = @"MAKING MUSIC VIDEO…\nLooping visuals • syncing audio";
+    label.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold]; label.textColor = UIColor.whiteColor;
+    label.textAlignment = NSTextAlignmentCenter; label.numberOfLines = 2;
+    [overlay addSubview:label];
+
+    self.musicWaveLayer = [CAGradientLayer layer];
+    self.musicWaveLayer.frame = CGRectInset(overlay.bounds, -overlay.bounds.size.width, 0);
+    self.musicWaveLayer.startPoint = CGPointMake(0, .5); self.musicWaveLayer.endPoint = CGPointMake(1, .5);
+    self.musicWaveLayer.colors = @[(id)UIColor.clearColor.CGColor,
+        (id)[UIColor colorWithRed:0 green:.95 blue:.74 alpha:.07].CGColor,
+        (id)[UIColor colorWithRed:.20 green:.45 blue:1 alpha:.34].CGColor,
+        (id)[UIColor colorWithRed:0 green:.95 blue:.74 alpha:.07].CGColor, (id)UIColor.clearColor.CGColor];
+    self.musicWaveLayer.locations = @[@0, @.30, @.50, @.70, @1];
+    self.musicWaveLayer.compositingFilter = @"screenBlendMode";
+    [overlay.layer addSublayer:self.musicWaveLayer];
+    CABasicAnimation *wave = [CABasicAnimation animationWithKeyPath:@"transform.translation.x"];
+    wave.fromValue = @(-overlay.bounds.size.width); wave.toValue = @(overlay.bounds.size.width);
+    wave.duration = 1.65; wave.repeatCount = HUGE_VALF;
+    wave.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    [self.musicWaveLayer addAnimation:wave forKey:@"ez.music.wave"];
+    [UIView animateWithDuration:.45 animations:^{ self.musicRenderingBlur.alpha = .90; }];
+}
+
+- (void)stopMusicRenderingOverlay {
+    UIView *overlay = self.musicRenderingOverlay;
+    if (!overlay) return;
+    [UIView animateWithDuration:.25 animations:^{ overlay.alpha = 0; } completion:^(__unused BOOL done) { [overlay removeFromSuperview]; }];
+    self.musicRenderingOverlay = nil; self.musicRenderingBlur = nil; self.musicRenderingSpinner = nil; self.musicWaveLayer = nil;
+    EZKeepDeviceAwakeEnd();
+}
+
+// A deliberately quick first-pass editor: selected visual clips are sequenced
+// (and repeated as needed), their source audio is never copied, and the chosen
+// music track defines the final duration exactly.
+- (void)makeMusicVideoTapped {
+    NSArray<NSString *> *paths = [self selectedPhotoPaths];
+    if (!paths.count) return;
+    self.musicVideoSourcePaths = paths;
+    UIAlertController *prompt = [UIAlertController alertControllerWithTitle:@"Make Music Video"
+        message:@"Choose one audio track. Photos, GIFs, and videos will repeat in selection order until the music ends; original clip audio is removed."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [prompt addAction:[UIAlertAction actionWithTitle:@"Attach Audio" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
+            initForOpeningContentTypes:@[UTTypeAudio] asCopy:YES];
+        picker.delegate = self;
+        [self presentViewController:picker animated:YES completion:nil];
+    }]];
+    [prompt addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) { self.musicVideoSourcePaths = nil; }]];
+    [self presentViewController:prompt animated:YES completion:nil];
+}
+
+- (void)renderMusicVideoWithAudioURL:(NSURL *)audioURL sources:(NSArray<NSString *> *)paths {
+    AVURLAsset *audioAsset = [AVURLAsset URLAssetWithURL:audioURL options:nil];
+    Float64 seconds = CMTimeGetSeconds(audioAsset.duration);
+    if (!isfinite(seconds) || seconds <= 0) { self.musicVideoSourcePaths = nil; return; }
+    [self startMusicRenderingOverlay];
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        // Fast-cut preset: video does the heavy lifting here, so lower its
+        // frame count and canvas before touching the music track. This cuts a
+        // five-minute render from ~7,200 frames to ~3,600 and reduces each
+        // frame's pixel work by over 2×, while audio remains untouched.
+        NSInteger fps = 12;
+        NSInteger outputWidth = 480;
+        NSInteger outputHeight = 854;
+        NSString *dir = [self attachmentsPath];
+        NSString *tempPath = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"render-%@.mp4", NSUUID.UUID.UUIDString]];
+        NSURL *tempURL = [NSURL fileURLWithPath:tempPath];
+        AVAssetWriter *writer = [[AVAssetWriter alloc] initWithURL:tempURL fileType:AVFileTypeMPEG4 error:nil];
+        NSDictionary *settings = @{
+            AVVideoCodecKey: AVVideoCodecTypeH264,
+            AVVideoWidthKey: @(outputWidth), AVVideoHeightKey: @(outputHeight),
+            AVVideoCompressionPropertiesKey: @{ AVVideoAverageBitRateKey: @1800000 }
+        };
+        AVAssetWriterInput *input = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo outputSettings:settings];
+        input.expectsMediaDataInRealTime = NO;
+        NSDictionary *pixelAttrs = @{ (id)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA), (id)kCVPixelBufferWidthKey: @(outputWidth), (id)kCVPixelBufferHeightKey: @(outputHeight) };
+        AVAssetWriterInputPixelBufferAdaptor *adaptor = [[AVAssetWriterInputPixelBufferAdaptor alloc] initWithAssetWriterInput:input sourcePixelBufferAttributes:pixelAttrs];
+        if (![writer canAddInput:input]) {
+            dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf stopMusicRenderingOverlay]; weakSelf.musicVideoSourcePaths = nil; });
+            return;
+        }
+        [writer addInput:input];
+        [writer startWriting]; [writer startSessionAtSourceTime:kCMTimeZero];
+        NSMutableArray *generators = [NSMutableArray array];
+        NSMutableArray<NSNumber *> *durations = [NSMutableArray array];
+        for (NSString *path in paths) {
+            BOOL video = [@[@"mov", @"mp4", @"m4v", @"avi"] containsObject:path.pathExtension.lowercaseString];
+            AVAssetImageGenerator *generator = video ? [[AVAssetImageGenerator alloc] initWithAsset:[AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:path] options:nil]] : nil;
+            generator.appliesPreferredTrackTransform = YES;
+            [generators addObject:generator ?: (id)[NSNull null]];
+            Float64 d = video ? CMTimeGetSeconds(generator.asset.duration) : 3.0;
+            [durations addObject:@(MAX(0.5, MIN(d, 12.0)))];
+        }
+        NSInteger totalFrames = (NSInteger)ceil(seconds * fps);
+        for (NSInteger frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
+            Float64 timeline = frameIndex / (Float64)fps, cursor = 0; NSUInteger sourceIndex = 0;
+            while (timeline >= cursor + durations[sourceIndex].doubleValue) { cursor += durations[sourceIndex].doubleValue; sourceIndex = (sourceIndex + 1) % paths.count; }
+            NSString *path = paths[sourceIndex]; CGImageRef image = nil;
+            AVAssetImageGenerator *generator = (id)generators[sourceIndex];
+            if ((id)generator != (id)[NSNull null]) {
+                image = [generator copyCGImageAtTime:CMTimeMakeWithSeconds(timeline - cursor, 600) actualTime:nil error:nil];
+            } else {
+                CGImageSourceRef source = CGImageSourceCreateWithURL((__bridge CFURLRef)[NSURL fileURLWithPath:path], NULL);
+                if (source) {
+                    size_t frameCount = CGImageSourceGetCount(source);
+                    size_t gifFrame = frameCount > 1 ? (size_t)floor(fmod((timeline - cursor), durations[sourceIndex].doubleValue) / durations[sourceIndex].doubleValue * frameCount) : 0;
+                    image = CGImageSourceCreateImageAtIndex(source, MIN(gifFrame, frameCount - 1), NULL);
+                    CFRelease(source);
+                }
+            }
+            CVPixelBufferRef buffer = NULL;
+            if (!image || CVPixelBufferPoolCreatePixelBuffer(NULL, adaptor.pixelBufferPool, &buffer) != kCVReturnSuccess) { if (image) CGImageRelease(image); continue; }
+            CVPixelBufferLockBaseAddress(buffer, 0);
+            CGContextRef ctx = CGBitmapContextCreate(CVPixelBufferGetBaseAddress(buffer), outputWidth, outputHeight, 8, CVPixelBufferGetBytesPerRow(buffer), CGColorSpaceCreateDeviceRGB(), kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
+            CGContextSetRGBFillColor(ctx, 0, 0, 0, 1); CGContextFillRect(ctx, CGRectMake(0, 0, outputWidth, outputHeight));
+            CGSize s = CGSizeMake(CGImageGetWidth(image), CGImageGetHeight(image)); CGRect draw = EZAspectFillRect(s, CGRectMake(0, 0, outputWidth, outputHeight));
+            CGContextDrawImage(ctx, draw, image); CGContextRelease(ctx); CVPixelBufferUnlockBaseAddress(buffer, 0); CGImageRelease(image);
+            while (!input.readyForMoreMediaData) { [NSThread sleepForTimeInterval:0.002]; }
+            [adaptor appendPixelBuffer:buffer withPresentationTime:CMTimeMake(frameIndex, fps)]; CVPixelBufferRelease(buffer);
+        }
+        [input markAsFinished]; [writer finishWritingWithCompletionHandler:^{
+            AVMutableComposition *mix = [AVMutableComposition composition];
+            AVAssetTrack *video = [[AVURLAsset URLAssetWithURL:tempURL options:nil] tracksWithMediaType:AVMediaTypeVideo].firstObject;
+            AVAssetTrack *audio = [audioAsset tracksWithMediaType:AVMediaTypeAudio].firstObject;
+            NSError *err = nil;
+            AVMutableCompositionTrack *videoTrack = [mix addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
+            [videoTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, CMTimeMakeWithSeconds(seconds, 600)) ofTrack:video atTime:kCMTimeZero error:&err];
+            if (audio) {
+                AVMutableCompositionTrack *audioTrack = [mix addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+                [audioTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, CMTimeMakeWithSeconds(seconds, 600)) ofTrack:audio atTime:kCMTimeZero error:nil];
+            }
+            NSString *finalPath = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"music-video-%@.mp4", NSUUID.UUID.UUIDString]];
+            AVAssetExportSession *exporter = [[AVAssetExportSession alloc] initWithAsset:mix presetName:AVAssetExportPresetHighestQuality]; exporter.outputURL = [NSURL fileURLWithPath:finalPath]; exporter.outputFileType = AVFileTypeMPEG4;
+            [exporter exportAsynchronouslyWithCompletionHandler:^{ dispatch_async(dispatch_get_main_queue(), ^{
+                typeof(self) self = weakSelf; [self stopMusicRenderingOverlay]; self.musicVideoSourcePaths = nil;
+                if (exporter.status == AVAssetExportSessionStatusCompleted) { [self loadFilePaths]; UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[exporter.outputURL] applicationActivities:nil]; [self presentViewController:share animated:YES completion:nil]; }
+                else { UIAlertController *failure = [UIAlertController alertControllerWithTitle:@"Couldn’t make video" message:exporter.error.localizedDescription ?: @"Please try different media." preferredStyle:UIAlertControllerStyleAlert]; [failure addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]]; [self presentViewController:failure animated:YES completion:nil]; }
+            }); }];
+        }];
+    });
 }
 
 - (void)deleteSelectedTapped {
@@ -2385,7 +2611,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         typeof(self) self = weakSelf;
         if (!self) return;
         PHPickerConfiguration *configuration = [[PHPickerConfiguration alloc] init];
-        configuration.filter = [PHPickerFilter imagesFilter];
+        configuration.filter = [PHPickerFilter anyFilterMatchingSubfilters:@[[PHPickerFilter imagesFilter], [PHPickerFilter videosFilter]]];
         configuration.selectionLimit = 0; // Native Photos supports multi-select.
         PHPickerViewController *picker = [[PHPickerViewController alloc]
             initWithConfiguration:configuration];
@@ -2395,11 +2621,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         typeof(self) self = weakSelf;
         if (!self) return;
         UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
-            initForOpeningContentTypes:@[UTTypeImage] asCopy:YES];
+            initForOpeningContentTypes:@[UTTypeImage, UTTypeMovie, UTTypeGIF] asCopy:YES];
         picker.delegate = self;
         picker.allowsMultipleSelection = YES;
         [self presentViewController:picker animated:YES completion:nil];
-    });
+    }, nil);
 }
 
 - (void)picker:(PHPickerViewController *)picker
@@ -2407,6 +2633,22 @@ didFinishPicking:(NSArray<PHPickerResult *> *)results {
     [picker dismissViewControllerAnimated:YES completion:nil];
     for (PHPickerResult *result in results) {
         NSItemProvider *provider = result.itemProvider;
+        if ([provider hasItemConformingToTypeIdentifier:UTTypeMovie.identifier]) {
+            [provider loadFileRepresentationForTypeIdentifier:UTTypeMovie.identifier completionHandler:^(NSURL *url, NSError *error) {
+                NSData *data = url ? [NSData dataWithContentsOfURL:url] : nil;
+                if (!data.length) return;
+                dispatch_async(dispatch_get_main_queue(), ^{ if (EZPhotoGallerySave(data, @"photo_video.mov")) [self loadFilePaths]; });
+            }];
+            continue;
+        }
+        if ([provider hasItemConformingToTypeIdentifier:UTTypeGIF.identifier]) {
+            [provider loadFileRepresentationForTypeIdentifier:UTTypeGIF.identifier completionHandler:^(NSURL *url, NSError *error) {
+                NSData *data = url ? [NSData dataWithContentsOfURL:url] : nil;
+                if (!data.length) return;
+                dispatch_async(dispatch_get_main_queue(), ^{ if (EZPhotoGallerySave(data, @"photo_import.gif")) [self loadFilePaths]; });
+            }];
+            continue;
+        }
         if (![provider canLoadObjectOfClass:[UIImage class]]) continue;
         [provider loadObjectOfClass:[UIImage class]
                  completionHandler:^(__kindof id<NSItemProviderReading> object, NSError *error) {
@@ -2425,6 +2667,12 @@ didFinishPicking:(NSArray<PHPickerResult *> *)results {
 
 - (void)documentPicker:(UIDocumentPickerViewController *)controller
 didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+    if (self.musicVideoSourcePaths.count) {
+        NSURL *audioURL = urls.firstObject;
+        if (audioURL) [self renderMusicVideoWithAudioURL:audioURL sources:self.musicVideoSourcePaths];
+        else self.musicVideoSourcePaths = nil;
+        return;
+    }
     for (NSURL *url in urls) {
         BOOL accessed = [url startAccessingSecurityScopedResource];
         NSData *data = [NSData dataWithContentsOfURL:url];

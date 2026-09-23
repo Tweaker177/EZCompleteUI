@@ -27,6 +27,9 @@ extern NSNotificationName const EZAttachImageToChat;
 extern NSNotificationName const EZEditImageInChat;
 
 @interface EZPhotoGalleryViewController : UIViewController
+/// Optional selection mode for flows that need an existing gallery image
+/// without re-importing or duplicating the underlying file.
+@property (nonatomic, copy, nullable) void (^onSelectImage)(UIImage *image);
 @end
 
 /// Reusable image detail/editor used by the gallery and image-backed memories.

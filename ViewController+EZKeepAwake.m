@@ -9,6 +9,27 @@ static const void *kEZKA_Count      = &kEZKA_Count;
 static const void *kEZKA_BGTask     = &kEZKA_BGTask;
 static const void *kEZKA_Timer      = &kEZKA_Timer;
 static NSString *const kEZKA_Tag    = @"EZKeepAwake";
+static NSInteger gEZKeepAwakeCount = 0;
+
+void EZKeepDeviceAwakeBegin(NSString *reason) {
+    @synchronized ([UIApplication class]) {
+        gEZKeepAwakeCount++;
+        if (gEZKeepAwakeCount == 1) {
+            dispatch_async(dispatch_get_main_queue(), ^{ [UIApplication sharedApplication].idleTimerDisabled = YES; });
+            EZLogf(EZLogLevelInfo, kEZKA_Tag, @"Idle timer disabled (%@)", reason ?: @"op");
+        }
+    }
+}
+
+void EZKeepDeviceAwakeEnd(void) {
+    @synchronized ([UIApplication class]) {
+        gEZKeepAwakeCount = MAX(0, gEZKeepAwakeCount - 1);
+        if (gEZKeepAwakeCount == 0) {
+            dispatch_async(dispatch_get_main_queue(), ^{ [UIApplication sharedApplication].idleTimerDisabled = NO; });
+            EZLog(EZLogLevelInfo, kEZKA_Tag, @"Idle timer re-enabled");
+        }
+    }
+}
 
 static inline NSInteger ezka_getCount(ViewController *vc) {
     NSNumber *n = objc_getAssociatedObject(vc, kEZKA_Count);
@@ -37,14 +58,7 @@ static inline void ezka_setBG(ViewController *vc, UIBackgroundTaskIdentifier t) 
 
 #if TARGET_OS_IOS
         if (c == 1) {
-            // UIKit application state must be changed on the main thread.
-            // Some completion paths arrive on a URL-session queue; changing
-            // the idle timer there is unreliable and caused the display to
-            // dim during an otherwise active generation.
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [UIApplication sharedApplication].idleTimerDisabled = YES;
-            });
-            EZLogf(EZLogLevelInfo, kEZKA_Tag, @"Idle timer disabled (%@)", reason ?: @"op");
+            EZKeepDeviceAwakeBegin(reason);
 
             UIBackgroundTaskIdentifier bg = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
                 EZLog(EZLogLevelWarning, kEZKA_Tag, @"BG task expired; ending");
@@ -78,10 +92,7 @@ static inline void ezka_setBG(ViewController *vc, UIBackgroundTaskIdentifier t) 
 
 #if TARGET_OS_IOS
         if (c == 0) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [UIApplication sharedApplication].idleTimerDisabled = NO;
-            });
-            EZLog(EZLogLevelInfo, kEZKA_Tag, @"Idle timer re-enabled");
+            EZKeepDeviceAwakeEnd();
 
             NSTimer *t = objc_getAssociatedObject(self, kEZKA_Timer);
             if (t) { [t invalidate]; objc_setAssociatedObject(self, kEZKA_Timer, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC); }

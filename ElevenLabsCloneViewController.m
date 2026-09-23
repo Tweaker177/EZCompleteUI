@@ -547,7 +547,8 @@ static NSString * const kEZElevenLabsURL         =
 
     [session setCategory:AVAudioSessionCategoryPlayAndRecord
                     mode:AVAudioSessionModeMeasurement
-                 options:AVAudioSessionCategoryOptionDefaultToSpeaker
+                 options:(AVAudioSessionCategoryOptionDefaultToSpeaker |
+                          AVAudioSessionCategoryOptionMixWithOthers)
                    error:&err];
     if (err) EZLogf(EZLogLevelError, @"REC", @"Session setCategory: %@", err);
     [session setActive:YES error:&err];
@@ -602,7 +603,9 @@ static NSString * const kEZElevenLabsURL         =
 
 - (void)stopRecording {
     [self.recorder stop];
-    [[AVAudioSession sharedInstance] setActive:NO error:nil];
+    [[AVAudioSession sharedInstance] setActive:NO
+                                   withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
+                                         error:nil];
     [self stopMeterTimer];
 
     [self.recordButton setTitle:NSLocalizedString(@"ElevenLabsClone.StartRecording", @"Start recording button") forState:UIControlStateNormal];
@@ -645,6 +648,8 @@ static NSString * const kEZElevenLabsURL         =
 
     NSError *err = nil;
     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback
+                                            mode:AVAudioSessionModeDefault
+                                         options:AVAudioSessionCategoryOptionMixWithOthers
                                            error:nil];
     [[AVAudioSession sharedInstance] setActive:YES error:nil];
 

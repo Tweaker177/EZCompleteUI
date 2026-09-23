@@ -122,6 +122,7 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
 @property (nonatomic, strong) NSMutableArray<BRRicochetPickup *> *_pickups;
 @property (nonatomic, assign) BRRicochetLCG rng;
 @property (nonatomic, assign) NSTimeInterval hitGraceRemaining;
+@property (nonatomic, assign, readwrite) BOOL enemyActive;
 @end
 
 @implementation BRRicochetGameModel
@@ -164,6 +165,7 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
     self.enemyPosition = CGPointMake(boardSize.width * 0.7, boardSize.height * 0.25);
     self.enemyVelocity = CGVectorMake(enemySpeed * (CGFloat)cos(enemyStartAngle),
                                        enemySpeed * (CGFloat)sin(enemyStartAngle));
+    self.enemyActive = YES;
 
     return self;
 }
@@ -197,9 +199,11 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
     NSMutableArray<BRObstacle *> *result = [NSMutableArray array];
 
     NSInteger levelOffset = self._level - 1;
-    NSInteger cols = MIN(9, 6 + levelOffset / 2);
-    NSInteger rows = MIN(8, 5 + levelOffset / 2);
-    CGFloat marginX = 50, marginY = 90;
+    // Slightly fewer, roomier blocks make the musical wall art readable while
+    // preserving clear ricochet lanes around the board.
+    NSInteger cols = MIN(8, 5 + levelOffset / 2);
+    NSInteger rows = MIN(7, 4 + levelOffset / 2);
+    CGFloat marginX = 42, marginY = 76;
     CGFloat cellWidth  = (self._boardSize.width  - marginX * 2) / cols;
     CGFloat cellHeight = (self._boardSize.height - marginY * 2) / rows;
 
@@ -300,26 +304,27 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
     }
 
     // ── Enemy ───────────────────────────────────────────────────────────────
-    CGPoint enemyPos  = self.enemyPosition;
-    CGVector enemyVel = self.enemyVelocity;
-    enemyPos.x += enemyVel.dx * dt;
-    enemyPos.y += enemyVel.dy * dt;
-    BRReflectCircleOffBounds(&enemyPos, &enemyVel, kBRRicochetEnemyRadius, self._boardSize);
-    for (BRObstacle *obstacle in self._obstacles) {
-        BRReflectCircleOffRect(&enemyPos, &enemyVel, kBRRicochetEnemyRadius, obstacle.frame);
-    }
-    if (brRicochetLCGNextUnit(&_rng) < 0.01) {
-        CGFloat wander = (CGFloat)(brRicochetLCGNextUnit(&_rng) - 0.5) * 0.6f;
-        CGFloat angle  = atan2(enemyVel.dy, enemyVel.dx) + wander;
-        CGFloat enemySpeed = MIN(310.0, kBRRicochetEnemySpeed + (self._level - 1) * 18.0);
-        enemyVel = CGVectorMake(enemySpeed * (CGFloat)cos(angle),
-                                 enemySpeed * (CGFloat)sin(angle));
-    }
-    self.enemyPosition = enemyPos;
-    self.enemyVelocity = enemyVel;
+    if (self.enemyActive) {
+        CGPoint enemyPos  = self.enemyPosition;
+        CGVector enemyVel = self.enemyVelocity;
+        enemyPos.x += enemyVel.dx * dt;
+        enemyPos.y += enemyVel.dy * dt;
+        BRReflectCircleOffBounds(&enemyPos, &enemyVel, kBRRicochetEnemyRadius, self._boardSize);
+        for (BRObstacle *obstacle in self._obstacles) {
+            BRReflectCircleOffRect(&enemyPos, &enemyVel, kBRRicochetEnemyRadius, obstacle.frame);
+        }
+        if (brRicochetLCGNextUnit(&_rng) < 0.01) {
+            CGFloat wander = (CGFloat)(brRicochetLCGNextUnit(&_rng) - 0.5) * 0.6f;
+            CGFloat angle  = atan2(enemyVel.dy, enemyVel.dx) + wander;
+            CGFloat enemySpeed = MIN(310.0, kBRRicochetEnemySpeed + (self._level - 1) * 18.0);
+            enemyVel = CGVectorMake(enemySpeed * (CGFloat)cos(angle),
+                                     enemySpeed * (CGFloat)sin(angle));
+        }
+        self.enemyPosition = enemyPos;
+        self.enemyVelocity = enemyVel;
 
-    // ── Player vs enemy ─────────────────────────────────────────────────────
-    if (self.playerLaunched) {
+        // ── Player vs enemy ─────────────────────────────────────────────────
+        if (self.playerLaunched) {
         CGFloat dist = (CGFloat)hypot(self.playerPosition.x - enemyPos.x, self.playerPosition.y - enemyPos.y);
         if (dist < kBRRicochetPlayerRadius + kBRRicochetEnemyRadius && self.hitGraceRemaining <= 0) {
             self.lives -= 1;
@@ -340,6 +345,7 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
                                       BRRicochetEventScore: @(self.score) }];
             }
         }
+        }
     }
 
     if (self._obstacles.count == 0 && self._pickups.count == 0) {
@@ -355,7 +361,8 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
     for (NSInteger i = (NSInteger)self._obstacles.count - 1; i >= 0; i--) {
         BRObstacle *obstacle = self._obstacles[i];
         CGPoint center = CGPointMake(CGRectGetMidX(obstacle.frame), CGRectGetMidY(obstacle.frame));
-        if (hypot(center.x - self.playerPosition.x, center.y - self.playerPosition.y) < radius) {
+        CGFloat obstacleRadius = MAX(obstacle.frame.size.width, obstacle.frame.size.height) / 2.0;
+        if (hypot(center.x - self.playerPosition.x, center.y - self.playerPosition.y) <= radius + obstacleRadius) {
             [self._obstacles removeObjectAtIndex:i];
             [self revealPickupForDestroyedObstacle:obstacle];
             self.score += 15;
@@ -363,6 +370,16 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
         }
     }
     return cleared;
+}
+
+- (BOOL)defeatEnemyWithBlastRadius:(CGFloat)radius {
+    if (!self.enemyActive) return NO;
+    CGFloat distance = (CGFloat)hypot(self.enemyPosition.x - self.playerPosition.x,
+                                      self.enemyPosition.y - self.playerPosition.y);
+    if (distance > radius + kBRRicochetEnemyRadius) return NO;
+    self.enemyActive = NO;
+    self.score += 75;
+    return YES;
 }
 
 @end

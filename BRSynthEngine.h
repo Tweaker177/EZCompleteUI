@@ -38,6 +38,12 @@ NS_ASSUME_NONNULL_BEGIN
 /// Beats per minute. Queued hits are drained on an eighth-note grid at this
 /// tempo — see -tick.
 @property (nonatomic, assign) NSInteger tempoBPM;
+/// Semitone register offset: -4...+3 octaves relative to the game default.
+@property (nonatomic, assign) NSInteger octaveOffset;
+@property (nonatomic, assign) float attackSeconds;          // 0.005...0.25
+@property (nonatomic, assign) float releaseSeconds;         // 0.04...0.70
+@property (nonatomic, assign) float filterBrightness;       // 0 = dark, 1 = bright
+@property (nonatomic, assign) float reverbMix;              // 0 = dry, 1 = fully wet
 
 /// When enabled, publishes a virtual CoreMIDI source named “EZCompleteUI
 /// Ricochet”. It sends Start/Stop, 24-PPQN MIDI Clock, and quantized note
