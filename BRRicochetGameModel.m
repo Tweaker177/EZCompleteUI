@@ -16,6 +16,9 @@ NSString * const BRRicochetEventLivesRemaining    = @"livesRemaining";
 NSString * const BRRicochetEventScore             = @"score";
 NSString * const BRRicochetEventPickupKind        = @"pickupKind";
 NSString * const BRRicochetEventPickupValue       = @"pickupValue";
+NSString * const BRRicochetEventMusicalEffect     = @"musicalEffect";
+NSString * const BRRicochetEventCollisionPoint    = @"collisionPoint";
+NSString * const BRRicochetEventCollisionAngle    = @"collisionAngle";
 
 NSString * const BRRicochetEventTypeBoundsHit      = @"boundsHit";
 NSString * const BRRicochetEventTypeWallHit        = @"wallHit";
@@ -257,7 +260,9 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
         pos.y += vel.dy * dt;
 
         if (BRReflectCircleOffBounds(&pos, &vel, kBRRicochetPlayerRadius, self._boardSize)) {
-            [events addObject:@{ BRRicochetEventType: BRRicochetEventTypeBoundsHit }];
+            [events addObject:@{ BRRicochetEventType: BRRicochetEventTypeBoundsHit,
+                                 BRRicochetEventCollisionPoint: [NSValue value:&pos withObjCType:@encode(CGPoint)],
+                                 BRRicochetEventCollisionAngle: @(atan2(vel.dy, vel.dx)) }];
         }
 
         for (NSInteger i = (NSInteger)self._obstacles.count - 1; i >= 0; i--) {
@@ -269,11 +274,20 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
                     [self._obstacles removeObjectAtIndex:i];
                     [self revealPickupForDestroyedObstacle:obstacle];
                     self.score += 15;
+                    // Block durability doubles as a musical identity: light
+                    // blocks bloom reverb, medium ones tighten compression,
+                    // and heavy blocks add chorus when finally shattered.
+                    NSInteger musicalEffect = MAX(0, MIN(2, obstacle.maxHP - 1));
                     [events addObject:@{ BRRicochetEventType: BRRicochetEventTypeBlockDestroyed,
-                                         BRRicochetEventFrame: [NSValue value:&destroyedFrame withObjCType:@encode(CGRect)] }];
+                                         BRRicochetEventFrame: [NSValue value:&destroyedFrame withObjCType:@encode(CGRect)],
+                                         BRRicochetEventMusicalEffect: @(musicalEffect),
+                                         BRRicochetEventCollisionPoint: [NSValue value:&pos withObjCType:@encode(CGPoint)],
+                                         BRRicochetEventCollisionAngle: @(atan2(vel.dy, vel.dx)) }];
                 } else {
                     self.score += 5;
-                    [events addObject:@{ BRRicochetEventType: BRRicochetEventTypeWallHit }];
+                    [events addObject:@{ BRRicochetEventType: BRRicochetEventTypeWallHit,
+                                         BRRicochetEventCollisionPoint: [NSValue value:&pos withObjCType:@encode(CGPoint)],
+                                         BRRicochetEventCollisionAngle: @(atan2(vel.dy, vel.dx)) }];
                 }
                 break; // one obstacle collision per step — keeps the reflection stable
             }

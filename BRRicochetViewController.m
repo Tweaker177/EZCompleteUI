@@ -9,6 +9,7 @@
 #import "BRRicochetGameView.h"
 #import "BRRicochetHighScoresViewController.h"
 #import "BRSynthEngine.h"
+#import "BRSmartKeyboardView.h"
 #import "BRGameLibrary.h"  // BRGameRecord lives here; .seed and -asAssetDict are all we touch
 #import "BRGamePickerViewController.h"        // reused as-is — it has no idea what VC presented it
 #import "BRCustomGameCreatorViewController.h" // reused as-is — same Workshop, same asset pipeline
@@ -21,6 +22,11 @@ typedef NS_ENUM(NSInteger, BRRicochetState) {
     BRRicochetStateLaunching,   // manual slide-in animation in progress
     BRRicochetStatePlaying,
     BRRicochetStateGameOver
+};
+
+typedef NS_ENUM(NSInteger, BRRicochetControlMode) {
+    BRRicochetControlModeArrows,
+    BRRicochetControlModeKeyboard,
 };
 
 static const NSTimeInterval kBRRicochetLaunchAnimDuration = 0.55;
@@ -36,6 +42,13 @@ static NSString * const kBRRicochetDefaultsAttack = @"BRRicochetSynthAttack";
 static NSString * const kBRRicochetDefaultsRelease = @"BRRicochetSynthRelease";
 static NSString * const kBRRicochetDefaultsFilter = @"BRRicochetSynthFilter";
 static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
+static NSString * const kBRRicochetDefaultsDrums  = @"BRRicochetSynthDrumLoop";
+static NSString * const kBRRicochetDefaultsSynthVolume = @"BRRicochetSynthVolume";
+static NSString * const kBRRicochetDefaultsDrumsVolume = @"BRRicochetDrumsVolume";
+static NSString * const kBRRicochetDefaultsCompression = @"BRRicochetSynthCompression";
+static NSString * const kBRRicochetDefaultsArpeggio = @"BRRicochetSynthArpeggioDivision";
+static NSString * const kBRRicochetDefaultsWaveform = @"BRRicochetSynthWaveform";
+static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSynthOscillator2Waveform";
 
 /// Compact rotary control for the Music Lab. It owns its pan gesture, so it
 /// remains responsive while the Music Lab is on screen instead of relying on
@@ -91,6 +104,8 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
 
 @property (nonatomic, strong) UIButton *leftBtn;
 @property (nonatomic, strong) UIButton *rightBtn;
+@property (nonatomic, strong) BRSmartKeyboardView *keyboardView;
+@property (nonatomic, strong) UIButton *modeToggleBtn;
 @property (nonatomic, strong) UIButton *actionBtn;   // "Use" blast
 @property (nonatomic, strong) UIButton *launchBtn;
 @property (nonatomic, strong) UIButton *settingsBtn;
@@ -109,6 +124,8 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
 
 @property (nonatomic, assign) BOOL steeringLeft;
 @property (nonatomic, assign) BOOL steeringRight;
+@property (nonatomic, assign) BRRicochetControlMode controlMode;
+@property (nonatomic, assign) CGFloat analogSteerAmount;
 @property (nonatomic, assign) BOOL isPaused;
 @property (nonatomic, assign) NSInteger currentLevel;
 
@@ -245,6 +262,32 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
     [self.view addSubview:self.leftBtn];
     [self.view addSubview:self.rightBtn];
 
+    self.keyboardView = [[BRSmartKeyboardView alloc] init];
+    self.keyboardView.synth = self.synth;
+    self.keyboardView.hidden = YES;
+    __weak typeof(self) weakSelf = self;
+    self.keyboardView.onNote = ^(NSInteger semitone, float velocity) {
+        [weakSelf.synth playKeySemitone:semitone velocity:velocity];
+    };
+    self.keyboardView.onSteerChanged = ^(CGFloat amount) {
+        weakSelf.analogSteerAmount = amount;
+    };
+    self.keyboardView.onSettingsChanged = ^{
+        [weakSelf persistSynthSettings];
+    };
+    [self.view addSubview:self.keyboardView];
+
+    self.modeToggleBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.modeToggleBtn setTitle:@"🎹" forState:UIControlStateNormal];
+    self.modeToggleBtn.titleLabel.font = [UIFont systemFontOfSize:20];
+    self.modeToggleBtn.tintColor = UIColor.whiteColor;
+    self.modeToggleBtn.backgroundColor = [UIColor colorWithWhite:1 alpha:0.12];
+    self.modeToggleBtn.layer.cornerRadius = 10;
+    self.modeToggleBtn.layer.borderWidth = 1;
+    self.modeToggleBtn.layer.borderColor = [UIColor colorWithWhite:1 alpha:0.24].CGColor;
+    [self.modeToggleBtn addTarget:self action:@selector(toggleControlMode) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.modeToggleBtn];
+
     self.actionBtn = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.actionBtn setTitle:@"⚡ USE" forState:UIControlStateNormal];
     self.actionBtn.titleLabel.font    = [UIFont boldSystemFontOfSize:15];
@@ -316,9 +359,9 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
     self.livesLabel.frame = CGRectMake(self.pauseBtn.frame.origin.x - 104, hudY + 11, 96, 20);
 
     CGFloat boardTop = hudY + 48;
-    // The centered controls use a little more vertical room, leaving ample
-    // space for the launch/settings controls below them.
-    CGFloat boardBottom = self.view.bounds.size.height - bottomSafe - 210;
+    // Reserve keyboard space in both modes so switching inputs never changes
+    // a live run's physics coordinates underneath the ball.
+    CGFloat boardBottom = self.view.bounds.size.height - bottomSafe - 320;
     self.gameView.frame = CGRectMake(sideMargin, boardTop,
                                       self.view.bounds.size.width - sideMargin * 2,
                                       MAX(boardBottom - boardTop, 100));
@@ -350,9 +393,17 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
     CGFloat controlsCenterX = CGRectGetMidX(self.view.bounds);
     self.leftBtn.frame  = CGRectMake(controlsCenterX - buttonGap / 2.0 - buttonW, controlsY, buttonW, buttonH);
     self.rightBtn.frame = CGRectMake(controlsCenterX + buttonGap / 2.0, controlsY, buttonW, buttonH);
+    // Keyboard mode is one unified control surface: keys at the top, Use in
+    // the middle, then Music Lab shortcuts along the bottom.
+    self.keyboardView.frame = CGRectMake(sideMargin, controlsY,
+                                         self.view.bounds.size.width - sideMargin * 2, 245);
 
-    self.launchBtn.frame = CGRectMake(sideMargin, CGRectGetMaxY(self.leftBtn.frame) + 16,
-                                       self.view.bounds.size.width - sideMargin * 2, 46);
+    BOOL keyboardActive = self.controlMode == BRRicochetControlModeKeyboard;
+    CGFloat launchY = keyboardActive ? controlsY + 100 : CGRectGetMaxY(self.leftBtn.frame) + 16;
+    self.launchBtn.frame = CGRectMake(sideMargin, launchY,
+                                       self.view.bounds.size.width - sideMargin * 2 - 50, 46);
+    self.modeToggleBtn.frame = CGRectMake(self.view.bounds.size.width - sideMargin - 42,
+                                          launchY + 7, 42, 32);
     // Use takes this former Launch / Play Again position while a run is active.
     self.actionBtn.frame = self.launchBtn.frame;
     self.settingsBtn.frame = CGRectMake(sideMargin, CGRectGetMaxY(self.launchBtn.frame) + 10, 160, 24);
@@ -405,6 +456,7 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
 - (void)loadGameRecord:(BRGameRecord *)record {
     self.currentGameRecord = record;
     self.currentLevel = 1;
+    self.synth.drumPatternIndex = 0;
     self.state = BRRicochetStateReady;
     self.isPaused = NO;
     self.pauseBtn.selected = NO;
@@ -471,6 +523,10 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
     self.rightBtn.enabled = enabled;
     self.actionBtn.enabled = enabled;
     self.leftBtn.alpha = self.rightBtn.alpha = self.actionBtn.alpha = enabled ? 1.0 : 0.4;
+    self.keyboardView.userInteractionEnabled = enabled;
+    self.keyboardView.alpha = enabled ? 1.0 : 0.4;
+    self.modeToggleBtn.enabled = enabled;
+    self.modeToggleBtn.alpha = enabled ? 1.0 : 0.4;
     self.pauseBtn.enabled = enabled;
     self.pauseBtn.alpha = enabled ? 1.0 : 0.4;
 }
@@ -578,6 +634,21 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
 - (void)leftTouchUp    { self.steeringLeft = NO; }
 - (void)rightTouchDown { self.steeringRight = YES; }
 - (void)rightTouchUp   { self.steeringRight = NO; }
+
+- (void)toggleControlMode {
+    self.controlMode = self.controlMode == BRRicochetControlModeArrows
+        ? BRRicochetControlModeKeyboard : BRRicochetControlModeArrows;
+    BOOL keyboardActive = self.controlMode == BRRicochetControlModeKeyboard;
+    self.steeringLeft = NO;
+    self.steeringRight = NO;
+    self.analogSteerAmount = 0;
+    self.leftBtn.hidden = keyboardActive;
+    self.rightBtn.hidden = keyboardActive;
+    self.keyboardView.hidden = !keyboardActive;
+    [self.modeToggleBtn setTitle:keyboardActive ? @"◀︎▶︎" : @"🎹" forState:UIControlStateNormal];
+    if (keyboardActive) [self.keyboardView refreshFromSynth];
+    [self.view setNeedsLayout];
+}
 
 #pragma mark - Launch
 
@@ -731,8 +802,14 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
     self.lastFrameTime = now;
 
     if (self.state == BRRicochetStatePlaying && !self.isPaused) {
-        if (self.steeringLeft)  [self.model steerByRadians:-kBRRicochetSteerRateRadPerSec * dt];
-        if (self.steeringRight) [self.model steerByRadians: kBRRicochetSteerRateRadPerSec * dt];
+        if (self.controlMode == BRRicochetControlModeKeyboard) {
+            if (self.analogSteerAmount != 0) {
+                [self.model steerByRadians:self.analogSteerAmount * kBRRicochetSteerRateRadPerSec * dt];
+            }
+        } else {
+            if (self.steeringLeft)  [self.model steerByRadians:-kBRRicochetSteerRateRadPerSec * dt];
+            if (self.steeringRight) [self.model steerByRadians: kBRRicochetSteerRateRadPerSec * dt];
+        }
 
         NSArray<NSDictionary<NSString *, id> *> *events = [self.model stepWithDeltaTime:dt];
         [self handleEvents:events];
@@ -751,16 +828,17 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
         NSString *type = event[BRRicochetEventType];
 
         if ([type isEqualToString:BRRicochetEventTypeBoundsHit]) {
-            [self.synth queueHitWithVelocity:1.0];
+            [self queueCollisionNoteForEvent:event velocity:1.0f];
 
         } else if ([type isEqualToString:BRRicochetEventTypeWallHit]) {
-            [self.synth queueHitWithVelocity:1.4];
+            [self queueCollisionNoteForEvent:event velocity:1.4f];
             scoreChanged = YES;
 
         } else if ([type isEqualToString:BRRicochetEventTypeBlockDestroyed]) {
             [self playBlockShatterAtBoardFrame:[event[BRRicochetEventFrame] CGRectValue]];
             [self playSoundNamed:@"wall-blast-success"];
-            [self.synth queueHitWithVelocity:1.8];
+            [self queueCollisionNoteForEvent:event velocity:1.8f];
+            [self.synth triggerReactiveEffect:[event[BRRicochetEventMusicalEffect] integerValue]];
             scoreChanged = YES;
 
         } else if ([type isEqualToString:BRRicochetEventTypeEnemyHit]) {
@@ -788,12 +866,30 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
     if (scoreChanged) [self updateHUD];
 }
 
+- (void)queueCollisionNoteForEvent:(NSDictionary<NSString *, id> *)event velocity:(float)velocity {
+    NSValue *pointValue = event[BRRicochetEventCollisionPoint];
+    NSNumber *angleValue = event[BRRicochetEventCollisionAngle];
+    if (pointValue && angleValue) {
+        [self.synth queueCollisionAtPoint:pointValue.CGPointValue
+                                 boardSize:self.gameView.bounds.size
+                               impactAngle:angleValue.doubleValue
+                                  velocity:velocity];
+    } else {
+        // Keeps future/legacy event producers audible even if they do not
+        // include Ricochet's physical collision metadata.
+        [self.synth queueHitWithVelocity:velocity];
+    }
+}
+
 - (void)advanceToNextLevel {
     if (!self.currentGameRecord || self.state == BRRicochetStateGameOver) return;
 
     NSInteger carriedScore = self.model.score;
     NSInteger carriedLives = self.model.lives;
     self.currentLevel += 1;
+    // Rotate through the authored 808 bank. BRSynthEngine quantizes the swap
+    // to the next two-bar downbeat, preserving musical timing between levels.
+    self.synth.drumPatternIndex = (self.currentLevel - 1) % 8;
     self.state = BRRicochetStateReady;
     self.isPaused = NO;
     self.steeringLeft = NO;
@@ -851,10 +947,29 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
     if ([defaults objectForKey:kBRRicochetDefaultsRelease]) self.synth.releaseSeconds = [defaults floatForKey:kBRRicochetDefaultsRelease];
     if ([defaults objectForKey:kBRRicochetDefaultsFilter]) self.synth.filterBrightness = [defaults floatForKey:kBRRicochetDefaultsFilter];
     if ([defaults objectForKey:kBRRicochetDefaultsReverb]) self.synth.reverbMix = [defaults floatForKey:kBRRicochetDefaultsReverb];
+    if ([defaults objectForKey:kBRRicochetDefaultsSynthVolume]) self.synth.synthVolume = [defaults floatForKey:kBRRicochetDefaultsSynthVolume];
+    if ([defaults objectForKey:kBRRicochetDefaultsDrumsVolume]) self.synth.drumsVolume = [defaults floatForKey:kBRRicochetDefaultsDrumsVolume];
+    if ([defaults objectForKey:kBRRicochetDefaultsCompression]) self.synth.compressionMix = [defaults floatForKey:kBRRicochetDefaultsCompression];
+    if ([defaults objectForKey:kBRRicochetDefaultsArpeggio]) self.synth.arpeggioDivision = [defaults integerForKey:kBRRicochetDefaultsArpeggio];
+    if ([defaults objectForKey:kBRRicochetDefaultsWaveform]) self.synth.waveform = [defaults integerForKey:kBRRicochetDefaultsWaveform];
+    if ([defaults objectForKey:kBRRicochetDefaultsOscillator2Waveform]) self.synth.oscillator2Waveform = [defaults integerForKey:kBRRicochetDefaultsOscillator2Waveform];
+    // Default the new loop on for existing players, while honoring an explicit
+    // preference after someone turns it off in Music Lab.
+    if ([defaults objectForKey:kBRRicochetDefaultsDrums]) self.synth.drumLoopEnabled = [defaults boolForKey:kBRRicochetDefaultsDrums];
     // Older builds stored a narrower range. Clamp corrupted/legacy values to
     // the full Music Lab range before the labels and stepper are constructed.
     self.synth.octaveOffset = MAX(-4, MIN(3, self.synth.octaveOffset));
     self.synth.tempoBPM = MAX(60, MIN(200, self.synth.tempoBPM));
+    if (self.synth.arpeggioDivision < BRSynthArpeggioDivisionQuarter ||
+        self.synth.arpeggioDivision > BRSynthArpeggioDivisionSixteenth) {
+        self.synth.arpeggioDivision = BRSynthArpeggioDivisionEighth;
+    }
+    if (self.synth.waveform < BRSynthWaveformSine || self.synth.waveform > BRSynthWaveformSquare) {
+        self.synth.waveform = BRSynthWaveformTriangle;
+    }
+    if (self.synth.oscillator2Waveform < BRSynthWaveformSine || self.synth.oscillator2Waveform > BRSynthWaveformSquare) {
+        self.synth.oscillator2Waveform = BRSynthWaveformSawtooth;
+    }
 }
 
 - (void)persistSynthSettings {
@@ -868,6 +983,14 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
     [defaults setFloat:self.synth.releaseSeconds forKey:kBRRicochetDefaultsRelease];
     [defaults setFloat:self.synth.filterBrightness forKey:kBRRicochetDefaultsFilter];
     [defaults setFloat:self.synth.reverbMix forKey:kBRRicochetDefaultsReverb];
+    [defaults setFloat:self.synth.synthVolume forKey:kBRRicochetDefaultsSynthVolume];
+    [defaults setFloat:self.synth.drumsVolume forKey:kBRRicochetDefaultsDrumsVolume];
+    [defaults setFloat:self.synth.compressionMix forKey:kBRRicochetDefaultsCompression];
+    [defaults setInteger:self.synth.arpeggioDivision forKey:kBRRicochetDefaultsArpeggio];
+    [defaults setInteger:self.synth.waveform forKey:kBRRicochetDefaultsWaveform];
+    [defaults setInteger:self.synth.oscillator2Waveform forKey:kBRRicochetDefaultsOscillator2Waveform];
+    [defaults setBool:self.synth.drumLoopEnabled forKey:kBRRicochetDefaultsDrums];
+    [self.keyboardView refreshFromSynth];
 }
 
 - (NSArray<NSString *> *)noteNames {
@@ -895,7 +1018,7 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
     self.musicSettingsOverlay = overlay;
 
     CGFloat cardWidth = MIN(350.0, CGRectGetWidth(self.view.bounds) - 36.0);
-    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, 610)];
+    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, 820)];
     card.center = CGPointMake(CGRectGetMidX(overlay.bounds), CGRectGetMidY(overlay.bounds));
     card.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin |
                             UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
@@ -929,8 +1052,22 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
     BRRicochetMusicKnob *releaseKnob = [[BRRicochetMusicKnob alloc] initWithCaption:@"RELEASE"];
     BRRicochetMusicKnob *filterKnob = [[BRRicochetMusicKnob alloc] initWithCaption:@"FILTER"];
     BRRicochetMusicKnob *reverbKnob = [[BRRicochetMusicKnob alloc] initWithCaption:@"REVERB"];
+    BRRicochetMusicKnob *synthVolumeKnob = [[BRRicochetMusicKnob alloc] initWithCaption:@"SYNTH VOL"];
+    BRRicochetMusicKnob *drumsVolumeKnob = [[BRRicochetMusicKnob alloc] initWithCaption:@"DRUM VOL"];
+    BRRicochetMusicKnob *compressionKnob = [[BRRicochetMusicKnob alloc] initWithCaption:@"COMPRESS"];
     NSArray<BRRicochetMusicKnob *> *knobs = @[attackKnob, releaseKnob, filterKnob, reverbKnob];
-    for (BRRicochetMusicKnob *knob in knobs) { knob.minimumValue = 0; knob.maximumValue = 1; [card addSubview:knob]; }
+    NSArray<BRRicochetMusicKnob *> *mixKnobs = @[synthVolumeKnob, drumsVolumeKnob, compressionKnob];
+    for (BRRicochetMusicKnob *knob in [knobs arrayByAddingObjectsFromArray:mixKnobs]) { knob.minimumValue = 0; knob.maximumValue = 1; [card addSubview:knob]; }
+    UILabel *wave1Label = [[UILabel alloc] initWithFrame:CGRectMake(25, 388, 84, 32)]; wave1Label.text = @"OSC 1 WAVE"; wave1Label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; wave1Label.textColor = [UIColor colorWithWhite:0.65 alpha:1]; [card addSubview:wave1Label];
+    UISegmentedControl *wave1 = [[UISegmentedControl alloc] initWithItems:@[ @"SIN", @"TRI", @"SAW", @"SQR" ]];
+    wave1.frame = CGRectMake(112, 384, cardWidth - 137, 36);
+    wave1.selectedSegmentTintColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:0.82];
+    [card addSubview:wave1];
+    UILabel *wave2Label = [[UILabel alloc] initWithFrame:CGRectMake(25, 424, 84, 32)]; wave2Label.text = @"OSC 2 WAVE"; wave2Label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; wave2Label.textColor = [UIColor colorWithWhite:0.65 alpha:1]; [card addSubview:wave2Label];
+    UISegmentedControl *wave2 = [[UISegmentedControl alloc] initWithItems:@[ @"SIN", @"TRI", @"SAW", @"SQR" ]];
+    wave2.frame = CGRectMake(112, 420, cardWidth - 137, 36);
+    wave2.selectedSegmentTintColor = [UIColor colorWithRed:0.40 green:0.65 blue:1 alpha:0.78];
+    [card addSubview:wave2];
     __weak typeof(self) weakSelf = self;
     __block void (^refresh)(void) = ^{
         typeof(self) self = weakSelf; if (!self) return;
@@ -942,10 +1079,18 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
         releaseKnob.value = (self.synth.releaseSeconds - 0.04f) / 0.66f;
         filterKnob.value = self.synth.filterBrightness;
         reverbKnob.value = self.synth.reverbMix;
+        synthVolumeKnob.value = self.synth.synthVolume;
+        drumsVolumeKnob.value = self.synth.drumsVolume;
+        compressionKnob.value = self.synth.compressionMix;
+        wave1.selectedSegmentIndex = self.synth.waveform;
+        wave2.selectedSegmentIndex = self.synth.oscillator2Waveform;
         attackKnob.valueLabel.text = [NSString stringWithFormat:@"%.0f ms", self.synth.attackSeconds * 1000.0f];
         releaseKnob.valueLabel.text = [NSString stringWithFormat:@"%.0f ms", self.synth.releaseSeconds * 1000.0f];
         filterKnob.valueLabel.text = [NSString stringWithFormat:@"%.0f%%", self.synth.filterBrightness * 100.0f];
         reverbKnob.valueLabel.text = [NSString stringWithFormat:@"%.0f%%", self.synth.reverbMix * 100.0f];
+        synthVolumeKnob.valueLabel.text = [NSString stringWithFormat:@"%.0f%%", self.synth.synthVolume * 100.0f];
+        drumsVolumeKnob.valueLabel.text = [NSString stringWithFormat:@"%.0f%%", self.synth.drumsVolume * 100.0f];
+        compressionKnob.valueLabel.text = [NSString stringWithFormat:@"%.0f%%", self.synth.compressionMix * 100.0f];
     };
     NSArray<NSString *> *rowTitles = @[ @"ROOT KEY", @"SCALE", @"OCTAVE", @"TEMPO" ];
     NSArray<UILabel *> *rowValues = @[ keyValue, scaleValue, octaveValue, tempoValue ];
@@ -985,9 +1130,16 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
     UIButton *minus = smallButton(@"−", cardWidth / 2.0 - 70); UIButton *plus = smallButton(@"+", cardWidth / 2.0 + 12);
     [minus addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.tempoBPM = MAX(60, weakSelf.synth.tempoBPM - 1); [weakSelf persistSynthSettings]; refresh(); }] forControlEvents:UIControlEventTouchUpInside];
     [plus addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.tempoBPM = MIN(200, weakSelf.synth.tempoBPM + 1); [weakSelf persistSynthSettings]; refresh(); }] forControlEvents:UIControlEventTouchUpInside];
+    UILabel *arpLabel = [[UILabel alloc] initWithFrame:CGRectMake(25, 352, 84, 32)]; arpLabel.text = @"ARP RATE"; arpLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; arpLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1]; [card addSubview:arpLabel];
+    UISegmentedControl *arp = [[UISegmentedControl alloc] initWithItems:@[ @"1/4", @"1/8", @"1/16" ]];
+    arp.frame = CGRectMake(112, 348, cardWidth - 137, 36); arp.selectedSegmentIndex = self.synth.arpeggioDivision;
+    arp.selectedSegmentTintColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:0.82];
+    [arp addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.arpeggioDivision = (BRSynthArpeggioDivision)arp.selectedSegmentIndex; [weakSelf persistSynthSettings]; }] forControlEvents:UIControlEventValueChanged]; [card addSubview:arp];
+    [wave1 addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.waveform = (BRSynthWaveform)wave1.selectedSegmentIndex; [weakSelf persistSynthSettings]; refresh(); }] forControlEvents:UIControlEventValueChanged];
+    [wave2 addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.oscillator2Waveform = (BRSynthWaveform)wave2.selectedSegmentIndex; [weakSelf persistSynthSettings]; refresh(); }] forControlEvents:UIControlEventValueChanged];
     CGFloat knobX = (cardWidth - knobs.count * 72.0) / 2.0;
     for (NSInteger i = 0; i < knobs.count; i++) {
-        BRRicochetMusicKnob *knob = knobs[i]; knob.frame = CGRectMake(knobX + i * 72.0, 366, 72, 104);
+        BRRicochetMusicKnob *knob = knobs[i]; knob.frame = CGRectMake(knobX + i * 72.0, 462, 72, 104);
         [knob addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
             if (i == 0) weakSelf.synth.attackSeconds = 0.005f + knob.value * 0.245f;
             else if (i == 1) weakSelf.synth.releaseSeconds = 0.04f + knob.value * 0.66f;
@@ -996,10 +1148,23 @@ static NSString * const kBRRicochetDefaultsReverb = @"BRRicochetSynthReverb";
             [weakSelf persistSynthSettings]; refresh();
         }] forControlEvents:UIControlEventValueChanged];
     }
-    UISwitch *midiSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(cardWidth - 80, 480, 52, 32)]; midiSwitch.on = self.synth.isMIDIClockEnabled; midiSwitch.onTintColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:1];
+    CGFloat mixKnobX = (cardWidth - mixKnobs.count * 72.0) / 2.0;
+    for (NSInteger i = 0; i < mixKnobs.count; i++) {
+        BRRicochetMusicKnob *knob = mixKnobs[i]; knob.frame = CGRectMake(mixKnobX + i * 72.0, 572, 72, 104);
+        [knob addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
+            if (i == 0) weakSelf.synth.synthVolume = knob.value;
+            else if (i == 1) weakSelf.synth.drumsVolume = knob.value;
+            else weakSelf.synth.compressionMix = knob.value;
+            [weakSelf persistSynthSettings]; refresh();
+        }] forControlEvents:UIControlEventValueChanged];
+    }
+    UISwitch *midiSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(cardWidth - 80, 682, 52, 32)]; midiSwitch.on = self.synth.isMIDIClockEnabled; midiSwitch.onTintColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:1];
     [midiSwitch addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.midiClockEnabled = midiSwitch.isOn; [weakSelf persistSynthSettings]; }] forControlEvents:UIControlEventValueChanged]; [card addSubview:midiSwitch];
-    UILabel *midi = [[UILabel alloc] initWithFrame:CGRectMake(25, 472, 200, 44)]; midi.text = @"MIDI CLOCK SYNC"; midi.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; midi.textColor = [UIColor colorWithWhite:0.70 alpha:1]; [card addSubview:midi];
-    UIButton *done = [UIButton buttonWithType:UIButtonTypeSystem]; done.frame = CGRectMake(20, 544, cardWidth - 40, 42); done.backgroundColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:0.92]; done.layer.cornerRadius = 12; [done setTitle:@"Done" forState:UIControlStateNormal]; done.titleLabel.font = [UIFont boldSystemFontOfSize:15]; done.tintColor = UIColor.whiteColor; [card addSubview:done];
+    UILabel *midi = [[UILabel alloc] initWithFrame:CGRectMake(25, 674, 200, 44)]; midi.text = @"MIDI CLOCK SYNC"; midi.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; midi.textColor = [UIColor colorWithWhite:0.70 alpha:1]; [card addSubview:midi];
+    UISwitch *drumsSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(cardWidth - 80, 724, 52, 32)]; drumsSwitch.on = self.synth.isDrumLoopEnabled; drumsSwitch.onTintColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:1];
+    [drumsSwitch addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.drumLoopEnabled = drumsSwitch.isOn; [weakSelf persistSynthSettings]; }] forControlEvents:UIControlEventValueChanged]; [card addSubview:drumsSwitch];
+    UILabel *drums = [[UILabel alloc] initWithFrame:CGRectMake(25, 716, 220, 44)]; drums.text = @"808 DRUM LOOP"; drums.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; drums.textColor = [UIColor colorWithWhite:0.70 alpha:1]; [card addSubview:drums];
+    UIButton *done = [UIButton buttonWithType:UIButtonTypeSystem]; done.frame = CGRectMake(20, 766, cardWidth - 40, 42); done.backgroundColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:0.92]; done.layer.cornerRadius = 12; [done setTitle:@"Done" forState:UIControlStateNormal]; done.titleLabel.font = [UIFont boldSystemFontOfSize:15]; done.tintColor = UIColor.whiteColor; [card addSubview:done];
     [done addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { [UIView animateWithDuration:0.16 animations:^{ overlay.alpha = 0; } completion:^(__unused BOOL done) { [overlay removeFromSuperview]; weakSelf.musicSettingsOverlay = nil; }]; }] forControlEvents:UIControlEventTouchUpInside];
     refresh();
     // The Music Lab remains pinned over the game: no sheet drag, slide-in, or

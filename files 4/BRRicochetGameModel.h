@@ -25,11 +25,6 @@ extern NSString * const BRRicochetEventType;              // NSString, one of th
 extern NSString * const BRRicochetEventFrame;              // NSValue(CGRect), present on blockDestroyed
 extern NSString * const BRRicochetEventLivesRemaining;      // NSNumber, present on enemyHit
 extern NSString * const BRRicochetEventScore;               // NSNumber, present on gameOver / boardCleared
-extern NSString * const BRRicochetEventPickupKind;          // NSNumber(BRRicochetPickupKind)
-extern NSString * const BRRicochetEventPickupValue;         // NSNumber, score value for a coin
-extern NSString * const BRRicochetEventMusicalEffect;       // NSNumber: 0 reverb, 1 compression, 2 chorus
-extern NSString * const BRRicochetEventCollisionPoint;      // NSValue(CGPoint), wall/border rebound point
-extern NSString * const BRRicochetEventCollisionAngle;      // NSNumber radians, outgoing rebound angle
 
 extern NSString * const BRRicochetEventTypeBoundsHit;
 extern NSString * const BRRicochetEventTypeWallHit;
@@ -37,19 +32,6 @@ extern NSString * const BRRicochetEventTypeBlockDestroyed;
 extern NSString * const BRRicochetEventTypeEnemyHit;
 extern NSString * const BRRicochetEventTypeGameOver;
 extern NSString * const BRRicochetEventTypeBoardCleared;
-extern NSString * const BRRicochetEventTypeHeartCollected;
-extern NSString * const BRRicochetEventTypeCoinCollected;
-
-typedef NS_ENUM(NSInteger, BRRicochetPickupKind) {
-    BRRicochetPickupKindHeart,
-    BRRicochetPickupKindCoin,
-};
-
-@interface BRRicochetPickup : NSObject
-@property (nonatomic, assign) CGRect frame;
-@property (nonatomic, assign) BRRicochetPickupKind kind;
-@property (nonatomic, assign) NSInteger scoreValue;
-@end
 
 /// One breakable obstacle particle. Unlike BRGameModel's maze walls (fixed
 /// HP of 3, locked to the tile grid), these sit at arbitrary float rects
@@ -64,9 +46,7 @@ typedef NS_ENUM(NSInteger, BRRicochetPickupKind) {
 @interface BRRicochetGameModel : NSObject
 
 @property (nonatomic, readonly) CGSize boardSize;
-@property (nonatomic, readonly) NSInteger level;
 @property (nonatomic, readonly) NSMutableArray<BRObstacle *> *obstacles;
-@property (nonatomic, readonly) NSMutableArray<BRRicochetPickup *> *pickups;
 
 @property (nonatomic, readonly) CGFloat playerRadius;
 @property (nonatomic, readonly) CGFloat playerSpeed;   // points/sec, held constant while launched
@@ -78,7 +58,6 @@ typedef NS_ENUM(NSInteger, BRRicochetPickupKind) {
 @property (nonatomic, readonly) CGFloat enemySpeed;
 @property (nonatomic, assign) CGPoint enemyPosition;
 @property (nonatomic, assign) CGVector enemyVelocity;
-@property (nonatomic, readonly) BOOL enemyActive;
 
 @property (nonatomic, assign) NSInteger score;
 @property (nonatomic, assign) NSInteger lives;
@@ -87,10 +66,6 @@ typedef NS_ENUM(NSInteger, BRRicochetPickupKind) {
 /// both obstacle layout and the enemy's wander decisions, so a saved run
 /// seed reproduces the same board (same contract as BRGameModel).
 - (instancetype)initWithBoardSize:(CGSize)boardSize seed:(NSNumber *)seed;
-
-/// Level one retains the original layout density. Higher levels add blocks,
-/// tougher obstacles, and a quicker enemy while retaining a reproducible run.
-- (instancetype)initWithBoardSize:(CGSize)boardSize seed:(NSNumber *)seed level:(NSInteger)level;
 
 /// Sends the player down the slide and onto the board at its starting
 /// angle/speed. Call once, from the launch animation's completion.
@@ -108,10 +83,6 @@ typedef NS_ENUM(NSInteger, BRRicochetPickupKind) {
 /// Instantly clears every obstacle within radius of the player's current
 /// position, regardless of remaining HP. Returns the number cleared.
 - (NSInteger)blastAtPlayerWithRadius:(CGFloat)radius;
-
-/// Defeats the enemy when the same Use radius overlaps its collision body.
-/// Returns YES only for a hit; a defeated enemy remains out for this level.
-- (BOOL)defeatEnemyWithBlastRadius:(CGFloat)radius;
 
 @end
 

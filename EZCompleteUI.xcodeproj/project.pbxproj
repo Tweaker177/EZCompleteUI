@@ -1,0 +1,532 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A20000000000000000000001 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* main.m */; };
+		A20000000000000000000002 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AppDelegate.m */; };
+		A20000000000000000000003 /* helpers.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* helpers.m */; };
+		A20000000000000000000004 /* ViewController+EZTopButtons.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* ViewController+EZTopButtons.m */; };
+		A20000000000000000000005 /* ViewController+EZKeepAwake.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* ViewController+EZKeepAwake.m */; };
+		A20000000000000000000006 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* ViewController.m */; };
+		A20000000000000000000007 /* EZFirstRunTutorialViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* EZFirstRunTutorialViewController.m */; };
+		A20000000000000000000008 /* EZModelPickerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* EZModelPickerViewController.m */; };
+		A20000000000000000000009 /* EZImageSettingsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* EZImageSettingsViewController.m */; };
+		A2000000000000000000000A /* EZAttachMenuViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A /* EZAttachMenuViewController.m */; };
+		A2000000000000000000000B /* ChatHistoryViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000B /* ChatHistoryViewController.m */; };
+		A2000000000000000000000C /* SettingsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* SettingsViewController.m */; };
+		A2000000000000000000000D /* MemoriesViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000D /* MemoriesViewController.m */; };
+		A2000000000000000000000E /* EZKeyVault.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000E /* EZKeyVault.m */; };
+		A2000000000000000000000F /* SupportRequestViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000F /* SupportRequestViewController.m */; };
+		A20000000000000000000010 /* TextToSpeechViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* TextToSpeechViewController.m */; };
+		A20000000000000000000011 /* ElevenLabsCloneViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* ElevenLabsCloneViewController.m */; };
+		A20000000000000000000012 /* iCarousel.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* iCarousel.m */; };
+		A20000000000000000000013 /* ViewController+EZTitleResolver.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* ViewController+EZTitleResolver.m */; };
+		A20000000000000000000014 /* UIViewController+EZViewDidLayoutSwizzle.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* UIViewController+EZViewDidLayoutSwizzle.m */; };
+		A20000000000000000000015 /* WaveformView.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* WaveformView.m */; };
+		A20000000000000000000016 /* EZAuthManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* EZAuthManager.m */; };
+		A20000000000000000000017 /* EZEntitlementManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* EZEntitlementManager.m */; };
+		A20000000000000000000018 /* LoginViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000018 /* LoginViewController.m */; };
+		A20000000000000000000019 /* HelperLogViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* HelperLogViewController.m */; };
+		A2000000000000000000001A /* SystemLogViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001A /* SystemLogViewController.m */; };
+		A2000000000000000000001B /* EZBubbleCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001B /* EZBubbleCell.m */; };
+		A2000000000000000000001C /* EZSystemCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* EZSystemCell.m */; };
+		A2000000000000000000001D /* EZCodeBlockCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* EZCodeBlockCell.m */; };
+		A2000000000000000000001E /* EZCoinStoreViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* EZCoinStoreViewController.m */; };
+		A2000000000000000000001F /* EZCoinPotView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* EZCoinPotView.m */; };
+		A20000000000000000000020 /* EZPhotoGalleryViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* EZPhotoGalleryViewController.m */; };
+		A20000000000000000000021 /* EZImageGridCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* EZImageGridCell.m */; };
+		A20000000000000000000022 /* EZCoinUsageViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* EZCoinUsageViewController.m */; };
+		A20000000000000000000023 /* BRGameModel.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* BRGameModel.m */; };
+		A20000000000000000000024 /* BrainRotViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000024 /* BrainRotViewController.m */; };
+		A20000000000000000000025 /* BRGameView.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000025 /* BRGameView.m */; };
+		A20000000000000000000026 /* BRGameModePickerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000026 /* BRGameModePickerViewController.m */; };
+		A20000000000000000000027 /* BRRicochetGameModel.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* BRRicochetGameModel.m */; };
+		A20000000000000000000028 /* BRRicochetGameView.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000028 /* BRRicochetGameView.m */; };
+		A20000000000000000000029 /* BRRicochetViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000029 /* BRRicochetViewController.m */; };
+		A2000000000000000000002A /* BRRicochetHighScoresViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002A /* BRRicochetHighScoresViewController.m */; };
+		A2000000000000000000002B /* BRSynthEngine.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002B /* BRSynthEngine.m */; };
+		A2000000000000000000002C /* EZTermsAcceptanceViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002C /* EZTermsAcceptanceViewController.m */; };
+		A2000000000000000000002D /* EZPoliciesViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002D /* EZPoliciesViewController.m */; };
+		A2000000000000000000002E /* BRGameLibrary.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002E /* BRGameLibrary.m */; };
+		A2000000000000000000002F /* BRGamePickerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002F /* BRGamePickerViewController.m */; };
+		A20000000000000000000030 /* BRCustomGameCreatorViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000030 /* BRCustomGameCreatorViewController.m */; };
+		A20000000000000000000031 /* BRAssetSourceSheetViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000031 /* BRAssetSourceSheetViewController.m */; };
+		A20000000000000000000032 /* BRTextInputSheetViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000032 /* BRTextInputSheetViewController.m */; };
+		A20000000000000000000033 /* BRGameResultViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000033 /* BRGameResultViewController.m */; };
+		A20000000000000000000034 /* BRAssetGenerationSheetViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000034 /* BRAssetGenerationSheetViewController.m */; };
+		A20000000000000000000035 /* BRRemoteImageLoader.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000035 /* BRRemoteImageLoader.m */; };
+		A20000000000000000000036 /* EZTTSLibraryManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000036 /* EZTTSLibraryManager.m */; };
+		A20000000000000000000037 /* EZTTSManifestEntry.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000037 /* EZTTSManifestEntry.m */; };
+		A20000000000000000000038 /* EZTTSLibraryViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000038 /* EZTTSLibraryViewController.m */; };
+		A20000000000000000000039 /* EZTTSLibraryClipCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000039 /* EZTTSLibraryClipCell.m */; };
+		A2000000000000000000003A /* EZTTSClipEditViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000003A /* EZTTSClipEditViewController.m */; };
+		A2000000000000000000003B /* EZTTSVoiceService.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000003B /* EZTTSVoiceService.m */; };
+		A2000000000000000000003C /* EZVoicePickerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000003C /* EZVoicePickerViewController.m */; };
+		A2000000000000000000003D /* EZWaveformRangeSelector.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000003D /* EZWaveformRangeSelector.m */; };
+		A2000000000000000000003E /* BRCommunityAdminViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000003E /* BRCommunityAdminViewController.m */; };
+		A2000000000000000000003F /* EZSupabaseConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000003F /* EZSupabaseConfig.m */; };
+		A20000000000000000000040 /* EZCoinLedgerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000040 /* EZCoinLedgerViewController.m */; };
+		A20000000000000000000041 /* BRSmartKeyboardView.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000041 /* BRSmartKeyboardView.m */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000000000000000000001 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		A10000000000000000000002 /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		A10000000000000000000003 /* helpers.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = helpers.m; sourceTree = "<group>"; };
+		A10000000000000000000004 /* ViewController+EZTopButtons.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "ViewController+EZTopButtons.m"; sourceTree = "<group>"; };
+		A10000000000000000000005 /* ViewController+EZKeepAwake.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "ViewController+EZKeepAwake.m"; sourceTree = "<group>"; };
+		A10000000000000000000006 /* ViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000007 /* EZFirstRunTutorialViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZFirstRunTutorialViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000008 /* EZModelPickerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZModelPickerViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000009 /* EZImageSettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZImageSettingsViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000000A /* EZAttachMenuViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZAttachMenuViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000000B /* ChatHistoryViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ChatHistoryViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000000C /* SettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SettingsViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000000D /* MemoriesViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MemoriesViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000000E /* EZKeyVault.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZKeyVault.m; sourceTree = "<group>"; };
+		A1000000000000000000000F /* SupportRequestViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SupportRequestViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000010 /* TextToSpeechViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TextToSpeechViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000011 /* ElevenLabsCloneViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ElevenLabsCloneViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000012 /* iCarousel.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = iCarousel.m; sourceTree = "<group>"; };
+		A10000000000000000000013 /* ViewController+EZTitleResolver.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "ViewController+EZTitleResolver.m"; sourceTree = "<group>"; };
+		A10000000000000000000014 /* UIViewController+EZViewDidLayoutSwizzle.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIViewController+EZViewDidLayoutSwizzle.m"; sourceTree = "<group>"; };
+		A10000000000000000000015 /* WaveformView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = WaveformView.m; sourceTree = "<group>"; };
+		A10000000000000000000016 /* EZAuthManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZAuthManager.m; sourceTree = "<group>"; };
+		A10000000000000000000017 /* EZEntitlementManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZEntitlementManager.m; sourceTree = "<group>"; };
+		A10000000000000000000018 /* LoginViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = LoginViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000019 /* HelperLogViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HelperLogViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000001A /* SystemLogViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SystemLogViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000001B /* EZBubbleCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZBubbleCell.m; sourceTree = "<group>"; };
+		A1000000000000000000001C /* EZSystemCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZSystemCell.m; sourceTree = "<group>"; };
+		A1000000000000000000001D /* EZCodeBlockCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCodeBlockCell.m; sourceTree = "<group>"; };
+		A1000000000000000000001E /* EZCoinStoreViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCoinStoreViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000001F /* EZCoinPotView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCoinPotView.m; sourceTree = "<group>"; };
+		A10000000000000000000020 /* EZPhotoGalleryViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZPhotoGalleryViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000021 /* EZImageGridCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZImageGridCell.m; sourceTree = "<group>"; };
+		A10000000000000000000022 /* EZCoinUsageViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCoinUsageViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000023 /* BRGameModel.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRGameModel.m; sourceTree = "<group>"; };
+		A10000000000000000000024 /* BrainRotViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BrainRotViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000025 /* BRGameView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRGameView.m; sourceTree = "<group>"; };
+		A10000000000000000000026 /* BRGameModePickerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRGameModePickerViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000027 /* BRRicochetGameModel.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRRicochetGameModel.m; sourceTree = "<group>"; };
+		A10000000000000000000028 /* BRRicochetGameView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRRicochetGameView.m; sourceTree = "<group>"; };
+		A10000000000000000000029 /* BRRicochetViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRRicochetViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000002A /* BRRicochetHighScoresViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRRicochetHighScoresViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000002B /* BRSynthEngine.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRSynthEngine.m; sourceTree = "<group>"; };
+		A1000000000000000000002C /* EZTermsAcceptanceViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZTermsAcceptanceViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000002D /* EZPoliciesViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZPoliciesViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000002E /* BRGameLibrary.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRGameLibrary.m; sourceTree = "<group>"; };
+		A1000000000000000000002F /* BRGamePickerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRGamePickerViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000030 /* BRCustomGameCreatorViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRCustomGameCreatorViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000031 /* BRAssetSourceSheetViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRAssetSourceSheetViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000032 /* BRTextInputSheetViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRTextInputSheetViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000033 /* BRGameResultViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRGameResultViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000034 /* BRAssetGenerationSheetViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRAssetGenerationSheetViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000035 /* BRRemoteImageLoader.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRRemoteImageLoader.m; sourceTree = "<group>"; };
+		A10000000000000000000036 /* EZTTSLibraryManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZTTSLibraryManager.m; sourceTree = "<group>"; };
+		A10000000000000000000037 /* EZTTSManifestEntry.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZTTSManifestEntry.m; sourceTree = "<group>"; };
+		A10000000000000000000038 /* EZTTSLibraryViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZTTSLibraryViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000039 /* EZTTSLibraryClipCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZTTSLibraryClipCell.m; sourceTree = "<group>"; };
+		A1000000000000000000003A /* EZTTSClipEditViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZTTSClipEditViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000003B /* EZTTSVoiceService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZTTSVoiceService.m; sourceTree = "<group>"; };
+		A1000000000000000000003C /* EZVoicePickerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZVoicePickerViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000003D /* EZWaveformRangeSelector.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZWaveformRangeSelector.m; sourceTree = "<group>"; };
+		A1000000000000000000003E /* BRCommunityAdminViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRCommunityAdminViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000003F /* EZSupabaseConfig.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZSupabaseConfig.m; sourceTree = "<group>"; };
+		A10000000000000000000040 /* EZCoinLedgerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCoinLedgerViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000041 /* BRSmartKeyboardView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRSmartKeyboardView.m; sourceTree = "<group>"; };
+		A30000000000000000000001 /* EZCompleteUI-Simulator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EZCompleteUI-Simulator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A30000000000000000000002 /* Resources/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Resources/Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A70000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A40000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A40000000000000000000002 /* Sources */,
+				A30000000000000000000002 /* Resources/Info.plist */,
+				A40000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A40000000000000000000002 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000001 /* main.m */,
+				A10000000000000000000002 /* AppDelegate.m */,
+				A10000000000000000000003 /* helpers.m */,
+				A10000000000000000000004 /* ViewController+EZTopButtons.m */,
+				A10000000000000000000005 /* ViewController+EZKeepAwake.m */,
+				A10000000000000000000006 /* ViewController.m */,
+				A10000000000000000000007 /* EZFirstRunTutorialViewController.m */,
+				A10000000000000000000008 /* EZModelPickerViewController.m */,
+				A10000000000000000000009 /* EZImageSettingsViewController.m */,
+				A1000000000000000000000A /* EZAttachMenuViewController.m */,
+				A1000000000000000000000B /* ChatHistoryViewController.m */,
+				A1000000000000000000000C /* SettingsViewController.m */,
+				A1000000000000000000000D /* MemoriesViewController.m */,
+				A1000000000000000000000E /* EZKeyVault.m */,
+				A1000000000000000000000F /* SupportRequestViewController.m */,
+				A10000000000000000000010 /* TextToSpeechViewController.m */,
+				A10000000000000000000011 /* ElevenLabsCloneViewController.m */,
+				A10000000000000000000012 /* iCarousel.m */,
+				A10000000000000000000013 /* ViewController+EZTitleResolver.m */,
+				A10000000000000000000014 /* UIViewController+EZViewDidLayoutSwizzle.m */,
+				A10000000000000000000015 /* WaveformView.m */,
+				A10000000000000000000016 /* EZAuthManager.m */,
+				A10000000000000000000017 /* EZEntitlementManager.m */,
+				A10000000000000000000018 /* LoginViewController.m */,
+				A10000000000000000000019 /* HelperLogViewController.m */,
+				A1000000000000000000001A /* SystemLogViewController.m */,
+				A1000000000000000000001B /* EZBubbleCell.m */,
+				A1000000000000000000001C /* EZSystemCell.m */,
+				A1000000000000000000001D /* EZCodeBlockCell.m */,
+				A1000000000000000000001E /* EZCoinStoreViewController.m */,
+				A1000000000000000000001F /* EZCoinPotView.m */,
+				A10000000000000000000020 /* EZPhotoGalleryViewController.m */,
+				A10000000000000000000021 /* EZImageGridCell.m */,
+				A10000000000000000000022 /* EZCoinUsageViewController.m */,
+				A10000000000000000000023 /* BRGameModel.m */,
+				A10000000000000000000024 /* BrainRotViewController.m */,
+				A10000000000000000000025 /* BRGameView.m */,
+				A10000000000000000000026 /* BRGameModePickerViewController.m */,
+				A10000000000000000000027 /* BRRicochetGameModel.m */,
+				A10000000000000000000028 /* BRRicochetGameView.m */,
+				A10000000000000000000029 /* BRRicochetViewController.m */,
+				A1000000000000000000002A /* BRRicochetHighScoresViewController.m */,
+				A1000000000000000000002B /* BRSynthEngine.m */,
+				A1000000000000000000002C /* EZTermsAcceptanceViewController.m */,
+				A1000000000000000000002D /* EZPoliciesViewController.m */,
+				A1000000000000000000002E /* BRGameLibrary.m */,
+				A1000000000000000000002F /* BRGamePickerViewController.m */,
+				A10000000000000000000030 /* BRCustomGameCreatorViewController.m */,
+				A10000000000000000000031 /* BRAssetSourceSheetViewController.m */,
+				A10000000000000000000032 /* BRTextInputSheetViewController.m */,
+				A10000000000000000000033 /* BRGameResultViewController.m */,
+				A10000000000000000000034 /* BRAssetGenerationSheetViewController.m */,
+				A10000000000000000000035 /* BRRemoteImageLoader.m */,
+				A10000000000000000000036 /* EZTTSLibraryManager.m */,
+				A10000000000000000000037 /* EZTTSManifestEntry.m */,
+				A10000000000000000000038 /* EZTTSLibraryViewController.m */,
+				A10000000000000000000039 /* EZTTSLibraryClipCell.m */,
+				A1000000000000000000003A /* EZTTSClipEditViewController.m */,
+				A1000000000000000000003B /* EZTTSVoiceService.m */,
+				A1000000000000000000003C /* EZVoicePickerViewController.m */,
+				A1000000000000000000003D /* EZWaveformRangeSelector.m */,
+				A1000000000000000000003E /* BRCommunityAdminViewController.m */,
+				A1000000000000000000003F /* EZSupabaseConfig.m */,
+				A10000000000000000000040 /* EZCoinLedgerViewController.m */,
+				A10000000000000000000041 /* BRSmartKeyboardView.m */,
+			);
+			name = Sources;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A30000000000000000000001 /* EZCompleteUI-Simulator.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A50000000000000000000001 /* EZCompleteUI-Simulator */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A60000000000000000000002 /* Build configuration list for PBXNativeTarget "EZCompleteUI-Simulator" */;
+			buildPhases = (
+				A70000000000000000000001 /* Sources */,
+				A70000000000000000000002 /* Copy Runtime Resources */,
+				A70000000000000000000003 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "EZCompleteUI-Simulator";
+			productName = EZCompleteUI;
+			productReference = A30000000000000000000001 /* EZCompleteUI-Simulator.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A00000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1420;
+				TargetAttributes = {
+					A50000000000000000000001 = {
+						CreatedOnToolsVersion = 14.2;
+					};
+				};
+			};
+			buildConfigurationList = A60000000000000000000001 /* Build configuration list for PBXProject "EZCompleteUI" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A40000000000000000000001;
+			productRefGroup = A40000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A50000000000000000000001 /* EZCompleteUI-Simulator */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A70000000000000000000002 /* Copy Runtime Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Copy Runtime Resources";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e; cd $SRCROOT/Resources; /usr/bin/ditto . $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A70000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A20000000000000000000001 /* main.m in Sources */,
+				A20000000000000000000002 /* AppDelegate.m in Sources */,
+				A20000000000000000000003 /* helpers.m in Sources */,
+				A20000000000000000000004 /* ViewController+EZTopButtons.m in Sources */,
+				A20000000000000000000005 /* ViewController+EZKeepAwake.m in Sources */,
+				A20000000000000000000006 /* ViewController.m in Sources */,
+				A20000000000000000000007 /* EZFirstRunTutorialViewController.m in Sources */,
+				A20000000000000000000008 /* EZModelPickerViewController.m in Sources */,
+				A20000000000000000000009 /* EZImageSettingsViewController.m in Sources */,
+				A2000000000000000000000A /* EZAttachMenuViewController.m in Sources */,
+				A2000000000000000000000B /* ChatHistoryViewController.m in Sources */,
+				A2000000000000000000000C /* SettingsViewController.m in Sources */,
+				A2000000000000000000000D /* MemoriesViewController.m in Sources */,
+				A2000000000000000000000E /* EZKeyVault.m in Sources */,
+				A2000000000000000000000F /* SupportRequestViewController.m in Sources */,
+				A20000000000000000000010 /* TextToSpeechViewController.m in Sources */,
+				A20000000000000000000011 /* ElevenLabsCloneViewController.m in Sources */,
+				A20000000000000000000012 /* iCarousel.m in Sources */,
+				A20000000000000000000013 /* ViewController+EZTitleResolver.m in Sources */,
+				A20000000000000000000014 /* UIViewController+EZViewDidLayoutSwizzle.m in Sources */,
+				A20000000000000000000015 /* WaveformView.m in Sources */,
+				A20000000000000000000016 /* EZAuthManager.m in Sources */,
+				A20000000000000000000017 /* EZEntitlementManager.m in Sources */,
+				A20000000000000000000018 /* LoginViewController.m in Sources */,
+				A20000000000000000000019 /* HelperLogViewController.m in Sources */,
+				A2000000000000000000001A /* SystemLogViewController.m in Sources */,
+				A2000000000000000000001B /* EZBubbleCell.m in Sources */,
+				A2000000000000000000001C /* EZSystemCell.m in Sources */,
+				A2000000000000000000001D /* EZCodeBlockCell.m in Sources */,
+				A2000000000000000000001E /* EZCoinStoreViewController.m in Sources */,
+				A2000000000000000000001F /* EZCoinPotView.m in Sources */,
+				A20000000000000000000020 /* EZPhotoGalleryViewController.m in Sources */,
+				A20000000000000000000021 /* EZImageGridCell.m in Sources */,
+				A20000000000000000000022 /* EZCoinUsageViewController.m in Sources */,
+				A20000000000000000000023 /* BRGameModel.m in Sources */,
+				A20000000000000000000024 /* BrainRotViewController.m in Sources */,
+				A20000000000000000000025 /* BRGameView.m in Sources */,
+				A20000000000000000000026 /* BRGameModePickerViewController.m in Sources */,
+				A20000000000000000000027 /* BRRicochetGameModel.m in Sources */,
+				A20000000000000000000028 /* BRRicochetGameView.m in Sources */,
+				A20000000000000000000029 /* BRRicochetViewController.m in Sources */,
+				A2000000000000000000002A /* BRRicochetHighScoresViewController.m in Sources */,
+				A2000000000000000000002B /* BRSynthEngine.m in Sources */,
+				A2000000000000000000002C /* EZTermsAcceptanceViewController.m in Sources */,
+				A2000000000000000000002D /* EZPoliciesViewController.m in Sources */,
+				A2000000000000000000002E /* BRGameLibrary.m in Sources */,
+				A2000000000000000000002F /* BRGamePickerViewController.m in Sources */,
+				A20000000000000000000030 /* BRCustomGameCreatorViewController.m in Sources */,
+				A20000000000000000000031 /* BRAssetSourceSheetViewController.m in Sources */,
+				A20000000000000000000032 /* BRTextInputSheetViewController.m in Sources */,
+				A20000000000000000000033 /* BRGameResultViewController.m in Sources */,
+				A20000000000000000000034 /* BRAssetGenerationSheetViewController.m in Sources */,
+				A20000000000000000000035 /* BRRemoteImageLoader.m in Sources */,
+				A20000000000000000000036 /* EZTTSLibraryManager.m in Sources */,
+				A20000000000000000000037 /* EZTTSManifestEntry.m in Sources */,
+				A20000000000000000000038 /* EZTTSLibraryViewController.m in Sources */,
+				A20000000000000000000039 /* EZTTSLibraryClipCell.m in Sources */,
+				A2000000000000000000003A /* EZTTSClipEditViewController.m in Sources */,
+				A2000000000000000000003B /* EZTTSVoiceService.m in Sources */,
+				A2000000000000000000003C /* EZVoicePickerViewController.m in Sources */,
+				A2000000000000000000003D /* EZWaveformRangeSelector.m in Sources */,
+				A2000000000000000000003E /* BRCommunityAdminViewController.m in Sources */,
+				A2000000000000000000003F /* EZSupabaseConfig.m in Sources */,
+				A20000000000000000000040 /* EZCoinLedgerViewController.m in Sources */,
+				A20000000000000000000041 /* BRSmartKeyboardView.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A80000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				SDKROOT = iphonesimulator;
+			};
+			name = Debug;
+		};
+		A80000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				SDKROOT = iphonesimulator;
+			};
+			name = Release;
+		};
+		A80000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				EXECUTABLE_NAME = EZCompleteUI;
+				GCC_PREPROCESSOR_DEFINITIONS = "EZCOMPLETEUI_SIMULATOR=1";
+				INFOPLIST_FILE = Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					UIKit,
+					"-framework",
+					Foundation,
+					"-framework",
+					AVFoundation,
+					"-framework",
+					CoreMIDI,
+					"-framework",
+					Speech,
+					"-framework",
+					QuickLook,
+					"-framework",
+					UniformTypeIdentifiers,
+					"-framework",
+					PDFKit,
+					"-framework",
+					QuickLookThumbnailing,
+					"-framework",
+					Security,
+					"-framework",
+					PhotosUI,
+					"-framework",
+					QuartzCore,
+					"-framework",
+					SafariServices,
+					"-framework",
+					ImageIO,
+					"-framework",
+					UserNotifications,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui;
+				PRODUCT_NAME = "EZCompleteUI-Simulator";
+				SDKROOT = iphonesimulator;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A80000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				EXECUTABLE_NAME = EZCompleteUI;
+				GCC_PREPROCESSOR_DEFINITIONS = "EZCOMPLETEUI_SIMULATOR=1";
+				INFOPLIST_FILE = Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					UIKit,
+					"-framework",
+					Foundation,
+					"-framework",
+					AVFoundation,
+					"-framework",
+					CoreMIDI,
+					"-framework",
+					Speech,
+					"-framework",
+					QuickLook,
+					"-framework",
+					UniformTypeIdentifiers,
+					"-framework",
+					PDFKit,
+					"-framework",
+					QuickLookThumbnailing,
+					"-framework",
+					Security,
+					"-framework",
+					PhotosUI,
+					"-framework",
+					QuartzCore,
+					"-framework",
+					SafariServices,
+					"-framework",
+					ImageIO,
+					"-framework",
+					UserNotifications,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui;
+				PRODUCT_NAME = "EZCompleteUI-Simulator";
+				SDKROOT = iphonesimulator;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A60000000000000000000001 /* Build configuration list for PBXProject "EZCompleteUI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A80000000000000000000001 /* Debug */,
+				A80000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A60000000000000000000002 /* Build configuration list for PBXNativeTarget "EZCompleteUI-Simulator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A80000000000000000000003 /* Debug */,
+				A80000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A00000000000000000000001 /* Project object */;
+}
