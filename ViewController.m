@@ -4632,7 +4632,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
 
         NSString *ext = mime.length > 0 ? mime : @"jpg";
-        NSString *name = [NSString stringWithFormat:@"restored_%@.%@", [NSUUID UUID].UUIDString, ext];
+        NSString *name = [NSString stringWithFormat:@"restored-image.%@", ext];
         NSString *savedPath = EZPhotoGallerySave(imageData, name);
         if (savedPath) [paths addObject:savedPath];
     }
@@ -5456,6 +5456,30 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     return [base stringByAppendingPathExtension:ext];
 }
 
+/// Finds a generated file saved under either naming scheme. Older files have
+/// a UUID prefix; new files retain their requested name and use `-2`, `-3`,
+/// etc. only when a name collision occurs. This keeps restore/re-rendering of
+/// a saved thread from creating a duplicate code attachment.
+- (BOOL)ez_storedFileName:(NSString *)storedName matchesRequestedName:(NSString *)requestedName {
+    if (storedName.length == 0 || requestedName.length == 0) return NO;
+    if ([storedName isEqualToString:requestedName] ||
+        [storedName hasSuffix:[@"_" stringByAppendingString:requestedName]]) return YES;
+
+    NSString *storedExtension = storedName.pathExtension.lowercaseString;
+    NSString *requestedExtension = requestedName.pathExtension.lowercaseString;
+    if (![storedExtension isEqualToString:requestedExtension]) return NO;
+
+    NSString *storedStem = storedName.stringByDeletingPathExtension;
+    NSString *requestedStem = requestedName.stringByDeletingPathExtension;
+    if ([storedStem isEqualToString:requestedStem]) return YES;
+    NSString *prefix = [requestedStem stringByAppendingString:@"-"];
+    if (![storedStem hasPrefix:prefix]) return NO;
+    NSString *numericSuffix = [storedStem substringFromIndex:prefix.length];
+    return numericSuffix.length > 0 &&
+        [[NSCharacterSet decimalDigitCharacterSet] isSupersetOfSet:
+            [NSCharacterSet characterSetWithCharactersInString:numericSuffix]];
+}
+
 - (NSString *)processReplyWithCodeBlocks:(NSString *)reply
                             savedPaths:(NSMutableArray<NSString *> *)savedPaths {
     return [self processReplyWithCodeBlocks:reply savedPaths:savedPaths isRestore:NO];
@@ -5599,8 +5623,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         if (isRestore) {
             for (NSString *existingPath in self.activeThread.attachmentPaths) {
-                if ([existingPath.lastPathComponent hasSuffix:[@"_" stringByAppendingString:fileName]] ||
-                    [existingPath.lastPathComponent hasSuffix:fileName]) {
+                if ([self ez_storedFileName:existingPath.lastPathComponent matchesRequestedName:fileName]) {
                     if ([[NSFileManager defaultManager] fileExistsAtPath:existingPath]) {
                         savedPath = existingPath;
                         break;
@@ -6386,10 +6409,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     // Use a temporary handoff file. attachImage: persists the real image into
     // EZPhotoGallery, keeping EZAttachments reserved for non-image files.
-    NSString *dir = NSTemporaryDirectory();
-    NSString *filename = [NSString stringWithFormat:@"gallery_ask_%@.jpg",
-                          [NSUUID UUID].UUIDString];
-    NSString *path = [dir stringByAppendingPathComponent:filename];
+    NSString *dir = [NSTemporaryDirectory() stringByAppendingPathComponent:
+        [NSString stringWithFormat:@"gallery-handoff-%@", NSUUID.UUID.UUIDString]];
+    [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    NSString *path = [dir stringByAppendingPathComponent:@"gallery-image.jpg"];
     if (![UIImageJPEGRepresentation(image, 0.92) writeToFile:path atomically:YES]) {
         [self appendToChat:@"[Error: Could not save Gallery image]"];
         return;
@@ -6400,6 +6423,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // pendingImagePaths made the UI claim an image was attached while the
     // actual chat request contained no image at all.
     [self attachImage:[NSURL fileURLWithPath:path]];
+    [[NSFileManager defaultManager] removeItemAtPath:dir error:nil];
     [self.messageTextField becomeFirstResponder];
 }
 
@@ -6418,10 +6442,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     // The attachment pipeline below stores the permanent copy in
     // EZPhotoGallery; this is only a short-lived handoff file.
-    NSString *dir = NSTemporaryDirectory();
-    NSString *filename = [NSString stringWithFormat:@"gallery_edit_%@.jpg",
-                          [NSUUID UUID].UUIDString];
-    NSString *path = [dir stringByAppendingPathComponent:filename];
+    NSString *dir = [NSTemporaryDirectory() stringByAppendingPathComponent:
+        [NSString stringWithFormat:@"gallery-handoff-%@", NSUUID.UUID.UUIDString]];
+    [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    NSString *path = [dir stringByAppendingPathComponent:@"gallery-image.jpg"];
     if (![UIImageJPEGRepresentation(image, 0.92) writeToFile:path atomically:YES]) {
         [self appendToChat:@"[Error: Could not save Gallery image]"];
         return;
@@ -6431,6 +6455,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // attachments, including the visible bubble and the model-readable vision
     // message. callImageEdit still uses pendingImagePaths.lastObject below.
     [self attachImage:[NSURL fileURLWithPath:path]];
+    [[NSFileManager defaultManager] removeItemAtPath:dir error:nil];
     }
 
     // Switch to edit mode — gpt-image-1-edit takes the direct path (see the

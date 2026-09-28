@@ -524,7 +524,8 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
 
 // Memory JSON predates portable attachment references and can contain a full
 // Documents path from an older app container.  EZAttachmentPath accepts both
-// forms and repairs the path by its UUID-prefixed filename when possible.
+// forms and repairs the path by its stored filename when possible. This works
+// for both legacy UUID-prefixed files and the current readable filenames.
 - (NSArray<NSString *> *)resolvedAttachmentPathsForMemory:(NSDictionary *)memory {
     id rawPaths = memory[@"attachmentPaths"];
     if (![rawPaths isKindOfClass:[NSArray class]]) return @[];

@@ -218,7 +218,17 @@
     CGFloat keyWidth = self.bounds.size.width / self.keySemitones.count;
     NSInteger index = (NSInteger)(point.x / keyWidth);
     index = MAX(0, MIN((NSInteger)self.keySemitones.count - 1, index));
-    return @(index);
+    // Use an explicit integer NSNumber. UIKit can represent a zero-like
+    // bridged value as __NSCFBoolean; that must never enter this index map.
+    return [NSNumber numberWithInteger:index];
+}
+
+- (BOOL)isKeyIndexHeld:(NSInteger)targetIndex {
+    for (id storedIndex in self.activeTouchKeyIndex.allValues) {
+        if ([storedIndex respondsToSelector:@selector(integerValue)] &&
+            [storedIndex integerValue] == targetIndex) return YES;
+    }
+    return NO;
 }
 
 - (void)drawRect:(CGRect)rect {
@@ -234,7 +244,7 @@
 
     for (NSInteger i = 0; i < (NSInteger)self.keySemitones.count; i++) {
         CGRect keyRect = CGRectMake(keyRow.origin.x + i * keyWidth + 1, keyRow.origin.y + 1, keyWidth - 2, keyRow.size.height - 2);
-        BOOL isHeld = [self.activeTouchKeyIndex.allValues containsObject:@(i)];
+        BOOL isHeld = [self isKeyIndexHeld:i];
         UIColor *fill = isHeld
             ? [UIColor colorWithRed:0.62 green:0.47 blue:0.98 alpha:1.0]
             : [UIColor colorWithRed:0.16 green:0.12 blue:0.28 alpha:1.0];
@@ -262,7 +272,8 @@
     for (UITouch *touch in touches) {
         NSNumber *keyIndex = [self keyIndexAtPoint:[touch locationInView:self]];
         if (!keyIndex) continue;
-        self.activeTouchKeyIndex[[NSValue valueWithNonretainedObject:touch]] = keyIndex;
+        self.activeTouchKeyIndex[[NSValue valueWithNonretainedObject:touch]] =
+            [NSNumber numberWithInteger:keyIndex.integerValue];
         [self triggerKeyIndex:keyIndex.integerValue];
     }
     [self recomputeSteer];
@@ -280,8 +291,12 @@
             if (oldIndex) { [self.activeTouchKeyIndex removeObjectForKey:key]; changed = YES; }
             continue;
         }
-        if (![newIndex isEqualToNumber:oldIndex]) {
-            self.activeTouchKeyIndex[key] = newIndex;
+        // Do not use -isEqualToNumber: here. A zero-key value can arrive as
+        // an __NSCFBoolean on newer iOS releases, and NSNumber comparison
+        // raises when its argument is that bridged Boolean. Both types safely
+        // expose integerValue, which is exactly the semantic we need.
+        if (!oldIndex || newIndex.integerValue != oldIndex.integerValue) {
+            self.activeTouchKeyIndex[key] = [NSNumber numberWithInteger:newIndex.integerValue];
             [self triggerKeyIndex:newIndex.integerValue]; // glissando — each newly-entered key re-triggers
             changed = YES;
         }
@@ -313,13 +328,17 @@
         if (self.onSteerChanged) self.onSteerChanged(0);
         return;
     }
-    CGFloat sumX = 0;
+    NSInteger leftCount = 0;
+    NSInteger rightCount = 0;
     for (NSNumber *index in self.activeTouchKeyIndex.allValues) {
-        sumX += [self centerXForKeyIndex:index.integerValue];
+        // Every key is a full joystick direction, rather than a weak
+        // analogue value determined by where it happens to sit in the row.
+        if ([self centerXForKeyIndex:index.integerValue] < self.bounds.size.width / 2.0) leftCount++;
+        else rightCount++;
     }
-    CGFloat avgX = sumX / self.activeTouchKeyIndex.count;
-    CGFloat normalized = (avgX / MAX(self.bounds.size.width, 1)) * 2.0 - 1.0;
-    if (self.onSteerChanged) self.onSteerChanged(MAX(-1.0, MIN(1.0, normalized)));
+    // A chord on one side still produces that side's full arrow command.
+    // Opposing hands cancel, just like pressing both old arrow buttons.
+    if (self.onSteerChanged) self.onSteerChanged(rightCount == leftCount ? 0 : (rightCount > leftCount ? 1.0 : -1.0));
 }
 
 #pragma mark - Knob row

@@ -45,6 +45,7 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
 @property (nonatomic, strong, nullable) AVAudioUnitDelay *chorusNode;
 @property (nonatomic, strong, nullable) AVAudioMixerNode *synthMixerNode;
 @property (nonatomic, strong, nullable) AVAudioMixerNode *drumsMixerNode;
+@property (nonatomic, strong, nullable) AVAudioUnitEQ *drumsFilterNode;
 @property (nonatomic, strong, nullable) AVAudioMixerNode *masterMixerNode;
 @property (nonatomic, strong) NSMutableArray *hitQueue; // queued velocity numbers or explicit collision notes
 @property (nonatomic, assign) CFTimeInterval lastScheduleTime;
@@ -89,6 +90,8 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
         _attackSeconds = 0.015f;
         _releaseSeconds = 0.32f;
         _filterBrightness = 0.72f;
+        _synthFilterAmount = 0.0f;
+        _drumsFilterAmount = 0.0f;
         _reverbMix = 0.18f;
         _compressionMix = 0.28f;
         _synthVolume = 0.82f;
@@ -144,6 +147,7 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     self.playerNode = [[AVAudioPlayerNode alloc] init];
     self.synthMixerNode = [[AVAudioMixerNode alloc] init];
     self.drumsMixerNode = [[AVAudioMixerNode alloc] init];
+    self.drumsFilterNode = [[AVAudioUnitEQ alloc] initWithNumberOfBands:1];
     self.masterMixerNode = [[AVAudioMixerNode alloc] init];
     AudioComponentDescription dynamicsDescription = {
         .componentType = kAudioUnitType_Effect,
@@ -163,6 +167,7 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     [self.engine attachNode:self.playerNode];
     [self.engine attachNode:self.synthMixerNode];
     [self.engine attachNode:self.drumsMixerNode];
+    [self.engine attachNode:self.drumsFilterNode];
     [self.engine attachNode:self.masterMixerNode];
     [self.engine attachNode:self.compressorNode];
     [self.engine attachNode:self.chorusNode];
@@ -175,7 +180,8 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     // sources directly into the compressor would replace its single input
     // connection, so combine them first and process the full music mix.
     [self.engine connect:self.synthMixerNode to:self.masterMixerNode format:nil];
-    [self.engine connect:self.drumsMixerNode to:self.masterMixerNode format:nil];
+    [self.engine connect:self.drumsMixerNode to:self.drumsFilterNode format:nil];
+    [self.engine connect:self.drumsFilterNode to:self.masterMixerNode format:nil];
     [self.engine connect:self.masterMixerNode to:self.compressorNode format:nil];
     [self.engine connect:self.compressorNode to:self.reverbNode format:nil];
     [self.engine connect:self.reverbNode to:self.engine.mainMixerNode format:nil];
@@ -190,6 +196,7 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
         self.playerNode = nil;
         self.synthMixerNode = nil;
         self.drumsMixerNode = nil;
+        self.drumsFilterNode = nil;
         self.masterMixerNode = nil;
         self.compressorNode = nil;
         self.chorusNode = nil;
@@ -238,6 +245,7 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     self.reverbNode = nil;
     self.synthMixerNode = nil;
     self.drumsMixerNode = nil;
+    self.drumsFilterNode = nil;
     self.masterMixerNode = nil;
     self.compressorNode = nil;
     self.chorusNode = nil;
@@ -301,6 +309,7 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     self.chorusNode = nil;
     self.synthMixerNode = nil;
     self.drumsMixerNode = nil;
+    self.drumsFilterNode = nil;
     self.masterMixerNode = nil;
     self.drumVoices = nil;
     self.drumBuffers = nil;
@@ -327,13 +336,46 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     [self applyMixControls];
 }
 
+- (void)setFilterBrightness:(float)filterBrightness {
+    _filterBrightness = MAX(0.0f, MIN(1.0f, filterBrightness));
+    // Preserve the original Music Lab filter's dark-to-bright behaviour:
+    // its brightest setting is the new filter's centred bypass point.
+    self.synthFilterAmount = -(1.0f - _filterBrightness);
+}
+
 - (void)setCompressionMix:(float)compressionMix { _compressionMix = MAX(0.0f, MIN(1.0f, compressionMix)); [self applyMixControls]; }
 - (void)setSynthVolume:(float)synthVolume { _synthVolume = MAX(0.0f, MIN(1.0f, synthVolume)); [self applyMixControls]; }
 - (void)setDrumsVolume:(float)drumsVolume { _drumsVolume = MAX(0.0f, MIN(1.0f, drumsVolume)); [self applyMixControls]; }
 
+- (void)setSynthFilterAmount:(float)synthFilterAmount {
+    _synthFilterAmount = MAX(-1.0f, MIN(1.0f, synthFilterAmount));
+}
+
+- (void)setDrumsFilterAmount:(float)drumsFilterAmount {
+    _drumsFilterAmount = MAX(-1.0f, MIN(1.0f, drumsFilterAmount));
+    [self applyDrumFilter];
+}
+
+- (void)applyDrumFilter {
+    AVAudioUnitEQFilterParameters *band = self.drumsFilterNode.bands.firstObject;
+    if (!band) return;
+    float amount = self.drumsFilterAmount;
+    band.bypass = fabsf(amount) < 0.01f;
+    if (band.bypass) return;
+    float magnitude = fabsf(amount);
+    band.filterType = amount < 0 ? AVAudioUnitEQFilterTypeLowPass : AVAudioUnitEQFilterTypeHighPass;
+    // The first millimetres from centre remain subtle; the extremes are
+    // deliberately obvious for live performance.
+    band.frequency = amount < 0 ? 9000.0f - magnitude * 8600.0f
+                                : 35.0f + magnitude * 5600.0f;
+    band.bandwidth = 0.5f;
+    band.gain = 0.0f;
+}
+
 - (void)applyMixControls {
     self.synthMixerNode.outputVolume = self.synthVolume;
     self.drumsMixerNode.outputVolume = self.drumsVolume;
+    [self applyDrumFilter];
     self.reverbNode.wetDryMix = MAX(0, MIN(100, (self.reverbMix + self.reactiveReverbBoost) * 100.0f));
     self.chorusNode.delayTime = 0.024;
     self.chorusNode.feedback = 9.0f;
@@ -620,10 +662,13 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     float peakAmplitude = MIN(0.35f, 0.12f + velocity * 0.10f);
     double attack = MAX(0.005, MIN(0.25, self.attackSeconds));
     double release = MAX(0.04, MIN(noteSeconds, self.releaseSeconds));
-    double cutoffHz = 350.0 + MAX(0.0, MIN(1.0, self.filterBrightness)) * 8200.0;
+    double filterAmount = MAX(-1.0, MIN(1.0, self.synthFilterAmount));
+    double filterMagnitude = fabs(filterAmount);
+    double cutoffHz = filterAmount < 0 ? 9000.0 - filterMagnitude * 8600.0
+                                        : 35.0 + filterMagnitude * 5600.0;
     double rc = 1.0 / (2.0 * M_PI * cutoffHz);
     double alpha = (1.0 / kBRSynthSampleRate) / (rc + (1.0 / kBRSynthSampleRate));
-    double filtered = 0;
+    double lowPassed = 0;
     float oscillator2Mix = self.isOscillator2Enabled ? MAX(0.0f, MIN(1.0f, self.oscillator2Mix)) : 0.0f;
     float saturation = MAX(0.0f, MIN(1.0f, self.saturationDrive));
     float modulationDepth = MAX(0.0f, MIN(1.0f, self.modulationDepth));
@@ -642,8 +687,14 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
         }
         double attackEnvelope = MIN(1.0, t / attack);
         double releaseEnvelope = MIN(1.0, MAX(0.0, (noteSeconds - t) / release));
-        filtered += alpha * (combined - filtered);
-        if (saturation > 0) filtered = tanh(filtered * (1.0 + saturation * 5.0));
+        double filtered = combined;
+        if (filterMagnitude >= 0.01) {
+            lowPassed += alpha * (combined - lowPassed);
+            filtered = filterAmount < 0 ? lowPassed : combined - lowPassed;
+        }
+        // A deliberately steep drive range makes the restored Saturate
+        // control capable of a clearly audible soft-clipped distortion.
+        if (saturation > 0) filtered = tanh(filtered * (1.0 + saturation * 12.0));
         double tremolo = self.modulationTarget == BRSynthModulationTargetAmplitude
             ? (1.0 - modulationDepth * 0.5 + lfo * modulationDepth * 0.5) : 1.0;
         samples[i] = (float)(filtered * tremolo * attackEnvelope * releaseEnvelope * peakAmplitude);

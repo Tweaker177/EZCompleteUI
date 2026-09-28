@@ -22,6 +22,9 @@ extern NSString * const EZVaultKeySupportEmail;
 extern NSString * const EZVaultKeyAccessToken;
 extern NSString * const EZVaultKeyRefreshToken;
 extern NSString * const EZVaultKeyUserId;
+/// A random, per-installation identifier retained in the Keychain. It is used
+/// only by Supabase to enforce one welcome-credit claim per device install.
+extern NSString * const EZVaultKeyInstallationID;
 
 
 @interface EZKeyVault : NSObject

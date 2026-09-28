@@ -2774,8 +2774,8 @@ void createMemoryFromCompletion(NSString *userPrompt,
 // SECTION 9 — ATTACHMENT STORAGE
 //
 // When the user attaches a file in the chat UI, we copy it into the app's
-// EZAttachments/ sub-directory under a UUID-prefixed filename to guarantee
-// uniqueness even if the user uploads two files with the same name.
+// EZAttachments/ sub-directory under its actual filename. If that filename
+// is already present, a small numeric suffix is added before its extension.
 //
 // Attachment paths stored in memory entries and thread objects are the full
 // absolute paths to these copies, not the original source paths.
@@ -2809,30 +2809,73 @@ static BOOL _isImageFileName(NSString *fileName) {
     return [imageExtensions containsObject:fileName.pathExtension.lowercaseString];
 }
 
-NSString * _Nullable EZPhotoGallerySave(NSData *data, NSString *fileName) {
-    if (!data || fileName.length == 0) return nil;
-    NSString *uniqueFileName = [NSString stringWithFormat:@"%@_%@",
-                                 [[NSUUID UUID] UUIDString], fileName];
-    NSString *filePath = [EZPhotoGalleryDirectory() stringByAppendingPathComponent:uniqueFileName];
-    NSError *writeError = nil;
-    BOOL saved = [data writeToFile:filePath options:NSDataWritingAtomic error:&writeError];
-    if (!saved) {
-        EZLogf(EZLogLevelError, @"GALLERY", @"Save failed for %@: %@", fileName, writeError);
-        return nil;
+/// Removes path components supplied by an importer or model response. Stored
+/// assets must always remain inside their designated app-owned directory.
+static NSString *_safeStoredFileName(NSString *fileName, NSString *fallback) {
+    NSString *name = fileName.lastPathComponent;
+    if (name.length == 0 || [name isEqualToString:@"."] || [name isEqualToString:@".."]) {
+        name = fallback;
     }
-    EZLogf(EZLogLevelInfo, @"GALLERY", @"Saved: %@", uniqueFileName);
-    return filePath;
+    return name;
 }
 
-// EZAttachmentSave — copies raw file data into EZAttachments/ with a UUID prefix.
+/// Returns `name`, unless it already exists in `directory`; then returns
+/// `stem-2.ext`, `stem-3.ext`, and so on. This deliberately keeps the human
+/// filename intact for the usual, non-collision case.
+static NSString *_availableFileName(NSString *directory, NSString *fileName, NSString *fallback) {
+    NSString *safeName = _safeStoredFileName(fileName, fallback);
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSString *candidatePath = [directory stringByAppendingPathComponent:safeName];
+    if (![fm fileExistsAtPath:candidatePath]) return safeName;
+
+    NSString *extension = safeName.pathExtension;
+    NSString *stem = [safeName stringByDeletingPathExtension];
+    if (stem.length == 0) stem = safeName;
+    for (NSUInteger suffix = 2; suffix < NSUIntegerMax; suffix++) {
+        NSString *candidate = extension.length
+            ? [NSString stringWithFormat:@"%@-%lu.%@", stem, (unsigned long)suffix, extension]
+            : [NSString stringWithFormat:@"%@-%lu", stem, (unsigned long)suffix];
+        candidatePath = [directory stringByAppendingPathComponent:candidate];
+        if (![fm fileExistsAtPath:candidatePath]) return candidate;
+    }
+    return nil; // Practically unreachable; keeps the compiler's nullability honest.
+}
+
+/// File names are selected and written under one lock. NSData's atomic write
+/// protects file contents, while this lock prevents two concurrent saves from
+/// both choosing the same currently-free display name.
+static NSObject *_attachmentSaveLock(void) {
+    static NSObject *lock;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{ lock = [NSObject new]; });
+    return lock;
+}
+
+NSString * _Nullable EZPhotoGallerySave(NSData *data, NSString *fileName) {
+    if (!data || fileName.length == 0) return nil;
+    @synchronized (_attachmentSaveLock()) {
+        NSString *directory = EZPhotoGalleryDirectory();
+        NSString *savedFileName = _availableFileName(directory, fileName, @"image");
+        if (!savedFileName) return nil;
+        NSString *filePath = [directory stringByAppendingPathComponent:savedFileName];
+        NSError *writeError = nil;
+        BOOL saved = [data writeToFile:filePath options:NSDataWritingAtomic error:&writeError];
+        if (!saved) {
+            EZLogf(EZLogLevelError, @"GALLERY", @"Save failed for %@: %@", fileName, writeError);
+            return nil;
+        }
+        EZLogf(EZLogLevelInfo, @"GALLERY", @"Saved: %@", savedFileName);
+        return filePath;
+    }
+}
+
+// EZAttachmentSave — copies raw file data into EZAttachments under its actual name.
 //
 // Parameters:
 //   data     — the file's raw bytes
-//   fileName — the original filename (used as a suffix so the stored file
-//               has a recognizable name, e.g. "UUID_ViewController.m")
+//   fileName — the original filename; collisions become e.g. "report-2.pdf"
 //
 // Returns the full path of the saved file, or nil on error.
-// The UUID prefix ensures no two uploads ever collide, even across sessions.
 NSString * _Nullable EZAttachmentSave(NSData *data, NSString *fileName) {
     if (!data || fileName.length == 0) return nil;
 
@@ -2840,21 +2883,23 @@ NSString * _Nullable EZAttachmentSave(NSData *data, NSString *fileName) {
     // site still uses the generic save API.
     if (_isImageFileName(fileName)) return EZPhotoGallerySave(data, fileName);
 
-    // Prepend a UUID to guarantee uniqueness.
-    NSString *uniqueFileName = [NSString stringWithFormat:@"%@_%@",
-                                 [[NSUUID UUID] UUIDString], fileName];
-    NSString *filePath = [_attachmentDirectory() stringByAppendingPathComponent:uniqueFileName];
+    @synchronized (_attachmentSaveLock()) {
+        NSString *directory = _attachmentDirectory();
+        NSString *savedFileName = _availableFileName(directory, fileName, @"attachment");
+        if (!savedFileName) return nil;
+        NSString *filePath = [directory stringByAppendingPathComponent:savedFileName];
 
-    NSError *writeError = nil;
-    // NSDataWritingAtomic: write to a temp file, then rename — prevents partial writes.
-    BOOL saved = [data writeToFile:filePath options:NSDataWritingAtomic error:&writeError];
-    if (!saved) {
-        EZLogf(EZLogLevelError, @"ATTACH", @"Save failed for %@: %@", fileName, writeError);
-        return nil;
+        NSError *writeError = nil;
+        // NSDataWritingAtomic: write to a temp file, then rename — prevents partial writes.
+        BOOL saved = [data writeToFile:filePath options:NSDataWritingAtomic error:&writeError];
+        if (!saved) {
+            EZLogf(EZLogLevelError, @"ATTACH", @"Save failed for %@: %@", fileName, writeError);
+            return nil;
+        }
+
+        EZLogf(EZLogLevelInfo, @"ATTACH", @"Saved: %@", savedFileName);
+        return filePath;
     }
-
-    EZLogf(EZLogLevelInfo, @"ATTACH", @"Saved: %@", uniqueFileName);
-    return filePath;
 }
 
 // EZAttachmentPath — resolves a stored attachment filename back to its full

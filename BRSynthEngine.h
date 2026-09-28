@@ -61,7 +61,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) NSInteger octaveOffset;
 @property (nonatomic, assign) float attackSeconds;          // 0.005...0.25
 @property (nonatomic, assign) float releaseSeconds;         // 0.04...0.70
-@property (nonatomic, assign) float filterBrightness;       // 0 = dark, 1 = bright
+@property (nonatomic, assign) float filterBrightness;       // Legacy 0 = dark, 1 = bright control
+/// Bipolar filters: centre is bypass, negative values are low-pass and
+/// positive values are high-pass. The drum filter is independent of synth.
+@property (nonatomic, assign) float synthFilterAmount;      // -1 = LP, 0 = off, +1 = HP
+@property (nonatomic, assign) float drumsFilterAmount;      // -1 = LP, 0 = off, +1 = HP
 @property (nonatomic, assign) float reverbMix;              // 0 = dry, 1 = fully wet
 @property (nonatomic, assign) float compressionMix;         // 0 = open, 1 = tightly compressed
 @property (nonatomic, assign) float synthVolume;            // 0 = muted, 1 = unity
