@@ -23,6 +23,16 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "7.1.5",
+          "buildVersion": "7.1.5",
+          "date": "2026-09-28",
+          "localizedDescription": "Added a lot more to the new musical Brainrot game, including a smarrt keyboard, midi drum sequences, more knobs you can control like modulation, compression, high and lowpass, etc.  You can now select the wave type with each synth node, choose square, triangle, sawtooth, sine.  \n\nThe game is midi compliant and sends a clock and notes to channel 10.  Use with other midi instruments and it will play the keyboard and drums in other apps.  Pretty cool.\n\n**Full Changelog**: https://github.com/Tweaker177/EZCompleteUI/compare/v7.1.4...v7.1.5",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/v7.1.5/EZCompleteUI-7.1.5-release.ipa",
+          "size": 10977743,
+          "sha256": "422ecd39334132f040ede2955b6b093558311802ed36c2df8ee25d0769f33dda",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.0.9",
           "buildVersion": "7.0.9",
           "date": "2026-09-20",
