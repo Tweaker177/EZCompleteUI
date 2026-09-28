@@ -23,6 +23,16 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "7.1.6",
+          "buildVersion": "7.1.6",
+          "date": "2026-09-28",
+          "localizedDescription": "**Full Changelog**: https://github.com/Tweaker177/EZCompleteUI/compare/v7.1.5...v7.1.6",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/v7.1.6/EZCompleteUI-7.1.6-release.ipa",
+          "size": 10977890,
+          "sha256": "3c6d099d136428fe6f33a46726b655f99e82455390ae411205d0500eab077d09",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.1.5",
           "buildVersion": "7.1.5",
           "date": "2026-09-28",
