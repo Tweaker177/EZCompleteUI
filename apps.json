@@ -1,0 +1,48 @@
+{
+  "name": "EZCompleteUI Source",
+  "identifier": "com.i0stweak3r.ezcompleteui.source",
+  "sourceURL": "https://raw.githubusercontent.com/Tweaker177/EZCompleteUI/main/apps.json",
+  "subtitle": "Official EZCompleteUI releases",
+  "description": "Official AltStore source for EZCompleteUI, an AI workspace for iOS by i0s_tweak3r. Every build here is the same IPA attached to the matching release on GitHub.",
+  "iconURL": "https://raw.githubusercontent.com/Tweaker177/EZCompleteUI/main/Resources/AppIcon60x60%403x.png",
+  "website": "https://github.com/Tweaker177/EZCompleteUI",
+  "tintColor": "#4E8DA6",
+  "featuredApps": [
+    "com.i0stweak3r.ezcompleteui"
+  ],
+  "apps": [
+    {
+      "name": "EZCompleteUI",
+      "bundleIdentifier": "com.i0stweak3r.ezcompleteui",
+      "developerName": "i0s_tweak3r",
+      "subtitle": "AI chat, images, voice and games",
+      "localizedDescription": "EZCompleteUI is a native iOS AI workspace with coin-metered chat, a gallery-first image studio, transcription, text-to-speech and ElevenLabs voice cloning, searchable memories, and a custom game creator.\n\n• Persistent chats with local history, file and image attachments, and inline previews\n• Image generation and multi-image AI editing from a built-in photo gallery\n• Whisper transcription, Apple and ElevenLabs text-to-speech, and a TTS library with audio editing\n• AI memory: conversations are summarized and searchable\n• BrainRot game creator with saved and community games\n• Free coins every 6 hours, with optional coin purchases\n\nAn account is required to use the app. Source code and FAQ: github.com/Tweaker177/EZCompleteUI",
+      "iconURL": "https://raw.githubusercontent.com/Tweaker177/EZCompleteUI/main/Resources/AppIcon60x60%403x.png",
+      "tintColor": "#4E8DA6",
+      "category": "utilities",
+      "screenshotURLs": [],
+      "versions": [
+        {
+          "version": "7.0.9",
+          "buildVersion": "7.0.9",
+          "date": "2026-09-20",
+          "localizedDescription": "Release 7.0.9. Full changelog: https://github.com/Tweaker177/EZCompleteUI/releases/tag/v7.0.9",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/v7.0.9/EZCompleteUI-7.0.9-release.ipa",
+          "size": 9497791,
+          "sha256": "58f6bf88f1b23ccc5a195acd0dfe70c2c6f83fd623621eb8b804ed526af8b301",
+          "minOSVersion": "15.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSDocumentsFolderUsageDescription": "EZCompleteUI needs access to your files so you can attach documents, images, and audio to your chats.",
+          "NSMicrophoneUsageDescription": "EZCompleteUI uses the microphone for voice dictation.",
+          "NSPhotoLibraryAddUsageDescription": "EZCompleteUI saves AI-generated images to your Photo Library.",
+          "NSSpeechRecognitionUsageDescription": "EZCompleteUI uses speech recognition to transcribe your voice."
+        }
+      }
+    }
+  ],
+  "news": []
+}
