@@ -57,6 +57,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// .onSettingsChanged — wire both to the same -persistSynthSettings).
 @property (nonatomic, copy, nullable) void (^onSettingsChanged)(void);
 
+/// The keyboard's compact quick-knob row is useful when it is the only tone
+/// surface. Set this to NO when the presenter provides its own always-visible
+/// performance knobs, preventing duplicate controls from overlapping.
+@property (nonatomic, assign) BOOL showsQuickKnobs;
+
 /// Regenerates the key layout from synth.rootSemitone/scale and refreshes
 /// knob positions from their current synth values. Call once after setting
 /// .synth, and again any time the key/scale changes elsewhere (e.g. after

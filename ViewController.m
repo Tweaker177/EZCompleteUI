@@ -1541,8 +1541,14 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
     self.textToSpeechButton = [self _iconButton:@"play.circle.fill" tint:nil action:@selector(openTTS)];
 
-    self.memoriesButton   = [self _iconButton:@"memory" tint:nil
+    // `memory` is not rendered on every supported SF Symbols set. Use the
+    // long-standing archive glyph plus a title so this entry point is never a
+    // blank but tappable area.
+    self.memoriesButton   = [self _iconButton:@"archivebox.fill" tint:nil
                                       action:@selector(openMemories)];
+    [self.memoriesButton setTitle:@"Memories" forState:UIControlStateNormal];
+    self.memoriesButton.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
+    self.memoriesButton.accessibilityLabel = @"Memories";
     // Web search toggle
     self.webSearchButton = [self _iconButton:@"globe" tint:nil
                                       action:@selector(toggleWebSearch)];
@@ -1570,13 +1576,15 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         initWithTarget:self action:@selector(coinPotTapped)];
     [self.coinPotView addGestureRecognizer:potTap];
 
-    // Keep the main chat screen calm: navigation on the left, balance centered,
-    // and memories on the right. The full navigation list lives in the drawer.
+    // Keep navigation and response actions on the left, the balance centered,
+    // and Memories on the far right so it aligns with its shelf drawer.
     UIView *topStack = [[UIView alloc] init];
     topStack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:topStack];
     [topStack addSubview:self.historyButton];
     [topStack addSubview:self.coinPotView];
+    [topStack addSubview:self.clipboardButton];
+    [topStack addSubview:self.speakButton];
     [topStack addSubview:self.memoriesButton];
     [topStack addSubview:self.supportRequestButton];
 
@@ -1588,10 +1596,16 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         [self.coinPotView.bottomAnchor constraintEqualToAnchor:topStack.bottomAnchor],
         [self.historyButton.leadingAnchor constraintEqualToAnchor:topStack.leadingAnchor],
         [self.historyButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
-        [self.supportRequestButton.trailingAnchor constraintEqualToAnchor:topStack.trailingAnchor],
+        [self.clipboardButton.leadingAnchor constraintEqualToAnchor:self.historyButton.trailingAnchor constant:8],
+        [self.clipboardButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
+        [self.speakButton.leadingAnchor constraintEqualToAnchor:self.clipboardButton.trailingAnchor constant:8],
+        [self.speakButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
+        [self.memoriesButton.trailingAnchor constraintEqualToAnchor:topStack.trailingAnchor],
+        [self.supportRequestButton.trailingAnchor constraintEqualToAnchor:self.memoriesButton.leadingAnchor constant:-8],
         [self.supportRequestButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
-        [self.memoriesButton.trailingAnchor constraintEqualToAnchor:self.supportRequestButton.leadingAnchor constant:-18],
         [self.memoriesButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
+        [self.speakButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.coinPotView.leadingAnchor constant:-8],
+        [self.supportRequestButton.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.coinPotView.trailingAnchor constant:8],
     ]];
     [self.coinPotView setContentHuggingPriority:UILayoutPriorityRequired
                                         forAxis:UILayoutConstraintAxisHorizontal];
@@ -2490,7 +2504,17 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSString *saveName  = converted
         ? [[name stringByDeletingPathExtension] stringByAppendingPathExtension:@"jpeg"]
         : name;
-    NSString *localPath = EZPhotoGallerySave(imageData, saveName);
+    // A gallery selection is already stored in the permanent image library.
+    // Reusing it avoids creating a duplicate gallery file every time the user
+    // asks a question about a selected photo. Converted files still need a new
+    // JPEG destination so their extension and bytes agree.
+    NSString *galleryDirectory = EZPhotoGalleryDirectory().stringByStandardizingPath;
+    NSString *sourcePath = fileURL.path.stringByStandardizingPath;
+    NSString *galleryPrefix = [galleryDirectory stringByAppendingString:@"/"];
+    BOOL sourceIsAlreadyInGallery = [sourcePath hasPrefix:galleryPrefix];
+    NSString *localPath = (!converted && sourceIsAlreadyInGallery)
+        ? sourcePath
+        : EZPhotoGallerySave(imageData, saveName);
     NSString *thisPath  = localPath ?: fileURL.path;
     [self.pendingImagePaths addObject:thisPath];
     [self appendAttachmentBubble:thisPath];
@@ -6395,6 +6419,20 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 /// Called when user taps "Ask a Question" in the gallery detail view.
 /// Attaches the image to the chat input so the user can type their question.
 - (void)handleAttachImageToChat:(NSNotification *)notification {
+    id incomingPaths = notification.userInfo[@"filePaths"];
+    if ([incomingPaths isKindOfClass:[NSArray class]]) {
+        NSUInteger attachedCount = 0;
+        for (id value in (NSArray *)incomingPaths) {
+            if (![value isKindOfClass:[NSString class]]) continue;
+            NSString *path = (NSString *)value;
+            if (!path.length || ![[NSFileManager defaultManager] fileExistsAtPath:path]) continue;
+            [self attachImage:[NSURL fileURLWithPath:path]];
+            attachedCount += 1;
+        }
+        if (attachedCount > 0) [self.messageTextField becomeFirstResponder];
+        return;
+    }
+
     NSString *incomingPath = [notification.userInfo[@"filePath"] isKindOfClass:[NSString class]]
         ? notification.userInfo[@"filePath"] : nil;
     if (incomingPath.length && [[NSFileManager defaultManager] fileExistsAtPath:incomingPath]) {

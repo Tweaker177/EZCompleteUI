@@ -2,7 +2,7 @@
 
 static NSString * const kBRRicochetHighScoresURL = @"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/br-ricochet-highscores";
 
-@interface BRRicochetHighScoresViewController ()
+@interface BRRicochetHighScoresViewController () <UITextFieldDelegate>
 @property (nonatomic, assign) NSInteger pendingScore;
 @property (nonatomic, strong) NSArray<NSDictionary *> *scores;
 @property (nonatomic, strong) UITextField *nameField;
@@ -56,6 +56,9 @@ static NSString * const kBRRicochetHighScoresURL = @"https://spuoimtqofhbdzosrbn
     self.nameField.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 10, 1)];
     self.nameField.leftViewMode = UITextFieldViewModeAlways;
     self.nameField.autocorrectionType = UITextAutocorrectionTypeNo;
+    self.nameField.delegate = self;
+    self.nameField.returnKeyType = UIReturnKeyDone;
+    self.nameField.enablesReturnKeyAutomatically = NO;
     [card addSubview:self.nameField];
     self.submitButton = [UIButton buttonWithType:UIButtonTypeSystem];
     self.submitButton.frame = CGRectMake(16, 96, card.bounds.size.width - 32, 38);
@@ -123,7 +126,12 @@ static NSString * const kBRRicochetHighScoresURL = @"https://spuoimtqofhbdzosrbn
     [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (http.statusCode == 201) {
+            // The Edge Function may legitimately reply with 200, 201, or 204.
+            // Treat every successful HTTP response the same: hide the entry
+            // card immediately, dismiss the keyboard, and show the refreshed
+            // leaderboard without requiring the player to close this sheet.
+            if (http.statusCode >= 200 && http.statusCode < 300) {
+                [weakSelf.nameField resignFirstResponder];
                 weakSelf.pendingScore = -1;
                 [weakSelf.tableView reloadData];
                 [weakSelf fetchScores];
@@ -132,6 +140,14 @@ static NSString * const kBRRicochetHighScoresURL = @"https://spuoimtqofhbdzosrbn
             }
         });
     }] resume];
+}
+
+- (BOOL)textFieldShouldReturn:(UITextField *)textField {
+    if (textField == self.nameField && self.submitButton.enabled) {
+        [textField resignFirstResponder];
+        [self submitScore];
+    }
+    return NO;
 }
 
 @end

@@ -16,7 +16,8 @@
 //      [self presentViewController:nav animated:YES completion:nil];
 //
 //  Notifications posted:
-//    EZAttachImageToChat  — userInfo: @{ @"image": UIImage }  (Ask a Question button)
+//    EZAttachImageToChat  — userInfo: @{ @"image": UIImage }, @{ @"filePath": NSString },
+//                           or @{ @"filePaths": NSArray<NSString *> } (Ask a Question button)
 //    EZEditImageInChat    — userInfo: @{ @"image": UIImage }  (Edit button, opens edit mode)
 
 #import <UIKit/UIKit.h>

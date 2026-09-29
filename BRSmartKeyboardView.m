@@ -134,6 +134,7 @@
         self.layer.cornerRadius = 10;
         self.clipsToBounds = YES;
         self.multipleTouchEnabled = YES;
+        _showsQuickKnobs = YES;
         self.activeTouchKeyIndex = [NSMutableDictionary dictionary];
         self.keySemitones = @[];
 
@@ -152,12 +153,20 @@
     return self;
 }
 
+- (void)setShowsQuickKnobs:(BOOL)showsQuickKnobs {
+    if (_showsQuickKnobs == showsQuickKnobs) return;
+    _showsQuickKnobs = showsQuickKnobs;
+    for (BRMiniKnobControl *knob in self.knobs) knob.hidden = !showsQuickKnobs;
+    [self setNeedsLayout];
+}
+
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGFloat knobRowHeight = 66;
     CGFloat knobY = self.bounds.size.height - knobRowHeight;
     CGFloat knobWidth = self.bounds.size.width / self.knobs.count;
     for (NSInteger i = 0; i < (NSInteger)self.knobs.count; i++) {
+        self.knobs[i].hidden = !self.showsQuickKnobs;
         self.knobs[i].frame = CGRectMake(i * knobWidth, knobY + 4, knobWidth, knobRowHeight - 8);
     }
     [self setNeedsDisplay];

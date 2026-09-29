@@ -49,6 +49,7 @@ static NSString * const kBRRicochetDefaultsDrums  = @"BRRicochetSynthDrumLoop";
 static NSString * const kBRRicochetDefaultsSynthVolume = @"BRRicochetSynthVolume";
 static NSString * const kBRRicochetDefaultsDrumsVolume = @"BRRicochetDrumsVolume";
 static NSString * const kBRRicochetDefaultsCompression = @"BRRicochetSynthCompression";
+static NSString * const kBRRicochetDefaultsSaturation = @"BRRicochetSynthSaturation";
 static NSString * const kBRRicochetDefaultsArpeggio = @"BRRicochetSynthArpeggioDivision";
 static NSString * const kBRRicochetDefaultsWaveform = @"BRRicochetSynthWaveform";
 static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSynthOscillator2Waveform";
@@ -268,6 +269,10 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
 
     self.keyboardView = [[BRSmartKeyboardView alloc] init];
     self.keyboardView.synth = self.synth;
+    // The shared main-screen performance row supplies these controls in both
+    // input modes. Hide the keyboard's duplicate compact row so it cannot sit
+    // behind (or compete with) the main knobs.
+    self.keyboardView.showsQuickKnobs = NO;
     self.keyboardView.hidden = YES;
     __weak typeof(self) weakSelf = self;
     self.keyboardView.onNote = ^(NSInteger semitone, float velocity) {
@@ -283,13 +288,15 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
 
     BRRicochetMusicKnob *synthFilter = [[BRRicochetMusicKnob alloc] initWithCaption:@"SYNTH"];
     BRRicochetMusicKnob *drumsFilter = [[BRRicochetMusicKnob alloc] initWithCaption:@"DRUMS"];
+    BRRicochetMusicKnob *saturation = [[BRRicochetMusicKnob alloc] initWithCaption:@"SAT"];
     BRRicochetMusicKnob *modulation = [[BRRicochetMusicKnob alloc] initWithCaption:@"MOD"];
     BRRicochetMusicKnob *compression = [[BRRicochetMusicKnob alloc] initWithCaption:@"COMP"];
     synthFilter.minimumValue = -1; synthFilter.maximumValue = 1;
     drumsFilter.minimumValue = -1; drumsFilter.maximumValue = 1;
+    saturation.minimumValue = 0; saturation.maximumValue = 1;
     modulation.minimumValue = 0; modulation.maximumValue = 1;
     compression.minimumValue = 0; compression.maximumValue = 1;
-    self.performanceKnobs = @[ synthFilter, drumsFilter, modulation, compression ];
+    self.performanceKnobs = @[ synthFilter, drumsFilter, saturation, modulation, compression ];
     for (BRRicochetMusicKnob *knob in self.performanceKnobs) [self.view addSubview:knob];
     [synthFilter addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
         weakSelf.synth.synthFilterAmount = synthFilter.value;
@@ -297,6 +304,10 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     }] forControlEvents:UIControlEventValueChanged];
     [drumsFilter addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
         weakSelf.synth.drumsFilterAmount = drumsFilter.value;
+        [weakSelf persistSynthSettings]; [weakSelf refreshPerformanceKnobs];
+    }] forControlEvents:UIControlEventValueChanged];
+    [saturation addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
+        weakSelf.synth.saturationDrive = saturation.value;
         [weakSelf persistSynthSettings]; [weakSelf refreshPerformanceKnobs];
     }] forControlEvents:UIControlEventValueChanged];
     [modulation addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
@@ -440,7 +451,8 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     self.actionBtn.frame = self.launchBtn.frame;
     self.settingsBtn.frame = CGRectMake(sideMargin, CGRectGetMaxY(self.launchBtn.frame) + 10, 160, 24);
     CGFloat knobY = controlsY + 180;
-    CGFloat knobWidth = MIN(78.0, (self.view.bounds.size.width - sideMargin * 2) / 4.0);
+    CGFloat knobWidth = MIN(78.0, (self.view.bounds.size.width - sideMargin * 2) /
+                            MAX((CGFloat)self.performanceKnobs.count, 1.0));
     CGFloat knobsTotalWidth = knobWidth * self.performanceKnobs.count;
     CGFloat knobX = (self.view.bounds.size.width - knobsTotalWidth) / 2.0;
     for (NSInteger i = 0; i < self.performanceKnobs.count; i++) {
@@ -995,6 +1007,7 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     if ([defaults objectForKey:kBRRicochetDefaultsSynthVolume]) self.synth.synthVolume = [defaults floatForKey:kBRRicochetDefaultsSynthVolume];
     if ([defaults objectForKey:kBRRicochetDefaultsDrumsVolume]) self.synth.drumsVolume = [defaults floatForKey:kBRRicochetDefaultsDrumsVolume];
     if ([defaults objectForKey:kBRRicochetDefaultsCompression]) self.synth.compressionMix = [defaults floatForKey:kBRRicochetDefaultsCompression];
+    if ([defaults objectForKey:kBRRicochetDefaultsSaturation]) self.synth.saturationDrive = [defaults floatForKey:kBRRicochetDefaultsSaturation];
     if ([defaults objectForKey:kBRRicochetDefaultsArpeggio]) self.synth.arpeggioDivision = [defaults integerForKey:kBRRicochetDefaultsArpeggio];
     if ([defaults objectForKey:kBRRicochetDefaultsWaveform]) self.synth.waveform = [defaults integerForKey:kBRRicochetDefaultsWaveform];
     if ([defaults objectForKey:kBRRicochetDefaultsOscillator2Waveform]) self.synth.oscillator2Waveform = [defaults integerForKey:kBRRicochetDefaultsOscillator2Waveform];
@@ -1018,17 +1031,20 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
 }
 
 - (void)refreshPerformanceKnobs {
-    if (self.performanceKnobs.count != 4) return;
+    if (self.performanceKnobs.count != 5) return;
     BRRicochetMusicKnob *synthFilter = self.performanceKnobs[0];
     BRRicochetMusicKnob *drumsFilter = self.performanceKnobs[1];
-    BRRicochetMusicKnob *modulation = self.performanceKnobs[2];
-    BRRicochetMusicKnob *compression = self.performanceKnobs[3];
+    BRRicochetMusicKnob *saturation = self.performanceKnobs[2];
+    BRRicochetMusicKnob *modulation = self.performanceKnobs[3];
+    BRRicochetMusicKnob *compression = self.performanceKnobs[4];
     synthFilter.value = self.synth.synthFilterAmount;
     drumsFilter.value = self.synth.drumsFilterAmount;
+    saturation.value = self.synth.saturationDrive;
     modulation.value = self.synth.modulationDepth;
     compression.value = self.synth.compressionMix;
     synthFilter.valueLabel.text = [NSString stringWithFormat:@"%.0f%%", fabs(synthFilter.value) * 100.0];
     drumsFilter.valueLabel.text = [NSString stringWithFormat:@"%.0f%%", fabs(drumsFilter.value) * 100.0];
+    saturation.valueLabel.text = [NSString stringWithFormat:@"%.0f%%", saturation.value * 100.0f];
     modulation.valueLabel.text = [NSString stringWithFormat:@"%.0f%%", modulation.value * 100.0f];
     compression.valueLabel.text = [NSString stringWithFormat:@"%.0f%%", compression.value * 100.0f];
 }
@@ -1050,6 +1066,7 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     [defaults setFloat:self.synth.synthVolume forKey:kBRRicochetDefaultsSynthVolume];
     [defaults setFloat:self.synth.drumsVolume forKey:kBRRicochetDefaultsDrumsVolume];
     [defaults setFloat:self.synth.compressionMix forKey:kBRRicochetDefaultsCompression];
+    [defaults setFloat:self.synth.saturationDrive forKey:kBRRicochetDefaultsSaturation];
     [defaults setInteger:self.synth.arpeggioDivision forKey:kBRRicochetDefaultsArpeggio];
     [defaults setInteger:self.synth.waveform forKey:kBRRicochetDefaultsWaveform];
     [defaults setInteger:self.synth.oscillator2Waveform forKey:kBRRicochetDefaultsOscillator2Waveform];

@@ -38,6 +38,7 @@ static NSInteger const kMinColumns      = 2;
 static NSInteger const kMaxColumns      = 5;
 static NSInteger const kDefaultColumns  = 3;
 static NSString *const kGalleryImagePromptsKey = @"EZGalleryImagePrompts";
+static NSString *const kGalleryDigestCacheDefaultsKey = @"EZPhotoGalleryDigestCacheV1";
 static NSUInteger const kMaxImageEditSources = 4;
 
 static NSString *EZGalleryContentDigest(NSString *path) {
@@ -48,6 +49,20 @@ static NSString *EZGalleryContentDigest(NSString *path) {
     NSMutableString *result = [NSMutableString stringWithCapacity:CC_SHA256_DIGEST_LENGTH * 2];
     for (NSUInteger i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) [result appendFormat:@"%02x", digest[i]];
     return result;
+}
+
+/// A gallery controller is recreated every time the sheet is opened. Keep its
+/// decoded thumbnails alive for the life of the app so reopening the gallery
+/// never has to decode the same visible images again.
+static NSCache<NSString *, UIImage *> *EZGallerySharedThumbnailCache(void) {
+    static NSCache<NSString *, UIImage *> *cache;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        cache = [[NSCache alloc] init];
+        cache.countLimit = 300;
+        cache.totalCostLimit = 36 * 1024 * 1024;
+    });
+    return cache;
 }
 
 typedef NS_ENUM(NSInteger, EZShareGIFStyle) {
@@ -2023,11 +2038,15 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 @property (nonatomic, strong) NSMutableArray<NSString *> *filePaths;
 @property (nonatomic, strong) NSCache<NSString *, UIImage *> *thumbnailCache;
 @property (nonatomic, strong) NSOperationQueue      *loadQueue;
+@property (nonatomic, strong) NSOperationQueue      *fileIndexQueue;
+@property (nonatomic, assign) NSUInteger             fileIndexGeneration;
+@property (nonatomic, assign) BOOL                   hasLoadedFilePaths;
 @property (nonatomic, assign) NSInteger              columnCount;
 @property (nonatomic, strong) UILabel               *emptyLabel;
 @property (nonatomic, strong) UILabel               *countLabel;
 @property (nonatomic, strong) UIBarButtonItem       *selectButton;
 @property (nonatomic, strong) UIBarButtonItem       *selectionMenuButton;
+@property (nonatomic, strong) UIView                *selectionActionOverlay;
 @property (nonatomic, assign) BOOL                   selectingPhotos;
 @property (nonatomic, copy) NSArray<NSString *>     *musicVideoSourcePaths;
 @property (nonatomic, strong) UIView                 *musicRenderingOverlay;
@@ -2042,11 +2061,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [super viewDidLoad];
     self.columnCount = kDefaultColumns;
     self.filePaths   = [NSMutableArray array];
-    self.thumbnailCache = [[NSCache alloc] init];
-    self.thumbnailCache.countLimit = 200;
+    self.thumbnailCache = EZGallerySharedThumbnailCache();
     self.loadQueue = [[NSOperationQueue alloc] init];
     self.loadQueue.maxConcurrentOperationCount = 4;
     self.loadQueue.qualityOfService = NSQualityOfServiceUserInitiated;
+    self.fileIndexQueue = [[NSOperationQueue alloc] init];
+    self.fileIndexQueue.maxConcurrentOperationCount = 1;
+    self.fileIndexQueue.qualityOfService = NSQualityOfServiceUtility;
 
     [self styleNavBar];
     [self setupCollectionView];
@@ -2059,7 +2080,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [super viewWillAppear:animated];
     // Includes edits saved by a pushed detail controller without requiring it
     // to mutate the gallery's data source directly.
-    [self loadFilePaths];
+    // viewDidLoad already begins the first index pass. Starting another one
+    // here used to double the launch work before the sheet was even visible.
+    if (self.hasLoadedFilePaths) [self loadFilePaths];
 }
 
 - (void)styleNavBar {
@@ -2176,40 +2199,112 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)loadFilePaths {
-    NSString *dir = [self attachmentsPath];
-    [[NSFileManager defaultManager] createDirectoryAtPath:dir
-                              withIntermediateDirectories:YES attributes:nil error:nil];
-    [self migrateLegacyGalleryImagesIfNeeded];
-    NSArray<NSString *> *all = [[NSFileManager defaultManager]
-        contentsOfDirectoryAtPath:dir error:nil] ?: @[];
+    // Directory enumeration, legacy migration, and especially content hashing
+    // must never run in viewDidLoad on the main thread. The old implementation
+    // synchronously mapped and hashed every image on every launch, which made a
+    // gallery with a few large images appear to hang for many seconds.
+    self.fileIndexGeneration += 1;
+    NSUInteger generation = self.fileIndexGeneration;
+    [self.fileIndexQueue cancelAllOperations];
 
+    __weak typeof(self) weakSelf = self;
+    __block __weak NSBlockOperation *weakOperation;
+    NSBlockOperation *operation = [NSBlockOperation blockOperationWithBlock:^{
+        NSBlockOperation *indexOperation = weakOperation;
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf || indexOperation.isCancelled) return;
+
+        NSString *directory = [strongSelf attachmentsPath];
+        NSFileManager *fm = [NSFileManager defaultManager];
+        [fm createDirectoryAtPath:directory withIntermediateDirectories:YES attributes:nil error:nil];
+
+        // Publish the cheap filename/metadata index first. Cells can begin
+        // direct thumbnail decoding immediately instead of waiting for a full
+        // SHA-256 pass over every original image.
+        NSArray<NSString *> *initialPaths = [strongSelf sortedMediaPathsInDirectory:directory];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) liveSelf = weakSelf;
+            if (!liveSelf || generation != liveSelf.fileIndexGeneration) return;
+            [liveSelf applyFilePaths:initialPaths];
+        });
+
+        if (indexOperation.isCancelled) return;
+        [strongSelf migrateLegacyGalleryImagesIfNeeded];
+        if (indexOperation.isCancelled) return;
+
+        NSArray<NSString *> *allPaths = [strongSelf sortedMediaPathsInDirectory:directory];
+        NSArray<NSString *> *deduplicatedPaths = [strongSelf deduplicatedPathsFromPaths:allPaths
+                                                               cancellationOperation:indexOperation];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) liveSelf = weakSelf;
+            if (!liveSelf || generation != liveSelf.fileIndexGeneration) return;
+            [liveSelf applyFilePaths:deduplicatedPaths];
+        });
+    }];
+    weakOperation = operation;
+    [self.fileIndexQueue addOperation:operation];
+}
+
+- (NSArray<NSString *> *)sortedMediaPathsInDirectory:(NSString *)directory {
     NSArray<NSString *> *imageExts = @[@"jpg", @"jpeg", @"png", @"heic", @"gif", @"webp", @"tiff", @"bmp"];
     NSArray<NSString *> *videoExts = @[@"mov", @"mp4", @"m4v", @"avi"];
-    NSMutableArray *paths = [NSMutableArray array];
-    NSMutableSet<NSString *> *seenDigests = [NSMutableSet set];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSArray<NSString *> *all = [fm contentsOfDirectoryAtPath:directory error:nil] ?: @[];
+    NSMutableArray<NSString *> *paths = [NSMutableArray array];
+    NSMutableDictionary<NSString *, NSDate *> *modificationDates = [NSMutableDictionary dictionary];
+
     for (NSString *name in all) {
-        if ([imageExts containsObject:name.pathExtension.lowercaseString] ||
-            [videoExts containsObject:name.pathExtension.lowercaseString]) {
-            NSString *path = [dir stringByAppendingPathComponent:name];
-            NSString *digest = EZGalleryContentDigest(path);
-            if (digest.length && [seenDigests containsObject:digest]) {
-                EZLogf(EZLogLevelInfo, @"GALLERY", @"Hiding duplicate image %@", name);
-                continue;
-            }
-            if (digest.length) [seenDigests addObject:digest];
-            [paths addObject:path];
-        }
+        NSString *extension = name.pathExtension.lowercaseString;
+        if (![imageExts containsObject:extension] && ![videoExts containsObject:extension]) continue;
+        NSString *path = [directory stringByAppendingPathComponent:name];
+        NSDictionary *attributes = [fm attributesOfItemAtPath:path error:nil];
+        modificationDates[path] = attributes[NSFileModificationDate] ?: [NSDate distantPast];
+        [paths addObject:path];
     }
 
-    // Sort newest first (by modification date)
-    NSFileManager *fm = [NSFileManager defaultManager];
     [paths sortUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
-        NSDate *da = [fm attributesOfItemAtPath:a error:nil][NSFileModificationDate] ?: [NSDate distantPast];
-        NSDate *db = [fm attributesOfItemAtPath:b error:nil][NSFileModificationDate] ?: [NSDate distantPast];
-        return [db compare:da];
+        return [modificationDates[b] compare:modificationDates[a]];
     }];
+    return paths;
+}
 
-    self.filePaths = paths;
+- (NSArray<NSString *> *)deduplicatedPathsFromPaths:(NSArray<NSString *> *)paths
+                               cancellationOperation:(NSOperation *)operation {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSDictionary *stored = [[NSUserDefaults standardUserDefaults]
+        dictionaryForKey:kGalleryDigestCacheDefaultsKey] ?: @{};
+    NSMutableDictionary<NSString *, NSDictionary *> *cache = [stored mutableCopy];
+    NSMutableSet<NSString *> *seenDigests = [NSMutableSet set];
+    NSMutableSet<NSString *> *livePaths = [NSMutableSet setWithArray:paths];
+    NSMutableArray<NSString *> *uniquePaths = [NSMutableArray array];
+
+    for (NSString *path in paths) {
+        if (operation.isCancelled) return paths;
+        NSDictionary *attributes = [fm attributesOfItemAtPath:path error:nil] ?: @{};
+        NSNumber *size = attributes[NSFileSize] ?: @0;
+        NSDate *modified = attributes[NSFileModificationDate] ?: [NSDate distantPast];
+        NSString *fingerprint = [NSString stringWithFormat:@"%@|%.6f", size, modified.timeIntervalSince1970];
+        NSDictionary *entry = cache[path];
+        NSString *digest = [entry[@"fingerprint"] isEqualToString:fingerprint] ? entry[@"digest"] : nil;
+        if (!digest.length) {
+            digest = EZGalleryContentDigest(path);
+            if (digest.length) cache[path] = @{ @"fingerprint": fingerprint, @"digest": digest };
+        }
+        if (digest.length && [seenDigests containsObject:digest]) continue;
+        if (digest.length) [seenDigests addObject:digest];
+        [uniquePaths addObject:path];
+    }
+
+    for (NSString *path in cache.allKeys.copy) {
+        if (![livePaths containsObject:path]) [cache removeObjectForKey:path];
+    }
+    [[NSUserDefaults standardUserDefaults] setObject:cache forKey:kGalleryDigestCacheDefaultsKey];
+    return uniquePaths;
+}
+
+- (void)applyFilePaths:(NSArray<NSString *> *)paths {
+    self.filePaths = [paths mutableCopy];
+    self.hasLoadedFilePaths = YES;
     [self.collectionView reloadData];
 
     NSInteger count = paths.count;
@@ -2303,6 +2398,32 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         if (frame) CGImageRelease(frame);
         return image;
     }
+
+    // Ask ImageIO for a decoded thumbnail at the requested pixel size. Loading
+    // the full image first was needlessly expensive for multi-megapixel photos
+    // and made reopening a large gallery feel much slower than the grid needed.
+    NSURL *url = [NSURL fileURLWithPath:path];
+    CGImageSourceRef source = CGImageSourceCreateWithURL((__bridge CFURLRef)url, NULL);
+    if (source) {
+        NSDictionary *options = @{
+            (__bridge NSString *)kCGImageSourceCreateThumbnailFromImageAlways: @YES,
+            (__bridge NSString *)kCGImageSourceCreateThumbnailWithTransform: @YES,
+            (__bridge NSString *)kCGImageSourceThumbnailMaxPixelSize: @(MAX(1.0, ceil(side))),
+            (__bridge NSString *)kCGImageSourceShouldCacheImmediately: @YES,
+        };
+        CGImageRef imageRef = CGImageSourceCreateThumbnailAtIndex(source, 0,
+                                                                     (__bridge CFDictionaryRef)options);
+        CFRelease(source);
+        if (imageRef) {
+            UIImage *thumbnail = [UIImage imageWithCGImage:imageRef
+                                                       scale:UIScreen.mainScreen.scale
+                                                 orientation:UIImageOrientationUp];
+            CGImageRelease(imageRef);
+            return thumbnail;
+        }
+    }
+
+    // Keep a compatibility fallback for a format ImageIO cannot thumbnail.
     UIImage *full = [UIImage imageWithContentsOfFile:path];
     if (!full) return nil;
     CGSize  sz     = CGSizeMake(side, side);
@@ -2374,26 +2495,161 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
     NSUInteger count = self.collectionView.indexPathsForSelectedItems.count;
     self.selectButton.title = NSLocalizedString(@"EZGallery.Done", nil);
-    __weak typeof(self) weakSelf = self;
-    UIAction *share = [UIAction actionWithTitle:@"Share" image:[UIImage systemImageNamed:@"square.and.arrow.up"] identifier:nil handler:^(__kindof UIAction *action) {
-        [weakSelf shareSelectedTapped];
-    }];
-    UIAction *musicVideo = [UIAction actionWithTitle:@"Make Music Video" image:[UIImage systemImageNamed:@"film.stack"] identifier:nil handler:^(__kindof UIAction *action) {
-        [weakSelf makeMusicVideoTapped];
-    }];
-    UIAction *delete = [UIAction actionWithTitle:@"Delete" image:[UIImage systemImageNamed:@"trash"] identifier:nil handler:^(__kindof UIAction *action) {
-        [weakSelf deleteSelectedTapped];
-    }];
-    if (count == 0) {
-        share.attributes = UIMenuElementAttributesDisabled;
-        musicVideo.attributes = UIMenuElementAttributesDisabled;
-        delete.attributes = UIMenuElementAttributesDisabled;
-    }
-    delete.attributes |= UIMenuElementAttributesDestructive;
-    UIMenu *menu = [UIMenu menuWithTitle:@"Selected Media" children:@[share, musicVideo, delete]];
-    self.selectionMenuButton = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"ellipsis.circle"] menu:menu];
+    self.selectionMenuButton = [[UIBarButtonItem alloc]
+        initWithImage:[UIImage systemImageNamed:@"ellipsis.circle"]
+                style:UIBarButtonItemStylePlain
+               target:self
+               action:@selector(presentSelectionActionSheet)];
     self.countLabel.text = [NSString stringWithFormat:NSLocalizedString(@"EZGallery.SelectedCount", nil), (unsigned long)count];
     self.navigationItem.rightBarButtonItems = @[self.selectionMenuButton, self.selectButton];
+}
+
+- (UIButton *)selectionActionButtonWithTitle:(NSString *)title
+                                        image:(NSString *)imageName
+                                        color:(UIColor *)color
+                                    destructive:(BOOL)destructive
+                                      enabled:(BOOL)enabled
+                                      handler:(void (^)(void))handler {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.backgroundColor = destructive
+        ? [UIColor colorWithRed:0.55 green:0.10 blue:0.18 alpha:0.34]
+        : [UIColor colorWithWhite:1.0 alpha:0.07];
+    button.layer.cornerRadius = 14.0;
+    button.layer.borderWidth = 1.0;
+    button.layer.borderColor = [color colorWithAlphaComponent:destructive ? 0.52 : 0.30].CGColor;
+    button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+    button.contentEdgeInsets = UIEdgeInsetsMake(0, 16, 0, 16);
+    button.tintColor = color;
+    button.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+    [button setTitle:title forState:UIControlStateNormal];
+    [button setTitleColor:color forState:UIControlStateNormal];
+    [button setImage:[UIImage systemImageNamed:imageName] forState:UIControlStateNormal];
+    button.imageView.contentMode = UIViewContentModeScaleAspectFit;
+    button.titleEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 0);
+    button.enabled = enabled;
+    button.alpha = enabled ? 1.0 : 0.38;
+    if (handler) {
+        [button addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
+            handler();
+        }] forControlEvents:UIControlEventTouchUpInside];
+    }
+    return button;
+}
+
+- (void)dismissSelectionActionSheetWithCompletion:(void (^ _Nullable)(void))completion {
+    UIView *overlay = self.selectionActionOverlay;
+    if (!overlay) {
+        if (completion) completion();
+        return;
+    }
+    self.selectionActionOverlay = nil;
+    [UIView animateWithDuration:0.16 animations:^{
+        overlay.alpha = 0.0;
+    } completion:^(__unused BOOL finished) {
+        [overlay removeFromSuperview];
+        if (completion) completion();
+    }];
+}
+
+- (void)presentSelectionActionSheet {
+    if (self.selectionActionOverlay) return;
+
+    NSUInteger selectedCount = self.collectionView.indexPathsForSelectedItems.count;
+    BOOL hasSelection = selectedCount > 0;
+    BOOL hasAttachableImages = self.selectedAttachableImagePaths.count > 0;
+
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.68];
+    overlay.alpha = 0.0;
+    self.selectionActionOverlay = overlay;
+    [self.view addSubview:overlay];
+
+    UIControl *dismissTarget = [[UIControl alloc] initWithFrame:overlay.bounds];
+    dismissTarget.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [dismissTarget addTarget:self action:@selector(dismissSelectionActionSheet)
+             forControlEvents:UIControlEventTouchUpInside];
+    [overlay addSubview:dismissTarget];
+
+    CGFloat cardWidth = MIN(360.0, CGRectGetWidth(overlay.bounds) - 32.0);
+    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, 390.0)];
+    card.center = CGPointMake(CGRectGetMidX(overlay.bounds), CGRectGetMidY(overlay.bounds));
+    card.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin |
+                            UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+    card.backgroundColor = [UIColor colorWithRed:0.055 green:0.06 blue:0.13 alpha:1.0];
+    card.layer.cornerRadius = 24.0;
+    card.layer.borderWidth = 1.5;
+    card.layer.borderColor = [UIColor colorWithRed:0.63 green:0.35 blue:1.0 alpha:0.72].CGColor;
+    [overlay addSubview:card];
+
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(20, 22, cardWidth - 40, 26)];
+    title.text = @"SELECTED MEDIA";
+    title.textAlignment = NSTextAlignmentCenter;
+    title.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold];
+    title.textColor = [UIColor colorWithRed:0.74 green:0.52 blue:1.0 alpha:1.0];
+    [card addSubview:title];
+
+    UILabel *subtitle = [[UILabel alloc] initWithFrame:CGRectMake(24, 49, cardWidth - 48, 22)];
+    subtitle.text = selectedCount == 1
+        ? @"1 item selected"
+        : [NSString stringWithFormat:@"%lu items selected", (unsigned long)selectedCount];
+    subtitle.textAlignment = NSTextAlignmentCenter;
+    subtitle.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+    subtitle.textColor = [UIColor colorWithWhite:0.70 alpha:1.0];
+    [card addSubview:subtitle];
+
+    __weak typeof(self) weakSelf = self;
+    NSArray<NSDictionary<NSString *, id> *> *actions = @[
+        @{ @"title": @"Ask AI a Question", @"image": @"questionmark.bubble.fill",
+           @"color": [UIColor colorWithRed:0.10 green:0.92 blue:0.76 alpha:1.0],
+           @"enabled": @(hasAttachableImages), @"destructive": @NO,
+           @"handler": ^{ [weakSelf dismissSelectionActionSheetWithCompletion:^{ [weakSelf askAIAboutSelectedTapped]; }]; } },
+        @{ @"title": @"Share", @"image": @"square.and.arrow.up",
+           @"color": [UIColor colorWithRed:0.38 green:0.72 blue:1.0 alpha:1.0],
+           @"enabled": @(hasSelection), @"destructive": @NO,
+           @"handler": ^{ [weakSelf dismissSelectionActionSheetWithCompletion:^{ [weakSelf shareSelectedTapped]; }]; } },
+        @{ @"title": @"Make Music Video", @"image": @"film.stack.fill",
+           @"color": [UIColor colorWithRed:0.74 green:0.52 blue:1.0 alpha:1.0],
+           @"enabled": @(hasSelection), @"destructive": @NO,
+           @"handler": ^{ [weakSelf dismissSelectionActionSheetWithCompletion:^{ [weakSelf makeMusicVideoTapped]; }]; } },
+        @{ @"title": @"Delete", @"image": @"trash.fill",
+           @"color": [UIColor colorWithRed:1.0 green:0.38 blue:0.42 alpha:1.0],
+           @"enabled": @(hasSelection), @"destructive": @YES,
+           @"handler": ^{ [weakSelf dismissSelectionActionSheetWithCompletion:^{ [weakSelf deleteSelectedTapped]; }]; } },
+    ];
+
+    CGFloat rowY = 88.0;
+    for (NSDictionary<NSString *, id> *action in actions) {
+        void (^handler)(void) = action[@"handler"];
+        UIButton *button = [self selectionActionButtonWithTitle:action[@"title"]
+                                                           image:action[@"image"]
+                                                           color:action[@"color"]
+                                                     destructive:[action[@"destructive"] boolValue]
+                                                         enabled:[action[@"enabled"] boolValue]
+                                                         handler:handler];
+        button.frame = CGRectMake(20, rowY, cardWidth - 40, 48);
+        [card addSubview:button];
+        rowY += 56.0;
+    }
+
+    UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem];
+    cancel.frame = CGRectMake(20, 325, cardWidth - 40, 44);
+    cancel.backgroundColor = [UIColor colorWithRed:0.63 green:0.35 blue:1.0 alpha:0.88];
+    cancel.layer.cornerRadius = 13.0;
+    cancel.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBold];
+    cancel.tintColor = UIColor.whiteColor;
+    [cancel setTitle:@"Cancel" forState:UIControlStateNormal];
+    [cancel addTarget:self action:@selector(dismissSelectionActionSheet)
+      forControlEvents:UIControlEventTouchUpInside];
+    [card addSubview:cancel];
+
+    [UIView animateWithDuration:0.18 animations:^{
+        overlay.alpha = 1.0;
+    }];
+}
+
+- (void)dismissSelectionActionSheet {
+    [self dismissSelectionActionSheetWithCompletion:nil];
 }
 
 - (NSArray<NSString *> *)selectedPhotoPaths {
@@ -2403,6 +2659,42 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         if ((NSUInteger)indexPath.item < self.filePaths.count) [paths addObject:self.filePaths[(NSUInteger)indexPath.item]];
     }
     return paths;
+}
+
+// Videos can be selected alongside photos to make a music video or share, but
+// chat vision requests only accept image files. Keep the selected order so the
+// attachment bubbles and the model see the same order as the gallery.
+- (NSArray<NSString *> *)selectedAttachableImagePaths {
+    static NSSet<NSString *> *imageExtensions;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        imageExtensions = [NSSet setWithArray:@[
+            @"jpg", @"jpeg", @"png", @"heic", @"gif", @"webp", @"tiff", @"bmp"
+        ]];
+    });
+
+    NSMutableArray<NSString *> *imagePaths = [NSMutableArray array];
+    for (NSString *path in [self selectedPhotoPaths]) {
+        if ([imageExtensions containsObject:path.pathExtension.lowercaseString]) {
+            [imagePaths addObject:path];
+        }
+    }
+    return imagePaths;
+}
+
+- (void)askAIAboutSelectedTapped {
+    NSArray<NSString *> *paths = [self selectedAttachableImagePaths];
+    if (!paths.count) return;
+
+    [[NSNotificationCenter defaultCenter]
+        postNotificationName:EZAttachImageToChat
+                      object:nil
+                    userInfo:@{ @"filePaths": paths }];
+
+    // Return directly to the composer. The notification is handled
+    // synchronously, so every selected image is attached before the gallery
+    // sheet goes away.
+    [self.navigationController dismissViewControllerAnimated:YES completion:nil];
 }
 
 - (void)shareSelectedTapped {
