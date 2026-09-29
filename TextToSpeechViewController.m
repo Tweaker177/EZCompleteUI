@@ -40,12 +40,12 @@
 #import "EZVoicePickerViewController.h"
 
 static NSString * const kDefaultVoiceID = @"JBFqnCBsd6RMkjVDRZzb"; // fallback example
-static NSString * const kDefaultModelID = @"eleven_multilingual_v2";
+static NSString * const kDefaultModelID = @"eleven_v4";
 static NSString * const kFallbackMP3Format = @"mp3_44100_128";
 static NSString * const kVoiceIDDefaultsKey = @"elevenVoiceID";
 static NSString * const kVoiceNameDefaultsKey = @"elevenVoiceName";
 
-static NSUInteger const kPromptCharacterLimit = 1200;
+static NSUInteger const kPromptCharacterLimit = 2000;
 
 @interface TextToSpeechViewController : UIViewController <UITextViewDelegate>
 @end
@@ -433,6 +433,7 @@ static NSString *timestampString(void) {
         @"action":        @"tts",
         @"text":          text ?: @"",
         @"voice_id":      voiceID,
+        @"model_id":      kDefaultModelID,
         @"output_format": fmt,
         @"speed":         @(speed),
         @"char_count":    @(charCount)

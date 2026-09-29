@@ -122,6 +122,128 @@ static CGRect EZAspectFitRect(CGSize imageSize, CGRect bounds) {
                       size.width, size.height);
 }
 
+typedef NS_ENUM(NSUInteger, EZMusicVideoTransitionStyle) {
+    EZMusicVideoTransitionStyleBlend = 0,
+    EZMusicVideoTransitionStyleCube,
+    EZMusicVideoTransitionStyleFlip,
+    EZMusicVideoTransitionStyleCurlAway,
+};
+
+// A subtle, fully-contained Ken Burns move keeps a still from looking like a
+// frozen slide. Aspect fit is intentional: a landscape photo in a portrait
+// movie (or the reverse) must remain fully visible rather than losing its
+// edges. Animated GIFs and video clips deliberately keep their own motion.
+static CGRect EZMusicVideoDrawRect(CGSize imageSize, CGRect bounds, BOOL useKenBurns,
+                                   CGFloat progress, NSUInteger sourceIndex) {
+    CGRect rect = EZAspectFitRect(imageSize, bounds);
+    if (!useKenBurns) return rect;
+
+    // Do not use a cosine ease-in here: its zero starting velocity made the
+    // first few frames look static. A linear move is visibly underway from
+    // frame one, then arrives cleanly at the full fit rect at the end.
+    CGFloat travel = MIN(1.0, MAX(0.0, progress));
+    BOOL zoomOut = (sourceIndex % 3) == 1;
+    // Both endpoints are <= 1.0, guaranteeing that no part of an image is
+    // clipped while it moves. It scales from 90% to 100%, or the reverse.
+    CGFloat scale = zoomOut ? (1.0 - 0.10 * travel) : (0.90 + 0.10 * travel);
+    rect = CGRectMake(CGRectGetMidX(rect) - rect.size.width * scale * 0.5,
+                      CGRectGetMidY(rect) - rect.size.height * scale * 0.5,
+                      rect.size.width * scale, rect.size.height * scale);
+
+    CGFloat directionX = (sourceIndex % 2) ? -1.0 : 1.0;
+    CGFloat directionY = (sourceIndex % 4 < 2) ? -1.0 : 1.0;
+    CGFloat pan = zoomOut ? travel : (1.0 - travel);
+    CGFloat availableX = MAX(0.0, (bounds.size.width - rect.size.width) * 0.5);
+    CGFloat availableY = MAX(0.0, (bounds.size.height - rect.size.height) * 0.5);
+    rect.origin.x += directionX * availableX * 0.72 * pan;
+    rect.origin.y += directionY * availableY * 0.72 * pan;
+    return rect;
+}
+
+static void EZDrawMusicVideoImage(CGContextRef context, CGImageRef image, CGRect bounds,
+                                  BOOL useKenBurns, CGFloat motionProgress,
+                                  NSUInteger sourceIndex, CGFloat alpha) {
+    if (!context || !image || alpha <= 0.0) return;
+    CGContextSaveGState(context);
+    CGContextSetAlpha(context, MIN(1.0, MAX(0.0, alpha)));
+    CGSize imageSize = CGSizeMake(CGImageGetWidth(image), CGImageGetHeight(image));
+    CGContextDrawImage(context,
+                       EZMusicVideoDrawRect(imageSize, bounds, useKenBurns,
+                                            motionProgress, sourceIndex), image);
+    CGContextRestoreGState(context);
+}
+
+static void EZDrawMusicVideoImageTransformed(CGContextRef context, CGImageRef image,
+                                             CGRect bounds, BOOL useKenBurns,
+                                             CGFloat motionProgress, NSUInteger sourceIndex,
+                                             CGFloat scaleX, CGFloat scaleY,
+                                             CGFloat translationX, CGFloat translationY,
+                                             CGFloat alpha) {
+    CGContextSaveGState(context);
+    CGContextTranslateCTM(context, CGRectGetMidX(bounds) + translationX,
+                          CGRectGetMidY(bounds) + translationY);
+    CGContextScaleCTM(context, MAX(0.01, scaleX), MAX(0.01, scaleY));
+    CGContextTranslateCTM(context, -CGRectGetMidX(bounds), -CGRectGetMidY(bounds));
+    EZDrawMusicVideoImage(context, image, bounds, useKenBurns, motionProgress, sourceIndex, alpha);
+    CGContextRestoreGState(context);
+}
+
+// These transitions are rendered directly into the video frame rather than
+// through Core Animation, which keeps export deterministic on-device. Cube,
+// flip, and curl-away are intentionally compact, 2D approximations of their
+// familiar 3D counterparts so they remain inexpensive at every frame.
+static void EZDrawMusicVideoTransition(CGContextRef context, CGImageRef outgoing,
+                                       BOOL outgoingKenBurns, CGFloat outgoingProgress,
+                                       NSUInteger outgoingIndex, CGImageRef incoming,
+                                       BOOL incomingKenBurns, CGFloat incomingProgress,
+                                       NSUInteger incomingIndex, CGRect bounds,
+                                       EZMusicVideoTransitionStyle style, CGFloat progress) {
+    CGFloat p = MIN(1.0, MAX(0.0, progress));
+    switch (style) {
+        case EZMusicVideoTransitionStyleCube:
+            EZDrawMusicVideoImageTransformed(context, outgoing, bounds, outgoingKenBurns,
+                outgoingProgress, outgoingIndex, 1.0 - 0.65 * p, 1.0,
+                -bounds.size.width * 0.32 * p, 0, 1.0);
+            EZDrawMusicVideoImageTransformed(context, incoming, bounds, incomingKenBurns,
+                incomingProgress, incomingIndex, 0.35 + 0.65 * p, 1.0,
+                bounds.size.width * 0.32 * (1.0 - p), 0, p);
+            break;
+
+        case EZMusicVideoTransitionStyleFlip:
+            // Keep a faint destination layer underneath so the midpoint never
+            // flashes black while the outgoing face is edge-on.
+            EZDrawMusicVideoImage(context, incoming, bounds, incomingKenBurns,
+                                  incomingProgress, incomingIndex, 0.25 + 0.35 * p);
+            if (p < 0.5) {
+                EZDrawMusicVideoImageTransformed(context, outgoing, bounds, outgoingKenBurns,
+                    outgoingProgress, outgoingIndex, 1.0 - 2.0 * p, 1.0,
+                    0, 0, 1.0);
+            } else {
+                EZDrawMusicVideoImageTransformed(context, incoming, bounds, incomingKenBurns,
+                    incomingProgress, incomingIndex, 2.0 * p - 1.0, 1.0,
+                    0, 0, 1.0);
+            }
+            break;
+
+        case EZMusicVideoTransitionStyleCurlAway:
+            EZDrawMusicVideoImage(context, incoming, bounds, incomingKenBurns,
+                                  incomingProgress, incomingIndex, 1.0);
+            EZDrawMusicVideoImageTransformed(context, outgoing, bounds, outgoingKenBurns,
+                outgoingProgress, outgoingIndex, 1.0 - 0.22 * p, 1.0 - 0.10 * p,
+                bounds.size.width * 0.18 * p, -bounds.size.height * 0.05 * p,
+                1.0 - 0.78 * p);
+            break;
+
+        case EZMusicVideoTransitionStyleBlend:
+        default:
+            EZDrawMusicVideoImage(context, outgoing, bounds, outgoingKenBurns,
+                                  outgoingProgress, outgoingIndex, 1.0);
+            EZDrawMusicVideoImage(context, incoming, bounds, incomingKenBurns,
+                                  incomingProgress, incomingIndex, p);
+            break;
+    }
+}
+
 // Shared by the gallery + button and the detail editor's reference-image +.
 // This intentionally mirrors the coin-store upsell card rather than falling
 // back to a plain system action sheet.
@@ -2785,96 +2907,297 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self presentViewController:prompt animated:YES completion:nil];
 }
 
+- (void)finishMusicVideoWithErrorMessage:(NSString *)message cleanupURLs:(NSArray<NSURL *> *)urls {
+    for (NSURL *url in urls) {
+        if (url) [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self stopMusicRenderingOverlay];
+        self.musicVideoSourcePaths = nil;
+        UIAlertController *failure = [UIAlertController alertControllerWithTitle:@"Couldn’t make video"
+                                                                          message:message ?: @"Please try a different audio file."
+                                                                   preferredStyle:UIAlertControllerStyleAlert];
+        [failure addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:failure animated:YES completion:nil];
+    });
+}
+
+- (void)finishMusicVideoAtURL:(NSURL *)finalURL temporaryURL:(NSURL *)tempURL {
+    if (tempURL) [[NSFileManager defaultManager] removeItemAtURL:tempURL error:nil];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self stopMusicRenderingOverlay];
+        self.musicVideoSourcePaths = nil;
+        [self loadFilePaths];
+        UIActivityViewController *share = [[UIActivityViewController alloc]
+            initWithActivityItems:@[finalURL] applicationActivities:nil];
+        [self presentViewController:share animated:YES completion:nil];
+    });
+}
+
 - (void)renderMusicVideoWithAudioURL:(NSURL *)audioURL sources:(NSArray<NSString *> *)paths {
-    AVURLAsset *audioAsset = [AVURLAsset URLAssetWithURL:audioURL options:nil];
-    Float64 seconds = CMTimeGetSeconds(audioAsset.duration);
-    if (!isfinite(seconds) || seconds <= 0) { self.musicVideoSourcePaths = nil; return; }
+    if (!audioURL || !paths.count) return;
+
+    AVURLAsset *audioAsset = [AVURLAsset URLAssetWithURL:audioURL options:@{
+        AVURLAssetPreferPreciseDurationAndTimingKey: @YES,
+    }];
     [self startMusicRenderingOverlay];
     __weak typeof(self) weakSelf = self;
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        // Fast-cut preset: video does the heavy lifting here, so lower its
-        // frame count and canvas before touching the music track. This cuts a
-        // five-minute render from ~7,200 frames to ~3,600 and reduces each
-        // frame's pixel work by over 2×, while audio remains untouched.
-        NSInteger fps = 12;
-        NSInteger outputWidth = 480;
-        NSInteger outputHeight = 854;
-        NSString *dir = [self attachmentsPath];
-        NSString *tempPath = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"render-%@.mp4", NSUUID.UUID.UUIDString]];
-        NSURL *tempURL = [NSURL fileURLWithPath:tempPath];
-        AVAssetWriter *writer = [[AVAssetWriter alloc] initWithURL:tempURL fileType:AVFileTypeMPEG4 error:nil];
-        NSDictionary *settings = @{
-            AVVideoCodecKey: AVVideoCodecTypeH264,
-            AVVideoWidthKey: @(outputWidth), AVVideoHeightKey: @(outputHeight),
-            AVVideoCompressionPropertiesKey: @{ AVVideoAverageBitRateKey: @1800000 }
-        };
-        AVAssetWriterInput *input = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo outputSettings:settings];
-        input.expectsMediaDataInRealTime = NO;
-        NSDictionary *pixelAttrs = @{ (id)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA), (id)kCVPixelBufferWidthKey: @(outputWidth), (id)kCVPixelBufferHeightKey: @(outputHeight) };
-        AVAssetWriterInputPixelBufferAdaptor *adaptor = [[AVAssetWriterInputPixelBufferAdaptor alloc] initWithAssetWriterInput:input sourcePixelBufferAttributes:pixelAttrs];
-        if (![writer canAddInput:input]) {
-            dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf stopMusicRenderingOverlay]; weakSelf.musicVideoSourcePaths = nil; });
+
+    // File-provider copies sometimes report a duration before their tracks are
+    // readable. Load both values first; otherwise the old code could create a
+    // perfectly good silent render and then try to export it with no audio.
+    [audioAsset loadValuesAsynchronouslyForKeys:@[@"duration", @"tracks"] completionHandler:^{
+        NSError *audioError = nil;
+        for (NSString *key in @[@"duration", @"tracks"]) {
+            if ([audioAsset statusOfValueForKey:key error:&audioError] != AVKeyValueStatusLoaded) {
+                [weakSelf finishMusicVideoWithErrorMessage:
+                    audioError.localizedDescription ?: @"The selected audio file could not be read."
+                                               cleanupURLs:@[]];
+                return;
+            }
+        }
+
+        AVAssetTrack *audioTrack = [audioAsset tracksWithMediaType:AVMediaTypeAudio].firstObject;
+        Float64 seconds = CMTimeGetSeconds(audioAsset.duration);
+        if (!audioTrack || !isfinite(seconds) || seconds <= 0) {
+            [weakSelf finishMusicVideoWithErrorMessage:@"The selected file does not contain a usable audio track."
+                                           cleanupURLs:@[]];
             return;
         }
-        [writer addInput:input];
-        [writer startWriting]; [writer startSessionAtSourceTime:kCMTimeZero];
-        NSMutableArray *generators = [NSMutableArray array];
-        NSMutableArray<NSNumber *> *durations = [NSMutableArray array];
-        for (NSString *path in paths) {
-            BOOL video = [@[@"mov", @"mp4", @"m4v", @"avi"] containsObject:path.pathExtension.lowercaseString];
-            AVAssetImageGenerator *generator = video ? [[AVAssetImageGenerator alloc] initWithAsset:[AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:path] options:nil]] : nil;
-            generator.appliesPreferredTrackTransform = YES;
-            [generators addObject:generator ?: (id)[NSNull null]];
-            Float64 d = video ? CMTimeGetSeconds(generator.asset.duration) : 3.0;
-            [durations addObject:@(MAX(0.5, MIN(d, 12.0)))];
-        }
-        NSInteger totalFrames = (NSInteger)ceil(seconds * fps);
-        for (NSInteger frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
-            Float64 timeline = frameIndex / (Float64)fps, cursor = 0; NSUInteger sourceIndex = 0;
-            while (timeline >= cursor + durations[sourceIndex].doubleValue) { cursor += durations[sourceIndex].doubleValue; sourceIndex = (sourceIndex + 1) % paths.count; }
-            NSString *path = paths[sourceIndex]; CGImageRef image = nil;
-            AVAssetImageGenerator *generator = (id)generators[sourceIndex];
-            if ((id)generator != (id)[NSNull null]) {
-                image = [generator copyCGImageAtTime:CMTimeMakeWithSeconds(timeline - cursor, 600) actualTime:nil error:nil];
-            } else {
-                CGImageSourceRef source = CGImageSourceCreateWithURL((__bridge CFURLRef)[NSURL fileURLWithPath:path], NULL);
-                if (source) {
-                    size_t frameCount = CGImageSourceGetCount(source);
-                    size_t gifFrame = frameCount > 1 ? (size_t)floor(fmod((timeline - cursor), durations[sourceIndex].doubleValue) / durations[sourceIndex].doubleValue * frameCount) : 0;
-                    image = CGImageSourceCreateImageAtIndex(source, MIN(gifFrame, frameCount - 1), NULL);
-                    CFRelease(source);
+
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            typeof(self) self = weakSelf;
+            if (!self) return;
+
+            // Render temporary video outside the gallery. Previously this was
+            // saved in the gallery directory, so a failed mux left a visible,
+            // silent intermediate movie behind.
+            NSInteger fps = 12;
+            NSInteger outputWidth = 480;
+            NSInteger outputHeight = 854;
+            NSURL *tempURL = [NSURL fileURLWithPath:[NSTemporaryDirectory()
+                stringByAppendingPathComponent:[NSString stringWithFormat:@"ez-video-render-%@.mp4", NSUUID.UUID.UUIDString]]];
+            [[NSFileManager defaultManager] removeItemAtURL:tempURL error:nil];
+
+            NSError *writerError = nil;
+            AVAssetWriter *writer = [[AVAssetWriter alloc] initWithURL:tempURL
+                                                                fileType:AVFileTypeMPEG4
+                                                                   error:&writerError];
+            if (!writer) {
+                [self finishMusicVideoWithErrorMessage:writerError.localizedDescription cleanupURLs:@[tempURL]];
+                return;
+            }
+            NSDictionary *settings = @{
+                AVVideoCodecKey: AVVideoCodecTypeH264,
+                AVVideoWidthKey: @(outputWidth), AVVideoHeightKey: @(outputHeight),
+                AVVideoCompressionPropertiesKey: @{ AVVideoAverageBitRateKey: @1800000 }
+            };
+            AVAssetWriterInput *input = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeVideo outputSettings:settings];
+            input.expectsMediaDataInRealTime = NO;
+            NSDictionary *pixelAttrs = @{
+                (id)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA),
+                (id)kCVPixelBufferWidthKey: @(outputWidth),
+                (id)kCVPixelBufferHeightKey: @(outputHeight),
+            };
+            AVAssetWriterInputPixelBufferAdaptor *adaptor = [[AVAssetWriterInputPixelBufferAdaptor alloc]
+                initWithAssetWriterInput:input sourcePixelBufferAttributes:pixelAttrs];
+            if (![writer canAddInput:input]) {
+                [self finishMusicVideoWithErrorMessage:@"The video encoder is unavailable."
+                                               cleanupURLs:@[tempURL]];
+                return;
+            }
+            [writer addInput:input];
+            if (![writer startWriting]) {
+                [self finishMusicVideoWithErrorMessage:writer.error.localizedDescription
+                                               cleanupURLs:@[tempURL]];
+                return;
+            }
+            [writer startSessionAtSourceTime:kCMTimeZero];
+
+            NSMutableArray *generators = [NSMutableArray array];
+            NSMutableArray<NSNumber *> *durations = [NSMutableArray array];
+            NSMutableArray<NSNumber *> *stillImageFlags = [NSMutableArray array];
+            for (NSString *path in paths) {
+                BOOL video = [@[@"mov", @"mp4", @"m4v", @"avi"] containsObject:path.pathExtension.lowercaseString];
+                AVAssetImageGenerator *generator = video
+                    ? [[AVAssetImageGenerator alloc] initWithAsset:[AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:path] options:nil]]
+                    : nil;
+                generator.appliesPreferredTrackTransform = YES;
+                [generators addObject:generator ?: (id)[NSNull null]];
+                Float64 duration = video ? CMTimeGetSeconds(generator.asset.duration) : 3.0;
+                [durations addObject:@(MAX(0.5, MIN(duration, 12.0)))];
+                // GIF/WebP animations already provide their own movement; the
+                // Ken Burns effect is reserved for genuinely still photos.
+                NSString *extension = path.pathExtension.lowercaseString;
+                BOOL stillImage = !video && ![@[@"gif", @"webp"] containsObject:extension];
+                [stillImageFlags addObject:@(stillImage)];
+            }
+
+            CGImageRef (^copyFrameForSource)(NSUInteger, Float64) = ^CGImageRef(NSUInteger sourceIndex, Float64 sourceTime) {
+                NSString *sourcePath = paths[sourceIndex];
+                AVAssetImageGenerator *sourceGenerator = (id)generators[sourceIndex];
+                if ((id)sourceGenerator != (id)[NSNull null]) {
+                    return [sourceGenerator copyCGImageAtTime:CMTimeMakeWithSeconds(MAX(0.0, sourceTime), 600)
+                                                     actualTime:nil error:nil];
                 }
+                CGImageSourceRef imageSource = CGImageSourceCreateWithURL((__bridge CFURLRef)[NSURL fileURLWithPath:sourcePath], NULL);
+                if (!imageSource) return nil;
+                size_t frameCount = CGImageSourceGetCount(imageSource);
+                if (frameCount == 0) {
+                    CFRelease(imageSource);
+                    return nil;
+                }
+                Float64 sourceDuration = MAX(0.01, durations[sourceIndex].doubleValue);
+                size_t frame = frameCount > 1
+                    ? (size_t)floor(fmod(sourceTime, sourceDuration) / sourceDuration * frameCount)
+                    : 0;
+                CGImageRef image = CGImageSourceCreateImageAtIndex(imageSource, MIN(frame, frameCount - 1), NULL);
+                CFRelease(imageSource);
+                return image;
+            };
+
+            NSInteger totalFrames = MAX(1, (NSInteger)ceil(seconds * fps));
+            BOOL appendFailed = NO;
+            NSUInteger writtenFrames = 0;
+            for (NSInteger frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
+                Float64 timeline = frameIndex / (Float64)fps, cursor = 0;
+                NSUInteger sourceIndex = 0;
+                while (timeline >= cursor + durations[sourceIndex].doubleValue) {
+                    cursor += durations[sourceIndex].doubleValue;
+                    sourceIndex = (sourceIndex + 1) % paths.count;
+                }
+                Float64 sourceTime = timeline - cursor;
+                Float64 sourceDuration = durations[sourceIndex].doubleValue;
+                CGImageRef image = copyFrameForSource(sourceIndex, sourceTime);
+                CVPixelBufferRef buffer = NULL;
+                if (!image || CVPixelBufferPoolCreatePixelBuffer(NULL, adaptor.pixelBufferPool, &buffer) != kCVReturnSuccess) {
+                    if (image) CGImageRelease(image);
+                    continue;
+                }
+                CVPixelBufferLockBaseAddress(buffer, 0);
+                CGContextRef context = CGBitmapContextCreate(CVPixelBufferGetBaseAddress(buffer), outputWidth, outputHeight,
+                    8, CVPixelBufferGetBytesPerRow(buffer), CGColorSpaceCreateDeviceRGB(),
+                    kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
+                CGContextSetRGBFillColor(context, 0, 0, 0, 1);
+                CGContextFillRect(context, CGRectMake(0, 0, outputWidth, outputHeight));
+                CGRect canvas = CGRectMake(0, 0, outputWidth, outputHeight);
+                CGFloat motionProgress = sourceDuration > 0.0 ? sourceTime / sourceDuration : 0.0;
+                BOOL isStillImage = stillImageFlags[sourceIndex].boolValue;
+                CGFloat transitionDuration = MIN(0.62, sourceDuration * 0.26);
+                BOOL hasTransition = paths.count > 1 && transitionDuration > 0.0 &&
+                    sourceTime >= sourceDuration - transitionDuration;
+                if (hasTransition) {
+                    NSUInteger nextIndex = (sourceIndex + 1) % paths.count;
+                    CGFloat transitionProgress = (sourceTime - (sourceDuration - transitionDuration)) / transitionDuration;
+                    CGImageRef nextImage = copyFrameForSource(nextIndex, 0.0);
+                    if (nextImage) {
+                        EZDrawMusicVideoTransition(context, image, isStillImage, motionProgress, sourceIndex,
+                            nextImage, stillImageFlags[nextIndex].boolValue, 0.0, nextIndex, canvas,
+                            (EZMusicVideoTransitionStyle)(sourceIndex % 4), transitionProgress);
+                        CGImageRelease(nextImage);
+                    } else {
+                        EZDrawMusicVideoImage(context, image, canvas, isStillImage, motionProgress, sourceIndex, 1.0);
+                    }
+                } else {
+                    EZDrawMusicVideoImage(context, image, canvas, isStillImage, motionProgress, sourceIndex, 1.0);
+                }
+                CGContextRelease(context);
+                CVPixelBufferUnlockBaseAddress(buffer, 0);
+                CGImageRelease(image);
+                while (!input.readyForMoreMediaData && writer.status == AVAssetWriterStatusWriting) {
+                    [NSThread sleepForTimeInterval:0.002];
+                }
+                if (writer.status != AVAssetWriterStatusWriting ||
+                    ![adaptor appendPixelBuffer:buffer withPresentationTime:CMTimeMake(frameIndex, fps)]) {
+                    appendFailed = YES;
+                    CVPixelBufferRelease(buffer);
+                    break;
+                }
+                writtenFrames += 1;
+                CVPixelBufferRelease(buffer);
             }
-            CVPixelBufferRef buffer = NULL;
-            if (!image || CVPixelBufferPoolCreatePixelBuffer(NULL, adaptor.pixelBufferPool, &buffer) != kCVReturnSuccess) { if (image) CGImageRelease(image); continue; }
-            CVPixelBufferLockBaseAddress(buffer, 0);
-            CGContextRef ctx = CGBitmapContextCreate(CVPixelBufferGetBaseAddress(buffer), outputWidth, outputHeight, 8, CVPixelBufferGetBytesPerRow(buffer), CGColorSpaceCreateDeviceRGB(), kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
-            CGContextSetRGBFillColor(ctx, 0, 0, 0, 1); CGContextFillRect(ctx, CGRectMake(0, 0, outputWidth, outputHeight));
-            CGSize s = CGSizeMake(CGImageGetWidth(image), CGImageGetHeight(image)); CGRect draw = EZAspectFillRect(s, CGRectMake(0, 0, outputWidth, outputHeight));
-            CGContextDrawImage(ctx, draw, image); CGContextRelease(ctx); CVPixelBufferUnlockBaseAddress(buffer, 0); CGImageRelease(image);
-            while (!input.readyForMoreMediaData) { [NSThread sleepForTimeInterval:0.002]; }
-            [adaptor appendPixelBuffer:buffer withPresentationTime:CMTimeMake(frameIndex, fps)]; CVPixelBufferRelease(buffer);
-        }
-        [input markAsFinished]; [writer finishWritingWithCompletionHandler:^{
-            AVMutableComposition *mix = [AVMutableComposition composition];
-            AVAssetTrack *video = [[AVURLAsset URLAssetWithURL:tempURL options:nil] tracksWithMediaType:AVMediaTypeVideo].firstObject;
-            AVAssetTrack *audio = [audioAsset tracksWithMediaType:AVMediaTypeAudio].firstObject;
-            NSError *err = nil;
-            AVMutableCompositionTrack *videoTrack = [mix addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
-            [videoTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, CMTimeMakeWithSeconds(seconds, 600)) ofTrack:video atTime:kCMTimeZero error:&err];
-            if (audio) {
-                AVMutableCompositionTrack *audioTrack = [mix addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
-                [audioTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, CMTimeMakeWithSeconds(seconds, 600)) ofTrack:audio atTime:kCMTimeZero error:nil];
+            if (appendFailed || writtenFrames == 0) {
+                [writer cancelWriting];
+                [self finishMusicVideoWithErrorMessage:writer.error.localizedDescription ?: @"Could not render the selected media."
+                                               cleanupURLs:@[tempURL]];
+                return;
             }
-            NSString *finalPath = [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"music-video-%@.mp4", NSUUID.UUID.UUIDString]];
-            AVAssetExportSession *exporter = [[AVAssetExportSession alloc] initWithAsset:mix presetName:AVAssetExportPresetHighestQuality]; exporter.outputURL = [NSURL fileURLWithPath:finalPath]; exporter.outputFileType = AVFileTypeMPEG4;
-            [exporter exportAsynchronouslyWithCompletionHandler:^{ dispatch_async(dispatch_get_main_queue(), ^{
-                typeof(self) self = weakSelf; [self stopMusicRenderingOverlay]; self.musicVideoSourcePaths = nil;
-                if (exporter.status == AVAssetExportSessionStatusCompleted) { [self loadFilePaths]; UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[exporter.outputURL] applicationActivities:nil]; [self presentViewController:share animated:YES completion:nil]; }
-                else { UIAlertController *failure = [UIAlertController alertControllerWithTitle:@"Couldn’t make video" message:exporter.error.localizedDescription ?: @"Please try different media." preferredStyle:UIAlertControllerStyleAlert]; [failure addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]]; [self presentViewController:failure animated:YES completion:nil]; }
-            }); }];
-        }];
-    });
+
+            [input markAsFinished];
+            [writer finishWritingWithCompletionHandler:^{
+                if (writer.status != AVAssetWriterStatusCompleted) {
+                    [self finishMusicVideoWithErrorMessage:writer.error.localizedDescription
+                                                   cleanupURLs:@[tempURL]];
+                    return;
+                }
+
+                AVURLAsset *renderedAsset = [AVURLAsset URLAssetWithURL:tempURL options:@{
+                    AVURLAssetPreferPreciseDurationAndTimingKey: @YES,
+                }];
+                [renderedAsset loadValuesAsynchronouslyForKeys:@[@"duration", @"tracks"] completionHandler:^{
+                    NSError *renderedError = nil;
+                    for (NSString *key in @[@"duration", @"tracks"]) {
+                        if ([renderedAsset statusOfValueForKey:key error:&renderedError] != AVKeyValueStatusLoaded) {
+                            [self finishMusicVideoWithErrorMessage:renderedError.localizedDescription
+                                                           cleanupURLs:@[tempURL]];
+                            return;
+                        }
+                    }
+                    AVAssetTrack *videoTrack = [renderedAsset tracksWithMediaType:AVMediaTypeVideo].firstObject;
+                    CMTime audioDuration = audioAsset.duration;
+                    CMTime videoDuration = renderedAsset.duration;
+                    CMTime mixDuration = CMTimeCompare(audioDuration, videoDuration) <= 0 ? audioDuration : videoDuration;
+                    if (!videoTrack || !CMTIME_IS_VALID(mixDuration) || CMTIME_IS_INDEFINITE(mixDuration) ||
+                        CMTimeCompare(mixDuration, kCMTimeZero) <= 0) {
+                        [self finishMusicVideoWithErrorMessage:@"The rendered video or audio track is invalid."
+                                                       cleanupURLs:@[tempURL]];
+                        return;
+                    }
+
+                    AVMutableComposition *mix = [AVMutableComposition composition];
+                    NSError *mixError = nil;
+                    AVMutableCompositionTrack *mixedVideo = [mix addMutableTrackWithMediaType:AVMediaTypeVideo
+                                                                               preferredTrackID:kCMPersistentTrackID_Invalid];
+                    if (![mixedVideo insertTimeRange:CMTimeRangeMake(kCMTimeZero, mixDuration)
+                                               ofTrack:videoTrack atTime:kCMTimeZero error:&mixError]) {
+                        [self finishMusicVideoWithErrorMessage:mixError.localizedDescription ?: @"Could not add the rendered video track."
+                                                       cleanupURLs:@[tempURL]];
+                        return;
+                    }
+                    AVMutableCompositionTrack *mixedAudio = [mix addMutableTrackWithMediaType:AVMediaTypeAudio
+                                                                               preferredTrackID:kCMPersistentTrackID_Invalid];
+                    if (![mixedAudio insertTimeRange:CMTimeRangeMake(kCMTimeZero, mixDuration)
+                                               ofTrack:audioTrack atTime:kCMTimeZero error:&mixError]) {
+                        [self finishMusicVideoWithErrorMessage:mixError.localizedDescription ?: @"Could not add the selected audio track."
+                                                       cleanupURLs:@[tempURL]];
+                        return;
+                    }
+
+                    NSString *finalPath = [[self attachmentsPath] stringByAppendingPathComponent:
+                        [NSString stringWithFormat:@"music-video-%@.mp4", NSUUID.UUID.UUIDString]];
+                    NSURL *finalURL = [NSURL fileURLWithPath:finalPath];
+                    AVAssetExportSession *exporter = [[AVAssetExportSession alloc]
+                        initWithAsset:mix presetName:AVAssetExportPresetHighestQuality];
+                    if (!exporter || ![exporter.supportedFileTypes containsObject:AVFileTypeMPEG4]) {
+                        [self finishMusicVideoWithErrorMessage:@"This device cannot export the selected audio as MP4."
+                                                       cleanupURLs:@[tempURL, finalURL]];
+                        return;
+                    }
+                    exporter.outputURL = finalURL;
+                    exporter.outputFileType = AVFileTypeMPEG4;
+                    exporter.shouldOptimizeForNetworkUse = YES;
+                    [exporter exportAsynchronouslyWithCompletionHandler:^{
+                        if (exporter.status == AVAssetExportSessionStatusCompleted) {
+                            [self finishMusicVideoAtURL:finalURL temporaryURL:tempURL];
+                        } else {
+                            [self finishMusicVideoWithErrorMessage:exporter.error.localizedDescription
+                                                           cleanupURLs:@[tempURL, finalURL]];
+                        }
+                    }];
+                }];
+            }];
+        });
+    }];
 }
 
 - (void)deleteSelectedTapped {

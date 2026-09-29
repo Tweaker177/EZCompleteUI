@@ -67,6 +67,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 @property (nonatomic, strong) UIActivityIndicatorView   *spinner;
 @property (nonatomic, strong) UILabel                   *messageLabel;  // errors (red) and info (green)
 @property (nonatomic, strong) UILabel                   *savedAccountLabel;
+@property (nonatomic, strong) UILabel                   *buildLabel;
 @property (nonatomic, assign) BOOL                       isSignUpMode;
 
 // ── Password reset overlay ────────────────────────────────────────────────────
@@ -174,6 +175,25 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     self.savedAccountLabel.hidden = YES;
     self.savedAccountLabel.translatesAutoresizingMaskIntoConstraints = NO;
 
+    // A quiet footer helps identify exactly which installed build someone is
+    // reporting without competing with the sign-in controls.
+    NSString *version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
+    NSString *build = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] ?: version;
+    NSString *buildText = version.length
+        ? [NSString stringWithFormat:@"v%@ · build %@", version, build]
+        : [NSString stringWithFormat:@"build %@", build];
+#if DEBUG
+    buildText = [buildText stringByAppendingString:@" · debug"];
+#endif
+    self.buildLabel = [[UILabel alloc] init];
+    self.buildLabel.text = buildText;
+    self.buildLabel.font = [UIFont monospacedDigitSystemFontOfSize:10 weight:UIFontWeightRegular];
+    self.buildLabel.textColor = [UIColor tertiaryLabelColor];
+    self.buildLabel.textAlignment = NSTextAlignmentCenter;
+    self.buildLabel.alpha = 0.82;
+    self.buildLabel.accessibilityLabel = [NSString stringWithFormat:@"App build %@", buildText];
+    self.buildLabel.translatesAutoresizingMaskIntoConstraints = NO;
+
     // Email field
     self.emailField = [self makeTextField:@"Email" secure:NO];
     self.emailField.keyboardType = UIKeyboardTypeEmailAddress;
@@ -243,7 +263,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
         self.titleLabel, self.subtitleLabel, self.savedAccountLabel,
         self.emailField, self.passwordField, self.messageLabel,
         self.forgotPasswordButton, self.loginButton,
-        self.toggleModeButton, self.spinner
+        self.toggleModeButton, self.spinner, self.buildLabel
     ]) {
         [self.containerView addSubview:subview];
     }
@@ -300,7 +320,11 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
         [self.spinner.topAnchor     constraintEqualToAnchor:self.toggleModeButton.bottomAnchor constant:16],
         [self.spinner.centerXAnchor constraintEqualToAnchor:self.containerView.centerXAnchor],
-        [self.spinner.bottomAnchor  constraintEqualToAnchor:self.containerView.bottomAnchor constant:-40],
+
+        [self.buildLabel.topAnchor      constraintEqualToAnchor:self.spinner.bottomAnchor constant:7],
+        [self.buildLabel.leadingAnchor  constraintEqualToAnchor:self.containerView.leadingAnchor constant:24],
+        [self.buildLabel.trailingAnchor constraintEqualToAnchor:self.containerView.trailingAnchor constant:-24],
+        [self.buildLabel.bottomAnchor   constraintEqualToAnchor:self.containerView.bottomAnchor constant:-16],
     ]];
 }
 

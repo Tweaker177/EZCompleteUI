@@ -571,6 +571,7 @@
 NSNotificationName const EZAttachExternalDocumentToChat = @"EZAttachExternalDocumentToChat";
 static NSString *const kPendingExternalDocumentPath = @"EZPendingExternalDocumentPath";
 static NSString *const kPendingExternalImageAskPath = @"EZPendingExternalImageAskPath";
+static NSString *const kElevenLabsTTSModelID = @"eleven_v4";
 
 // Stable, non-reversible identifier for OpenAI safety tracking.  Keep this a
 // raw SHA-256 hex digest: OpenAI's maximum is 64 characters, and a SHA-256
@@ -2860,7 +2861,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     EZLogf(EZLogLevelInfo, @"TTS", @"ElevenLabs edge TTS voiceID=%@ chars=%ld",
            voiceID, (long)charCount);
 
-    // eleven_multilingual_v2 (the model ez-elevenlabs uses) hard-caps requests
+    // Eleven v4 (the model ez-elevenlabs uses) hard-caps requests
     // at 10,000 characters — matches MAX_TTS_CHARS server-side. Fail fast
     // here instead of spending a round trip (and a coin deduct/refund cycle)
     // on a request the server will reject anyway.
@@ -2893,6 +2894,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         @"action":     @"tts",
         @"text":       text,
         @"voice_id":   voiceID,
+        @"model_id":   kElevenLabsTTSModelID,
         @"char_count": @(charCount),
     } options:0 error:nil];
 
