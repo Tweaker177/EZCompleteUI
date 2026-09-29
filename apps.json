@@ -23,6 +23,16 @@
       "screenshotURLs": [],
       "versions": [
         {
+          "version": "7.1.7",
+          "buildVersion": "7.1.7",
+          "date": "2026-09-29",
+          "localizedDescription": "## Gallery\n- Add Ask AI a Question to the multi-select menu; all selected images attach to the chat composer.\n- Replace the plain system action menu with a themed selected-media card.\n- Speed up gallery opening with background indexing, reusable thumbnails, and direct thumbnail decoding.\n\n## Ricochet\n- Keep all five main performance controls, including Saturation, visible in one row.\n- Dismiss successful high-score name entry automatically so the updated leaderboard is immediately visible.\n\n## Interface\n- Restore visible Copy, Speak, and Memories controls in the main chat header.",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/v7.1.7/EZCompleteUI-7.1.7-release.ipa",
+          "size": 10992945,
+          "sha256": "255197647191edb7182968fa2ee82da71ce07da2035f32e5662f182eebf0d3b5",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.1.6",
           "buildVersion": "7.1.6",
           "date": "2026-09-28",
