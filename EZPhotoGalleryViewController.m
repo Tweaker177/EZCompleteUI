@@ -11,6 +11,7 @@
 #import "EZAuthManager.h"
 #import "EZEntitlementManager.h"
 #import "EZImageSettingsViewController.h"
+#import "EZPhotoGalleryAnalysisService.h"
 #import "EZSupabaseConfig.h"
 #import "ViewController+EZKeepAwake.h"
 #import "helpers.h"
@@ -40,6 +41,221 @@ static NSInteger const kDefaultColumns  = 3;
 static NSString *const kGalleryImagePromptsKey = @"EZGalleryImagePrompts";
 static NSString *const kGalleryDigestCacheDefaultsKey = @"EZPhotoGalleryDigestCacheV1";
 static NSUInteger const kMaxImageEditSources = 4;
+
+// The catalog intentionally stores fit-tags separately from the actual edit
+// language.  The manifest can therefore select a prompt based on a photo's
+// visual content without putting its private summary into the image prompt.
+static NSArray<NSDictionary<NSString *, id> *> *EZGallerySurpriseRecipes(void) {
+    static NSArray<NSDictionary<NSString *, id> *> *recipes;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        recipes = @[
+            @{
+                @"title": @"Soft Flash Digital Diary",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"event", @"night" ],
+                @"prompt": @"Edit this image as a candid early-2000s digital-camera photo: direct soft flash, slightly overexposed highlights, subtle red-eye-style catchlights, cool nighttime shadows, date-stamp optional, casual imperfect framing, light JPEG texture. Preserve the subject’s identity, pose, clothing, and composition.",
+            },
+            @{
+                @"title": @"Editorial Chrome Bloom",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"product", @"object", @"art", @"architecture" ],
+                @"prompt": @"Transform the image into a polished fashion editorial with liquid-chrome accents emerging subtly from the environment, pearlescent highlights, silver reflections, clean studio-grade skin texture, and soft white bloom. Keep the original subject and scene instantly recognizable.",
+            },
+            @{
+                @"title": @"Coquette Heirloom Portrait",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple" ],
+                @"prompt": @"Restyle as a romantic coquette-inspired heirloom photograph: ivory lace details, pale pink accents, satin ribbon elements, delicate film grain, soft window light, vintage floral background accents, and dreamy shallow depth of field. Preserve facial identity and original outfit silhouette.",
+            },
+            @{
+                @"title": @"Rainy Neon Convenience Store",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"city", @"street", @"architecture", @"vehicle", @"night" ],
+                @"prompt": @"Place the existing scene in a cinematic rainy-night atmosphere with neon convenience-store lighting, wet reflective pavement or surfaces, blue-magenta glow, light mist, and a candid urban-film look. Do not alter the subject’s identity, proportions, or pose.",
+            },
+            @{
+                @"title": @"Museum Label Reality",
+                @"primary_tags": @[],
+                @"prompt": @"Edit the image as though the entire moment is a contemporary artwork displayed in a pristine museum: subtle gallery lighting, a small elegant wall label describing the image, tasteful framed presentation, and realistic visitors softly blurred in the foreground. Preserve the original image as the featured artwork.",
+            },
+            @{
+                @"title": @"Whimsigoth Moonlit Velvet",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"night" ],
+                @"prompt": @"Restyle with whimsical gothic charm: deep plum and midnight-blue palette, moonlit rim lighting, antique silver jewelry accents, velvet textures, celestial motifs, faint candle glow, and rich analog-film grain. Keep the person recognizable and retain the original composition.",
+            },
+            @{
+                @"title": @"Sunday Morning Magazine Scan",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"couple", @"food", @"drink", @"product", @"indoor" ],
+                @"prompt": @"Turn this into a high-end Sunday lifestyle magazine scan: warm natural light, soft cream paper texture, refined muted colors, subtle halftone print detail, elegant editorial crop, and a tiny unobtrusive fictional caption line. Preserve all key people and objects.",
+            },
+            @{
+                @"title": @"CCTV Angelcore",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"city", @"street", @"indoor", @"night" ],
+                @"prompt": @"Reimagine this as surreal security-camera footage from a softly lit angelic space: wide-angle surveillance perspective, timestamp overlay, faint scan lines, glowing white feathers drifting through the scene, fluorescent haze, and an uncanny but beautiful mood. Keep the subject’s face and pose intact.",
+            },
+            @{
+                @"title": @"Old Money Summer",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"outdoors", @"nature", @"travel" ],
+                @"prompt": @"Apply an understated old-money summer aesthetic: sun-faded neutrals, linen and cream tones, elegant country-club editorial lighting, subtle 35mm film grain, restrained contrast, and timeless luxury without visible logos. Preserve the original person, outfit, and setting.",
+            },
+            @{
+                @"title": @"Tiny Planet Memory",
+                @"primary_tags": @[ @"nature", @"landscape", @"outdoors", @"forest", @"mountain", @"beach", @"water", @"sky", @"city", @"architecture", @"travel" ],
+                @"prompt": @"Convert the environment into a miniature tiny-planet panorama while keeping the subject naturally positioned at the center: curved horizon, dramatic sky, realistic environmental detail, playful wide-angle distortion, and crisp travel-photography color grading.",
+            },
+            @{
+                @"title": @"Bioluminescent Botanical Takeover",
+                @"primary_tags": @[ @"person", @"people", @"pet", @"dog", @"cat", @"nature", @"landscape", @"forest", @"beach", @"water", @"city", @"architecture", @"night" ],
+                @"prompt": @"Keep the original scene but add a subtle nighttime bioluminescent botanical takeover: glowing vines, translucent flowers, luminous spores, and turquoise-green ambient light interacting realistically with the subject and surfaces. Make it cinematic, believable, and not overly cluttered.",
+            },
+            @{
+                @"title": @"Indie Sleaze Club Flash",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"event", @"night", @"city", @"indoor" ],
+                @"prompt": @"Edit in an indie-sleaze nightlife style: harsh direct flash, dark background falloff, smudged metallic makeup accents, high ISO grain, motion blur at the edges, saturated red and electric-blue lights, and an unpolished candid-party energy. Preserve identity and body proportions.",
+            },
+            @{
+                @"title": @"Cloud Computing Portrait",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"nature", @"landscape", @"sky", @"water" ],
+                @"prompt": @"Integrate soft, realistic clouds into the image as physical design elements: cloud shadows, airy mist around the subject, translucent sky reflections, and small floating interface-like shapes made from vapor. Keep the result elegant, photorealistic, and cohesive.",
+            },
+            @{
+                @"title": @"Wes Anderson–Adjacent Storybook Symmetry",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"city", @"architecture", @"street", @"indoor", @"art" ],
+                @"prompt": @"Restyle with highly symmetrical storybook cinematography: centered composition, pastel color blocking, meticulous production design, warm vintage color grade, crisp details, and whimsical narrative props. Preserve the original person and make the scene feel intentionally composed.",
+            },
+            @{
+                @"title": @"Hyperpop Sticker Bomb",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"product", @"object", @"art", @"illustration" ],
+                @"prompt": @"Apply a hyperpop internet aesthetic: bright candy colors, chrome gradients, translucent UI windows, glitter stars, playful sticker graphics, tiny pixel artifacts, and bold flash lighting. Ensure the original subject remains clear and recognizable beneath the layered design.",
+            },
+            @{
+                @"title": @"Future Archaeology Exhibit",
+                @"primary_tags": @[],
+                @"prompt": @"Present the image as a recovered artifact in a museum of the future: subtle holographic conservation overlays, catalog number, floating transparent annotations, luminous archival case lighting, and weathered-yet-valuable visual texture. Do not obscure the main subject.",
+            },
+            @{
+                @"title": @"Cottagecore After the Rain",
+                @"primary_tags": @[ @"person", @"people", @"pet", @"dog", @"cat", @"nature", @"landscape", @"outdoors", @"forest", @"garden" ],
+                @"prompt": @"Create a cottagecore-after-rain mood: lush green foliage, tiny water droplets, soft overcast light, wildflowers, warm knit and wood textures, gentle mist, and a dreamy 35mm-film finish. Maintain the original subject’s identity and pose.",
+            },
+            @{
+                @"title": @"Matchbook Memory",
+                @"primary_tags": @[],
+                @"prompt": @"Transform this photo into the artwork printed on a vintage matchbook cover: aged paper fibers, slightly faded ink, bold simplified illustration treatment, tasteful typography, tiny match-strike texture, and a nostalgic limited-palette color scheme. Keep the image’s central subject recognizable.",
+            },
+            @{
+                @"title": @"90s Mall Photo Studio",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"baby", @"couple" ],
+                @"prompt": @"Edit as a 1990s mall portrait-studio session: painted gradient backdrop, flattering frontal softbox lighting, soft-focus diffusion, visible film texture, coordinated pastel palette, and a slightly awkward charming formal portrait feel. Preserve the person’s real facial features.",
+            },
+            @{
+                @"title": @"Dreamcore Suburban Twilight",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"city", @"architecture", @"street", @"indoor", @"outdoors", @"night" ],
+                @"prompt": @"Restyle into a dreamcore suburban twilight scene: liminal empty-space atmosphere, lavender-blue dusk light, oddly pristine lawns or interiors, distant glowing windows, gentle blur, and subtle surreal details that feel nostalgic rather than frightening. Keep the original subject intact.",
+            },
+            @{
+                @"title": @"Solarpunk Street Fashion",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"city", @"architecture", @"street", @"nature", @"landscape", @"outdoors" ],
+                @"prompt": @"Blend the image into a hopeful solarpunk world: sunlit greenery integrated into architecture, transparent solar materials, warm copper and jade accents, community-oriented details, clean air, and bright optimistic cinematic lighting. Preserve the original image composition.",
+            },
+            @{
+                @"title": @"Velvet Aquarium Reflections",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"indoor", @"night", @"water" ],
+                @"prompt": @"Make the scene feel as if viewed beside a luxurious dark aquarium: moving water caustics across surfaces, deep teal shadows, slow floating particles, rich velvet-black negative space, and occasional reflections of exotic fish. Keep the subject photorealistic and clearly visible.",
+            },
+            @{
+                @"title": @"Papercraft Diorama",
+                @"primary_tags": @[],
+                @"prompt": @"Convert the image into an intricate handcrafted paper diorama: layered cut-paper depth, folded edges, visible premium cardstock texture, miniature shadows, soft tabletop lighting, and carefully retained likeness of the main subject.",
+            },
+            @{
+                @"title": @"After-Hours Office Fantasy",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"indoor", @"object", @"product", @"document", @"screenshot", @"night" ],
+                @"prompt": @"Turn the ordinary scene into an after-hours office fantasy: warm desk lamps in a darkened space, glowing computer screens, floating paper constellations, subtle photocopier light beams, and cinematic blue-orange contrast. Retain the original subject, pose, and location details.",
+            },
+            @{
+                @"title": @"Analog Western Roadside Romance",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"travel", @"landscape", @"outdoors", @"city", @"street", @"vehicle" ],
+                @"prompt": @"Apply a modern analog Western roadside aesthetic: golden-hour desert light, faded motel-sign colors, dusty 35mm grain, sun-bleached denim and red accents, long shadows, and nostalgic Americana framing. Preserve the original person and make all changes feel naturally photographed.",
+            },
+            @{
+                @"title": @"Miniature World Edit",
+                @"primary_tags": @[ @"nature", @"landscape", @"outdoors", @"forest", @"mountain", @"beach", @"water", @"sky", @"city", @"architecture", @"street", @"indoor", @"travel" ],
+                @"reference_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"animal", @"product", @"object", @"vehicle" ],
+                @"reference_count": @1,
+                @"prompt": @"Use Image 1 as the background environment. Extract the main subject from Image 2 and place it in Image 1 as a tiny, realistic miniature scene—matching lighting, shadows, perspective, and color grading.",
+            },
+            @{
+                @"title": @"Double-Exposure Portrait",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple" ],
+                @"reference_tags": @[ @"nature", @"landscape", @"forest", @"mountain", @"beach", @"water", @"sky", @"city", @"architecture", @"street", @"art", @"illustration" ],
+                @"reference_count": @1,
+                @"prompt": @"Combine the person or main subject from Image 1 with the landscape or textures in Image 2 as an elegant double exposure. Let Image 2 fill the silhouette of Image 1 while preserving key facial details.",
+            },
+            @{
+                @"title": @"Portal Between Worlds",
+                @"primary_tags": @[ @"architecture", @"city", @"street", @"indoor", @"nature", @"landscape", @"forest", @"beach", @"water" ],
+                @"reference_tags": @[ @"nature", @"landscape", @"forest", @"mountain", @"beach", @"water", @"sky", @"city", @"architecture", @"person", @"pet", @"dog", @"cat" ],
+                @"reference_count": @1,
+                @"prompt": @"Edit Image 1 so that a glowing portal appears naturally within it—such as in a doorway, mirror, window, or open field—and reveal the entire setting of Image 2 through the portal.",
+            },
+            @{
+                @"title": @"Unexpected Companion",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"animal" ],
+                @"reference_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"animal" ],
+                @"reference_count": @1,
+                @"prompt": @"Extract the central subject from each image and create a cinematic scene where they are interacting naturally: walking together, sharing an object, or looking at something off-camera. Match scale, lighting, and realistic shadows.",
+            },
+            @{
+                @"title": @"Surreal Reflection",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"water", @"city", @"architecture", @"vehicle", @"indoor" ],
+                @"reference_tags": @[ @"person", @"people", @"portrait", @"pet", @"dog", @"cat", @"nature", @"landscape", @"city", @"architecture", @"art" ],
+                @"reference_count": @1,
+                @"prompt": @"Keep Image 1 mostly unchanged, but replace its reflection in a mirror, lake, window, visor, or polished surface with the scene or subject from Image 2. Make the reflection physically believable.",
+            },
+            @{
+                @"title": @"Nature Takes Over",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"city", @"architecture", @"street", @"indoor", @"product", @"object" ],
+                @"reference_tags": @[ @"nature", @"landscape", @"forest", @"mountain", @"beach", @"water", @"sky", @"pet", @"dog", @"cat", @"animal", @"wildlife" ],
+                @"reference_count": @1,
+                @"prompt": @"Use Image 1 as the primary photo and incorporate the organic elements from Image 2—flowers, vines, water, clouds, animals, trees, or terrain—so they appear to be naturally growing, flowing, or emerging through the first image.",
+            },
+            @{
+                @"title": @"Movie Poster Crossover",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"animal", @"city", @"nature", @"landscape", @"product", @"art" ],
+                @"reference_tags": @[ @"person", @"people", @"portrait", @"pet", @"dog", @"cat", @"animal", @"city", @"architecture", @"nature", @"landscape", @"art", @"illustration" ],
+                @"reference_count": @1,
+                @"prompt": @"Combine the main subjects and visual themes of both images into a polished cinematic movie-poster composition. Use dramatic lighting, atmospheric depth, cohesive color grading, and leave subtle open space for a title.",
+            },
+            @{
+                @"title": @"Time-Travel Scene",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"animal" ],
+                @"reference_tags": @[ @"city", @"architecture", @"street", @"nature", @"landscape", @"forest", @"mountain", @"beach", @"water", @"travel", @"art", @"illustration" ],
+                @"reference_count": @1,
+                @"prompt": @"Place the subject from Image 1 into the era, location, or visual style of Image 2. Preserve the subject’s recognizable identity while adapting wardrobe, lighting, and environmental details to make the blend convincing.",
+            },
+            @{
+                @"title": @"Object Transforms Into Another World",
+                @"primary_tags": @[ @"product", @"object", @"vehicle", @"art", @"illustration", @"document", @"screenshot" ],
+                @"reference_tags": @[ @"nature", @"landscape", @"forest", @"mountain", @"beach", @"water", @"sky", @"city", @"architecture", @"person", @"people", @"pet", @"animal" ],
+                @"reference_count": @1,
+                @"prompt": @"Use a major object from Image 1—such as a phone, book, car, cup, painting, television, or piece of clothing—and make it transform into or contain the scene from Image 2, as if Image 2 is spilling out of it.",
+            },
+            @{
+                @"title": @"Split-Reality Composition",
+                @"primary_tags": @[],
+                @"reference_tags": @[ @"person", @"people", @"portrait", @"pet", @"dog", @"cat", @"animal", @"nature", @"landscape", @"forest", @"mountain", @"beach", @"water", @"sky", @"city", @"architecture", @"street", @"travel", @"art", @"illustration" ],
+                @"reference_count": @1,
+                @"prompt": @"Create one seamless image where the left side begins as Image 1 and gradually transitions into Image 2 across the center. Blend the subjects, sky, textures, and lighting in a creative but realistic way, with a clear visual story connecting both worlds.",
+            },
+        ];
+    });
+    return recipes;
+}
+
+static BOOL EZGalleryTagsIntersect(NSArray<NSString *> *first, NSArray<NSString *> *second) {
+    if (first.count == 0 || second.count == 0) return NO;
+    NSSet *firstSet = [NSSet setWithArray:first];
+    for (NSString *tag in second) if ([firstSet containsObject:tag]) return YES;
+    return NO;
+}
 
 static NSString *EZGalleryContentDigest(NSString *path) {
     NSData *data = [NSData dataWithContentsOfFile:path options:NSDataReadingMappedIfSafe error:nil];
@@ -537,6 +753,13 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 - (void)keyboardWillChange:(NSNotification *)notification;
 - (void)addEditImageTapped;
 - (void)addPickedEditImage:(UIImage *)image;
+- (void)surpriseMeTapped;
+- (void)resetEditSourcesToCurrentPhoto;
+- (NSArray<NSString *> *)surpriseReferencePathsForTags:(NSArray<NSString *> *)wantedTags
+                                                 maximum:(NSUInteger)maximum
+                                         manifestEntries:(NSDictionary<NSString *, NSDictionary<NSString *, id> *> *)manifestEntries;
+- (void)updateImageSummary;
+- (void)galleryManifestDidChange:(NSNotification *)notification;
 - (UIImage *)compositeEditSourceImage;
 - (void)updateImageEditStatus;
 - (BOOL)shouldRetryLastImageEditFailure;
@@ -574,9 +797,10 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     NSMutableArray<UIImageView *> *_imageGridViews;
     NSMutableArray<UIImage *> *_editSourceImages;
     NSMutableArray<NSString *> *_editSourcePaths;
+    NSArray<NSString *> *_lastSurpriseReferencePaths;
     UIVisualEffectView *_toolbar;
     UIButton          *_askButton;
-    UIButton          *_editButton;
+    UIButton          *_surpriseButton;
     UIButton          *_useInGameButton;
     UIButton          *_shareButton;
     UIButton          *_downloadButton;
@@ -627,6 +851,7 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     [self setupToolbar];
     [self setupNavBar];
     [self setupImageEditingControls];
+    [self updateImageSummary];
 
     _galleryIndex = self.galleryIndex;
     UISwipeGestureRecognizer *swipeLeft = [[UISwipeGestureRecognizer alloc]
@@ -643,6 +868,8 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
                    name:UIKeyboardWillChangeFrameNotification object:nil];
     [center addObserver:self selector:@selector(keyboardWillChange:)
                    name:UIKeyboardWillHideNotification object:nil];
+    [center addObserver:self selector:@selector(galleryManifestDidChange:)
+                   name:EZPhotoGalleryManifestDidChangeNotification object:nil];
 }
 
 - (void)setupNavBar {
@@ -683,6 +910,27 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 
     // Attachment filenames are implementation details and are often UUIDs.
     self.title = @"";
+}
+
+- (void)galleryManifestDidChange:(NSNotification *)notification {
+    NSString *changedPath = notification.userInfo[@"path"];
+    if (changedPath.length == 0 || [changedPath isEqualToString:self.filePath]) {
+        [self updateImageSummary];
+    }
+}
+
+- (void)updateImageSummary {
+    NSDictionary *entry = [[EZPhotoGalleryAnalysisService sharedService]
+        manifestEntryForPath:self.filePath];
+    NSString *summary = [entry[@"summary"] isKindOfClass:[NSString class]] ? entry[@"summary"] : nil;
+    if (summary.length) {
+        self.navigationItem.prompt = [NSString stringWithFormat:@"Scene: %@", summary];
+    } else if ([entry[@"status"] isEqualToString:@"queued"] ||
+               [entry[@"status"] isEqualToString:@"analyzing"]) {
+        self.navigationItem.prompt = @"Analyzing photo…";
+    } else {
+        self.navigationItem.prompt = nil;
+    }
 }
 
 - (void)setupScrollView {
@@ -838,13 +1086,14 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     [_askButton addTarget:self action:@selector(askTapped) forControlEvents:UIControlEventTouchUpInside];
     [_toolbar.contentView addSubview:_askButton];
 
-    // Edit button — blue
-    _editButton = [self makeButtonTitle:NSLocalizedString(@"EZGallery.EditWithAI", nil)
-                                   icon:@"wand.and.stars"
-                            accentColor:[UIColor systemBlueColor]
-                                   dark:NO];
-    [_editButton addTarget:self action:@selector(editTapped) forControlEvents:UIControlEventTouchUpInside];
-    [_toolbar.contentView addSubview:_editButton];
+    // The gallery already opens directly into its edit composer. Surprise Me
+    // replaces the old redundant Edit button with a context-aware suggestion.
+    _surpriseButton = [self makeButtonTitle:@"Surprise Me"
+                                       icon:@"sparkles"
+                                accentColor:[UIColor systemBlueColor]
+                                       dark:NO];
+    [_surpriseButton addTarget:self action:@selector(surpriseMeTapped) forControlEvents:UIControlEventTouchUpInside];
+    [_toolbar.contentView addSubview:_surpriseButton];
 
     _useInGameButton = [self makeButtonTitle:NSLocalizedString(@"EZGallery.UseInVideoGame", nil)
                                          icon:@"gamecontroller.fill"
@@ -871,7 +1120,7 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 
     CGFloat buttonW = (W - pad * 2 - 16) / 3.0;
     _askButton.frame       = CGRectMake(pad, y, buttonW, btnH);
-    _editButton.frame      = CGRectMake(pad + buttonW + 8, y, buttonW, btnH);
+    _surpriseButton.frame  = CGRectMake(pad + buttonW + 8, y, buttonW, btnH);
     _useInGameButton.frame = CGRectMake(pad + (buttonW + 8) * 2, y, buttonW, btnH);
 }
 
@@ -1073,6 +1322,52 @@ didFinishPicking:(NSArray<PHPickerResult *> *)results {
                     completion:nil];
 }
 
+- (void)resetEditSourcesToCurrentPhoto {
+    if (!self.image) return;
+    [_editSourceImages removeAllObjects];
+    [_editSourceImages addObject:self.image];
+    [_editSourcePaths removeAllObjects];
+    if (self.filePath.length) [_editSourcePaths addObject:self.filePath];
+    while (_imageGridViews.count > 1) {
+        UIImageView *extra = _imageGridViews.lastObject;
+        [extra removeFromSuperview];
+        [_imageGridViews removeLastObject];
+    }
+    _imageView.image = self.image;
+    [_scrollView setZoomScale:1.0 animated:NO];
+}
+
+- (NSArray<NSString *> *)surpriseReferencePathsForTags:(NSArray<NSString *> *)wantedTags
+                                                 maximum:(NSUInteger)maximum
+                                         manifestEntries:(NSDictionary<NSString *, NSDictionary<NSString *, id> *> *)manifestEntries {
+    if (wantedTags.count == 0 || maximum == 0) return @[];
+    NSMutableArray<NSString *> *matches = [NSMutableArray array];
+    NSMutableArray<NSString *> *nonRecentMatches = [NSMutableArray array];
+    for (NSString *candidatePath in self.galleryFilePaths) {
+        if ([candidatePath isEqualToString:self.filePath]) continue;
+        NSDictionary *entry = manifestEntries[candidatePath];
+        if (![entry[@"status"] isEqualToString:@"complete"]) continue;
+        NSArray *tags = [entry[@"tags"] isKindOfClass:[NSArray class]] ? entry[@"tags"] : @[];
+        if (!EZGalleryTagsIntersect(tags, wantedTags)) continue;
+        [matches addObject:candidatePath];
+        if (![_lastSurpriseReferencePaths containsObject:candidatePath]) {
+            [nonRecentMatches addObject:candidatePath];
+        }
+    }
+    NSMutableArray<NSString *> *selectionPool =
+        (nonRecentMatches.count > 0 ? nonRecentMatches : matches).mutableCopy;
+    // Gallery paths are newest-first. Shuffle instead of taking the first
+    // match so one newly generated asset cannot dominate every surprise.
+    for (NSInteger index = (NSInteger)selectionPool.count - 1; index > 0; index--) {
+        NSUInteger swapIndex = arc4random_uniform((u_int32_t)(index + 1));
+        [selectionPool exchangeObjectAtIndex:(NSUInteger)index withObjectAtIndex:swapIndex];
+    }
+    if (selectionPool.count > maximum) {
+        return [selectionPool subarrayWithRange:NSMakeRange(0, maximum)];
+    }
+    return selectionPool;
+}
+
 - (void)documentPicker:(UIDocumentPickerViewController *)controller
 didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     for (NSURL *url in urls) {
@@ -1085,13 +1380,62 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 }
 
-- (void)editTapped {
-    [_editPromptField becomeFirstResponder];
-    [UIView animateWithDuration:0.20 animations:^{
-        _editPromptField.superview.transform = CGAffineTransformMakeScale(1.02, 1.02);
+- (void)surpriseMeTapped {
+    if (_isEditingImage || !self.image) return;
+    EZPhotoGalleryAnalysisService *analysis = [EZPhotoGalleryAnalysisService sharedService];
+    NSMutableArray<NSString *> *manifestPaths = [self.galleryFilePaths mutableCopy] ?: [NSMutableArray array];
+    if (self.filePath.length && ![manifestPaths containsObject:self.filePath]) {
+        [manifestPaths addObject:self.filePath];
+    }
+    NSDictionary<NSString *, NSDictionary<NSString *, id> *> *manifestEntries =
+        [analysis manifestEntriesForPaths:manifestPaths];
+    NSDictionary *currentEntry = manifestEntries[self.filePath];
+    NSArray<NSString *> *currentTags = [currentEntry[@"tags"] isKindOfClass:[NSArray class]]
+        ? currentEntry[@"tags"] : @[];
+
+    NSMutableArray<NSDictionary *> *options = [NSMutableArray array];
+    for (NSDictionary *recipe in EZGallerySurpriseRecipes()) {
+        NSArray<NSString *> *primaryTags = recipe[@"primary_tags"] ?: @[];
+        if (primaryTags.count > 0 && !EZGalleryTagsIntersect(currentTags, primaryTags)) continue;
+        NSUInteger referenceCount = [recipe[@"reference_count"] unsignedIntegerValue];
+        NSArray<NSString *> *references = [self surpriseReferencePathsForTags:recipe[@"reference_tags"]
+                                                                         maximum:referenceCount
+                                                                 manifestEntries:manifestEntries];
+        if (referenceCount > references.count) continue;
+        NSMutableDictionary *option = [recipe mutableCopy];
+        option[@"references"] = references;
+        [options addObject:option];
+    }
+    // A new/unanalysed photo still gets a useful suggestion; it just will not
+    // request another gallery image until the manifest identifies a good fit.
+    if (options.count == 0) {
+        for (NSDictionary *recipe in EZGallerySurpriseRecipes()) {
+            if ([recipe[@"primary_tags"] count] == 0) {
+                NSMutableDictionary *fallback = [recipe mutableCopy];
+                fallback[@"references"] = @[];
+                [options addObject:fallback];
+                break;
+            }
+        }
+    }
+    if (options.count == 0) return;
+
+    NSDictionary *choice = options[arc4random_uniform((u_int32_t)options.count)];
+    [self resetEditSourcesToCurrentPhoto];
+    for (NSString *referencePath in choice[@"references"]) {
+        UIImage *reference = [UIImage imageWithContentsOfFile:referencePath];
+        if (reference) [self addPickedEditImage:reference];
+    }
+    _lastSurpriseReferencePaths = [choice[@"references"] copy] ?: @[];
+    _editPromptField.text = choice[@"prompt"];
+    _editPromptPlaceholderLabel.hidden = YES;
+    _editErrorLabel.hidden = YES;
+    [self.view setNeedsLayout];
+    [UIView animateWithDuration:0.18 animations:^{
+        self->_editPromptField.superview.transform = CGAffineTransformMakeScale(1.02, 1.02);
     } completion:^(BOOL finished) {
         [UIView animateWithDuration:0.18 animations:^{
-            _editPromptField.superview.transform = CGAffineTransformIdentity;
+            self->_editPromptField.superview.transform = CGAffineTransformIdentity;
         }];
     }];
 }
@@ -1332,7 +1676,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     _addImageButton.enabled = !editing && _editSourceImages.count < kMaxImageEditSources;
     _sendEditButton.enabled = !editing;
     _askButton.enabled = !editing;
-    _editButton.enabled = !editing;
+    _surpriseButton.enabled = !editing;
     _useInGameButton.enabled = !editing;
     _shareButton.enabled = !editing;
     _downloadButton.enabled = !editing;
@@ -1542,6 +1886,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         self.image = editedImage;
         self->_hasEditedImage = YES;
         self.filePath = newFilePath;
+        [self updateImageSummary];
         [_editSourcePaths removeAllObjects];
         [_editSourcePaths addObject:newFilePath];
         [_editSourceImages removeAllObjects];
@@ -1671,6 +2016,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         self.filePath = path;
         self->_editSourceFilePath = [path copy];
         self.imagePrompt = EZGalleryPromptForPath(path);
+        [self updateImageSummary];
         self->_originalImageForShare = image;
         self->_hasEditedImage = NO;
         [self->_editSourceImages removeAllObjects];
@@ -1701,6 +2047,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 - (void)askTapped {
+    // Keep the gallery asset's original path and bytes. Posting only the
+    // decoded UIImage forced the chat handoff to JPEG-encode it into a temp
+    // file, which then looked like a new asset and was saved back here as a
+    // duplicate. Edits still create new files through their explicit flow.
+    if (self.filePath.length && [[NSFileManager defaultManager] fileExistsAtPath:self.filePath]) {
+        [[NSNotificationCenter defaultCenter]
+            postNotificationName:EZAttachImageToChat
+                          object:nil
+                        userInfo:@{ @"filePath": self.filePath }];
+        [self dismissAllTheWay];
+        return;
+    }
     [[NSNotificationCenter defaultCenter]
         postNotificationName:EZAttachImageToChat
                       object:nil
@@ -2169,6 +2527,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 @property (nonatomic, strong) UIBarButtonItem       *selectButton;
 @property (nonatomic, strong) UIBarButtonItem       *selectionMenuButton;
 @property (nonatomic, strong) UIView                *selectionActionOverlay;
+@property (nonatomic, strong) UIView                *musicAudioPromptOverlay;
 @property (nonatomic, assign) BOOL                   selectingPhotos;
 @property (nonatomic, copy) NSArray<NSString *>     *musicVideoSourcePaths;
 @property (nonatomic, strong) UIView                 *musicRenderingOverlay;
@@ -2195,6 +2554,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self setupCollectionView];
     [self setupEmptyState];
     [self setupPinchGesture];
+    [[EZPhotoGalleryAnalysisService sharedService] retryQueuedAnalyses];
     [self loadFilePaths];
 }
 
@@ -2205,6 +2565,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // viewDidLoad already begins the first index pass. Starting another one
     // here used to double the launch work before the sheet was even visible.
     if (self.hasLoadedFilePaths) [self loadFilePaths];
+    [[EZPhotoGalleryAnalysisService sharedService] retryQueuedAnalyses];
 }
 
 - (void)styleNavBar {
@@ -2894,17 +3255,110 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSArray<NSString *> *paths = [self selectedPhotoPaths];
     if (!paths.count) return;
     self.musicVideoSourcePaths = paths;
-    UIAlertController *prompt = [UIAlertController alertControllerWithTitle:@"Make Music Video"
-        message:@"Choose one audio track. Photos, GIFs, and videos will repeat in selection order until the music ends; original clip audio is removed."
-        preferredStyle:UIAlertControllerStyleAlert];
-    [prompt addAction:[UIAlertAction actionWithTitle:@"Attach Audio" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+    [self presentMusicAudioPrompt];
+}
+
+- (void)dismissMusicAudioPromptWithCompletion:(void (^ _Nullable)(void))completion {
+    UIView *overlay = self.musicAudioPromptOverlay;
+    if (!overlay) {
+        if (completion) completion();
+        return;
+    }
+    self.musicAudioPromptOverlay = nil;
+    [UIView animateWithDuration:0.16 animations:^{
+        overlay.alpha = 0.0;
+    } completion:^(__unused BOOL finished) {
+        [overlay removeFromSuperview];
+        if (completion) completion();
+    }];
+}
+
+- (void)dismissMusicAudioPrompt {
+    [self dismissMusicAudioPromptWithCompletion:nil];
+}
+
+- (void)cancelMusicAudioPrompt {
+    [self dismissMusicAudioPromptWithCompletion:^{ self.musicVideoSourcePaths = nil; }];
+}
+
+- (void)presentMusicAudioPrompt {
+    if (self.musicAudioPromptOverlay) return;
+
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.68];
+    overlay.alpha = 0.0;
+    self.musicAudioPromptOverlay = overlay;
+    [self.view addSubview:overlay];
+
+    UIControl *dismissTarget = [[UIControl alloc] initWithFrame:overlay.bounds];
+    dismissTarget.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [dismissTarget addTarget:self action:@selector(cancelMusicAudioPrompt)
+             forControlEvents:UIControlEventTouchUpInside];
+    [overlay addSubview:dismissTarget];
+
+    CGFloat cardWidth = MIN(360.0, CGRectGetWidth(overlay.bounds) - 32.0);
+    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, 286.0)];
+    card.center = CGPointMake(CGRectGetMidX(overlay.bounds), CGRectGetMidY(overlay.bounds));
+    card.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin |
+                            UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+    card.backgroundColor = [UIColor colorWithRed:0.055 green:0.06 blue:0.13 alpha:1.0];
+    card.layer.cornerRadius = 24.0;
+    card.layer.borderWidth = 1.5;
+    card.layer.borderColor = [UIColor colorWithRed:0.63 green:0.35 blue:1.0 alpha:0.72].CGColor;
+    [overlay addSubview:card];
+
+    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"music.note.list"]];
+    icon.frame = CGRectMake((cardWidth - 34.0) / 2.0, 20.0, 34.0, 34.0);
+    icon.tintColor = [UIColor colorWithRed:0.10 green:0.92 blue:0.76 alpha:1.0];
+    icon.contentMode = UIViewContentModeScaleAspectFit;
+    [card addSubview:icon];
+
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(20, 60, cardWidth - 40, 25)];
+    title.text = @"MAKE MUSIC VIDEO";
+    title.textAlignment = NSTextAlignmentCenter;
+    title.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold];
+    title.textColor = [UIColor colorWithRed:0.74 green:0.52 blue:1.0 alpha:1.0];
+    [card addSubview:title];
+
+    UILabel *subtitle = [[UILabel alloc] initWithFrame:CGRectMake(24, 89, cardWidth - 48, 54)];
+    subtitle.text = @"Choose one audio track. Your selected photos, GIFs, and videos will loop until the music ends.";
+    subtitle.textAlignment = NSTextAlignmentCenter;
+    subtitle.numberOfLines = 3;
+    subtitle.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+    subtitle.textColor = [UIColor colorWithWhite:0.70 alpha:1.0];
+    [card addSubview:subtitle];
+
+    __weak typeof(self) weakSelf = self;
+    UIButton *attach = [self selectionActionButtonWithTitle:@"Attach Audio"
+                                                       image:@"music.note"
+                                                       color:[UIColor colorWithRed:0.10 green:0.92 blue:0.76 alpha:1.0]
+                                                 destructive:NO
+                                                     enabled:YES
+                                                     handler:^{
+        [weakSelf dismissMusicAudioPromptWithCompletion:^{
         UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
             initForOpeningContentTypes:@[UTTypeAudio] asCopy:YES];
-        picker.delegate = self;
-        [self presentViewController:picker animated:YES completion:nil];
-    }]];
-    [prompt addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction *action) { self.musicVideoSourcePaths = nil; }]];
-    [self presentViewController:prompt animated:YES completion:nil];
+            picker.delegate = weakSelf;
+            [weakSelf presentViewController:picker animated:YES completion:nil];
+        }];
+    }];
+    attach.frame = CGRectMake(20, 155, cardWidth - 40, 48);
+    [card addSubview:attach];
+
+    UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem];
+    cancel.frame = CGRectMake(20, 215, cardWidth - 40, 44);
+    cancel.backgroundColor = [UIColor colorWithRed:0.63 green:0.35 blue:1.0 alpha:0.88];
+    cancel.layer.cornerRadius = 13.0;
+    cancel.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBold];
+    cancel.tintColor = UIColor.whiteColor;
+    [cancel setTitle:@"Cancel" forState:UIControlStateNormal];
+    [cancel addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
+        [weakSelf cancelMusicAudioPrompt];
+    }] forControlEvents:UIControlEventTouchUpInside];
+    [card addSubview:cancel];
+
+    [UIView animateWithDuration:0.18 animations:^{ overlay.alpha = 1.0; }];
 }
 
 - (void)finishMusicVideoWithErrorMessage:(NSString *)message cleanupURLs:(NSArray<NSURL *> *)urls {

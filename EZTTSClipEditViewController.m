@@ -631,6 +631,12 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
 /// scrub-to-preview and the speed preview button. Only one preview is ever audible at a
 /// time; whichever control triggers this one takes over.
 - (void)startScrubPreviewFromFraction:(CGFloat)fraction {
+    NSError *sessionError = nil;
+    if (!EZActivatePlaybackAudioSession(&sessionError)) {
+        [self presentErrorAlert:sessionError title:@"Couldn't start audio playback"];
+        return;
+    }
+
     NSURL *audioURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:self.entry];
     NSError *error;
     AVAudioPlayer *player = [[AVAudioPlayer alloc] initWithContentsOfURL:audioURL error:&error];
@@ -643,7 +649,11 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
     player.rate = self.speedSlider.value;
     player.currentTime = MAX(0, self.entry.duration * fraction);
     [player prepareToPlay];
-    [player play];
+    if (![player play]) {
+        NSError *playbackError = [self errorWithCode:-31 message:@"The audio player could not start playback."];
+        [self presentErrorAlert:playbackError title:@"Couldn't preview clip"];
+        return;
+    }
     self.previewPlayer = player;
     [self.speedPreviewButton setImage:[UIImage systemImageNamed:@"stop.circle"] forState:UIControlStateNormal];
 }

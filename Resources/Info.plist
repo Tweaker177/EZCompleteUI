@@ -41,10 +41,13 @@
 				<string>public.xml</string>
 				<string>public.html</string>
 				<string>public.source-code</string>
+				<string>com.i0stweak3r.ezcompleteui.apple-incident-report</string>
 				<string>com.i0stweak3r.ezcompleteui.typescript</string>
 				<string>com.i0stweak3r.ezcompleteui.objective-c-source</string>
 				<string>com.i0stweak3r.ezcompleteui.objective-c-header</string>
 				<string>com.i0stweak3r.ezcompleteui.objective-cpp-source</string>
+				<string>com.i0stweak3r.ezcompleteui.solidity-source</string>
+				<string>com.i0stweak3r.ezcompleteui.common-source-code</string>
 			</array>
 		</dict>
 	</array>
@@ -86,7 +89,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>7.1.8</string>
+	<string>7.1.10</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
@@ -101,7 +104,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>7.1.8</string>
+	<string>7.1.10</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
@@ -143,6 +146,23 @@
 	<string>Dark</string>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.plain-text</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Apple Incident Report</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.i0stweak3r.ezcompleteui.apple-incident-report</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>ips</string>
+				</array>
+			</dict>
+		</dict>
 		<dict>
 			<key>UTTypeConformsTo</key>
 			<array>
@@ -207,7 +227,100 @@
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
+					<string>mm</string>
 					<string>xm</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.source-code</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Solidity Source</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.i0stweak3r.ezcompleteui.solidity-source</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>sol</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.source-code</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Common Source Code</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.i0stweak3r.ezcompleteui.common-source-code</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>c</string>
+					<string>cc</string>
+					<string>cpp</string>
+					<string>cxx</string>
+					<string>h</string>
+					<string>hpp</string>
+					<string>swift</string>
+					<string>py</string>
+					<string>pyw</string>
+					<string>js</string>
+					<string>jsx</string>
+					<string>tsx</string>
+					<string>vue</string>
+					<string>svelte</string>
+					<string>css</string>
+					<string>scss</string>
+					<string>sass</string>
+					<string>less</string>
+					<string>md</string>
+					<string>markdown</string>
+					<string>yaml</string>
+					<string>yml</string>
+					<string>toml</string>
+					<string>ini</string>
+					<string>cfg</string>
+					<string>conf</string>
+					<string>properties</string>
+					<string>java</string>
+					<string>kt</string>
+					<string>kts</string>
+					<string>go</string>
+					<string>rs</string>
+					<string>rb</string>
+					<string>php</string>
+					<string>cs</string>
+					<string>fs</string>
+					<string>fsx</string>
+					<string>vb</string>
+					<string>sh</string>
+					<string>bash</string>
+					<string>zsh</string>
+					<string>fish</string>
+					<string>pl</string>
+					<string>pm</string>
+					<string>lua</string>
+					<string>r</string>
+					<string>dart</string>
+					<string>scala</string>
+					<string>groovy</string>
+					<string>sql</string>
+					<string>clj</string>
+					<string>cljs</string>
+					<string>cljc</string>
+					<string>erl</string>
+					<string>hrl</string>
+					<string>ex</string>
+					<string>exs</string>
+					<string>hs</string>
+					<string>zig</string>
 				</array>
 			</dict>
 		</dict>

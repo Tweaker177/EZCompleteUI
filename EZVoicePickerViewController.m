@@ -5,8 +5,11 @@
 
 #import "EZVoicePickerViewController.h"
 #import "EZTTSVoiceService.h"
+#import <AVFoundation/AVFoundation.h>
+#import <objc/runtime.h>
 
 static NSString * const kEZVoicePickerCellID = @"EZVoicePickerCell";
+static char kEZVoicePreviewVoiceKey;
 
 @interface EZVoicePickerViewController () <UITableViewDataSource, UITableViewDelegate, UISearchResultsUpdating>
 
@@ -17,6 +20,13 @@ static NSString * const kEZVoicePickerCellID = @"EZVoicePickerCell";
 
 @property (nonatomic, copy) NSArray<NSDictionary<NSString *, id> *> *allVoices;
 @property (nonatomic, copy) NSArray<NSDictionary<NSString *, id> *> *filteredVoices;
+
+/// ElevenLabs supplies a pre-recorded sample URL with voices that support
+/// previews.  Playing that URL lets people audition a voice without creating
+/// a billable text-to-speech generation.
+@property (nonatomic, strong, nullable) AVPlayer *previewPlayer;
+@property (nonatomic, copy, nullable) NSString *previewVoiceID;
+@property (nonatomic, assign) BOOL previewIsPlaying;
 
 @end
 
@@ -96,7 +106,19 @@ static NSString * const kEZVoicePickerCellID = @"EZVoicePickerCell";
 }
 
 - (void)handleCancelTapped {
+    [self stopVoicePreview];
     [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    if (self.isBeingDismissed || self.navigationController.isBeingDismissed) {
+        [self stopVoicePreview];
+    }
+}
+
+- (void)dealloc {
+    [self stopVoicePreview];
 }
 
 #pragma mark - UISearchResultsUpdating
@@ -139,7 +161,11 @@ static NSString * const kEZVoicePickerCellID = @"EZVoicePickerCell";
         cell.detailTextLabel.text = nil;
     }
     cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
-    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+
+    NSString *previewURL = [self previewURLForVoice:voice];
+    UIButton *previewButton = [self previewButtonForVoice:voice hasPreview:(previewURL.length > 0)];
+    cell.accessoryType = UITableViewCellAccessoryNone;
+    cell.accessoryView = previewButton;
     return cell;
 }
 
@@ -150,12 +176,135 @@ static NSString * const kEZVoicePickerCellID = @"EZVoicePickerCell";
     NSString *voiceName = [self displayNameForVoice:voice];
 
     void (^selected)(NSString *, NSString * _Nullable) = self.onVoiceSelected;
+    [self stopVoicePreview];
     [self dismissViewControllerAnimated:YES completion:^{
         if (selected && voiceID.length > 0) selected(voiceID, voiceName);
     }];
 }
 
 #pragma mark - Helpers
+
+- (UIButton *)previewButtonForVoice:(NSDictionary *)voice hasPreview:(BOOL)hasPreview {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.frame = CGRectMake(0, 0, 44, 44);
+    button.layer.cornerRadius = 18.0;
+    button.backgroundColor = hasPreview ? [UIColor systemFillColor] : [UIColor clearColor];
+    button.tintColor = hasPreview ? self.view.tintColor : [UIColor tertiaryLabelColor];
+    button.enabled = hasPreview;
+    button.alpha = hasPreview ? 1.0 : 0.45;
+
+    NSString *voiceID = [self voiceIDForVoice:voice];
+    BOOL isPlaying = hasPreview &&
+        self.previewIsPlaying &&
+        voiceID.length > 0 &&
+        [voiceID isEqualToString:self.previewVoiceID];
+    UIImage *image = [UIImage systemImageNamed:(isPlaying ? @"stop.fill" : @"play.fill")];
+    [button setImage:image forState:UIControlStateNormal];
+    button.accessibilityLabel = hasPreview
+        ? [NSString stringWithFormat:@"%@ voice sample", [self displayNameForVoice:voice]]
+        : [NSString stringWithFormat:@"%@ has no voice sample", [self displayNameForVoice:voice]];
+    button.accessibilityHint = hasPreview
+        ? (isPlaying ? @"Stops the sample." : @"Plays ElevenLabs' included sample. This does not use coins.")
+        : @"A preview is not available for this voice.";
+
+    objc_setAssociatedObject(button, &kEZVoicePreviewVoiceKey, voice, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [button addTarget:self action:@selector(previewButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    return button;
+}
+
+- (void)previewButtonTapped:(UIButton *)sender {
+    NSDictionary *voice = objc_getAssociatedObject(sender, &kEZVoicePreviewVoiceKey);
+    NSString *voiceID = [self voiceIDForVoice:voice];
+    NSString *previewURLString = [self previewURLForVoice:voice];
+    NSURL *previewURL = [NSURL URLWithString:previewURLString];
+    if (voiceID.length == 0 || previewURL == nil) {
+        return;
+    }
+
+    if ([voiceID isEqualToString:self.previewVoiceID] && self.previewPlayer) {
+        if (self.previewIsPlaying) {
+            [self.previewPlayer pause];
+            self.previewIsPlaying = NO;
+        } else {
+            [self.previewPlayer play];
+            self.previewIsPlaying = YES;
+        }
+        [self.tableView reloadData];
+        return;
+    }
+
+    [self stopVoicePreview];
+
+    NSError *audioError = nil;
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:&audioError];
+    if (audioError) {
+        NSLog(@"[EZVoicePicker] Could not configure audio session for voice preview: %@", audioError);
+    }
+    audioError = nil;
+    [[AVAudioSession sharedInstance] setActive:YES error:&audioError];
+    if (audioError) {
+        NSLog(@"[EZVoicePicker] Could not activate audio session for voice preview: %@", audioError);
+    }
+
+    AVPlayerItem *item = [AVPlayerItem playerItemWithURL:previewURL];
+    self.previewPlayer = [AVPlayer playerWithPlayerItem:item];
+    self.previewVoiceID = voiceID;
+    self.previewIsPlaying = YES;
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(voicePreviewDidEnd:)
+                                                 name:AVPlayerItemDidPlayToEndTimeNotification
+                                               object:item];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(voicePreviewDidFail:)
+                                                 name:AVPlayerItemFailedToPlayToEndTimeNotification
+                                               object:item];
+    [self.previewPlayer play];
+    [self.tableView reloadData];
+}
+
+- (void)voicePreviewDidEnd:(NSNotification *)notification {
+    [self stopVoicePreview];
+    [self.tableView reloadData];
+}
+
+- (void)voicePreviewDidFail:(NSNotification *)notification {
+    NSError *error = notification.userInfo[AVPlayerItemFailedToPlayToEndTimeErrorKey];
+    [self stopVoicePreview];
+    [self.tableView reloadData];
+
+    if (self.view.window) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Couldn't play voice sample"
+                                                                         message:error.localizedDescription ?: @"Please try again."
+                                                                  preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+    }
+}
+
+- (void)stopVoicePreview {
+    AVPlayerItem *item = self.previewPlayer.currentItem;
+    if (item) {
+        [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                        name:AVPlayerItemDidPlayToEndTimeNotification
+                                                      object:item];
+        [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                        name:AVPlayerItemFailedToPlayToEndTimeNotification
+                                                      object:item];
+    }
+    [self.previewPlayer pause];
+    self.previewPlayer = nil;
+    self.previewVoiceID = nil;
+    self.previewIsPlaying = NO;
+}
+
+- (NSString *)previewURLForVoice:(NSDictionary *)voice {
+    id value = voice[@"preview_url"] ?: voice[@"previewUrl"];
+    if (![value isKindOfClass:[NSString class]] || [(NSString *)value length] == 0) {
+        NSDictionary *sharing = [voice[@"sharing"] isKindOfClass:[NSDictionary class]] ? voice[@"sharing"] : nil;
+        value = sharing[@"preview_url"] ?: sharing[@"previewUrl"];
+    }
+    return [value isKindOfClass:[NSString class]] ? value : @"";
+}
 
 - (NSString *)voiceIDForVoice:(NSDictionary *)voice {
     id vid = voice[@"voice_id"] ?: voice[@"id"] ?: voice[@"voiceId"];

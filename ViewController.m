@@ -566,12 +566,17 @@
 #import "EZSupabaseConfig.h"
 #import "EZTermsAcceptanceViewController.h"
 #import "HelperLogViewController.h"
+#import "EZImageAttachmentPreparer.h"
 #import <CommonCrypto/CommonDigest.h>
 
 NSNotificationName const EZAttachExternalDocumentToChat = @"EZAttachExternalDocumentToChat";
 static NSString *const kPendingExternalDocumentPath = @"EZPendingExternalDocumentPath";
 static NSString *const kPendingExternalImageAskPath = @"EZPendingExternalImageAskPath";
 static NSString *const kElevenLabsTTSModelID = @"eleven_v4";
+// Image bytes become ~33% larger when base64-embedded in the ez-chat JSON.
+// This leaves enough room under the edge function's 25 MiB request ceiling.
+static const NSUInteger kEZChatImageAttachmentBudget = 17 * 1024 * 1024;
+static const NSUInteger kEZMaximumImagesPerChatTurn = 15;
 
 // Stable, non-reversible identifier for OpenAI safety tracking.  Keep this a
 // raw SHA-256 hex digest: OpenAI's maximum is 64 characters, and a SHA-256
@@ -794,6 +799,10 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 - (void)consumePendingExternalImageQuestion;
 - (void)consumePendingExternalDocument;
 - (void)handleExternalDocumentOpen:(NSNotification *)notification;
+- (void)completeHelperDirectAnswer:(NSString *)answer
+                     originalPrompt:(NSString *)prompt
+                              token:(NSString *)token
+                           threadID:(NSString *)threadID;
 
 @end
 @interface ViewController (EZPrivateForward)
@@ -1023,8 +1032,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.models = @[
            // ── Chat / Reasoning ──────────────────────────────────────────────
            @"gpt-6-astra", // newest flagship reasoning model
-           @"gpt-6-sol", @"gpt-6-luna",
-           @"gpt-5.6-sol", @"gpt-5.6-terra", @"gpt-5.6-luna",
+           @"gpt-6.1-sol", @"gpt-6-luna",
+           @"gpt-5.6-sol", @"gpt-5.6-terra",
            @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
            @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
            @"gpt-3.5-turbo",
@@ -1053,6 +1062,14 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.speechSynthesizer = [[AVSpeechSynthesizer alloc] init];
     self.selectedModel     = [[NSUserDefaults standardUserDefaults] stringForKey:@"selectedModel"]
                              ?: self.models[0];
+    // Retired picker choices can remain in a user's saved preference. Move
+    // them to their current equivalents before the first request is made.
+    if ([self.selectedModel isEqualToString:@"gpt-6-sol"]) {
+        self.selectedModel = @"gpt-6.1-sol";
+    } else if ([self.selectedModel isEqualToString:@"gpt-5.6-luna"]) {
+        self.selectedModel = @"gpt-6-luna";
+    }
+    [[NSUserDefaults standardUserDefaults] setObject:self.selectedModel forKey:@"selectedModel"];
     self.webSearchEnabled  = [[NSUserDefaults standardUserDefaults] boolForKey:@"webSearchEnabled"];
 
     // Triage re-evaluates uncertain prompts with this many prior turns.
@@ -2088,6 +2105,43 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         : @"Tap to allow helper models to answer directly";
 }
 
+// A validated helper answer is a completed chat turn, not merely a routing
+// hint. Keep its persistence/display path equivalent to a main-model reply so
+// the thread and memory stores remain internally consistent. File/image and
+// web-search turns intentionally never reach here because their full content
+// or tools are only available to the main model.
+- (void)completeHelperDirectAnswer:(NSString *)answer
+                     originalPrompt:(NSString *)prompt
+                              token:(NSString *)token
+                           threadID:(NSString *)threadID {
+    if (answer.length == 0) return;
+    if (threadID.length > 0 && ![self.activeThread.threadID isEqualToString:threadID]) {
+        self.sendButton.enabled = YES;
+        EZLog(EZLogLevelInfo, @"TRIAGE", @"Discarded helper direct answer after conversation changed");
+        return;
+    }
+
+    self.sendButton.enabled = YES;
+    self.lastAIResponse = answer;
+    [self.chatContext addObject:@{ @"role": @"assistant", @"content": answer }];
+
+    NSMutableArray<NSString *> *codePaths = [NSMutableArray array];
+    NSString *displayAnswer = [self processReplyWithCodeBlocks:answer savedPaths:codePaths];
+    [self appendToChat:[NSString stringWithFormat:@"AI: %@", displayAnswer]];
+    [self appendToChat:@"[System: Answered directly by helper model ⚡]"];
+    [self saveActiveThread];
+    [self checkReplyForLocalFilePaths:answer];
+    [self updateCoinBalanceDisplay];
+
+    EZLogf(EZLogLevelInfo, @"TRIAGE", @"Displayed helper direct answer (%lu chars)",
+           (unsigned long)answer.length);
+    createMemoryFromCompletion(prompt ?: @"", answer, token, threadID, @[],
+    ^(NSString *entry) {
+        if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved helper answer memory (%lu chars)",
+                          (unsigned long)entry.length);
+    });
+}
+
     // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Thread Title Editing
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2342,10 +2396,13 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                   [UTType typeWithIdentifier:@"public.comma-separated-values-text"],
                   [UTType typeWithIdentifier:@"public.json"],
                   [UTType typeWithIdentifier:@"public.xml"],
+                  [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.apple-incident-report"],
                   [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.typescript"],
                   [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.objective-c-source"],
                   [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.objective-c-header"],
-                  [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.objective-cpp-source"]];
+                  [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.objective-cpp-source"],
+                  [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.solidity-source"],
+                  [UTType typeWithIdentifier:@"com.i0stweak3r.ezcompleteui.common-source-code"]];
     }
     [self presentFilePickerForMode:mode forceTypes:types];
 }
@@ -2354,7 +2411,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
         initForOpeningContentTypes:types asCopy:YES];
     picker.delegate = self;
-    picker.allowsMultipleSelection = NO;
+    picker.allowsMultipleSelection = (mode == EZAttachModeAnalyze);
     // Store mode via associated object — safer than .view.tag on iOS 15
     objc_setAssociatedObject(picker, "EZAttachMode",
                              @(mode), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -2367,22 +2424,26 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
 - (void)documentPicker:(UIDocumentPickerViewController *)controller
 didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
-    NSURL *fileURL = urls.firstObject;
-    if (!fileURL) return;
+    if (urls.count == 0) return;
 
     // Retrieve mode from associated object — fall back to analyze
     NSNumber *modeNum = objc_getAssociatedObject(controller, "EZAttachMode");
     EZAttachMode mode = modeNum ? (EZAttachMode)modeNum.integerValue : EZAttachModeAnalyze;
 
-    NSString *ext = fileURL.pathExtension.lowercaseString;
-    BOOL isImage  = [@[@"jpg",@"jpeg",@"png",@"gif",@"webp",@"heic"] containsObject:ext];
-
     if (mode == EZAttachModeWhisper) {
-        [self transcribeAudio:fileURL];
-    } else if (isImage) {
-        [self attachImage:fileURL];
+        [self transcribeAudio:urls.firstObject];
     } else {
-        [self analyzeFile:fileURL];
+        NSArray<NSURL *> *selection = urls.count > kEZMaximumImagesPerChatTurn
+            ? [urls subarrayWithRange:NSMakeRange(0, kEZMaximumImagesPerChatTurn)] : urls;
+        if (urls.count > selection.count) {
+            [self appendToChat:@"[System: Only the first 15 attachments were selected.]"];
+        }
+        for (NSURL *fileURL in selection) {
+            NSString *ext = fileURL.pathExtension.lowercaseString;
+            BOOL isImage = [@[@"jpg",@"jpeg",@"png",@"gif",@"webp",@"heic"] containsObject:ext];
+            if (isImage) [self attachImage:fileURL];
+            else [self analyzeFile:fileURL];
+        }
     }
 }
 
@@ -2392,32 +2453,33 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)presentPhotoLibraryPicker {
     PHPickerConfiguration *cfg = [[PHPickerConfiguration alloc] initWithPhotoLibrary:[PHPhotoLibrary sharedPhotoLibrary]];
-    cfg.filter = [PHPickerFilter imagesFilter]; cfg.selectionLimit = 1;
+    cfg.filter = [PHPickerFilter imagesFilter]; cfg.selectionLimit = kEZMaximumImagesPerChatTurn;
     PHPickerViewController *p = [[PHPickerViewController alloc] initWithConfiguration:cfg];
     p.delegate = self; [self presentViewController:p animated:YES completion:nil];
 }
 - (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results {
     [picker dismissViewControllerAnimated:YES completion:nil];
-    PHPickerResult *r = results.firstObject; if (!r) return;
-    NSItemProvider *pv = r.itemProvider;
-    if ([pv hasItemConformingToTypeIdentifier:UTTypeImage.identifier]) {
-        [pv loadFileRepresentationForTypeIdentifier:UTTypeImage.identifier completionHandler:^(NSURL *url, NSError *e) {
-            if (!url) { dispatch_async(dispatch_get_main_queue(), ^{ [self appendToChat:@"[Error: Could not load photo]"]; }); return; }
-            NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:url.lastPathComponent];
-            [[NSFileManager defaultManager] removeItemAtPath:tmp error:nil];
-            NSError *ce; [[NSFileManager defaultManager] copyItemAtURL:url toURL:[NSURL fileURLWithPath:tmp] error:&ce];
-            dispatch_async(dispatch_get_main_queue(), ^{
-                if (ce) { [self appendToChat:@"[Error: Could not copy photo]"]; return; }
-                [self attachImage:[NSURL fileURLWithPath:tmp]];
-            });
-        }];
-    } else if ([pv canLoadObjectOfClass:[UIImage class]]) {
-        [pv loadObjectOfClass:[UIImage class] completionHandler:^(UIImage *img, NSError *e) {
-            if (!img) return;
-            NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:@"photo_pick.jpg"];
-            [UIImageJPEGRepresentation(img, 0.92) writeToFile:tmp atomically:YES];
-            dispatch_async(dispatch_get_main_queue(), ^{ [self attachImage:[NSURL fileURLWithPath:tmp]]; });
-        }];
+    for (PHPickerResult *r in results) {
+        NSItemProvider *pv = r.itemProvider;
+        if ([pv hasItemConformingToTypeIdentifier:UTTypeImage.identifier]) {
+            [pv loadFileRepresentationForTypeIdentifier:UTTypeImage.identifier completionHandler:^(NSURL *url, NSError *e) {
+                if (!url) { dispatch_async(dispatch_get_main_queue(), ^{ [self appendToChat:@"[Error: Could not load photo]"]; }); return; }
+                NSString *fileName = [NSString stringWithFormat:@"%@-%@", NSUUID.UUID.UUIDString, url.lastPathComponent];
+                NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
+                NSError *ce; [[NSFileManager defaultManager] copyItemAtURL:url toURL:[NSURL fileURLWithPath:tmp] error:&ce];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (ce) { [self appendToChat:@"[Error: Could not copy photo]"]; return; }
+                    [self attachImage:[NSURL fileURLWithPath:tmp]];
+                });
+            }];
+        } else if ([pv canLoadObjectOfClass:[UIImage class]]) {
+            [pv loadObjectOfClass:[UIImage class] completionHandler:^(UIImage *img, NSError *e) {
+                if (!img) return;
+                NSString *tmp = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"%@-photo_pick.jpg", NSUUID.UUID.UUIDString]];
+                [UIImageJPEGRepresentation(img, 0.92) writeToFile:tmp atomically:YES];
+                dispatch_async(dispatch_get_main_queue(), ^{ [self attachImage:[NSURL fileURLWithPath:tmp]]; });
+            }];
+        }
     }
 }
 - (void)offerSaveToPhotos:(NSString *)path {
@@ -2449,6 +2511,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)attachImage:(NSURL *)fileURL {
+    if (self.pendingImagePaths.count >= kEZMaximumImagesPerChatTurn) {
+        [self appendToChat:@"[System: A chat message can include up to 15 images. Send these before attaching more.]"];
+        return;
+    }
     NSData *rawData = [NSData dataWithContentsOfURL:fileURL];
     if (!rawData) {
         [self appendToChat:@"[Error: Could not read image]"]; return;
@@ -2456,75 +2522,72 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     NSString *name = fileURL.lastPathComponent;
     NSString *ext  = fileURL.pathExtension.lowercaseString;
-
-    // ── Format validation & conversion ───────────────────────────────────────
-    // OpenAI vision + image edit APIs accept: png, jpeg, gif, webp ONLY.
-    // HEIC (default iOS camera format) must be converted to JPEG.
-    // Any other unsupported format also gets converted to JPEG.
-    NSData   *imageData = rawData;
-    NSString *mime      = @"image/jpeg";
-    BOOL      converted = NO;
-
-    NSSet *supported = [NSSet setWithObjects:@"png", @"jpg", @"jpeg", @"gif", @"webp", nil];
-
-    if (![supported containsObject:ext]) {
-        // Attempt conversion via UIImage → JPEG
-        UIImage *img = [UIImage imageWithData:rawData];
-        if (img) {
-            NSData *jpegData = UIImageJPEGRepresentation(img, 0.92);
-            if (jpegData) {
-                imageData  = jpegData;
-                mime       = @"image/jpeg";
-                converted  = YES;
-                [self appendToChat:[NSString stringWithFormat:
-                    @"[System: %@ converted from %@ to JPEG for API compatibility ✓]",
-                    name, ext.uppercaseString]];
-                EZLogf(EZLogLevelInfo, @"ATTACH", @"Converted %@ → JPEG (%lu bytes)",
-                       ext, (unsigned long)imageData.length);
-            } else {
-                [self appendToChat:[NSString stringWithFormat:
-                    @"[Error: Could not convert %@ to a supported format. "
-                    @"Please use PNG, JPEG, GIF, or WebP.]", ext.uppercaseString]];
-                return;
-            }
-        } else {
-            [self appendToChat:[NSString stringWithFormat:
-                @"[Error: Unsupported image format '%@'. Please use PNG, JPEG, GIF, or WebP.]",
-                ext.uppercaseString]];
-            return;
+    NSMutableArray<NSString *> *oldPaths = [NSMutableArray array];
+    NSMutableArray<NSData *> *sourceData = [NSMutableArray array];
+    NSMutableArray<NSString *> *extensions = [NSMutableArray array];
+    for (NSString *path in self.pendingImagePaths) {
+        NSData *data = [NSData dataWithContentsOfFile:path];
+        if (data) {
+            [oldPaths addObject:path];
+            [sourceData addObject:data];
+            [extensions addObject:path.pathExtension ?: @"jpg"];
         }
-    } else {
-        // Set correct mime for supported formats
-        if ([ext isEqualToString:@"png"])              mime = @"image/png";
-        else if ([ext isEqualToString:@"gif"])         mime = @"image/gif";
-        else if ([ext isEqualToString:@"webp"])        mime = @"image/webp";
-        else                                           mime = @"image/jpeg";
+    }
+    [sourceData addObject:rawData];
+    [extensions addObject:ext ?: @"jpg"];
+
+    NSError *prepareError = nil;
+    NSArray<NSDictionary<NSString *, id> *> *prepared =
+        [EZImageAttachmentPreparer preparedImagesFromData:sourceData
+                                                extensions:extensions
+                                     maximumTotalByteCount:kEZChatImageAttachmentBudget
+                                                     error:&prepareError];
+    if (!prepared) {
+        [self appendToChat:[NSString stringWithFormat:@"[Error: %@]", prepareError.localizedDescription ?: @"Could not prepare image."]];
+        return;
     }
 
-    // ── Save to EZPhotoGallery ────────────────────────────────────────────────
-    NSString *saveName  = converted
-        ? [[name stringByDeletingPathExtension] stringByAppendingPathExtension:@"jpeg"]
-        : name;
+    NSUInteger inputBytes = 0, outputBytes = 0;
+    BOOL transformedAny = NO;
+    for (NSUInteger i = 0; i < prepared.count; i++) {
+        inputBytes += sourceData[i].length;
+        outputBytes += [prepared[i][@"data"] length];
+        transformedAny |= [prepared[i][@"didTransform"] boolValue];
+    }
+
+    // Save transformed versions so future sends, restoration, and image edit
+    // all point at exactly the bytes placed in the request.
+    NSMutableArray<NSString *> *resolvedPaths = [NSMutableArray array];
+    for (NSUInteger i = 0; i < prepared.count; i++) {
+        NSDictionary *item = prepared[i];
+        NSData *imageData = item[@"data"];
+        BOOL transformed = [item[@"didTransform"] boolValue];
+        NSString *path = nil;
+        if (i < oldPaths.count && !transformed) path = oldPaths[i];
+        if (i == prepared.count - 1 && !transformed) {
+            NSString *galleryDirectory = EZPhotoGalleryDirectory().stringByStandardizingPath;
+            NSString *sourcePath = fileURL.path.stringByStandardizingPath;
+            if ([sourcePath hasPrefix:[galleryDirectory stringByAppendingString:@"/"]]) path = sourcePath;
+        }
+        if (!path.length || ![[NSFileManager defaultManager] fileExistsAtPath:path]) {
+            NSString *baseName = (i < oldPaths.count) ? oldPaths[i].lastPathComponent : name;
+            NSString *saveName = transformed
+                ? [[baseName stringByDeletingPathExtension] stringByAppendingPathExtension:@"jpg"] : baseName;
+            path = EZPhotoGallerySave(imageData, saveName);
+        }
+        if (!path.length) { [self appendToChat:@"[Error: Could not save prepared image]"]; return; }
+        [resolvedPaths addObject:path];
+    }
+
+    [self.pendingImagePaths removeAllObjects];
+    [self.pendingImagePaths addObjectsFromArray:resolvedPaths];
+    NSString *thisPath = resolvedPaths.lastObject;
     // A gallery selection is already stored in the permanent image library.
-    // Reusing it avoids creating a duplicate gallery file every time the user
-    // asks a question about a selected photo. Converted files still need a new
-    // JPEG destination so their extension and bytes agree.
-    NSString *galleryDirectory = EZPhotoGalleryDirectory().stringByStandardizingPath;
-    NSString *sourcePath = fileURL.path.stringByStandardizingPath;
-    NSString *galleryPrefix = [galleryDirectory stringByAppendingString:@"/"];
-    BOOL sourceIsAlreadyInGallery = [sourcePath hasPrefix:galleryPrefix];
-    NSString *localPath = (!converted && sourceIsAlreadyInGallery)
-        ? sourcePath
-        : EZPhotoGallerySave(imageData, saveName);
-    NSString *thisPath  = localPath ?: fileURL.path;
-    [self.pendingImagePaths addObject:thisPath];
     [self appendAttachmentBubble:thisPath];
 
-    if (localPath) {
-        NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
-        [att addObject:localPath];
-        self.activeThread.attachmentPaths = [att copy];
-    }
+    NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
+    [att addObject:thisPath];
+    self.activeThread.attachmentPaths = [att copy];
 
     // An attached image is not inherently an edit request. Preserve the
     // selected model and let the send-time intent router choose chat, edit,
@@ -2540,69 +2603,41 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             @"Switched to gpt-4o. Ask a question or describe an edit.]", prev]];
     } else {
         [self appendToChat:[NSString stringWithFormat:
-            @"[System: Image %@ attached. Ask a question, describe an edit, or request a new image.]", saveName]];
+            @"[System: Image %@ attached. Ask a question, describe an edit, or request a new image.]", name]];
+    }
+    if (transformedAny) {
+        [self appendToChat:[NSString stringWithFormat:
+            @"[System: Prepared %lu images for upload: %.1f MB → %.1f MB (kept below the chat request limit).]",
+            (unsigned long)prepared.count, inputBytes / 1048576.0, outputBytes / 1048576.0]];
     }
 
-    // Add vision message to context — use base64 data URL. Runs regardless
-    // of inImageGenMode: this used to live only in the vision-analysis else
-    // branch above, which meant an edit-mode source image had zero trace
-    // anywhere in chatContext and could never be restored after reloading
-    // the thread — see chatHistoryDidSelectThread's fallback comment for
-    // how already-broken threads from before this fix are handled. This
-    // doesn't change what editing actually does: callImageEdit sends the
-    // image to ez-image directly over its own HTTP call, not through
-    // chatContext/ez-chat, so recording it here is purely for restore/
-    // history purposes. If the user later sends a normal chat message,
-    // sanitizedContextForAPI's existing "only resend the newest image"
-    // logic treats this like any other recent attachment — reasonable,
-    // since the model having context on what image was being edited if
-    // asked about it later isn't a bug.
-    // NOTE: this message is marked so we can strip it after first use
-    // to avoid re-sending huge base64 blobs on every subsequent turn
-    NSString *base64  = [imageData base64EncodedStringWithOptions:0];
-    NSString *dataURL = [NSString stringWithFormat:@"data:%@;base64,%@", mime, base64];
-    NSDictionary *newImageBlock = @{@"type": @"image_url", @"image_url": @{@"url": dataURL}};
-
-    // If the previous chatContext entry is ALSO a still-pending (unsent)
-    // vision attachment, merge this image into it as an additional block
-    // instead of creating a separate message. This is what actually
-    // fixes multi-image attach: sanitizedContextForAPI only preserves
-    // the single most recent vision MESSAGE (correct, desirable
-    // behavior for genuinely old attachments left over from an earlier,
-    // already-completed turn — that's what stops every prior image
-    // getting re-sent as base64 on every future turn), so two images
-    // attached in the same not-yet-sent turn need to live in ONE
-    // combined message, or the older one silently loses its image data.
-    // A vision message stops being "the previous entry" the instant the
-    // user sends (which appends a real user-prompt message right after
-    // it — see the fullPrompt append below), so this only ever merges
-    // attachments from the same pending turn, never a leftover image
-    // from an already-completed exchange.
+    // Rebuild the one pending vision message from the prepared bytes. This is
+    // important: prior attachments may have been recompressed after a later
+    // image pushed the collection over the request budget.
+    NSMutableArray *blocks = [NSMutableArray array];
+    for (NSDictionary *item in prepared) {
+        NSString *base64 = [item[@"data"] base64EncodedStringWithOptions:0];
+        NSString *dataURL = [NSString stringWithFormat:@"data:%@;base64,%@", item[@"mimeType"], base64];
+        [blocks addObject:@{@"type": @"image_url", @"image_url": @{@"url": dataURL}}];
+    }
+    [blocks addObject:@{@"type": @"text", @"text": @"[image attached — await user question]"}];
     NSDictionary *lastMsg = self.chatContext.lastObject;
     if ([lastMsg[@"_isVisionAttachment"] boolValue]) {
-        NSMutableArray *mergedBlocks = [lastMsg[@"content"] mutableCopy] ?: [NSMutableArray array];
-        // Insert before the trailing placeholder text block so the
-        // placeholder stays last no matter how many images accumulate.
-        NSUInteger insertAt = mergedBlocks.count > 0 ? mergedBlocks.count - 1 : 0;
-        [mergedBlocks insertObject:newImageBlock atIndex:insertAt];
         NSMutableDictionary *mergedMsg = [lastMsg mutableCopy];
-        mergedMsg[@"content"] = [mergedBlocks copy];
+        mergedMsg[@"content"] = [blocks copy];
         [self.chatContext removeLastObject];
         [self.chatContext addObject:[mergedMsg copy]];
     } else {
         NSDictionary *visionMsg = @{
             @"role":     @"user",
-            @"content":  @[
-                newImageBlock,
-                @{@"type": @"text", @"text": @"[image attached — await user question]"}
-            ],
-            @"_isVisionAttachment": @YES   // internal flag — stripped before API call
+            @"content":  [blocks copy],
+            @"_isVisionAttachment": @YES
         };
         [self.chatContext addObject:visionMsg];
     }
 
-    EZLogf(EZLogLevelInfo, @"ATTACH", @"Image ready: %@ mime=%@ bytes=%lu",
-           saveName, mime, (unsigned long)imageData.length);
+    EZLogf(EZLogLevelInfo, @"ATTACH", @"Image batch ready: count=%lu input=%lu output=%lu",
+           (unsigned long)prepared.count, (unsigned long)inputBytes, (unsigned long)outputBytes);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2782,10 +2817,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)speakWithApple:(NSString *)text {
-    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback
-                                            mode:AVAudioSessionModeDefault
-                                         options:AVAudioSessionCategoryOptionDuckOthers error:nil];
-    [[AVAudioSession sharedInstance] setActive:YES error:nil];
+    NSError *sessionError = nil;
+    if (!EZActivatePlaybackAudioSession(&sessionError)) {
+        EZLogf(EZLogLevelError, @"TTS", @"Could not activate Apple TTS audio session: %@", sessionError.localizedDescription);
+        return;
+    }
     if (self.speechSynthesizer.isSpeaking)
         [self.speechSynthesizer stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
     AVSpeechUtterance *u = [AVSpeechUtterance speechUtteranceWithString:text];
@@ -2994,10 +3030,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
 
         dispatch_async(dispatch_get_main_queue(), ^{
-            [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback
-                                                    mode:AVAudioSessionModeDefault
-                                                 options:0 error:nil];
-            [[AVAudioSession sharedInstance] setActive:YES error:nil];
+            NSError *sessionError = nil;
+            if (!EZActivatePlaybackAudioSession(&sessionError)) {
+                EZLogf(EZLogLevelError, @"TTS", @"Could not activate ElevenLabs playback audio session: %@", sessionError.localizedDescription);
+                [self appendToChat:@"[TTS Error: Could not activate audio playback]"];
+                return;
+            }
             NSError *playerErr = nil;
             self.audioPlayer = [[AVAudioPlayer alloc] initWithData:audioData error:&playerErr];
             if (playerErr) {
@@ -3007,7 +3045,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 return;
             }
             [self.audioPlayer prepareToPlay];
-            [self.audioPlayer play];
+            if (![self.audioPlayer play]) {
+                EZLog(EZLogLevelError, @"TTS", @"ElevenLabs AVAudioPlayer refused to start playback");
+                [self appendToChat:@"[TTS Error: Audio playback could not start]"];
+                return;
+            }
 
             // Refresh coin display — edge function already deducted server-side
             [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
@@ -3182,6 +3224,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 
     self.lastUserPrompt = text;
+    NSString *requestThreadID = [self.activeThread.threadID copy];
 
     // Inject pending file context — every file attached since the last
     // send, not just the most recent one (previously pendingFileContext/
@@ -3273,9 +3316,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 [self callImageEdit:text imagePath:editPath];
             } else if ([intent isEqualToString:@"chat"]) {
                 if (isImageModel || ![self modelSupportsVision:self.selectedModel]) {
-                    self.selectedModel = @"gpt-5.6-luna";
-                    [self.modelButton setTitle:@"Model: gpt-5.6-luna" forState:UIControlStateNormal];
-                    [self appendToChat:@"[System: Switched to gpt-5.6-luna to discuss the attached image]"];
+                    self.selectedModel = @"gpt-6-luna";
+                    [self.modelButton setTitle:@"Model: gpt-6-luna" forState:UIControlStateNormal];
+                    [self appendToChat:@"[System: Switched to gpt-6-luna to discuss the attached image]"];
                 }
                 [self callChatCompletions];
             } else {
@@ -3335,10 +3378,28 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                    (long)result.tier, result.confidence,
                    (long)result.estimatedTokens, result.reason);
 
-            // Helpers enrich context, but the selected model owns the final
-            // answer/tool decision. A helper short-circuit can otherwise say
-            // "I cannot generate images" before the image tool is even offered.
             BOOL hasAttachedFileContext = ![fullPrompt isEqualToString:text];
+            BOOL hasPendingImageAttachment = self.pendingImagePaths.count > 0;
+
+            // A validated helper answer is the intended result of the
+            // lightning-bolt setting. Do not use it for requests that require
+            // information the helper never received (file/image attachments)
+            // or a tool the helper cannot invoke (web search).
+            if (result.shortCircuitAnswer.length > 0 &&
+                !hasAttachedFileContext &&
+                !hasPendingImageAttachment &&
+                !self.webSearchEnabled) {
+                [self completeHelperDirectAnswer:result.shortCircuitAnswer
+                                   originalPrompt:text
+                                            token:jwtToken
+                                         threadID:requestThreadID];
+                return;
+            }
+            if (result.shortCircuitAnswer.length > 0) {
+                EZLogf(EZLogLevelInfo, @"TRIAGE",
+                       @"Helper direct answer deferred to main model (file=%d image=%d web=%d)",
+                       hasAttachedFileContext, hasPendingImageAttachment, self.webSearchEnabled);
+            }
 
             // Triage/memory routing enriches the short typed question. When a
             // file was attached, replace that trailing question with the full
@@ -3538,15 +3599,15 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         EZLog(EZLogLevelInfo, @"WEBSEARCH", @"GPT-4 Turbo → GPT-4o for web search");
     }
 
-    // GPT-5.x models and GPT-6 Astra use the Responses API.
+    // GPT-5.x models and GPT-6 family models use the Responses API.
     // "gpt-5-pro" is a ChatGPT subscription tier name, not an API model string —
     // sending it to the API returns a model-not-found error. Remove it from
     // any model picker. Real API strings: gpt-5, gpt-5-mini, gpt-5.4, gpt-5.4-mini,
-    // gpt-5.4-nano, gpt-5.5, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna. All are
+    // gpt-5.4-nano, gpt-5.5, gpt-5.6-sol, gpt-5.6-terra. All are
     // correctly matched by hasPrefix:@"gpt-5".
     BOOL isGPT5 = [self.selectedModel hasPrefix:@"gpt-5"] ||
                   [self.selectedModel isEqualToString:@"gpt-6-astra"] ||
-                  [self.selectedModel isEqualToString:@"gpt-6-sol"] ||
+                  [self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
                   [self.selectedModel isEqualToString:@"gpt-6-luna"];
     // Web search works on gpt-5.x (via Responses API), gpt-4.1.x, and listed gpt-4o models.
     // Prefix checks cover all sub-variants without needing to enumerate each.
@@ -3641,20 +3702,20 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // featureTier is only used for logging context in ez-chat.
     // Actual coin cost is computed per exact model string server-side.
     NSString *featureTier;
-    if ([self.selectedModel isEqualToString:@"gpt-6-sol"]) {
+    if ([self.selectedModel isEqualToString:@"gpt-6.1-sol"]) {
         featureTier = @"chat_standard";
     } else if ([self.selectedModel hasPrefix:@"o1"] || [self.selectedModel hasPrefix:@"o3"]) {
         featureTier = @"chat_premium"; // reasoning models
     } else if (isGPT5) {
         // gpt-5, gpt-5.4, gpt-5.5 = premium; mini/nano variants = mini.
-        // gpt-5.6 broke the suffix convention (sol/terra/luna instead of
+        // gpt-5.6 broke the suffix convention (sol/terra instead of
         // base/-mini/-nano), so it needs an explicit name check rather than
         // hasSuffix — a future gpt-5.7 etc. renamed the same way will need
         // its own line here too.
         static NSSet<NSString *> *cheapGPT56Tiers;
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            cheapGPT56Tiers = [NSSet setWithObjects:@"gpt-5.6-luna", @"gpt-6-luna", nil];
+            cheapGPT56Tiers = [NSSet setWithObject:@"gpt-6-luna"];
         });
         if ([self.selectedModel hasSuffix:@"-mini"] ||
             [self.selectedModel hasSuffix:@"-nano"] ||
@@ -3738,7 +3799,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:ezURL];
     request.HTTPMethod = @"POST";
     BOOL isHeavyReasoningModel = [self.selectedModel isEqualToString:@"gpt-5.6-sol"] ||
-                                  [self.selectedModel isEqualToString:@"gpt-6-sol"] ||
+                                  [self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
                                   [self.selectedModel isEqualToString:@"gpt-6-astra"];
     // Leave headroom beyond ez-chat's server-side OpenAI deadline. Previously
     // the 90s/180s client deadlines could cancel a request the server was still
@@ -4599,7 +4660,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // gpt-5.x and gpt-4.1.x all support vision via the Responses API.
     // Prefix checks cover all variants (gpt-5, gpt-5.1-mini, gpt-4.1, gpt-4.1-mini, etc.)
     if ([model hasPrefix:@"gpt-5"] || [model isEqualToString:@"gpt-6-astra"] ||
-        [model isEqualToString:@"gpt-6-sol"] || [model isEqualToString:@"gpt-6-luna"]) return YES;
+        [model isEqualToString:@"gpt-6.1-sol"] || [model isEqualToString:@"gpt-6-luna"]) return YES;
     if ([model hasPrefix:@"gpt-4.1"]) return YES;
     if ([model hasPrefix:@"o3"])      return YES;
     if ([model hasPrefix:@"o4"])      return YES;

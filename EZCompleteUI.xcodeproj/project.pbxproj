@@ -72,6 +72,8 @@
 		A2000000000000000000003F /* EZSupabaseConfig.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000003F /* EZSupabaseConfig.m */; };
 		A20000000000000000000040 /* EZCoinLedgerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000040 /* EZCoinLedgerViewController.m */; };
 		A20000000000000000000041 /* BRSmartKeyboardView.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000041 /* BRSmartKeyboardView.m */; };
+		A20000000000000000000042 /* EZImageAttachmentPreparer.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000042 /* EZImageAttachmentPreparer.m */; };
+		A20000000000000000000043 /* EZPhotoGalleryAnalysisService.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000044 /* EZPhotoGalleryAnalysisService.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -140,6 +142,10 @@
 		A1000000000000000000003F /* EZSupabaseConfig.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZSupabaseConfig.m; sourceTree = "<group>"; };
 		A10000000000000000000040 /* EZCoinLedgerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCoinLedgerViewController.m; sourceTree = "<group>"; };
 		A10000000000000000000041 /* BRSmartKeyboardView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRSmartKeyboardView.m; sourceTree = "<group>"; };
+		A10000000000000000000042 /* EZImageAttachmentPreparer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZImageAttachmentPreparer.m; sourceTree = "<group>"; };
+		A10000000000000000000043 /* EZImageAttachmentPreparer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EZImageAttachmentPreparer.h; sourceTree = "<group>"; };
+		A10000000000000000000044 /* EZPhotoGalleryAnalysisService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZPhotoGalleryAnalysisService.m; sourceTree = "<group>"; };
+		A10000000000000000000045 /* EZPhotoGalleryAnalysisService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EZPhotoGalleryAnalysisService.h; sourceTree = "<group>"; };
 		A30000000000000000000001 /* EZCompleteUI-Simulator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EZCompleteUI-Simulator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A30000000000000000000002 /* Resources/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Resources/Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -232,6 +238,10 @@
 				A1000000000000000000003F /* EZSupabaseConfig.m */,
 				A10000000000000000000040 /* EZCoinLedgerViewController.m */,
 				A10000000000000000000041 /* BRSmartKeyboardView.m */,
+				A10000000000000000000042 /* EZImageAttachmentPreparer.m */,
+				A10000000000000000000043 /* EZImageAttachmentPreparer.h */,
+				A10000000000000000000044 /* EZPhotoGalleryAnalysisService.m */,
+				A10000000000000000000045 /* EZPhotoGalleryAnalysisService.h */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -383,6 +393,8 @@
 				A2000000000000000000003F /* EZSupabaseConfig.m in Sources */,
 				A20000000000000000000040 /* EZCoinLedgerViewController.m in Sources */,
 				A20000000000000000000041 /* BRSmartKeyboardView.m in Sources */,
+				A20000000000000000000042 /* EZImageAttachmentPreparer.m in Sources */,
+				A20000000000000000000043 /* EZPhotoGalleryAnalysisService.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

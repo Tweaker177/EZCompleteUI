@@ -332,6 +332,12 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
 
     [self stopPlayback]; // stop whatever else was playing first
 
+    NSError *sessionError = nil;
+    if (!EZActivatePlaybackAudioSession(&sessionError)) {
+        [self presentErrorAlert:sessionError title:@"Couldn't start audio playback"];
+        return;
+    }
+
     NSURL *audioURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:entry];
     NSError *playerError;
     AVAudioPlayer *player = [[AVAudioPlayer alloc] initWithContentsOfURL:audioURL error:&playerError];
@@ -345,7 +351,13 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
     id storedRate = entry.metadata[@"playbackRate"];
     player.rate = [storedRate isKindOfClass:[NSNumber class]] ? [storedRate floatValue] : 1.0f;
     [player prepareToPlay];
-    [player play];
+    if (![player play]) {
+        NSError *error = [NSError errorWithDomain:@"EZTTSLibrary"
+                                             code:-1
+                                         userInfo:@{ NSLocalizedDescriptionKey: @"The audio player could not start playback." }];
+        [self presentErrorAlert:error title:@"Couldn't play clip"];
+        return;
+    }
 
     self.player = player;
     self.playingUUID = entry.uuid;

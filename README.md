@@ -2,7 +2,7 @@
 
 EZCompleteUI is a native iOS AI workspace built with Objective-C and Theos. It combines coin-metered AI chat, a gallery-first image studio, transcription, voice tools, local thread history, searchable memories, and a custom game-creation area in one app.
 
-The current release is **7.1.8** and targets iOS 15.0 and later.
+The current release is **7.1.9** and targets iOS 15.0 and later.
 
 ## What it includes
 
@@ -27,12 +27,12 @@ The picker is the source of truth for models exposed by the app.
 
 | Group | Models |
 | --- | --- |
-| Frontier reasoning | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5`, `gpt-5-mini` |
+| Frontier reasoning | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5`, `gpt-5-mini` |
 | GPT-4 chat | `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-4`, `gpt-3.5-turbo` |
 | Image generation | `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`, `gpt-image-2`, `gpt-image-1.5`, `gpt-image-1`, `gpt-image-1-mini`, `chatgpt-image-latest` |
 | Audio transcription | `whisper-1` |
 
-GPT-6 has three choices: `gpt-6-astra` for the most demanding reasoning and coding work, `gpt-6-sol` for a strong intelligence/cost balance, and `gpt-6-luna` for fast, high-volume work. Astra and Sol require a prior EZComplete purchase; Luna does not, although all requests use coins. The GPT-5.6 variants remain available as full, balanced, and fast/cheap choices.
+GPT-6 has three choices: `gpt-6-astra` for the most demanding reasoning and coding work, `gpt-6.1-sol` for a near-Astra intelligence/cost balance, and `gpt-6-luna` for fast, high-volume work. Astra and Sol require a prior EZComplete purchase; Luna does not, although all requests use coins. The GPT-5.6 Sol and Terra variants remain available as full and balanced choices.
 
 Every chat model can hand off an image request to the app’s GPT Image workflow, so a request to create or edit a picture does not need a separate model change. The selected chat model interprets the request while GPT Image renders the result using the active image settings and normal image charges. The `gpt-image-*` family can also be selected directly for image generation and attachment-driven editing. `whisper-1` is transcription-only and is not used as a chat model.
 

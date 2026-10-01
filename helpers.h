@@ -20,6 +20,11 @@ void EZLog(EZLogLevel level, NSString *tag, NSString *message);
 #define EZLogf(level, tag, fmt, ...) EZLog((level),(tag),[NSString stringWithFormat:(fmt),##__VA_ARGS__])
 void EZLogRotateIfNeeded(NSUInteger maxBytes);
 
+/// Activates an audio session suitable for audible app playback.  Call this
+/// immediately before AVAudioPlayer or AVSpeechSynthesizer playback so a
+/// previous recording/dictation session cannot leave output muted.
+BOOL EZActivatePlaybackAudioSession(NSError * _Nullable * _Nullable error);
+
 NSString *EZHelperLogGetPath(void);
 void EZHelperLog(NSString *tag, NSString *message);
 void EZHelperLogRotateIfNeeded(NSUInteger maxBytes);

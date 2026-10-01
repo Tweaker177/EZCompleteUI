@@ -44,6 +44,7 @@ static NSString * const kDefaultModelID = @"eleven_v4";
 static NSString * const kFallbackMP3Format = @"mp3_44100_128";
 static NSString * const kVoiceIDDefaultsKey = @"elevenVoiceID";
 static NSString * const kVoiceNameDefaultsKey = @"elevenVoiceName";
+static NSString * const kPendingTTSRequestsDefaultsKey = @"EZTTSPendingRequests";
 
 static NSUInteger const kPromptCharacterLimit = 2000;
 
@@ -88,6 +89,186 @@ static NSUInteger const kPromptCharacterLimit = 2000;
 static NSString *timestampString(void) {
     long long t = (long long)[[NSDate date] timeIntervalSince1970];
     return [NSString stringWithFormat:@"%lld", t];
+}
+
+- (NSMutableDictionary<NSString *, NSDictionary *> *)pendingTTSRequests {
+    NSDictionary *saved = [[NSUserDefaults standardUserDefaults]
+        dictionaryForKey:kPendingTTSRequestsDefaultsKey];
+    return saved ? [saved mutableCopy] : [NSMutableDictionary dictionary];
+}
+
+- (void)rememberPendingTTSRequest:(NSString *)requestID
+                              text:(NSString *)text
+                           voiceID:(NSString *)voiceID
+                    preferredFormat:(NSString *)format {
+    if (!requestID.length) return;
+    NSMutableDictionary *pending = [self pendingTTSRequests];
+    pending[requestID] = @{
+        @"text": text ?: @"",
+        @"voice_id": voiceID ?: @"",
+        @"format": format ?: kFallbackMP3Format,
+    };
+    [[NSUserDefaults standardUserDefaults] setObject:pending
+                                              forKey:kPendingTTSRequestsDefaultsKey];
+}
+
+- (void)forgetPendingTTSRequest:(NSString *)requestID {
+    if (!requestID.length) return;
+    NSMutableDictionary *pending = [self pendingTTSRequests];
+    [pending removeObjectForKey:requestID];
+    [[NSUserDefaults standardUserDefaults] setObject:pending
+                                              forKey:kPendingTTSRequestsDefaultsKey];
+}
+
+- (NSError *)ttsErrorWithCode:(NSInteger)code description:(NSString *)description {
+    return [NSError errorWithDomain:@"TTS" code:code userInfo:@{
+        NSLocalizedDescriptionKey: description ?: NSLocalizedString(@"EZTTS.FailedToSynthesize", nil)
+    }];
+}
+
+- (void)downloadTTSAssetAtURLString:(NSString *)URLString
+                          completion:(void(^)(NSData * _Nullable audioData, NSError * _Nullable error))completion {
+    NSURL *URL = [NSURL URLWithString:URLString];
+    if (!URL) {
+        completion(nil, [self ttsErrorWithCode:-20 description:@"The generated audio download link was invalid."]);
+        return;
+    }
+    NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration defaultSessionConfiguration];
+    configuration.timeoutIntervalForRequest = 45;
+    configuration.timeoutIntervalForResource = 90;
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:configuration];
+    [[session dataTaskWithURL:URL completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
+        if (error) {
+            completion(nil, error);
+        } else if (http.statusCode < 200 || http.statusCode >= 300 || data.length == 0) {
+            completion(nil, [self ttsErrorWithCode:http.statusCode ?: -21
+                                        description:@"The generated audio could not be downloaded."]);
+        } else {
+            completion(data, nil);
+        }
+    }] resume];
+}
+
+- (void)recoverTTSRequestID:(NSString *)requestID
+                       token:(NSString *)token
+                     attempt:(NSInteger)attempt
+                  completion:(void(^)(NSData * _Nullable audioData,
+                                      NSString * _Nullable format,
+                                      NSString * _Nullable mime,
+                                      NSError * _Nullable error))completion {
+    NSURL *URL = [NSURL URLWithString:@"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-elevenlabs"];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:URL];
+    request.HTTPMethod = @"POST";
+    request.timeoutInterval = 45;
+    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
+    request.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
+        @"action": @"recover_tts",
+        @"request_id": requestID,
+    } options:0 error:nil];
+
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request
+        completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (error) {
+            completion(nil, nil, nil, error);
+            return;
+        }
+        NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
+        NSDictionary *json = data.length ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+        // A request can arrive while the original invocation is still writing
+        // its private object. Retry briefly; this is free and never regenerates.
+        if (http.statusCode == 202 && attempt < 6) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
+                           dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+                [self recoverTTSRequestID:requestID token:token attempt:attempt + 1 completion:completion];
+            });
+            return;
+        }
+        NSString *assetURL = [json[@"audio_url"] isKindOfClass:[NSString class]] ? json[@"audio_url"] : nil;
+        if (http.statusCode != 200 || assetURL.length == 0) {
+            NSString *message = [json[@"reason"] isKindOfClass:[NSString class]] ? json[@"reason"] :
+                                @"The generated audio could not be recovered.";
+            completion(nil, nil, nil, [self ttsErrorWithCode:http.statusCode ?: -22 description:message]);
+            return;
+        }
+        [self downloadTTSAssetAtURLString:assetURL completion:^(NSData *audioData, NSError *downloadError) {
+            completion(audioData, json[@"format"], json[@"mime_type"], downloadError);
+        }];
+    }] resume];
+}
+
+- (void)writeAndArchiveTTSData:(NSData *)audioData
+                         format:(NSString *)returnedFmt
+                           mime:(NSString *)returnedMime
+                           text:(NSString *)text
+                        voiceID:(NSString *)voiceID
+                     completion:(void(^)(NSURL * _Nullable fileURL, NSString * _Nullable mime, NSError * _Nullable error))completion {
+    if (!audioData.length) {
+        completion(nil, nil, [self ttsErrorWithCode:-2 description:NSLocalizedString(@"EZTTS.EmptyAudio", nil)]);
+        return;
+    }
+    NSString *format = returnedFmt.length ? returnedFmt : kFallbackMP3Format;
+    NSString *mime = returnedMime.length ? returnedMime : @"audio/mpeg";
+    NSString *extension = [format containsString:@"wav"] ? @"wav" :
+                         [format containsString:@"mp3"] ? @"mp3" : @"mp3";
+
+    // If PCM wrap into WAV.
+    if ([format containsString:@"pcm"] && [format containsString:@"44100"]) {
+        NSData *wavData = [self wavDataFromPCM:audioData sampleRate:44100 channels:1 bitsPerSample:16];
+        if (!wavData) {
+            completion(nil, nil, [self ttsErrorWithCode:-3 description:NSLocalizedString(@"EZTTS.FailedWavWrap", nil)]);
+            return;
+        }
+        audioData = wavData;
+        extension = @"wav";
+        mime = @"audio/wav";
+    }
+
+    NSString *filename = [NSString stringWithFormat:@"tts_%@.%@", timestampString(), extension];
+    NSURL *temporaryURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:filename]];
+    NSError *writeError = nil;
+    [audioData writeToURL:temporaryURL options:NSDataWritingAtomic error:&writeError];
+    if (writeError) {
+        completion(nil, nil, writeError);
+        return;
+    }
+    [self archiveGeneratedAudio:audioData extension:extension prompt:text voiceID:voiceID];
+    EZLogf(EZLogLevelInfo, @"TTS", @"Audio saved: %@", filename);
+    completion(temporaryURL, mime, nil);
+}
+
+- (void)recoverPendingTTSRequestsIfNeeded {
+    NSString *token = [EZAuthManager shared].accessToken;
+    if (!token.length) return;
+
+    NSDictionary<NSString *, NSDictionary *> *pending = [[self pendingTTSRequests] copy];
+    [pending enumerateKeysAndObjectsUsingBlock:^(NSString *requestID, NSDictionary *details, BOOL *stop) {
+        (void)stop;
+        [self recoverTTSRequestID:requestID token:token attempt:0
+                        completion:^(NSData *audioData, NSString *format, NSString *mime, NSError *error) {
+            if (audioData.length) {
+                [self writeAndArchiveTTSData:audioData
+                                      format:format ?: details[@"format"]
+                                        mime:mime
+                                        text:details[@"text"] ?: @"Recovered TTS"
+                                     voiceID:details[@"voice_id"] ?: @""
+                                  completion:^(NSURL *fileURL, NSString *savedMime, NSError *writeError) {
+                    (void)fileURL;
+                    (void)savedMime;
+                    if (!writeError) {
+                        [self forgetPendingTTSRequest:requestID];
+                        EZLogf(EZLogLevelInfo, @"TTS", @"Recovered interrupted generation %@", requestID);
+                    }
+                }];
+            } else if (error.code == 404 || error.code == 409) {
+                // No durable object exists (for example, this was made by an
+                // older server before recovery was available), so don't retry
+                // this stale id on every visit to the screen.
+                [self forgetPendingTTSRequest:requestID];
+            }
+        }];
+    }];
 }
 
 #pragma mark - Lifecycle
@@ -229,6 +410,7 @@ static NSString *timestampString(void) {
     EZLog(EZLogLevelInfo, @"TTS_UI", @"TextToSpeechViewController loaded");
 
     [self applyPendingPrefillIfNeeded];
+    [self recoverPendingTTSRequestsIfNeeded];
 }
 
 - (UILabel *)sectionHeaderLabel {
@@ -386,6 +568,15 @@ static NSString *timestampString(void) {
                 [self showAlert:NSLocalizedString(@"EZTTS.ErrorTitle", nil) message:NSLocalizedString(@"EZTTS.NoAudioReturned", nil)];
                 return;
             }
+
+            NSError *sessionError = nil;
+            if (!EZActivatePlaybackAudioSession(&sessionError)) {
+                EZLogf(EZLogLevelError, @"TTS", @"Could not activate playback audio session: %@", sessionError.localizedDescription);
+                [self showAlert:NSLocalizedString(@"EZTTS.PlaybackError", nil)
+                         message:sessionError.localizedDescription ?: NSLocalizedString(@"EZTTS.UnableToPlay", nil)];
+                return;
+            }
+
             NSError *perr = nil;
             self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:fileURL error:&perr];
             if (perr) {
@@ -394,7 +585,12 @@ static NSString *timestampString(void) {
                 return;
             }
             [self.player prepareToPlay];
-            [self.player play];
+            if (![self.player play]) {
+                EZLog(EZLogLevelError, @"TTS", @"AVAudioPlayer refused to start playback");
+                [self showAlert:NSLocalizedString(@"EZTTS.PlaybackError", nil)
+                         message:NSLocalizedString(@"EZTTS.UnableToPlay", nil)];
+                return;
+            }
             EZLogf(EZLogLevelInfo, @"TTS", @"Playback started %@", fileURL.lastPathComponent);
         });
     }];
@@ -420,12 +616,46 @@ static NSString *timestampString(void) {
     // Snap speed to 2 decimal places matching slider steps
     float speed = roundf(self.speedSlider.value / 0.05f) * 0.05f;
     NSUInteger charCount = text.length;
+    NSString *requestID = [[NSUUID UUID] UUIDString];
+    [self rememberPendingTTSRequest:requestID text:text voiceID:voiceID preferredFormat:fmt];
+
+    void (^finishAudio)(NSData *, NSString *, NSString *) = ^(NSData *audioData, NSString *returnedFormat, NSString *returnedMime) {
+        [self writeAndArchiveTTSData:audioData
+                              format:returnedFormat ?: fmt
+                                mime:returnedMime
+                                text:text
+                             voiceID:voiceID
+                          completion:^(NSURL *fileURL, NSString *mime, NSError *writeError) {
+            if (!writeError) [self forgetPendingTTSRequest:requestID];
+            completion(fileURL, mime, writeError);
+        }];
+    };
+
+    void (^recoverAndFinish)(NSError *) = ^(NSError *originalError) {
+        [self recoverTTSRequestID:requestID token:token attempt:0
+                        completion:^(NSData *audioData, NSString *returnedFormat, NSString *returnedMime, NSError *recoveryError) {
+            if (audioData.length) {
+                EZLogf(EZLogLevelInfo, @"TTS", @"Recovered generated audio %@ without another charge", requestID);
+                finishAudio(audioData, returnedFormat, returnedMime);
+                return;
+            }
+            // Failed/cancelled generations have already been refunded by the
+            // Edge Function. A 404 also covers pre-recovery server versions.
+            if (recoveryError.code == 404 || recoveryError.code == 409) {
+                [self forgetPendingTTSRequest:requestID];
+            }
+            completion(nil, nil, recoveryError ?: originalError);
+        }];
+    };
 
     NSURL *url = [NSURL URLWithString:
         @"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-elevenlabs"];
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:url];
     req.HTTPMethod = @"POST";
-    req.timeoutInterval = 80;
+    // The response is normally tiny now (a signed URL), but v4 generation can
+    // still take a while. If the phone gives up first, request_id lets the
+    // recovery call fetch the already-completed private asset for free.
+    req.timeoutInterval = 130;
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [req setValue:[NSString stringWithFormat:@"Bearer %@", token]
        forHTTPHeaderField:@"Authorization"];
@@ -436,7 +666,9 @@ static NSString *timestampString(void) {
         @"model_id":      kDefaultModelID,
         @"output_format": fmt,
         @"speed":         @(speed),
-        @"char_count":    @(charCount)
+        @"char_count":    @(charCount),
+        @"request_id":    requestID,
+        @"accept_asset_url": @YES,
     } options:0 error:nil];
 
     EZLogf(EZLogLevelInfo, @"TTS",
@@ -444,19 +676,20 @@ static NSString *timestampString(void) {
            voiceID, fmt, speed, (unsigned long)charCount);
 
     NSURLSessionConfiguration *cfg = [NSURLSessionConfiguration defaultSessionConfiguration];
-    cfg.timeoutIntervalForRequest  = 80;
-    cfg.timeoutIntervalForResource = 160;
+    cfg.timeoutIntervalForRequest  = 130;
+    cfg.timeoutIntervalForResource = 190;
     NSURLSession *session = [NSURLSession sessionWithConfiguration:cfg];
 
     [[session dataTaskWithRequest:req
           completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         if (error) {
             EZLogf(EZLogLevelError, @"TTS", @"Network error: %@", error.localizedDescription);
-            completion(nil, nil, error);
+            recoverAndFinish(error);
             return;
         }
 
         NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
+        NSDictionary *json = data.length ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
         if (http.statusCode == 402) {
             // Parse balance/cost from response if available
             NSString *coinMsg = NSLocalizedString(@"EZTTS.InsufficientCoins", nil);
@@ -472,80 +705,61 @@ static NSString *timestampString(void) {
                     }
                 }
             }
+            [self forgetPendingTTSRequest:requestID];
             completion(nil, nil, [NSError errorWithDomain:@"TTS" code:402
                 userInfo:@{NSLocalizedDescriptionKey: coinMsg}]);
             return;
         }
         if (http.statusCode == 403) {
+            [self forgetPendingTTSRequest:requestID];
             completion(nil, nil, [NSError errorWithDomain:@"TTS" code:403
                 userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"EZTTS.NotAuthorized", nil)}]);
             return;
         }
         if (http.statusCode != 200) {
+            // A 503 after generation means the object was saved but the server
+            // could not sign its first URL. Recover it instead of exposing an
+            // error or creating another paid request.
+            if (http.statusCode == 202 || http.statusCode == 503) {
+                recoverAndFinish([self ttsErrorWithCode:http.statusCode
+                                              description:json[@"reason"] ?: @"The generated audio is being recovered."]);
+                return;
+            }
             NSString *msg = data.length
                 ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]
                 : NSLocalizedString(@"EZTTS.ServerError", nil);
+            [self forgetPendingTTSRequest:requestID];
             completion(nil, nil, [NSError errorWithDomain:@"TTS" code:http.statusCode
                 userInfo:@{NSLocalizedDescriptionKey: msg}]);
             return;
         }
 
-        NSError *jerr;
-        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data
-                                                             options:0 error:&jerr];
-        if (jerr || !json[@"audio_b64"]) {
-            completion(nil, nil, [NSError errorWithDomain:@"TTS" code:-1
-                userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"EZTTS.InvalidServerResponse", nil)}]);
-            return;
-        }
-
-        NSData *audioData = [[NSData alloc]
-            initWithBase64EncodedString:json[@"audio_b64"] options:0];
-        if (!audioData || audioData.length == 0) {
-            completion(nil, nil, [NSError errorWithDomain:@"TTS" code:-2
-                userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"EZTTS.EmptyAudio", nil)}]);
+        if (![json isKindOfClass:[NSDictionary class]]) {
+            recoverAndFinish([self ttsErrorWithCode:-1 description:NSLocalizedString(@"EZTTS.InvalidServerResponse", nil)]);
             return;
         }
 
         NSString *returnedFmt  = json[@"format"] ?: fmt;
         NSString *returnedMime = json[@"mime_type"] ?: @"audio/mpeg";
-        NSString *ext = [returnedFmt containsString:@"wav"] ? @"wav" :
-                        [returnedFmt containsString:@"mp3"] ? @"mp3" : @"mp3";
-
-        // If PCM wrap into WAV
-        if ([returnedFmt containsString:@"pcm"] && [returnedFmt containsString:@"44100"]) {
-            NSData *wavData = [self wavDataFromPCM:audioData
-                                        sampleRate:44100
-                                          channels:1
-                                    bitsPerSample:16];
-            if (!wavData) {
-                completion(nil, nil, [NSError errorWithDomain:@"TTS" code:-3
-                    userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"EZTTS.FailedWavWrap", nil)}]);
-                return;
-            }
-            audioData = wavData;
-            ext = @"wav";
-            returnedMime = @"audio/wav";
-        }
-
-        NSString *fname  = [NSString stringWithFormat:@"tts_%@.%@", timestampString(), ext];
-        NSURL    *tmpURL = [NSURL fileURLWithPath:
-            [NSTemporaryDirectory() stringByAppendingPathComponent:fname]];
-        NSError  *werr;
-        [audioData writeToURL:tmpURL options:NSDataWritingAtomic error:&werr];
-        if (werr) {
-            completion(nil, nil, werr);
+        NSString *assetURL = [json[@"audio_url"] isKindOfClass:[NSString class]] ? json[@"audio_url"] : nil;
+        if (assetURL.length) {
+            [self downloadTTSAssetAtURLString:assetURL completion:^(NSData *audioData, NSError *downloadError) {
+                if (audioData.length) {
+                    finishAudio(audioData, returnedFmt, returnedMime);
+                } else {
+                    recoverAndFinish(downloadError);
+                }
+            }];
             return;
         }
 
-        EZLogf(EZLogLevelInfo, @"TTS", @"Audio saved: %@", fname);
-
-        // Archive every successful generation to the permanent library, independent of
-        // whether the user goes on to actually listen. Fire-and-forget from this
-        // completion flow's point of view — playback below does not wait on it.
-        [self archiveGeneratedAudio:audioData extension:ext prompt:text voiceID:voiceID];
-
-        completion(tmpURL, returnedMime, nil);
+        NSString *audioB64 = [json[@"audio_b64"] isKindOfClass:[NSString class]] ? json[@"audio_b64"] : nil;
+        NSData *audioData = [[NSData alloc] initWithBase64EncodedString:audioB64 options:0];
+        if (!audioData.length) {
+            recoverAndFinish([self ttsErrorWithCode:-2 description:NSLocalizedString(@"EZTTS.EmptyAudio", nil)]);
+            return;
+        }
+        finishAudio(audioData, returnedFmt, returnedMime);
 
     }] resume];
 }

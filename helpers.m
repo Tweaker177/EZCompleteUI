@@ -34,6 +34,8 @@
 #import "helpers.h"   // Import our own header so the compiler can verify we
                       // implement everything that was promised there.
 #import "EZAuthManager.h"
+#import "EZPhotoGalleryAnalysisService.h"
+#import <AVFoundation/AVFoundation.h>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODULE-LEVEL CONSTANTS
@@ -68,6 +70,22 @@ static NSString * const kEZHelperURL = @"https://spuoimtqofhbdzosrbng.supabase.c
 // 0.85 = "85% sure" — calibrated to avoid wrong short-circuit answers.
 static const float kDirectAnswerConfidenceThreshold = 0.85f;
 static const float kAnswerValidatorConfidenceThreshold = 0.75f;
+
+BOOL EZActivatePlaybackAudioSession(NSError * _Nullable * _Nullable error) {
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    NSError *sessionError = nil;
+    if (![session setCategory:AVAudioSessionCategoryPlayback
+                         mode:AVAudioSessionModeDefault
+                      options:AVAudioSessionCategoryOptionDuckOthers
+                        error:&sessionError] ||
+        ![session setActive:YES error:&sessionError]) {
+        if (error) *error = sessionError;
+        return NO;
+    }
+
+    if (error) *error = nil;
+    return YES;
+}
 
 // Maximum tokens to allow the main GPT model to read from an injected thread.
 // Higher values = more context but more cost and latency.
@@ -2855,6 +2873,23 @@ NSString * _Nullable EZPhotoGallerySave(NSData *data, NSString *fileName) {
     if (!data || fileName.length == 0) return nil;
     @synchronized (_attachmentSaveLock()) {
         NSString *directory = EZPhotoGalleryDirectory();
+        // Do not create another gallery entry for identical bytes. This is a
+        // safety net for imports/handoffs; intentionally edited or newly
+        // generated images have different bytes and continue to be saved.
+        NSFileManager *fm = [NSFileManager defaultManager];
+        for (NSString *candidateName in [fm contentsOfDirectoryAtPath:directory error:nil]) {
+            NSString *candidatePath = [directory stringByAppendingPathComponent:candidateName];
+            NSDictionary *attributes = [fm attributesOfItemAtPath:candidatePath error:nil];
+            if ([attributes[NSFileType] isEqualToString:NSFileTypeDirectory] ||
+                [attributes[NSFileSize] unsignedLongLongValue] != data.length) continue;
+            NSData *candidateData = [NSData dataWithContentsOfFile:candidatePath
+                                                             options:NSDataReadingMappedIfSafe
+                                                               error:nil];
+            if (candidateData && [candidateData isEqualToData:data]) {
+                EZLogf(EZLogLevelInfo, @"GALLERY", @"Reused duplicate: %@", candidateName);
+                return candidatePath;
+            }
+        }
         NSString *savedFileName = _availableFileName(directory, fileName, @"image");
         if (!savedFileName) return nil;
         NSString *filePath = [directory stringByAppendingPathComponent:savedFileName];
@@ -2865,6 +2900,7 @@ NSString * _Nullable EZPhotoGallerySave(NSData *data, NSString *fileName) {
             return nil;
         }
         EZLogf(EZLogLevelInfo, @"GALLERY", @"Saved: %@", savedFileName);
+        [[EZPhotoGalleryAnalysisService sharedService] queueAnalysisForPhotoAtPath:filePath];
         return filePath;
     }
 }
