@@ -6,7 +6,9 @@
   "description": "Official AltStore source for EZCompleteUI, an AI workspace for iOS by i0s_tweak3r. Every build here is the same IPA attached to the matching release on GitHub.",
   "iconURL": "https://raw.githubusercontent.com/Tweaker177/EZCompleteUI/main/Resources/AppIcon60x60%403x.png",
   "website": "https://github.com/Tweaker177/EZCompleteUI",
+  "fediUsername": "@ezcompleteui@explore.alt.store",
   "tintColor": "#4E8DA6",
+  "nsfw": false,
   "featuredApps": [
     "com.i0stweak3r.ezcompleteui"
   ],
