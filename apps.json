@@ -6,7 +6,9 @@
   "description": "Official AltStore source for EZCompleteUI, an AI workspace for iOS by i0s_tweak3r. Every build here is the same IPA attached to the matching release on GitHub.",
   "iconURL": "https://raw.githubusercontent.com/Tweaker177/EZCompleteUI/main/Resources/AppIcon60x60%403x.png",
   "website": "https://github.com/Tweaker177/EZCompleteUI",
+  "fediUsername": "@ezcompleteui@explore.alt.store",
   "tintColor": "#4E8DA6",
+  "nsfw": false,
   "featuredApps": [
     "com.i0stweak3r.ezcompleteui"
   ],
@@ -20,8 +22,18 @@
       "iconURL": "https://raw.githubusercontent.com/Tweaker177/EZCompleteUI/main/Resources/AppIcon60x60%403x.png",
       "tintColor": "#4E8DA6",
       "category": "utilities",
-      "screenshotURLs": [],
+      "screenshotURLs": ["https://cdn-static.yourepo.com/images/debs/com.yourepo.i0s-tweak3r-betas.ezcompleteui/13.png?version=2","https://cdn-static.yourepo.com/images/debs/com.yourepo.i0s-tweak3r-betas.ezcompleteui/8.png?version=2", "https://cdn-static.yourepo.com/images/debs/com.yourepo.i0s-tweak3r-betas.ezcompleteui/5.png?version=2","https://cdn-static.yourepo.com/images/debs/com.yourepo.i0s-tweak3r-betas.ezcompleteui/4.png?version=2", "https://cdn-static.yourepo.com/images/debs/com.yourepo.i0s-tweak3r-betas.ezcompleteui/9.png?version=2"],
       "versions": [
+        {
+          "version": "7.1.10",
+          "buildVersion": "7.1.10",
+          "date": "2026-10-01",
+          "localizedDescription": "## What’s new\n\n- Upgraded the balanced chat model to GPT-6.1 Sol and removed GPT-5.6 Luna.\n- Added safer large image batches for chat: attach up to 15 images, with automatic JPEG conversion and only the downscaling needed to stay within the upload budget.\n- Added Solidity (`.sol`) and broad common source-file support for chat attachments and iOS Open In.\n- Prevented true duplicate gallery images when attaching existing gallery items to chat.\n- Added AI-powered gallery analysis and tailored Surprise Me edit recipes.\n- Refined the Music Video Workshop audio-attachment prompt to match the app UI.\n- Improved TTS clip recovery, library playback, and voice selection.\n- Added campaign-segment and marketing-opt-in database migrations.\n\n## Compatibility\n\n- Requires iOS 15.0 or later.\n- Includes a signed IPA and a rootless arm64 DEB.",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.1.10/EZCompleteUI-7.1.10-release.ipa",
+          "size": 11060200,
+          "sha256": "e626e14b5818af2edb24a5fd0a2d875f30bdfc93de3af21f9b508d6ac4f484ac",
+          "minOSVersion": "15.0"
+        },
         {
           "version": "7.1.8",
           "buildVersion": "7.1.8",
