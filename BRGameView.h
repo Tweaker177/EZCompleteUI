@@ -27,6 +27,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// as the bottom layer, perfectly synchronized with the camera offset.
 /// Set to nil to use solid-color tile fills (fallback mode).
 @property (nonatomic, strong, nullable) UIImage *backgroundImage;
+/// Optional custom wall art. Drawn darker at 40% opacity; generated walls
+/// remain the fallback whenever this asset is absent.
+@property (nonatomic, strong, nullable) UIImage *wallImage;
 
 /// When YES, the player dot is not drawn. Use when the ViewController
 /// renders the hero with an animated UIImageView overlay instead.

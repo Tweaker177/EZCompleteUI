@@ -88,6 +88,12 @@
     uploadRow.title = @"Upload From Photo Library";
     uploadRow.subtitle = @"Choose an image already on your device.";
 
+    BRAssetSourceRowInfo *fileRow = [BRAssetSourceRowInfo new];
+    fileRow.option = BRAssetSourceOptionUploadFile;
+    fileRow.symbolName = @"folder";
+    fileRow.title = @"Import From Files";
+    fileRow.subtitle = @"Use an image from iCloud Drive or another provider.";
+
     BRAssetSourceRowInfo *promptRow = [BRAssetSourceRowInfo new];
     promptRow.option = BRAssetSourceOptionAIPrompt;
     promptRow.symbolName = @"sparkles";
@@ -101,7 +107,7 @@
     resetRow.subtitle = @"Clear any custom photo or prompt for this asset.";
     resetRow.isDestructive = self.hasCustomAsset;
 
-    return @[uploadRow, promptRow, resetRow];
+    return @[uploadRow, fileRow, promptRow, resetRow];
 }
 
 #pragma mark - Layout

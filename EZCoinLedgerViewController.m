@@ -298,7 +298,9 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     [_userEmailLabel addGestureRecognizer:emailDoubleTap];
 
     _ipLabel        = makeLabel(12, UIFontWeightRegular, EZMutedLight(),                        1);
-    _promptLabel    = makeLabel(12, UIFontWeightRegular, [UIColor colorWithWhite:0.80 alpha:1], 2);
+    // Slot audits intentionally use one row per reel. Allow enough room for
+    // the complete outcome rather than truncating it into a two-line snippet.
+    _promptLabel    = makeLabel(12, UIFontWeightRegular, [UIColor colorWithWhite:0.80 alpha:1], 6);
     _promptLabel.userInteractionEnabled = YES;
     // Tap the prompt to copy just its text, separate from the long-press
     // "copy everything" gesture on the card as a whole.
@@ -682,9 +684,9 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     _ipLabel.frame      = CGRectMake(cardWidth - 190, y, 178, 16);
     y += 18;
 
-    // Prompt (2 lines)
-    _promptLabel.frame = CGRectMake(x, y, cardWidth - x * 2, 36);
-    y += 40;
+    // Prompt / audit outcome (up to six explicit lines)
+    _promptLabel.frame = CGRectMake(x, y, cardWidth - x * 2, 90);
+    y += 94;
 
     // "+" grant-coins button — vertically centered on the whole card, right
     // edge. Sized/positioned first so the detail rows below can be kept clear
@@ -722,7 +724,7 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     _balanceLabel.frame = CGRectMake(rightColumnX, bottomRowY, rightColumnWidth, 20);
 }
 
-+ (CGFloat)rowHeight { return 236; }
++ (CGFloat)rowHeight { return 290; }
 
 @end
 
@@ -932,6 +934,8 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
 @property (nonatomic, strong) NSString               *activeSearchQuery;  // nil = no filter
 @property (nonatomic, strong) NSTimer                *searchDebounceTimer;
 @property (nonatomic, strong) UIBarButtonItem        *exportButton;
+@property (nonatomic, strong) UIBarButtonItem        *excludeButton;
+@property (nonatomic, assign) BOOL                    excludesFeature;
 @end
 
 @implementation EZCoinLedgerViewController
@@ -979,13 +983,20 @@ static NSInteger const kPageSize = 50;
                action:@selector(exportButtonTapped)];
     self.exportButton.tintColor = EZGold();
 
+    self.excludeButton = [[UIBarButtonItem alloc]
+        initWithTitle:@"Exclude"
+                style:UIBarButtonItemStylePlain
+               target:self
+               action:@selector(excludeButtonTapped)];
+    [self updateExcludeButtonAppearance];
+
     UIBarButtonItem *refreshButton = [[UIBarButtonItem alloc]
         initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh
                              target:self
                              action:@selector(refreshTapped)];
 
-    // Export on the far right, refresh beside it
-    self.navigationItem.rightBarButtonItems = @[self.exportButton, refreshButton];
+    // These controls exist only in the DEBUG/admin controller.
+    self.navigationItem.rightBarButtonItems = @[self.exportButton, self.excludeButton, refreshButton];
 }
 
 - (void)setupTable {
@@ -1445,6 +1456,9 @@ static NSInteger const kExportPageSize  = 1000;
         [NSCharacterSet URLQueryAllowedCharacterSet]];
     if ([self.activeSearchQuery containsString:@"@"]) {
         return [NSString stringWithFormat:@"&email=%@", encoded];
+    }
+    if (self.excludesFeature) {
+        return [NSString stringWithFormat:@"&exclude_feature=%@", encoded];
     }
     return [NSString stringWithFormat:@"&feature=%@", encoded];
 }
@@ -1959,7 +1973,7 @@ static NSInteger const kExportPageSize  = 1000;
     [self.tableView reloadData];
 
     NSMutableArray<NSString *> *filterParts = [NSMutableArray array];
-    if (self.activeSearchQuery.length > 0) [filterParts addObject:self.activeSearchQuery];
+    if (self.activeSearchQuery.length > 0) [filterParts addObject:self.excludesFeature && ![self.activeSearchQuery containsString:@"@"] ? [NSString stringWithFormat:@"excluding %@", self.activeSearchQuery] : self.activeSearchQuery];
     if (self.activeStatusFilter.length > 0) [filterParts addObject:self.activeStatusFilter];
     [self.summaryView setFilterDescription:filterParts.count
         ? [filterParts componentsJoinedByString:@" • "] : nil];
@@ -1978,6 +1992,18 @@ static NSInteger const kExportPageSize  = 1000;
     // Preserve the active filter — refresh re-runs the current query from page 0
     self.hasMore = YES;
     [self fetchPage:0];
+}
+
+- (void)excludeButtonTapped {
+    self.excludesFeature = !self.excludesFeature;
+    [self updateExcludeButtonAppearance];
+    self.hasMore = YES;
+    [self fetchPage:0];
+}
+
+- (void)updateExcludeButtonAppearance {
+    self.excludeButton.title = self.excludesFeature ? @"Exclude ✓" : @"Exclude";
+    self.excludeButton.tintColor = self.excludesFeature ? [UIColor systemRedColor] : EZGold();
 }
 
 - (void)closeTapped {

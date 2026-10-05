@@ -74,6 +74,8 @@
 		A20000000000000000000041 /* BRSmartKeyboardView.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000041 /* BRSmartKeyboardView.m */; };
 		A20000000000000000000042 /* EZImageAttachmentPreparer.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000042 /* EZImageAttachmentPreparer.m */; };
 		A20000000000000000000043 /* EZPhotoGalleryAnalysisService.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000044 /* EZPhotoGalleryAnalysisService.m */; };
+		A20000000000000000000044 /* BRSlotMachineViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000046 /* BRSlotMachineViewController.m */; };
+		A20000000000000000000045 /* BRSlotGamePickerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000048 /* BRSlotGamePickerViewController.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -146,6 +148,10 @@
 		A10000000000000000000043 /* EZImageAttachmentPreparer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EZImageAttachmentPreparer.h; sourceTree = "<group>"; };
 		A10000000000000000000044 /* EZPhotoGalleryAnalysisService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZPhotoGalleryAnalysisService.m; sourceTree = "<group>"; };
 		A10000000000000000000045 /* EZPhotoGalleryAnalysisService.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EZPhotoGalleryAnalysisService.h; sourceTree = "<group>"; };
+		A10000000000000000000046 /* BRSlotMachineViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRSlotMachineViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000047 /* BRSlotMachineViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRSlotMachineViewController.h; sourceTree = "<group>"; };
+		A10000000000000000000048 /* BRSlotGamePickerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRSlotGamePickerViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000049 /* BRSlotGamePickerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRSlotGamePickerViewController.h; sourceTree = "<group>"; };
 		A30000000000000000000001 /* EZCompleteUI-Simulator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EZCompleteUI-Simulator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A30000000000000000000002 /* Resources/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Resources/Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -242,6 +248,10 @@
 				A10000000000000000000043 /* EZImageAttachmentPreparer.h */,
 				A10000000000000000000044 /* EZPhotoGalleryAnalysisService.m */,
 				A10000000000000000000045 /* EZPhotoGalleryAnalysisService.h */,
+				A10000000000000000000046 /* BRSlotMachineViewController.m */,
+				A10000000000000000000047 /* BRSlotMachineViewController.h */,
+				A10000000000000000000048 /* BRSlotGamePickerViewController.m */,
+				A10000000000000000000049 /* BRSlotGamePickerViewController.h */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -295,6 +305,7 @@
 			knownRegions = (
 				en,
 				Base,
+				ru,
 			);
 			mainGroup = A40000000000000000000001;
 			productRefGroup = A40000000000000000000003 /* Products */;
@@ -395,6 +406,8 @@
 				A20000000000000000000041 /* BRSmartKeyboardView.m in Sources */,
 				A20000000000000000000042 /* EZImageAttachmentPreparer.m in Sources */,
 				A20000000000000000000043 /* EZPhotoGalleryAnalysisService.m in Sources */,
+				A20000000000000000000044 /* BRSlotMachineViewController.m in Sources */,
+				A20000000000000000000045 /* BRSlotGamePickerViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

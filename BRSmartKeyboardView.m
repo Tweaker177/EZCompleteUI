@@ -189,7 +189,10 @@
 
 - (void)refreshFromSynth {
     NSArray<NSNumber *> *degrees = [self scaleDegreesForCurrentSynthScale];
-    NSInteger root = self.synth ? self.synth.rootSemitone : 7;
+    // The visible key range tracks Music Lab's octave control, so -1 shifts
+    // every playable key down exactly twelve semitones.
+    NSInteger root = (self.synth ? self.synth.rootSemitone : 7) +
+                     (self.synth ? self.synth.octaveOffset * 12 : 0);
     NSMutableArray<NSNumber *> *semis = [NSMutableArray array];
     for (NSNumber *degree in degrees) {
         [semis addObject:@(root + degree.integerValue)];
@@ -297,7 +300,11 @@
         NSNumber *oldIndex = self.activeTouchKeyIndex[key];
         if (!newIndex) {
             // Slid off the key row entirely (e.g. down toward the knobs) — release it.
-            if (oldIndex) { [self.activeTouchKeyIndex removeObjectForKey:key]; changed = YES; }
+            if (oldIndex) {
+                [self releaseKeyIndex:oldIndex.integerValue];
+                [self.activeTouchKeyIndex removeObjectForKey:key];
+                changed = YES;
+            }
             continue;
         }
         // Do not use -isEqualToNumber: here. A zero-key value can arrive as
@@ -305,6 +312,7 @@
         // raises when its argument is that bridged Boolean. Both types safely
         // expose integerValue, which is exactly the semantic we need.
         if (!oldIndex || newIndex.integerValue != oldIndex.integerValue) {
+            if (oldIndex) [self releaseKeyIndex:oldIndex.integerValue];
             self.activeTouchKeyIndex[key] = [NSNumber numberWithInteger:newIndex.integerValue];
             [self triggerKeyIndex:newIndex.integerValue]; // glissando — each newly-entered key re-triggers
             changed = YES;
@@ -318,7 +326,10 @@
 
 - (void)touchesEndedOrCancelled:(NSSet<UITouch *> *)touches {
     for (UITouch *touch in touches) {
-        [self.activeTouchKeyIndex removeObjectForKey:[NSValue valueWithNonretainedObject:touch]];
+        NSValue *touchKey = [NSValue valueWithNonretainedObject:touch];
+        NSNumber *keyIndex = self.activeTouchKeyIndex[touchKey];
+        if (keyIndex) [self releaseKeyIndex:keyIndex.integerValue];
+        [self.activeTouchKeyIndex removeObjectForKey:touchKey];
     }
     [self recomputeSteer];
     [self setNeedsDisplay];
@@ -330,6 +341,11 @@
     if (index < 0 || index >= (NSInteger)self.keySemitones.count) return;
     NSInteger semitone = self.keySemitones[index].integerValue;
     if (self.onNote) self.onNote(semitone, 1.1f); // slightly hotter than a passive collision hit — this is an intentional press
+}
+
+- (void)releaseKeyIndex:(NSInteger)index {
+    if (index < 0 || index >= (NSInteger)self.keySemitones.count) return;
+    if (self.onNoteRelease) self.onNoteRelease(self.keySemitones[index].integerValue);
 }
 
 - (void)recomputeSteer {

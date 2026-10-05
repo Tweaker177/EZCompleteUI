@@ -704,7 +704,8 @@ typedef NS_ENUM(NSInteger, BRPickerTab) {
     // public community library. "New Game" only ever appears in MyGames —
     // see numberOfSectionsInCollectionView:.
     self.tabControl = [[UISegmentedControl alloc] initWithItems:@[@"My Games", @"Community"]];
-    self.tabControl.selectedSegmentIndex = BRPickerTabMyGames;
+    self.currentTab = self.startsOnCommunityTab ? BRPickerTabCommunity : BRPickerTabMyGames;
+    self.tabControl.selectedSegmentIndex = self.currentTab;
     [self.tabControl addTarget:self action:@selector(handleTabChanged:) forControlEvents:UIControlEventValueChanged];
     self.tabControl.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.tabControl];
@@ -773,6 +774,7 @@ typedef NS_ENUM(NSInteger, BRPickerTab) {
     ]];
 
     [self reloadSavedGames];
+    if (self.currentTab == BRPickerTabCommunity) [self loadFirstCommunityPageIfNeeded];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -971,6 +973,13 @@ typedef NS_ENUM(NSInteger, BRPickerTab) {
 
     __weak typeof(self) weakSelf = self;
     resultVC.onPlayTapped = ^(BRGameRecord * _Nonnull tappedRecord) {
+        if (weakSelf.onSlotThemeSelection) {
+            void (^slotHandler)(BRGameRecord *) = weakSelf.onSlotThemeSelection;
+            UIViewController *slotPicker = weakSelf.presentingViewController;
+            if (slotPicker) [slotPicker dismissViewControllerAnimated:YES completion:^{ slotHandler(tappedRecord); }];
+            else [weakSelf dismissViewControllerAnimated:YES completion:^{ slotHandler(tappedRecord); }];
+            return;
+        }
         [weakSelf dismissViewControllerAnimated:YES completion:^{
             [weakSelf dismissWithRecord:tappedRecord animated:NO];
         }];
@@ -1150,6 +1159,16 @@ typedef NS_ENUM(NSInteger, BRPickerTab) {
     }];
 
     resultVC.onPlayTapped = ^(BRGameRecord * _Nonnull record) {
+        if (weakSelf.onSlotThemeSelection) {
+            void (^slotHandler)(BRGameRecord *) = weakSelf.onSlotThemeSelection;
+            // The Community picker is presented over the Slot picker. Dismiss
+            // from that presenter so the entire card + Community stack goes
+            // away before the Slot picker pushes the machine.
+            UIViewController *slotPicker = weakSelf.presentingViewController;
+            if (slotPicker) [slotPicker dismissViewControllerAnimated:YES completion:^{ slotHandler(record); }];
+            else [weakSelf dismissViewControllerAnimated:YES completion:^{ slotHandler(record); }];
+            return;
+        }
         [weakSelf dismissViewControllerAnimated:YES completion:^{
             [weakSelf dismissWithRecord:record animated:NO];
         }];
@@ -1170,6 +1189,8 @@ typedef NS_ENUM(NSInteger, BRPickerTab) {
 /// immediately if the player switches tabs.
 - (void)performDownloadForCommunityGame:(BRCommunitySharedGame *)game
                               completion:(void (^)(BRGameRecord * _Nullable record, NSString * _Nullable errorMessage))completion {
+    BRGameRecord *existing = [BRGameLibrary.shared existingCommunityRecordWithSharedGameID:game.sharedGameId themeTitle:game.themeTitle premise:game.premise];
+    if (existing) { completion(existing, nil); return; }
     NSDictionary *payload = @{@"action": @"download_shared_game", @"shared_game_id": game.sharedGameId};
     __weak typeof(self) weakSelf = self;
     [self performBrCommunityRequestWithPayload:payload
@@ -1178,7 +1199,7 @@ typedef NS_ENUM(NSInteger, BRPickerTab) {
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(weakSelf) strongSelf = weakSelf;
             if (!strongSelf) { completion(nil, @"Something went wrong. Please try again."); return; }
-            [strongSelf handleDownloadResponseData:data response:response error:error completion:completion];
+            [strongSelf handleDownloadResponseData:data response:response error:error sharedGameID:game.sharedGameId completion:completion];
         });
     }];
 }
@@ -1186,6 +1207,7 @@ typedef NS_ENUM(NSInteger, BRPickerTab) {
 - (void)handleDownloadResponseData:(nullable NSData *)data
                            response:(nullable NSURLResponse *)response
                               error:(nullable NSError *)error
+                       sharedGameID:(NSString *)sharedGameID
                          completion:(void (^)(BRGameRecord * _Nullable record, NSString * _Nullable errorMessage))completion {
     if (error) {
         if ([error.domain isEqualToString:@"BRCommunityAuth"]) {
@@ -1245,6 +1267,7 @@ typedef NS_ENUM(NSInteger, BRPickerTab) {
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(weakSelf) strongSelf = weakSelf;
             if (strongSelf) {
+                [BRGameLibrary.shared markRecord:record downloadedFromCommunityGameID:sharedGameID];
                 NSMutableArray<BRGameRecord *> *updated = [strongSelf.savedGames mutableCopy] ?: [NSMutableArray array];
                 [updated insertObject:record atIndex:0];
                 strongSelf.savedGames = [updated copy];

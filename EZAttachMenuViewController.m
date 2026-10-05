@@ -11,6 +11,7 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
         @{ @"title": @"Analyze PDF / ePub / Text File",  @"subtitle": @"Extracts and summarizes text",   @"icon": @"doc.text" },
         @{ @"title": @"Attach Image from Files",    @"subtitle": @"Vision analysis or image edit",  @"icon": @"photo.on.rectangle" },
         @{ @"title": @"Choose from Photo Library",  @"subtitle": @"Pick a photo from your library", @"icon": @"photo.stack" },
+        @{ @"title": @"Attach from Gallery",        @"subtitle": @"Select images already in EZ Gallery", @"icon": @"square.grid.2x2" },
     ];
 }
 
@@ -65,6 +66,7 @@ static NSArray<NSDictionary *> *EZAttachRows(void) {
             case 1: if (self.onAnalyze)     self.onAnalyze();     break;
             case 2: if (self.onImageFiles)  self.onImageFiles();  break;
             case 3: if (self.onPhotoLibrary) self.onPhotoLibrary(); break;
+            case 4: if (self.onGallery)      self.onGallery();      break;
         }
     }];
 }

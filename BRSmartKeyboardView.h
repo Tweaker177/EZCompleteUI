@@ -13,7 +13,7 @@
 //       BRSynthEngine's current rootSemitone/scale, so there's no wrong
 //       note to hit. Keys run left-to-right in pitch order like a real
 //       keyboard. Touching a key plays it immediately (not queued to the
-//       collision tempo grid — see BRSynthEngine's -playKeySemitone:
+//       collision tempo grid — see BRSynthEngine's -pressKeySemitone:
 //       velocity:) AND steers the player: steering is the horizontal
 //       centroid of all currently-held keys, normalized to -1...+1, so
 //       reaching for a higher note naturally nudges you right and vice
@@ -45,6 +45,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// Fired on every new key press (including a finger sliding onto a new key
 /// mid-touch — a glissando triggers each key it crosses).
 @property (nonatomic, copy, nullable) void (^onNote)(NSInteger semitone, float velocity);
+
+/// Fired when a key touch ends, or when a glissando leaves its key. This lets
+/// the synth sustain a note for exactly as long as it is held.
+@property (nonatomic, copy, nullable) void (^onNoteRelease)(NSInteger semitone);
 
 /// Fired whenever the held-key centroid changes, including back to 0 when
 /// the last key-row touch lifts. Range -1 (steer hard left) to +1 (hard

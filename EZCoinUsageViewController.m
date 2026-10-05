@@ -67,6 +67,7 @@ static NSString *friendlyFeatureName(NSString *feature) {
         @"whisper_minute":  @"Voice Transcription",
         @"web_search":      @"Web Search",
         @"daily_reward":    @"Daily Free Coins",
+        @"brainrot_slots":  @"Brainrot Slots",
     };
     return map[feature] ?: feature;
 }
@@ -81,6 +82,7 @@ static NSString *featureIcon(NSString *feature) {
     if ([feature isEqual:@"whisper_minute"]) return @"🎙";
     if ([feature isEqual:@"web_search"]) return @"🔍";
     if ([feature isEqual:@"daily_reward"]) return @"🎁";
+    if ([feature isEqual:@"brainrot_slots"]) return @"🎰";
     return @"🪙";
 }
 

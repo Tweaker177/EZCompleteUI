@@ -94,6 +94,13 @@ static uint32_t BRWallTileSeed(NSInteger col, NSInteger row) {
     [self setNeedsDisplay];
 }
 
+- (void)setWallImage:(UIImage *)wallImage {
+    if (_wallImage == wallImage) return;
+    _wallImage = wallImage;
+    [self.wallTileCache removeAllObjects];
+    [self setNeedsDisplay];
+}
+
 /// Builds one themed, square obstacle image for one wall coordinate.
 ///
 /// The image starts with the matching part of the generated world texture,
@@ -138,6 +145,14 @@ static uint32_t BRWallTileSeed(NSInteger col, NSInteger row) {
         CGContextSetFillColorWithColor(context,
             [UIColor colorWithRed:0.10 green:0.06 blue:0.16 alpha:1.0].CGColor);
         CGContextFillRect(context, canvas);
+    }
+
+    // Custom workshop wall art stays deliberately dark and translucent, so the
+    // maze remains readable over any theme background.
+    if (self.wallImage) {
+        UIGraphicsPushContext(context);
+        [self.wallImage drawInRect:canvas blendMode:kCGBlendModeNormal alpha:0.40];
+        UIGraphicsPopContext();
     }
 
     // Dense wall base. This gives unmistakable visual passability contrast
@@ -333,6 +348,15 @@ static uint32_t BRWallTileSeed(NSInteger col, NSInteger row) {
                 }
                 CGContextSetFillColorWithColor(ctx, fillColor.CGColor);
                 CGContextFillRect(ctx, tileRect);
+
+                // A saved Workshop wall asset still works when a game falls
+                // back to solid-color floors (for example if its background
+                // image is unavailable in this session).
+                if (tile.type == BRTileTypeWall && self.wallImage) {
+                    UIGraphicsPushContext(ctx);
+                    [self.wallImage drawInRect:tileRect blendMode:kCGBlendModeNormal alpha:0.40];
+                    UIGraphicsPopContext();
+                }
 
                 // Grid lines in fallback mode only
                 CGContextSetStrokeColorWithColor(ctx,

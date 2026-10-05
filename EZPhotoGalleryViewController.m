@@ -42,6 +42,37 @@ static NSString *const kGalleryImagePromptsKey = @"EZGalleryImagePrompts";
 static NSString *const kGalleryDigestCacheDefaultsKey = @"EZPhotoGalleryDigestCacheV1";
 static NSUInteger const kMaxImageEditSources = 4;
 
+// The gallery is a working surface, not a transient picker.  Keep its sheet at
+// the top of the screen and require its explicit close control to dismiss it.
+// Detail screens are pushed in the same navigation controller, so this also
+// protects a long image prompt from pulling the entire presentation downward.
+static void EZPinPhotoNavigationSheet(UINavigationController *navigationController) {
+    if (!navigationController) return;
+    navigationController.modalInPresentation = YES;
+    if (@available(iOS 15.0, *)) {
+        UISheetPresentationController *sheet = navigationController.sheetPresentationController;
+        if (!sheet) return;
+        sheet.detents = @[UISheetPresentationControllerDetent.largeDetent];
+        sheet.selectedDetentIdentifier = UISheetPresentationControllerDetentIdentifierLarge;
+        sheet.prefersGrabberVisible = NO;
+    }
+}
+
+typedef void (^EZGalleryImageStreamEventBlock)(NSDictionary *event);
+typedef void (^EZGalleryImageStreamCompletionBlock)(NSDictionary * _Nullable result,
+                                                     NSError * _Nullable error);
+
+// Implemented alongside the chat image flow in ViewController.m. Sharing this
+// client keeps gallery edits on the same SSE protocol as chat image generation.
+@interface EZImageEventStream : NSObject
+- (instancetype)initWithToken:(NSString *)token
+                          body:(NSDictionary *)body
+                         event:(EZGalleryImageStreamEventBlock)event
+                    completion:(EZGalleryImageStreamCompletionBlock)completion;
+- (void)start;
+- (void)cancel;
+@end
+
 // The catalog intentionally stores fit-tags separately from the actual edit
 // language.  The manifest can therefore select a prompt based on a photo's
 // visual content without putting its private summary into the image prompt.
@@ -761,7 +792,14 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 - (void)updateImageSummary;
 - (void)galleryManifestDidChange:(NSNotification *)notification;
 - (UIImage *)compositeEditSourceImage;
-- (void)updateImageEditStatus;
+- (void)handleImageEditStreamEvent:(NSDictionary *)event;
+- (void)updateImageEditProgress:(CGFloat)progress status:(NSString * _Nullable)status;
+- (void)advanceImageEditProgressEstimate;
+- (void)startGalleryImageEditStreamWithToken:(NSString *)token
+                                        body:(NSDictionary *)body
+                                  retryCount:(NSInteger)retryCount
+                                       event:(EZGalleryImageStreamEventBlock)event
+                                  completion:(EZGalleryImageStreamCompletionBlock)completion;
 - (BOOL)shouldRetryLastImageEditFailure;
 - (void)sendImageEditTapped;
 - (NSData *)PNGDataForImage:(UIImage *)image;
@@ -816,13 +854,17 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     UIButton          *_sendEditButton;
     UIView            *_processingOverlay;
     UIVisualEffectView *_processingBlurView;
-    CAGradientLayer   *_waveGradientLayer;
+    UIImageView       *_processingPreviewImageView;
+    UIView            *_processingProgressView;
+    CAShapeLayer      *_processingProgressTrackLayer;
+    CAShapeLayer      *_processingProgressLayer;
+    UILabel           *_processingProgressLabel;
     UIActivityIndicatorView *_editSpinner;
-    UIActivityIndicatorView *_processingSpinner;
     UILabel           *_processingStatusLabel;
     UILabel           *_editErrorLabel;
-    NSTimer           *_editStatusTimer;
+    NSTimer           *_imageEditProgressTimer;
     NSURLSessionDataTask *_imageEditTask;
+    EZImageEventStream *_imageEditStream;
     BOOL               _isEditingImage;
     BOOL               _hasEditedImage;
     NSUInteger         _galleryIndex;
@@ -831,13 +873,14 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     BOOL               _imageEditUsageLogPending;
     BOOL               _lastImageEditFailureWasTransient;
     NSInteger          _imageEditRetryCount;
-    NSInteger          _imageEditStatusPhase;
+    CGFloat            _imageEditProgress;
     CGFloat            _keyboardOverlap;
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor colorWithRed:0.04 green:0.04 blue:0.10 alpha:1.0];
+    EZPinPhotoNavigationSheet(self.navigationController);
 
     _editSourceImages = [NSMutableArray arrayWithObject:self.image];
     _originalImageForShare = self.image;
@@ -1144,6 +1187,8 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     _editPromptField.delegate = (id<UITextViewDelegate>)self;
     _editPromptField.textContainerInset = UIEdgeInsetsMake(8, 0, 8, 0);
     _editPromptField.textContainer.lineFragmentPadding = 0;
+    _editPromptField.textContainer.maximumNumberOfLines = 0;
+    _editPromptField.textContainer.lineBreakMode = NSLineBreakByWordWrapping;
     _editPromptField.showsVerticalScrollIndicator = YES;
     _editPromptField.alwaysBounceVertical = NO;
     [promptContainer addSubview:_editPromptField];
@@ -1153,6 +1198,7 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     _editPromptPlaceholderLabel.textColor = [UIColor colorWithWhite:0.72 alpha:0.70];
     _editPromptPlaceholderLabel.font = _editPromptField.font;
     _editPromptPlaceholderLabel.numberOfLines = 0;
+    _editPromptPlaceholderLabel.lineBreakMode = NSLineBreakByWordWrapping;
     _editPromptPlaceholderLabel.userInteractionEnabled = NO;
     [promptContainer addSubview:_editPromptPlaceholderLabel];
 
@@ -1244,9 +1290,11 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 - (CGFloat)editPromptHeight {
     CGFloat width = MAX(120.0, self.view.bounds.size.width - 16.0 * 2.0 - 56.0 - 10.0 - 54.0 - 16.0);
     CGSize measured = [_editPromptField sizeThatFits:CGSizeMake(width, CGFLOAT_MAX)];
-    // Start compact, grow up to five lines, then let the editor scroll so no
-    // prompt becomes inaccessible while typing.
-    return MIN(128.0, MAX(56.0, ceil(measured.height)));
+    // Give full Surprise Me prompts room to read in the composer. Exceptionally
+    // long prompts remain intact and scroll inside the UITextView rather than
+    // being shortened with an ellipsis.
+    CGFloat maximumHeight = MIN(220.0, MAX(128.0, self.view.bounds.size.height * 0.32));
+    return MIN(maximumHeight, MAX(56.0, ceil(measured.height)));
 }
 
 - (void)textViewDidChange:(UITextView *)textView {
@@ -1428,6 +1476,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
     _lastSurpriseReferencePaths = [choice[@"references"] copy] ?: @[];
     _editPromptField.text = choice[@"prompt"];
+    [_editPromptField scrollRangeToVisible:NSMakeRange(0, 0)];
     _editPromptPlaceholderLabel.hidden = YES;
     _editErrorLabel.hidden = YES;
     [self.view setNeedsLayout];
@@ -1555,67 +1604,178 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         @"n": @(variationCount), @"size": size, @"quality": quality,
         @"output_format": format, @"background": background, @"moderation": moderation,
     };
-    NSError *encodingError = nil;
-    NSData *bodyData = [NSJSONSerialization dataWithJSONObject:body options:0 error:&encodingError];
-    if (!bodyData) {
-        [self finishImageEditWithImage:nil error:encodingError.localizedDescription ?: @"Could not prepare the image edit."];
-        return;
-    }
-
-    NSURL *endpoint = [NSURL URLWithString:[NSString stringWithFormat:
-        @"%@/functions/v1/ez-image", EZSupabaseURL]];
-    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:endpoint];
-    request.HTTPMethod = @"POST";
-    request.timeoutInterval = 330.0;
-    [request setValue:[NSString stringWithFormat:@"Bearer %@", accessToken]
-   forHTTPHeaderField:@"Authorization"];
-    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
-    request.HTTPBody = bodyData;
-
+    NSMutableDictionary *streamBody = [body mutableCopy];
+    streamBody[@"stream"] = @YES;
+    streamBody[@"partial_images"] = @1;
     __weak typeof(self) weakSelf = self;
-    _imageEditTask = [[NSURLSession sharedSession]
-        dataTaskWithRequest:request
-           completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-        NSString *failureMessage = nil;
-        UIImage *editedImage = nil;
-        BOOL transientFailure = NO;
-        if (error) {
-            failureMessage = error.localizedDescription;
-            transientFailure = error.code == NSURLErrorTimedOut ||
+    [self startGalleryImageEditStreamWithToken:accessToken body:streamBody retryCount:0
+        event:^(NSDictionary *event) {
+            __strong typeof(weakSelf) self = weakSelf;
+            [self handleImageEditStreamEvent:event];
+        }
+        completion:^(NSDictionary *result, NSError *error) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            self->_imageEditStream = nil;
+
+            NSInteger httpStatus = [error.userInfo[@"HTTPStatus"] integerValue];
+            if (httpStatus == 0) httpStatus = [result[@"HTTPStatus"] integerValue];
+            self->_lastImageEditFailureWasTransient =
+                httpStatus == 408 || httpStatus == 429 || httpStatus >= 500 ||
+                error.code == NSURLErrorTimedOut ||
                 error.code == NSURLErrorNetworkConnectionLost ||
                 error.code == NSURLErrorNotConnectedToInternet ||
                 error.code == NSURLErrorCannotConnectToHost;
-        } else {
-            NSInteger statusCode = [(NSHTTPURLResponse *)response statusCode];
-            transientFailure = statusCode == 408 || statusCode == 429 || statusCode >= 500;
-            NSError *jsonError = nil;
-            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data ?: [NSData data]
-                                                                  options:0 error:&jsonError];
-            id errorValue = json[@"error"];
-            NSString *reason = [json[@"reason"] isKindOfClass:[NSString class]] ? json[@"reason"] : nil;
-            if (jsonError || ![json isKindOfClass:[NSDictionary class]]) {
-                failureMessage = @"The image-edit service returned an invalid response.";
-            } else if (errorValue && errorValue != [NSNull null]) {
-                NSString *errorText = [errorValue isKindOfClass:[NSString class]] ? errorValue : @"Image edit failed.";
-                failureMessage = reason.length ? [NSString stringWithFormat:@"%@ %@", errorText, reason] : errorText;
-            } else {
-                NSDictionary *firstImage = [json[@"images"] firstObject];
-                NSString *signedURL = [firstImage[@"url"] isKindOfClass:[NSString class]] ? firstImage[@"url"] : nil;
-                NSData *editedData = signedURL.length ? [NSData dataWithContentsOfURL:[NSURL URLWithString:signedURL]] : nil;
-                editedImage = [UIImage imageWithData:editedData];
-                if (!editedImage) failureMessage = @"The image-edit service did not return a usable image.";
+            if (error) {
+                [self finishImageEditWithImage:nil error:error.localizedDescription];
+                return;
             }
-        }
 
-        dispatch_async(dispatch_get_main_queue(), ^{
-            typeof(self) self = weakSelf;
+            id errorValue = result[@"error"];
+            if (errorValue && errorValue != [NSNull null]) {
+                NSString *errorText = [errorValue isKindOfClass:[NSString class]]
+                    ? errorValue : @"Image edit failed.";
+                NSString *reason = [result[@"reason"] isKindOfClass:[NSString class]]
+                    ? result[@"reason"] : nil;
+                NSString *message = reason.length
+                    ? [NSString stringWithFormat:@"%@ %@", errorText, reason] : errorText;
+                [self finishImageEditWithImage:nil error:message];
+                return;
+            }
+
+            id balance = result[@"balance"];
+            if (balance && balance != [NSNull null]) {
+                [[EZEntitlementManager shared] applyKnownBalance:[balance integerValue]];
+            }
+            NSDictionary *firstImage = [result[@"images"] isKindOfClass:[NSArray class]]
+                ? [result[@"images"] firstObject] : nil;
+            NSString *signedURL = [firstImage[@"url"] isKindOfClass:[NSString class]]
+                ? firstImage[@"url"] : nil;
+            if (!signedURL.length) {
+                self->_lastImageEditFailureWasTransient = NO;
+                [self finishImageEditWithImage:nil error:@"The image-edit service did not return a usable image."];
+                return;
+            }
+
+            [self updateImageEditProgress:0.92 status:@"Downloading your edited image…"];
+            dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+                NSError *downloadError = nil;
+                NSData *editedData = [NSData dataWithContentsOfURL:[NSURL URLWithString:signedURL]
+                                                            options:NSDataReadingMappedIfSafe
+                                                              error:&downloadError];
+                UIImage *editedImage = [UIImage imageWithData:editedData];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    __strong typeof(weakSelf) self = weakSelf;
+                    if (!self || !self->_isEditingImage) return;
+                    if (!editedImage) {
+                        self->_lastImageEditFailureWasTransient =
+                            downloadError.code == NSURLErrorTimedOut ||
+                            downloadError.code == NSURLErrorNetworkConnectionLost ||
+                            downloadError.code == NSURLErrorNotConnectedToInternet ||
+                            downloadError.code == NSURLErrorCannotConnectToHost;
+                        [self finishImageEditWithImage:nil error:downloadError.localizedDescription ?:
+                            @"The image-edit service did not return a usable image."];
+                        return;
+                    }
+                    [self updateImageEditProgress:1.0 status:@"Edit ready"];
+                    [self finishImageEditWithImage:editedImage error:nil];
+                });
+            });
+        }];
+}
+
+- (void)startGalleryImageEditStreamWithToken:(NSString *)token
+                                        body:(NSDictionary *)body
+                                  retryCount:(NSInteger)retryCount
+                                       event:(EZGalleryImageStreamEventBlock)event
+                                  completion:(EZGalleryImageStreamCompletionBlock)completion {
+    __weak typeof(self) weakSelf = self;
+    EZImageEventStream *stream = [[EZImageEventStream alloc] initWithToken:token body:body event:event
+        completion:^(NSDictionary *result, NSError *error) {
+            __strong typeof(weakSelf) self = weakSelf;
             if (!self) return;
-            self->_imageEditTask = nil;
-            self->_lastImageEditFailureWasTransient = transientFailure;
-            [self finishImageEditWithImage:editedImage error:failureMessage];
+            self->_imageEditStream = nil;
+            NSInteger status = [error.userInfo[@"HTTPStatus"] integerValue];
+            if (status == 0) status = [result[@"HTTPStatus"] integerValue];
+            if (status == 401 && retryCount < 1) {
+                [[EZAuthManager shared] refreshSessionIfNeeded:^(NSString *newToken, NSError *refreshError) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        if (refreshError || newToken.length == 0) {
+                            completion(nil, refreshError ?: error);
+                            return;
+                        }
+                        [self startGalleryImageEditStreamWithToken:newToken body:body
+                                                        retryCount:retryCount + 1 event:event completion:completion];
+                    });
+                }];
+                return;
+            }
+            completion(result, error);
+        }];
+    self->_imageEditStream = stream;
+    [stream start];
+}
+
+- (void)handleImageEditStreamEvent:(NSDictionary *)event {
+    NSString *type = [event[@"type"] isKindOfClass:[NSString class]] ? event[@"type"] : @"";
+    CGFloat progress = [event[@"progress"] respondsToSelector:@selector(doubleValue)]
+        ? [event[@"progress"] doubleValue] : _imageEditProgress;
+    NSString *status = [event[@"message"] isKindOfClass:[NSString class]] ? event[@"message"] : nil;
+    if (!status.length) {
+        status = progress < 0.25 ? @"Preparing your image edit…" :
+                 progress < 0.82 ? @"Creating your image edit…" : @"Finishing the image…";
+    }
+
+    if ([type isEqualToString:@"progress"] || [type isEqualToString:@"partial_image"]) {
+        [self updateImageEditProgress:progress status:status];
+    }
+    if (![type isEqualToString:@"partial_image"]) return;
+
+    NSString *base64 = [event[@"image_b64"] isKindOfClass:[NSString class]] ? event[@"image_b64"] : nil;
+    if (!base64.length) return;
+    static dispatch_queue_t previewDecodeQueue;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        previewDecodeQueue = dispatch_queue_create("com.ezcompleteui.gallery-image-preview", DISPATCH_QUEUE_SERIAL);
+    });
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(previewDecodeQueue, ^{
+        NSData *imageData = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
+        UIImage *preview = imageData ? [UIImage imageWithData:imageData] : nil;
+        if (!preview) return;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self || !self->_isEditingImage || !self->_processingPreviewImageView) return;
+            self->_processingPreviewImageView.image = preview;
+            self->_processingPreviewImageView.hidden = NO;
         });
-    }];
-    [_imageEditTask resume];
+    });
+}
+
+- (void)updateImageEditProgress:(CGFloat)progress status:(NSString *)status {
+    _imageEditProgress = MAX(_imageEditProgress, MAX(0.0, MIN(progress, 1.0)));
+    _processingProgressLayer.strokeEnd = _imageEditProgress;
+    _processingProgressLabel.text = [NSString stringWithFormat:@"%ld%%",
+                                     (long)llround(_imageEditProgress * 100.0)];
+    if (status.length) {
+        _processingStatusLabel.text = status;
+        CGSize fittingSize = [_processingStatusLabel sizeThatFits:CGSizeMake(
+            MAX(0.0, CGRectGetWidth(_processingOverlay.bounds) - 40.0), 100.0)];
+        CGRect labelFrame = _processingStatusLabel.frame;
+        labelFrame.size.height = MIN(100.0, MAX(26.0, ceil(fittingSize.height)));
+        labelFrame.origin.y = CGRectGetMaxY(_processingProgressView.frame) + 12.0;
+        if (CGRectGetMaxY(labelFrame) > CGRectGetHeight(_processingOverlay.bounds) - 8.0) {
+            labelFrame.origin.y = CGRectGetHeight(_processingOverlay.bounds) - CGRectGetHeight(labelFrame) - 8.0;
+        }
+        _processingStatusLabel.frame = labelFrame;
+    }
+}
+
+- (void)advanceImageEditProgressEstimate {
+    if (!_isEditingImage || _imageEditProgress >= 0.90) return;
+    CGFloat remaining = 0.90 - _imageEditProgress;
+    CGFloat estimate = MIN(0.90, _imageEditProgress + MAX(0.002, remaining * 0.08));
+    [self updateImageEditProgress:estimate status:nil];
 }
 
 - (NSData *)PNGDataForImage:(UIImage *)image {
@@ -1700,13 +1860,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)startProcessingAnimation {
     if (_processingOverlay) return;
 
-    _processingOverlay = [[UIView alloc] initWithFrame:_imageCanvas.bounds];
-    _processingOverlay.autoresizingMask =
-        UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    _imageEditProgress = 0.08;
+    _processingOverlay = [[UIView alloc] initWithFrame:_scrollView.frame];
     _processingOverlay.userInteractionEnabled = NO;
     _processingOverlay.clipsToBounds = YES;
-    _processingOverlay.backgroundColor = [UIColor colorWithRed:0.03 green:0.10 blue:0.18 alpha:0.12];
-    [_imageCanvas addSubview:_processingOverlay];
+    _processingOverlay.backgroundColor = [UIColor colorWithRed:0.03 green:0.10 blue:0.18 alpha:0.30];
+    [self.view addSubview:_processingOverlay];
 
     UIBlurEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark];
     _processingBlurView = [[UIVisualEffectView alloc] initWithEffect:blur];
@@ -1716,91 +1875,104 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     _processingBlurView.alpha = 0.0;
     [_processingOverlay addSubview:_processingBlurView];
 
-    _processingSpinner = [[UIActivityIndicatorView alloc]
-        initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
-    _processingSpinner.color = [UIColor colorWithRed:0.05 green:0.92 blue:0.72 alpha:1.0];
-    _processingSpinner.transform = CGAffineTransformMakeScale(1.7, 1.7);
-    [_processingOverlay addSubview:_processingSpinner];
+    // Streamed previews fill the photo viewport, so each partial render is
+    // immediately visible at a useful size instead of appearing as a tiny
+    // thumbnail inside the old spinner.
+    _processingPreviewImageView = [[UIImageView alloc] initWithFrame:_processingOverlay.bounds];
+    _processingPreviewImageView.autoresizingMask =
+        UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    _processingPreviewImageView.contentMode = UIViewContentModeScaleAspectFit;
+    _processingPreviewImageView.clipsToBounds = YES;
+    _processingPreviewImageView.hidden = YES;
+    [_processingOverlay addSubview:_processingPreviewImageView];
+
+    _processingProgressView = [[UIView alloc] init];
+    _processingProgressView.backgroundColor = [UIColor clearColor];
+    _processingProgressView.userInteractionEnabled = NO;
+    [_processingOverlay addSubview:_processingProgressView];
+
+    _processingProgressTrackLayer = [CAShapeLayer layer];
+    _processingProgressTrackLayer.fillColor = UIColor.clearColor.CGColor;
+    _processingProgressTrackLayer.strokeColor = [UIColor colorWithWhite:1.0 alpha:0.34].CGColor;
+    _processingProgressTrackLayer.lineWidth = 9.0;
+    _processingProgressTrackLayer.lineCap = kCALineCapRound;
+    [_processingProgressView.layer addSublayer:_processingProgressTrackLayer];
+
+    _processingProgressLayer = [CAShapeLayer layer];
+    _processingProgressLayer.fillColor = UIColor.clearColor.CGColor;
+    _processingProgressLayer.strokeColor = [UIColor colorWithRed:0.05 green:0.92 blue:0.72 alpha:1.0].CGColor;
+    _processingProgressLayer.lineWidth = 9.0;
+    _processingProgressLayer.lineCap = kCALineCapRound;
+    _processingProgressLayer.strokeStart = 0.0;
+    _processingProgressLayer.strokeEnd = 0.08;
+    [_processingProgressView.layer addSublayer:_processingProgressLayer];
+
+    _processingProgressLabel = [[UILabel alloc] init];
+    _processingProgressLabel.textColor = UIColor.whiteColor;
+    _processingProgressLabel.font = [UIFont systemFontOfSize:30 weight:UIFontWeightBold];
+    _processingProgressLabel.textAlignment = NSTextAlignmentCenter;
+    _processingProgressLabel.backgroundColor = [UIColor colorWithWhite:0.02 alpha:0.72];
+    _processingProgressLabel.layer.cornerRadius = 23.0;
+    _processingProgressLabel.clipsToBounds = YES;
+    [_processingProgressView addSubview:_processingProgressLabel];
 
     _processingStatusLabel = [[UILabel alloc] init];
     _processingStatusLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
     _processingStatusLabel.textColor = [UIColor whiteColor];
     _processingStatusLabel.textAlignment = NSTextAlignmentCenter;
-    _processingStatusLabel.numberOfLines = 2;
+    _processingStatusLabel.numberOfLines = 0;
+    _processingStatusLabel.lineBreakMode = NSLineBreakByWordWrapping;
+    _processingStatusLabel.shadowColor = [UIColor colorWithWhite:0 alpha:0.8];
+    _processingStatusLabel.shadowOffset = CGSizeMake(0, 1);
     [_processingOverlay addSubview:_processingStatusLabel];
     [self layoutProcessingOverlay];
-    _imageEditStatusPhase = 0;
-    [_processingSpinner startAnimating];
-    [self updateImageEditStatus];
-    _editStatusTimer = [NSTimer scheduledTimerWithTimeInterval:4.0
-                                                          target:self
-                                                        selector:@selector(updateImageEditStatus)
-                                                        userInfo:nil
-                                                         repeats:YES];
-    [[NSRunLoop mainRunLoop] addTimer:_editStatusTimer forMode:NSRunLoopCommonModes];
-
-    _waveGradientLayer = [CAGradientLayer layer];
-    _waveGradientLayer.frame = CGRectInset(_processingOverlay.bounds,
-                                           -_processingOverlay.bounds.size.width, 0);
-    _waveGradientLayer.startPoint = CGPointMake(0.0, 0.5);
-    _waveGradientLayer.endPoint = CGPointMake(1.0, 0.5);
-    _waveGradientLayer.colors = @[
-        (id)[UIColor clearColor].CGColor,
-        (id)[UIColor colorWithRed:0.00 green:0.95 blue:0.74 alpha:0.06].CGColor,
-        (id)[UIColor colorWithRed:0.20 green:0.45 blue:1.00 alpha:0.34].CGColor,
-        (id)[UIColor colorWithRed:0.00 green:0.95 blue:0.74 alpha:0.06].CGColor,
-        (id)[UIColor clearColor].CGColor
-    ];
-    _waveGradientLayer.locations = @[@0.0, @0.30, @0.50, @0.70, @1.0];
-    _waveGradientLayer.compositingFilter = @"screenBlendMode";
-    [_processingOverlay.layer addSublayer:_waveGradientLayer];
-
-    CABasicAnimation *wave = [CABasicAnimation animationWithKeyPath:@"transform.translation.x"];
-    wave.fromValue = @(-_processingOverlay.bounds.size.width);
-    wave.toValue = @(_processingOverlay.bounds.size.width);
-    wave.duration = 1.65;
-    wave.repeatCount = HUGE_VALF;
-    wave.timingFunction = [CAMediaTimingFunction
-        functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-    [_waveGradientLayer addAnimation:wave forKey:@"ez.ai.wave"];
+    [self updateImageEditProgress:_imageEditProgress status:@"Preparing your image edit…"];
+    _imageEditProgressTimer = [NSTimer scheduledTimerWithTimeInterval:4.0
+                                                                target:self
+                                                              selector:@selector(advanceImageEditProgressEstimate)
+                                                              userInfo:nil
+                                                               repeats:YES];
+    [[NSRunLoop mainRunLoop] addTimer:_imageEditProgressTimer forMode:NSRunLoopCommonModes];
 
     [UIView animateWithDuration:0.45 animations:^{
         self->_processingBlurView.alpha = 0.90;
-        self->_imageCanvas.transform = CGAffineTransformMakeScale(1.025, 1.025);
-    }];
-
-    [UIView animateWithDuration:1.05
-                          delay:0.45
-                        options:UIViewAnimationOptionAutoreverse |
-                                UIViewAnimationOptionRepeat |
-                                UIViewAnimationOptionCurveEaseInOut
-                     animations:^{
-        self->_imageCanvas.transform = CGAffineTransformMakeScale(1.055, 1.055);
-        self->_processingOverlay.alpha = 0.78;
+        self->_processingOverlay.alpha = 1.0;
     } completion:nil];
 }
 
 - (void)layoutProcessingOverlay {
     if (!_processingOverlay) return;
-    _processingOverlay.frame = _imageCanvas.bounds;
+    _processingOverlay.frame = _scrollView.frame;
     _processingBlurView.frame = _processingOverlay.bounds;
-    _waveGradientLayer.frame = CGRectInset(_processingOverlay.bounds,
-                                           -_processingOverlay.bounds.size.width, 0);
-    _processingSpinner.center = CGPointMake(CGRectGetMidX(_processingOverlay.bounds),
-                                            CGRectGetMidY(_processingOverlay.bounds) - 18.0);
-    _processingStatusLabel.frame = CGRectMake(24.0, CGRectGetMidY(_processingOverlay.bounds) + 24.0,
-                                              MAX(0.0, CGRectGetWidth(_processingOverlay.bounds) - 48.0), 48.0);
-}
+    _processingPreviewImageView.frame = _processingOverlay.bounds;
 
-- (void)updateImageEditStatus {
-    NSArray<NSString *> *messages = @[
-        @"Preparing your image edit…",
-        @"Applying your requested changes…",
-        @"Still working. Almost done.",
-        @"Finishing the image…"
-    ];
-    _processingStatusLabel.text = messages[_imageEditStatusPhase % messages.count];
-    _imageEditStatusPhase++;
+    CGFloat minDimension = MIN(CGRectGetWidth(_processingOverlay.bounds),
+                               CGRectGetHeight(_processingOverlay.bounds));
+    CGFloat diameter = MIN(220.0, MAX(136.0, minDimension * 0.68));
+    diameter = MIN(diameter, minDimension - 16.0);
+    diameter = MAX(96.0, diameter);
+    _processingProgressView.frame = CGRectMake(
+        CGRectGetMidX(_processingOverlay.bounds) - diameter / 2.0,
+        CGRectGetMidY(_processingOverlay.bounds) - diameter / 2.0,
+        diameter, diameter);
+
+    CGRect ringBounds = _processingProgressView.bounds;
+    CGFloat radius = MIN(CGRectGetWidth(ringBounds), CGRectGetHeight(ringBounds)) / 2.0 - 7.0;
+    CGPathRef ringPath = [UIBezierPath bezierPathWithArcCenter:
+        CGPointMake(CGRectGetMidX(ringBounds), CGRectGetMidY(ringBounds))
+        radius:radius startAngle:-(CGFloat)M_PI_2 endAngle:(CGFloat)(M_PI * 1.5) clockwise:YES].CGPath;
+    _processingProgressTrackLayer.frame = ringBounds;
+    _processingProgressTrackLayer.path = ringPath;
+    _processingProgressLayer.frame = ringBounds;
+    _processingProgressLayer.path = ringPath;
+    _processingProgressLabel.frame = CGRectMake(CGRectGetMidX(ringBounds) - 48.0,
+                                                 CGRectGetMidY(ringBounds) - 31.0,
+                                                 96.0, 62.0);
+
+    CGFloat labelWidth = MAX(0.0, CGRectGetWidth(_processingOverlay.bounds) - 40.0);
+    _processingStatusLabel.frame = CGRectMake(20.0,
+        CGRectGetMaxY(_processingProgressView.frame) + 12.0, labelWidth, 32.0);
+    [self updateImageEditProgress:_imageEditProgress status:_processingStatusLabel.text];
 }
 
 - (BOOL)shouldRetryLastImageEditFailure {
@@ -1808,21 +1980,21 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)stopProcessingAnimationWithCompletion:(void (^)(void))completion {
-    [_editStatusTimer invalidate];
-    _editStatusTimer = nil;
-    [_processingSpinner stopAnimating];
+    [_imageEditProgressTimer invalidate];
+    _imageEditProgressTimer = nil;
     [_processingOverlay.layer removeAllAnimations];
-    [_waveGradientLayer removeAllAnimations];
 
     [UIView animateWithDuration:0.34 animations:^{
         self->_processingOverlay.alpha = 0.0;
-        self->_imageCanvas.transform = CGAffineTransformIdentity;
     } completion:^(BOOL finished) {
         [self->_processingOverlay removeFromSuperview];
         self->_processingOverlay = nil;
         self->_processingBlurView = nil;
-        self->_waveGradientLayer = nil;
-        self->_processingSpinner = nil;
+        self->_processingPreviewImageView = nil;
+        self->_processingProgressView = nil;
+        self->_processingProgressTrackLayer = nil;
+        self->_processingProgressLayer = nil;
+        self->_processingProgressLabel = nil;
         self->_processingStatusLabel = nil;
         if (completion) completion();
     }];
@@ -1831,8 +2003,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)finishImageEditWithImage:(UIImage *)editedImage error:(NSString *)errorMessage {
     if (errorMessage.length > 0 && [self shouldRetryLastImageEditFailure]) {
         _imageEditRetryCount++;
-        _processingStatusLabel.text = [NSString stringWithFormat:
-            @"Connection interrupted — retrying (%ld of 2)…", (long)_imageEditRetryCount];
+        [self updateImageEditProgress:_imageEditProgress status:[NSString stringWithFormat:
+            @"Connection interrupted — retrying (%ld of 2)…", (long)_imageEditRetryCount]];
         EZLogf(EZLogLevelWarning, @"IMGEDIT", @"Transient gallery edit failure; retry %ld: %@",
                (long)_imageEditRetryCount, errorMessage);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
@@ -1939,8 +2111,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     if (self.isMovingFromParentViewController || self.isBeingDismissed) {
         [_imageEditTask cancel];
         _imageEditTask = nil;
-        [_editStatusTimer invalidate];
-        _editStatusTimer = nil;
+        [_imageEditStream cancel];
+        _imageEditStream = nil;
+        [_imageEditProgressTimer invalidate];
+        _imageEditProgressTimer = nil;
     }
 }
 
@@ -2540,6 +2714,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    EZPinPhotoNavigationSheet(self.navigationController);
     self.columnCount = kDefaultColumns;
     self.filePaths   = [NSMutableArray array];
     self.thumbnailCache = EZGallerySharedThumbnailCache();
@@ -2554,6 +2729,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self setupCollectionView];
     [self setupEmptyState];
     [self setupPinchGesture];
+    if (self.chatAttachmentSelectionMode) {
+        self.selectingPhotos = YES;
+        if (self.chatAttachmentSelectionLimit == 0) self.chatAttachmentSelectionLimit = 15;
+        [self updateSelectionControls];
+    }
     [[EZPhotoGalleryAnalysisService sharedService] retryQueuedAnalyses];
     [self loadFilePaths];
 }
@@ -2569,7 +2749,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)styleNavBar {
-    self.title = NSLocalizedString(@"EZGallery.Title", nil);
+    self.title = self.chatAttachmentSelectionMode
+        ? @"Attach from Gallery" : NSLocalizedString(@"EZGallery.Title", nil);
 
     UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
     [appearance configureWithOpaqueBackground];
@@ -2596,7 +2777,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                              target:self
                              action:@selector(closeTapped)];
     closeItem.tintColor = [UIColor colorWithWhite:0.65 alpha:1];
-    self.navigationItem.leftBarButtonItems = @[addItem, closeItem];
+    // Keep dismissal at the leading edge; adding photos follows immediately to
+    // its right, matching the requested gallery navigation order.
+    self.navigationItem.leftBarButtonItems = @[closeItem, addItem];
 
     // Count label plus an explicit multi-select entry point.
     self.countLabel = [[UILabel alloc] init];
@@ -2786,7 +2969,17 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)applyFilePaths:(NSArray<NSString *> *)paths {
-    self.filePaths = [paths mutableCopy];
+    if (self.chatAttachmentSelectionMode) {
+        NSSet<NSString *> *imageExtensions = [NSSet setWithArray:
+            @[@"jpg", @"jpeg", @"png", @"heic", @"gif", @"webp", @"tiff", @"bmp"]];
+        NSMutableArray<NSString *> *imagesOnly = [NSMutableArray array];
+        for (NSString *path in paths) {
+            if ([imageExtensions containsObject:path.pathExtension.lowercaseString]) [imagesOnly addObject:path];
+        }
+        self.filePaths = imagesOnly;
+    } else {
+        self.filePaths = [paths mutableCopy];
+    }
     self.hasLoadedFilePaths = YES;
     [self.collectionView reloadData];
 
@@ -2794,6 +2987,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     self.countLabel.text = count == 0 ? @"" :
         [NSString stringWithFormat:@"%ld %@", (long)count, count == 1 ? @"item" : @"items"];
     self.emptyLabel.hidden = count > 0;
+    if (self.chatAttachmentSelectionMode) [self updateSelectionControls];
 }
 
 // ── Pinch to resize grid ──────────────────────────────────────────────────────
@@ -2956,6 +3150,21 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self.navigationController pushViewController:detail animated:YES];
 }
 
+- (BOOL)collectionView:(UICollectionView *)collectionView
+shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
+    if (!self.chatAttachmentSelectionMode) return YES;
+    NSUInteger limit = self.chatAttachmentSelectionLimit ?: 15;
+    if (collectionView.indexPathsForSelectedItems.count < limit) return YES;
+
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Attachment limit"
+        message:[NSString stringWithFormat:@"You can attach up to %lu images to one message.",
+                 (unsigned long)limit]
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+    return NO;
+}
+
 - (void)collectionView:(UICollectionView *)collectionView didDeselectItemAtIndexPath:(NSIndexPath *)indexPath {
     if (self.selectingPhotos) [self updateSelectionControls];
 }
@@ -2967,6 +3176,22 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)updateSelectionControls {
+    if (self.chatAttachmentSelectionMode) {
+        self.selectingPhotos = YES;
+        NSUInteger selectedCount = self.selectedAttachableImagePaths.count;
+        self.selectButton = [[UIBarButtonItem alloc]
+            initWithTitle:@"Cancel" style:UIBarButtonItemStylePlain
+            target:self action:@selector(closeTapped)];
+        self.selectionMenuButton = [[UIBarButtonItem alloc]
+            initWithTitle:@"Attach" style:UIBarButtonItemStyleDone
+            target:self action:@selector(attachSelectedToChatTapped)];
+        self.selectionMenuButton.enabled = selectedCount > 0;
+        self.countLabel.text = [NSString stringWithFormat:NSLocalizedString(@"EZGallery.SelectedCount", nil),
+                                (unsigned long)selectedCount];
+        self.navigationItem.rightBarButtonItems = @[self.selectionMenuButton, self.selectButton];
+        return;
+    }
+
     if (!self.selectingPhotos) {
         [self.collectionView.indexPathsForSelectedItems enumerateObjectsUsingBlock:^(NSIndexPath *path, NSUInteger idx, BOOL *stop) {
             [self.collectionView deselectItemAtIndexPath:path animated:NO];
@@ -3178,6 +3403,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // synchronously, so every selected image is attached before the gallery
     // sheet goes away.
     [self.navigationController dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)attachSelectedToChatTapped {
+    if (self.selectedAttachableImagePaths.count == 0) return;
+    [self askAIAboutSelectedTapped];
 }
 
 - (void)shareSelectedTapped {

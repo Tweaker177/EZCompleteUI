@@ -126,6 +126,8 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
 @property (nonatomic, assign) BRRicochetLCG rng;
 @property (nonatomic, assign) NSTimeInterval hitGraceRemaining;
 @property (nonatomic, assign, readwrite) BOOL enemyActive;
+@property (nonatomic, assign, readwrite) NSInteger enemyLives;
+@property (nonatomic, assign, readwrite) NSInteger enemyMaxLives;
 @end
 
 @implementation BRRicochetGameModel
@@ -168,6 +170,8 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
     self.enemyPosition = CGPointMake(boardSize.width * 0.7, boardSize.height * 0.25);
     self.enemyVelocity = CGVectorMake(enemySpeed * (CGFloat)cos(enemyStartAngle),
                                        enemySpeed * (CGFloat)sin(enemyStartAngle));
+    self.enemyMaxLives = 3 + (NSInteger)(brRicochetLCGNextUnit(&_rng) * 3.0);
+    self.enemyLives = self.enemyMaxLives;
     self.enemyActive = YES;
 
     return self;
@@ -285,7 +289,9 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
                                          BRRicochetEventCollisionAngle: @(atan2(vel.dy, vel.dx)) }];
                 } else {
                     self.score += 5;
+                    CGRect hitFrame = obstacle.frame;
                     [events addObject:@{ BRRicochetEventType: BRRicochetEventTypeWallHit,
+                                         BRRicochetEventFrame: [NSValue value:&hitFrame withObjCType:@encode(CGRect)],
                                          BRRicochetEventCollisionPoint: [NSValue value:&pos withObjCType:@encode(CGPoint)],
                                          BRRicochetEventCollisionAngle: @(atan2(vel.dy, vel.dx)) }];
                 }
@@ -391,8 +397,13 @@ static BOOL BRReflectCircleOffBounds(CGPoint *center, CGVector *velocity, CGFloa
     CGFloat distance = (CGFloat)hypot(self.enemyPosition.x - self.playerPosition.x,
                                       self.enemyPosition.y - self.playerPosition.y);
     if (distance > radius + kBRRicochetEnemyRadius) return NO;
-    self.enemyActive = NO;
-    self.score += 75;
+    self.enemyLives = MAX(0, self.enemyLives - 1);
+    if (self.enemyLives == 0) {
+        self.enemyActive = NO;
+        self.score += 75;
+    } else {
+        self.score += 15;
+    }
     return YES;
 }
 

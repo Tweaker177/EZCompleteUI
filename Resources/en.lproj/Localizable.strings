@@ -389,3 +389,9 @@
 "EZTutorial.Feedback" = "Still have questions or want to share feedback? Tap here.";
 "EZTutorial.Menu.SampleChat" = "Your recent conversation";
 "EZGallery.Title" = "Photo Gallery"; "EZGallery.Select" = "Select"; "EZGallery.Done" = "Done"; "EZGallery.SelectedCount" = "%lu selected"; "EZGallery.DeleteTitle" = "Delete Photos?"; "EZGallery.DeleteMessage" = "Permanently delete %lu selected photos?"; "EZGallery.Delete" = "Delete"; "EZGallery.Cancel" = "Cancel";
+
+/* Image generation progress */
+"EZImageGen.Status.Working" = "Working on your request…";
+"EZImageGen.Status.Stay" = "Do not leave the page while generating";
+"EZImageGen.Status.StillWorking" = "Still generating — this can take a moment";
+"EZImageGen.Status.AlmostDone" = "Almost done…";

@@ -18,6 +18,9 @@ typedef NS_ENUM(NSInteger, BRAssetSourceOption) {
     /// Pick a photo from the device's photo library.
     BRAssetSourceOptionUploadPhoto,
 
+    /// Import an image from Files / a document provider.
+    BRAssetSourceOptionUploadFile,
+
     /// Type a custom prompt for the AI image generator.
     BRAssetSourceOptionAIPrompt,
 

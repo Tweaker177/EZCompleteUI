@@ -49,10 +49,15 @@
 
     // Balance label (coin count inside pot)
     self.balanceLabel = [[UILabel alloc] init];
-    self.balanceLabel.font          = [UIFont boldSystemFontOfSize:9];
-    self.balanceLabel.textColor     = [UIColor colorWithRed:0.1 green:0.05 blue:0.0 alpha:1.0];
+    self.balanceLabel.font          = [UIFont boldSystemFontOfSize:10];
+    self.balanceLabel.textColor     = [UIColor colorWithRed:0.8 green:0.7 blue:0.05 alpha:1.0];
     self.balanceLabel.textAlignment = NSTextAlignmentCenter;
+    self.balanceLabel.backgroundColor = [UIColor blackColor];
     self.balanceLabel.adjustsFontSizeToFitWidth = YES;
+    self.balanceLabel.layer.cornerRadius = 8;
+    self.balanceLabel.layer.borderColor = [[UIColor colorWithRed: 0.85 green:0.8 blue: 0.8 alpha:1.0] CGColor];
+    self.balanceLabel.layer.borderWidth = 1.0;
+    self.balanceLabel.layer.masksToBounds = YES;
     [self addSubview:self.balanceLabel];
 }
 

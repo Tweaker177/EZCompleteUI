@@ -24,6 +24,15 @@ static const double kBRSynthNoteSeconds = 0.35;
 static const NSUInteger kBRDrumStepsPerBar = 16;
 static const NSUInteger kBRDrumLoopSteps = 32; // two 4/4 bars at 16th-note resolution
 
+@interface BRSustainedKeyVoice : NSObject
+@property (nonatomic, assign) NSInteger semitone;
+@property (nonatomic, strong) AVAudioPlayerNode *player;
+@property (nonatomic, strong) AVAudioMixerNode *mixer;
+@end
+
+@implementation BRSustainedKeyVoice
+@end
+
 static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     double cycle = phase / (M_PI * 2.0);
     cycle -= floor(cycle);
@@ -44,6 +53,8 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
 @property (nonatomic, strong, nullable) AVAudioUnitEffect *compressorNode;
 @property (nonatomic, strong, nullable) AVAudioUnitDelay *chorusNode;
 @property (nonatomic, strong, nullable) AVAudioMixerNode *synthMixerNode;
+@property (nonatomic, strong, nullable) AVAudioMixerNode *synthInputMixerNode;
+@property (nonatomic, strong, nullable) AVAudioMixerNode *heldKeysMixerNode;
 @property (nonatomic, strong, nullable) AVAudioMixerNode *drumsMixerNode;
 @property (nonatomic, strong, nullable) AVAudioUnitEQ *drumsFilterNode;
 @property (nonatomic, strong, nullable) AVAudioMixerNode *masterMixerNode;
@@ -69,6 +80,8 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
 @property (nonatomic, assign) CFTimeInterval lastEffectsTickTime;
 @property (nonatomic, assign) BOOL audioRecoveryPending;
 @property (nonatomic, assign) BOOL audioInterrupted;
+@property (nonatomic, strong) NSMutableArray<BRSustainedKeyVoice *> *heldKeyVoices;
+@property (nonatomic, strong) NSMutableArray<NSNumber *> *heldKeyboardSemitones;
 @end
 
 @implementation BRSynthEngine
@@ -112,6 +125,8 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
         _pendingDrumPatternIndex = 0;
         _midiClockEnabled = NO;
         _hitQueue     = [NSMutableArray array];
+        _heldKeyVoices = [NSMutableArray array];
+        _heldKeyboardSemitones = [NSMutableArray array];
         _drumVoiceCursors = [NSMutableDictionary dictionary];
         NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
         [center addObserver:self selector:@selector(audioEngineConfigurationChanged:)
@@ -146,6 +161,8 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     self.engine.autoShutdownEnabled = NO;
     self.playerNode = [[AVAudioPlayerNode alloc] init];
     self.synthMixerNode = [[AVAudioMixerNode alloc] init];
+    self.synthInputMixerNode = [[AVAudioMixerNode alloc] init];
+    self.heldKeysMixerNode = [[AVAudioMixerNode alloc] init];
     self.drumsMixerNode = [[AVAudioMixerNode alloc] init];
     self.drumsFilterNode = [[AVAudioUnitEQ alloc] initWithNumberOfBands:1];
     self.masterMixerNode = [[AVAudioMixerNode alloc] init];
@@ -166,6 +183,8 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
 
     [self.engine attachNode:self.playerNode];
     [self.engine attachNode:self.synthMixerNode];
+    [self.engine attachNode:self.synthInputMixerNode];
+    [self.engine attachNode:self.heldKeysMixerNode];
     [self.engine attachNode:self.drumsMixerNode];
     [self.engine attachNode:self.drumsFilterNode];
     [self.engine attachNode:self.masterMixerNode];
@@ -174,7 +193,9 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     [self.engine attachNode:self.reverbNode];
     // Synth and sample drums have their own volume mixers, then share
     // compression/reverb so Music Lab affects the whole musical mix.
-    [self.engine connect:self.playerNode to:self.chorusNode format:self.pcmFormat];
+    [self.engine connect:self.playerNode to:self.synthInputMixerNode format:self.pcmFormat];
+    [self.engine connect:self.heldKeysMixerNode to:self.synthInputMixerNode format:self.pcmFormat];
+    [self.engine connect:self.synthInputMixerNode to:self.chorusNode format:self.pcmFormat];
     [self.engine connect:self.chorusNode to:self.synthMixerNode format:self.pcmFormat];
     // A mixer is the point where multiple sources meet. Feeding the two
     // sources directly into the compressor would replace its single input
@@ -195,6 +216,8 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
         self.engine = nil;
         self.playerNode = nil;
         self.synthMixerNode = nil;
+        self.synthInputMixerNode = nil;
+        self.heldKeysMixerNode = nil;
         self.drumsMixerNode = nil;
         self.drumsFilterNode = nil;
         self.masterMixerNode = nil;
@@ -235,6 +258,13 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
 
 - (void)stop {
     [self stopMIDITransport];
+    for (BRSustainedKeyVoice *voice in self.heldKeyVoices) {
+        [voice.player stop];
+        [self.engine detachNode:voice.player];
+        [self.engine detachNode:voice.mixer];
+    }
+    [self.heldKeyVoices removeAllObjects];
+    [self.heldKeyboardSemitones removeAllObjects];
     [self.playerNode stop];
     for (NSArray<AVAudioPlayerNode *> *voices in self.drumVoices.allValues) {
         for (AVAudioPlayerNode *voice in voices) [voice stop];
@@ -244,6 +274,8 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     self.playerNode = nil;
     self.reverbNode = nil;
     self.synthMixerNode = nil;
+    self.synthInputMixerNode = nil;
+    self.heldKeysMixerNode = nil;
     self.drumsMixerNode = nil;
     self.drumsFilterNode = nil;
     self.masterMixerNode = nil;
@@ -297,6 +329,10 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     // MIDI Stop for a real end-of-game. A temporary audio disruption should
     // preserve musical intent and resume transport instead.
     [self.playerNode stop];
+    // These nodes belonged to the invalidated graph. A fresh key press will
+    // create a new held voice after recovery.
+    [self.heldKeyVoices removeAllObjects];
+    [self.heldKeyboardSemitones removeAllObjects];
     for (NSArray<AVAudioPlayerNode *> *voices in self.drumVoices.allValues) {
         for (AVAudioPlayerNode *voice in voices) [voice stop];
     }
@@ -308,6 +344,8 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     self.compressorNode = nil;
     self.chorusNode = nil;
     self.synthMixerNode = nil;
+    self.synthInputMixerNode = nil;
+    self.heldKeysMixerNode = nil;
     self.drumsMixerNode = nil;
     self.drumsFilterNode = nil;
     self.masterMixerNode = nil;
@@ -650,13 +688,15 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     }
 }
 
-- (void)playSynthSemitone:(NSInteger)semitone velocity:(float)velocity noteSeconds:(double)noteSeconds {
-    NSInteger midiNote = 57 + semitone; // A3 is MIDI note 57
+- (AVAudioPCMBuffer *)synthBufferForSemitone:(NSInteger)semitone
+                                    velocity:(float)velocity
+                                 noteSeconds:(double)noteSeconds
+                                     sustain:(BOOL)sustain {
     double freqHz = kBRSynthBaseFreqHz * pow(2.0, semitone / 12.0);
     double oscillator2FreqHz = freqHz * pow(2.0, self.oscillator2DetuneCents / 1200.0);
     AVAudioFrameCount frameCount = (AVAudioFrameCount)(kBRSynthSampleRate * noteSeconds);
     AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:self.pcmFormat frameCapacity:frameCount];
-    if (!buffer) return;
+    if (!buffer) return nil;
     buffer.frameLength = frameCount;
     float *samples = buffer.floatChannelData[0];
     float peakAmplitude = MIN(0.35f, 0.12f + velocity * 0.10f);
@@ -686,7 +726,7 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
             combined = (primary + secondary * oscillator2Mix) / (1.0 + oscillator2Mix);
         }
         double attackEnvelope = MIN(1.0, t / attack);
-        double releaseEnvelope = MIN(1.0, MAX(0.0, (noteSeconds - t) / release));
+        double releaseEnvelope = sustain ? 1.0 : MIN(1.0, MAX(0.0, (noteSeconds - t) / release));
         double filtered = combined;
         if (filterMagnitude >= 0.01) {
             lowPassed += alpha * (combined - lowPassed);
@@ -699,6 +739,16 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
             ? (1.0 - modulationDepth * 0.5 + lfo * modulationDepth * 0.5) : 1.0;
         samples[i] = (float)(filtered * tremolo * attackEnvelope * releaseEnvelope * peakAmplitude);
     }
+    return buffer;
+}
+
+- (void)playSynthSemitone:(NSInteger)semitone velocity:(float)velocity noteSeconds:(double)noteSeconds {
+    AVAudioPCMBuffer *buffer = [self synthBufferForSemitone:semitone
+                                                   velocity:velocity
+                                                noteSeconds:noteSeconds
+                                                    sustain:NO];
+    if (!buffer) return;
+    NSInteger midiNote = 57 + semitone; // A3 is MIDI note 57
     // As with the sample voices, a drained AVAudioPlayerNode can report
     // stopped even while the engine itself remains healthy. Resume it at the
     // point of scheduling so the arpeggiator cannot disappear mid-level.
@@ -706,29 +756,85 @@ static double BRSynthSampleForWaveform(BRSynthWaveform waveform, double phase) {
     [self.playerNode scheduleBuffer:buffer completionHandler:nil];
     [self sendMIDINote:midiNote velocity:velocity];
 }
-    // BRSynthEngine.m — add anywhere alongside playSynthSemitone:
-    - (void)playKeySemitone:(NSInteger)semitone velocity:(float)velocity {
-        if (!self.isStarted) [self start];
-        if (![self ensureAudioEngineRunning]) return;
-        double noteSeconds = MAX(0.18, MIN(0.60, self.attackSeconds + self.releaseSeconds + 0.06));
-        [self playSynthSemitone:semitone velocity:velocity noteSeconds:noteSeconds];
+
+- (void)pressKeySemitone:(NSInteger)semitone velocity:(float)velocity {
+    if (!self.isStarted) [self start];
+    if (![self ensureAudioEngineRunning]) return;
+
+    [self.heldKeyboardSemitones addObject:@(semitone)];
+    if (self.arpeggioDivision != BRSynthArpeggioDivisionOff) {
+        // Let the next display tick begin the held-key pattern immediately.
+        self.lastArpeggioTime = 0;
+        self.arpeggioStep = 0;
+        return;
     }
+
+    // Each touch owns a voice, which permits both chords and repeated notes.
+    // A looping buffer supplies the sustain; releaseKeySemitone: fades and
+    // removes that exact voice as soon as the touch lifts.
+    BRSustainedKeyVoice *voice = [BRSustainedKeyVoice new];
+    voice.semitone = semitone;
+    voice.player = [AVAudioPlayerNode new];
+    voice.mixer = [AVAudioMixerNode new];
+    voice.mixer.outputVolume = 1.0f;
+    [self.engine attachNode:voice.player];
+    [self.engine attachNode:voice.mixer];
+    [self.engine connect:voice.player to:voice.mixer format:self.pcmFormat];
+    [self.engine connect:voice.mixer to:self.heldKeysMixerNode format:self.pcmFormat];
+    AVAudioPCMBuffer *buffer = [self synthBufferForSemitone:semitone velocity:velocity noteSeconds:1.0 sustain:YES];
+    if (!buffer) {
+        [self.engine detachNode:voice.player];
+        [self.engine detachNode:voice.mixer];
+        return;
+    }
+    [voice.player play];
+    [voice.player scheduleBuffer:buffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil];
+    [self.heldKeyVoices addObject:voice];
+}
+
+- (void)releaseKeySemitone:(NSInteger)semitone {
+    NSUInteger heldIndex = [self.heldKeyboardSemitones indexOfObject:@(semitone)];
+    if (heldIndex != NSNotFound) [self.heldKeyboardSemitones removeObjectAtIndex:heldIndex];
+    if (self.arpeggioDivision != BRSynthArpeggioDivisionOff) return;
+
+    BRSustainedKeyVoice *voice = nil;
+    for (BRSustainedKeyVoice *candidate in self.heldKeyVoices.reverseObjectEnumerator) {
+        if (candidate.semitone == semitone) { voice = candidate; break; }
+    }
+    if (!voice) return;
+    [self.heldKeyVoices removeObject:voice];
+    NSTimeInterval release = MAX(0.04, MIN(0.70, self.releaseSeconds));
+    const NSInteger steps = 8;
+    for (NSInteger step = 1; step <= steps; step++) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(release * step / steps * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            voice.mixer.outputVolume = MAX(0.0f, 1.0f - (float)step / steps);
+            if (step == steps) {
+                [voice.player stop];
+                [self.engine detachNode:voice.player];
+                [self.engine detachNode:voice.mixer];
+            }
+        });
+    }
+}
 - (void)tickArpeggiatorAtTime:(CFTimeInterval)now {
+    if (self.arpeggioDivision == BRSynthArpeggioDivisionOff) return;
+    if (self.heldKeyboardSemitones.count == 0) return;
     CFTimeInterval interval = [self arpeggioInterval];
     if (self.lastArpeggioTime == 0) self.lastArpeggioTime = now - interval;
     if (now - self.lastArpeggioTime < interval) return;
     self.lastArpeggioTime += interval;
     if (now - self.lastArpeggioTime >= interval) self.lastArpeggioTime = now;
 
-    // Ascending/descending scale motion makes the collision synth feel like
-    // a musical part even during a quiet ricochet stretch.
-    static const NSInteger degrees[] = { 0, 2, 4, 6, 4, 2, 1, 3 };
-    static const NSInteger octaves[] = { 0, 0, 0, 12, 12, 0, 0, 12 };
-    NSArray<NSNumber *> *scale = [self currentScaleDegrees];
-    NSUInteger index = self.arpeggioStep % 8;
-    NSInteger degree = scale[(NSUInteger)degrees[index] % scale.count].integerValue;
-    NSInteger semitone = self.rootSemitone + degree + octaves[index] + self.octaveOffset * 12;
-    [self playSynthSemitone:semitone velocity:0.52f noteSeconds:MIN(0.32, interval * 0.84)];
+    // Arpeggiate the notes actually held on the smart keyboard: rise through
+    // the chord, then return down without repeating either endpoint.
+    NSArray<NSNumber *> *notes = [[NSSet setWithArray:self.heldKeyboardSemitones].allObjects
+        sortedArrayUsingSelector:@selector(compare:)];
+    NSUInteger count = notes.count;
+    NSUInteger cycleLength = count > 1 ? count * 2 - 2 : 1;
+    NSUInteger cycleIndex = self.arpeggioStep % cycleLength;
+    NSUInteger noteIndex = cycleIndex < count ? cycleIndex : cycleLength - cycleIndex;
+    NSInteger semitone = notes[noteIndex].integerValue;
+    [self playSynthSemitone:semitone velocity:0.86f noteSeconds:MIN(0.32, interval * 0.84)];
     self.arpeggioStep++;
 }
 

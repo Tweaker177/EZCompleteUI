@@ -4,6 +4,11 @@
 
 #import "BRRicochetGameView.h"
 
+@interface BRRicochetGameView ()
+@property (nonatomic, assign) CGRect hitPointFrame;
+@property (nonatomic, assign) CFTimeInterval hitPointVisibleUntil;
+@end
+
 @implementation BRRicochetGameView
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -23,6 +28,20 @@
 - (void)setBackgroundImage:(UIImage *)backgroundImage {
     _backgroundImage = backgroundImage;
     [self setNeedsDisplay];
+}
+
+- (void)setObstacleImage:(UIImage *)obstacleImage {
+    _obstacleImage = obstacleImage;
+    [self setNeedsDisplay];
+}
+
+- (void)showHitPointsForObstacleAtFrame:(CGRect)frame {
+    self.hitPointFrame = frame;
+    self.hitPointVisibleUntil = CACurrentMediaTime() + 0.65;
+    [self setNeedsDisplay];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.68 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (CACurrentMediaTime() >= self.hitPointVisibleUntil) [self setNeedsDisplay];
+    });
 }
 
 - (void)drawRect:(CGRect)rect {
@@ -62,21 +81,34 @@
         [fillColor setFill];
         [path fill];
 
+        if (self.obstacleImage) {
+            UIGraphicsPushContext(ctx);
+            [self.obstacleImage drawInRect:CGRectInset(obstacle.frame, 1.0, 1.0)];
+            UIGraphicsPopContext();
+        }
+
         CGContextSetStrokeColorWithColor(ctx, [UIColor colorWithWhite:0.0 alpha:0.35].CGColor);
         CGContextSetLineWidth(ctx, 1.0);
         [path stroke];
 
-        // Show remaining hits on anything tougher than a one-hit particle,
-        // same intent as the maze's crack overlays — a quick durability read.
-        if (obstacle.maxHP > 1) {
+        // The durability badge is feedback for a contact, rather than a
+        // permanent overlay that obscures the obstacle art.
+        if (obstacle.maxHP > 1 && CACurrentMediaTime() < self.hitPointVisibleUntil &&
+            CGRectEqualToRect(obstacle.frame, self.hitPointFrame)) {
             NSString *hpLabel = [NSString stringWithFormat:@"%ld", (long)obstacle.hp];
             NSDictionary<NSAttributedStringKey, id> *attrs = @{
                 NSFontAttributeName: [UIFont boldSystemFontOfSize:13],
-                NSForegroundColorAttributeName: [UIColor colorWithWhite:1.0 alpha:0.78]
+                NSForegroundColorAttributeName: UIColor.whiteColor,
+                NSStrokeColorAttributeName: UIColor.blackColor,
+                NSStrokeWidthAttributeName: @(-3.0),
             };
             CGSize textSize = [hpLabel sizeWithAttributes:attrs];
             CGPoint origin = CGPointMake(CGRectGetMidX(obstacle.frame) - textSize.width  / 2.0,
                                           CGRectGetMidY(obstacle.frame) - textSize.height / 2.0);
+            CGRect badge = CGRectInset(CGRectMake(origin.x, origin.y, textSize.width, textSize.height), -5.0, -2.0);
+            UIBezierPath *badgePath = [UIBezierPath bezierPathWithRoundedRect:badge cornerRadius:badge.size.height / 2.0];
+            [[UIColor colorWithWhite:0 alpha:0.72] setFill];
+            [badgePath fill];
             [hpLabel drawAtPoint:origin withAttributes:attrs];
         }
     }

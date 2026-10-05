@@ -1,0 +1,730 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// check-entitlement
+// EZCompleteUI v1.5
+//
+// Changes from v1.4:
+//   - Mirrored ez-image's v1.4 changes: added gpt-image-2,
+//     gpt-image-2.5-flare, gpt-image-2.5-sunburst to IMAGE_COST_EXACT,
+//     IMAGE_TEXT_INPUT_PER_1K, and IMAGE_INPUT_TOKEN_PER_1K (flare/sunburst
+//     bill identically — see ez-image's own changelog for sourcing). Added
+//     xhigh/max tier support via MODELS_SUPPORTING_XHIGH_MAX, and
+//     "auto" now resolves to each model's real highest tier (max for the
+//     2.5 pair, high otherwise) instead of always "high". Removed dall-e-3
+//     entirely, including the unused DALLE3_COST table (declared, never
+//     actually referenced anywhere — already dead code before this).
+//     Default model changed from gpt-image-1 to gpt-image-2.5-flare,
+//     matching ez-image's new default. COIN_COSTS_FLAT's image_*
+//     representative figures recalculated off gpt-image-2.5-flare instead
+//     of gpt-image-1.5.
+//   - This file's estimates are non-blocking (a null cost falls through to
+//     an approximate fallback, unlike ez-image's hard 400 for an
+//     unsupported quality tier) — appropriate here since "check" is
+//     read-only and this number was never the real charge anyway.
+//
+// Changes from v1.3:
+//   - FIXED a severe, systemic double-charge bug. Despite its name and this
+//     file's own header comment ("not the source of truth for what gets
+//     charged"), the "check" action was actually deducting coinCost from
+//     subscriptions.coins_balance for real, inserting a real debit into
+//     coin_transactions, and — for every flat-rate feature (every image
+//     request, TTS, etc.) — marking the ez_usage_log row "complete"
+//     immediately. Every one of those requests was then ALSO independently
+//     deducted for real by the actual edge function (ez-chat/ez-image/
+//     ez-elevenlabs each already do their own complete, correct deduction —
+//     confirmed across this conversation's earlier work on all three).
+//     "check" is now genuinely read-only: verifies affordability, inserts a
+//     "pending" ez_usage_log row (regardless of feature type — there's no
+//     real completed transaction to log yet at this point, for any
+//     feature), and returns without touching subscriptions or
+//     coin_transactions at all.
+//   - Consequently neutered "refund_tokens" into a no-op. Its entire
+//     purpose was crediting back the difference between an
+//     upfront-estimated deduction and the real cost — a premise that no
+//     longer holds now that "check" doesn't deduct anything to refund from.
+//     ez-chat already does this reconciliation correctly and completely on
+//     its own (including the overage-billing fix from earlier this
+//     conversation), so this was redundant even before being dangerous.
+//     Kept callable (returns success, real unchanged balance) rather than
+//     removed outright so an existing client call site doesn't need
+//     immediate changes — safe to remove that call entirely as cleanup.
+//   - "deduct" (called only by br-ai) and "refund_flat" are unaffected —
+//     those were already correctly scoped, singular, real operations with
+//     no separate edge-function deduction happening on top of them.
+//
+// Changes from v1.2:
+//   - "deduct" now accepts an optional caller-supplied api_cost_usd and
+//     prefers it over the MISC_USD-based guess. That guess only ever
+//     covered voice_clone/whisper_minute/web_search — any brainrot_*
+//     feature fell through to `?? 0`, which is why a ledger review found
+//     every single BrainRot row logging a flat $0.0000 real cost despite
+//     br-ai computing actual per-image/per-chat costs internally for
+//     pricing purposes the whole time. That number just never reached this
+//     log. br-ai now passes it through (see its own changelog).
+//
+// Changes from v1.1:
+//   - Added action: refund_flat — direct inverse of "deduct", for callers
+//     (br-ai) that deduct a flat pre-known coin amount and need to refund
+//     it exactly if generation subsequently fails. refund_tokens couldn't
+//     serve this — it's shaped for estimated-vs-actual token reconciliation
+//     and requires a tier + token counts, neither of which br-ai has.
+//
+// Purpose: upfront "can this user afford this?" balance check, called by the
+// client before it commits to a real request. Deliberately approximate —
+// ez-chat and ez-image each compute the real exact charge independently
+// after their own API call completes; this file's job is just to avoid
+// letting someone start a request they can't pay for, not to be the source
+// of truth for what gets charged.
+//
+// Changes from v1.0:
+//   - IMAGE_COST_EXACT already had accurate model×quality×size image pricing
+//     (dated May 2026) — turned out to be a good independent check against
+//     ez-image's own pricing fix this same pass: the two, researched months
+//     apart, came out within a rounding error of each other. Normalized the
+//     handful of numbers that differed by a fraction of a cent (0.051→0.050,
+//     0.054→0.052) so both files agree exactly instead of almost exactly.
+//   - COIN_COSTS_FLAT's image_low/medium/high fallback (used only when
+//     model/quality/size aren't all known) was still on old numbers
+//     unrelated to either the old or new ez-image rates. Recalculated with
+//     the same cost/0.30/0.0111 formula ez-image and ez-chat both use, off
+//     gpt-image-1.5 medium/1024x1024 as a representative case, so an
+//     incomplete request estimates in the same ballpark as a real one
+//     instead of an arbitrary older number.
+//   - Comment on this table referenced "br-ai" — that's not a function that
+//     exists anywhere else in this codebase as far as I've seen; almost
+//     certainly a stale name from before this function was renamed to
+//     ez-image (I'd picked "br-ai" up from this exact comment earlier in
+//     our conversation, before ez-image had actually been uploaded and I
+//     could see its real name). Fixed to reference ez-image directly. If
+//     there genuinely is a separate br-ai function still deployed
+//     somewhere, flag it — this fix would be wrong in that case.
+//
+// ── Coin costs ────────────────────────────────────────────────────────────────
+
+// Must match ez-chat MODEL_COINS_PER_1K exactly.
+// These rates are ONLY used as a fallback estimate for the upfront check;
+// ez-chat performs the actual exact deduction per model after the API call.
+// Mismatched rates here cause false 402s (too high) or undercharge (too low).
+const COIN_COSTS_PER_1K_TOKENS: Record<string, number> = {
+  chat_mini:     1,   // gpt-4o-mini, gpt-4.1-mini, gpt-4.1-nano — 97% margin
+  chat_standard: 2,   // gpt-4o, gpt-4.1, gpt-4.5-preview — 77-82% margin
+  chat_premium:  5,   // gpt-5.x, o3, o1 — 69-93% margin
+};
+
+const COIN_COSTS_FLAT: Record<string, number> = {
+  // Images — fallback for when model/quality/size aren't all known; exact
+  // cost is computed per-request via IMAGE_COST_EXACT below whenever they
+  // are. Representative figures: gpt-image-2.5-flare (current default
+  // model) at each quality tier, square. Same cost/0.30/0.0111 formula as
+  // ez-image. dall-e-3 removed — dropped from this app entirely.
+  image_low:          2,   // gpt-image-2.5-flare low,    $0.006 → 71% margin
+  image_medium:       4,   // gpt-image-2.5-flare medium, $0.013 → 69% margin
+  image_high:         16,  // gpt-image-2.5-flare high,   $0.053 → 66% margin
+
+  // Sora — standard (sora-2, $0.10/sec × seconds)
+  sora_4s:            60,
+  sora_8s:            120,
+  sora_10s:           150,
+  sora_12s:           180,
+  sora_16s:           240,
+
+  // Sora — pro ($0.30/sec at 720p)
+  sora_pro_4s:        150,
+  sora_pro_8s:        300,
+  sora_pro_10s:       400,
+  sora_pro_12s:       480,
+  sora_pro_16s:       600,
+
+  voice_clone:        25,
+  web_search:         2,
+  whisper_minute:     3,
+};
+
+// ── Actual API cost rates (USD) ───────────────────────────────────────────────
+// Source: platform.openai.com/docs/pricing, verified May 2026.
+// These are the EXACT numbers that appear on your OpenAI invoice.
+// Update this file whenever OpenAI changes pricing.
+
+// ── Chat: per-model input/output rates ───────────────────────────────────────
+// Separate input/output rates are critical: output tokens cost 4–6× more.
+// These are per 1K tokens (not per 1M) to match the arithmetic in the code.
+const CHAT_INPUT_PER_1K: Record<string, number> = {
+  "gpt-4o-mini":   0.000150,  // $0.150/1M — verified
+  "gpt-4.1-mini":  0.000100,  // $0.100/1M — verified
+  "gpt-4o":        0.002500,  // $2.50/1M  — verified
+  "gpt-4.1":       0.002000,  // $2.00/1M  — verified
+  "gpt-5":         0.001250,  // $1.25/1M input — verified
+  "gpt-5-mini":    0.000250,  // $0.25/1M input — verified
+  "gpt-5.4":       0.002500,  // $2.50/1M input — same as gpt-4o
+  "gpt-5.4-mini":  0.000750,  // $0.75/1M input — verified openai.com
+  "gpt-5.4-nano":  0.000100,  // $0.10/1M input
+  "o3":            0.002000,  // $2.00/1M  — check OpenAI docs; approximate
+  "o1":            0.003000,  // $3.00/1M  — approximate
+  "o4-mini":       0.001100,  // $1.10/1M  — approximate
+};
+
+const CHAT_OUTPUT_PER_1K: Record<string, number> = {
+  "gpt-4o-mini":   0.000600,  // $0.60/1M
+  "gpt-4.1-mini":  0.000400,  // $0.40/1M
+  "gpt-4o":        0.010000,  // $10.00/1M
+  "gpt-4.1":       0.008000,  // $8.00/1M
+  "gpt-5":         0.010000,  // $10.00/1M output
+  "gpt-5-mini":    0.002000,  // $2.00/1M output
+  "gpt-5.4":       0.015000,  // $15.00/1M output
+  "gpt-5.4-mini":  0.004500,  // $4.50/1M output — verified openai.com
+  "gpt-5.4-nano":  0.000800,  // $0.80/1M output
+  "o3":            0.008000,
+  "o1":            0.015000,
+  "o4-mini":       0.004400,
+};
+
+// Tier-based fallbacks when exact model isn't in the per-model table above
+const CHAT_TIER_INPUT_PER_1K: Record<string, number> = {
+  chat_mini:     0.000150,
+  chat_standard: 0.002500,
+  chat_premium:  0.003000,
+};
+
+const CHAT_TIER_OUTPUT_PER_1K: Record<string, number> = {
+  chat_mini:     0.000600,
+  chat_standard: 0.010000,
+  chat_premium:  0.015000,
+};
+
+// ── Image generation: exact per-image flat fee by model × quality × size ──────
+// Source: developers.openai.com's official per-image/per-quality reference
+// tables; verified September 2026, matches ez-image's IMAGE_COST_USD
+// exactly — keep these two tables in sync if either is updated.
+// OpenAI charges this flat fee PER IMAGE plus text input tokens for the prompt.
+// Non-square (portrait/landscape) costs ~45-50% more than square for
+// gpt-image-1/1.5/mini; gpt-image-2 and the 2.5 pair run closer to ~22%
+// more (see each entry — tall-size figures for gpt-image-2 are official,
+// tall for the 2.5 pair are DERIVED from gpt-image-2's own square-to-tall
+// ratio, not independently sourced — same caveat as ez-image's own table).
+const IMAGE_COST_EXACT: Record<string, Record<string, Record<string, number>>> = {
+  "gpt-image-1": {
+    "low":    { "1024x1024": 0.011, "1024x1536": 0.016, "1536x1024": 0.016 },
+    "medium": { "1024x1024": 0.042, "1024x1536": 0.063, "1536x1024": 0.063 },
+    "high":   { "1024x1024": 0.167, "1024x1536": 0.250, "1536x1024": 0.250 },
+  },
+  "gpt-image-1.5": {
+    "low":    { "1024x1024": 0.009, "1024x1536": 0.013, "1536x1024": 0.013 },
+    "medium": { "1024x1024": 0.034, "1024x1536": 0.050, "1536x1024": 0.050 },
+    "high":   { "1024x1024": 0.133, "1024x1536": 0.200, "1536x1024": 0.200 },
+  },
+  "gpt-image-1-mini": {
+    "low":    { "1024x1024": 0.005, "1024x1536": 0.006, "1536x1024": 0.006 },
+    "medium": { "1024x1024": 0.011, "1024x1536": 0.015, "1536x1024": 0.015 },
+    "high":   { "1024x1024": 0.036, "1024x1536": 0.052, "1536x1024": 0.052 },
+  },
+  "gpt-image-2": {
+    // No xhigh/max — OpenAI's API returns a 400 for those on this model.
+    "low":    { "1024x1024": 0.006, "1024x1536": 0.005, "1536x1024": 0.005 },
+    "medium": { "1024x1024": 0.053, "1024x1536": 0.041, "1536x1024": 0.041 },
+    "high":   { "1024x1024": 0.211, "1024x1536": 0.165, "1536x1024": 0.165 },
+  },
+  "gpt-image-2.5-flare": {
+    "low":    { "1024x1024": 0.006, "1024x1536": 0.005, "1536x1024": 0.005 },
+    "medium": { "1024x1024": 0.013, "1024x1536": 0.010, "1536x1024": 0.010 },
+    "high":   { "1024x1024": 0.053, "1024x1536": 0.041, "1536x1024": 0.041 },
+    "xhigh":  { "1024x1024": 0.094, "1024x1536": 0.073, "1536x1024": 0.073 },
+    "max":    { "1024x1024": 0.211, "1024x1536": 0.165, "1536x1024": 0.165 },
+  },
+  "gpt-image-2.5-sunburst": {
+    // Identical pricing to flare — see the table's own header comment.
+    "low":    { "1024x1024": 0.006, "1024x1536": 0.005, "1536x1024": 0.005 },
+    "medium": { "1024x1024": 0.013, "1024x1536": 0.010, "1536x1024": 0.010 },
+    "high":   { "1024x1024": 0.053, "1024x1536": 0.041, "1536x1024": 0.041 },
+    "xhigh":  { "1024x1024": 0.094, "1024x1536": 0.073, "1536x1024": 0.073 },
+    "max":    { "1024x1024": 0.211, "1024x1536": 0.165, "1536x1024": 0.165 },
+  },
+};
+
+const MODELS_SUPPORTING_XHIGH_MAX = new Set(["gpt-image-2.5-flare", "gpt-image-2.5-sunburst"]);
+
+// Text input token cost for image models (prompt is billed at this rate per 1K tokens)
+const IMAGE_TEXT_INPUT_PER_1K: Record<string, number> = {
+  "gpt-image-1":            0.005000,  // $5.00/1M
+  "gpt-image-1.5":          0.005000,  // $5.00/1M
+  "gpt-image-1-mini":       0.002000,  // $2.00/1M
+  "gpt-image-2":            0.005000,  // $5.00/1M
+  "gpt-image-2.5-flare":    0.005000,  // $5.00/1M — same rate as gpt-image-2
+  "gpt-image-2.5-sunburst": 0.005000,  // $5.00/1M — same rate as gpt-image-2
+};
+
+// Image input token cost for edit mode (when user attaches an existing image)
+const IMAGE_INPUT_TOKEN_PER_1K: Record<string, number> = {
+  "gpt-image-1":            0.010000,  // $10.00/1M
+  "gpt-image-1.5":          0.008000,  // $8.00/1M
+  "gpt-image-1-mini":       0.002500,  // $2.50/1M
+  "gpt-image-2":            0.008000,  // $8.00/1M
+  "gpt-image-2.5-flare":    0.008000,  // $8.00/1M — same rate as gpt-image-2
+  "gpt-image-2.5-sunburst": 0.008000,  // $8.00/1M — same rate as gpt-image-2
+};
+
+// Approx image input tokens for a 1024×1024 attached image in edit mode
+// (OpenAI tile-based tokenization at high fidelity: ~1565 tokens)
+const EDIT_IMAGE_INPUT_TOKENS = 1565;
+
+// Sora: $0.10/sec (sora-2 720p), $0.30/sec (sora-2-pro 720p), $0.50/sec (1024p)
+const SORA_COST_PER_SEC: Record<string, number> = {
+  "sora-2":       0.10,
+  "sora-2-pro":   0.30,
+};
+
+// Sora duration seconds for each feature key
+const SORA_DURATION: Record<string, number> = {
+  sora_4s: 4, sora_8s: 8, sora_10s: 10, sora_12s: 12, sora_16s: 16,
+  sora_pro_4s: 4, sora_pro_8s: 8, sora_pro_10s: 10, sora_pro_12s: 12, sora_pro_16s: 16,
+};
+
+const MISC_USD: Record<string, number> = {
+  voice_clone:    0.100,
+  whisper_minute: 0.006,
+  web_search:     0.003,
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin":  "*",
+    "Access-Control-Allow-Headers": "authorization, content-type",
+    "Content-Type":                 "application/json",
+  };
+}
+
+// Keep enough to recognize the request — first sentence, max 120 chars.
+function truncatePrompt(prompt: unknown): string | null {
+  if (!prompt || typeof prompt !== "string") return null;
+  const cap = 120;
+  const search = prompt.slice(0, cap);
+  const match  = search.match(/[.?!\n]/);
+  if (match && match.index !== undefined && match.index > 30) {
+    return prompt.slice(0, match.index + 1);
+  }
+  return prompt.length <= cap ? prompt : prompt.slice(0, cap) + "…";
+}
+
+function jsonResponse(body: object, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: corsHeaders() });
+}
+
+async function fetchSubscription(
+  supabase: ReturnType<typeof createClient>,
+  userId: string
+) {
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("coins_balance, tier, status, current_period_end, has_ever_purchased")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return { data, error };
+}
+
+// ── Cost estimation helpers ───────────────────────────────────────────────────
+
+// Compute exact image API cost using model + quality + size.
+// Also adds prompt text token cost and (for edits) image input token cost.
+// Falls back to approximate flat cost if model/quality/size not provided.
+function estimateImageApiCost(
+  feature: string,
+  qty: number,
+  imgModel?: string,
+  imgQuality?: string,
+  imgSize?: string,
+  promptTokens?: number,
+  isEdit?: boolean
+): number {
+  const model   = imgModel ?? "gpt-image-2.5-flare";
+  // Normalize quality — "auto" maps to this model's highest supported tier
+  // ("max" for the 2.5 pair, "high" for everything else), matching
+  // ez-image's own conservative assumption (OpenAI resolves "auto" to
+  // whichever tier it judges the prompt needs; charging the safe upper
+  // bound here avoids this estimate under-predicting what ez-image will
+  // actually charge, which would let a request through as "affordable"
+  // that then fails for real).
+  const highestTier = MODELS_SUPPORTING_XHIGH_MAX.has(model) ? "max" : "high";
+  const quality = (imgQuality === "auto" || !imgQuality) ? highestTier : imgQuality;
+  const size    = imgSize ?? "1024x1024";
+  const ptok    = promptTokens ?? 80; // estimate ~80 tokens if not provided
+
+  // Exact per-image flat fee
+  let perImageCost = IMAGE_COST_EXACT[model]?.[quality]?.[size] ?? null;
+
+  if (perImageCost == null) {
+    // Fallback: use old approximate rates by feature tier. dall-e-3
+    // removed — dropped from this app entirely.
+    const approx: Record<string, number> = {
+      image_low: 0.006, image_medium: 0.013, image_high: 0.053,
+    };
+    perImageCost = approx[feature] ?? 0.013;
+  }
+
+  // Text input token cost for the prompt (charged per image)
+  const textRate   = IMAGE_TEXT_INPUT_PER_1K[model] ?? 0.005;
+  const promptCost = (ptok / 1000) * textRate * qty;
+
+  // Image input token cost for edit mode (the attached reference image)
+  const imageInputRate = IMAGE_INPUT_TOKEN_PER_1K[model] ?? 0.010;
+  const editCost = isEdit ? (EDIT_IMAGE_INPUT_TOKENS / 1000) * imageInputRate * qty : 0;
+
+  return perImageCost * qty + promptCost + editCost;
+}
+
+// Compute chat API cost using actual input/output token split and model name.
+function estimateChatApiCost(
+  feature: string,
+  model: string | undefined,
+  inputTokens: number,
+  outputTokens: number
+): number {
+  const inRate  = (model ? CHAT_INPUT_PER_1K[model]  : null) ?? CHAT_TIER_INPUT_PER_1K[feature]  ?? 0.000150;
+  const outRate = (model ? CHAT_OUTPUT_PER_1K[model] : null) ?? CHAT_TIER_OUTPUT_PER_1K[feature] ?? 0.000600;
+  return (inputTokens / 1000) * inRate + (outputTokens / 1000) * outRate;
+}
+
+// Compute Sora API cost from feature key and model.
+function estimateSoraApiCost(feature: string, soraModel?: string): number {
+  const secs     = SORA_DURATION[feature] ?? 10;
+  const model    = soraModel ?? (feature.includes("_pro") ? "sora-2-pro" : "sora-2");
+  const costPerS = SORA_COST_PER_SEC[model] ?? 0.10;
+  return secs * costPerS;
+}
+
+function computeCostPer100Coins(apiCostUsd: number, coinsCharged: number): number | null {
+  if (coinsCharged <= 0) return null;
+  return Math.round((apiCostUsd / coinsCharged) * 100 * 10000) / 10000;
+}
+
+// ── Main handler ──────────────────────────────────────────────────────────────
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders() });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return jsonResponse({ allowed: false, reason: "No auth" }, 401);
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const jwt = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
+    if (userError || !user) {
+      return jsonResponse({ allowed: false, reason: "Invalid token" }, 401);
+    }
+
+    // Capture IP and email for audit log — stored on every usage row.
+    // IP comes from Cloudflare/Supabase proxy headers; falls back to direct connection.
+    const ipAddress = req.headers.get("cf-connecting-ip")
+                   ?? req.headers.get("x-forwarded-for")?.split(",")[0].trim()
+                   ?? req.headers.get("x-real-ip")
+                   ?? null;
+    const userEmail = user.email ?? null;
+
+    const body   = await req.json();
+    const action: string = body.action ?? "check";
+
+    // ── action: refund_tokens ─────────────────────────────────────────────────
+    if (action === "refund_tokens") {
+      // NEUTERED (see this file's changelog): this used to credit
+      // estimatedCoins - actualCoins back to the user's balance, on the
+      // premise that "check" had deducted estimatedCoins upfront. Now that
+      // "check" is read-only (see that action's own comment), there's
+      // nothing real to refund here — crediting anything would be handing
+      // out free coins for a charge that never happened. ez-chat already
+      // performs its own complete, correct deduction/overage reconciliation
+      // internally (see its own changelog) and writes its own authoritative
+      // ez_usage_log row with real token counts and cost, so this action's
+      // entire original purpose is now redundant with what ez-chat already
+      // does correctly on its own. Kept as a safe no-op — returns success
+      // with the real unchanged balance — rather than removed outright, so
+      // any existing client call site doesn't need to change immediately;
+      // safe to remove the client-side call entirely as cleanup.
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("coins_balance")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return jsonResponse({
+        success:  true,
+        refunded: 0,
+        balance:  sub?.coins_balance ?? 0,
+      });
+    }
+
+    // ── action: refund_flat — direct flat-coin refund, symmetric to "deduct" ──
+    // For callers (br-ai) that deduct an exact, pre-known coin amount via
+    // "deduct" rather than an estimated token count. refund_tokens above is
+    // shaped specifically for the chat token-estimate reconciliation flow
+    // (ez-chat) — it requires tier/estimated_tokens/actual_tokens and
+    // computes the refund as their difference, which doesn't fit a flat
+    // deduction at all. This is just the direct inverse of "deduct": credit
+    // back exactly the given amount.
+    if (action === "refund_flat") {
+      const { coins, feature, reason } = body;
+      if (coins == null || coins <= 0) {
+        return jsonResponse({ success: false, reason: "Missing or invalid coins" }, 400);
+      }
+
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("coins_balance")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const newBalance = (sub?.coins_balance ?? 0) + coins;
+      await supabase
+        .from("subscriptions")
+        .update({ coins_balance: newBalance, updated_at: new Date().toISOString() })
+        .eq("user_id", user.id);
+
+      await supabase.from("coin_transactions").insert({
+        user_id:       user.id,
+        amount:        coins,
+        direction:     "credit",
+        feature:       feature ?? "refund",
+        description:   reason ?? `Refund: ${coins} coins`,
+        balance_after: newBalance,
+      });
+
+      return jsonResponse({ success: true, refunded: coins, balance: newBalance });
+    }
+
+    // ── action: complete_usage — called after image/sora API returns ───────────
+    // Updates an ez_usage_log row with actual results (images returned, etc.)
+    if (action === "complete_usage") {
+      const { log_id, images_returned, error_text } = body;
+      if (!log_id) return jsonResponse({ success: false, reason: "Missing log_id" }, 400);
+
+      const update: Record<string, unknown> = {
+        status: error_text ? "error" : "complete",
+      };
+      if (images_returned != null) update.images_returned = images_returned;
+      if (error_text)              update.error_text      = error_text;
+
+      await supabase
+        .from("ez_usage_log")
+        .update(update)
+        .eq("id", log_id)
+        .eq("user_id", user.id);
+
+      return jsonResponse({ success: true });
+    }
+
+    // ── Fetch subscription (all other actions need it) ────────────────────────
+    const { data: sub, error: subError } = await fetchSubscription(supabase, user.id);
+
+    if (subError) {
+      console.error(`[check-entitlement] DB error for ${user.id}:`, subError?.message);
+      return jsonResponse({ allowed: false, reason: "Database error" });
+    }
+    // sub may be null for coins-only users who have no subscription row yet.
+    // Treat as balance 0 / tier "none" — the capture function creates the row on purchase.
+
+    const currentBalance: number = sub?.coins_balance ?? 0;
+
+    // ── action: check_balance ─────────────────────────────────────────────────
+    if (action === "check_balance") {
+      return jsonResponse({
+        allowed: true,
+        balance: currentBalance,
+        ...(sub?.tier   ? { tier:   sub.tier   } : {}),
+        ...(sub?.status ? { status: sub.status } : {}),
+        has_ever_purchased: sub?.has_ever_purchased === true,
+      });
+    }
+
+    // ── action: deduct (TTS — client pre-calculates exact coin cost) ──────────
+    if (action === "deduct") {
+      const { feature, coins, prompt, model } = body;
+      // Optional: caller can pass its own real computed cost (br-ai does,
+      // via IMAGE_API_COST_USD) instead of relying on the MISC_USD guess
+      // below, which only ever covered voice_clone/whisper_minute/
+      // web_search — every brainrot_* feature fell through to `?? 0`,
+      // which is why every BrainRot row in a ledger review showed a flat
+      // $0.0000 api_cost_usd despite br-ai computing real costs internally
+      // for pricing purposes; that number just never made it into the log.
+      const callerCost = typeof body.api_cost_usd === "number" && body.api_cost_usd >= 0
+        ? body.api_cost_usd
+        : null;
+      if (!feature || coins == null || coins < 0) {
+        return jsonResponse({ allowed: false, reason: "Missing feature or coins" }, 400);
+      }
+
+      if (currentBalance < coins) {
+        return jsonResponse({
+          allowed: false,
+          reason:  "Insufficient coins",
+          balance: currentBalance,
+          cost:    coins,
+        });
+      }
+
+      const newBalance = currentBalance - coins;
+      await supabase
+        .from("subscriptions")
+        .update({ coins_balance: newBalance, updated_at: new Date().toISOString() })
+        .eq("user_id", user.id);
+
+      // Log to both tables
+      if (coins > 0) {
+        await supabase.from("coin_transactions").insert({
+          user_id:       user.id,
+          amount:        coins,
+          direction:     "debit",
+          feature:       feature,
+          description:   `Used ${feature}`,
+          balance_after: newBalance,
+        });
+      }
+
+      const apiCost     = callerCost ?? (MISC_USD[feature] ?? 0) * Math.max(1, coins / 10); // rough estimate when caller doesn't know its own cost
+      const costPer100  = computeCostPer100Coins(apiCost, coins);
+      const { data: logRow } = await supabase
+        .from("ez_usage_log")
+        .insert({
+          user_id:            user.id,
+          user_email:         userEmail,
+          ip_address:         ipAddress,
+          session_id:         body.session_id ?? null,
+          feature,
+          model:              model ?? null,
+          prompt:             truncatePrompt(prompt),
+          coins_charged:      coins,
+          quantity:           1,
+          running_balance:    newBalance,
+          api_cost_usd:       apiCost.toFixed(6),
+          cost_per_100_coins: costPer100,
+          status:             "complete",
+        })
+        .select("id")
+        .single();
+
+      return jsonResponse({
+        allowed: true,
+        balance: newBalance,
+        cost:    coins,
+        ...(sub?.tier ? { tier: sub.tier } : {}),
+        has_ever_purchased: sub?.has_ever_purchased === true,
+        log_id:  logRow?.id ?? null,
+      });
+    }
+
+    // ── action: check — flat-rate or token-based, deducts immediately ─────────
+    if (action === "check") {
+      const { feature, estimated_tokens, quantity, prompt, model } = body;
+      if (!feature) {
+        return jsonResponse({ allowed: false, reason: "No feature specified" }, 400);
+      }
+
+      const qty: number = (quantity != null && quantity > 1) ? Math.floor(quantity) : 1;
+
+      let coinCost: number;
+      let estimatedApiCost = 0;
+
+      if (COIN_COSTS_PER_1K_TOKENS[feature] != null) {
+        if (estimated_tokens == null || estimated_tokens <= 0) {
+          return jsonResponse({
+            allowed: false,
+            reason:  "estimated_tokens required for this feature",
+          }, 400);
+        }
+        coinCost = Math.ceil((estimated_tokens / 1000) * COIN_COSTS_PER_1K_TOKENS[feature]);
+        // Use 70/30 split for initial estimate — corrected on refund_tokens callback
+        const estInput  = Math.round(estimated_tokens * 0.70);
+        const estOutput = Math.round(estimated_tokens * 0.30);
+        estimatedApiCost = estimateChatApiCost(feature, model, estInput, estOutput);
+      } else if (COIN_COSTS_FLAT[feature] != null) {
+        coinCost = COIN_COSTS_FLAT[feature] * qty;
+        // Use exact image pricing when model/quality/size are provided
+        if (feature.startsWith("image") || feature.startsWith("dalle")) {
+          const isEdit        = (body.is_edit === true);
+          const promptTokens  = body.prompt_tokens ?? 80;
+          estimatedApiCost    = estimateImageApiCost(
+            feature, qty, model, body.img_quality, body.img_size,
+            promptTokens, isEdit
+          );
+        } else if (feature.startsWith("sora")) {
+          estimatedApiCost = estimateSoraApiCost(feature, model);
+        } else {
+          estimatedApiCost = (MISC_USD[feature] ?? 0) * qty;
+        }
+      } else {
+        coinCost = 0;
+      }
+
+      if (currentBalance < coinCost) {
+        return jsonResponse({
+          allowed: false,
+          reason:  "Insufficient coins",
+          balance: currentBalance,
+          cost:    coinCost,
+        });
+      }
+
+      // FIXED (see this file's changelog): this used to deduct coinCost from
+      // subscriptions.coins_balance, insert a real coin_transactions debit,
+      // and — for every flat-rate feature (every image request, TTS, etc.)
+      // — mark the ez_usage_log row "complete" immediately. All of that
+      // directly contradicted this file's own header comment ("not the
+      // source of truth for what gets charged") and meant every request
+      // was charged twice: once here, unconditionally, on top of whatever
+      // the actual edge function (ez-chat/ez-image/ez-elevenlabs) separately
+      // and correctly deducts on its own. "check" now does exactly what its
+      // name says: verifies affordability and returns, without touching
+      // balance-related tables at all. The log row below is "pending"
+      // regardless of feature type — there's no real completed transaction
+      // to log yet at this point, for any feature.
+      const { data: logRow } = await supabase
+        .from("ez_usage_log")
+        .insert({
+          user_id:             user.id,
+          user_email:          userEmail,
+          ip_address:          ipAddress,
+          session_id:          body.session_id ?? null,
+          feature,
+          model:               model   ?? null,
+          prompt:              truncatePrompt(prompt),
+          coins_charged:       coinCost, // estimate only — not a real charge, see above
+          quantity:            qty,
+          images_requested:    COIN_COSTS_FLAT[feature] && feature.startsWith("image") ? qty : null,
+          running_balance:     currentBalance, // unchanged — this action doesn't deduct
+          api_cost_usd:        estimatedApiCost.toFixed(6),
+          cost_per_100_coins:  computeCostPer100Coins(estimatedApiCost, coinCost),
+          status:              "pending",
+        })
+        .select("id")
+        .single();
+
+      console.log(`[check-entitlement] ${feature} qty=${qty} estimate=${coinCost}coins api_cost=$${estimatedApiCost.toFixed(4)} log_id=${logRow?.id} (read-only check, no balance change)`);
+
+      return jsonResponse({
+        allowed:  true,
+        balance:  currentBalance,
+        cost:     coinCost,
+        ...(sub?.tier ? { tier: sub.tier } : {}),
+        has_ever_purchased: sub?.has_ever_purchased === true,
+        log_id:   logRow?.id ?? null,  // returned so client can update with actual data later
+      });
+    }
+
+    return jsonResponse({ allowed: false, reason: "Unknown action" }, 400);
+
+  } catch (e) {
+    console.error("[check-entitlement] Uncaught error:", e);
+    return jsonResponse({ allowed: false, reason: "Server error" }, 500);
+  }
+});

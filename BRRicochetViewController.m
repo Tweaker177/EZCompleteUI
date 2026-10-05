@@ -133,6 +133,8 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
 @property (nonatomic, assign) CGFloat analogSteerAmount;
 @property (nonatomic, assign) BOOL isPaused;
 @property (nonatomic, assign) NSInteger currentLevel;
+@property (nonatomic, assign) BOOL playerFacingRight;
+@property (nonatomic, assign) CGFloat playerSpriteRotation;
 
 @property (nonatomic, strong) BRSynthEngine *synth;
 @property (nonatomic, strong, nullable) NSMutableDictionary<NSString *, AVAudioPlayer *> *sfxPlayers;
@@ -211,6 +213,8 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     self.playerImageView.contentMode = UIViewContentModeScaleAspectFit;
     self.playerImageView.clipsToBounds = NO;
     [self.view addSubview:self.playerImageView];
+    self.playerFacingRight = YES;
+    self.playerSpriteRotation = 0;
 
     self.enemyImageView = [[UIImageView alloc] init];
     self.enemyImageView.contentMode = UIViewContentModeScaleAspectFit;
@@ -276,9 +280,13 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     self.keyboardView.hidden = YES;
     __weak typeof(self) weakSelf = self;
     self.keyboardView.onNote = ^(NSInteger semitone, float velocity) {
-        [weakSelf.synth playKeySemitone:semitone velocity:velocity];
+        [weakSelf.synth pressKeySemitone:semitone velocity:velocity];
+    };
+    self.keyboardView.onNoteRelease = ^(NSInteger semitone) {
+        [weakSelf.synth releaseKeySemitone:semitone];
     };
     self.keyboardView.onSteerChanged = ^(CGFloat amount) {
+        if (amount != 0) [weakSelf animatePlayerTurnForRequestedHorizontalDirection:amount];
         weakSelf.analogSteerAmount = amount;
     };
     self.keyboardView.onSettingsChanged = ^{
@@ -515,6 +523,9 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     self.steeringRight = NO;
     self.lastFrameTime = 0;
     self.actionBtn.hidden = YES;
+    self.playerFacingRight = YES;
+    self.playerSpriteRotation = 0;
+    self.playerImageView.layer.transform = CATransform3DIdentity;
     self.gameOverLabel.hidden = YES;
     self.launchBtn.hidden = NO;
     self.actionBtn.hidden = YES;
@@ -538,8 +549,10 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     UIImage *bgImage     = assetDict[@"bgImage"];
     UIImage *playerImage = assetDict[@"playerImage"];
     UIImage *enemyImage  = assetDict[@"enemyImage"];
+    UIImage *obstacleImage = assetDict[@"obstacleImage"];
 
     self.gameView.backgroundImage = bgImage;
+    self.gameView.obstacleImage = obstacleImage;
     self.playerImageView.image = playerImage;
     self.enemyImageView.image  = enemyImage;
 
@@ -681,9 +694,30 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
 
 #pragma mark - Steering input
 
-- (void)leftTouchDown  { self.steeringLeft = YES; }
+- (void)animatePlayerTurnForRequestedHorizontalDirection:(CGFloat)direction {
+    if (!self.model.playerLaunched || self.model.playerVelocity.dx * direction >= 0) return;
+    self.playerFacingRight = !self.playerFacingRight;
+
+    // Keep the original, lively flat spin, but keep one authoritative angle
+    // on the model layer. This prevents UIKit's affine transform decomposition
+    // from occasionally settling at a 90° intermediate orientation.
+    CGFloat fromAngle = self.playerSpriteRotation;
+    CGFloat turnDirection = direction < 0 ? -(CGFloat)M_PI : (CGFloat)M_PI;
+    CGFloat toAngle = fromAngle + turnDirection;
+    self.playerSpriteRotation = toAngle;
+    self.playerImageView.layer.transform = CATransform3DMakeRotation(toAngle, 0, 0, 1);
+
+    CABasicAnimation *turn = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
+    turn.fromValue = @(fromAngle);
+    turn.toValue = @(toAngle);
+    turn.duration = 0.28;
+    turn.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    [self.playerImageView.layer addAnimation:turn forKey:@"ricochetPlayerTurn"];
+}
+
+- (void)leftTouchDown  { [self animatePlayerTurnForRequestedHorizontalDirection:-1]; self.steeringLeft = YES; }
 - (void)leftTouchUp    { self.steeringLeft = NO; }
-- (void)rightTouchDown { self.steeringRight = YES; }
+- (void)rightTouchDown { [self animatePlayerTurnForRequestedHorizontalDirection:1]; self.steeringRight = YES; }
 - (void)rightTouchUp   { self.steeringRight = NO; }
 
 - (void)toggleControlMode {
@@ -814,6 +848,34 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     }
 }
 
+- (void)playEnemyCollisionAnimation {
+    // Keep this on layer transforms so frameTick can continue positioning
+    // the sprites while the impact feedback plays.
+    CAKeyframeAnimation *shake = [CAKeyframeAnimation animationWithKeyPath:@"transform.translation.x"];
+    shake.values = @[ @0, @-7, @6, @-4, @3, @0 ];
+    shake.duration = 0.28;
+    shake.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
+    [self.playerImageView.layer addAnimation:shake forKey:@"ricochetPlayerEnemyImpact"];
+    [self.enemyImageView.layer addAnimation:shake forKey:@"ricochetEnemyImpact"];
+
+    CABasicAnimation *pulse = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+    pulse.fromValue = @1.0;
+    pulse.toValue = @1.22;
+    pulse.duration = 0.14;
+    pulse.autoreverses = YES;
+    pulse.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseOut];
+    [self.playerImageView.layer addAnimation:pulse forKey:@"ricochetPlayerImpactPulse"];
+    [self.enemyImageView.layer addAnimation:pulse forKey:@"ricochetEnemyImpactPulse"];
+
+    CABasicAnimation *flash = [CABasicAnimation animationWithKeyPath:@"opacity"];
+    flash.fromValue = @1.0;
+    flash.toValue = @0.25;
+    flash.duration = 0.09;
+    flash.autoreverses = YES;
+    flash.repeatCount = 2;
+    [self.enemyImageView.layer addAnimation:flash forKey:@"ricochetEnemyImpactFlash"];
+}
+
 - (void)useAction {
     if (self.state != BRRicochetStatePlaying) return;
     [self playUseSwordSweep];
@@ -826,13 +888,16 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
         }
     }
     NSInteger cleared = [self.model blastAtPlayerWithRadius:kBRRicochetBlastRadius];
-    BOOL defeatedEnemy = [self.model defeatEnemyWithBlastRadius:kBRRicochetBlastRadius];
+    BOOL hitEnemy = [self.model defeatEnemyWithBlastRadius:kBRRicochetBlastRadius];
     for (NSValue *frameValue in destroyedFrames) {
         [self playBlockShatterAtBoardFrame:frameValue.CGRectValue];
     }
-    if (defeatedEnemy) {
+    if (hitEnemy && !self.model.enemyActive) {
         self.enemyImageView.hidden = YES;
         [self playSoundNamed:@"wall-blast-success"];
+    } else if (hitEnemy) {
+        [self playEnemyCollisionAnimation];
+        [self playSoundNamed:@"hurt-player"];
     }
     if (cleared > 0) {
         [self playSoundNamed:@"wall-blast-success"];
@@ -883,6 +948,7 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
 
         } else if ([type isEqualToString:BRRicochetEventTypeWallHit]) {
             [self queueCollisionNoteForEvent:event velocity:1.4f];
+            [self.gameView showHitPointsForObstacleAtFrame:[event[BRRicochetEventFrame] CGRectValue]];
             scoreChanged = YES;
 
         } else if ([type isEqualToString:BRRicochetEventTypeBlockDestroyed]) {
@@ -895,6 +961,7 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
         } else if ([type isEqualToString:BRRicochetEventTypeEnemyHit]) {
             [self playSoundNamed:@"hurt-player"];
             [self.synth queueHitWithVelocity:2.0];
+            [self playEnemyCollisionAnimation];
             scoreChanged = YES;
 
         } else if ([type isEqualToString:BRRicochetEventTypeHeartCollected]) {
@@ -1018,7 +1085,7 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     // the full Music Lab range before the labels and stepper are constructed.
     self.synth.octaveOffset = MAX(-4, MIN(3, self.synth.octaveOffset));
     self.synth.tempoBPM = MAX(60, MIN(200, self.synth.tempoBPM));
-    if (self.synth.arpeggioDivision < BRSynthArpeggioDivisionQuarter ||
+    if (self.synth.arpeggioDivision < BRSynthArpeggioDivisionOff ||
         self.synth.arpeggioDivision > BRSynthArpeggioDivisionSixteenth) {
         self.synth.arpeggioDivision = BRSynthArpeggioDivisionEighth;
     }
@@ -1210,10 +1277,10 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     [minus addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.tempoBPM = MAX(60, weakSelf.synth.tempoBPM - 1); [weakSelf persistSynthSettings]; refresh(); }] forControlEvents:UIControlEventTouchUpInside];
     [plus addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.tempoBPM = MIN(200, weakSelf.synth.tempoBPM + 1); [weakSelf persistSynthSettings]; refresh(); }] forControlEvents:UIControlEventTouchUpInside];
     UILabel *arpLabel = [[UILabel alloc] initWithFrame:CGRectMake(25, 352, 84, 32)]; arpLabel.text = @"ARP RATE"; arpLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; arpLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1]; [card addSubview:arpLabel];
-    UISegmentedControl *arp = [[UISegmentedControl alloc] initWithItems:@[ @"1/4", @"1/8", @"1/16" ]];
-    arp.frame = CGRectMake(112, 348, cardWidth - 137, 36); arp.selectedSegmentIndex = self.synth.arpeggioDivision;
+    UISegmentedControl *arp = [[UISegmentedControl alloc] initWithItems:@[ @"Off", @"1/4", @"1/8", @"1/16" ]];
+    arp.frame = CGRectMake(112, 348, cardWidth - 137, 36); arp.selectedSegmentIndex = self.synth.arpeggioDivision + 1;
     arp.selectedSegmentTintColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:0.82];
-    [arp addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.arpeggioDivision = (BRSynthArpeggioDivision)arp.selectedSegmentIndex; [weakSelf persistSynthSettings]; }] forControlEvents:UIControlEventValueChanged]; [card addSubview:arp];
+    [arp addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.arpeggioDivision = (BRSynthArpeggioDivision)(arp.selectedSegmentIndex - 1); [weakSelf persistSynthSettings]; }] forControlEvents:UIControlEventValueChanged]; [card addSubview:arp];
     [wave1 addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.waveform = (BRSynthWaveform)wave1.selectedSegmentIndex; [weakSelf persistSynthSettings]; refresh(); }] forControlEvents:UIControlEventValueChanged];
     [wave2 addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.oscillator2Waveform = (BRSynthWaveform)wave2.selectedSegmentIndex; [weakSelf persistSynthSettings]; refresh(); }] forControlEvents:UIControlEventValueChanged];
     CGFloat knobX = (cardWidth - knobs.count * 72.0) / 2.0;

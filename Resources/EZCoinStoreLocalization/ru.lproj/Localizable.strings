@@ -1,0 +1,139 @@
+/* EZCoinStoreViewController localization */
+
+"EZCoinStore.Title" = "🪙 Магазин монет EZ";
+
+"EZCoinStore.CancelPlan" = "Отменить план";
+
+"EZCoinStore.Subscribe" = "Подписаться";
+
+"EZCoinStore.BuyNow" = "Купить сейчас";
+
+"EZCoinStore.Badge.Buy1Get1" = "🔥 КУПИ 1 — ПОЛУЧИ 1";
+
+"EZCoinStore.Promo.SubscriptionBadgeFormat" = "+%ld БЕСПЛАТНЫХ монет*";
+
+"EZCoinStore.Promo.SubscriptionFootnote" = "*Дополнительные монеты — разовый бонус, а не ежемесячная прибавка.";
+
+"EZCoinStore.Tier.Basic" = "Базовый";
+
+"EZCoinStore.Tier.BasicSubtitle" = "400 монет в месяц\nИдеально для нерегулярного использования";
+
+"EZCoinStore.Tier.BasicPrice" = "$5 / мес.";
+
+"EZCoinStore.Tier.Standard" = "Стандартный";
+
+"EZCoinStore.Tier.StandardSubtitle" = "900 монет в месяц\nДля тех, кто пользуется регулярно";
+
+"EZCoinStore.Tier.StandardPrice" = "$10 / мес.";
+
+"EZCoinStore.Badge.Popular" = "ПОПУЛЯРНО";
+
+"EZCoinStore.Tier.Pro" = "Pro";
+
+"EZCoinStore.Tier.ProSubtitle" = "1600 монет в месяц\nОтлично подходит для ежедневных пользователей";
+
+"EZCoinStore.Tier.ProPrice" = "$15 / мес.";
+
+"EZCoinStore.Badge.BestValue" = "ЛУЧШАЯ ЦЕНА";
+
+"EZCoinStore.Tier.Ultra" = "Ultra";
+
+"EZCoinStore.Tier.UltraSubtitle" = "2500 монет в месяц\nДля активных пользователей";
+
+"EZCoinStore.Tier.UltraPrice" = "$20 / мес.";
+
+"EZCoinStore.Badge.Ultra" = "ULTRA";
+
+"EZCoinStore.TopUp.Starter" = "Стартовый пакет монет";
+
+"EZCoinStore.TopUp.StarterSubtitle" = "400 монет, одноразовый \nБессрочный пакет";
+
+"EZCoinStore.TopUp.Value" = "Выгодный пакет монет";
+
+"EZCoinStore.TopUp.ValueSubtitle" = "900 монет, разовая покупка\nБез срока действия";
+
+"EZCoinStore.Badge.Save10" = "СЭКОНОМЬТЕ 10%";
+
+"EZCoinStore.Promo.Headline" = "🔥 КУПИ 1 — ПОЛУЧИ 1 В ПОДАРОК 🔥";
+
+"EZCoinStore.Promo.Subtitle" = "Все монеты и подписки — предложение ограничено по времени!";
+
+"EZCoinStore.LoadingBalance" = "Загрузка баланса…";
+
+"EZCoinStore.ThisFeature" = "эта функция";
+
+"EZCoinStore.NotEnoughCoins" = "⚠️ Недостаточно монет для %@. Пополните ниже.";
+
+"EZCoinStore.NoActiveSubscription" = "Нет активной подписки";
+
+"EZCoinStore.BalanceFormat" = "🪙 %ld монет • %@";
+
+"EZCoinStore.Section.Subscriptions" = "ПОДПИСКИ";
+
+"EZCoinStore.Section.OneTimeTopUps" = "РАЗОВЫЕ ПОПОЛНЕНИЯ";
+
+"EZCoinStore.DailyCoins" = "🎁 Ежедневные монеты";
+
+"EZCoinStore.DailyCoins.FreeFormat" = "🎁 +%ld монет!";
+
+"EZCoinStore.DailyCoins.Free" = "🎁 Бесплатные монеты!";
+
+"EZCoinStore.DailyCoins.NextHours" = "🎁 Далее: %ld ч %ld мин";
+
+"EZCoinStore.DailyCoins.NextMinutes" = "🎁 Далее: %ld мин %ld с";
+
+"EZCoinStore.DailyCoins.NextSeconds" = "🎁 Далее: %ld с";
+
+"EZCoinStore.DailyCoins.Claiming" = "⏳ Получение…";
+
+"EZCoinStore.Alert.NotSignedIn" = "Не выполнен вход в систему";
+
+"EZCoinStore.Alert.SignInDailyCoins" = "Пожалуйста, войдите в систему, чтобы получить свои ежедневные монеты.";
+
+"EZCoinStore.Alert.NetworkError" = "Сетевая ошибка";
+
+"EZCoinStore.Alert.ServerUnreachable" = "Не удалось связаться с сервером. Пожалуйста, попробуйте еще раз.";
+
+"EZCoinStore.Alert.AlreadyClaimed" = "Монеты уже получены";
+
+"EZCoinStore.Alert.AlreadyClaimedMessage" = "Вы уже забрали бесплатные монеты. Следующая возможность появится через 6 часов!";
+
+"EZCoinStore.Alert.GenericRetry" = "Что-то пошло не так. Пожалуйста, попробуйте еще раз.";
+
+"EZCoinStore.Alert.Error" = "Ошибка";
+
+"EZCoinStore.Ledger" = "История операций";
+
+"EZCoinStore.Alert.NotLoggedIn" = "Не выполнен вход в систему";
+
+"EZCoinStore.Alert.SignInFirst" = "Сначала войдите в систему.";
+
+"EZCoinStore.Alert.CancelSubscription" = "Отменить подписку?";
+
+"EZCoinStore.Alert.CancelSubscriptionMessage" = "Оставшиеся монеты останутся на вашем счету. Это невозможно отменить.";
+
+"EZCoinStore.KeepPlan" = "Оставить подписку";
+
+"EZCoinStore.Alert.Cancelled" = "Отменено";
+
+"EZCoinStore.Alert.CancelledMessage" = "Ваша подписка отменена. Ваши монеты остаются доступными.";
+
+"EZCoinStore.Alert.CancelFailed" = "Не удалось отменить подписку. Пожалуйста, попробуйте еще раз.";
+
+"EZCoinStore.Alert.CheckoutStartFailed" = "Не удалось начать оформление заказа. Попробуйте еще раз.";
+
+"EZCoinStore.Alert.PurchaseConfirmFailed" = "Не удалось подтвердить покупку. Проверьте свой баланс — возможно, монеты еще были добавлены.";
+
+"EZCoinStore.Alert.PurchaseNotConfirmed" = "Не удалось подтвердить покупку.";
+
+"EZCoinStore.Alert.PurchaseIssue" = "Проблема с покупкой";
+
+"EZCoinStore.Celebration.CoinsAdded" = "🪙 Добавлены монеты!";
+
+"EZCoinStore.Celebration.AmountFormat" = "+%ld монет";
+
+"EZCoinStore.Celebration.NewBalanceFormat" = "Новый баланс: %ld монет";
+
+"EZCoinStore.Celebration.Sweet" = "Отлично!";
+
+"EZCoinStore.OK" = "ОК";

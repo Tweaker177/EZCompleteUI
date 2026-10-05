@@ -557,6 +557,8 @@
 #import "BrainRotViewController.h"
 #import "BRRicochetViewController.h"
 #import "BRGameModePickerViewController.h"
+#import "BRSlotMachineViewController.h"
+#import "BRSlotGamePickerViewController.h"
 #import "EZBubbleCell.h"
 #import "EZSystemCell.h"
 #import "EZCodeBlockCell.h"
@@ -594,6 +596,191 @@ static NSString *ez_safetyIdentifierForUserId(NSString *userId) {
     }
     return hex;
 }
+
+typedef void (^EZImageStreamEventBlock)(NSDictionary *event);
+typedef void (^EZImageStreamCompletionBlock)(NSDictionary * _Nullable result, NSError * _Nullable error);
+
+/// Small SSE client dedicated to ez-image. It parses complete SSE frames as
+/// bytes arrive so partial image previews appear before the final response.
+@interface EZImageEventStream : NSObject <NSURLSessionDataDelegate>
+- (instancetype)initWithToken:(NSString *)token
+                          body:(NSDictionary *)body
+                         event:(EZImageStreamEventBlock)event
+                    completion:(EZImageStreamCompletionBlock)completion;
+- (void)start;
+@end
+
+@interface EZImageEventStream ()
+@property (nonatomic, copy) NSString *token;
+@property (nonatomic, copy) NSDictionary *body;
+@property (nonatomic, copy) EZImageStreamEventBlock eventHandler;
+@property (nonatomic, copy) EZImageStreamCompletionBlock completionHandler;
+@property (nonatomic, strong) NSURLSession *session;
+@property (nonatomic, strong) NSMutableData *pendingBytes;
+@property (nonatomic, strong) NSMutableData *httpErrorBytes;
+@property (nonatomic, assign) NSUInteger frameSearchOffset;
+@property (nonatomic, assign) NSInteger httpStatus;
+@property (nonatomic, strong) NSDictionary *finalResult;
+@property (nonatomic, assign) BOOL finished;
+@end
+
+@implementation EZImageEventStream
+- (instancetype)initWithToken:(NSString *)token body:(NSDictionary *)body
+                         event:(EZImageStreamEventBlock)event
+                    completion:(EZImageStreamCompletionBlock)completion {
+    if ((self = [super init])) {
+        _token = [token copy];
+        _body = [body copy];
+        _eventHandler = [event copy];
+        _completionHandler = [completion copy];
+        _pendingBytes = [NSMutableData data];
+        _httpErrorBytes = [NSMutableData data];
+    }
+    return self;
+}
+
+- (void)start {
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/functions/v1/ez-image", EZSupabaseURL]];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    request.HTTPMethod = @"POST";
+    request.timeoutInterval = 300;
+    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [request setValue:@"text/event-stream" forHTTPHeaderField:@"Accept"];
+    [request setValue:[NSString stringWithFormat:@"Bearer %@", self.token] forHTTPHeaderField:@"Authorization"];
+    NSError *jsonError = nil;
+    request.HTTPBody = [NSJSONSerialization dataWithJSONObject:self.body options:0 error:&jsonError];
+    if (jsonError) {
+        [self finishWithResult:nil error:jsonError];
+        return;
+    }
+    NSOperationQueue *delegateQueue = [[NSOperationQueue alloc] init];
+    delegateQueue.name = @"com.ezcompleteui.image-stream";
+    delegateQueue.maxConcurrentOperationCount = 1;
+    NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+    self.session = [NSURLSession sessionWithConfiguration:configuration delegate:self delegateQueue:delegateQueue];
+    [[self.session dataTaskWithRequest:request] resume];
+}
+
+- (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask
+ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSessionResponseDisposition))completionHandler {
+    if ([response isKindOfClass:[NSHTTPURLResponse class]]) self.httpStatus = ((NSHTTPURLResponse *)response).statusCode;
+    completionHandler(NSURLSessionResponseAllow);
+}
+
+- (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveData:(NSData *)data {
+    if (self.httpStatus >= 400) {
+        [self.httpErrorBytes appendData:data];
+        return;
+    }
+    [self.pendingBytes appendData:data];
+    [self consumeCompleteFrames];
+}
+
+- (void)consumeCompleteFrames {
+    while (self.pendingBytes.length) {
+        const uint8_t *bytes = self.pendingBytes.bytes;
+        NSUInteger length = self.pendingBytes.length;
+        NSUInteger frameEnd = NSNotFound;
+        NSUInteger delimiterLength = 0;
+        for (NSUInteger i = MIN(self.frameSearchOffset, length); i < length; i++) {
+            if (i + 1 < length && bytes[i] == '\n' && bytes[i + 1] == '\n') {
+                frameEnd = i; delimiterLength = 2; break;
+            }
+            if (i + 3 < length && bytes[i] == '\r' && bytes[i + 1] == '\n' &&
+                bytes[i + 2] == '\r' && bytes[i + 3] == '\n') {
+                frameEnd = i; delimiterLength = 4; break;
+            }
+        }
+        if (frameEnd == NSNotFound) {
+            self.frameSearchOffset = length > 3 ? length - 3 : 0;
+            return;
+        }
+        NSData *frame = [self.pendingBytes subdataWithRange:NSMakeRange(0, frameEnd)];
+        [self.pendingBytes replaceBytesInRange:NSMakeRange(0, frameEnd + delimiterLength) withBytes:NULL length:0];
+        self.frameSearchOffset = 0;
+        [self consumeFrame:frame];
+    }
+}
+
+- (void)consumeFrame:(NSData *)frame {
+    NSString *text = [[NSString alloc] initWithData:frame encoding:NSUTF8StringEncoding];
+    if (!text.length) return;
+    NSMutableArray<NSString *> *dataLines = [NSMutableArray array];
+    for (NSString *line in [text componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]]) {
+        if ([line hasPrefix:@"data:"]) {
+            NSString *value = [line substringFromIndex:5];
+            if ([value hasPrefix:@" "]) value = [value substringFromIndex:1];
+            [dataLines addObject:value];
+        }
+    }
+    if (!dataLines.count) return;
+    NSString *payload = [dataLines componentsJoinedByString:@"\n"];
+    if ([payload isEqualToString:@"[DONE]"]) return;
+    NSData *jsonData = [payload dataUsingEncoding:NSUTF8StringEncoding];
+    NSDictionary *event = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:nil];
+    if (![event isKindOfClass:[NSDictionary class]]) return;
+    NSString *type = [event[@"type"] isKindOfClass:[NSString class]] ? event[@"type"] : @"";
+    if ([type isEqualToString:@"complete"]) {
+        self.finalResult = event;
+    } else if ([type isEqualToString:@"error"]) {
+        NSString *message = [event[@"error"] isKindOfClass:[NSString class]] ? event[@"error"] : @"Image generation failed";
+        self.finalResult = @{ @"error": message, @"reason": event[@"reason"] ?: @"" };
+    }
+    EZImageStreamEventBlock handler = self.eventHandler;
+    if (handler) dispatch_async(dispatch_get_main_queue(), ^{ handler(event); });
+}
+
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task
+ didCompleteWithError:(NSError *)error {
+    if (self.finished) return;
+    if (error) {
+        [self finishWithResult:nil error:error];
+        return;
+    }
+    if (self.httpStatus >= 400) {
+        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:self.httpErrorBytes options:0 error:nil];
+        NSString *message = [json[@"error"] isKindOfClass:[NSString class]] ? json[@"error"] :
+            [[NSString alloc] initWithData:self.httpErrorBytes encoding:NSUTF8StringEncoding];
+        NSString *reason = [json[@"reason"] isKindOfClass:[NSString class]] ? json[@"reason"] : nil;
+        NSString *description = reason.length ? [NSString stringWithFormat:@"%@ %@", message ?: @"Image request failed", reason]
+                                               : (message.length ? message : @"Image request failed");
+        if (self.httpStatus == 401) {
+            [self finishWithResult:nil error:[NSError errorWithDomain:@"EZImageStreamHTTP" code:401
+                userInfo:@{NSLocalizedDescriptionKey: description, @"HTTPStatus": @(self.httpStatus)}]];
+            return;
+        }
+        self.finalResult = @{ @"error": description, @"HTTPStatus": @(self.httpStatus) };
+        [self finishWithResult:self.finalResult error:nil];
+        return;
+    }
+    if (!self.finalResult && self.pendingBytes.length) {
+        NSData *frame = [self.pendingBytes copy];
+        [self.pendingBytes setLength:0];
+        [self consumeFrame:frame];
+    }
+    if (self.finalResult) [self finishWithResult:self.finalResult error:nil];
+    else [self finishWithResult:nil error:[NSError errorWithDomain:@"EZImageStream" code:-1
+        userInfo:@{NSLocalizedDescriptionKey: @"Image stream ended before completion"}]];
+}
+
+- (void)finishWithResult:(NSDictionary *)result error:(NSError *)error {
+    if (self.finished) return;
+    self.finished = YES;
+    [self.session finishTasksAndInvalidate];
+    EZImageStreamCompletionBlock completion = self.completionHandler;
+    self.completionHandler = nil;
+    self.eventHandler = nil;
+    if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(result, error); });
+}
+
+- (void)cancel {
+    if (self.finished) return;
+    self.finished = YES;
+    self.completionHandler = nil;
+    self.eventHandler = nil;
+    [self.session invalidateAndCancel];
+}
+@end
 
 
 typedef NS_ENUM(NSInteger, EZAttachMode) {
@@ -727,6 +914,16 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) UIView        *statusBannerView;
 @property (nonatomic, strong) UILabel       *statusBannerLabel;
 @property (nonatomic, strong) UIActivityIndicatorView *statusBannerSpinner;
+@property (nonatomic, strong) UIView        *imageProgressView;
+@property (nonatomic, strong) UIImageView   *imagePreviewImageView;
+@property (nonatomic, strong) CAShapeLayer  *imageProgressTrackRing;
+@property (nonatomic, strong) CAShapeLayer  *imageProgressRing;
+@property (nonatomic, strong) UILabel       *imageProgressLabel;
+@property (nonatomic, assign) CGFloat        imageGenerationProgress;
+@property (nonatomic, strong) EZImageEventStream *imageEventStream;
+@property (nonatomic, strong) NSLayoutConstraint *imageProgressWidthConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *imageProgressHeightConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *imageBannerHeightConstraint;
 @property (nonatomic, strong) NSTimer       *statusBannerTimer;
 @property (nonatomic, assign) NSInteger      statusBannerPhase;
 @property (nonatomic, strong) NSArray<NSString *> *statusBannerMessages;
@@ -772,6 +969,16 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 - (void)showStatusBannerWithMessages:(NSArray<NSString *> *)messages;
 - (void)hideStatusBanner;
 - (void)showImageGenStatusBanner;
+- (void)handleImageGenerationStreamEvent:(NSDictionary *)event;
+- (void)startImageGenerationStreamWithToken:(NSString *)token
+                                        body:(NSDictionary *)body
+                                       event:(EZImageStreamEventBlock)event
+                                  completion:(EZImageStreamCompletionBlock)completion;
+- (void)startImageGenerationStreamWithToken:(NSString *)token
+                                        body:(NSDictionary *)body
+                                       event:(EZImageStreamEventBlock)event
+                                  completion:(EZImageStreamCompletionBlock)completion
+                                  retryCount:(NSInteger)retryCount;
 - (void)enterImageEditModeFromCurrentSelection;
 - (void)exitImageEditModeIfNeeded;
 - (void)handleAPIError:(NSString *)msg;
@@ -803,6 +1010,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                      originalPrompt:(NSString *)prompt
                               token:(NSString *)token
                            threadID:(NSString *)threadID;
+- (void)presentGalleryForChatAttachments;
 
 @end
 @interface ViewController (EZPrivateForward)
@@ -1158,9 +1366,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                     }
                 }
 
-                // Strip Tier-3 context preamble
-                NSString *contextPrefix = @"[Memories with possible relevance:]";
-                if ([text hasPrefix:contextPrefix]) {
+                // Memory context is internal routing metadata, not a title.
+                if ([text hasPrefix:@"[Memories with possible relevance:"] ||
+                    [text hasPrefix:@"[Possibly relevant memories:"]) {
                     NSRange userMsgRange = [text rangeOfString:@"[User message]\n"];
                     if (userMsgRange.location != NSNotFound) {
                         text = [text substringFromIndex:userMsgRange.location + userMsgRange.length];
@@ -1681,6 +1889,38 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     self.statusBannerSpinner.translatesAutoresizingMaskIntoConstraints = NO;
     self.statusBannerSpinner.hidesWhenStopped = NO;
     [self.statusBannerView addSubview:self.statusBannerSpinner];
+    self.imageProgressView = [[UIView alloc] init];
+    self.imageProgressView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.imageProgressView.hidden = YES;
+    [self.statusBannerView addSubview:self.imageProgressView];
+    self.imagePreviewImageView = [[UIImageView alloc] init];
+    self.imagePreviewImageView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.imagePreviewImageView.contentMode = UIViewContentModeScaleAspectFill;
+    self.imagePreviewImageView.clipsToBounds = YES;
+    self.imagePreviewImageView.layer.cornerRadius = 12;
+    self.imagePreviewImageView.backgroundColor = [UIColor colorWithWhite:0 alpha:0.16];
+    [self.imageProgressView addSubview:self.imagePreviewImageView];
+    self.imageProgressTrackRing = [CAShapeLayer layer];
+    self.imageProgressTrackRing.fillColor = UIColor.clearColor.CGColor;
+    self.imageProgressTrackRing.strokeColor = [self.view.tintColor colorWithAlphaComponent:0.25].CGColor;
+    self.imageProgressTrackRing.lineWidth = 5.0;
+    [self.imageProgressView.layer addSublayer:self.imageProgressTrackRing];
+    self.imageProgressRing = [CAShapeLayer layer];
+    self.imageProgressRing.fillColor = UIColor.clearColor.CGColor;
+    self.imageProgressRing.strokeColor = self.view.tintColor.CGColor;
+    self.imageProgressRing.lineWidth = 5.0;
+    self.imageProgressRing.lineCap = kCALineCapRound;
+    self.imageProgressRing.strokeEnd = 0;
+    [self.imageProgressView.layer addSublayer:self.imageProgressRing];
+    self.imageProgressLabel = [[UILabel alloc] init];
+    self.imageProgressLabel.font = [UIFont monospacedDigitSystemFontOfSize:10 weight:UIFontWeightBold];
+    self.imageProgressLabel.textColor = UIColor.whiteColor;
+    self.imageProgressLabel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.65];
+    self.imageProgressLabel.layer.cornerRadius = 12;
+    self.imageProgressLabel.clipsToBounds = YES;
+    self.imageProgressLabel.textAlignment = NSTextAlignmentCenter;
+    self.imageProgressLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.imageProgressView addSubview:self.imageProgressLabel];
     self.statusBannerLabel = [[UILabel alloc] init];
     self.statusBannerLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
     self.statusBannerLabel.textColor = [UIColor secondaryLabelColor];
@@ -1894,12 +2134,28 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         [self.statusBannerView.bottomAnchor constraintEqualToAnchor:self.inputContainer.topAnchor constant:-8],
         [self.statusBannerView.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
         [self.statusBannerView.widthAnchor constraintLessThanOrEqualToAnchor:self.view.widthAnchor constant:-32],
+        [self.imageProgressView.leadingAnchor constraintEqualToAnchor:self.statusBannerView.leadingAnchor constant:10],
+        [self.imageProgressView.centerYAnchor constraintEqualToAnchor:self.statusBannerView.centerYAnchor],
         [self.statusBannerSpinner.leadingAnchor constraintEqualToAnchor:self.statusBannerView.leadingAnchor constant:12],
         [self.statusBannerSpinner.centerYAnchor constraintEqualToAnchor:self.statusBannerView.centerYAnchor],
-        [self.statusBannerLabel.leadingAnchor constraintEqualToAnchor:self.statusBannerSpinner.trailingAnchor constant:8],
+        [self.statusBannerLabel.leadingAnchor constraintEqualToAnchor:self.imageProgressView.trailingAnchor constant:8],
         [self.statusBannerLabel.trailingAnchor constraintEqualToAnchor:self.statusBannerView.trailingAnchor constant:-12],
         [self.statusBannerLabel.topAnchor constraintEqualToAnchor:self.statusBannerView.topAnchor constant:10],
         [self.statusBannerLabel.bottomAnchor constraintEqualToAnchor:self.statusBannerView.bottomAnchor constant:-10],
+    ]];
+    self.imageProgressWidthConstraint = [self.imageProgressView.widthAnchor constraintEqualToConstant:22];
+    self.imageProgressHeightConstraint = [self.imageProgressView.heightAnchor constraintEqualToConstant:22];
+    self.imageProgressWidthConstraint.active = YES;
+    self.imageProgressHeightConstraint.active = YES;
+    [NSLayoutConstraint activateConstraints:@[
+        [self.imagePreviewImageView.leadingAnchor constraintEqualToAnchor:self.imageProgressView.leadingAnchor],
+        [self.imagePreviewImageView.trailingAnchor constraintEqualToAnchor:self.imageProgressView.trailingAnchor],
+        [self.imagePreviewImageView.topAnchor constraintEqualToAnchor:self.imageProgressView.topAnchor],
+        [self.imagePreviewImageView.bottomAnchor constraintEqualToAnchor:self.imageProgressView.bottomAnchor],
+        [self.imageProgressLabel.widthAnchor constraintEqualToConstant:48],
+        [self.imageProgressLabel.heightAnchor constraintEqualToConstant:24],
+        [self.imageProgressLabel.centerXAnchor constraintEqualToAnchor:self.imageProgressView.centerXAnchor],
+        [self.imageProgressLabel.centerYAnchor constraintEqualToAnchor:self.imageProgressView.centerYAnchor],
     ]];
 
     // Tap anywhere outside the input field to dismiss the keyboard.
@@ -2368,10 +2624,33 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     vc.onAnalyze     = ^{ [ws presentFilePickerForMode:EZAttachModeAnalyze]; };
     vc.onImageFiles  = ^{ [ws presentFilePickerForMode:EZAttachModeAnalyze forceTypes:@[UTTypeImage]]; };
     vc.onPhotoLibrary= ^{ [ws presentPhotoLibraryPicker]; };
+    vc.onGallery     = ^{ [ws presentGalleryForChatAttachments]; };
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
     if (@available(iOS 15.0, *)) {
         UISheetPresentationController *sheet = nav.sheetPresentationController;
         sheet.detents = @[UISheetPresentationControllerDetent.mediumDetent];
+        sheet.prefersGrabberVisible = YES;
+    }
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)presentGalleryForChatAttachments {
+    NSUInteger currentCount = self.pendingImagePaths.count;
+    NSUInteger remaining = currentCount >= kEZMaximumImagesPerChatTurn
+        ? 0 : kEZMaximumImagesPerChatTurn - currentCount;
+    if (remaining == 0) {
+        [self appendToChat:@"[System: This message already has the maximum of 15 attached images.]" ];
+        return;
+    }
+
+    EZPhotoGalleryViewController *gallery = [EZPhotoGalleryViewController new];
+    gallery.chatAttachmentSelectionMode = YES;
+    gallery.chatAttachmentSelectionLimit = remaining;
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:gallery];
+    nav.modalPresentationStyle = UIModalPresentationPageSheet;
+    if (@available(iOS 15.0, *)) {
+        UISheetPresentationController *sheet = nav.sheetPresentationController;
+        sheet.detents = @[UISheetPresentationControllerDetent.largeDetent];
         sheet.prefersGrabberVisible = YES;
     }
     [self presentViewController:nav animated:YES completion:nil];
@@ -3537,6 +3816,47 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }] resume];
 }
 
+- (void)startImageGenerationStreamWithToken:(NSString *)token
+                                        body:(NSDictionary *)body
+                                       event:(EZImageStreamEventBlock)event
+                                  completion:(EZImageStreamCompletionBlock)completion {
+    [self startImageGenerationStreamWithToken:token body:body event:event completion:completion retryCount:0];
+}
+
+- (void)startImageGenerationStreamWithToken:(NSString *)token
+                                        body:(NSDictionary *)body
+                                       event:(EZImageStreamEventBlock)event
+                                  completion:(EZImageStreamCompletionBlock)completion
+                                  retryCount:(NSInteger)retryCount {
+    NSString *model = [body[@"model"] isKindOfClass:[NSString class]] ? body[@"model"] : @"";
+    BOOL supportsImageStreaming = [model hasPrefix:@"gpt-image-"] || [model isEqualToString:@"chatgpt-image-latest"];
+    if (!supportsImageStreaming) {
+        [self postToEZFunction:@"ez-image" token:token body:body completion:completion];
+        return;
+    }
+    NSMutableDictionary *streamBody = [body mutableCopy];
+    streamBody[@"stream"] = @YES;
+    if (!streamBody[@"partial_images"]) streamBody[@"partial_images"] = @1;
+    EZImageEventStream *client = [[EZImageEventStream alloc] initWithToken:token body:streamBody event:event
+        completion:^(NSDictionary *result, NSError *error) {
+            self.imageEventStream = nil;
+            if ([error.userInfo[@"HTTPStatus"] integerValue] == 401 && retryCount < 1) {
+                [[EZAuthManager shared] refreshSessionIfNeeded:^(NSString *newAccessToken, NSError *authError) {
+                    if (!authError && newAccessToken.length) {
+                        [self startImageGenerationStreamWithToken:newAccessToken body:body event:event
+                            completion:completion retryCount:retryCount + 1];
+                    } else {
+                        completion(nil, authError ?: error);
+                    }
+                }];
+                return;
+            }
+            completion(result, error);
+        }];
+    self.imageEventStream = client;
+    [client start];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Memory Search
 // ─────────────────────────────────────────────────────────────────────────────
@@ -4029,7 +4349,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     NSString *savedPrompt = prompt;
     [self showImageGenStatusBanner];
-    [self postToEZFunction:@"ez-image" token:token body:body
+    [self updateImageGenerationProgress:0.14]; // request body accepted locally
+    [self startImageGenerationStreamWithToken:token body:body
+        event:^(NSDictionary *event) { [self handleImageGenerationStreamEvent:event]; }
                 completion:^(NSDictionary *json, NSError *error) {
         if (error) {
             dispatch_async(dispatch_get_main_queue(), ^{ [self hideStatusBanner]; [self handleAPIError:error.localizedDescription]; });
@@ -4055,7 +4377,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         if (balanceObj && ![balanceObj isKindOfClass:[NSNull class]])
             [[EZEntitlementManager shared] applyKnownBalance:[balanceObj integerValue]];
 
-        NSArray *images = json[@"images"];
+        NSArray *images = [json[@"images"] copy];
         if (!images.count) {
             NSString *errMsg = @"No image in response";
             [self handleAPIError:errMsg];
@@ -4067,58 +4389,65 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
 
         // Download each signed URL and save locally
-        NSMutableArray<NSString *> *savedPaths = [NSMutableArray array];
-        for (NSDictionary *imgObj in images) {
-            NSString *signedURL = imgObj[@"url"];
-            if (!signedURL.length) continue;
-            NSData *imgData = [NSData dataWithContentsOfURL:[NSURL URLWithString:signedURL]];
-            if (!imgData) continue;
-            NSString *fname = [NSString stringWithFormat:@"gptimage_%lu.%@",
-                               (unsigned long)savedPaths.count + 1, imgExtension];
-            NSString *path = EZPhotoGallerySave(imgData, fname);
-            if (path) [savedPaths addObject:path];
-        }
-
-        NSString *firstPath = savedPaths.firstObject;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            self.lastImagePrompt = savedPrompt;
-            if (firstPath) {
-                self.lastImageLocalPath = firstPath;
-                self.activeThread.lastImageLocalPath = firstPath;
-                NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
-                [att addObjectsFromArray:savedPaths];
-                self.activeThread.attachmentPaths = [att copy];
-                [self saveActiveThread];
-                [self persistImagePath:firstPath prompt:savedPrompt];
-                // Preserve prompt metadata for every variation so sharing any
-                // result from the gallery can include its original prompt.
-                NSMutableDictionary *promptMap = [[[NSUserDefaults standardUserDefaults]
-                    dictionaryForKey:@"EZGalleryImagePrompts"] mutableCopy] ?: [NSMutableDictionary dictionary];
-                for (NSString *path in savedPaths) promptMap[path] = savedPrompt ?: @"";
-                [[NSUserDefaults standardUserDefaults] setObject:promptMap forKey:@"EZGalleryImagePrompts"];
-
-                // Was previously missing entirely — image generation memory
-                // entries (this and the edit-mode one below) were only ever
-                // wired to DALL-E-3's now-removed download path.
-                NSString *answer = [NSString stringWithFormat:
-                    @"Generated %lu image(s) for: %@", (unsigned long)savedPaths.count, savedPrompt];
-                createMemoryFromCompletion(savedPrompt ?: @"", answer, token,
-                                           self.activeThread.threadID, [savedPaths copy],
-                ^(NSString *entry) {
-                    if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved (image gen): %lu chars",
-                                      (unsigned long)entry.length);
-                });
+        [self updateImageGenerationProgress:0.92];
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            NSMutableArray<NSString *> *savedPaths = [NSMutableArray array];
+            for (NSUInteger imageIndex = 0; imageIndex < images.count; imageIndex++) {
+                NSDictionary *imgObj = images[imageIndex];
+                NSString *signedURL = imgObj[@"url"];
+                if (!signedURL.length) continue;
+                NSData *imgData = [NSData dataWithContentsOfURL:[NSURL URLWithString:signedURL]];
+                if (!imgData) continue;
+                NSString *fname = [NSString stringWithFormat:@"gptimage_%lu.%@",
+                                   (unsigned long)savedPaths.count + 1, imgExtension];
+                NSString *path = EZPhotoGallerySave(imgData, fname);
+                if (path) [savedPaths addObject:path];
+                CGFloat downloadProgress = 0.92 + (0.06 * ((CGFloat)(imageIndex + 1) / (CGFloat)images.count));
+                dispatch_async(dispatch_get_main_queue(), ^{ [self updateImageGenerationProgress:downloadProgress]; });
             }
-            if (savedPaths.count > 0) {
-                [self appendImageGridToChat:[savedPaths copy]
-                                     prompt:savedPrompt isError:NO errorText:nil];
-            } else {
-                NSString *errMsg = @"Image generated but could not be saved.";
-                [self appendImageGridToChat:@[] prompt:savedPrompt isError:YES errorText:errMsg];
-            }
-            [self updateCoinBalanceDisplay];
-            [self hideStatusBanner];
-            self.sendButton.enabled = YES;
+
+            NSString *firstPath = savedPaths.firstObject;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.lastImagePrompt = savedPrompt;
+                if (firstPath) {
+                    self.lastImageLocalPath = firstPath;
+                    self.activeThread.lastImageLocalPath = firstPath;
+                    NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
+                    [att addObjectsFromArray:savedPaths];
+                    self.activeThread.attachmentPaths = [att copy];
+                    [self saveActiveThread];
+                    [self persistImagePath:firstPath prompt:savedPrompt];
+                    // Preserve prompt metadata for every variation so sharing any
+                    // result from the gallery can include its original prompt.
+                    NSMutableDictionary *promptMap = [[[NSUserDefaults standardUserDefaults]
+                        dictionaryForKey:@"EZGalleryImagePrompts"] mutableCopy] ?: [NSMutableDictionary dictionary];
+                    for (NSString *path in savedPaths) promptMap[path] = savedPrompt ?: @"";
+                    [[NSUserDefaults standardUserDefaults] setObject:promptMap forKey:@"EZGalleryImagePrompts"];
+
+                    // Was previously missing entirely — image generation memory
+                    // entries (this and the edit-mode one below) were only ever
+                    // wired to DALL-E-3's now-removed download path.
+                    NSString *answer = [NSString stringWithFormat:
+                        @"Generated %lu image(s) for: %@", (unsigned long)savedPaths.count, savedPrompt];
+                    createMemoryFromCompletion(savedPrompt ?: @"", answer, token,
+                                               self.activeThread.threadID, [savedPaths copy],
+                    ^(NSString *entry) {
+                        if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved (image gen): %lu chars",
+                                          (unsigned long)entry.length);
+                    });
+                }
+                if (savedPaths.count > 0) {
+                    [self appendImageGridToChat:[savedPaths copy]
+                                         prompt:savedPrompt isError:NO errorText:nil];
+                } else {
+                    NSString *errMsg = @"Image generated but could not be saved.";
+                    [self appendImageGridToChat:@[] prompt:savedPrompt isError:YES errorText:errMsg];
+                }
+                [self updateCoinBalanceDisplay];
+                [self updateImageGenerationProgress:1.0];
+                [self hideStatusBanner];
+                self.sendButton.enabled = YES;
+            });
         });
     }];
 }
@@ -4186,7 +4515,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     };
 
     [self showImageGenStatusBanner];
-    [self postToEZFunction:@"ez-image" token:token body:body
+    [self updateImageGenerationProgress:0.14]; // edit request accepted locally
+    [self startImageGenerationStreamWithToken:token body:body
+        event:^(NSDictionary *event) { [self handleImageGenerationStreamEvent:event]; }
                 completion:^(NSDictionary *json, NSError *error) {
         if (error) {
             dispatch_async(dispatch_get_main_queue(), ^{ [self hideStatusBanner]; [self handleAPIError:error.localizedDescription]; });
@@ -4211,7 +4542,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         if (balanceObj && ![balanceObj isKindOfClass:[NSNull class]])
             [[EZEntitlementManager shared] applyKnownBalance:[balanceObj integerValue]];
 
-        NSArray *images = json[@"images"];
+        NSArray *images = [json[@"images"] copy];
         if (!images.count) {
             NSString *errMsg = @"No image in edit response";
             [self handleAPIError:errMsg];
@@ -4222,61 +4553,68 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             return;
         }
 
-        NSMutableArray<NSString *> *savedPaths = [NSMutableArray array];
-        for (NSDictionary *imgObj in images) {
-            NSString *signedURL = imgObj[@"url"];
-            if (!signedURL.length) continue;
-            NSData *imgData = [NSData dataWithContentsOfURL:[NSURL URLWithString:signedURL]];
-            if (!imgData) continue;
-            NSString *fname = [NSString stringWithFormat:@"edit_%lu.%@",
-                               (unsigned long)savedPaths.count + 1, editExtension];
-            NSString *path = EZPhotoGallerySave(imgData, fname);
-            if (path) [savedPaths addObject:path];
-        }
+        [self updateImageGenerationProgress:0.92];
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            NSMutableArray<NSString *> *savedPaths = [NSMutableArray array];
+            for (NSUInteger imageIndex = 0; imageIndex < images.count; imageIndex++) {
+                NSDictionary *imgObj = images[imageIndex];
+                NSString *signedURL = imgObj[@"url"];
+                if (!signedURL.length) continue;
+                NSData *imgData = [NSData dataWithContentsOfURL:[NSURL URLWithString:signedURL]];
+                if (!imgData) continue;
+                NSString *fname = [NSString stringWithFormat:@"edit_%lu.%@",
+                                   (unsigned long)savedPaths.count + 1, editExtension];
+                NSString *path = EZPhotoGallerySave(imgData, fname);
+                if (path) [savedPaths addObject:path];
+                CGFloat downloadProgress = 0.92 + (0.06 * ((CGFloat)(imageIndex + 1) / (CGFloat)images.count));
+                dispatch_async(dispatch_get_main_queue(), ^{ [self updateImageGenerationProgress:downloadProgress]; });
+            }
 
-        NSString *firstPath = savedPaths.firstObject;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            self.lastImagePrompt = prompt;
-            if (!preserveChatModel) {
-                self.selectedModel = @"gpt-image-1-edit";
-                [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@ (edit mode)", imageModel]
-                                  forState:UIControlStateNormal];
-                [self appendToChat:@"[System: Edit complete — still in edit mode. Attach a new image or type another edit prompt.]"];
-            }
-            if (firstPath) {
-                self.lastImageLocalPath = firstPath;
-                self.activeThread.lastImageLocalPath = firstPath;
-                NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
-                [att addObjectsFromArray:savedPaths];
-                self.activeThread.attachmentPaths = [att copy];
-                [self saveActiveThread];
-                [self persistImagePath:firstPath prompt:prompt];
-                NSMutableDictionary *promptMap = [[[NSUserDefaults standardUserDefaults]
-                    dictionaryForKey:@"EZGalleryImagePrompts"] mutableCopy] ?: [NSMutableDictionary dictionary];
-                for (NSString *path in savedPaths) promptMap[path] = prompt ?: @"";
-                [[NSUserDefaults standardUserDefaults] setObject:promptMap forKey:@"EZGalleryImagePrompts"];
+            NSString *firstPath = savedPaths.firstObject;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.lastImagePrompt = prompt;
+                if (!preserveChatModel) {
+                    self.selectedModel = @"gpt-image-1-edit";
+                    [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@ (edit mode)", imageModel]
+                                      forState:UIControlStateNormal];
+                    [self appendToChat:@"[System: Edit complete — still in edit mode. Attach a new image or type another edit prompt.]"];
+                }
+                if (firstPath) {
+                    self.lastImageLocalPath = firstPath;
+                    self.activeThread.lastImageLocalPath = firstPath;
+                    NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
+                    [att addObjectsFromArray:savedPaths];
+                    self.activeThread.attachmentPaths = [att copy];
+                    [self saveActiveThread];
+                    [self persistImagePath:firstPath prompt:prompt];
+                    NSMutableDictionary *promptMap = [[[NSUserDefaults standardUserDefaults]
+                        dictionaryForKey:@"EZGalleryImagePrompts"] mutableCopy] ?: [NSMutableDictionary dictionary];
+                    for (NSString *path in savedPaths) promptMap[path] = prompt ?: @"";
+                    [[NSUserDefaults standardUserDefaults] setObject:promptMap forKey:@"EZGalleryImagePrompts"];
 
-                // Was previously missing entirely, same as generation —
-                // see the comment above the other createMemoryFromCompletion
-                // call site in this file.
-                NSString *answer = [NSString stringWithFormat:
-                    @"Edited the attached image per: %@", prompt];
-                createMemoryFromCompletion(prompt ?: @"", answer, token,
-                                           self.activeThread.threadID, [savedPaths copy],
-                ^(NSString *entry) {
-                    if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved (image edit): %lu chars",
-                                      (unsigned long)entry.length);
-                });
-            }
-            if (savedPaths.count > 0) {
-                [self appendImageGridToChat:[savedPaths copy] prompt:prompt isError:NO errorText:nil];
-            } else {
-                NSString *errMsg = @"Edit produced no image output.";
-                [self appendImageGridToChat:@[] prompt:prompt isError:YES errorText:errMsg];
-            }
-            [self updateCoinBalanceDisplay];
-            [self hideStatusBanner];
-            self.sendButton.enabled = YES;
+                    // Was previously missing entirely, same as generation —
+                    // see the comment above the other createMemoryFromCompletion
+                    // call site in this file.
+                    NSString *answer = [NSString stringWithFormat:
+                        @"Edited the attached image per: %@", prompt];
+                    createMemoryFromCompletion(prompt ?: @"", answer, token,
+                                               self.activeThread.threadID, [savedPaths copy],
+                    ^(NSString *entry) {
+                        if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved (image edit): %lu chars",
+                                          (unsigned long)entry.length);
+                    });
+                }
+                if (savedPaths.count > 0) {
+                    [self appendImageGridToChat:[savedPaths copy] prompt:prompt isError:NO errorText:nil];
+                } else {
+                    NSString *errMsg = @"Edit produced no image output.";
+                    [self appendImageGridToChat:@[] prompt:prompt isError:YES errorText:errMsg];
+                }
+                [self updateCoinBalanceDisplay];
+                [self updateImageGenerationProgress:1.0];
+                [self hideStatusBanner];
+                self.sendButton.enabled = YES;
+            });
         });
     }];
 }
@@ -4572,7 +4910,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSString *filename   = fileURL.lastPathComponent ?: @"recording.m4a";
     NSDictionary *body   = @{ @"audio_b64": b64Audio, @"filename": filename };
 
-    [self postToEZFunction:@"ez-whisper" token:token body:body
+    [self postToEZFunction:@"whisper-1" token:token body:body
                 completion:^(NSDictionary *json, NSError *error) {
         if (error) {
             EZLogf(EZLogLevelError, @"WHISPER", @"Failed: %@", error.localizedDescription); return;
@@ -6230,12 +6568,71 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)showImageGenStatusBanner {
+    self.imageGenerationProgress = 0.08;
+    self.imagePreviewImageView.image = nil;
+    self.imageProgressWidthConstraint.constant = 88;
+    self.imageProgressHeightConstraint.constant = 88;
+    if (!self.imageBannerHeightConstraint) {
+        self.imageBannerHeightConstraint = [self.statusBannerView.heightAnchor constraintGreaterThanOrEqualToConstant:108];
+    }
+    self.imageBannerHeightConstraint.active = YES;
+    self.statusBannerSpinner.hidden = YES;
+    self.imageProgressView.hidden = NO;
+    [self.statusBannerView layoutIfNeeded];
+    [self updateImageGenerationProgress:self.imageGenerationProgress];
     [self showStatusBannerWithMessages:@[
-        @"Working on your request…",
-        @"Do not leave the page while generating",
-        @"Still generating — this can take a moment",
-        @"Almost done…",
+        NSLocalizedStringWithDefaultValue(@"EZImageGen.Status.Working", nil, NSBundle.mainBundle,
+                                          @"Working on your request…", @"Image generation progress"),
+        NSLocalizedStringWithDefaultValue(@"EZImageGen.Status.Stay", nil, NSBundle.mainBundle,
+                                          @"Do not leave the page while generating", @"Image generation progress"),
+        NSLocalizedStringWithDefaultValue(@"EZImageGen.Status.StillWorking", nil, NSBundle.mainBundle,
+                                          @"Still generating — this can take a moment", @"Image generation progress"),
+        NSLocalizedStringWithDefaultValue(@"EZImageGen.Status.AlmostDone", nil, NSBundle.mainBundle,
+                                          @"Almost done…", @"Image generation progress"),
     ]];
+    [self.statusBannerSpinner stopAnimating];
+}
+- (void)handleImageGenerationStreamEvent:(NSDictionary *)event {
+    NSString *type = [event[@"type"] isKindOfClass:[NSString class]] ? event[@"type"] : @"";
+    if ([type isEqualToString:@"progress"] || [type isEqualToString:@"partial_image"]) {
+        [self updateImageGenerationProgress:[event[@"progress"] doubleValue]];
+    }
+    if ([type isEqualToString:@"partial_image"]) {
+        NSString *base64 = [event[@"image_b64"] isKindOfClass:[NSString class]] ? event[@"image_b64"] : nil;
+        if (base64.length) {
+            static dispatch_queue_t previewDecodeQueue;
+            static dispatch_once_t onceToken;
+            dispatch_once(&onceToken, ^{
+                previewDecodeQueue = dispatch_queue_create("com.ezcompleteui.image-preview-decode", DISPATCH_QUEUE_SERIAL);
+            });
+            __weak typeof(self) weakSelf = self;
+            dispatch_async(previewDecodeQueue, ^{
+                NSData *imageData = [[NSData alloc] initWithBase64EncodedString:base64 options:0];
+                UIImage *preview = imageData ? [UIImage imageWithData:imageData] : nil;
+                if (!preview) return;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    __strong typeof(weakSelf) self = weakSelf;
+                    if (self && !self.imageProgressView.hidden) self.imagePreviewImageView.image = preview;
+                });
+            });
+        }
+    }
+}
+- (void)updateImageGenerationProgress:(CGFloat)progress {
+    progress = MAX(self.imageGenerationProgress, MAX(0, MIN(progress, 1)));
+    self.imageGenerationProgress = progress;
+    [self.imageProgressView layoutIfNeeded];
+    CGRect bounds = self.imageProgressView.bounds;
+    CGFloat radius = MIN(bounds.size.width, bounds.size.height) / 2.0 - 3.0;
+    CGPathRef ringPath = [UIBezierPath bezierPathWithArcCenter:CGPointMake(CGRectGetMidX(bounds), CGRectGetMidY(bounds))
+                                                         radius:radius startAngle:-(CGFloat)M_PI_2
+                                                       endAngle:(CGFloat)(M_PI * 1.5) clockwise:YES].CGPath;
+    self.imageProgressTrackRing.frame = bounds;
+    self.imageProgressTrackRing.path = ringPath;
+    self.imageProgressRing.frame = bounds;
+    self.imageProgressRing.path = ringPath;
+    self.imageProgressRing.strokeEnd = progress;
+    self.imageProgressLabel.text = [NSString stringWithFormat:@"%ld%%", (long)llround(progress * 100)];
 }
 
 // ── Generic status banner — shared by GPT-5's long-reasoning wait and image
@@ -6270,6 +6667,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     BOOL wasActive = self.statusBannerTimer != nil;
     [self.statusBannerTimer invalidate]; self.statusBannerTimer = nil;
     [self.statusBannerSpinner stopAnimating];
+    self.statusBannerSpinner.hidden = NO;
+    if (!self.imageProgressView.hidden) {
+        self.imageProgressView.hidden = YES;
+        self.imagePreviewImageView.image = nil;
+        self.imageProgressWidthConstraint.constant = 22;
+        self.imageProgressHeightConstraint.constant = 22;
+        self.imageBannerHeightConstraint.active = NO;
+    }
     // Release the old operation now, not in an animation completion that can
     // fire after a chat-to-image handoff has already started the next spinner.
     if (wasActive) {
@@ -6286,6 +6691,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         options:UIViewAnimationOptionTransitionCrossDissolve
         animations:^{ self.statusBannerLabel.text = m[self.statusBannerPhase % m.count]; } completion:nil];
     self.statusBannerPhase++;
+    // The image API emits partial/completed events, not a numeric percentage.
+    // Advance a monotonic estimate between those server-reported phases.
+    if (!self.imageProgressView.hidden && self.imageGenerationProgress < 0.90) {
+        CGFloat remaining = 0.90 - self.imageGenerationProgress;
+        [self updateImageGenerationProgress:MIN(0.90, self.imageGenerationProgress + MAX(0.002, remaining * 0.08))];
+    }
 }
 - (void)openSettings {
     UINavigationController *nav = [[UINavigationController alloc]
@@ -6303,6 +6714,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     picker.onRicochetSelected = ^{
         BRRicochetViewController *ricochet = [BRRicochetViewController ricochetController];
         [weakSelf presentGameController:ricochet];
+    };
+    picker.onSlotsSelected = ^{
+        [weakSelf presentGameController:[BRSlotGamePickerViewController new]];
     };
     picker.modalPresentationStyle = UIModalPresentationFormSheet;
     [self presentViewController:picker animated:YES completion:nil];

@@ -16,12 +16,18 @@
 
 @interface BRGameRecord ()
 @property (nonatomic, copy)   NSString *gameFolderPath; ///< full path to <uuid>/ folder
+@property (nonatomic, copy)   NSString *communitySharedGameID;
 @property (nonatomic, strong) UIImage  *cachedBackground;
 @property (nonatomic, strong) UIImage  *cachedPlayer;
 @property (nonatomic, strong) UIImage  *cachedEnemy;
+@property (nonatomic, strong) UIImage  *cachedObstacle;
 @property (nonatomic, assign) BOOL      backgroundLoaded;
 @property (nonatomic, assign) BOOL      playerLoaded;
 @property (nonatomic, assign) BOOL      enemyLoaded;
+@property (nonatomic, assign) BOOL      obstacleLoaded;
+@property (nonatomic, copy) NSDictionary<NSString *, NSString *> *customAssetFiles;
+@property (nonatomic, strong) NSDictionary<NSString *, UIImage *> *cachedCustomAssets;
+@property (nonatomic, assign) BOOL customAssetsLoaded;
 @end
 
 @implementation BRGameRecord
@@ -53,6 +59,28 @@
     return self.cachedEnemy;
 }
 
+- (UIImage *)obstacleImage {
+    if (!self.obstacleLoaded) {
+        self.cachedObstacle = [UIImage imageWithContentsOfFile:[self.gameFolderPath stringByAppendingPathComponent:@"obstacle.png"]];
+        self.obstacleLoaded = YES;
+    }
+    return self.cachedObstacle;
+}
+
+- (NSDictionary<NSString *,UIImage *> *)customAssetImages {
+    if (!self.customAssetsLoaded) {
+        NSMutableDictionary *images = [NSMutableDictionary dictionary];
+        [self.customAssetFiles enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *filename, BOOL *stop) {
+            if (![filename isKindOfClass:NSString.class]) return;
+            UIImage *image = [UIImage imageWithContentsOfFile:[self.gameFolderPath stringByAppendingPathComponent:filename]];
+            if (image) images[key] = image;
+        }];
+        self.cachedCustomAssets = images;
+        self.customAssetsLoaded = YES;
+    }
+    return self.cachedCustomAssets ?: @{};
+}
+
 - (NSDictionary *)asAssetDict {
     // Matches the shape BrainRotViewController expects from buildGameAssetsWithCompletion:
     NSMutableDictionary *dict = [NSMutableDictionary dictionary];
@@ -64,9 +92,11 @@
     UIImage *bg  = self.backgroundImage;
     UIImage *plr = self.playerImage;
     UIImage *enm = self.enemyImage;
+    UIImage *obs = self.obstacleImage;
     if (bg)  dict[@"bgImage"]     = bg;
     if (plr) dict[@"playerImage"] = plr;
     if (enm) dict[@"enemyImage"]  = enm;
+    if (obs) dict[@"obstacleImage"] = obs;
     return [dict copy];
 }
 
@@ -121,6 +151,37 @@
                     playerImage:(nullable UIImage *)playerImage
                      enemyImage:(nullable UIImage *)enemyImage
                      completion:(nullable void (^)(BRGameRecord *record))completion {
+    [self saveGameWithThemeTitle:themeTitle premise:premise hint:hint items:items enemies:enemies seed:seed
+                 backgroundImage:backgroundImage playerImage:playerImage enemyImage:enemyImage
+                  obstacleImage:nil completion:completion];
+}
+
+- (void)saveGameWithThemeTitle:(NSString *)themeTitle
+                        premise:(NSString *)premise
+                           hint:(NSString *)hint
+                          items:(NSArray<NSString *> *)items
+                        enemies:(NSArray<NSString *> *)enemies
+                           seed:(NSNumber *)seed
+               backgroundImage:(nullable UIImage *)backgroundImage
+                    playerImage:(nullable UIImage *)playerImage
+                     enemyImage:(nullable UIImage *)enemyImage
+                  obstacleImage:(nullable UIImage *)obstacleImage
+                     completion:(nullable void (^)(BRGameRecord *record))completion {
+    [self saveGameWithThemeTitle:themeTitle premise:premise hint:hint items:items enemies:enemies seed:seed backgroundImage:backgroundImage playerImage:playerImage enemyImage:enemyImage obstacleImage:obstacleImage customAssetImages:nil completion:completion];
+}
+
+- (void)saveGameWithThemeTitle:(NSString *)themeTitle
+                        premise:(NSString *)premise
+                           hint:(NSString *)hint
+                          items:(NSArray<NSString *> *)items
+                        enemies:(NSArray<NSString *> *)enemies
+                           seed:(NSNumber *)seed
+               backgroundImage:(nullable UIImage *)backgroundImage
+                    playerImage:(nullable UIImage *)playerImage
+                     enemyImage:(nullable UIImage *)enemyImage
+                  obstacleImage:(nullable UIImage *)obstacleImage
+               customAssetImages:(nullable NSDictionary<NSString *,UIImage *> *)customAssetImages
+                     completion:(nullable void (^)(BRGameRecord *record))completion {
 
     NSString *gameID         = [[NSUUID UUID] UUIDString];
     NSString *gameFolderPath = [self.libraryRootPath stringByAppendingPathComponent:gameID];
@@ -141,6 +202,7 @@
         }
 
         // Write meta.json
+        NSMutableDictionary<NSString *, NSString *> *assetFiles = [NSMutableDictionary dictionary];
         NSDictionary *metaDict = @{
             @"themeTitle":   themeTitle  ?: @"",
             @"premise":      premise     ?: @"",
@@ -149,6 +211,7 @@
             @"enemies":      enemies     ?: @[],
             @"seed":         seed        ?: @(0),
             @"createdDate":  @(createdDate.timeIntervalSince1970),
+            @"customAssetFiles": assetFiles,
         };
         NSData *metaData = [NSJSONSerialization dataWithJSONObject:metaDict options:0 error:&error];
         if (metaData) {
@@ -167,6 +230,18 @@
         writePNG(backgroundImage, @"background.png");
         writePNG(playerImage,     @"player.png");
         writePNG(enemyImage,      @"enemy.png");
+        writePNG(obstacleImage,   @"obstacle.png");
+        [customAssetImages enumerateKeysAndObjectsUsingBlock:^(NSString *key, UIImage *image, BOOL *stop) {
+            if (![key isKindOfClass:NSString.class] || ![image isKindOfClass:UIImage.class]) return;
+            NSString *safeKey = [[key componentsSeparatedByCharactersInSet:[[NSCharacterSet alphanumericCharacterSet] invertedSet]] componentsJoinedByString:@"_"];
+            if (!safeKey.length) return;
+            NSString *filename = [NSString stringWithFormat:@"asset-%@.png", safeKey];
+            writePNG(image, filename); assetFiles[key] = filename;
+        }];
+        // The asset map must be written after its files are named.
+        NSMutableDictionary *finalMeta = [metaDict mutableCopy]; finalMeta[@"customAssetFiles"] = assetFiles;
+        NSData *finalMetaData = [NSJSONSerialization dataWithJSONObject:finalMeta options:0 error:nil];
+        if (finalMetaData) [finalMetaData writeToFile:[gameFolderPath stringByAppendingPathComponent:@"meta.json"] atomically:YES];
 
         // Build the in-memory record
         BRGameRecord *record = [[BRGameRecord alloc] init];
@@ -179,6 +254,7 @@
         record.seed           = seed        ?: @(0);
         record.createdDate    = createdDate;
         record.gameFolderPath = gameFolderPath;
+        record.customAssetFiles = assetFiles;
 
         NSLog(@"[BRGameLibrary] Saved game '%@' → %@", themeTitle, gameID);
 
@@ -229,6 +305,8 @@
         record.createdDate    = timestampNum
                                      ? [NSDate dateWithTimeIntervalSince1970:timestampNum.doubleValue]
                                      : [NSDate distantPast];
+        record.customAssetFiles = [metaDict[@"customAssetFiles"] isKindOfClass:NSDictionary.class] ? metaDict[@"customAssetFiles"] : @{};
+        record.communitySharedGameID = [metaDict[@"communitySharedGameID"] isKindOfClass:NSString.class] ? metaDict[@"communitySharedGameID"] : nil;
         [records addObject:record];
     }
 
@@ -238,6 +316,37 @@
     }];
 
     return [records copy];
+}
+
+- (void)markRecord:(BRGameRecord *)record downloadedFromCommunityGameID:(NSString *)sharedGameID {
+    if (!record.gameFolderPath.length || !sharedGameID.length) return;
+    NSString *metaPath = [record.gameFolderPath stringByAppendingPathComponent:@"meta.json"];
+    NSData *data = [NSData dataWithContentsOfFile:metaPath];
+    NSMutableDictionary *meta = [[NSJSONSerialization JSONObjectWithData:data options:0 error:nil] mutableCopy];
+    if (!meta) return;
+    meta[@"communitySharedGameID"] = sharedGameID;
+    NSData *updated = [NSJSONSerialization dataWithJSONObject:meta options:0 error:nil];
+    if ([updated writeToFile:metaPath atomically:YES]) record.communitySharedGameID = sharedGameID;
+}
+
+- (BRGameRecord *)existingCommunityRecordWithSharedGameID:(NSString *)sharedGameID
+                                                themeTitle:(NSString *)themeTitle
+                                                   premise:(NSString *)premise {
+    NSArray<BRGameRecord *> *records = self.allRecords;
+    for (BRGameRecord *record in records) if ([record.communitySharedGameID isEqualToString:sharedGameID]) return record;
+
+    // Older app versions did not persist the Community ID. Adopt an exact
+    // title/premise match once, and remove any extra copies created by retrying
+    // the formerly broken download/play handoff.
+    NSMutableArray<BRGameRecord *> *legacyMatches = [NSMutableArray array];
+    for (BRGameRecord *record in records) {
+        if ([record.themeTitle isEqualToString:themeTitle ?: @""] && [record.premise isEqualToString:premise ?: @""]) [legacyMatches addObject:record];
+    }
+    BRGameRecord *adopted = legacyMatches.firstObject;
+    if (!adopted) return nil;
+    [self markRecord:adopted downloadedFromCommunityGameID:sharedGameID];
+    for (BRGameRecord *duplicate in legacyMatches) if (duplicate != adopted) [self deleteRecord:duplicate];
+    return adopted;
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────────

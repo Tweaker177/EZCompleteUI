@@ -4,7 +4,7 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.preferredContentSize = CGSizeMake(420, 440);
+    self.preferredContentSize = CGSizeMake(420, 570);
     self.view.backgroundColor = [UIColor colorWithRed:0.025 green:0.03 blue:0.09 alpha:1];
 
     UILabel *title = [UILabel new];
@@ -31,6 +31,13 @@
     close.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:close];
 
+    UIButton *slots = [self cardWithTitle:@"Brainrot Slots"
+                                 subtitle:@"Custom 3-reel, 5-line EZ Coin slots"
+                                  symbol:@"7.circle.fill"
+                                   color:[UIColor colorWithRed:0.96 green:0.64 blue:0.10 alpha:1]];
+    [slots addTarget:self action:@selector(slotsTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:slots];
+
     UIButton *maze = [self cardWithTitle:NSLocalizedString(@"EZGameMode.Maze", nil)
                                subtitle:NSLocalizedString(@"EZGameMode.MazeDescription", nil)
                                 symbol:@"map.fill"
@@ -50,8 +57,9 @@
         [close.topAnchor constraintEqualToAnchor:safe.topAnchor constant:14], [close.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-18], [close.widthAnchor constraintEqualToConstant:32], [close.heightAnchor constraintEqualToConstant:32],
         [title.topAnchor constraintEqualToAnchor:safe.topAnchor constant:38], [title.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:28], [title.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-28],
         [subtitle.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:10], [subtitle.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:32], [subtitle.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-32],
-        [maze.topAnchor constraintEqualToAnchor:subtitle.bottomAnchor constant:34], [maze.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24], [maze.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24], [maze.heightAnchor constraintEqualToConstant:118],
-        [ricochet.topAnchor constraintEqualToAnchor:maze.bottomAnchor constant:18], [ricochet.leadingAnchor constraintEqualToAnchor:maze.leadingAnchor], [ricochet.trailingAnchor constraintEqualToAnchor:maze.trailingAnchor], [ricochet.heightAnchor constraintEqualToAnchor:maze.heightAnchor],
+        [slots.topAnchor constraintEqualToAnchor:subtitle.bottomAnchor constant:34], [slots.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24], [slots.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24], [slots.heightAnchor constraintEqualToConstant:118],
+        [maze.topAnchor constraintEqualToAnchor:slots.bottomAnchor constant:18], [maze.leadingAnchor constraintEqualToAnchor:slots.leadingAnchor], [maze.trailingAnchor constraintEqualToAnchor:slots.trailingAnchor], [maze.heightAnchor constraintEqualToAnchor:slots.heightAnchor],
+        [ricochet.topAnchor constraintEqualToAnchor:maze.bottomAnchor constant:18], [ricochet.leadingAnchor constraintEqualToAnchor:slots.leadingAnchor], [ricochet.trailingAnchor constraintEqualToAnchor:slots.trailingAnchor], [ricochet.heightAnchor constraintEqualToAnchor:slots.heightAnchor],
     ]];
 }
 
@@ -100,6 +108,7 @@
 
 - (void)mazeTapped { dispatch_block_t block = self.onMazeSelected; [self dismissViewControllerAnimated:YES completion:block]; }
 - (void)ricochetTapped { dispatch_block_t block = self.onRicochetSelected; [self dismissViewControllerAnimated:YES completion:block]; }
+- (void)slotsTapped { dispatch_block_t block = self.onSlotsSelected; [self dismissViewControllerAnimated:YES completion:block]; }
 - (void)closeTapped { [self dismissViewControllerAnimated:YES completion:nil]; }
 
 @end

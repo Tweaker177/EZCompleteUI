@@ -31,6 +31,10 @@ extern NSNotificationName const EZEditImageInChat;
 /// Optional selection mode for flows that need an existing gallery image
 /// without re-importing or duplicating the underlying file.
 @property (nonatomic, copy, nullable) void (^onSelectImage)(UIImage *image);
+/// Opens the existing gallery directly in image-only multi-select mode for chat.
+@property (nonatomic, assign) BOOL chatAttachmentSelectionMode;
+/// Maximum number of images selectable in chat mode (zero uses the default cap).
+@property (nonatomic, assign) NSUInteger chatAttachmentSelectionLimit;
 @end
 
 /// Reusable image detail/editor used by the gallery and image-backed memories.

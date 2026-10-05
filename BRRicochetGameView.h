@@ -23,6 +23,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, strong, nullable) BRRicochetGameModel *model;
 @property (nonatomic, strong, nullable) UIImage *backgroundImage;
+@property (nonatomic, strong, nullable) UIImage *obstacleImage;
+
+/// Briefly reveals an obstacle's remaining-hit badge after that obstacle is
+/// contacted, keeping the artwork unobscured while still giving hit feedback.
+- (void)showHitPointsForObstacleAtFrame:(CGRect)frame;
 
 /// Briefly set true (with blastPreviewCenter/Radius) to draw the Use
 /// blast's radius ring, e.g. for the moment the charge becomes full.

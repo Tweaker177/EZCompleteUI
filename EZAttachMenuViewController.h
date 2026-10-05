@@ -15,6 +15,7 @@ typedef void (^EZAttachAction)(void);
 @property (nonatomic, copy, nullable) EZAttachAction onAnalyze;
 @property (nonatomic, copy, nullable) EZAttachAction onImageFiles;
 @property (nonatomic, copy, nullable) EZAttachAction onPhotoLibrary;
+@property (nonatomic, copy, nullable) EZAttachAction onGallery;
 
 @end
 

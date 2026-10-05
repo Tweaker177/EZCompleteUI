@@ -71,6 +71,30 @@ static NSString * const kEZHelperURL = @"https://spuoimtqofhbdzosrbng.supabase.c
 static const float kDirectAnswerConfidenceThreshold = 0.85f;
 static const float kAnswerValidatorConfidenceThreshold = 0.75f;
 
+// Memory context is injected ahead of a user's actual message for model
+// routing. It is implementation metadata, never a meaningful thread title.
+static NSString *EZThreadTitleFromUserMessage(NSString *text) {
+    NSString *trimmed = [text stringByTrimmingCharactersInSet:
+        [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (![trimmed hasPrefix:@"[Possibly relevant memories:"] &&
+        ![trimmed hasPrefix:@"[Memories with possible relevance:"]) {
+        return trimmed;
+    }
+
+    NSRange marker = [trimmed rangeOfString:@"[User message]"
+                                    options:NSCaseInsensitiveSearch];
+    if (marker.location == NSNotFound) return @"";
+    NSUInteger start = NSMaxRange(marker);
+    if (start < trimmed.length && [trimmed characterAtIndex:start] == '\n') start++;
+    return [[trimmed substringFromIndex:start]
+        stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+}
+
+static BOOL EZThreadTitleIsMemoryContext(NSString *title) {
+    return [title hasPrefix:@"[Possibly relevant memories:"] ||
+           [title hasPrefix:@"[Memories with possible relevance:"];
+}
+
 BOOL EZActivatePlaybackAudioSession(NSError * _Nullable * _Nullable error) {
     AVAudioSession *session = [AVAudioSession sharedInstance];
     NSError *sessionError = nil;
@@ -267,7 +291,7 @@ static BOOL _helperDirectAnswersEnabled(void) {
     // Try "title" first, then "name" (some older exports used "name").
     id title = dict[@"title"] ?: dict[@"name"];
     if ([title isKindOfClass:[NSString class]] && [(NSString *)title length] > 0) {
-        thread.title = title;
+        thread.title = EZThreadTitleFromUserMessage(title);
     }
 
     // ── displayText ──────────────────────────────────────────────────────────
@@ -347,7 +371,7 @@ static BOOL _helperDirectAnswersEnabled(void) {
                 id content = msg[@"content"];
                 NSString *text = nil;
                 if ([content isKindOfClass:[NSString class]]) {
-                    text = content;
+                    text = EZThreadTitleFromUserMessage(content);
                 }
                 if (text.length > 0) {
                     // Truncate long first messages so the thread list stays tidy.
@@ -1408,6 +1432,10 @@ void EZThreadSave(EZChatThread *thread, void (^ _Nullable completionCallback)(BO
     // Stamp timestamps before serialization.
     thread.updatedAt = _timestampISO8601();
     if (thread.createdAt.length == 0) thread.createdAt = thread.updatedAt;
+    // Do not allow injected memory context (including an old persisted title)
+    // to survive as a thread name.
+    if (EZThreadTitleIsMemoryContext(thread.title)) thread.title = @"";
+    if (EZThreadTitleIsMemoryContext(thread.displayText)) thread.displayText = @"";
     if (thread.title.length       == 0) thread.title       = NSLocalizedString(@"EZThread.NewConversation", nil);
     if (thread.displayText.length == 0) thread.displayText = thread.title;
 
@@ -2533,7 +2561,7 @@ void analyzePromptForContext(NSString *userPrompt,
             // we have and let the main model do its best with limited context.
             NSString *memoriesToUse  = selectedMems.length > 0 ? selectedMems : rankedMemories;
             NSString *enrichedPrompt = [NSString stringWithFormat:
-                @"[Possibly relevant memoryies:]\n%@\n\n[User message]\n%@", memoriesToUse, userPrompt];
+                @"[Possibly relevant memories:]\n%@\n\n[User message]\n%@", memoriesToUse, userPrompt];
             result.tier            = EZRoutingTierMemory;
             result.needsContext    = YES;
             result.finalPrompt     = enrichedPrompt;

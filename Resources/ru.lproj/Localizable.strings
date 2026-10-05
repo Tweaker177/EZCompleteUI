@@ -1,0 +1,397 @@
+/* EZModelPickerViewController localization */
+
+"EZModelPicker.Title" = "Выбор модели";
+
+"EZModelSection.FrontierReasoning" = "Расширенное мышление";
+"EZModelSection.GPT4Chat" = "Чат GPT-4";
+"EZModelSection.ImageGeneration" = "Генерация изображений";
+"EZModelSection.AudioTranscription" = "Расшифровка аудио";
+
+"EZModelLabel.ChatVisionNewest" = "💬 Чат + 👁 Зрение ⭐ Новейшая модель";
+"EZModelLabel.ChatVision" = "💬 Чат + 👁 Зрение";
+"EZModelLabel.ChatVisionBalanced" = "💬 Чат + 👁 Зрение (сбалансированный режим)";
+"EZModelLabel.ChatVisionFastCheap" = "💬 Чат + 👁 Зрение (быстро и недорого)";
+"EZModelLabel.ChatOnly" = "💬 Только чат";
+"EZModelLabel.ImageGenNewestFast" = "🖼 Генерация изображений (новейшая, быстрая) — Низкий/Средний/Высокий/Очень высокий/Максимальный";
+"EZModelLabel.ImageGenEditPrecision" = "🖼 Генерация изображения + ✏️ Редактирование (точность) — Низкий/Средний/Высокий/Очень высокий/Максимальный";
+"EZModelLabel.ImageGenEdit" = "🖼 Генерация изображения + ✏️ Редактирование — Низкий/Средний/Высокий";
+"EZModelLabel.ImageGen" = "🖼 Генерация изображений";
+"EZModelLabel.ImageGenFastCheap" = "🖼 Генерация изображений (быстро/доступно)";
+"EZModelLabel.ChatGPTImageLatest" = "🖼 Изображение ChatGPT (новейшее)";
+"EZModelLabel.AudioTranscriptionOnly" = "🎙 Только транскрипция аудио";
+
+
+/* TextToSpeechViewController localization */
+
+"EZTTS.Title" = "Преобразование текста в речь";
+
+"EZTTS.PromptHeader" = "ЧТО ЭТО ДОЛЖНО СКАЗАТЬ?";
+
+"EZTTS.VoiceHeader" = "ГОЛОС";
+
+"EZTTS.SpeedFormat" = "Скорость: %.2f×";
+
+"EZTTS.Generate" = "Создать";
+
+"EZTTS.ChooseVoice" = "Выберите голос…";
+
+"EZTTS.CharactersRemaining" = "Осталось символов: %lu";
+
+"EZTTS.MissingTextTitle" = "Отсутствует текст";
+
+"EZTTS.MissingTextMessage" = "Введите текст, чтобы синтезировать.";
+
+"EZTTS.ErrorTitle" = "Ошибка TTS";
+
+"EZTTS.FailedToSynthesize" = "Не удалось синтезировать речь.";
+
+"EZTTS.NoAudioReturned" = "Не удалось получить аудио.";
+
+"EZTTS.PlaybackError" = "Ошибка воспроизведения";
+
+"EZTTS.UnableToPlay" = "Невозможно воспроизвести аудио.";
+
+"EZTTS.NotLoggedIn" = "Не авторизован.";
+
+"EZTTS.NotAuthorized" = "Не авторизован. Пожалуйста, войдите снова.";
+
+"EZTTS.InvalidServerResponse" = "Неверный ответ от сервера.";
+
+"EZTTS.EmptyAudio" = "Сервер вернул пустой аудиофайл.";
+
+"EZTTS.FailedWavWrap" = "Не удалось преобразовать PCM в WAV.";
+
+"EZTTS.InsufficientCoins" = "У вас недостаточно монет для этого синтеза.";
+
+"EZTTS.NeedCoins" = "Нужно монет: %@, у вас: %@.";
+
+"EZTTS.ServerError" = "Ошибка сервера";
+
+"EZTTS.OK" = "OK";
+
+/* Subscription paywall */
+"EZSubscription.RequiredTitle" = "Требуется подписка";
+"EZSubscription.NotNow" = "Не сейчас";
+"EZSubscription.ViewPlans" = "Посмотреть планы";
+"EZSubscription.ModelRequiredFormat" = "%@ доступен при активной подписке EZComplete. Подпишитесь, чтобы использовать эту модель.";
+"EZSubscription.ImageSettingsRequired" = "Для изображений высокого качества требуется активная подписка EZComplete.";
+
+/* EZCoinStoreViewController localization */
+
+"EZCoinStore.Title" = "🪙 Магазин монет EZ";
+
+"EZCoinStore.CancelPlan" = "Отменить план";
+
+"EZCoinStore.Subscribe" = "Подписаться";
+
+"EZCoinStore.BuyNow" = "Купить сейчас";
+
+"EZCoinStore.Badge.Buy1Get1" = "🔥 КУПИ 1 — ПОЛУЧИ 1";
+
+"EZCoinStore.Promo.SubscriptionBadgeFormat" = "+%ld БЕСПЛАТНЫХ монет*";
+
+"EZCoinStore.Promo.SubscriptionFootnote" = "*Дополнительные монеты — разовый бонус, а не ежемесячная прибавка.";
+
+"EZCoinStore.Tier.Basic" = "Базовый";
+
+"EZCoinStore.Tier.BasicSubtitle" = "400 монет в месяц\nИдеально для нерегулярного использования";
+
+"EZCoinStore.Tier.BasicPrice" = "$5 / мес.";
+
+"EZCoinStore.Tier.Standard" = "Стандартный";
+
+"EZCoinStore.Tier.StandardSubtitle" = "900 монет в месяц\nДля тех, кто пользуется регулярно";
+
+"EZCoinStore.Tier.StandardPrice" = "$10 / мес.";
+
+"EZCoinStore.Badge.Popular" = "ПОПУЛЯРНО";
+
+"EZCoinStore.Tier.Pro" = "Pro";
+
+"EZCoinStore.Tier.ProSubtitle" = "1600 монет в месяц\nОтлично подходит для ежедневных пользователей";
+
+"EZCoinStore.Tier.ProPrice" = "$15 / мес.";
+
+"EZCoinStore.Badge.BestValue" = "ЛУЧШАЯ ЦЕНА";
+
+"EZCoinStore.Tier.Ultra" = "Ultra";
+
+"EZCoinStore.Tier.UltraSubtitle" = "2500 монет в месяц\nДля активных пользователей";
+
+"EZCoinStore.Tier.UltraPrice" = "$20 / мес.";
+
+"EZCoinStore.Badge.Ultra" = "ULTRA";
+
+"EZCoinStore.Tier.Power" = "Опытные пользователи";
+
+"EZCoinStore.Tier.PowerSubtitle" = "6250 монет в месяц\nДоступно, когда они вам понадобятся.";
+
+"EZCoinStore.Tier.Enterprise" = "Enterprise";
+
+"EZCoinStore.Tier.EnterpriseSubtitle" = "12 500 монет в месяц\nДля всех нужд вашего бизнеса";
+
+"EZCoinStore.TopUp.Starter" = "Стартовый пакет монет";
+
+"EZCoinStore.TopUp.StarterSubtitle" = "400 монет, одноразовый \nБессрочный пакет";
+
+"EZCoinStore.TopUp.Ultra" = "Ultra Topup Pack";
+
+"EZCoinStore.TopUp.UltraSubtitle" = "2500 монет, единоразово \nБессрочный срок действия";
+
+"EZCoinStore.TopUp.Power" = "Пакет пополнения мощности";
+
+"EZCoinStore.TopUp.PowerSubtitle" = "6250 монет, одноразовый \nБессрочный пакет";
+
+"EZCoinStore.TopUp.Enterprise" = "Пакет пополнения предприятия";
+
+"EZCoinStore.TopUp.EnterpriseSubtitle" = "12 500 монет, единоразовый \nБессрочный пакет";
+
+
+
+"EZCoinStore.TopUp.Value" = "Выгодный пакет монет";
+
+"EZCoinStore.TopUp.ValueSubtitle" = "900 монет, разовая покупка\nБез срока действия";
+
+"EZCoinStore.Badge.Save10" = "СЭКОНОМЬТЕ 10%";
+
+"EZCoinStore.Promo.Headline" = "🔥 КУПИ 1 — ПОЛУЧИ 1 В ПОДАРОК 🔥";
+
+"EZCoinStore.Promo.Subtitle" = "Все монеты и подписки — предложение ограничено по времени!";
+
+"EZCoinStore.LoadingBalance" = "Загрузка баланса…";
+
+"EZCoinStore.ThisFeature" = "эта функция";
+
+"EZCoinStore.NotEnoughCoins" = "⚠️ Недостаточно монет для %@. Пополните ниже.";
+
+"EZCoinStore.NoActiveSubscription" = "Нет активной подписки";
+
+"EZCoinStore.BalanceFormat" = "🪙 %ld монет • %@";
+
+"EZCoinStore.Section.Subscriptions" = "ПОДПИСКИ";
+
+"EZCoinStore.Section.OneTimeTopUps" = "РАЗОВЫЕ ПОПОЛНЕНИЯ";
+
+"EZCoinStore.DailyCoins" = "🎁 Ежедневные монеты";
+
+"EZCoinStore.DailyCoins.FreeFormat" = "🎁 +%ld монет!";
+
+"EZCoinStore.DailyCoins.Free" = "🎁 Бесплатные монеты!";
+"EZCoinStore.DailyReminder.Title" = "Ваши бесплатные монеты готовы.";
+"EZCoinStore.DailyReminder.Body" = "Получите свои монеты, когда будете готовы.";
+
+"EZCoinStore.DailyCoins.NextHours" = "🎁 Далее: %ld ч %ld мин";
+
+"EZCoinStore.DailyCoins.NextMinutes" = "🎁 Далее: %ld мин %ld с";
+
+"EZCoinStore.DailyCoins.NextSeconds" = "🎁 Далее: %ld с";
+
+"EZCoinStore.DailyCoins.Claiming" = "⏳ Получение…";
+
+"EZCoinStore.Alert.NotSignedIn" = "Не выполнен вход в систему";
+
+"EZCoinStore.Alert.SignInDailyCoins" = "Пожалуйста, войдите в систему, чтобы получить свои ежедневные монеты.";
+
+"EZCoinStore.Alert.NetworkError" = "Сетевая ошибка";
+
+"EZCoinStore.Alert.ServerUnreachable" = "Не удалось связаться с сервером. Пожалуйста, попробуйте еще раз.";
+
+"EZCoinStore.Alert.AlreadyClaimed" = "Монеты уже получены";
+
+"EZCoinStore.Alert.AlreadyClaimedMessage" = "Вы уже забрали бесплатные монеты. Следующая возможность появится через 6 часов!";
+
+"EZCoinStore.Alert.GenericRetry" = "Что-то пошло не так. Пожалуйста, попробуйте еще раз.";
+
+"EZCoinStore.Alert.Error" = "Ошибка";
+
+"EZCoinStore.Ledger" = "История операций";
+
+"EZCoinStore.Alert.NotLoggedIn" = "Не выполнен вход в систему";
+
+"EZCoinStore.Alert.SignInFirst" = "Сначала войдите в систему.";
+
+"EZCoinStore.Alert.CancelSubscription" = "Отменить подписку?";
+
+"EZCoinStore.Alert.CancelSubscriptionMessage" = "Оставшиеся монеты останутся на вашем счету. Это невозможно отменить.";
+
+"EZCoinStore.KeepPlan" = "Оставить подписку";
+
+"EZCoinStore.Alert.Cancelled" = "Отменено";
+
+"EZCoinStore.Alert.CancelledMessage" = "Ваша подписка отменена. Ваши монеты остаются доступными.";
+
+"EZCoinStore.Alert.CancelFailed" = "Не удалось отменить подписку. Пожалуйста, попробуйте еще раз.";
+
+"EZCoinStore.Alert.CheckoutStartFailed" = "Не удалось начать оформление заказа. Попробуйте еще раз.";
+
+"EZCoinStore.Alert.PurchaseConfirmFailed" = "Не удалось подтвердить покупку. Проверьте свой баланс — возможно, монеты еще были добавлены.";
+
+"EZCoinStore.Alert.PurchaseNotConfirmed" = "Не удалось подтвердить покупку.";
+
+"EZCoinStore.Alert.PurchaseIssue" = "Проблема с покупкой";
+
+"EZCoinStore.Celebration.CoinsAdded" = "🪙 Добавлены монеты!";
+
+"EZCoinStore.Celebration.AmountFormat" = "+%ld монет";
+
+"EZCoinStore.Celebration.NewBalanceFormat" = "Новый баланс: %ld монет";
+
+"EZCoinStore.Celebration.Sweet" = "Отлично!";
+
+"EZCoinStore.OK" = "ОК";
+
+/* ElevenLabs voice cloning */
+"ElevenLabsClone.Title" = "Клонирование голоса";
+"ElevenLabsClone.VoiceName" = "НАЗВАНИЕ ГОЛОСА";
+"ElevenLabsClone.VoiceNamePlaceholder" = "Например, MyProVoice";
+"ElevenLabsClone.LanguageCode" = "КОД ЯЗЫКА";
+"ElevenLabsClone.LanguageCodePlaceholder" = "например. ru";
+"ElevenLabsClone.Instant" = "Мгновенное клонирование (IVC)";
+"ElevenLabsClone.Professional" = "Профессиональное клонирование (PVC)";
+"ElevenLabsClone.ProfessionalNote" = "⚠️ Для профессионального клонирования голоса потребуется тариф Creator (скоро)";
+"ElevenLabsClone.RemoveNoise" = "Удалить фоновый шум";
+"ElevenLabsClone.StartRecording" = "⏺ Начать запись";
+"ElevenLabsClone.StopRecording" = "⏹ Остановить запись";
+"ElevenLabsClone.Play" = "▶︎ Воспроизвести";
+"ElevenLabsClone.Stop" = "⏹ Остановить";
+"ElevenLabsClone.ImportFile" = "📂 Импортировать файл";
+"ElevenLabsClone.QuickLook" = "🔍 Быстрый просмотр";
+"ElevenLabsClone.UploadClone" = "Загрузить и клонировать голос";
+"ElevenLabsClone.MyVoices" = "Мои клонированные голоса";
+"ElevenLabsClone.Refresh" = "↻ Обновить";
+"ElevenLabsClone.Notice" = "Уведомление";
+"ElevenLabsClone.OK" = "OK";
+"ElevenLabsClone.MicrophoneDenied" = "Доступ к микрофону запрещен";
+"ElevenLabsClone.MicrophoneDeniedMessage" = "Включите доступ к микрофону в настройках для записи.";
+"ElevenLabsClone.RecordError" = "Ошибка записи.";
+"ElevenLabsClone.RecordInitFailed" = "Не удалось инициализировать рекордер.";
+"ElevenLabsClone.RecordPrepareFailed" = "Не удалось подготовиться к записи.";
+"ElevenLabsClone.RecordingFailed" = "Ошибка записи";
+"ElevenLabsClone.RecordingFailedMessage" = "Запись была прервана или не удалась.";
+"ElevenLabsClone.PlaybackError" = "Ошибка воспроизведения.";
+"ElevenLabsClone.PlayerCreateFailed" = "Не удалось создать проигрыватель.";
+"ElevenLabsClone.NoRecording" = "Запись отсутствует";
+"ElevenLabsClone.NoRecordingMessage" = "Сначала запишите или импортируйте семпл.";
+"ElevenLabsClone.ImportFailed" = "Ошибка импорта";
+"ElevenLabsClone.CopyFailed" = "Невозможно скопировать файл.";
+"ElevenLabsClone.SubscriptionRequired" = "Требуется подписка";
+"ElevenLabsClone.SubscriptionRequiredMessage" = "Голосовое клонирование доступно при наличии активной подписки EZComplete. Подпишитесь, чтобы создать клонированный голос.";
+"ElevenLabsClone.NotNow" = "Не сейчас";
+"ElevenLabsClone.ViewPlans" = "Посмотреть планы";
+"ElevenLabsClone.MissingName" = "Отсутствует имя";
+"ElevenLabsClone.MissingNameMessage" = "Введите голосовое имя.";
+"ElevenLabsClone.NotSignedIn" = "Вход не выполнен";
+"ElevenLabsClone.SignInCloneMessage" = "Войдите в свою учетную запись EZComplete, чтобы клонировать голоса.";
+"ElevenLabsClone.SubscriptionCheckUnavailable" = "Проверка подписки недоступна";
+"ElevenLabsClone.SubscriptionCheckUnavailableMessage" = "Нам не удалось проверить вашу подписку. Пожалуйста, повторите попытку, прежде чем клонировать голос.";
+"ElevenLabsClone.EmptyFile" = "Пустой файл";
+"ElevenLabsClone.EmptyFileMessage" = "Файл записи пуст.";
+"ElevenLabsClone.NetworkError" = "Ошибка сети.";
+"ElevenLabsClone.NeedMoreCoins" = "Требуется больше монет.";
+"ElevenLabsClone.NeedMoreCoinsMessage" = "У вас %ld монет, а клонирование стоит %ld монет.";
+"ElevenLabsClone.AccessDenied" = "Доступ запрещен.";
+"ElevenLabsClone.VoiceSlotFull" = "Голосовой слот заполнен";
+"ElevenLabsClone.NotAvailable" = "Недоступно";
+"ElevenLabsClone.UploadFailed" = "Не удалось загрузить.";
+"ElevenLabsClone.CloneFailed" = "Ошибка клонирования";
+"ElevenLabsClone.NoVoiceID" = "В ответе отсутствует идентификатор голоса.";
+"ElevenLabsClone.SlotsUsedFormat" = "\\nИспользуемые слоты: %ld / %ld";
+"ElevenLabsClone.VoiceCloned" = "Голос клонирован";
+"ElevenLabsClone.VoiceClonedMessage" = "Идентификатор голоса: %@%@";
+"ElevenLabsClone.UnnamedVoice" = "Безымянный голос";
+"ElevenLabsClone.NoClonedVoices" = "Клонированных голосов не найдено. Запишите и загрузите, чтобы создать его.";
+"ElevenLabsClone.ShowingVoicesFormat" = "Показано %lu из %lu голосов";
+"ElevenLabsClone.ShowMoreVoices" = "Показать больше голосов";
+"ElevenLabsClone.Delete" = "Удалить";
+"ElevenLabsClone.ThisVoice" = "этот голос";
+"ElevenLabsClone.DeleteVoice" = "Удалить голос";
+"ElevenLabsClone.DeleteVoiceMessage" = "Навсегда удалить голос «%@» из ElevenLabs? Это действие нельзя отменить.";
+"ElevenLabsClone.Cancel" = "Отмена";
+"ElevenLabsClone.SignInDeleteMessage" = "Войдите, чтобы удалить голоса.";
+"ElevenLabsClone.DeleteFailedMessage" = "Не удалось удалить.";
+"ElevenLabsClone.DeleteFailed" = "Ошибка удаления";
+
+/* Annual subscription offer */
+"EZCoinStore.Upsell.Message" = "Платите ежегодно и экономьте 25% по сравнению с ежемесячным выставлением счетов.";
+"EZCoinStore.Upsell.StandardTitle" = "Переходите на год со стандартной версией";
+"EZCoinStore.Upsell.StandardMonthlyButton" = "10,00 долл. США в месяц";
+"EZCoinStore.Upsell.StandardAnnualButton" = "89,99 долл. США в год — сэкономьте 30 долл. США";
+"EZCoinStore.Upsell.StandardAnnualButtonPromo" = "89,99 долл. США в год — еще 2 месяца бесплатно";
+"EZCoinStore.Upsell.ProTitle" = "Переходите на годовую подписку с версией Pro";
+"EZCoinStore.Upsell.ProMonthlyButton" = "15,00 долл. США в месяц";
+"EZCoinStore.Upsell.ProAnnualButton" = "134,99 долл. США в год — сэкономьте 45 долл. США";
+"EZCoinStore.Upsell.ProAnnualButtonPromo" = "134,99 долл. США в год — еще 2 месяца бесплатно";
+"EZCoinStore.Upsell.UltraTitle" = "Go Annual с Ultra";
+"EZCoinStore.Upsell.UltraMonthlyButton" = "20,00 долл. США в месяц";
+"EZCoinStore.Upsell.UltraAnnualButton" = "179,99 долл. США в год — Экономьте 60 долларов США";
+"EZCoinStore.Upsell.UltraAnnualButtonPromo" = "179,99 долларов США в год — еще 2 месяца бесплатно";
+"EZCoinStore.Upsell.PowerTitle" = "Переходите на год с Power";
+"EZCoinStore.Upsell.PowerMonthlyButton" = "49,99 долларов США в месяц";
+"EZCoinStore.Upsell.PowerAnnualButton" = "449,99 долларов США в год — сэкономьте 150 долларов США";
+"EZCoinStore.Upsell.PowerAnnualButtonPromo" = "449,99 долларов США в год — еще 2 месяца бесплатно";
+"EZCoinStore.Upsell.EnterpriseTitle" = "Переходите на ежегодное использование с Enterprise";
+"EZCoinStore.Upsell.EnterpriseMonthlyButton" = "99,99 долларов США в месяц";
+"EZCoinStore.Upsell.EnterpriseAnnualButton" = "899,99 долларов США в год — сэкономьте 300 долларов США";
+"EZCoinStore.Upsell.EnterpriseAnnualButtonPromo" = "$899,99/год — Еще 2 месяца бесплатно";
+"EZCoinStore.Upsell.AnnualTitleFormat" = "Годовая подписка %@";
+"EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/мес";
+"EZCoinStore.Upsell.AnnualButtonFormat" = "%@/год — Экономия %@";
+"EZCoinStore.Upsell.AnnualButtonPromoFormat" = "%@/год — 2 Больше месяцев бесплатно";
+"EZCoinStore.Tier.BasicWeekly" = "Базовый еженедельно";
+"EZCoinStore.Tier.BasicWeeklyPrice" = "5 долларов США в неделю • 400 монет в неделю";
+"EZCoinStore.Tier.BasicWeeklySubtitle" = "Отличный стартовый пакет";
+"EZCoinStore.Cancel" = "Отмена";
+
+/* Photo gallery */
+"EZGallery.AskQuestion" = "Задать вопрос";
+"EZGallery.EditWithAI" = "Редактирование с помощью искусственного интеллекта";
+"EZGallery.UseInVideoGame" = "Использование в видеоиграх";
+"EZGallery.EditPromptPlaceholder" = "Опишите свои изменения…";
+/* Photo gallery export */
+"EZGallery.Export.Title" = "Экспорт изображения";
+"EZGallery.Export.Subtitle" = "Выберите, как вы хотите поделиться им.";
+"EZGallery.Export.GIFReveal" = "GIF: Original Reveal";
+"EZGallery.Export.GIFMotion" = "GIF: Motion Transition";
+"EZGallery.Export.ShareOriginal" = "Поделиться фирменным + оригинальным";
+"EZGallery.Export.ShareClean" = "Поделиться фирменным изображением";
+"EZGallery.Export.Download" = "Загрузить изображение";
+"EZGallery.Export.Cancel" = "Отмена";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "Новый чат";
+"EZNav.PhotoGallery" = "Фотогалерея";
+"EZNav.TextToSpeech" = "Преобразование текста в речь";
+"EZNav.VoiceCloning" = "Клонирование голоса";
+"EZNav.BrainRot" = "Brain Rot";
+"EZNav.Memories" = "Воспоминания";
+"EZNav.CoinStore" = "Магазин монет";
+"EZNav.Settings" = "Настройки";
+"EZNav.RecentChats" = "Недавние чаты";
+/* First-run tutorial */
+"EZTutorial.Skip" = "Пропустить"; "EZTutorial.Back" = "Назад"; "EZTutorial.Next" = "Далее"; "EZTutorial.GetStarted" = "Начало работы";
+"EZTutorial.Welcome.Title" = "Добро пожаловать в EZCompleteUI"; "EZTutorial.Welcome.Body" = "Краткий обзор покажет вам, где все находится. Вы можете пропустить его в любой момент.";
+"EZTutorial.Chat.Title" = "Общайтесь и создавайте"; "EZTutorial.Chat.Body" = "Выберите модель вверху. Используйте скрепку для прикрепления файлов или фотографий, микрофон для диктовки, глобус для поиска в Интернете и молнию для прямых ответов помощника. Отправить начинает ваш запрос.";
+"EZTutorial.Navigate.Title" = "Ваше меню и чаты"; "EZTutorial.Navigate.Body" = "Коснитесь меню в левом верхнем углу, чтобы просмотреть Галерею, голосовые инструменты, Brain Rot, Воспоминания, Магазин монет, Настройки и недавние чаты. Используйте поиск там, чтобы найти разговор.";
+"EZTutorial.Gallery.Title" = "Фотогалерея"; "EZTutorial.Gallery.Body" = "Нажмите + в левом верхнем углу, чтобы добавить фотографии. Сведите пальцы, чтобы изменить размер сетки с 2 до 5 столбцов. Используйте «Выбрать», чтобы поделиться или удалить несколько фотографий.";
+"EZTutorial.Detail.Title" = "Деталь фотографии"; "EZTutorial.Detail.Body" = "Задайте вопрос, чтобы вернуть это изображение в чат. Опишите редактирование ниже или используйте +, чтобы добавить до четырех эталонных изображений и объединить их в одно новое творение."; "EZTutorial.Detail.Prompt" = "Опишите свое редактирование…"; "EZTutorial.Detail.Ask" = "Задайте вопрос"; "EZTutorial.Detail.Edit" = "Редактируйте с помощью AI";
+"EZTutorial.Tools.Title" = "Воспоминания и монеты"; "EZTutorial.Tools.Body" = "Воспоминания помогают быстро находить полезные результаты. В магазине монет можно управлять подписками и монетами. Баланс всегда доступен на главном экране.";
+"EZTutorial.Memories.Title" = "Воспоминания"; "EZTutorial.Memories.Body" = "Найдите сохранённое воспоминание и коснитесь его текста, чтобы изменить. Нажмите ещё раз, чтобы завершить редактирование. Синяя ссылка открывает исходное сообщение чата, а прикреплённое изображение — его подробный просмотр."; "EZTutorial.Memories.Search" = "Поиск в воспоминаниях"; "EZTutorial.Memories.Source" = "Открыть исходное сообщение чата"; "EZTutorial.Memories.Editable" = "Коснитесь сохранённого воспоминания, чтобы изменить его.";
+"EZTutorial.CoinStore.Title" = "Магазин монет"; "EZTutorial.CoinStore.Body" = "Журнал использования в правом верхнем углу показывает все зачисления и списания. Бесплатные монеты можно получать четыре раза в день; включите уведомления, чтобы получать напоминания. Для доступа к некоторым премиальным моделям и функциям нужна покупка. Оплата подписок PayPal зачисляется автоматически, также доступны разовые пополнения."; "EZTutorial.CoinStore.Usage" = "Журнал использования"; "EZTutorial.CoinStore.Free" = "Бесплатные монеты доступны четыре раза в день • включите напоминания"; "EZTutorial.CoinStore.Offer" = "КУПИ 1 — ПОЛУЧИ 1 В ПОДАРОК"; "EZTutorial.CoinStore.Select" = "Готовы начать? Выберите подходящий тариф.";
+"EZTutorial.CoinStore.Bonus" = "Подписчики получают по 20 монет за каждое получение • без подписки — по 10";
+"EZTutorial.CoinStore.Claim" = "Получите бесплатные монеты"; "EZTutorial.Memories.Intro" = "Воспоминания сохраняют полезные результаты под рукой.";
+"EZTutorial.CoinStore.Next" = "Далее: 6 часов 00 минут"; "EZCoinStore.UsageLog" = "Журнал использования";
+"EZTutorial.CoinStore.BodyTop" = "• В журнале использования можно посмотреть все зачисления и списания.\n\n• Забирайте бесплатные монеты четыре раза в день и включите уведомления-напоминания."; "EZTutorial.CoinStore.BodyBottom" = "• Для доступа к некоторым премиальным моделям и функциям нужна покупка.";
+"EZGameMode.Title" = "Выбрать игру"; "EZGameMode.Maze" = "Приключения в лабиринте"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "Отмена";
+"EZGameMode.Subtitle" = "Выберите, как хотите играть."; "EZGameMode.MazeDescription" = "Исследуйте сгенерированный лабиринт со своими игровыми ресурсами."; "EZGameMode.RicochetDescription" = "Перемещайтесь по открытой арене под музыку, собирайте предметы и используйте MIDI.";
+"EZThread.NewConversation" = "Новый разговор";
+"EZMemories.Title" = "Воспоминания"; "EZMemories.Search" = "Поиск воспоминаний"; "EZMemories.NoneSaved" = "Воспоминаний пока нет."; "EZMemories.NoMatches" = "Совпадений не найдено."; "EZMemories.SavedFormat" = "Сохранено воспоминаний: %lu"; "EZMemories.MatchingFormat" = "Совпадений: %lu";
+"EZTutorial.Demo.ModelPicker" = "Средство выбора моделей"; "EZTutorial.Demo.Model" = "Модель: gpt-6-astra"; "EZTutorial.Demo.Controls" = "Элементы управления"; "EZTutorial.Demo.Placeholder" = "Введите сообщение…"; "EZTutorial.Demo.Send" = "Отправить";
+"EZTutorial.Feedback" = "Остались вопросы или хотите поделиться отзывом? Нажмите здесь.";
+"EZTutorial.Menu.SampleChat" = "Ваш недавний разговор";
+"EZGallery.Title" = "Фотогалерея"; "EZGallery.Select" = "Выбрать"; "EZGallery.Done" = "Готово"; "EZGallery.SelectedCount" = "%lu выбрано"; "EZGallery.DeleteTitle" = "Удалить фотографии?"; "EZGallery.DeleteMessage" = "Удалить навсегда выбранные фотографии %lu?"; "EZGallery.Delete" = "Удалить"; "EZGallery.Cancel" = "Отмена";
+
+/* Image generation progress */
+"EZImageGen.Status.Working" = "Выполняем ваш запрос…";
+"EZImageGen.Status.Stay" = "Не покидайте экран во время генерации";
+"EZImageGen.Status.StillWorking" = "Создание продолжается — это может занять некоторое время";
+"EZImageGen.Status.AlmostDone" = "Почти готово…";

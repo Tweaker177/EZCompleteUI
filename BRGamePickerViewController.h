@@ -36,6 +36,14 @@ NS_ASSUME_NONNULL_BEGIN
 /// view rather than revealing whatever it was showing underneath the picker.
 @property (nonatomic, copy, nullable) void (^onClosedWithoutSelection)(void);
 
+/// Opens directly to the existing visual Community grid instead of My Games.
+@property (nonatomic, assign) BOOL startsOnCommunityTab;
+
+/// Optional alternate hand-off used by Slots. After a community game is
+/// downloaded, its normal PLAY action delivers the saved record here so the
+/// caller can adapt it as a slot theme rather than launch Maze gameplay.
+@property (nonatomic, copy, nullable) void (^onSlotThemeSelection)(BRGameRecord *record);
+
 @end
 
 NS_ASSUME_NONNULL_END

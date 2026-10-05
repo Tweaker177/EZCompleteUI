@@ -103,7 +103,10 @@
 #import "BRAssetGenerationSheetViewController.h"
 #import "BRGameResultViewController.h"
 #import "EZAuthManager.h"
+#import "EZEntitlementManager.h"
+#import "EZSupabaseConfig.h"
 #import <PhotosUI/PhotosUI.h>
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 // External project configuration references to prevent hardcoded placeholders
 extern NSString *const kBRHighScoreURL;
@@ -117,7 +120,8 @@ void EZLog(NSInteger level, NSString *tag, NSString *message);
 typedef NS_ENUM(NSInteger, BRAssetSlot) {
     BRAssetSlotPlayer = 0,
     BRAssetSlotEnemy,
-    BRAssetSlotBackground
+    BRAssetSlotBackground,
+    BRAssetSlotObstacle
 };
 
 /// How a slot's current image (if any) was produced. Drives both the cell
@@ -130,7 +134,47 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
     BRAssetSourceKindAIGenerated
 };
 
-@interface BRCustomGameCreatorViewController () <UICollectionViewDelegate, UICollectionViewDataSource, PHPickerViewControllerDelegate>
+/// A sprite is useful to the game only when it has a genuinely clear canvas
+/// around it. UIImage does not preserve the original file extension, so this
+/// intentionally inspects pixels rather than trusting a ".png" filename.
+static BOOL BRImageHasTransparentSpriteCanvas(UIImage *image) {
+    CGImageRef source = image.CGImage;
+    if (!source) return NO;
+
+    size_t width = MIN((size_t)256, CGImageGetWidth(source));
+    size_t height = MIN((size_t)256, CGImageGetHeight(source));
+    if (width == 0 || height == 0) return NO;
+    size_t bytesPerRow = width * 4;
+    NSMutableData *pixels = [NSMutableData dataWithLength:bytesPerRow * height];
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(pixels.mutableBytes, width, height, 8,
+        bytesPerRow, colorSpace, kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    CGColorSpaceRelease(colorSpace);
+    if (!context) return NO;
+    CGContextSetInterpolationQuality(context, kCGInterpolationLow);
+    CGContextDrawImage(context, CGRectMake(0, 0, width, height), source);
+    CGContextRelease(context);
+
+    const uint8_t *bytes = pixels.bytes;
+    NSUInteger transparentPixels = 0;
+    NSUInteger transparentBorderPixels = 0;
+    NSUInteger borderPixels = 0;
+    for (size_t y = 0; y < height; y++) {
+        for (size_t x = 0; x < width; x++) {
+            BOOL transparent = bytes[(y * width + x) * 4 + 3] < 16;
+            if (transparent) transparentPixels++;
+            if (x == 0 || y == 0 || x == width - 1 || y == height - 1) {
+                borderPixels++;
+                if (transparent) transparentBorderPixels++;
+            }
+        }
+    }
+    CGFloat total = (CGFloat)(width * height);
+    return transparentPixels >= total * 0.02 &&
+           transparentBorderPixels >= borderPixels * 0.50;
+}
+
+@interface BRCustomGameCreatorViewController () <UICollectionViewDelegate, UICollectionViewDataSource, PHPickerViewControllerDelegate, UIDocumentPickerDelegate>
 
 @property (nonatomic, strong) UICollectionView *collectionView;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
@@ -156,6 +200,10 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
 @property (nonatomic, strong, nullable) NSString *backgroundPrompt;
 @property (nonatomic, assign) BRAssetSourceKind backgroundSourceKind;
 
+@property (nonatomic, strong, nullable) UIImage *obstacleImage;
+@property (nonatomic, strong, nullable) NSString *obstaclePrompt;
+@property (nonatomic, assign) BRAssetSourceKind obstacleSourceKind;
+
 /// Which asset slot the player most recently tapped, so the PHPicker and
 /// AI generation sheet delegate callbacks know where to store their result.
 /// Always set immediately before presenting a picker/sheet, so its default
@@ -165,6 +213,18 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
 /// Prevents the imported-photo role chooser from reappearing after another
 /// sheet is dismissed or after the app returns from the background.
 @property (nonatomic, assign) BOOL hasPromptedForInitialWorkshopImage;
+
+- (BOOL)assetSlotRequiresTransparentPNG:(BRAssetSlot)slot;
+- (void)prepareSpriteImageIfNeeded:(UIImage *)image
+                            forSlot:(BRAssetSlot)slot
+                         completion:(void (^)(UIImage * _Nullable image, NSString * _Nullable errorMessage))completion;
+- (void)removeBackgroundFromImage:(UIImage *)image
+                        completion:(void (^)(UIImage * _Nullable image, NSString * _Nullable errorMessage))completion;
+- (void)showAssetPreparationError:(nullable NSString *)message;
+- (void)completeCustomGameWithPremise:(nullable NSString *)premise
+                                player:(nullable UIImage *)player
+                                 enemy:(nullable UIImage *)enemy
+                            background:(nullable UIImage *)background;
 
 @end
 
@@ -202,9 +262,16 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
     [chooser addAction:[UIAlertAction actionWithTitle:@"Use as Character"
                                                 style:UIAlertActionStyleDefault
                                               handler:^(__unused UIAlertAction *action) {
-        [weakSelf setCustomImage:weakSelf.initialWorkshopImage
-                  forAssetSlot:BRAssetSlotPlayer];
-        [weakSelf.collectionView reloadData];
+        [weakSelf prepareSpriteImageIfNeeded:weakSelf.initialWorkshopImage
+                                     forSlot:BRAssetSlotPlayer
+                                  completion:^(UIImage * _Nullable image, NSString * _Nullable errorMessage) {
+            if (!image) {
+                [weakSelf showAssetPreparationError:errorMessage];
+                return;
+            }
+            [weakSelf setCustomImage:image forAssetSlot:BRAssetSlotPlayer];
+            [weakSelf.collectionView reloadData];
+        }];
     }]];
     [chooser addAction:[UIAlertAction actionWithTitle:@"Choose Later"
                                                 style:UIAlertActionStyleCancel
@@ -263,7 +330,7 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
 }
 
 - (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section {
-    return (section == 0) ? 2 : 3;
+    return (section == 0) ? 2 : 4;
 }
 
 - (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath {
@@ -386,6 +453,9 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
         case BRAssetSourceOptionUploadPhoto:
             [self presentPhotoPickerForSlot:slot];
             break;
+        case BRAssetSourceOptionUploadFile:
+            [self presentFilePickerForSlot:slot];
+            break;
         case BRAssetSourceOptionAIPrompt:
             [self presentAssetGenerationSheetForSlot:slot];
             break;
@@ -408,6 +478,15 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
     [self presentViewController:picker animated:YES completion:nil];
 }
 
+- (void)presentFilePickerForSlot:(BRAssetSlot)slot {
+    self.activeAssetSlot = slot;
+    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
+        initForOpeningContentTypes:@[UTTypeImage]];
+    picker.delegate = self;
+    picker.allowsMultipleSelection = NO;
+    [self presentViewController:picker animated:YES completion:nil];
+}
+
 /// If this slot already has an accepted AI-generated image, the sheet opens
 /// with that image and prompt pre-loaded so the player can immediately
 /// regenerate or just re-confirm it. Switching to AI Prompt from an
@@ -418,7 +497,11 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
     self.activeAssetSlot = slot;
 
     NSString *displayName = [self displayNameForAssetSlot:slot];
-    NSString *costDescription = [NSString stringWithFormat:@"Each generation (including regenerates) costs %ld coins.", (long)[self coinCostForAssetSlot:slot]];
+    NSString *costDescription = [NSString stringWithFormat:@"Each generation (including regenerates) costs %ld coins.%@",
+        (long)[self coinCostForAssetSlot:slot],
+        [self assetSlotRequiresTransparentPNG:slot]
+            ? @" Sprite output is a transparent PNG; any required cleanup is billed as a separate image edit."
+            : @""];
 
     BOOL isAIGenerated = ([self sourceKindForAssetSlot:slot] == BRAssetSourceKindAIGenerated);
     NSString *initialPrompt = isAIGenerated ? [self customPromptForAssetSlot:slot] : nil;
@@ -446,6 +529,7 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
         case BRAssetSlotPlayer:     return @"Player Asset";
         case BRAssetSlotEnemy:      return @"Enemy Asset";
         case BRAssetSlotBackground: return @"Background Environment";
+        case BRAssetSlotObstacle:   return @"Wall, Block, Obstacle";
     }
 }
 
@@ -460,7 +544,126 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
         case BRAssetSlotPlayer:     return 3;
         case BRAssetSlotEnemy:      return 3;
         case BRAssetSlotBackground: return 6;
+        case BRAssetSlotObstacle:   return 3;
     }
+}
+
+- (BOOL)assetSlotRequiresTransparentPNG:(BRAssetSlot)slot {
+    return slot == BRAssetSlotPlayer || slot == BRAssetSlotEnemy || slot == BRAssetSlotObstacle;
+}
+
+/// Runs only for player/enemy art. Already-transparent sprites continue
+/// without a network call; opaque or merely PNG-encoded photos are converted
+/// by the paid image-edit endpoint into a real transparent PNG.
+- (void)prepareSpriteImageIfNeeded:(UIImage *)image
+                            forSlot:(BRAssetSlot)slot
+                         completion:(void (^)(UIImage * _Nullable image, NSString * _Nullable errorMessage))completion {
+    if (![self assetSlotRequiresTransparentPNG:slot] || BRImageHasTransparentSpriteCanvas(image)) {
+        completion(image, nil);
+        return;
+    }
+
+    self.collectionView.userInteractionEnabled = NO;
+    [self.spinner startAnimating];
+    __weak typeof(self) weakSelf = self;
+    [self removeBackgroundFromImage:image completion:^(UIImage * _Nullable preparedImage, NSString * _Nullable errorMessage) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            weakSelf.collectionView.userInteractionEnabled = YES;
+            [weakSelf.spinner stopAnimating];
+            completion(preparedImage, errorMessage);
+        });
+    }];
+}
+
+- (void)showAssetPreparationError:(NSString *)message {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Transparent PNG Required"
+        message:message ?: @"We couldn't remove the background. No image-edit charge is kept if the edit fails."
+        preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+/// ez-image performs the actual paid operation and enforces the final charge
+/// server-side. The client never invents a local price or deducts coins itself.
+- (void)removeBackgroundFromImage:(UIImage *)image
+                        completion:(void (^)(UIImage * _Nullable image, NSString * _Nullable errorMessage))completion {
+    NSData *pngData = UIImagePNGRepresentation(image);
+    if (!pngData.length) {
+        completion(nil, @"The selected image could not be converted to PNG.");
+        return;
+    }
+    // This preflight uses the same edit metadata as the request below. The
+    // edge function remains authoritative and performs the actual deduction.
+    [[EZEntitlementManager shared] checkEntitlementForFeature:EZFeatureImageMedium
+        quantity:1
+        prompt:@"Remove background for a BrainRot game sprite"
+        model:@"gpt-image-2.5-sunburst"
+        quality:@"medium"
+        size:@"1024x1024"
+        isEdit:YES
+        completion:^(BOOL allowed, NSInteger balance, NSString * _Nullable reason) {
+        if (!allowed) {
+            completion(nil, reason.length ? reason : @"You don't have enough coins for the background-removal edit.");
+            return;
+        }
+        [[EZAuthManager shared] getValidAccessToken:^(NSString * _Nullable token, NSError * _Nullable authError) {
+        if (!token.length) {
+            completion(nil, authError.localizedDescription ?: @"Please sign in to prepare a game sprite.");
+            return;
+        }
+        NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/functions/v1/ez-image", EZSupabaseURL]];
+        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+        request.HTTPMethod = @"POST";
+        request.timeoutInterval = 180.0;
+        [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+        [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
+        NSDictionary *body = @{
+            @"action": @"edit",
+            @"model": @"gpt-image-2.5-sunburst",
+            @"prompt": @"Remove the entire background. Keep only the main character or object, preserve its complete silhouette and details, and return a clean game sprite with a fully transparent background. Do not add a backdrop, floor, shadow, border, or text.",
+            @"image_b64": [pngData base64EncodedStringWithOptions:0],
+            @"n": @1,
+            @"size": @"1024x1024",
+            @"quality": @"medium",
+            @"output_format": @"png",
+            @"background": @"transparent",
+            @"moderation": @"low",
+        };
+        NSError *serializationError = nil;
+        request.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:&serializationError];
+        if (serializationError) {
+            completion(nil, serializationError.localizedDescription);
+            return;
+        }
+        [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:
+          ^(NSData *data, NSURLResponse *response, NSError *error) {
+            if (error) { completion(nil, error.localizedDescription); return; }
+            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data ?: [NSData data] options:0 error:nil];
+            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+            NSString *serverError = [json[@"error"] isKindOfClass:[NSString class]] ? json[@"error"] : nil;
+            NSString *reason = [json[@"reason"] isKindOfClass:[NSString class]] ? json[@"reason"] : nil;
+            if (httpResponse.statusCode != 200 || serverError.length) {
+                NSString *message = reason.length ? [NSString stringWithFormat:@"%@ %@", serverError ?: @"Image edit failed.", reason]
+                                                   : (serverError ?: @"Image edit failed.");
+                completion(nil, message);
+                return;
+            }
+            NSNumber *balance = json[@"balance"];
+            if ([balance respondsToSelector:@selector(integerValue)]) {
+                [[EZEntitlementManager shared] applyKnownBalance:balance.integerValue];
+            }
+            NSDictionary *firstImage = [json[@"images"] isKindOfClass:[NSArray class]] ? [json[@"images"] firstObject] : nil;
+            NSString *signedURL = [firstImage[@"url"] isKindOfClass:[NSString class]] ? firstImage[@"url"] : nil;
+            NSData *resultData = signedURL.length ? [NSData dataWithContentsOfURL:[NSURL URLWithString:signedURL]] : nil;
+            UIImage *result = resultData ? [UIImage imageWithData:resultData] : nil;
+            if (!result || !BRImageHasTransparentSpriteCanvas(result)) {
+                completion(nil, @"The image edit did not return a usable transparent PNG.");
+                return;
+            }
+            completion(result, nil);
+        }] resume];
+        }];
+    }];
 }
 
 - (NSString *)defaultGenerationCostLabelForAssetSlot:(BRAssetSlot)slot {
@@ -488,6 +691,7 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
         case BRAssetSlotPlayer:     return self.playerSourceKind;
         case BRAssetSlotEnemy:      return self.enemySourceKind;
         case BRAssetSlotBackground: return self.backgroundSourceKind;
+        case BRAssetSlotObstacle:   return self.obstacleSourceKind;
     }
 }
 
@@ -496,6 +700,7 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
         case BRAssetSlotPlayer:     return self.playerImage;
         case BRAssetSlotEnemy:      return self.enemyImage;
         case BRAssetSlotBackground: return self.backgroundImage;
+        case BRAssetSlotObstacle:   return self.obstacleImage;
     }
 }
 
@@ -519,6 +724,11 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
             self.backgroundPrompt = nil;
             self.backgroundSourceKind = BRAssetSourceKindUploadedPhoto;
             break;
+        case BRAssetSlotObstacle:
+            self.obstacleImage = image;
+            self.obstaclePrompt = nil;
+            self.obstacleSourceKind = BRAssetSourceKindUploadedPhoto;
+            break;
     }
 }
 
@@ -527,6 +737,7 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
         case BRAssetSlotPlayer:     return self.playerPrompt;
         case BRAssetSlotEnemy:      return self.enemyPrompt;
         case BRAssetSlotBackground: return self.backgroundPrompt;
+        case BRAssetSlotObstacle:   return self.obstaclePrompt;
     }
 }
 
@@ -551,6 +762,11 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
             self.backgroundPrompt = prompt;
             self.backgroundSourceKind = BRAssetSourceKindAIGenerated;
             break;
+        case BRAssetSlotObstacle:
+            self.obstacleImage = image;
+            self.obstaclePrompt = prompt;
+            self.obstacleSourceKind = BRAssetSourceKindAIGenerated;
+            break;
     }
 }
 
@@ -570,6 +786,11 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
             self.backgroundImage = nil;
             self.backgroundPrompt = nil;
             self.backgroundSourceKind = BRAssetSourceKindDefault;
+            break;
+        case BRAssetSlotObstacle:
+            self.obstacleImage = nil;
+            self.obstaclePrompt = nil;
+            self.obstacleSourceKind = BRAssetSourceKindDefault;
             break;
     }
 }
@@ -596,9 +817,33 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
 
         UIImage *picked = (UIImage *)object;
         dispatch_async(dispatch_get_main_queue(), ^{
-            [weakSelf setCustomImage:picked forAssetSlot:slot];
-            [weakSelf.collectionView reloadData];
+            [weakSelf prepareSpriteImageIfNeeded:picked forSlot:slot
+                                      completion:^(UIImage * _Nullable preparedImage, NSString * _Nullable errorMessage) {
+                if (!preparedImage) {
+                    [weakSelf showAssetPreparationError:errorMessage];
+                    return;
+                }
+                [weakSelf setCustomImage:preparedImage forAssetSlot:slot];
+                [weakSelf.collectionView reloadData];
+            }];
         });
+    }];
+}
+
+- (void)documentPicker:(UIDocumentPickerViewController *)controller
+ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+    NSURL *url = urls.firstObject;
+    BOOL accessed = [url startAccessingSecurityScopedResource];
+    UIImage *image = [UIImage imageWithData:[NSData dataWithContentsOfURL:url]];
+    if (accessed) [url stopAccessingSecurityScopedResource];
+    [controller dismissViewControllerAnimated:YES completion:nil];
+    if (!image) { [self showAssetPreparationError:@"That file is not a usable image."]; return; }
+    BRAssetSlot slot = self.activeAssetSlot;
+    __weak typeof(self) weakSelf = self;
+    [self prepareSpriteImageIfNeeded:image forSlot:slot completion:^(UIImage *preparedImage, NSString *errorMessage) {
+        if (!preparedImage) { [weakSelf showAssetPreparationError:errorMessage]; return; }
+        [weakSelf setCustomImage:preparedImage forAssetSlot:slot];
+        [weakSelf.collectionView reloadData];
     }];
 }
 
@@ -682,6 +927,16 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
         @"has_custom_player": @(self.playerImage != nil),
         @"has_custom_enemy": @(self.enemyImage != nil),
         @"has_custom_bg": @(self.backgroundImage != nil),
+        @"has_custom_obstacle": @(self.obstacleImage != nil),
+        // Default player/enemy art is generated by br-ai during create_custom.
+        // Send their required output format explicitly so the backend can make
+        // them useful sprite files too, rather than opaque rectangular images.
+        @"asset_requirements": @{
+            @"player": @{ @"output_format": @"png", @"background": @"transparent" },
+            @"enemy": @{ @"output_format": @"png", @"background": @"transparent" },
+            @"obstacle": @{ @"output_format": @"png", @"background": @"transparent" },
+            @"bg": @{ @"output_format": @"png", @"background": @"auto" },
+        },
     };
 
     __weak typeof(self) weakSelf = self;
@@ -705,12 +960,22 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
         case BRAssetSlotPlayer:     slotKey = @"player"; break;
         case BRAssetSlotEnemy:      slotKey = @"enemy";  break;
         case BRAssetSlotBackground: slotKey = @"bg";     break;
+        case BRAssetSlotObstacle:   slotKey = @"obstacle"; break;
     }
 
+    BOOL transparentSprite = [self assetSlotRequiresTransparentPNG:slot];
+    NSString *generationPrompt = transparentSprite
+        ? [prompt stringByAppendingString:@"\n\nCreate an isolated game sprite: no background, floor, border, cast shadow, or text. Deliver the sprite as a PNG with a fully transparent background."]
+        : prompt;
     NSDictionary *payload = @{
         @"action": @"generate_workshop_asset",
         @"slot":   slotKey,
-        @"prompt": prompt,
+        @"prompt": generationPrompt,
+        // br-ai receives explicit output requirements in addition to the
+        // prompt, so its image request can request transparency natively.
+        @"output_format": @"png",
+        @"background": transparentSprite ? @"transparent" : @"auto",
+        @"require_transparent_png": @(transparentSprite),
     };
 
     [self performBrAIRequestWithPayload:payload timeout:60.0 completion:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
@@ -751,7 +1016,7 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
             return;
         }
 
-        completion(image, nil);
+        [self prepareSpriteImageIfNeeded:image forSlot:slot completion:completion];
     }];
 }
 
@@ -810,23 +1075,44 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
         if (decodedData) finalBG = [UIImage imageWithData:decodedData];
     }
 
+    // create_custom may have generated the default sprites server-side. Verify
+    // those pixels too before they become game files; an opaque result gets the
+    // same paid transparent-PNG edit as an uploaded or previewed sprite.
+    __weak typeof(self) weakSelf = self;
+    [self prepareSpriteImageIfNeeded:finalPlayer forSlot:BRAssetSlotPlayer
+                          completion:^(UIImage * _Nullable preparedPlayer, NSString * _Nullable playerError) {
+        if (!preparedPlayer && finalPlayer) {
+            [weakSelf terminateWithErrorMessage:playerError ?: @"Could not prepare the player sprite."];
+            return;
+        }
+        [weakSelf prepareSpriteImageIfNeeded:finalEnemy forSlot:BRAssetSlotEnemy
+                                  completion:^(UIImage * _Nullable preparedEnemy, NSString * _Nullable enemyError) {
+            if (!preparedEnemy && finalEnemy) {
+                [weakSelf terminateWithErrorMessage:enemyError ?: @"Could not prepare the enemy sprite."];
+                return;
+            }
+            [weakSelf completeCustomGameWithPremise:finalPremise player:preparedPlayer
+                                               enemy:preparedEnemy background:finalBG];
+        }];
+    }];
+}
+
+- (void)completeCustomGameWithPremise:(NSString *)premise
+                                player:(UIImage *)player
+                                 enemy:(UIImage *)enemy
+                            background:(UIImage *)background {
     [self.spinner stopAnimating];
 
     // Reveal the premise/title/thumbnails immediately. The disk write below
     // happens in parallel; markReadyWithRecord: swaps the result screen's
     // "Finalizing..." spinner for the PLAY button once it completes.
     BRGameResultViewController *resultViewController = [self transitionToResultScreenWithTitle:self.gameTitle
-                                                                                          premise:finalPremise
-                                                                                           player:finalPlayer
-                                                                                            enemy:finalEnemy
-                                                                                       background:finalBG];
-
-    [self finalizeLocalDiskCommitWithTitle:self.gameTitle
-                                    premise:finalPremise
-                                     player:finalPlayer
-                                      enemy:finalEnemy
-                                 background:finalBG
-                       resultViewController:resultViewController];
+                                                                                          premise:premise
+                                                                                           player:player
+                                                                                            enemy:enemy
+                                                                                       background:background];
+    [self finalizeLocalDiskCommitWithTitle:self.gameTitle premise:premise player:player enemy:enemy
+                                 background:background resultViewController:resultViewController];
 }
 
 /// Pushes (or, if this view controller has no navigation controller,
@@ -897,9 +1183,10 @@ typedef NS_ENUM(NSInteger, BRAssetSourceKind) {
                                              items:@[@"Fragment", @"Core Element"]
                                            enemies:@[@"Entity Override"]
                                               seed:generatedSeed
-                                   backgroundImage:bg
-                                       playerImage:player
+                                        backgroundImage:bg
+                                           playerImage:player
                                         enemyImage:enemy
+                                     obstacleImage:self.obstacleImage
                                         completion:^(BRGameRecord * _Nonnull record) {
         dispatch_async(dispatch_get_main_queue(), ^{
             if (weakSelf.onGameCreated) {

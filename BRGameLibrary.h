@@ -30,6 +30,17 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong, readonly, nullable) UIImage *backgroundImage;
 @property (nonatomic, strong, readonly, nullable) UIImage *playerImage;
 @property (nonatomic, strong, readonly, nullable) UIImage *enemyImage;
+/// Optional shared art for maze walls and Ricochet breakable blocks.
+@property (nonatomic, strong, readonly, nullable) UIImage *obstacleImage;
+
+/// Extensible named art slots. New game modes can opt into keys such as
+/// "slot_brain", "slot_seven", or "slot_cherry" without requiring a schema
+/// change. Older Maze/Ricochet records simply return an empty dictionary and
+/// continue to use their built-in fallback art.
+@property (nonatomic, strong, readonly) NSDictionary<NSString *, UIImage *> *customAssetImages;
+/// Set only for a game downloaded from the Community browser. It prevents the
+/// same remote game from being saved more than once on this device.
+@property (nonatomic, copy, readonly, nullable) NSString *communitySharedGameID;
 
 /// Convenience dictionary matching the shape that BrainRotViewController
 /// already consumes from buildGameAssetsWithCompletion:.
@@ -58,9 +69,47 @@ NS_ASSUME_NONNULL_BEGIN
                      enemyImage:(nullable UIImage *)enemyImage
                      completion:(nullable void (^)(BRGameRecord *record))completion;
 
+/// Variant used by Custom Workshop when a wall/block/obstacle asset is set.
+- (void)saveGameWithThemeTitle:(NSString *)themeTitle
+                        premise:(NSString *)premise
+                           hint:(NSString *)hint
+                          items:(NSArray<NSString *> *)items
+                        enemies:(NSArray<NSString *> *)enemies
+                           seed:(NSNumber *)seed
+               backgroundImage:(nullable UIImage *)backgroundImage
+                    playerImage:(nullable UIImage *)playerImage
+                     enemyImage:(nullable UIImage *)enemyImage
+                  obstacleImage:(nullable UIImage *)obstacleImage
+                     completion:(nullable void (^)(BRGameRecord *record))completion;
+
+/// General-purpose asset-map variant for current and future game modes.
+/// Asset keys are persisted with the record and missing keys are intentionally
+/// safe: each game mode supplies its normal default image in that case.
+- (void)saveGameWithThemeTitle:(NSString *)themeTitle
+                        premise:(NSString *)premise
+                           hint:(NSString *)hint
+                          items:(NSArray<NSString *> *)items
+                        enemies:(NSArray<NSString *> *)enemies
+                           seed:(NSNumber *)seed
+               backgroundImage:(nullable UIImage *)backgroundImage
+                    playerImage:(nullable UIImage *)playerImage
+                     enemyImage:(nullable UIImage *)enemyImage
+                  obstacleImage:(nullable UIImage *)obstacleImage
+               customAssetImages:(nullable NSDictionary<NSString *, UIImage *> *)customAssetImages
+                     completion:(nullable void (^)(BRGameRecord *record))completion;
+
 /// Returns all saved records sorted newest-first. Synchronous; call off main
 /// thread for large libraries, though in practice libraries stay small.
 - (NSArray<BRGameRecord *> *)allRecords;
+
+/// Finds an existing Community download. For downloads saved by older builds,
+/// title/premise are used once to adopt the local record and collapse duplicates.
+- (nullable BRGameRecord *)existingCommunityRecordWithSharedGameID:(NSString *)sharedGameID
+                                                         themeTitle:(NSString *)themeTitle
+                                                            premise:(NSString *)premise;
+
+/// Persists the Community source identifier after a successful download.
+- (void)markRecord:(BRGameRecord *)record downloadedFromCommunityGameID:(NSString *)sharedGameID;
 
 /// Permanently deletes a record's folder from disk.
 - (void)deleteRecord:(BRGameRecord *)record;

@@ -27,6 +27,8 @@ typedef NS_ENUM(NSInteger, BRSynthScale) {
 };
 
 typedef NS_ENUM(NSInteger, BRSynthArpeggioDivision) {
+    // Kept at -1 so existing saved 0/1/2 rate values retain their meaning.
+    BRSynthArpeggioDivisionOff = -1,
     BRSynthArpeggioDivisionQuarter,
     BRSynthArpeggioDivisionEighth,
     BRSynthArpeggioDivisionSixteenth,
@@ -121,9 +123,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) BOOL isStarted;
     // BRSynthEngine.h — add to the public interface
     /// Plays a note immediately (not queued to the tempo grid) — for real-time
-    /// input like the on-screen smart keyboard, where quantized/delayed
-    /// playback would feel laggy. Starts the engine automatically if needed.
-    - (void)playKeySemitone:(NSInteger)semitone velocity:(float)velocity;
+/// Starts a held keyboard note immediately. Pair it with -releaseKeySemitone:
+/// when the corresponding touch lifts; the note sustains between those calls.
+- (void)pressKeySemitone:(NSInteger)semitone velocity:(float)velocity;
+- (void)releaseKeySemitone:(NSInteger)semitone;
 /// Lazily brings up the AVAudioEngine graph. Safe to call more than once —
 /// no-ops after the first successful start. Call this from a user-gesture
 /// handler (e.g. the Launch button), not from viewDidLoad, so it doesn't

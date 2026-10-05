@@ -2400,6 +2400,7 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
     self.enemyImage             = nil;
     [self clearEnemyImageViews];
     self.gameView.backgroundImage   = nil;
+    self.gameView.wallImage         = nil;
     self.gameView.hidePlayerDot     = NO;
     self.gameView.backgroundColor   = [UIColor colorWithWhite:0.1 alpha:1.0];
 
@@ -2412,11 +2413,13 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
     UIImage *bgImage   = assetDict[@"bgImage"];
     UIImage *playerImg = assetDict[@"playerImage"];
     UIImage *enemyImg  = assetDict[@"enemyImage"];
+    UIImage *wallImg   = assetDict[@"obstacleImage"];
 
     if (bgImage) {
         self.gameView.backgroundImage = bgImage;
         self.gameView.backgroundColor = [UIColor clearColor];
     }
+    self.gameView.wallImage = wallImg;
 
     self.model.levelFlavor    = record.premise;
     self.model.aiItems        = record.items;
