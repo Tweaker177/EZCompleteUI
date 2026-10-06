@@ -1795,25 +1795,31 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
             if (httpResponse.statusCode == 200 && [json[@"success"] boolValue]) {
 
-                NSInteger coinsAdded = jsonInteger(json, @"coins_added");
-
-                NSInteger newBalance = jsonInteger(json, @"balance");
-
-                // Record next-claim time from server so the countdown is accurate
+                NSString *rewardType = jsonString(json, @"reward_type");
 
                 self.nextDailyClaimDate    = dateFromISO8601String(jsonString(json, @"next_claim_at"));
 
                 self.isDailyCoinsAvailable = NO;
 
-                [self scheduleDailyCoinsReadyReminderForDate:self.nextDailyClaimDate requestPermissionIfNeeded:YES];
-
-                // Reflect new balance immediately before the delayed full refresh
-
-                [[EZEntitlementManager shared] applyKnownBalance:newBalance];
-
                 [self updateDailyCoinsButtonState];
 
-                [self showCoinCelebration:coinsAdded newBalance:newBalance];
+                if ([rewardType isEqualToString:@"spins"]) {
+
+                    NSInteger spinsAdded = jsonInteger(json, @"spins_added");
+
+                    [self showFreeSpinsCelebration:spinsAdded];
+
+                } else {
+
+                    NSInteger coinsAdded = jsonInteger(json, @"coins_added");
+
+                    NSInteger newBalance = jsonInteger(json, @"balance");
+
+                    [[EZEntitlementManager shared] applyKnownBalance:newBalance];
+
+                    [self showCoinCelebration:coinsAdded newBalance:newBalance];
+
+                }
 
                 [[NSNotificationCenter defaultCenter]
 
@@ -1828,6 +1834,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
                     [self refreshBalance];
 
                 });
+
 
             } else if (httpResponse.statusCode == 429
 
@@ -2600,6 +2607,14 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 // ── Coin celebration overlay ──────────────────────────────────────────────────
 
 // Shown after any successful coin credit: purchases, top-ups, and daily rewards.
+
+- (void)showFreeSpinsCelebration:(NSInteger)spinsAdded {
+
+    [self showAlert:@"🎁 Free Spins!"
+
+            message:[NSString stringWithFormat:@"You got %ld free spins on Brainrot Slots — head over and give them a pull!", (long)spinsAdded]];
+
+}
 
 - (void)showCoinCelebration:(NSInteger)coinsAdded newBalance:(NSInteger)newBalance {
 

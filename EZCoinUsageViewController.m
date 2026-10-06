@@ -68,6 +68,7 @@ static NSString *friendlyFeatureName(NSString *feature) {
         @"web_search":      @"Web Search",
         @"daily_reward":    @"Daily Free Coins",
         @"brainrot_slots":  @"Brainrot Slots",
+        @"brainrot_penny_slots": @"EZCoin Penny Slots",
     };
     return map[feature] ?: feature;
 }
@@ -82,7 +83,7 @@ static NSString *featureIcon(NSString *feature) {
     if ([feature isEqual:@"whisper_minute"]) return @"🎙";
     if ([feature isEqual:@"web_search"]) return @"🔍";
     if ([feature isEqual:@"daily_reward"]) return @"🎁";
-    if ([feature isEqual:@"brainrot_slots"]) return @"🎰";
+    if ([feature isEqual:@"brainrot_slots"] || [feature isEqual:@"brainrot_penny_slots"]) return @"🎰";
     return @"🪙";
 }
 
@@ -113,6 +114,7 @@ static NSNumber *safeNumber(id value) {
 @interface EZUsageCell : UITableViewCell
 - (void)configureWithRow:(NSDictionary *)row;
 + (CGFloat)rowHeight;
++ (CGFloat)rowHeightForRow:(NSDictionary *)row;
 @end
 
 @implementation EZUsageCell {
@@ -124,6 +126,8 @@ static NSNumber *safeNumber(id value) {
     UILabel *_balanceLabel;
     UILabel *_timeLabel;
     UILabel *_detailLabel;
+    BOOL _isSlotAudit;
+    BOOL _isPennySlotAudit;
 }
 
 - (instancetype)initWithStyle:(UITableViewCellStyle)style
@@ -153,7 +157,8 @@ static NSNumber *safeNumber(id value) {
 
     _iconLabel    = lbl(22, UIFontWeightRegular, [UIColor whiteColor], 1);
     _featureLabel = lbl(14, UIFontWeightSemibold,[UIColor whiteColor], 1);
-    _promptLabel  = lbl(12, UIFontWeightRegular, [UIColor colorWithWhite:0.70 alpha:1], 2);
+    _promptLabel  = lbl(12, UIFontWeightRegular, [UIColor colorWithWhite:0.70 alpha:1], 10);
+    _promptLabel.lineBreakMode = NSLineBreakByWordWrapping;
     _coinsLabel   = lbl(15, UIFontWeightBold,    [UIColor systemOrangeColor], 1);
     _balanceLabel = lbl(11, UIFontWeightRegular, EZUMuted(), 1);
     _timeLabel    = lbl(11, UIFontWeightRegular, EZUMuted(), 1);
@@ -164,6 +169,8 @@ static NSNumber *safeNumber(id value) {
 
 - (void)configureWithRow:(NSDictionary *)row {
     NSString *feature  = safeString(row[@"feature"]);
+    _isPennySlotAudit = [feature isEqualToString:@"brainrot_penny_slots"];
+    _isSlotAudit = [feature isEqualToString:@"brainrot_slots"] || _isPennySlotAudit;
     _iconLabel.text    = featureIcon(feature);
     _featureLabel.text = friendlyFeatureName(feature);
 
@@ -178,7 +185,10 @@ static NSNumber *safeNumber(id value) {
 
     // TTS stores character count and Whisper stores audio seconds in quantity,
     // not repeating billable units — show the real unit instead of "× N ea.".
-    if (isCredit) {
+    if (_isPennySlotAudit && !isCredit && coins == 0) {
+        _coinsLabel.text = @"FREE SPIN • no stake";
+        _coinsLabel.textColor = EZUGold();
+    } else if (isCredit) {
         _coinsLabel.text = [NSString stringWithFormat:@"+%ld coins", (long)ABS(coins)];
         _coinsLabel.textColor = [UIColor systemGreenColor];
     } else if ([feature isEqualToString:@"tts"]) {
@@ -196,7 +206,7 @@ static NSNumber *safeNumber(id value) {
     } else {
         _coinsLabel.text = [NSString stringWithFormat:@"−%ld coins", (long)coins];
     }
-    if (!isCredit) _coinsLabel.textColor = [UIColor systemOrangeColor];
+    if (!isCredit && !(_isPennySlotAudit && coins == 0)) _coinsLabel.textColor = [UIColor systemOrangeColor];
     _balanceLabel.text = [NSString stringWithFormat:@"Balance: %ld coins", (long)balance];
 
     // Detail line — images, tokens, model, error
@@ -271,8 +281,9 @@ static NSNumber *safeNumber(id value) {
     _timeLabel.frame    = CGRectMake(cardWidth - 130, padding + 4, 118, 16);
 
     CGFloat currentY = padding + 30;
-    _promptLabel.frame  = CGRectMake(padding, currentY, cardWidth - padding * 2, 34);
-    currentY += _promptLabel.hidden ? 4 : 38;
+    CGFloat promptHeight = _isSlotAudit ? (_isPennySlotAudit ? 170 : 90) : 34;
+    _promptLabel.frame  = CGRectMake(padding, currentY, cardWidth - padding * 2, promptHeight);
+    currentY += _promptLabel.hidden ? 4 : promptHeight + 4;
 
     _coinsLabel.frame   = CGRectMake(padding, currentY, 200, 20);
     _balanceLabel.frame = CGRectMake(padding, currentY + 22, 200, 15);
@@ -280,6 +291,7 @@ static NSNumber *safeNumber(id value) {
 }
 
 + (CGFloat)rowHeight { return 120; }
++ (CGFloat)rowHeightForRow:(NSDictionary *)row { NSString *feature = safeString(row[@"feature"]); return [feature isEqualToString:@"brainrot_penny_slots"] ? 300 : [feature isEqualToString:@"brainrot_slots"] ? 210 : [self rowHeight]; }
 
 @end
 
@@ -413,7 +425,7 @@ static NSNumber *safeNumber(id value) {
     self.tableView.dataSource = self;
     self.tableView.backgroundColor           = EZUBg();
     self.tableView.separatorStyle            = UITableViewCellSeparatorStyleNone;
-    self.tableView.rowHeight                 = [EZUsageCell rowHeight];
+    self.tableView.rowHeight                 = UITableViewAutomaticDimension;
     self.tableView.alwaysBounceVertical      = YES;
     self.tableView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentAutomatic;
     [self.tableView registerClass:EZUsageCell.class forCellReuseIdentifier:kUsageCellID];
@@ -610,7 +622,7 @@ static NSNumber *safeNumber(id value) {
 }
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
-    return [EZUsageCell rowHeight];
+    return [EZUsageCell rowHeightForRow:self.rows[indexPath.row]];
 }
 
 - (void)tableView:(UITableView *)tableView

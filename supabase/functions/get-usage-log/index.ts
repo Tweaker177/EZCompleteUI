@@ -77,7 +77,7 @@ serve(async (req) => {
       .from("coin_transactions")
       .select("id, created_at, amount, feature, description, balance_after")
       .eq("user_id", user.id)
-      .in("feature", ["daily_reward", "brainrot_slots"])
+      .in("feature", ["daily_reward", "brainrot_slots", "brainrot_penny_slots"])
       .eq("direction", "credit")
       .order("created_at", { ascending: false });
 
@@ -94,7 +94,7 @@ serve(async (req) => {
       created_at: row.created_at,
       feature: row.feature,
       model: null,
-      prompt: row.description ?? (row.feature === "brainrot_slots" ? "Slot payout" : "Daily free coins"),
+      prompt: row.description ?? (row.feature === "brainrot_penny_slots" ? "Penny Slots payout" : row.feature === "brainrot_slots" ? "Slot payout" : "Daily free coins"),
       coins_charged: row.amount ?? 0,
       quantity: 1,
       running_balance: row.balance_after,

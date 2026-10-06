@@ -1167,15 +1167,21 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     self.musicSettingsOverlay = overlay;
 
     CGFloat cardWidth = MIN(350.0, CGRectGetWidth(self.view.bounds) - 36.0);
+    CGFloat visibleHeight = MIN(820.0, CGRectGetHeight(self.view.safeAreaLayoutGuide.layoutFrame) - 24.0);
+    UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, visibleHeight)];
+    scroll.center = CGPointMake(CGRectGetMidX(overlay.bounds), CGRectGetMidY(overlay.bounds));
+    scroll.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+    scroll.layer.cornerRadius = 24.0; scroll.clipsToBounds = YES; scroll.alwaysBounceVertical = YES;
+    [overlay addSubview:scroll];
     UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, 820)];
-    card.center = CGPointMake(CGRectGetMidX(overlay.bounds), CGRectGetMidY(overlay.bounds));
-    card.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin |
-                            UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
     card.backgroundColor = [UIColor colorWithRed:0.055 green:0.06 blue:0.13 alpha:1.0];
     card.layer.cornerRadius = 24.0;
     card.layer.borderWidth = 1.5;
     card.layer.borderColor = [UIColor colorWithRed:0.63 green:0.35 blue:1.0 alpha:0.72].CGColor;
-    [overlay addSubview:card];
+    [scroll addSubview:card]; scroll.contentSize = card.bounds.size;
+    UIButton *close = [UIButton buttonWithType:UIButtonTypeSystem]; close.frame = CGRectMake(CGRectGetMaxX(scroll.frame) - 42, CGRectGetMinY(scroll.frame) + 8, 34, 34); [close setImage:[UIImage systemImageNamed:@"xmark.circle.fill"] forState:UIControlStateNormal]; close.tintColor = UIColor.whiteColor; [overlay addSubview:close];
+    __weak UIView *weakOverlayForClose = overlay; __weak typeof(self) weakSelfForClose = self;
+    [close addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { UIView *activeOverlay = weakOverlayForClose; [UIView animateWithDuration:.16 animations:^{ activeOverlay.alpha = 0; } completion:^(__unused BOOL done) { [activeOverlay removeFromSuperview]; weakSelfForClose.musicSettingsOverlay = nil; }]; }] forControlEvents:UIControlEventTouchUpInside];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(20, 25, cardWidth - 40, 28)];
     title.text = @"♪  MUSIC LAB";

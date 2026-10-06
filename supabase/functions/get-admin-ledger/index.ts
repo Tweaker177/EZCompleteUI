@@ -28,13 +28,10 @@
 //   and silently return zeros for the global_* aggregate fields.
 //
 // Changes from previous version:
-//   - mode=user now queries ez_all_ledger_rows instead of ez_admin_ledger.
-//     ez_all_ledger_rows is a UNION view that adds credit rows (daily claims,
-//     top-ups, subscription renewals, adjustments from coin_transactions) to
-//     the existing debit rows. Each row now includes a direction field
-//     ("credit" or "debit") so the iOS client can display them correctly.
-//     The aggregate query still runs against ez_usage_log (debit/spend only)
-//     since credits have no API cost and should not skew spend metrics.
+//   - mode=user reads ez_admin_ledger for canonical request audit data, then
+//     merges coin-credit and manual-reversal transaction rows in this function.
+//     Keeping the sources separate preserves prompt/IP/session fields on usage
+//     records while still showing grants, top-ups, rewards, and slot payouts.
 //   - Added feature= filter param to mode=user (ilike match on the feature
 //     column). Enables filtering to a single feature type, e.g. ?feature=tts,
 //     ?feature=daily_reward, ?feature=topup. Applied to both the row query
@@ -137,8 +134,12 @@ serve(async (req) => {
 
     // ── mode: user — full per-row detail for one or all users ────────────────
     if (mode === "user") {
+      // Fetch enough rows from each source before merging them. Applying the
+      // offset after the merge keeps pagination chronological across both
+      // request usage and account-credit events.
+      const candidateLimit = Math.min(1000, offset + limit);
       let query = supabase
-        .from("ez_all_ledger_rows")
+        .from("ez_admin_ledger")
         .select(`
           id, created_at, user_id, user_email, ip_address, session_id,
           feature, model, prompt,
@@ -146,10 +147,10 @@ serve(async (req) => {
           input_tokens, output_tokens, total_tokens,
           images_returned, images_requested,
           api_cost_usd, cost_per_100_coins, implied_margin_pct,
-          status, error_text, direction
+          status, error_text
         `)
         .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
+        .range(0, candidateLimit - 1);
 
       if (userId)  query = query.eq("user_id", userId);
       if (email)   query = query.ilike("user_email", `%${email}%`);
@@ -158,11 +159,80 @@ serve(async (req) => {
       if (since)   query = query.gte("created_at", since);
       if (until)   query = query.lte("created_at", until);
 
-      const { data: rows, error: rowsErr } = await query;
+      let transactionsQuery = supabase
+        .from("coin_transactions")
+        .select("id, created_at, user_id, amount, direction, feature, description, balance_after")
+        .order("created_at", { ascending: false })
+        .range(0, candidateLimit - 1);
+
+      if (userId) transactionsQuery = transactionsQuery.eq("user_id", userId);
+      if (feature) transactionsQuery = transactionsQuery.ilike("feature", `%${feature}%`);
+      if (excludeFeature) transactionsQuery = transactionsQuery.not("feature", "ilike", `%${excludeFeature}%`);
+      if (since) transactionsQuery = transactionsQuery.gte("created_at", since);
+      if (until) transactionsQuery = transactionsQuery.lte("created_at", until);
+
+      const [
+        { data: usageRows, error: rowsErr },
+        { data: transactionRows, error: transactionsErr },
+      ] = await Promise.all([query, transactionsQuery]);
       if (rowsErr) {
         console.error("[get-admin-ledger] user query error:", rowsErr.message);
         return json({ error: "Query failed" }, 500);
       }
+      if (transactionsErr) {
+        console.error("[get-admin-ledger] transaction query error:", transactionsErr.message);
+        return json({ error: "Query failed" }, 500);
+      }
+
+      // ez_admin_ledger has the full request audit record. coin_transactions
+      // supplies balance-changing events that intentionally have no matching
+      // request, such as a manual grant. Do not also add normal debit rows here
+      // because their request audit rows are already present above.
+      const emailByUserId = new Map<string, string>();
+      for (const row of usageRows ?? []) {
+        if (row.user_id && row.user_email) emailByUserId.set(row.user_id, row.user_email);
+      }
+      const transactionUsers = [...new Set((transactionRows ?? []).map((row) => row.user_id).filter(Boolean))]
+        .filter((id) => !emailByUserId.has(id));
+      await Promise.all(transactionUsers.map(async (id) => {
+        const { data } = await supabase.auth.admin.getUserById(id);
+        if (data.user?.email) emailByUserId.set(id, data.user.email);
+      }));
+
+      const emailNeedle = email?.toLowerCase();
+      const additionalTransactionRows = (transactionRows ?? [])
+        .filter((row) => row.direction === "credit" || row.feature === "manual_reversal")
+        .filter((row) => !emailNeedle || (emailByUserId.get(row.user_id) ?? "").toLowerCase().includes(emailNeedle))
+        .map((row) => ({
+          id: `transaction-${row.id}`,
+          created_at: row.created_at,
+          user_id: row.user_id,
+          user_email: emailByUserId.get(row.user_id) ?? "",
+          ip_address: null,
+          session_id: null,
+          feature: row.feature,
+          model: "Coin transaction",
+          prompt: row.description ?? "Coin balance adjustment",
+          coins_charged: row.amount ?? 0,
+          quantity: 1,
+          running_balance: row.balance_after,
+          input_tokens: null,
+          output_tokens: null,
+          total_tokens: null,
+          images_returned: null,
+          images_requested: null,
+          api_cost_usd: "0.000000",
+          cost_per_100_coins: null,
+          implied_margin_pct: null,
+          status: "complete",
+          error_text: null,
+          direction: row.direction,
+        }));
+      const rows = [
+        ...(usageRows ?? []).map((row) => ({ ...row, direction: "debit" })),
+        ...additionalTransactionRows,
+      ].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+      const pageRows = rows.slice(offset, offset + limit);
 
       // Per-query aggregate for this filter set
       let aggQuery = supabase
@@ -223,7 +293,7 @@ serve(async (req) => {
       const totalInBalances  = balances?.total_balances        ?? 0;
 
       return json({
-        rows:      rows ?? [],
+        rows:      pageRows,
         aggregate: {
           total_calls:         aggRows?.length ?? 0,
           total_coins:         totalCoins,

@@ -216,6 +216,7 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
 @interface EZAdminLedgerCell : UITableViewCell
 - (void)configureWithRow:(NSDictionary *)row;
 + (CGFloat)rowHeight;
++ (CGFloat)rowHeightForRow:(NSDictionary *)row;
 @property (nonatomic, copy) EZGrantCoinsHandler grantCoinsHandler;
 @end
 
@@ -250,6 +251,7 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     NSString *_contactCost;
     NSString *_contactStatus;
     NSString *_contactErrorMessage;
+    BOOL _isPennySlotAudit;
 }
 
 - (instancetype)initWithStyle:(UITableViewCellStyle)style
@@ -300,7 +302,8 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     _ipLabel        = makeLabel(12, UIFontWeightRegular, EZMutedLight(),                        1);
     // Slot audits intentionally use one row per reel. Allow enough room for
     // the complete outcome rather than truncating it into a two-line snippet.
-    _promptLabel    = makeLabel(12, UIFontWeightRegular, [UIColor colorWithWhite:0.80 alpha:1], 6);
+    _promptLabel    = makeLabel(12, UIFontWeightRegular, [UIColor colorWithWhite:0.80 alpha:1], 12);
+    _promptLabel.lineBreakMode = NSLineBreakByWordWrapping;
     _promptLabel.userInteractionEnabled = YES;
     // Tap the prompt to copy just its text, separate from the long-press
     // "copy everything" gesture on the card as a whole.
@@ -372,6 +375,7 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
 
     // Feature + model
     NSString *featureKey = safeString(row[@"feature"]);
+    _isPennySlotAudit = [featureKey isEqualToString:@"brainrot_penny_slots"];
     _featureLabel.text   = [self friendlyFeature:featureKey.length ? featureKey : @"unknown"];
     _modelLabel.text     = safeString(row[@"model"]);
     _contactModel        = _modelLabel.text;
@@ -631,6 +635,7 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
         @"topup":                 @"💰 Coin Top-up",
         @"subscription_renewal":  @"⭐️ Subscription",
         @"manual_grant":          @"🎁 Manual Grant",
+        @"manual_reversal":       @"↩️ Manual Grant Reversal",
         @"promo":                 @"🎁 Promo",
         @"adjustment":            @"🔧 Adjustment",
         // Feature spend
@@ -648,6 +653,7 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
         @"voice_clone":     @"🎤 Voice Clone",
         @"whisper_minute":  @"🎙 Whisper",
         @"web_search":      @"🔍 Web Search",
+        @"brainrot_penny_slots": @"🎰 EZCoin Penny Slots",
     };
     return featureNames[featureKey] ?: featureKey;
 }
@@ -685,8 +691,9 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     y += 18;
 
     // Prompt / audit outcome (up to six explicit lines)
-    _promptLabel.frame = CGRectMake(x, y, cardWidth - x * 2, 90);
-    y += 94;
+    CGFloat promptHeight = _isPennySlotAudit ? 174 : 90;
+    _promptLabel.frame = CGRectMake(x, y, cardWidth - x * 2, promptHeight);
+    y += promptHeight + 4;
 
     // "+" grant-coins button — vertically centered on the whole card, right
     // edge. Sized/positioned first so the detail rows below can be kept clear
@@ -725,6 +732,7 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
 }
 
 + (CGFloat)rowHeight { return 290; }
++ (CGFloat)rowHeightForRow:(NSDictionary *)row { return [row[@"feature"] isEqual:@"brainrot_penny_slots"] ? 374 : [self rowHeight]; }
 
 @end
 
@@ -1418,6 +1426,10 @@ static NSInteger const kPageSize = 50;
         [weakSelf presentGrantCoinsSheetForUserId:userId email:email];
     };
     return cell;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return [EZAdminLedgerCell rowHeightForRow:self.filteredRows[(NSUInteger)indexPath.row]];
 }
 
 - (void)tableView:(UITableView *)tableView

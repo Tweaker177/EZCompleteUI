@@ -600,6 +600,21 @@ static NSString *ez_safetyIdentifierForUserId(NSString *userId) {
 typedef void (^EZImageStreamEventBlock)(NSDictionary *event);
 typedef void (^EZImageStreamCompletionBlock)(NSDictionary * _Nullable result, NSError * _Nullable error);
 
+static BOOL EZIsImageTransportError(NSError *error) {
+    if (!error) return NO;
+    return error.code == NSURLErrorTimedOut ||
+           error.code == NSURLErrorNetworkConnectionLost ||
+           error.code == NSURLErrorCannotConnectToHost ||
+           error.code == NSURLErrorNotConnectedToInternet;
+}
+
+static NSString *EZFriendlyImageTransportMessage(NSError *error) {
+    if (EZIsImageTransportError(error)) {
+        return @"The live preview connection was interrupted. Your image may still finish and appear in Gallery; the server will record the completed result or any refund.";
+    }
+    return error.localizedDescription.length ? error.localizedDescription : @"Image generation could not be completed.";
+}
+
 /// Small SSE client dedicated to ez-image. It parses complete SSE frames as
 /// bytes arrive so partial image previews appear before the final response.
 @interface EZImageEventStream : NSObject <NSURLSessionDataDelegate>
@@ -4352,9 +4367,25 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self updateImageGenerationProgress:0.14]; // request body accepted locally
     [self startImageGenerationStreamWithToken:token body:body
         event:^(NSDictionary *event) { [self handleImageGenerationStreamEvent:event]; }
-                completion:^(NSDictionary *json, NSError *error) {
+        completion:^(NSDictionary *json, NSError *error) {
         if (error) {
-            dispatch_async(dispatch_get_main_queue(), ^{ [self hideStatusBanner]; [self handleAPIError:error.localizedDescription]; });
+            [self recoverUndeliveredGalleryImagesIfNeeded];
+            BOOL isTransportError = EZIsImageTransportError(error);
+            if (isTransportError) {
+                __weak typeof(self) weakSelf = self;
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    [weakSelf recoverUndeliveredGalleryImagesIfNeeded];
+                });
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(20 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    [weakSelf recoverUndeliveredGalleryImagesIfNeeded];
+                });
+            }
+            NSString *message = EZFriendlyImageTransportMessage(error);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideStatusBanner];
+                [self handleAPIError:message];
+                if (!isTransportError) [self appendImageGridToChat:@[] prompt:savedPrompt isError:YES errorText:message];
+            });
             return;
         }
         id errObj = json[@"error"];
@@ -4518,9 +4549,25 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self updateImageGenerationProgress:0.14]; // edit request accepted locally
     [self startImageGenerationStreamWithToken:token body:body
         event:^(NSDictionary *event) { [self handleImageGenerationStreamEvent:event]; }
-                completion:^(NSDictionary *json, NSError *error) {
+        completion:^(NSDictionary *json, NSError *error) {
         if (error) {
-            dispatch_async(dispatch_get_main_queue(), ^{ [self hideStatusBanner]; [self handleAPIError:error.localizedDescription]; });
+            [self recoverUndeliveredGalleryImagesIfNeeded];
+            BOOL isTransportError = EZIsImageTransportError(error);
+            if (isTransportError) {
+                __weak typeof(self) weakSelf = self;
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    [weakSelf recoverUndeliveredGalleryImagesIfNeeded];
+                });
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(20 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    [weakSelf recoverUndeliveredGalleryImagesIfNeeded];
+                });
+            }
+            NSString *message = EZFriendlyImageTransportMessage(error);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideStatusBanner];
+                [self handleAPIError:message];
+                if (!isTransportError) [self appendImageGridToChat:@[] prompt:prompt isError:YES errorText:message];
+            });
             return;
         }
         id errObj = json[@"error"];

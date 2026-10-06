@@ -30,6 +30,8 @@ EZEntitlementManager.m
 !/supabase/functions/
 !/supabase/functions/ez-slot-spin/
 !/supabase/functions/ez-slot-spin/index.ts
+!/supabase/functions/ez-penny-slot-spin/
+!/supabase/functions/ez-penny-slot-spin/index.ts
 !/supabase/functions/get-admin-ledger/
 !/supabase/functions/get-admin-ledger/index.ts
 !/supabase/migrations/
@@ -40,6 +42,7 @@ EZEntitlementManager.m
 !/supabase/migrations/20261004000400_restore_slot_audit_results.sql
 !/supabase/migrations/20261004000500_format_slot_audit_results.sql
 !/supabase/migrations/20261004000600_allow_variable_slot_wagers.sql
+!/supabase/migrations/20261005000100_penny_slot_free_spins.sql
 !/supabase/functions/get-usage-log/index.ts
 make_icon_theme.py
 *.py
