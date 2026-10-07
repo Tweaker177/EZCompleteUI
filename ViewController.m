@@ -6756,14 +6756,24 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     __weak typeof(self) weakSelf = self;
     picker.onMazeSelected = ^{
         BrainRotViewController *maze = [BrainRotViewController new];
+        maze.onReturnToBrainRotMenu = ^{
+            [weakSelf dismissViewControllerAnimated:YES completion:^{ [weakSelf openBrainRot]; }];
+        };
         [weakSelf presentGameController:maze];
     };
     picker.onRicochetSelected = ^{
         BRRicochetViewController *ricochet = [BRRicochetViewController ricochetController];
+        ricochet.onReturnToBrainRotMenu = ^{
+            [weakSelf dismissViewControllerAnimated:YES completion:^{ [weakSelf openBrainRot]; }];
+        };
         [weakSelf presentGameController:ricochet];
     };
     picker.onSlotsSelected = ^{
-        [weakSelf presentGameController:[BRSlotGamePickerViewController new]];
+        BRSlotGamePickerViewController *slots = [BRSlotGamePickerViewController new];
+        slots.onReturnToBrainRotMenu = ^{
+            [weakSelf dismissViewControllerAnimated:YES completion:^{ [weakSelf openBrainRot]; }];
+        };
+        [weakSelf presentGameController:slots];
     };
     picker.modalPresentationStyle = UIModalPresentationFormSheet;
     [self presentViewController:picker animated:YES completion:nil];

@@ -20,6 +20,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// opened from EZ Attachments. Leave nil for the normal game-library flow.
 @property (nonatomic, strong, nullable) UIImage *initialWorkshopImage;
 
+/// Called by the in-game Back control to return to the Brainrot mode picker.
+@property (nonatomic, copy, nullable) dispatch_block_t onReturnToBrainRotMenu;
+
 @end
 
 NS_ASSUME_NONNULL_END

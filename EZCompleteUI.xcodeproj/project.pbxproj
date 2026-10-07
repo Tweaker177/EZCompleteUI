@@ -77,6 +77,7 @@
 		A20000000000000000000044 /* BRSlotMachineViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000046 /* BRSlotMachineViewController.m */; };
 		A20000000000000000000045 /* BRSlotGamePickerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000048 /* BRSlotGamePickerViewController.m */; };
 		A20000000000000000000046 /* BRPennySlotViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004A /* BRPennySlotViewController.m */; };
+		A20000000000000000000047 /* BRSlotRoomViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004C /* BRSlotRoomViewController.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -155,6 +156,8 @@
 		A10000000000000000000049 /* BRSlotGamePickerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRSlotGamePickerViewController.h; sourceTree = "<group>"; };
 		A1000000000000000000004A /* BRPennySlotViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRPennySlotViewController.m; sourceTree = "<group>"; };
 		A1000000000000000000004B /* BRPennySlotViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRPennySlotViewController.h; sourceTree = "<group>"; };
+		A1000000000000000000004C /* BRSlotRoomViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRSlotRoomViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000004D /* BRSlotRoomViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRSlotRoomViewController.h; sourceTree = "<group>"; };
 		A30000000000000000000001 /* EZCompleteUI-Simulator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EZCompleteUI-Simulator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A30000000000000000000002 /* Resources/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Resources/Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -257,6 +260,8 @@
 				A10000000000000000000049 /* BRSlotGamePickerViewController.h */,
 				A1000000000000000000004A /* BRPennySlotViewController.m */,
 				A1000000000000000000004B /* BRPennySlotViewController.h */,
+				A1000000000000000000004C /* BRSlotRoomViewController.m */,
+				A1000000000000000000004D /* BRSlotRoomViewController.h */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -414,6 +419,7 @@
 				A20000000000000000000044 /* BRSlotMachineViewController.m in Sources */,
 				A20000000000000000000045 /* BRSlotGamePickerViewController.m in Sources */,
 				A20000000000000000000046 /* BRPennySlotViewController.m in Sources */,
+				A20000000000000000000047 /* BRSlotRoomViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

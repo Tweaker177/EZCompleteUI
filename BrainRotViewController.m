@@ -212,6 +212,7 @@ static const void *kBRObserverAddedKey = &kBRObserverAddedKey;
 @property (nonatomic, strong) UIImage   *hudHeartEmptySymbol;
 @property (nonatomic, assign) NSInteger lastDisplayedPlayerHP;
 @property (nonatomic, strong) UIButton  *pauseBtn;
+@property (nonatomic, strong) UIButton  *backBtn;
 @property (nonatomic, assign) BOOL       isPaused;
 
 // ── Game views ────────────────────────────────────────────────────────────────
@@ -440,6 +441,12 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
     [self.pauseBtn addTarget:self action:@selector(togglePause)
             forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.pauseBtn];
+
+    self.backBtn = [self brainrotNavigationButtonWithTitle:@"‹  BACK"];
+    [self.backBtn addTarget:self action:@selector(returnToBrainRotMenu)
+            forControlEvents:UIControlEventTouchUpInside];
+    self.navigationItem.leftBarButtonItem =
+        [[UIBarButtonItem alloc] initWithCustomView:self.backBtn];
     self.restartBtn.titleLabel.font    = [UIFont boldSystemFontOfSize:18];
     self.restartBtn.tintColor          = [UIColor colorWithWhite:0.5 alpha:1.0];
     self.restartBtn.layer.cornerRadius = 6;
@@ -687,6 +694,25 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
     self.leftBtn.hidden           = hidden;
     self.rightBtn.hidden          = hidden;
     self.actionBtn.hidden         = hidden;
+}
+
+- (UIButton *)brainrotNavigationButtonWithTitle:(NSString *)title {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    [button setTitle:title forState:UIControlStateNormal];
+    button.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack];
+    button.tintColor = [UIColor colorWithRed:1.0 green:0.78 blue:0.18 alpha:1.0];
+    button.backgroundColor = [UIColor colorWithRed:0.13 green:0.05 blue:0.23 alpha:0.96];
+    button.layer.cornerRadius = 9;
+    button.layer.borderWidth = 1.0;
+    button.layer.borderColor = [UIColor colorWithRed:1.0 green:0.78 blue:0.18 alpha:0.72].CGColor;
+    button.contentEdgeInsets = UIEdgeInsetsMake(7, 10, 7, 10);
+    [button sizeToFit];
+    return button;
+}
+
+- (void)returnToBrainRotMenu {
+    if (self.onReturnToBrainRotMenu) self.onReturnToBrainRotMenu();
+    else [self dismissSelfBackToCaller];
 }
 
 - (UIButton *)makeArrowButtonWithTitle:(NSString *)title selector:(SEL)selector {

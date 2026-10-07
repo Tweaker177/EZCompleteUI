@@ -117,6 +117,7 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
 @property (nonatomic, strong) UIButton *pauseBtn;
 @property (nonatomic, strong) UIButton *restartBtn;
 @property (nonatomic, strong) UIButton *highScoresBtn;
+@property (nonatomic, strong) UIButton *backBtn;
 @property (nonatomic, strong) UILabel  *scoreLabel;
 @property (nonatomic, strong) UILabel  *livesLabel;
 @property (nonatomic, strong) UILabel  *gameOverLabel;
@@ -225,6 +226,12 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     self.livesLabel = [self makeHUDLabel];
     [self.view addSubview:self.scoreLabel];
     [self.view addSubview:self.livesLabel];
+
+    self.backBtn = [self navigationButtonWithTitle:@"‹  BACK"];
+    [self.backBtn addTarget:self action:@selector(returnToBrainRotMenu)
+           forControlEvents:UIControlEventTouchUpInside];
+    self.navigationItem.leftBarButtonItem =
+        [[UIBarButtonItem alloc] initWithCustomView:self.backBtn];
 
     self.pauseBtn = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.pauseBtn setTitle:@"⏸" forState:UIControlStateNormal];
@@ -394,6 +401,20 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     return button;
 }
 
+- (UIButton *)navigationButtonWithTitle:(NSString *)title {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    [button setTitle:title forState:UIControlStateNormal];
+    button.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack];
+    button.tintColor = [UIColor colorWithRed:1.0 green:0.78 blue:0.18 alpha:1.0];
+    button.backgroundColor = [UIColor colorWithRed:0.13 green:0.05 blue:0.23 alpha:0.96];
+    button.layer.cornerRadius = 9;
+    button.layer.borderWidth = 1.0;
+    button.layer.borderColor = [UIColor colorWithRed:1.0 green:0.78 blue:0.18 alpha:0.72].CGColor;
+    button.contentEdgeInsets = UIEdgeInsetsMake(7, 10, 7, 10);
+    [button sizeToFit];
+    return button;
+}
+
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
 
@@ -508,6 +529,11 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     } else if (self.navigationController.viewControllers.count > 1) {
         [self.navigationController popViewControllerAnimated:NO];
     }
+}
+
+- (void)returnToBrainRotMenu {
+    if (self.onReturnToBrainRotMenu) self.onReturnToBrainRotMenu();
+    else [self dismissSelfBackToCaller];
 }
 
 #pragma mark - Loading a record (same shape as BrainRotViewController.loadGameRecord:)

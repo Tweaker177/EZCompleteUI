@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
   // shape, decided here, not by whatever the client sent.
   const { data: profile, error: profileError } = await service
     .from("subscriptions")
-    .select("free_spins_remaining, free_spins_guarantee_pending")
+    .select("free_spins_remaining, free_spins_guarantee_pending, free_spins_batch_payout")
     .eq("user_id", user.id)
     .single();
   if (profileError) return json({ error: "profile_unavailable" }, 500);
@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
     return json({
       reels, payout: data.payout, win_lines: winLines, winning_lines: winningLines,
       is_jackpot: false, is_free_spin: true, free_spins_remaining: data.free_spins_remaining,
+      free_spins_batch_total: (profile.free_spins_batch_payout ?? 0) + data.payout,
       pity_bonus_granted: data.pity_bonus_granted, pity_spins: data.pity_spins,
       net: data.payout, balance: data.balance,
     });

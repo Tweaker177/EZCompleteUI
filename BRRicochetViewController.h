@@ -45,6 +45,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// same contract as BrainRotViewController.initialWorkshopImage.
 @property (nonatomic, strong, nullable) UIImage *initialWorkshopImage;
 
+/// Called by the in-game Back control to return to the Brainrot mode picker.
+@property (nonatomic, copy, nullable) dispatch_block_t onReturnToBrainRotMenu;
+
 /// Rebuilds the board from a (possibly new) record — same reusable-loader
 /// shape as BrainRotViewController's -loadGameRecord:, so this also covers
 /// "Play Again" for a saved Ricochet Blast run.

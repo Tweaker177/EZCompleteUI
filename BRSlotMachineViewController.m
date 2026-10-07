@@ -5,6 +5,7 @@
 #import "EZCoinStoreViewController.h"
 #import "BRAssetSourceSheetViewController.h"
 #import "BRAssetGenerationSheetViewController.h"
+#import "BRSlotRoomViewController.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
@@ -139,7 +140,10 @@ static NSDictionary<NSString *, NSString *> *BRSlotFallbackSymbols(void) {
     self.activeLineCount = 5; self.betPerLine = 1;
     self.customImages = self.importedThemeImages.count ? self.importedThemeImages : [self loadCustomImages];
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self slotNavigationButtonWithTitle:@"‹  BACK" action:@selector(backTapped)]];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self slotNavigationButtonWithTitle:@"ODDS" action:@selector(showOdds)]];
+    self.navigationItem.rightBarButtonItems = @[
+        [[UIBarButtonItem alloc] initWithCustomView:[self slotNavigationButtonWithTitle:@"LOUNGE" action:@selector(openLounge)]],
+        [[UIBarButtonItem alloc] initWithCustomView:[self slotNavigationButtonWithTitle:@"ODDS" action:@selector(showOdds)]]
+    ];
     [self buildUI];
     [self refreshBalance];
     [self setupAudio];
@@ -204,8 +208,9 @@ static NSDictionary<NSString *, NSString *> *BRSlotFallbackSymbols(void) {
 - (void)setLinesButtonTitle { [self.betButton setTitle:[NSString stringWithFormat:@"LINES\n%ld", (long)self.activeLineCount] forState:UIControlStateNormal]; self.betButton.titleLabel.numberOfLines = 2; self.betButton.titleLabel.textAlignment = NSTextAlignmentCenter; }
 - (void)setPerLineButtonTitle:(UIButton *)button { [button setTitle:[NSString stringWithFormat:@"BET / LINE\n🪙 %ld", (long)self.betPerLine] forState:UIControlStateNormal]; button.titleLabel.numberOfLines = 2; button.titleLabel.textAlignment = NSTextAlignmentCenter; }
 
-- (UIButton *)slotNavigationButtonWithTitle:(NSString *)title action:(SEL)action { UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:title forState:UIControlStateNormal]; [button setTitleColor:[UIColor colorWithRed:1 green:.79 blue:.18 alpha:1] forState:UIControlStateNormal]; button.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack]; button.backgroundColor = [UIColor colorWithRed:.18 green:.06 blue:.29 alpha:1]; button.layer.cornerRadius = 10; button.layer.borderWidth = 1; button.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.14 alpha:1].CGColor; button.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10); [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; button.frame = CGRectMake(0, 0, [title hasPrefix:@"‹"] ? 74 : 53, 32); return button; }
+- (UIButton *)slotNavigationButtonWithTitle:(NSString *)title action:(SEL)action { UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:title forState:UIControlStateNormal]; [button setTitleColor:[UIColor colorWithRed:1 green:.79 blue:.18 alpha:1] forState:UIControlStateNormal]; button.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack]; button.backgroundColor = [UIColor colorWithRed:.18 green:.06 blue:.29 alpha:1]; button.layer.cornerRadius = 10; button.layer.borderWidth = 1; button.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.14 alpha:1].CGColor; button.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10); [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; button.frame = CGRectMake(0, 0, [title hasPrefix:@"‹"] ? 74 : ([title isEqualToString:@"LOUNGE"] ? 72 : 53), 32); return button; }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
+- (void)openLounge { [self.navigationController pushViewController:[[BRSlotRoomViewController alloc] initWithRoomID:@"brainrot-classic" title:@"Brainrot Lounge"] animated:YES]; }
 
 - (void)refreshBalance { [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) { self.balanceLabel.text = [NSString stringWithFormat:@"🪙 %ld EZ Coins", (long)balance]; }]; [self refreshProgressiveJackpot]; }
 - (void)refreshProgressiveJackpot { if (!EZAuthManager.shared.isLoggedIn) return; [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *error) { if (!token) return; NSMutableURLRequest *r = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/ez-slot-spin"]]]; r.HTTPMethod = @"POST"; [r setValue:@"application/json" forHTTPHeaderField:@"Content-Type"]; [r setValue:EZSupabaseAnonKey forHTTPHeaderField:@"apikey"]; [r setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"]; r.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{ @"action": @"jackpot_status" } options:0 error:nil]; [[[NSURLSession sharedSession] dataTaskWithRequest:r completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) { NSDictionary *json = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil; dispatch_async(dispatch_get_main_queue(), ^{ id amount = json[@"progressive_jackpot"]; if ([amount isKindOfClass:NSNumber.class] && [amount integerValue] > 0) [self updateProgressiveBanner:[amount integerValue]]; self.freeSpinsRemaining = [json[@"free_spins_remaining"] integerValue]; [self updateFreeSpinsUI]; }); }] resume]; }]; }
@@ -285,10 +290,25 @@ static NSDictionary<NSString *, NSString *> *BRSlotFallbackSymbols(void) {
 - (void)reveal:(NSDictionary *)json { self.placeholderAnimationID += 1; NSArray *matrix = json[@"reels"]; if (matrix.count != 3) { [self finishWithError:@"The server returned an invalid spin."]; return; } for (NSInteger col = 0; col < 3; col++) { NSArray *column = matrix[col]; if (![column isKindOfClass:NSArray.class] || column.count != 3) { [self finishWithError:@"The server returned an invalid spin."]; return; } dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((.15 * col) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ for (NSInteger row = 0; row < 3; row++) [self setSymbol:column[row] onView:self.reels[col][row]]; }); }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(.58 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ NSInteger payout = [json[@"payout"] integerValue]; NSInteger balance = [json[@"balance"] integerValue]; NSInteger net = [json[@"net"] integerValue]; BOOL jackpot = [json[@"is_jackpot"] boolValue]; id progressiveAmount = json[@"progressive_jackpot"]; if ([progressiveAmount isKindOfClass:NSNumber.class] && [progressiveAmount integerValue] > 0) [self updateProgressiveBanner:[progressiveAmount integerValue]];
         BOOL isFreeSpin = [json[@"is_free_spin"] boolValue];
+        NSInteger freeSpinTotal = [json[@"free_spins_batch_total"] integerValue];
         if (isFreeSpin) { self.freeSpinsRemaining = [json[@"free_spins_remaining"] integerValue]; [self updateFreeSpinsUI]; }
         [self highlightWinningLines:json[@"winning_lines"]]; [EZEntitlementManager.shared applyKnownBalance:balance]; self.balanceLabel.text = [NSString stringWithFormat:@"🪙 %ld EZ Coins", (long)balance]; self.messageLabel.text = payout > 0 ? [NSString stringWithFormat:@"🎉 Won %ld coins (%+ld) on %@ line%@!", (long)payout, (long)net, json[@"win_lines"] ?: @1, [json[@"win_lines"] integerValue] == 1 ? @"" : @"s"] : [NSString stringWithFormat:@"No win • −%ld coins", (long)self.currentWager]; self.messageLabel.textColor = payout > 0 ? [UIColor colorWithRed:.3 green:1 blue:.58 alpha:1] : [UIColor colorWithWhite:.8 alpha:1]; if (payout > 0) { [self playTheme:@"brainrot-theme2"]; [self eruptCoinsForPayout:payout jackpot:jackpot]; } else { [self playLossSound]; [self playTheme:@"brainrot-theme1"]; }
         if ([json[@"pity_bonus_granted"] boolValue]) { NSInteger pitySpins = [json[@"pity_spins"] integerValue]; dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self presentPitySpinsPopupWithCount:pitySpins]; }); }
+        else if (isFreeSpin && self.freeSpinsRemaining == 0) { dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(.75 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self celebrateCompletedFreeSpinsWithTotal:freeSpinTotal]; }); }
         self.spinning = NO; self.spinButton.enabled = YES; self.customizeButton.enabled = YES; }); }
+
+- (void)celebrateCompletedFreeSpinsWithTotal:(NSInteger)total {
+    [self stopWinCelebration];
+    self.winningThemeActive = YES;
+    [self playTheme:@"brainrot-theme2"];
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight; overlay.backgroundColor = [UIColor colorWithRed:1 green:.68 blue:.05 alpha:.16]; overlay.userInteractionEnabled = NO; self.winOverlay = overlay; [self.view addSubview:overlay];
+    CGFloat cardY = CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame) + 10;
+    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(20, cardY, self.view.bounds.size.width - 40, 116)]; card.backgroundColor = [UIColor colorWithRed:.14 green:.025 blue:.25 alpha:.97]; card.layer.cornerRadius = 22; card.layer.borderWidth = 2; card.layer.borderColor = [UIColor colorWithRed:1 green:.82 blue:.12 alpha:1].CGColor; card.layer.shadowColor = UIColor.blackColor.CGColor; card.layer.shadowOpacity = .7; card.layer.shadowRadius = 16; card.layer.shadowOffset = CGSizeMake(0, 8); [overlay addSubview:card];
+    UILabel *label = [UILabel new]; label.text = [NSString stringWithFormat:@"🎁 FREE SPINS COMPLETE!\nTOTAL WON  +%ld COINS", (long)total]; label.numberOfLines = 2; label.textAlignment = NSTextAlignmentCenter; label.font = [UIFont systemFontOfSize:25 weight:UIFontWeightBlack]; label.textColor = [UIColor colorWithRed:1 green:.83 blue:.12 alpha:1]; label.shadowColor = UIColor.blackColor; label.shadowOffset = CGSizeMake(2, 3); label.frame = card.bounds; label.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight; [card addSubview:label];
+    card.transform = CGAffineTransformMakeScale(.5, .5); card.alpha = 0; [UIView animateWithDuration:.3 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{ card.alpha = 1; card.transform = CGAffineTransformIdentity; } completion:nil];
+    [self launchCoinWaveOnOverlay:overlay];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(.20 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self launchCoinWaveOnOverlay:overlay]; });
+}
 
 - (void)presentPitySpinsPopupWithCount:(NSInteger)count {
     UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];

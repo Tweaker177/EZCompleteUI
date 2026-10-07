@@ -5,6 +5,7 @@
 #import "EZCoinStoreViewController.h"
 #import "BRAssetSourceSheetViewController.h"
 #import "BRAssetGenerationSheetViewController.h"
+#import "BRSlotRoomViewController.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <AVFoundation/AVFoundation.h>
 
@@ -88,12 +89,16 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     self.lines = 9; self.betIndex = 0;
     self.customImages = [self loadCustomImages];
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:@"‹  BACK" action:@selector(backTapped)]];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:@"ODDS" action:@selector(showOdds)]];
+    self.navigationItem.rightBarButtonItems = @[
+        [[UIBarButtonItem alloc] initWithCustomView:[self navButton:@"LOUNGE" action:@selector(openLounge)]],
+        [[UIBarButtonItem alloc] initWithCustomView:[self navButton:@"ODDS" action:@selector(showOdds)]]
+    ];
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
 - (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (!self.musicPlayer.isPlaying) [self playTheme:@"brainrot-theme1"]; }
 - (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; if (self.isMovingFromParentViewController) [self.musicPlayer stop]; }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
+- (void)openLounge { [self.navigationController pushViewController:[[BRSlotRoomViewController alloc] initWithRoomID:@"ezcoin-penny" title:@"Penny Slots Lounge"] animated:YES]; }
 
 - (UIButton *)navButton:(NSString *)title action:(SEL)action {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:title forState:UIControlStateNormal];
@@ -102,7 +107,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     button.backgroundColor = [UIColor colorWithRed:.18 green:.06 blue:.29 alpha:1];
     button.layer.cornerRadius = 10; button.layer.borderWidth = 1;
     button.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.14 alpha:1].CGColor;
-    button.frame = CGRectMake(0,0,[title hasPrefix:@"‹"] ? 74 : 53,32);
+    button.frame = CGRectMake(0,0,[title hasPrefix:@"‹"] ? 74 : ([title isEqualToString:@"LOUNGE"] ? 72 : 53),32);
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; return button;
 }
 - (UIButton *)control:(NSString *)title color:(UIColor *)color action:(SEL)action {
