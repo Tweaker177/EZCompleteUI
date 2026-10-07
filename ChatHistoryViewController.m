@@ -11,6 +11,8 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
 @property (nonatomic, strong) NSArray<EZChatThread *> *allThreads;
 @property (nonatomic, strong) NSArray<EZChatThread *> *threads;
 @property (nonatomic, strong) UISearchBar *searchBar;
+@property (nonatomic, assign) NSUInteger reloadGeneration;
+@property (nonatomic, assign) BOOL loadingThreads;
 @end
 
 @implementation ChatHistoryViewController
@@ -49,10 +51,22 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
 }
 
 - (void)reload {
-    self.allThreads = EZThreadList();
-    [self applySearchFilter];
-
+    NSUInteger generation = ++self.reloadGeneration;
+    self.loadingThreads = YES;
+    [self.tableView reloadData];
     self.navigationItem.rightBarButtonItem.enabled = YES;
+    // Thread JSON files can be very large because they contain full message
+    // history and image metadata. Keep that filesystem/JSON work off the main
+    // queue so the navigation drawer can slide in immediately.
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSArray<EZChatThread *> *loadedThreads = EZThreadList();
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (generation != self.reloadGeneration) return;
+            self.allThreads = loadedThreads;
+            self.loadingThreads = NO;
+            [self applySearchFilter];
+        });
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -170,11 +184,11 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
         // Empty state row
         if (@available(iOS 14.0, *)) {
             UIListContentConfiguration *cfg = cell.defaultContentConfiguration;
-            cfg.text                  = @"No saved conversations";
+            cfg.text                  = self.loadingThreads ? @"Loading conversations…" : @"No saved conversations";
             cfg.textProperties.color  = [UIColor secondaryLabelColor];
             cell.contentConfiguration = cfg;
         } else {
-            cell.textLabel.text      = @"No saved conversations";
+            cell.textLabel.text      = self.loadingThreads ? @"Loading conversations…" : @"No saved conversations";
             cell.textLabel.textColor = [UIColor secondaryLabelColor];
         }
         cell.userInteractionEnabled = NO;

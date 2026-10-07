@@ -6,7 +6,7 @@ Supabase Edge Function deployments and migrations.
 
 ## Unreleased — post 7.1.12
 
-### Slots Lounge and social profiles
+### Slots Lounge, profiles, and live hosts
 
 - Added a **Lounge** entry point to both Brainrot Slots and EZCoin Penny Slots.
 - Added opt-in public lounge profiles with a display name, profile photo, and
@@ -14,12 +14,45 @@ Supabase Edge Function deployments and migrations.
 - Added per-machine live-room presence and chat, with messages refreshed from
   the server, public account details kept private, send-rate limits, and a
   report path for moderation.
-- Added a themed house host, **Cherry Queen**, as a clearly fictional room
-  character.
+- Added a live conversational house host, **Cherry Queen**. The host uses a
+  server-side GPT model with recent room context rather than canned replies,
+  speaks at a globally rate-limited pace, and is shared by everyone in the
+  same room.
+- Added atomic per-room host-turn claims, which prevent many open clients from
+  multiplying model calls or duplicate host messages.
+- Clearly presents hosts as live house characters rather than player accounts,
+  while keeping the room conversation natural and uncluttered.
 - Added `br-slot-social` Edge Function and the `20261007000100_slot_social_rooms`
   migration for profiles, avatar storage, room presence, messages, and reports.
+- Added the `20261007000200_add_live_slot_room_hosts` migration for durable
+  shared host messages and host-turn rate limiting.
 - Replaced new lounge profile/report system dialogs with custom Brainrot-styled
   sheets rather than generic iOS alerts or action sheets.
+
+### Slot winnings tracker and leaderboard
+
+- Added a server-authoritative slot winnings ledger, populated only after a
+  classic or Penny Slot prize is credited through the coin ledger. Paid wins
+  and free-spin payouts are both included.
+- Added an app-wide **WINS** leaderboard in every slot lounge, showing each
+  player’s current-day total and personal best hit, the day’s highest total
+  winners, and the all-time largest individual payouts.
+- Backfilled eligible historical slot credits so the leaderboard is useful on
+  rollout. Credits belonging to deleted accounts are intentionally excluded
+  because they cannot safely be attributed to a public profile.
+- Uses a canonical UTC daily reset and privacy-safe display names; email
+  addresses, account IDs, and balances are never shown to other players.
+- Added the `20261007000300_add_slot_winnings_leaderboard` migration, including
+  database-trigger capture and the protected leaderboard query RPC.
+
+### Brainrot navigation
+
+- Added consistent gold-styled in-game Back controls for Maze and Ricochet.
+  They return players to the Brainrot mode picker instead of dismissing the
+  entire Brainrot experience.
+- Replaced the Slot library’s generic close icon with a styled **BRAINROT**
+  return control. Individual slot machines continue to return to the slot
+  library first.
 
 ### Free-spin finish
 
