@@ -1,5 +1,10 @@
 // EZCoinUsageViewController.m
-// EZCompleteUI v6.6
+// EZCompleteUI v6.7
+//
+// Changes from v6.6:
+//   - Added the "elevenlabs_music" feature to the friendly-name and icon maps
+//     so AI music generations show as "AI Music" with a 🎵 instead of the raw
+//     feature key and generic coin icon.
 //
 // Changes from v6.5:
 //   - Fixed: balance at top always showed 0. Root cause: self.currentBalance was
@@ -63,6 +68,7 @@ static NSString *friendlyFeatureName(NSString *feature) {
         @"sora_pro_12s":    @"AI Video Pro (12s)",
         @"sora_pro_16s":    @"AI Video Pro (16s)",
         @"tts":             @"Text to Speech",
+        @"elevenlabs_music": @"AI Music",
         @"voice_clone":     @"Voice Clone",
         @"whisper_minute":  @"Voice Transcription",
         @"web_search":      @"Web Search",
@@ -79,6 +85,7 @@ static NSString *featureIcon(NSString *feature) {
         [feature hasPrefix:@"dalle"])   return @"🖼";
     if ([feature hasPrefix:@"sora"])    return @"🎬";
     if ([feature isEqual:@"tts"])       return @"🔊";
+    if ([feature isEqual:@"elevenlabs_music"]) return @"🎵";
     if ([feature isEqual:@"voice_clone"]) return @"🎤";
     if ([feature isEqual:@"whisper_minute"]) return @"🎙";
     if ([feature isEqual:@"web_search"]) return @"🔍";
