@@ -1,5 +1,5 @@
 // EZMusicService.h
-// EZCompleteUI v1.0
+// EZCompleteUI v1.1
 //
 // Purpose:
 //   Network client for the ez-music Supabase Edge Function (ElevenLabs
@@ -21,7 +21,11 @@
 //     - Retries once on HTTP 401 after refreshing the session.
 //     - Always calls completion blocks on the main queue.
 //
-// Changes:
+// Changes from v1.0:
+//   - Documented that the library paging cursor is inclusive, so callers must
+//     de-duplicate by entry id (first used by EZMusicViewController).
+//
+// v1.0:
 //   - Initial version.
 
 #import <Foundation/Foundation.h>
@@ -87,6 +91,9 @@ typedef NS_ENUM(NSInteger, EZMusicServiceErrorCode) {
                                                      NSError * _Nullable error))completion;
 
 /// Newest-first library page. Pass the last entry's created_at as `before` to page.
+/// The cursor is inclusive (the server uses <=) so rows that share a timestamp are
+/// never skipped; the next page can therefore repeat the last row or two, and the
+/// caller must de-duplicate by entry id.
 - (void)fetchLibraryBefore:(nullable NSString *)beforeTimestamp
                      limit:(NSInteger)limit
                 completion:(void (^)(NSArray<NSDictionary *> * _Nullable entries,

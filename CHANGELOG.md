@@ -22,7 +22,17 @@ Supabase Edge Function deployments and migrations.
   can never charge twice.
 - Generation runs in the background, so closing the app does not lose a song.
 - Added `EZMusicService`, the iOS client (auth refresh, retry of dropped
-  connections, polling). The music screen itself is not built yet.
+  connections, polling).
+- Added the **AI Music** screen (`EZMusicViewController`), opened from a new
+  "AI Music" row in the history drawer. The Create tab takes a description,
+  optional title, instrumental switch, length slider and 1-3 versions, with a
+  live coin quote. The Library tab lists every song (including ones still
+  composing and ones that failed and were refunded), with play/pause and
+  progress, star, share/save through the system share sheet, and delete.
+  Songs still composing are picked up again if the screen is closed and
+  reopened.
+- Library paging in `ez-music` now uses an inclusive cursor so variants that
+  share a timestamp are never skipped between pages.
 - Added the `20261012000100_add_music_generation` migration (tables, private
   `music-assets` bucket, reserve/finalize/reap RPCs).
 - Usage history now labels music debits as "AI Music".

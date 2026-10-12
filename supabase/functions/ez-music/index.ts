@@ -1,5 +1,10 @@
 // supabase/functions/ez-music/index.ts
-// EZCompleteUI v1.0
+// EZCompleteUI v1.1
+//
+// Changes from v1.0:
+//   - Library paging cursor (`before`) is now inclusive (<=) so variants that
+//     share a created_at are never skipped between pages. Clients must
+//     de-duplicate rows by id; EZMusicViewController does.
 //
 // Purpose:
 //   Server-authoritative ElevenLabs text-to-music. This function is the only
@@ -632,7 +637,10 @@ async function handleStatus(service: SupabaseClient, userId: string, body: Recor
   } else if (typeof body.generation_id === "string" && UUID_PATTERN.test(body.generation_id)) {
     query = query.eq("generation_id", body.generation_id);
   } else if (typeof body.before === "string" && !Number.isNaN(Date.parse(body.before))) {
-    query = query.lt("created_at", body.before);
+    // Inclusive on purpose: variants of one request share a created_at, so a
+    // strict "<" could skip the siblings of a row that ended the previous page.
+    // The client de-duplicates by id.
+    query = query.lte("created_at", body.before);
   }
 
   const requestedLimit = Number(body.limit ?? 30);

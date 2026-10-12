@@ -80,6 +80,8 @@
 		A20000000000000000000047 /* BRSlotRoomViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004C /* BRSlotRoomViewController.m */; };
 		B20000000000000000000001 /* ShareViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* ShareViewController.m */; };
 		B20000000000000000000002 /* EZCompleteUIShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* EZCompleteUIShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A2000000000000000000004E /* EZMusicService.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004E /* EZMusicService.m */; };
+		A2000000000000000000004F /* EZMusicViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004F /* EZMusicViewController.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -166,6 +168,8 @@
 		B10000000000000000000002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = ShareExtension/Info.plist; sourceTree = "<group>"; };
 		B10000000000000000000003 /* EZCompleteUIShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension/EZCompleteUIShare.entitlements; sourceTree = "<group>"; };
 		B30000000000000000000002 /* EZCompleteUIShare.appex */ = {isa = PBXFileReference; explicitFileType = wrapper.app-extension; includeInIndex = 0; path = EZCompleteUIShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1000000000000000000004E /* EZMusicService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicService.m; sourceTree = "<group>"; };
+		A1000000000000000000004F /* EZMusicViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicViewController.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -289,6 +293,8 @@
 				A1000000000000000000004A /* BRPennySlotViewController.m */,
 				A1000000000000000000004B /* BRPennySlotViewController.h */,
 				A1000000000000000000004C /* BRSlotRoomViewController.m */,
+				A1000000000000000000004F /* EZMusicViewController.m */,
+				A1000000000000000000004E /* EZMusicService.m */,
 				A1000000000000000000004D /* BRSlotRoomViewController.h */,
 			);
 			name = Sources;
@@ -499,6 +505,8 @@
 				A20000000000000000000045 /* BRSlotGamePickerViewController.m in Sources */,
 				A20000000000000000000046 /* BRPennySlotViewController.m in Sources */,
 				A20000000000000000000047 /* BRSlotRoomViewController.m in Sources */,
+				A2000000000000000000004E /* EZMusicService.m in Sources */,
+				A2000000000000000000004F /* EZMusicViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

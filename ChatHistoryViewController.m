@@ -1,5 +1,14 @@
 // ChatHistoryViewController.m
 // EZCompleteUI
+//
+// Purpose:
+//   The slide-out drawer: a short list of feature shortcuts (new chat, gallery,
+//   text to speech, music, ...) above the recent chat threads.
+//
+// Changes:
+//   - Added the "AI Music" shortcut after Text to Speech. The titles, icons and
+//     action names below are parallel arrays - keep them in the same order, and
+//     keep numberOfRowsInSection: equal to their length.
 
 #import "ChatHistoryViewController.h"
 #import "helpers.h"
@@ -128,7 +137,7 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    if (section == 0) return 8;
+    if (section == 0) return 9;
     return self.threads.count == 0 ? 1 : (NSInteger)self.threads.count;
 }
 
@@ -148,13 +157,14 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
                 NSLocalizedString(@"EZNav.NewChat", nil),
                 NSLocalizedString(@"EZNav.PhotoGallery", nil),
                 NSLocalizedString(@"EZNav.TextToSpeech", nil),
+                NSLocalizedStringWithDefaultValue(@"EZNav.Music", nil, [NSBundle mainBundle], @"AI Music", nil),
                 NSLocalizedString(@"EZNav.VoiceCloning", nil),
                 NSLocalizedString(@"EZNav.BrainRot", nil),
                 NSLocalizedString(@"EZNav.Memories", nil),
                 NSLocalizedString(@"EZNav.CoinStore", nil),
                 NSLocalizedString(@"EZNav.Settings", nil)
             ];
-            icons = @[@"square.and.pencil", @"photo.on.rectangle.angled", @"play.circle.fill", @"waveform", @"gamecontroller.fill", @"brain.head.profile", @"circle.hexagongrid.fill", @"gearshape.fill"];
+            icons = @[@"square.and.pencil", @"photo.on.rectangle.angled", @"play.circle.fill", @"music.note", @"waveform", @"gamecontroller.fill", @"brain.head.profile", @"circle.hexagongrid.fill", @"gearshape.fill"];
         });
         UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:kNavigationCellID
                                                                  forIndexPath:indexPath];
@@ -240,7 +250,7 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
         static NSArray<NSString *> *actions;
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            actions = @[@"newChat", @"gallery", @"tts", @"cloning", @"brainRot", @"memories", @"coinStore", @"settings"];
+            actions = @[@"newChat", @"gallery", @"tts", @"music", @"cloning", @"brainRot", @"memories", @"coinStore", @"settings"];
         });
         if (self.navigationActionHandler) {
             self.navigationActionHandler(actions[(NSUInteger)indexPath.row]);
