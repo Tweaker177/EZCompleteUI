@@ -113,15 +113,9 @@ static BOOL EZImageSettingRequiresSubscription(NSString *key, NSString *value) {
 }
 
 - (BOOL)hasPurchasedAccess {
-    EZEntitlementManager *entitlements = [EZEntitlementManager shared];
-    static NSSet<NSString *> *supportedTiers;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        supportedTiers = [NSSet setWithObjects:@"basic", @"basic_weekly", @"standard", @"standard_annual",
-                          @"pro", @"pro_annual", @"ultra", @"ultra_annual", @"power", @"power_annual",
-                          @"enterprise", @"enterprise_annual", nil];
-    });
-    return entitlements.hasEverPurchased || [supportedTiers containsObject:entitlements.currentTier];
+    // `basic` is also the free welcome-row tier.  Only the durable server
+    // purchase flag may unlock high/xhigh/max image quality.
+    return [EZEntitlementManager shared].hasEverPurchased;
 }
 
 - (void)showSubscriptionRequiredAlert {

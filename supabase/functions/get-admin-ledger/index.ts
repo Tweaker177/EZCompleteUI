@@ -161,7 +161,7 @@ serve(async (req) => {
 
       let transactionsQuery = supabase
         .from("coin_transactions")
-        .select("id, created_at, user_id, amount, direction, feature, description, balance_after")
+        .select("id, created_at, user_id, amount, direction, feature, description, balance_after, ip_address")
         .order("created_at", { ascending: false })
         .range(0, candidateLimit - 1);
 
@@ -208,7 +208,10 @@ serve(async (req) => {
           created_at: row.created_at,
           user_id: row.user_id,
           user_email: emailByUserId.get(row.user_id) ?? "",
-          ip_address: null,
+          // Credits (including daily rewards) do not have a matching usage
+          // row. Preserve their own audit IP instead of blanking the IP field
+          // when merging them into the admin ledger.
+          ip_address: row.ip_address ?? null,
           session_id: null,
           feature: row.feature,
           model: "Coin transaction",

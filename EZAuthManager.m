@@ -85,6 +85,11 @@ static NSString *const kPasswordResetRedirectURL =
 static NSString *const kEmailConfirmationRedirectURL =
     @"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/password-reset-redirect";
 
+// The welcome grant must run through an Edge Function rather than the auth.users
+// trigger: only the Edge Function receives the actual client IP forwarded by
+// Supabase's proxy.  It quietly returns "already claimed" for established users.
+static NSString *const kClaimWelcomeBonusPath = @"/functions/v1/claim-welcome-bonus";
+
 // Keychain slot identifiers via EZKeyVault constants from EZKeyVault.h
 #define kAccessTokenKey  EZVaultKeyAccessToken
 #define kRefreshTokenKey EZVaultKeyRefreshToken
@@ -489,6 +494,32 @@ static NSString *const kLastAuthDateKey = @"EZLastAuthenticatedDate";
     // manually re-authenticate as long as they stay active.
     [[NSUserDefaults standardUserDefaults]
         setDouble:[[NSDate date] timeIntervalSince1970] forKey:kLastAuthDateKey];
+
+    [self claimWelcomeBonusIfEligible];
+}
+
+// This request is deliberately best-effort and silent. The server is the sole
+// authority: it grants at most once per account, Keychain installation, and
+// network IP, so calling after every restored/refreshed session is harmless.
+- (void)claimWelcomeBonusIfEligible {
+    if (!self.accessToken.length || !self.userId.length) return;
+
+    NSURL *url = [NSURL URLWithString:[kSupabaseURL stringByAppendingString:kClaimWelcomeBonusPath]];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    request.HTTPMethod = @"POST";
+    request.timeoutInterval = 15;
+    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [request setValue:kSupabaseAnonKey forHTTPHeaderField:@"apikey"];
+    [request setValue:[NSString stringWithFormat:@"Bearer %@", self.accessToken]
+   forHTTPHeaderField:@"Authorization"];
+    request.HTTPBody = [NSData dataWithBytes:"{}" length:2];
+
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request
+        completionHandler:^(__unused NSData *data, __unused NSURLResponse *response,
+                            __unused NSError *error) {
+            // No client-side state is changed here. Coin balances remain
+            // server-authoritative and refresh through the normal entitlement flow.
+        }] resume];
 }
 
 // ── Network — unauthenticated POST ────────────────────────────────────────────

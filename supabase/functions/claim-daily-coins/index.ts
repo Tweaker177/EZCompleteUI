@@ -88,6 +88,18 @@ function rollRewardType(): "coins" | "spins" {
   return a[0] % 2 === 0 ? "coins" : "spins";
 }
 
+// Edge requests are passed through Supabase's proxy/CDN. Prefer the provider
+// header, then use the first forwarded address (the original client) as a
+// fallback. This is audit data only; it is never used as an authorization
+// factor. Keep the value bounded before it reaches the ledger.
+function requestIPAddress(req: Request): string | null {
+  const value = req.headers.get("cf-connecting-ip")
+    ?? req.headers.get("x-forwarded-for")?.split(",")[0].trim()
+    ?? req.headers.get("x-real-ip");
+  if (!value || value.toLowerCase() === "unknown") return null;
+  return value.slice(0, 64);
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
@@ -117,6 +129,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
     const userId = authData.user.id;
+    const ipAddress = requestIPAddress(req);
 
     // ── Subscription status ───────────────────────────────────────────────────
 
@@ -279,6 +292,7 @@ Deno.serve(async (req: Request) => {
         feature:       "daily_reward",
         description:   transactionDescription,
         balance_after: newBalance as number,
+        ip_address:    ipAddress,
       });
       logError = error;
       if (!error) break;

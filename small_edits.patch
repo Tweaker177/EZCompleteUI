@@ -1,0 +1,92 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 9f0a587..3816787 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -6,6 +6,27 @@ Supabase Edge Function deployments and migrations.
+ 
+ ## Unreleased — post 7.1.12
+ 
++### AI music generation (ElevenLabs)
++
++- Added the `ez-music` Edge Function: server-side text-to-music with prompt or
++  composition-plan input, 1–3 variants, a private audio library, signed
++  playback/download links, favorites and delete. All pricing, limits and coin
++  accounting happen on the server; the app only sends the user's choices.
++- Pricing is read from the new `music_config` table (30 coins per generated
++  minute, 5-coin minimum per variant, 10 s–5 min songs) so it can be changed
++  without an app update.
++- Coins are reserved atomically before generation. A usable file keeps the
++  charge (reduced if the track comes back clearly shorter than requested);
++  failures are refunded automatically, and reservations whose background job
++  died are refunded by a self-healing reaper. Re-sending the same request id
++  can never charge twice.
++- Generation runs in the background, so closing the app does not lose a song.
++- Added `EZMusicService`, the iOS client (auth refresh, retry of dropped
++  connections, polling). The music screen itself is not built yet.
++- Added the `20261012000100_add_music_generation` migration (tables, private
++  `music-assets` bucket, reserve/finalize/reap RPCs).
++- Usage history now labels music debits as "AI Music".
++
+ ### Slots Lounge, profiles, and live hosts
+ 
+ - Added a **Lounge** entry point to both Brainrot Slots and EZCoin Penny Slots.
+diff --git a/EZCoinUsageViewController.m b/EZCoinUsageViewController.m
+index 1338a85..cd763f5 100644
+--- a/EZCoinUsageViewController.m
++++ b/EZCoinUsageViewController.m
+@@ -1,5 +1,10 @@
+ // EZCoinUsageViewController.m
+-// EZCompleteUI v6.6
++// EZCompleteUI v6.7
++//
++// Changes from v6.6:
++//   - Added the "elevenlabs_music" feature to the friendly-name and icon maps
++//     so AI music generations show as "AI Music" with a 🎵 instead of the raw
++//     feature key and generic coin icon.
+ //
+ // Changes from v6.5:
+ //   - Fixed: balance at top always showed 0. Root cause: self.currentBalance was
+@@ -63,6 +68,7 @@ static NSString *friendlyFeatureName(NSString *feature) {
+         @"sora_pro_12s":    @"AI Video Pro (12s)",
+         @"sora_pro_16s":    @"AI Video Pro (16s)",
+         @"tts":             @"Text to Speech",
++        @"elevenlabs_music": @"AI Music",
+         @"voice_clone":     @"Voice Clone",
+         @"whisper_minute":  @"Voice Transcription",
+         @"web_search":      @"Web Search",
+@@ -79,6 +85,7 @@ static NSString *featureIcon(NSString *feature) {
+         [feature hasPrefix:@"dalle"])   return @"🖼";
+     if ([feature hasPrefix:@"sora"])    return @"🎬";
+     if ([feature isEqual:@"tts"])       return @"🔊";
++    if ([feature isEqual:@"elevenlabs_music"]) return @"🎵";
+     if ([feature isEqual:@"voice_clone"]) return @"🎤";
+     if ([feature isEqual:@"whisper_minute"]) return @"🎙";
+     if ([feature isEqual:@"web_search"]) return @"🔍";
+diff --git a/Makefile b/Makefile
+index ba280b3..8152bea 100644
+--- a/Makefile
++++ b/Makefile
+@@ -9,7 +9,7 @@ include $(THEOS)/makefiles/common.mk
+ 
+ APPLICATION_NAME = EZCompleteUI
+ 
+-EZCompleteUI_FILES = main.m AppDelegate.m helpers.m ViewController+EZTopButtons.m ViewController+EZKeepAwake.m ViewController.m EZFirstRunTutorialViewController.m EZModelPickerViewController.m EZImageSettingsViewController.m EZAttachMenuViewController.m ChatHistoryViewController.m SettingsViewController.m MemoriesViewController.m EZKeyVault.m SupportRequestViewController.m TextToSpeechViewController.m ElevenLabsCloneViewController.m iCarousel.m ViewController+EZTitleResolver.m UIViewController+EZViewDidLayoutSwizzle.m WaveformView.m EZAuthManager.m EZEntitlementManager.m LoginViewController.m HelperLogViewController.m SystemLogViewController.m EZBubbleCell.m EZSystemCell.m EZCodeBlockCell.m EZCoinStoreViewController.m EZCoinPotView.m EZPhotoGalleryViewController.m EZPhotoGalleryAnalysisService.m EZImageGridCell.m EZCoinUsageViewController.m BRGameModel.m BrainRotViewController.m BRGameView.m BRGameModePickerViewController.m BRRicochetGameModel.m BRRicochetGameView.m BRRicochetViewController.m BRRicochetHighScoresViewController.m BRSynthEngine.m BRSmartKeyboardView.m EZTermsAcceptanceViewController.m EZPoliciesViewController.m BRGameLibrary.m BRGamePickerViewController.m BRCustomGameCreatorViewController.m BRAssetSourceSheetViewController.m BRTextInputSheetViewController.m BRGameResultViewController.m BRAssetGenerationSheetViewController.m BRRemoteImageLoader.m EZTTSLibraryManager.m EZTTSManifestEntry.m EZTTSLibraryViewController.m EZTTSLibraryClipCell.m EZTTSClipEditViewController.m EZTTSVoiceService.m EZVoicePickerViewController.m EZWaveformRangeSelector.m BRCommunityAdminViewController.m EZSupabaseConfig.m EZCoinLedgerViewController.m EZPhotoGalleryAnalysisService.m EZImageAttachmentPreparer.m BRSlotMachineViewController.m BRSlotGamePickerViewController.m BRPennySlotViewController.m BRSlotRoomViewController.m
++EZCompleteUI_FILES = main.m AppDelegate.m helpers.m ViewController+EZTopButtons.m ViewController+EZKeepAwake.m ViewController.m EZFirstRunTutorialViewController.m EZModelPickerViewController.m EZImageSettingsViewController.m EZAttachMenuViewController.m ChatHistoryViewController.m SettingsViewController.m MemoriesViewController.m EZKeyVault.m SupportRequestViewController.m TextToSpeechViewController.m ElevenLabsCloneViewController.m iCarousel.m ViewController+EZTitleResolver.m UIViewController+EZViewDidLayoutSwizzle.m WaveformView.m EZAuthManager.m EZEntitlementManager.m LoginViewController.m HelperLogViewController.m SystemLogViewController.m EZBubbleCell.m EZSystemCell.m EZCodeBlockCell.m EZCoinStoreViewController.m EZCoinPotView.m EZPhotoGalleryViewController.m EZPhotoGalleryAnalysisService.m EZImageGridCell.m EZCoinUsageViewController.m BRGameModel.m BrainRotViewController.m BRGameView.m BRGameModePickerViewController.m BRRicochetGameModel.m BRRicochetGameView.m BRRicochetViewController.m BRRicochetHighScoresViewController.m BRSynthEngine.m BRSmartKeyboardView.m EZTermsAcceptanceViewController.m EZPoliciesViewController.m BRGameLibrary.m BRGamePickerViewController.m BRCustomGameCreatorViewController.m BRAssetSourceSheetViewController.m BRTextInputSheetViewController.m BRGameResultViewController.m BRAssetGenerationSheetViewController.m BRRemoteImageLoader.m EZTTSLibraryManager.m EZTTSManifestEntry.m EZTTSLibraryViewController.m EZTTSLibraryClipCell.m EZTTSClipEditViewController.m EZTTSVoiceService.m EZVoicePickerViewController.m EZWaveformRangeSelector.m BRCommunityAdminViewController.m EZSupabaseConfig.m EZCoinLedgerViewController.m EZPhotoGalleryAnalysisService.m EZImageAttachmentPreparer.m BRSlotMachineViewController.m BRSlotGamePickerViewController.m BRPennySlotViewController.m BRSlotRoomViewController.m EZMusicService.m
+ 
+ EZCompleteUI_FRAMEWORKS = UIKit Foundation AVFoundation CoreMIDI Speech QuickLook \
+ UniformTypeIdentifiers PDFKit QuickLookThumbnailing Security PhotosUI QuartzCore SafariServices ImageIO UserNotifications
+diff --git a/supabase/config.toml b/supabase/config.toml
+index 223b1fc..b70de95 100644
+--- a/supabase/config.toml
++++ b/supabase/config.toml
+@@ -81,3 +81,10 @@ entrypoint = "./functions/cancel-paypal-subscription/index.ts"
+ # Specifies static files to be bundled with the function. Supports glob patterns.
+ # For example, if you want to serve static HTML pages in your function:
+ # static_files = [ "./functions/cancel-paypal-subscription/*.html" ]
++
++# Music generation runs in the background after replying 202, and the client
++# polls the same function for progress. JWT is verified here and again in code.
++[functions.ez-music]
++enabled = true
++verify_jwt = true
++entrypoint = "./functions/ez-music/index.ts"

@@ -102,15 +102,9 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
 }
 
 - (BOOL)hasPurchasedAccess {
-    EZEntitlementManager *entitlements = [EZEntitlementManager shared];
-    static NSSet<NSString *> *supportedTiers;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        supportedTiers = [NSSet setWithObjects:@"basic", @"basic_weekly", @"standard", @"standard_annual",
-                          @"pro", @"pro_annual", @"ultra", @"ultra_annual", @"power", @"power_annual",
-                          @"enterprise", @"enterprise_annual", nil];
-    });
-    return entitlements.hasEverPurchased || [supportedTiers containsObject:entitlements.currentTier];
+    // The server's tier name can have a free/default value.  The durable
+    // purchase flag is the only valid unlock for the paid frontier models.
+    return [EZEntitlementManager shared].hasEverPurchased;
 }
 
 - (void)showSubscriptionRequiredAlertForModel:(NSString *)model {
@@ -120,9 +114,6 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
                                   EZLocalized(@"EZSubscription.ModelRequiredFormat"),
                                   model]
                   preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:EZLocalized(@"EZSubscription.NotNow")
-                                              style:UIAlertActionStyleCancel
-                                            handler:nil]];
     __weak typeof(self) weakSelf = self;
     [alert addAction:[UIAlertAction actionWithTitle:EZLocalized(@"EZSubscription.ViewPlans")
                                               style:UIAlertActionStyleDefault

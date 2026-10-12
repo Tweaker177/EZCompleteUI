@@ -40,6 +40,8 @@ EZEntitlementManager.m
 !/supabase/functions/get-admin-ledger/index.ts
 !/supabase/functions/claim-daily-coins/
 !/supabase/functions/claim-daily-coins/index.ts
+!/supabase/functions/claim-welcome-bonus/
+!/supabase/functions/claim-welcome-bonus/index.ts
 !/supabase/functions/password-reset-redirect/
 !/supabase/functions/password-reset-redirect/index.ts
 !/supabase/migrations/

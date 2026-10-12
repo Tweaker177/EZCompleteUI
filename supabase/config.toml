@@ -38,6 +38,14 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/recover-user-images/index.ts"
 
+# Claims the one-time welcome coins/spins after authentication. Keeping JWT
+# verification on is essential: the function derives the account from it and
+# records the proxy-provided request IP for the anti-abuse gate.
+[functions.claim-welcome-bonus]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/claim-welcome-bonus/index.ts"
+
 [functions.ez-elevenlabs]
 enabled = true
 verify_jwt = true

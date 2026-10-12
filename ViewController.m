@@ -3387,7 +3387,55 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // MARK: - handleSend
 // ─────────────────────────────────────────────────────────────────────────────
 
+- (BOOL)selectedModelRequiresPurchase {
+    return [self.selectedModel isEqualToString:@"gpt-6-astra"] ||
+           [self.selectedModel isEqualToString:@"gpt-6.1-sol"];
+}
+
+- (void)showPurchaseRequiredForSelectedModel {
+    NSString *model = self.selectedModel;
+    UIAlertController *alert = [UIAlertController
+        alertControllerWithTitle:@"Purchase required"
+                         message:[NSString stringWithFormat:@"%@ is a paid model. Make a purchase to unlock it, then return to this thread.", model]
+                  preferredStyle:UIAlertControllerStyleAlert];
+    __weak typeof(self) weakSelf = self;
+    [alert addAction:[UIAlertAction actionWithTitle:@"View Store"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(__unused UIAlertAction *action) {
+        [weakSelf presentCoinStoreForFeature:nil];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
 - (void)handleSend {
+    if (!self.sendButton.enabled || self.messageTextField.text.length == 0) return;
+    if (![self selectedModelRequiresPurchase]) {
+        [self handleSendAfterModelPurchaseGate];
+        return;
+    }
+
+    // The picker gate is useful UX, but this second gate is authoritative:
+    // it also protects a persisted/default frontier-model choice and any
+    // future route that changes selectedModel without opening the picker.
+    self.sendButton.enabled = NO;
+    __weak typeof(self) weakSelf = self;
+    [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:
+        ^(__unused BOOL refreshed, __unused NSInteger balance) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                __strong typeof(weakSelf) self = weakSelf;
+                if (!self) return;
+                if (![EZEntitlementManager shared].hasEverPurchased) {
+                    self.sendButton.enabled = YES;
+                    [self showPurchaseRequiredForSelectedModel];
+                    return;
+                }
+                self.sendButton.enabled = YES;
+                [self handleSendAfterModelPurchaseGate];
+            });
+        }];
+}
+
+- (void)handleSendAfterModelPurchaseGate {
     if (!self.sendButton.enabled) return;
     NSString *text = self.messageTextField.text;
     if (text.length == 0) return;
@@ -6405,31 +6453,124 @@ static NSString *EZThreadExportTimestampNow(void) {
     CGRect page = CGRectMake(0, 0, 612, 792);
     UIGraphicsPDFRenderer *renderer = [[UIGraphicsPDFRenderer alloc] initWithBounds:page];
     return [renderer PDFDataWithActions:^(UIGraphicsPDFRendererContext *context) {
-        NSDictionary *titleAttrs = @{ NSFontAttributeName: [UIFont boldSystemFontOfSize:20], NSForegroundColorAttributeName: UIColor.blackColor };
-        NSDictionary *metaAttrs = @{ NSFontAttributeName: [UIFont systemFontOfSize:10 weight:UIFontWeightSemibold], NSForegroundColorAttributeName: UIColor.darkGrayColor };
-        NSDictionary *bodyAttrs = @{ NSFontAttributeName: [UIFont systemFontOfSize:10], NSForegroundColorAttributeName: UIColor.blackColor };
+        NSDictionary *titleAttrs = @{ NSFontAttributeName: [UIFont boldSystemFontOfSize:18], NSForegroundColorAttributeName: UIColor.blackColor };
+        NSDictionary *metaAttrs = @{ NSFontAttributeName: [UIFont systemFontOfSize:9 weight:UIFontWeightSemibold], NSForegroundColorAttributeName: UIColor.darkGrayColor };
+        NSDictionary *bodyAttrs = @{ NSFontAttributeName: [UIFont systemFontOfSize:11], NSForegroundColorAttributeName: UIColor.blackColor };
+        __block CGFloat y = 0;
+        __block NSInteger pageNumber = 0;
+        void (^startPage)(void) = ^{
+            [context beginPage]; pageNumber++;
+            [[UIColor colorWithWhite:0.96 alpha:1] setFill];
+            UIRectFill(CGRectMake(0, 0, 612, 792));
+            [title drawInRect:CGRectMake(36, 28, 450, 24) withAttributes:titleAttrs];
+            [[NSString stringWithFormat:@"Thread export  •  %ld", (long)pageNumber]
+                drawInRect:CGRectMake(470, 34, 106, 16) withAttributes:metaAttrs];
+            y = 68;
+        };
+        void (^needSpace)(CGFloat) = ^(CGFloat height) {
+            if (y + height > 752) startPage();
+        };
+        startPage();
         for (NSDictionary *message in messages) {
-            [context beginPage];
-            [title drawInRect:CGRectMake(40, 32, 532, 24) withAttributes:titleAttrs];
             NSString *role = message[@"role"] ?: @"assistant";
-            NSString *speaker = [role isEqualToString:@"user"] ? @"You" : [role isEqualToString:@"code"] ? @"Code" : [role isEqualToString:@"attachment"] ? @"Image attachment" : [role isEqualToString:@"imagegrid"] ? @"Generated image" : @"Assistant";
+            BOOL attachment = [role isEqualToString:@"attachment"];
+            BOOL grid = [role isEqualToString:@"imagegrid"];
+            BOOL code = [role isEqualToString:@"code"];
+            BOOL userSide = [role isEqualToString:@"user"] || attachment;
+            NSString *speaker = [role isEqualToString:@"user"] ? @"You" : code ? @"Code" : attachment ? @"Image attached" : grid ? @"Generated images" : @"Assistant";
             NSString *when = message[@"timestamp"] ?: @"time unavailable";
-            [[NSString stringWithFormat:@"%@  •  Added %@", speaker, when] drawInRect:CGRectMake(40, 66, 532, 18) withAttributes:metaAttrs];
-            NSString *text = [role isEqualToString:@"imagegrid"] ? (message[@"prompt"] ?: @"") : (message[@"text"] ?: @"");
-            if (text.length) [text drawInRect:CGRectMake(40, 88, 532, 130) withAttributes:bodyAttrs];
-            NSArray *paths = [role isEqualToString:@"imagegrid"] ? message[@"imagePaths"] : [role isEqualToString:@"attachment"] ? @[message[@"imagePath"] ?: @""] : @[];
-            for (NSString *path in paths) {
-                NSString *resolved = EZAttachmentPath(path) ?: path;
-                UIImage *image = [UIImage imageWithContentsOfFile:resolved];
-                if (!image || image.size.width <= 0 || image.size.height <= 0) continue;
-                [context beginPage];
-                [title drawInRect:CGRectMake(40, 32, 532, 24) withAttributes:titleAttrs];
-                [[NSString stringWithFormat:@"%@  •  Added %@", speaker, when] drawInRect:CGRectMake(40, 66, 532, 18) withAttributes:metaAttrs];
-                CGSize bounds = CGSizeMake(532, 650);
-                CGFloat scale = MIN(bounds.width / image.size.width, bounds.height / image.size.height);
-                CGSize size = CGSizeMake(image.size.width * scale, image.size.height * scale);
-                [image drawInRect:CGRectMake((612 - size.width) / 2.0, 96, size.width, size.height)];
+            NSString *text = grid ? (message[@"prompt"] ?: @"") : (message[@"text"] ?: @"");
+            NSArray *paths = grid ? message[@"imagePaths"] : attachment ? @[message[@"imagePath"] ?: @""] : @[];
+
+            if (grid) {
+                NSUInteger imageCount = paths.count;
+                CGFloat gridHeight = 40 + (text.length ? 32 : 0) + ceil(MAX(imageCount, 1) / 2.0) * 148 + 10;
+                needSpace(gridHeight + 10);
+                CGRect card = CGRectMake(66, y, 480, gridHeight);
+                [[UIColor whiteColor] setFill]; UIBezierPath *cardPath = [UIBezierPath bezierPathWithRoundedRect:card cornerRadius:14]; [cardPath fill];
+                [[NSString stringWithFormat:@"%@  •  Added %@", speaker, when] drawInRect:CGRectMake(82, y + 10, 448, 15) withAttributes:metaAttrs];
+                CGFloat gridY = y + 31;
+                if (text.length) { [text drawInRect:CGRectMake(82, gridY, 448, 28) withAttributes:bodyAttrs]; gridY += 35; }
+                for (NSUInteger index = 0; index < paths.count; index++) {
+                    NSString *resolved = EZAttachmentPath(paths[index]) ?: paths[index];
+                    UIImage *image = [UIImage imageWithContentsOfFile:resolved]; if (!image) continue;
+                    CGFloat x = 82 + (index % 2) * 222, iy = gridY + (index / 2) * 148;
+                    CGRect slot = CGRectMake(x, iy, 212, 138);
+                    [[UIColor colorWithWhite:0.91 alpha:1] setFill]; [[UIBezierPath bezierPathWithRoundedRect:slot cornerRadius:9] fill];
+                    CGFloat scale = MIN(slot.size.width / image.size.width, slot.size.height / image.size.height);
+                    CGSize size = CGSizeMake(image.size.width * scale, image.size.height * scale);
+                    [image drawInRect:CGRectMake(CGRectGetMidX(slot) - size.width / 2, CGRectGetMidY(slot) - size.height / 2, size.width, size.height)];
+                }
+                y += gridHeight + 10;
+                continue;
             }
+
+            if (attachment) {
+                NSString *path = paths.firstObject;
+                UIImage *image = [UIImage imageWithContentsOfFile:EZAttachmentPath(path) ?: path];
+                CGFloat imageHeight = image ? MIN(155, MAX(84, image.size.height * MIN(190 / image.size.width, 155 / image.size.height))) : 84;
+                CGFloat cardHeight = imageHeight + 35;
+                needSpace(cardHeight + 10);
+                CGRect card = CGRectMake(346, y, 230, cardHeight);
+                [[UIColor colorWithRed:0.84 green:0.93 blue:1 alpha:1] setFill]; [[UIBezierPath bezierPathWithRoundedRect:card cornerRadius:14] fill];
+                [[NSString stringWithFormat:@"%@  •  %@", speaker, when] drawInRect:CGRectMake(358, y + 9, 205, 14) withAttributes:metaAttrs];
+                if (image) {
+                    CGRect slot = CGRectMake(358, y + 27, 206, imageHeight);
+                    CGFloat scale = MIN(slot.size.width / image.size.width, slot.size.height / image.size.height);
+                    CGSize size = CGSizeMake(image.size.width * scale, image.size.height * scale);
+                    [image drawInRect:CGRectMake(CGRectGetMidX(slot) - size.width / 2, CGRectGetMidY(slot) - size.height / 2, size.width, size.height)];
+                }
+                y += cardHeight + 10;
+                continue;
+            }
+
+            if (code) {
+                // Code is intentionally not clipped to the visible height of
+                // its chat cell.  Paginate it in-place, then continue with the
+                // next thread row so exports remain a complete transcript.
+                NSDictionary *codeAttrs = @{ NSFontAttributeName: [UIFont monospacedSystemFontOfSize:8.5 weight:UIFontWeightRegular], NSForegroundColorAttributeName: UIColor.blackColor };
+                NSMutableArray<NSString *> *lines = [NSMutableArray array];
+                for (NSString *rawLine in [text componentsSeparatedByString:@"\n"]) {
+                    if (rawLine.length == 0) { [lines addObject:@" "]; continue; }
+                    for (NSUInteger offset = 0; offset < rawLine.length; offset += 78) {
+                        NSUInteger length = MIN((NSUInteger)78, rawLine.length - offset);
+                        [lines addObject:[rawLine substringWithRange:NSMakeRange(offset, length)]];
+                    }
+                }
+                if (lines.count == 0) [lines addObject:@" "];
+                NSUInteger offset = 0;
+                while (offset < lines.count) {
+                    if (y + 52 > 752) startPage();
+                    NSUInteger linesThatFit = MAX((NSUInteger)1, (NSUInteger)floor((752 - y - 34) / 11));
+                    NSUInteger count = MIN(linesThatFit, lines.count - offset);
+                    CGFloat cardHeight = 30 + count * 11;
+                    CGRect card = CGRectMake(52, y, 508, cardHeight);
+                    [[UIColor colorWithWhite:0.88 alpha:1] setFill];
+                    [[UIBezierPath bezierPathWithRoundedRect:card cornerRadius:10] fill];
+                    NSString *heading = offset == 0 ?
+                        [NSString stringWithFormat:@"Code  •  Added %@", when] : @"Code  •  continued";
+                    [heading drawInRect:CGRectMake(64, y + 8, 484, 14) withAttributes:metaAttrs];
+                    for (NSUInteger i = 0; i < count; i++) {
+                        [lines[offset + i] drawInRect:CGRectMake(64, y + 24 + i * 11, 484, 11)
+                                           withAttributes:codeAttrs];
+                    }
+                    y += cardHeight + 10;
+                    offset += count;
+                }
+                continue;
+            }
+
+            CGFloat width = 360;
+            CGFloat x = userSide ? 216 : 36;
+            CGSize measured = [text boundingRectWithSize:CGSizeMake(width - 28, 260) options:NSStringDrawingUsesLineFragmentOrigin attributes:bodyAttrs context:nil].size;
+            CGFloat cardHeight = MAX(44, MIN(285, ceil(measured.height) + 36));
+            needSpace(cardHeight + 10);
+            CGRect card = CGRectMake(x, y, width, cardHeight);
+            UIColor *fill = userSide ? [UIColor colorWithRed:0.84 green:0.93 blue:1 alpha:1] : UIColor.whiteColor;
+            [fill setFill]; [[UIBezierPath bezierPathWithRoundedRect:card cornerRadius:14] fill];
+            [[NSString stringWithFormat:@"%@  •  Added %@", speaker, when] drawInRect:CGRectMake(x + 14, y + 9, width - 28, 14) withAttributes:metaAttrs];
+            [text drawInRect:CGRectMake(x + 14, y + 27, width - 28, cardHeight - 34) withAttributes:bodyAttrs];
+            y += cardHeight + 10;
         }
     }];
 }
