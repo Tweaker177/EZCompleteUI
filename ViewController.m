@@ -846,6 +846,12 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) UIButton      *historyButton;
 @property (nonatomic, strong) UIButton      *addChatButton;
 @property (nonatomic, strong) UIButton      *memoriesButton;
+/// Reuses the former Memories slot as the thread-selection entry point.
+@property (nonatomic, assign) BOOL          threadSelectionActive;
+@property (nonatomic, strong) NSMutableIndexSet *selectedThreadMessageIndexes;
+@property (nonatomic, strong) UIView        *threadSelectionBar;
+@property (nonatomic, strong) UILabel       *threadSelectionCountLabel;
+@property (nonatomic, strong) NSArray<UIButton *> *threadSelectionActionButtons;
 @property (nonatomic, strong) UIButton      *supportRequestButton;
 @property (nonatomic, strong) UIButton      *textToSpeechButton;
 @property (nonatomic, strong) UIButton      *cloningButton;
@@ -1081,12 +1087,22 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         name:EZAttachExternalDocumentToChat object:nil];
     [self consumePendingExternalImageEdit];
     [self consumePendingExternalImageQuestion];
+    [self consumePendingSharedImageQuestions];
     [self consumePendingExternalDocument];
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
         [self updateCoinBalanceDisplay];
     }];
     [self recoverUndeliveredGalleryImagesIfNeeded];
 
+}
+
+- (void)consumePendingSharedImageQuestions {
+    NSArray *paths = [[NSUserDefaults standardUserDefaults] objectForKey:@"EZPendingSharedImageAskPaths"];
+    if (![paths isKindOfClass:[NSArray class]] || !paths.count) return;
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"EZPendingSharedImageAskPaths"];
+    [self handleAttachImageToChat:[NSNotification notificationWithName:EZAttachImageToChat
+                                                                  object:nil
+                                                                userInfo:@{ @"filePaths": paths }]];
 }
 
 - (void)consumePendingExternalDocument {
@@ -1455,6 +1471,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                     @"imagePaths": [validPaths copy],
                     @"prompt": msg[@"prompt"] ?: @"",
                     @"isError": @(isError),
+                    @"timestamp": msg[@"timestamp"] ?: @"time unavailable",
                 } mutableCopy];
                 if (msg[@"errorText"]) entry[@"errorText"] = msg[@"errorText"];
                 [self.displayMessages addObject:[entry copy]];
@@ -1506,6 +1523,16 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
             } else {
                 [self appendToChat:[NSString stringWithFormat:@"AI: %@", text]];
             }
+        } else if ([role isEqualToString:@"system"] &&
+                   ([msg[@"isUserAuthoredSystemMessage"] boolValue] ||
+                    [msg[@"isCustomInstruction"] boolValue])) {
+            // A user-saved custom instruction is distinct from our internal
+            // prompt/status plumbing and may be selected/exported.
+            [self.displayMessages addObject:@{
+                @"role": @"system",
+                @"text": text,
+                @"isUserAuthoredSystemMessage": @YES,
+            }];
         }
     }
 
@@ -1782,14 +1809,12 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 
     self.textToSpeechButton = [self _iconButton:@"play.circle.fill" tint:nil action:@selector(openTTS)];
 
-    // `memory` is not rendered on every supported SF Symbols set. Use the
-    // long-standing archive glyph plus a title so this entry point is never a
-    // blank but tappable area.
-    self.memoriesButton   = [self _iconButton:@"archivebox.fill" tint:nil
-                                      action:@selector(openMemories)];
-    [self.memoriesButton setTitle:@"Memories" forState:UIControlStateNormal];
+    // The former Memories slot is now the thread export/selection entry point.
+    self.memoriesButton   = [self _iconButton:@"checkmark.circle" tint:nil
+                                      action:@selector(toggleThreadSelection)];
+    [self.memoriesButton setTitle:@"Select" forState:UIControlStateNormal];
     self.memoriesButton.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
-    self.memoriesButton.accessibilityLabel = @"Memories";
+    self.memoriesButton.accessibilityLabel = @"Select parts of this thread";
     // Web search toggle
     self.webSearchButton = [self _iconButton:@"globe" tint:nil
                                       action:@selector(toggleWebSearch)];
@@ -2182,6 +2207,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     dismissTap.cancelsTouchesInView = NO;
     dismissTap.delegate = self;
     [self.view addGestureRecognizer:dismissTap];
+    [self installThreadSelectionBar];
 }
 
 /// Persists the setting used by helpers.m when triage needs more conversation
@@ -6133,6 +6159,319 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // MARK: - Chat display helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+// MARK: - Thread selection and export
+
+static NSInteger const kEZThreadSelectionDotTag = 9411;
+
+static NSString *EZThreadExportTimestampNow(void) {
+    static NSDateFormatter *formatter;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        formatter = [[NSDateFormatter alloc] init];
+        formatter.dateFormat = @"MMM d, yyyy h:mm a";
+    });
+    return [formatter stringFromDate:[NSDate date]];
+}
+
+- (void)installThreadSelectionBar {
+    self.selectedThreadMessageIndexes = [NSMutableIndexSet indexSet];
+    UIView *bar = [UIView new];
+    bar.hidden = YES;
+    bar.backgroundColor = [UIColor colorWithRed:0.08 green:0.22 blue:0.30 alpha:0.98];
+    bar.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.inputContainer addSubview:bar];
+    [NSLayoutConstraint activateConstraints:@[
+        [bar.leadingAnchor constraintEqualToAnchor:self.inputContainer.leadingAnchor],
+        [bar.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor],
+        [bar.topAnchor constraintEqualToAnchor:self.inputContainer.topAnchor],
+        [bar.bottomAnchor constraintEqualToAnchor:self.inputContainer.bottomAnchor],
+    ]];
+    self.threadSelectionBar = bar;
+
+    UILabel *count = [UILabel new];
+    count.textColor = UIColor.whiteColor;
+    count.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightBold];
+    count.textAlignment = NSTextAlignmentCenter;
+    count.translatesAutoresizingMaskIntoConstraints = NO;
+    [bar addSubview:count];
+    self.threadSelectionCountLabel = count;
+
+    NSArray<NSString *> *titles = @[ @"All", @"Delete", @"Translate", @"Share", @"Export", @"Done" ];
+    NSArray<NSString *> *symbols = @[ @"checkmark.circle", @"trash", @"character.bubble", @"square.and.arrow.up", @"doc.badge.arrow.up", @"xmark.circle" ];
+    NSArray<NSString *> *selectors = @[ NSStringFromSelector(@selector(selectAllThreadItems)),
+                                        NSStringFromSelector(@selector(deleteSelectedThreadItems)),
+                                        NSStringFromSelector(@selector(translateSelectedThreadItems)),
+                                        NSStringFromSelector(@selector(shareSelectedThreadItems)),
+                                        NSStringFromSelector(@selector(exportSelectedThreadItems)),
+                                        NSStringFromSelector(@selector(toggleThreadSelection)) ];
+    UIStackView *stack = [UIStackView new];
+    stack.axis = UILayoutConstraintAxisHorizontal;
+    stack.distribution = UIStackViewDistributionFillEqually;
+    stack.spacing = 2;
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    NSMutableArray<UIButton *> *buttons = [NSMutableArray array];
+    for (NSUInteger i = 0; i < titles.count; i++) {
+        UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+        [button setTitle:titles[i] forState:UIControlStateNormal];
+        [button setImage:[UIImage systemImageNamed:symbols[i]] forState:UIControlStateNormal];
+        button.tintColor = UIColor.whiteColor;
+        button.titleLabel.font = [UIFont systemFontOfSize:10 weight:UIFontWeightBold];
+        button.imageView.contentMode = UIViewContentModeScaleAspectFit;
+        button.contentEdgeInsets = UIEdgeInsetsMake(4, 2, 4, 2);
+        [button addTarget:self action:NSSelectorFromString(selectors[i]) forControlEvents:UIControlEventTouchUpInside];
+        [stack addArrangedSubview:button];
+        [buttons addObject:button];
+    }
+    self.threadSelectionActionButtons = buttons;
+    [bar addSubview:stack];
+    [NSLayoutConstraint activateConstraints:@[
+        [count.topAnchor constraintEqualToAnchor:bar.topAnchor constant:5],
+        [count.leadingAnchor constraintEqualToAnchor:bar.leadingAnchor constant:8],
+        [count.trailingAnchor constraintEqualToAnchor:bar.trailingAnchor constant:-8],
+        [stack.topAnchor constraintEqualToAnchor:count.bottomAnchor constant:1],
+        [stack.leadingAnchor constraintEqualToAnchor:bar.leadingAnchor constant:4],
+        [stack.trailingAnchor constraintEqualToAnchor:bar.trailingAnchor constant:-4],
+        [stack.bottomAnchor constraintEqualToAnchor:bar.bottomAnchor constant:-4],
+    ]];
+}
+
+- (BOOL)isThreadExportableMessage:(NSDictionary *)message {
+    NSString *role = message[@"role"] ?: @"";
+    if ([role isEqualToString:@"system"]) {
+        // System status lines and internal instructions are app plumbing, not
+        // part of a user's public thread.  This leaves a deliberate escape
+        // hatch for a future/user-created custom instruction row.
+        return [message[@"isUserAuthoredSystemMessage"] boolValue] ||
+               [message[@"isCustomInstruction"] boolValue];
+    }
+    return [@[ @"user", @"assistant", @"code", @"attachment", @"imagegrid" ] containsObject:role];
+}
+
+- (void)toggleThreadSelection {
+    self.threadSelectionActive = !self.threadSelectionActive;
+    if (!self.threadSelectionActive) [self.selectedThreadMessageIndexes removeAllIndexes];
+    self.threadSelectionBar.hidden = !self.threadSelectionActive;
+    [self.memoriesButton setTitle:self.threadSelectionActive ? @"Done" : @"Select"
+                         forState:UIControlStateNormal];
+    [self updateThreadSelectionUI];
+}
+
+- (void)updateThreadSelectionUI {
+    NSUInteger selectedCount = self.selectedThreadMessageIndexes.count;
+    self.threadSelectionCountLabel.text = selectedCount
+        ? [NSString stringWithFormat:@"%lu selected", (unsigned long)selectedCount]
+        : @"Choose parts of this thread";
+    for (NSUInteger i = 0; i < self.threadSelectionActionButtons.count; i++) {
+        // All and Done remain useful before any item is selected.
+        self.threadSelectionActionButtons[i].enabled = (i == 0 || i == 5 || selectedCount > 0);
+        self.threadSelectionActionButtons[i].alpha = self.threadSelectionActionButtons[i].enabled ? 1.0 : 0.38;
+    }
+    [self.chatTableView reloadData];
+}
+
+- (void)selectAllThreadItems {
+    [self.selectedThreadMessageIndexes removeAllIndexes];
+    [self.displayMessages enumerateObjectsUsingBlock:^(NSDictionary *message, NSUInteger index, BOOL *stop) {
+        if ([self isThreadExportableMessage:message])
+            [self.selectedThreadMessageIndexes addIndex:index];
+    }];
+    [self updateThreadSelectionUI];
+}
+
+- (void)threadSelectionDotTapped:(UIButton *)sender {
+    UIView *view = sender;
+    while (view && ![view isKindOfClass:[UITableViewCell class]]) view = view.superview;
+    NSIndexPath *path = view ? [self.chatTableView indexPathForCell:(UITableViewCell *)view] : nil;
+    if (!path) return;
+    if ([self.selectedThreadMessageIndexes containsIndex:(NSUInteger)path.row])
+        [self.selectedThreadMessageIndexes removeIndex:(NSUInteger)path.row];
+    else
+        [self.selectedThreadMessageIndexes addIndex:(NSUInteger)path.row];
+    [self updateThreadSelectionUI];
+}
+
+- (void)configureThreadSelectionDotForCell:(UITableViewCell *)cell indexPath:(NSIndexPath *)indexPath {
+    UIButton *dot = [cell.contentView viewWithTag:kEZThreadSelectionDotTag];
+    if (!dot) {
+        dot = [UIButton buttonWithType:UIButtonTypeCustom];
+        dot.tag = kEZThreadSelectionDotTag;
+        dot.frame = CGRectMake(8, 8, 28, 28);
+        dot.autoresizingMask = UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin;
+        dot.layer.cornerRadius = 14;
+        dot.layer.borderWidth = 2;
+        [dot addTarget:self action:@selector(threadSelectionDotTapped:) forControlEvents:UIControlEventTouchUpInside];
+        [cell.contentView addSubview:dot];
+    }
+    BOOL selected = [self.selectedThreadMessageIndexes containsIndex:(NSUInteger)indexPath.row];
+    [dot setImage:selected ? [UIImage systemImageNamed:@"checkmark"] : nil forState:UIControlStateNormal];
+    dot.tintColor = UIColor.whiteColor;
+    dot.backgroundColor = selected ? self.view.tintColor : [UIColor.systemBackgroundColor colorWithAlphaComponent:0.92];
+    dot.layer.borderColor = (selected ? self.view.tintColor : UIColor.systemGrayColor).CGColor;
+    dot.hidden = !self.threadSelectionActive;
+    [cell.contentView bringSubviewToFront:dot];
+}
+
+- (NSArray<NSDictionary *> *)selectedThreadMessages {
+    NSMutableArray *items = [NSMutableArray array];
+    [self.selectedThreadMessageIndexes enumerateIndexesUsingBlock:^(NSUInteger index, BOOL *stop) {
+        if (index < self.displayMessages.count) [items addObject:self.displayMessages[index]];
+    }];
+    return items;
+}
+
+- (NSString *)selectedThreadText {
+    NSMutableArray<NSString *> *parts = [NSMutableArray array];
+    for (NSDictionary *message in [self selectedThreadMessages]) {
+        NSString *role = message[@"role"] ?: @"";
+        NSString *when = message[@"timestamp"] ?: @"time unavailable";
+        if ([role isEqualToString:@"code"]) {
+            [parts addObject:[NSString stringWithFormat:@"CODE (%@) — Added %@:\n%@", message[@"language"] ?: @"code", when, message[@"text"] ?: @""]];
+        } else if ([role isEqualToString:@"attachment"]) {
+            [parts addObject:[NSString stringWithFormat:@"IMAGE — Added %@: %@", when, [message[@"imagePath"] lastPathComponent] ?: @"attachment"]];
+        } else if ([role isEqualToString:@"imagegrid"]) {
+            [parts addObject:[NSString stringWithFormat:@"GENERATED IMAGES — Added %@ — %@", when, message[@"prompt"] ?: @""]];
+        } else {
+            NSString *speaker = [role isEqualToString:@"user"] ? @"YOU" :
+                ([role isEqualToString:@"system"] ? @"SYSTEM" : @"ASSISTANT");
+            [parts addObject:[NSString stringWithFormat:@"%@ — Added %@:\n%@", speaker, when, message[@"text"] ?: @""]];
+        }
+    }
+    return [parts componentsJoinedByString:@"\n\n"];
+}
+
+- (NSArray<NSURL *> *)selectedThreadImageURLs {
+    NSMutableArray<NSURL *> *urls = [NSMutableArray array];
+    for (NSDictionary *message in [self selectedThreadMessages]) {
+        NSString *role = message[@"role"];
+        NSArray *paths = [role isEqualToString:@"imagegrid"] ? message[@"imagePaths"] :
+            [role isEqualToString:@"attachment"] ? @[message[@"imagePath"] ?: @""] : @[];
+        for (NSString *path in paths) {
+            NSString *resolved = EZAttachmentPath(path) ?: path;
+            if ([[NSFileManager defaultManager] fileExistsAtPath:resolved])
+                [urls addObject:[NSURL fileURLWithPath:resolved]];
+        }
+    }
+    return urls;
+}
+
+- (void)shareSelectedThreadItems {
+    NSMutableArray *items = [NSMutableArray arrayWithObject:[self selectedThreadText] ?: @""];
+    [items addObjectsFromArray:[self selectedThreadImageURLs]];
+    UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        share.popoverPresentationController.sourceView = self.threadSelectionBar;
+        share.popoverPresentationController.sourceRect = self.threadSelectionBar.bounds;
+    }
+    [self presentViewController:share animated:YES completion:nil];
+}
+
+- (void)translateSelectedThreadItems {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Translate selection"
+        message:@"This sends the selected text to your active chat model." preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = @"Language (for example, Spanish)"; }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Translate" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        NSString *language = alert.textFields.firstObject.text.length ? alert.textFields.firstObject.text : @"English";
+        NSString *text = [self selectedThreadText];
+        [self toggleThreadSelection];
+        [self setInputText:[NSString stringWithFormat:@"Translate the following selected thread excerpts into %@. Preserve code blocks exactly and do not add commentary:\n\n%@", language, text]];
+        [self handleSend];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)deleteSelectedThreadItems {
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Delete selected parts?"
+        message:@"This removes the selected messages and media from this thread view." preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Delete" style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
+        [self.selectedThreadMessageIndexes enumerateIndexesWithOptions:NSEnumerationReverse usingBlock:^(NSUInteger index, BOOL *stop) {
+            if (index < self.displayMessages.count) [self.displayMessages removeObjectAtIndex:index];
+        }];
+        [self persistImageGridCells];
+        [self toggleThreadSelection];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (NSString *)threadExportFilenameFromName:(NSString *)name extension:(NSString *)extension {
+    NSString *base = [[name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]]
+        stringByReplacingOccurrencesOfString:@"/" withString:@"-"];
+    if (!base.length) base = self.activeThread.title.length ? self.activeThread.title : @"EZCompleteUI Thread";
+    return [[base stringByReplacingOccurrencesOfString:@"." withString:@"-"] stringByAppendingPathExtension:extension];
+}
+
+- (NSData *)threadPDFDataWithSelectedMessages:(NSArray<NSDictionary *> *)messages title:(NSString *)title {
+    CGRect page = CGRectMake(0, 0, 612, 792);
+    UIGraphicsPDFRenderer *renderer = [[UIGraphicsPDFRenderer alloc] initWithBounds:page];
+    return [renderer PDFDataWithActions:^(UIGraphicsPDFRendererContext *context) {
+        NSDictionary *titleAttrs = @{ NSFontAttributeName: [UIFont boldSystemFontOfSize:20], NSForegroundColorAttributeName: UIColor.blackColor };
+        NSDictionary *metaAttrs = @{ NSFontAttributeName: [UIFont systemFontOfSize:10 weight:UIFontWeightSemibold], NSForegroundColorAttributeName: UIColor.darkGrayColor };
+        NSDictionary *bodyAttrs = @{ NSFontAttributeName: [UIFont systemFontOfSize:10], NSForegroundColorAttributeName: UIColor.blackColor };
+        for (NSDictionary *message in messages) {
+            [context beginPage];
+            [title drawInRect:CGRectMake(40, 32, 532, 24) withAttributes:titleAttrs];
+            NSString *role = message[@"role"] ?: @"assistant";
+            NSString *speaker = [role isEqualToString:@"user"] ? @"You" : [role isEqualToString:@"code"] ? @"Code" : [role isEqualToString:@"attachment"] ? @"Image attachment" : [role isEqualToString:@"imagegrid"] ? @"Generated image" : @"Assistant";
+            NSString *when = message[@"timestamp"] ?: @"time unavailable";
+            [[NSString stringWithFormat:@"%@  •  Added %@", speaker, when] drawInRect:CGRectMake(40, 66, 532, 18) withAttributes:metaAttrs];
+            NSString *text = [role isEqualToString:@"imagegrid"] ? (message[@"prompt"] ?: @"") : (message[@"text"] ?: @"");
+            if (text.length) [text drawInRect:CGRectMake(40, 88, 532, 130) withAttributes:bodyAttrs];
+            NSArray *paths = [role isEqualToString:@"imagegrid"] ? message[@"imagePaths"] : [role isEqualToString:@"attachment"] ? @[message[@"imagePath"] ?: @""] : @[];
+            for (NSString *path in paths) {
+                NSString *resolved = EZAttachmentPath(path) ?: path;
+                UIImage *image = [UIImage imageWithContentsOfFile:resolved];
+                if (!image || image.size.width <= 0 || image.size.height <= 0) continue;
+                [context beginPage];
+                [title drawInRect:CGRectMake(40, 32, 532, 24) withAttributes:titleAttrs];
+                [[NSString stringWithFormat:@"%@  •  Added %@", speaker, when] drawInRect:CGRectMake(40, 66, 532, 18) withAttributes:metaAttrs];
+                CGSize bounds = CGSizeMake(532, 650);
+                CGFloat scale = MIN(bounds.width / image.size.width, bounds.height / image.size.height);
+                CGSize size = CGSizeMake(image.size.width * scale, image.size.height * scale);
+                [image drawInRect:CGRectMake((612 - size.width) / 2.0, 96, size.width, size.height)];
+            }
+        }
+    }];
+}
+
+- (void)exportSelectedThreadItems {
+    UIAlertController *nameAlert = [UIAlertController alertControllerWithTitle:@"Export thread"
+        message:@"Name the selected export, then choose a format." preferredStyle:UIAlertControllerStyleAlert];
+    [nameAlert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.text = self.activeThread.title ?: @"EZCompleteUI Thread"; }];
+    [nameAlert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [nameAlert addAction:[UIAlertAction actionWithTitle:@"Continue" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        NSString *name = nameAlert.textFields.firstObject.text ?: @"";
+        UIAlertController *formats = [UIAlertController alertControllerWithTitle:@"Export format" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+        void (^performExport)(NSString *) = ^(NSString *format) {
+            NSString *text = [self selectedThreadText]; NSArray *images = [self selectedThreadImageURLs]; NSData *data = nil;
+            if ([format isEqualToString:@"pdf"]) {
+                data = [self threadPDFDataWithSelectedMessages:[self selectedThreadMessages] title:name.length ? name : @"EZCompleteUI Thread"];
+            } else if ([format isEqualToString:@"rtf"]) {
+                NSAttributedString *attributed = [[NSAttributedString alloc] initWithString:text
+                    attributes:@{ NSFontAttributeName: [UIFont systemFontOfSize:12] }];
+                data = [attributed dataFromRange:NSMakeRange(0, text.length)
+                              documentAttributes:@{ NSDocumentTypeDocumentAttribute: NSRTFTextDocumentType }
+                                           error:nil];
+            } else {
+                data = [text dataUsingEncoding:NSUTF8StringEncoding];
+            }
+            NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[self threadExportFilenameFromName:name extension:format]]];
+            [data writeToURL:url atomically:YES];
+            NSMutableArray *items = [NSMutableArray arrayWithObject:url]; if ([format isEqualToString:@"txt"]) [items addObjectsFromArray:images];
+            UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
+            if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) { share.popoverPresentationController.sourceView = self.threadSelectionBar; share.popoverPresentationController.sourceRect = self.threadSelectionBar.bounds; }
+            [self presentViewController:share animated:YES completion:nil];
+        };
+        [formats addAction:[UIAlertAction actionWithTitle:@"PDF (text and images)" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) { performExport(@"pdf"); }]];
+        [formats addAction:[UIAlertAction actionWithTitle:@"Rich Text (.rtf)" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) { performExport(@"rtf"); }]];
+        [formats addAction:[UIAlertAction actionWithTitle:@"Text + original images" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) { performExport(@"txt"); }]];
+        [formats addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+        if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) { formats.popoverPresentationController.sourceView = self.threadSelectionBar; formats.popoverPresentationController.sourceRect = self.threadSelectionBar.bounds; }
+        [self presentViewController:formats animated:YES completion:nil];
+    }]];
+    [self presentViewController:nameAlert animated:YES completion:nil];
+}
+
 /// Primary append entry point. Detects role from prefix ("You: ", "AI: "),
 /// splits [CODE:] markers into separate code cells, and reloads the table.
 - (void)appendToChat:(NSString *)rawText {
@@ -6269,6 +6608,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         @"imagePaths": imagePaths ?: @[],
         @"prompt":     prompt ?: @"",
         @"isError":    @(isError),
+        @"timestamp":  EZThreadExportTimestampNow(),
     } mutableCopy];
     if (errorText) entry[@"errorText"] = errorText;
 
@@ -6284,6 +6624,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             @"imagePaths": imagePaths ?: @[],
             @"prompt": prompt ?: @"",
             @"isError": @(isError),
+            @"timestamp": entry[@"timestamp"],
             @"_uiOnly": @YES,
         } mutableCopy];
         if (errorText) timelineEvent[@"errorText"] = errorText;
@@ -6357,6 +6698,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self.displayMessages addObject:@{
         @"role":      @"attachment",
         @"imagePath": imagePath,
+        @"timestamp": EZThreadExportTimestampNow(),
     }];
     [self reloadAndScrollTable];
 }
@@ -6398,6 +6740,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                               isError:[msg[@"isError"] boolValue]
                             errorText:msg[@"errorText"]
                  presentingController:self];
+        [self configureThreadSelectionDotForCell:cell indexPath:indexPath];
         return cell;
     }
 
@@ -6406,6 +6749,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                                                         forIndexPath:indexPath];
         [cell configureWithImagePath:msg[@"imagePath"] ?: @""];
         [self ez_attachTapToExpandToCellIfNeeded:cell];
+        [self configureThreadSelectionDotForCell:cell indexPath:indexPath];
         return cell;
     }
 
@@ -6416,6 +6760,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                        language:msg[@"language"]
                       savedPath:msg[@"savedPath"]
                  viewController:self];
+        [self configureThreadSelectionDotForCell:cell indexPath:indexPath];
         return cell;
     } else if ([role isEqualToString:@"user"] || [role isEqualToString:@"assistant"]) {
         EZBubbleCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZBubble"
@@ -6426,11 +6771,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                         chatKey:msg[@"chatKey"]
                        threadID:msg[@"threadID"]];
         [self ez_attachCopyInteractionToCellIfNeeded:cell];
+        [self configureThreadSelectionDotForCell:cell indexPath:indexPath];
         return cell;
     } else {
         EZSystemCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZSystem"
                                                              forIndexPath:indexPath];
         cell.messageLabel.text = msg[@"text"] ?: @"";
+        if ([self isThreadExportableMessage:msg])
+            [self configureThreadSelectionDotForCell:cell indexPath:indexPath];
         return cell;
     }
 }

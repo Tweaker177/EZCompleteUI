@@ -24,6 +24,8 @@ EZKeyVault.m
 /files 2/
 /patch.py
 EZAuthManager.m
+!EZAuthManager.m
+!EZAuthManager.h
 EZEntitlementManager.m
 /supabase/
 !/supabase/
@@ -36,7 +38,12 @@ EZEntitlementManager.m
 !/supabase/functions/br-slot-social/index.ts
 !/supabase/functions/get-admin-ledger/
 !/supabase/functions/get-admin-ledger/index.ts
+!/supabase/functions/claim-daily-coins/
+!/supabase/functions/claim-daily-coins/index.ts
+!/supabase/functions/password-reset-redirect/
+!/supabase/functions/password-reset-redirect/index.ts
 !/supabase/migrations/
+!/supabase/migrations/*.sql
 !/supabase/migrations/20261004_ez_slot_machine.sql
 !/supabase/migrations/20261004000100_add_slot_usage_log.sql
 !/supabase/migrations/20261004000200_fix_slot_usage_email.sql
@@ -46,6 +53,7 @@ EZEntitlementManager.m
 !/supabase/migrations/20261004000600_allow_variable_slot_wagers.sql
 !/supabase/migrations/20261005000100_penny_slot_free_spins.sql
 !/supabase/migrations/20261007000100_slot_social_rooms.sql
+!/supabase/migrations/20261008000100_fix_welcome_free_spins_trigger.sql
 !/supabase/functions/get-usage-log/index.ts
 make_icon_theme.py
 *.py

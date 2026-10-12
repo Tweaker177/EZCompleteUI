@@ -276,6 +276,34 @@ static NSArray<NSDictionary<NSString *, id> *> *EZGallerySurpriseRecipes(void) {
                 @"reference_count": @1,
                 @"prompt": @"Create one seamless image where the left side begins as Image 1 and gradually transitions into Image 2 across the center. Blend the subjects, sky, textures, and lighting in a creative but realistic way, with a clear visual story connecting both worlds.",
             },
+            @{
+                @"title": @"Memory Cabinet",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat" ],
+                @"reference_tag_groups": @[
+                    @[ @"nature", @"landscape", @"forest", @"mountain", @"beach", @"water", @"sky", @"city", @"architecture" ],
+                    @[ @"product", @"object", @"vehicle", @"art", @"illustration", @"food", @"drink" ],
+                ],
+                @"prompt": @"Create a cinematic memory-cabinet scene using all three images. Keep the person or animal from Image 1 as the hero; bring one distinctive environmental element from Image 2 and one recognizable object, artwork, food, or vehicle detail from Image 3 into the scene. Do not collage the full photos—make the chosen elements coexist naturally with matched light, scale, shadows, and a single cohesive story.",
+            },
+            @{
+                @"title": @"Three-Stop Daydream",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"animal" ],
+                @"reference_tag_groups": @[
+                    @[ @"city", @"architecture", @"street", @"nature", @"landscape", @"forest", @"mountain", @"beach", @"water", @"travel" ],
+                    @[ @"person", @"people", @"portrait", @"pet", @"dog", @"cat", @"animal", @"product", @"object", @"vehicle" ],
+                ],
+                @"prompt": @"Turn Images 1–3 into one believable daydream photograph. Use Image 1 as the central character or subject, borrow the setting or atmosphere of Image 2, and introduce one clear subject or object from Image 3 as a meaningful companion, prop, or distant detail. Preserve the recognizable identity of Image 1. Include one signature contribution from each source, but do not try to reproduce every item from every image.",
+            },
+            @{
+                @"title": @"Four-Image World Builder",
+                @"primary_tags": @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"animal", @"city", @"architecture", @"nature", @"landscape", @"travel" ],
+                @"reference_tag_groups": @[
+                    @[ @"person", @"people", @"portrait", @"selfie", @"couple", @"pet", @"dog", @"cat", @"animal" ],
+                    @[ @"city", @"architecture", @"street", @"nature", @"landscape", @"forest", @"mountain", @"beach", @"water", @"sky", @"travel" ],
+                    @[ @"product", @"object", @"vehicle", @"art", @"illustration", @"food", @"drink", @"document" ],
+                ],
+                @"prompt": @"Build one polished, photorealistic scene from Images 1–4. Treat Image 1 as the composition anchor. Take one unmistakable subject or character from Image 2, one environmental motif from Image 3, and one special prop, artwork, vehicle, food, or graphic detail from Image 4. Every source should leave a recognizable trace, yet use only the strongest element from each rather than combining whole images. Unify perspective, scale, lighting, shadows, and color into a new scene—not a grid or collage.",
+            },
         ];
     });
     return recipes;
@@ -789,6 +817,8 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 - (NSArray<NSString *> *)surpriseReferencePathsForTags:(NSArray<NSString *> *)wantedTags
                                                  maximum:(NSUInteger)maximum
                                          manifestEntries:(NSDictionary<NSString *, NSDictionary<NSString *, id> *> *)manifestEntries;
+- (NSArray<NSString *> *)surpriseReferencePathsForTagGroups:(NSArray<NSArray<NSString *> *> *)tagGroups
+                                              manifestEntries:(NSDictionary<NSString *, NSDictionary<NSString *, id> *> *)manifestEntries;
 - (void)updateImageSummary;
 - (void)galleryManifestDidChange:(NSNotification *)notification;
 - (UIImage *)compositeEditSourceImage;
@@ -1416,6 +1446,43 @@ didFinishPicking:(NSArray<PHPickerResult *> *)results {
     return selectionPool;
 }
 
+// Each group describes the role a separate reference image must fill. This is
+// deliberately driven by the gallery analysis tags rather than file order, so
+// a four-image prompt gets (for example) a character, a setting, and a prop
+// instead of three arbitrary recent photos.
+- (NSArray<NSString *> *)surpriseReferencePathsForTagGroups:(NSArray<NSArray<NSString *> *> *)tagGroups
+                                              manifestEntries:(NSDictionary<NSString *, NSDictionary<NSString *, id> *> *)manifestEntries {
+    if (tagGroups.count == 0) return @[];
+
+    NSMutableArray<NSString *> *references = [NSMutableArray arrayWithCapacity:tagGroups.count];
+    for (NSArray<NSString *> *wantedTags in tagGroups) {
+        if (wantedTags.count == 0) return @[];
+        NSMutableArray<NSString *> *matches = [NSMutableArray array];
+        NSMutableArray<NSString *> *nonRecentMatches = [NSMutableArray array];
+        for (NSString *candidatePath in self.galleryFilePaths) {
+            if ([candidatePath isEqualToString:self.filePath] ||
+                [references containsObject:candidatePath]) continue;
+            NSDictionary *entry = manifestEntries[candidatePath];
+            if (![entry[@"status"] isEqualToString:@"complete"]) continue;
+            NSArray *tags = [entry[@"tags"] isKindOfClass:[NSArray class]] ? entry[@"tags"] : @[];
+            if (!EZGalleryTagsIntersect(tags, wantedTags)) continue;
+            [matches addObject:candidatePath];
+            if (![_lastSurpriseReferencePaths containsObject:candidatePath]) {
+                [nonRecentMatches addObject:candidatePath];
+            }
+        }
+        NSMutableArray<NSString *> *selectionPool =
+            (nonRecentMatches.count > 0 ? nonRecentMatches : matches).mutableCopy;
+        if (selectionPool.count == 0) return @[];
+        for (NSInteger index = (NSInteger)selectionPool.count - 1; index > 0; index--) {
+            NSUInteger swapIndex = arc4random_uniform((u_int32_t)(index + 1));
+            [selectionPool exchangeObjectAtIndex:(NSUInteger)index withObjectAtIndex:swapIndex];
+        }
+        [references addObject:selectionPool.firstObject];
+    }
+    return references;
+}
+
 - (void)documentPicker:(UIDocumentPickerViewController *)controller
 didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     for (NSURL *url in urls) {
@@ -1445,11 +1512,19 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     for (NSDictionary *recipe in EZGallerySurpriseRecipes()) {
         NSArray<NSString *> *primaryTags = recipe[@"primary_tags"] ?: @[];
         if (primaryTags.count > 0 && !EZGalleryTagsIntersect(currentTags, primaryTags)) continue;
-        NSUInteger referenceCount = [recipe[@"reference_count"] unsignedIntegerValue];
-        NSArray<NSString *> *references = [self surpriseReferencePathsForTags:recipe[@"reference_tags"]
-                                                                         maximum:referenceCount
-                                                                 manifestEntries:manifestEntries];
-        if (referenceCount > references.count) continue;
+        NSArray<NSArray<NSString *> *> *referenceTagGroups = recipe[@"reference_tag_groups"];
+        NSArray<NSString *> *references;
+        if (referenceTagGroups.count > 0) {
+            references = [self surpriseReferencePathsForTagGroups:referenceTagGroups
+                                                    manifestEntries:manifestEntries];
+            if (references.count != referenceTagGroups.count) continue;
+        } else {
+            NSUInteger referenceCount = [recipe[@"reference_count"] unsignedIntegerValue];
+            references = [self surpriseReferencePathsForTags:recipe[@"reference_tags"]
+                                                      maximum:referenceCount
+                                              manifestEntries:manifestEntries];
+            if (referenceCount > references.count) continue;
+        }
         NSMutableDictionary *option = [recipe mutableCopy];
         option[@"references"] = references;
         [options addObject:option];

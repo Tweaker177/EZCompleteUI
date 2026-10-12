@@ -26,6 +26,13 @@ entrypoint = "./functions/grant-admin-coins/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/check-entitlement/*.html" ]
 
+# This endpoint is opened by unauthenticated email links and then hands the
+# one-time Supabase session tokens to the app. It must remain public.
+[functions.password-reset-redirect]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/password-reset-redirect/index.ts"
+
 [functions.recover-user-images]
 enabled = true
 verify_jwt = true

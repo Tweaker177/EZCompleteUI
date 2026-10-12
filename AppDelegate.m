@@ -32,6 +32,9 @@
 
 static NSString *const kPendingExternalImageAskPath = @"EZPendingExternalImageAskPath";
 static NSString *const kPendingExternalDocumentPath = @"EZPendingExternalDocumentPath";
+static NSString *const kPendingSharedImageAskPaths = @"EZPendingSharedImageAskPaths";
+static NSString *const kEZShareAppGroup = @"group.com.i0stweak3r.ezcompleteui";
+static NSString *const kEZShareManifestName = @"pending-image-import.plist";
 
 
 @implementation AppDelegate
@@ -65,9 +68,52 @@ static NSString *const kPendingExternalDocumentPath = @"EZPendingExternalDocumen
     }];
 
     NSURL *launchURL = launchOptions[UIApplicationLaunchOptionsURLKey];
-    if (launchURL.isFileURL) [self acceptIncomingFileURL:launchURL];
+    // A custom auth URL can launch a terminated app. Route it through the same
+    // handler used for a warm app; previously only file URLs were handled here,
+    // silently discarding signup-confirmation and password-reset callbacks.
+    if (launchURL) [self application:application openURL:launchURL options:@{}];
+    [self importImagesStagedByShareExtension];
 
     return YES;
+}
+
+// The Share Extension has its own sandbox. It stages files in the shared App
+// Group, and the main app promptly copies them into its own temporary area
+// before passing them to the regular multi-image attachment pipeline.
+- (void)importImagesStagedByShareExtension {
+    NSURL *container = [[NSFileManager defaultManager]
+        containerURLForSecurityApplicationGroupIdentifier:kEZShareAppGroup];
+    NSURL *manifestURL = [container URLByAppendingPathComponent:kEZShareManifestName];
+    NSDictionary *manifest = [NSDictionary dictionaryWithContentsOfURL:manifestURL];
+    NSString *folderName = [manifest[@"folder"] isKindOfClass:[NSString class]] ? manifest[@"folder"] : nil;
+    NSArray *files = [manifest[@"files"] isKindOfClass:[NSArray class]] ? manifest[@"files"] : nil;
+    if (!folderName.length || !files.count) return;
+
+    NSURL *sourceFolder = [[container URLByAppendingPathComponent:@"ShareInbox" isDirectory:YES]
+        URLByAppendingPathComponent:folderName isDirectory:YES];
+    NSString *destinationFolder = [NSTemporaryDirectory() stringByAppendingPathComponent:
+        [NSString stringWithFormat:@"shared-photos-%@", NSUUID.UUID.UUIDString]];
+    [[NSFileManager defaultManager] createDirectoryAtPath:destinationFolder
+                              withIntermediateDirectories:YES attributes:nil error:nil];
+    NSMutableArray<NSString *> *paths = [NSMutableArray array];
+    for (id value in files) {
+        if (![value isKindOfClass:[NSString class]]) continue;
+        NSString *name = value;
+        NSURL *source = [sourceFolder URLByAppendingPathComponent:name];
+        NSData *data = [NSData dataWithContentsOfURL:source];
+        if (!data.length || ![UIImage imageWithData:data]) continue;
+        NSString *path = [destinationFolder stringByAppendingPathComponent:name];
+        if ([data writeToFile:path atomically:YES]) [paths addObject:path];
+    }
+    [[NSFileManager defaultManager] removeItemAtURL:sourceFolder error:nil];
+    [[NSFileManager defaultManager] removeItemAtURL:manifestURL error:nil];
+    if (!paths.count) return;
+    [[NSUserDefaults standardUserDefaults] setObject:paths forKey:kPendingSharedImageAskPaths];
+    if ([self.window.rootViewController isKindOfClass:[ViewController class]]) {
+        [[NSNotificationCenter defaultCenter] postNotificationName:EZAttachImageToChat object:nil
+                                                          userInfo:@{ @"filePaths": paths }];
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey:kPendingSharedImageAskPaths];
+    }
 }
 
 // Copies an Open In / Files-provider item while its security-scoped access is
@@ -109,7 +155,8 @@ static NSString *const kPendingExternalDocumentPath = @"EZPendingExternalDocumen
 
 // ── Deep link handler ─────────────────────────────────────────────────────────
 // Called by iOS when any ezcomplete:// URL is opened — from Mail, Safari, or
-// LiveContainer's open-url forwarding. Handles the password reset flow only.
+// LiveContainer's open-url forwarding. Handles password recovery and completed
+// email-confirmation callbacks.
 //
 // Two URL formats are supported:
 //
@@ -136,8 +183,14 @@ static NSString *const kPendingExternalDocumentPath = @"EZPendingExternalDocumen
 
     if (![url.scheme isEqualToString:@"ezcomplete"]) return NO;
 
+    if ([url.host isEqualToString:@"shared-images"]) {
+        [self importImagesStagedByShareExtension];
+        return YES;
+    }
+
     NSString *accessToken  = nil;
     NSString *refreshToken = nil;
+    NSString *callbackType = nil;
 
     if ([url.host isEqualToString:@"password-reset"]) {
         // ── Edge function format ───────────────────────────────────────────────
@@ -147,6 +200,16 @@ static NSString *const kPendingExternalDocumentPath = @"EZPendingExternalDocumen
         for (NSURLQueryItem *item in components.queryItems) {
             if ([item.name isEqualToString:@"access_token"])  accessToken  = item.value;
             if ([item.name isEqualToString:@"refresh_token"]) refreshToken = item.value;
+            if ([item.name isEqualToString:@"type"])          callbackType = item.value;
+        }
+
+    } else if ([url.host isEqualToString:@"auth"]) {
+        NSURLComponents *components = [NSURLComponents componentsWithURL:url
+                                                resolvingAgainstBaseURL:NO];
+        for (NSURLQueryItem *item in components.queryItems) {
+            if ([item.name isEqualToString:@"access_token"])  accessToken  = item.value;
+            if ([item.name isEqualToString:@"refresh_token"]) refreshToken = item.value;
+            if ([item.name isEqualToString:@"type"])          callbackType = item.value;
         }
 
     } else if (url.fragment.length) {
@@ -165,15 +228,9 @@ static NSString *const kPendingExternalDocumentPath = @"EZPendingExternalDocumen
             if (item.value) fragmentParams[item.name] = item.value;
         }
 
-        // Ignore non-recovery callbacks (e.g. email confirmation magic links)
-        if (![fragmentParams[@"type"] isEqualToString:@"recovery"]) {
-            NSLog(@"[AppDelegate] ezcomplete:// fragment type '%@' — not a recovery link, ignoring.",
-                  fragmentParams[@"type"]);
-            return NO;
-        }
-
         accessToken  = fragmentParams[@"access_token"];
         refreshToken = fragmentParams[@"refresh_token"];
+        callbackType = fragmentParams[@"type"];
     }
 
     if (!accessToken.length || !refreshToken.length) {
@@ -181,10 +238,29 @@ static NSString *const kPendingExternalDocumentPath = @"EZPendingExternalDocumen
         return NO;
     }
 
-    // Store recovery tokens and post EZPasswordResetReadyNotification.
-    // LoginViewController observes this notification and shows the reset overlay.
-    [[EZAuthManager shared] applyPasswordResetTokens:accessToken
-                                        refreshToken:refreshToken];
+    if ([callbackType isEqualToString:@"recovery"] || [url.host isEqualToString:@"password-reset"]) {
+        // Store recovery tokens and post EZPasswordResetReadyNotification.
+        // LoginViewController observes this notification and shows the reset overlay.
+        [[EZAuthManager shared] applyPasswordResetTokens:accessToken
+                                            refreshToken:refreshToken];
+    } else if ([callbackType isEqualToString:@"signup"] ||
+               [callbackType isEqualToString:@"email_change"]) {
+        // Supabase has already verified the email before issuing these tokens.
+        // Persist the session so the user is taken straight into the app.
+        [[EZAuthManager shared] saveSession:@{
+            @"access_token": accessToken,
+            @"refresh_token": refreshToken,
+        }];
+        ViewController *mainVC = [[ViewController alloc] init];
+        [UIView transitionWithView:self.window duration:0.3
+                           options:UIViewAnimationOptionTransitionCrossDissolve
+                        animations:^{ self.window.rootViewController = mainVC; }
+                        completion:nil];
+        return YES;
+    } else {
+        NSLog(@"[AppDelegate] Unsupported auth callback type '%@'.", callbackType);
+        return NO;
+    }
 
     if (![self.window.rootViewController isKindOfClass:[LoginViewController class]]) {
         // ViewController is showing (user was previously logged in). Transition

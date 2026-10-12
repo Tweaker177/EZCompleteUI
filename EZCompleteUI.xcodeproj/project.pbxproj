@@ -78,6 +78,8 @@
 		A20000000000000000000045 /* BRSlotGamePickerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000048 /* BRSlotGamePickerViewController.m */; };
 		A20000000000000000000046 /* BRPennySlotViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004A /* BRPennySlotViewController.m */; };
 		A20000000000000000000047 /* BRSlotRoomViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004C /* BRSlotRoomViewController.m */; };
+		B20000000000000000000001 /* ShareViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* ShareViewController.m */; };
+		B20000000000000000000002 /* EZCompleteUIShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* EZCompleteUIShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -160,6 +162,10 @@
 		A1000000000000000000004D /* BRSlotRoomViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRSlotRoomViewController.h; sourceTree = "<group>"; };
 		A30000000000000000000001 /* EZCompleteUI-Simulator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EZCompleteUI-Simulator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A30000000000000000000002 /* Resources/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Resources/Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000001 /* ShareViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ShareExtension/ShareViewController.m; sourceTree = "<group>"; };
+		B10000000000000000000002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = ShareExtension/Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000003 /* EZCompleteUIShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension/EZCompleteUIShare.entitlements; sourceTree = "<group>"; };
+		B30000000000000000000002 /* EZCompleteUIShare.appex */ = {isa = PBXFileReference; explicitFileType = wrapper.app-extension; includeInIndex = 0; path = EZCompleteUIShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -170,7 +176,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B70000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B70000000000000000000001 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B20000000000000000000002 /* EZCompleteUIShare.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXGroup section */
 		A40000000000000000000001 = {
@@ -178,6 +205,7 @@
 			children = (
 				A40000000000000000000002 /* Sources */,
 				A30000000000000000000002 /* Resources/Info.plist */,
+				B40000000000000000000001 /* ShareExtension */,
 				A40000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -270,8 +298,19 @@
 			isa = PBXGroup;
 			children = (
 				A30000000000000000000001 /* EZCompleteUI-Simulator.app */,
+				B30000000000000000000002 /* EZCompleteUIShare.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B40000000000000000000001 /* ShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000001 /* ShareViewController.m */,
+				B10000000000000000000002 /* Info.plist */,
+				B10000000000000000000003 /* EZCompleteUIShare.entitlements */,
+			);
+			name = ShareExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -284,15 +323,33 @@
 				A70000000000000000000001 /* Sources */,
 				A70000000000000000000002 /* Copy Runtime Resources */,
 				A70000000000000000000003 /* Frameworks */,
+				B70000000000000000000001 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B90000000000000000000001 /* PBXTargetDependency */,
 			);
 			name = "EZCompleteUI-Simulator";
 			productName = EZCompleteUI;
 			productReference = A30000000000000000000001 /* EZCompleteUI-Simulator.app */;
 			productType = "com.apple.product-type.application";
+		};
+		B50000000000000000000001 /* EZCompleteUIShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B60000000000000000000001 /* Build configuration list for PBXNativeTarget "EZCompleteUIShare" */;
+			buildPhases = (
+				B70000000000000000000003 /* Sources */,
+				B70000000000000000000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = EZCompleteUIShare;
+			productName = EZCompleteUIShare;
+			productReference = B30000000000000000000002 /* EZCompleteUIShare.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -304,6 +361,9 @@
 				LastUpgradeCheck = 1420;
 				TargetAttributes = {
 					A50000000000000000000001 = {
+						CreatedOnToolsVersion = 14.2;
+					};
+					B50000000000000000000001 = {
 						CreatedOnToolsVersion = 14.2;
 					};
 				};
@@ -323,9 +383,28 @@
 			projectRoot = "";
 			targets = (
 				A50000000000000000000001 /* EZCompleteUI-Simulator */,
+				B50000000000000000000001 /* EZCompleteUIShare */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXContainerItemProxy section */
+		B91000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B50000000000000000000001;
+			remoteInfo = EZCompleteUIShare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		B90000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B50000000000000000000001 /* EZCompleteUIShare */;
+			targetProxy = B91000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		A70000000000000000000002 /* Copy Runtime Resources */ = {
@@ -423,6 +502,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B70000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B20000000000000000000001 /* ShareViewController.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
@@ -450,6 +537,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = EZCompleteUI.entitlements;
 				EXECUTABLE_NAME = EZCompleteUI;
 				GCC_PREPROCESSOR_DEFINITIONS = "EZCOMPLETEUI_SIMULATOR=1";
 				INFOPLIST_FILE = Resources/Info.plist;
@@ -499,6 +587,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = EZCompleteUI.entitlements;
 				EXECUTABLE_NAME = EZCompleteUI;
 				GCC_PREPROCESSOR_DEFINITIONS = "EZCOMPLETEUI_SIMULATOR=1";
 				INFOPLIST_FILE = Resources/Info.plist;
@@ -542,6 +631,42 @@
 			};
 			name = Release;
 		};
+		B80000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/EZCompleteUIShare.entitlements;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui.share;
+				PRODUCT_NAME = EZCompleteUIShare;
+				SDKROOT = iphonesimulator;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B80000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/EZCompleteUIShare.entitlements;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui.share;
+				PRODUCT_NAME = EZCompleteUIShare;
+				SDKROOT = iphonesimulator;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -559,6 +684,15 @@
 			buildConfigurations = (
 				A80000000000000000000003 /* Debug */,
 				A80000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B60000000000000000000001 /* Build configuration list for PBXNativeTarget "EZCompleteUIShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B80000000000000000000001 /* Debug */,
+				B80000000000000000000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
