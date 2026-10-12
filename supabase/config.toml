@@ -89,3 +89,10 @@ entrypoint = "./functions/cancel-paypal-subscription/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/cancel-paypal-subscription/*.html" ]
+
+# Music generation runs in the background after replying 202, and the client
+# polls the same function for progress. JWT is verified here and again in code.
+[functions.ez-music]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ez-music/index.ts"

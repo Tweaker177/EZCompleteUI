@@ -1,5 +1,11 @@
 // ViewController.m
-// EZCompleteUI v9.4
+// EZCompleteUI v9.5
+//
+// Changes from v9.4:
+//   - Added the AI Music entry point: the history drawer's new "music" action
+//     calls -openMusic, which presents EZMusicViewController (ElevenLabs
+//     text-to-music, backed by the ez-music Edge Function) in a navigation
+//     controller, the same way -openTTS presents Text to Speech.
 //
 // Changes from v9.3:
 //   - FIXED: both "[System: Generating/Editing image with...]" messages
@@ -552,6 +558,7 @@
 #import "EZPhotoGalleryViewController.h"
 #import "EZCoinPotView.h"
 #import "TextToSpeechViewController.h"
+#import "EZMusicViewController.h"
 #import "MemoriesViewController.h"
 #import "SupportRequestViewController.h"
 #import "BrainRotViewController.h"
@@ -2572,6 +2579,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                 if ([action isEqualToString:@"newChat"]) [weakSelf newChat];
                 else if ([action isEqualToString:@"gallery"]) [weakSelf openGallery];
                 else if ([action isEqualToString:@"tts"]) [weakSelf openTTS];
+                else if ([action isEqualToString:@"music"]) [weakSelf openMusic];
                 else if ([action isEqualToString:@"cloning"]) [weakSelf openCloning];
                 else if ([action isEqualToString:@"brainRot"]) [weakSelf openBrainRot];
                 else if ([action isEqualToString:@"memories"]) [weakSelf openMemories];
@@ -7418,6 +7426,12 @@ static NSString *EZThreadExportTimestampNow(void) {
 - (void)openTTS {
     UINavigationController *nav = [[UINavigationController alloc]
         initWithRootViewController:[[TextToSpeechViewController alloc] init]];
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)openMusic {
+    UINavigationController *nav = [[UINavigationController alloc]
+        initWithRootViewController:[[EZMusicViewController alloc] init]];
     [self presentViewController:nav animated:YES completion:nil];
 }
 

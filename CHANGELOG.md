@@ -6,6 +6,37 @@ Supabase Edge Function deployments and migrations.
 
 ## Unreleased — post 7.1.12
 
+### AI music generation (ElevenLabs)
+
+- Added the `ez-music` Edge Function: server-side text-to-music with prompt or
+  composition-plan input, 1–3 variants, a private audio library, signed
+  playback/download links, favorites and delete. All pricing, limits and coin
+  accounting happen on the server; the app only sends the user's choices.
+- Pricing is read from the new `music_config` table (30 coins per generated
+  minute, 5-coin minimum per variant, 10 s–5 min songs) so it can be changed
+  without an app update.
+- Coins are reserved atomically before generation. A usable file keeps the
+  charge (reduced if the track comes back clearly shorter than requested);
+  failures are refunded automatically, and reservations whose background job
+  died are refunded by a self-healing reaper. Re-sending the same request id
+  can never charge twice.
+- Generation runs in the background, so closing the app does not lose a song.
+- Added `EZMusicService`, the iOS client (auth refresh, retry of dropped
+  connections, polling).
+- Added the **AI Music** screen (`EZMusicViewController`), opened from a new
+  "AI Music" row in the history drawer. The Create tab takes a description,
+  optional title, instrumental switch, length slider and 1-3 versions, with a
+  live coin quote. The Library tab lists every song (including ones still
+  composing and ones that failed and were refunded), with play/pause and
+  progress, star, share/save through the system share sheet, and delete.
+  Songs still composing are picked up again if the screen is closed and
+  reopened.
+- Library paging in `ez-music` now uses an inclusive cursor so variants that
+  share a timestamp are never skipped between pages.
+- Added the `20261012000100_add_music_generation` migration (tables, private
+  `music-assets` bucket, reserve/finalize/reap RPCs).
+- Usage history now labels music debits as "AI Music".
+
 ### Slots Lounge, profiles, and live hosts
 
 - Added a **Lounge** entry point to both Brainrot Slots and EZCoin Penny Slots.
