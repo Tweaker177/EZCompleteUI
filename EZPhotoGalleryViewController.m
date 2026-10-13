@@ -13,6 +13,7 @@
 #import "EZImageSettingsViewController.h"
 #import "EZPhotoGalleryAnalysisService.h"
 #import "EZSupabaseConfig.h"
+#import "EZMusicService.h"
 #import "ViewController+EZKeepAwake.h"
 #import "helpers.h"
 #import <SafariServices/SafariServices.h>
@@ -884,6 +885,8 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     UIButton          *_sendEditButton;
     UIView            *_processingOverlay;
     UIVisualEffectView *_processingBlurView;
+    // The animated colour wave from the original gallery edit experience.
+    CAGradientLayer   *_processingLavaLayer;
     UIImageView       *_processingPreviewImageView;
     UIView            *_processingProgressView;
     CAShapeLayer      *_processingProgressTrackLayer;
@@ -905,6 +908,7 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     NSInteger          _imageEditRetryCount;
     CGFloat            _imageEditProgress;
     CGFloat            _keyboardOverlap;
+    BOOL               _hasReceivedImageStreamPreview;
 }
 
 - (void)viewDidLoad {
@@ -1067,10 +1071,11 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     [super viewDidLayoutSubviews];
 
     CGFloat toolbarH = 184 + ([self editPromptHeight] - 56.0) + self.view.safeAreaInsets.bottom;
+    CGFloat topInset = self.view.safeAreaInsets.top;
     CGFloat availableHeight = self.view.bounds.size.height - _keyboardOverlap;
     CGFloat imageAreaH = MAX(0.0, availableHeight - toolbarH);
 
-    _scrollView.frame = CGRectMake(0, 0, self.view.bounds.size.width, imageAreaH);
+    _scrollView.frame = CGRectMake(0, topInset, self.view.bounds.size.width, MAX(0, imageAreaH - topInset));
 
     [self layoutImagePresentation];
 
@@ -1323,7 +1328,13 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     // Give full Surprise Me prompts room to read in the composer. Exceptionally
     // long prompts remain intact and scroll inside the UITextView rather than
     // being shortened with an ellipsis.
-    CGFloat maximumHeight = MIN(220.0, MAX(128.0, self.view.bounds.size.height * 0.32));
+    // Keep a real, tappable image viewport even for a very long prompt.  The
+    // UITextView scrolls its content once it reaches this cap, rather than
+    // growing the composer up underneath the navigation controls.
+    CGFloat usableHeight = self.view.bounds.size.height - _keyboardOverlap -
+        self.view.safeAreaInsets.top - self.view.safeAreaInsets.bottom;
+    CGFloat maximumForImageViewport = usableHeight - 308.0; // toolbar + 180pt image viewport
+    CGFloat maximumHeight = MIN(180.0, MAX(56.0, maximumForImageViewport));
     return MIN(maximumHeight, MAX(56.0, ceil(measured.height)));
 }
 
@@ -1700,7 +1711,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 error.code == NSURLErrorTimedOut ||
                 error.code == NSURLErrorNetworkConnectionLost ||
                 error.code == NSURLErrorNotConnectedToInternet ||
-                error.code == NSURLErrorCannotConnectToHost;
+                error.code == NSURLErrorCannotConnectToHost ||
+                error.code == NSURLErrorCannotFindHost ||
+                error.code == NSURLErrorDNSLookupFailed ||
+                error.code == NSURLErrorResourceUnavailable;
             if (error) {
                 [self finishImageEditWithImage:nil error:error.localizedDescription];
                 return;
@@ -1727,8 +1741,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             NSString *signedURL = [firstImage[@"url"] isKindOfClass:[NSString class]]
                 ? firstImage[@"url"] : nil;
             if (!signedURL.length) {
-                self->_lastImageEditFailureWasTransient = NO;
-                [self finishImageEditWithImage:nil error:@"The image-edit service did not return a usable image."];
+                // A proxy can close after the terminal event but before its
+                // result body is complete. Treat this as recoverable instead
+                // of making the user restart an otherwise valid edit.
+                self->_lastImageEditFailureWasTransient = YES;
+                [self finishImageEditWithImage:nil error:@"The image-edit service returned an incomplete result."];
                 return;
             }
 
@@ -1747,7 +1764,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                             downloadError.code == NSURLErrorTimedOut ||
                             downloadError.code == NSURLErrorNetworkConnectionLost ||
                             downloadError.code == NSURLErrorNotConnectedToInternet ||
-                            downloadError.code == NSURLErrorCannotConnectToHost;
+                            downloadError.code == NSURLErrorCannotConnectToHost ||
+                            downloadError.code == NSURLErrorCannotFindHost ||
+                            downloadError.code == NSURLErrorDNSLookupFailed ||
+                            downloadError.code == NSURLErrorResourceUnavailable;
                         [self finishImageEditWithImage:nil error:downloadError.localizedDescription ?:
                             @"The image-edit service did not return a usable image."];
                         return;
@@ -1808,6 +1828,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     NSString *base64 = [event[@"image_b64"] isKindOfClass:[NSString class]] ? event[@"image_b64"] : nil;
     if (!base64.length) return;
+    _hasReceivedImageStreamPreview = YES;
+    [self updateImageEditProgress:_imageEditProgress status:nil];
     static dispatch_queue_t previewDecodeQueue;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -1829,6 +1851,16 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)updateImageEditProgress:(CGFloat)progress status:(NSString *)status {
     _imageEditProgress = MAX(_imageEditProgress, MAX(0.0, MIN(progress, 1.0)));
+    // Keep the lava moving until completion, while progressively letting the
+    // streamed result take visual priority.
+    if (_processingLavaLayer) {
+        CGFloat streamFade = _hasReceivedImageStreamPreview ? 0.58 : 1.0;
+        CGFloat lavaOpacity = MAX(0.06, streamFade * (1.0 - (_imageEditProgress * 1.05)));
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        _processingLavaLayer.opacity = lavaOpacity;
+        [CATransaction commit];
+    }
     _processingProgressLayer.strokeEnd = _imageEditProgress;
     _processingProgressLabel.text = [NSString stringWithFormat:@"%ld%%",
                                      (long)llround(_imageEditProgress * 100.0)];
@@ -1906,6 +1938,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)setImageEditing:(BOOL)editing {
+    if (_isEditingImage != editing) {
+        if (editing) EZKeepDeviceAwakeBegin(@"Image edit");
+        else EZKeepDeviceAwakeEnd();
+    }
     _isEditingImage = editing;
     _editPromptField.editable = !editing;
     _addImageButton.enabled = !editing && _editSourceImages.count < kMaxImageEditSources;
@@ -1936,6 +1972,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     if (_processingOverlay) return;
 
     _imageEditProgress = 0.08;
+    _hasReceivedImageStreamPreview = NO;
     _processingOverlay = [[UIView alloc] initWithFrame:_scrollView.frame];
     _processingOverlay.userInteractionEnabled = NO;
     _processingOverlay.clipsToBounds = YES;
@@ -1949,6 +1986,32 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     _processingBlurView.alpha = 0.0;
     [_processingOverlay addSubview:_processingBlurView];
+
+    // The old teal-and-blue lava wave returns as the lowest overlay layer.
+    // Blur, streamed previews, and the circular progress meter stay above it.
+    _processingLavaLayer = [CAGradientLayer layer];
+    _processingLavaLayer.frame = CGRectInset(_processingOverlay.bounds,
+                                             -CGRectGetWidth(_processingOverlay.bounds), 0.0);
+    _processingLavaLayer.startPoint = CGPointMake(0.0, 0.5);
+    _processingLavaLayer.endPoint = CGPointMake(1.0, 0.5);
+    _processingLavaLayer.colors = @[
+        (id)UIColor.clearColor.CGColor,
+        (id)[UIColor colorWithRed:0.00 green:0.95 blue:0.74 alpha:0.10].CGColor,
+        (id)[UIColor colorWithRed:0.20 green:0.45 blue:1.00 alpha:0.46].CGColor,
+        (id)[UIColor colorWithRed:0.00 green:0.95 blue:0.74 alpha:0.10].CGColor,
+        (id)UIColor.clearColor.CGColor,
+    ];
+    _processingLavaLayer.locations = @[@0.0, @0.30, @0.50, @0.70, @1.0];
+    _processingLavaLayer.compositingFilter = @"screenBlendMode";
+    [_processingOverlay.layer insertSublayer:_processingLavaLayer atIndex:0];
+
+    CABasicAnimation *lavaTravel = [CABasicAnimation animationWithKeyPath:@"transform.translation.x"];
+    lavaTravel.fromValue = @(-CGRectGetWidth(_processingOverlay.bounds));
+    lavaTravel.toValue = @(CGRectGetWidth(_processingOverlay.bounds));
+    lavaTravel.duration = 1.65;
+    lavaTravel.repeatCount = HUGE_VALF;
+    lavaTravel.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+    [_processingLavaLayer addAnimation:lavaTravel forKey:@"ez.gallery.edit.lava"];
 
     // Streamed previews fill the photo viewport, so each partial render is
     // immediately visible at a useful size instead of appearing as a tiny
@@ -2019,6 +2082,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     if (!_processingOverlay) return;
     _processingOverlay.frame = _scrollView.frame;
     _processingBlurView.frame = _processingOverlay.bounds;
+    _processingLavaLayer.frame = CGRectInset(_processingOverlay.bounds,
+                                             -CGRectGetWidth(_processingOverlay.bounds), 0.0);
     _processingPreviewImageView.frame = _processingOverlay.bounds;
 
     CGFloat minDimension = MIN(CGRectGetWidth(_processingOverlay.bounds),
@@ -2058,6 +2123,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [_imageEditProgressTimer invalidate];
     _imageEditProgressTimer = nil;
     [_processingOverlay.layer removeAllAnimations];
+    [_processingLavaLayer removeAllAnimations];
 
     [UIView animateWithDuration:0.34 animations:^{
         self->_processingOverlay.alpha = 0.0;
@@ -2065,6 +2131,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         [self->_processingOverlay removeFromSuperview];
         self->_processingOverlay = nil;
         self->_processingBlurView = nil;
+        self->_processingLavaLayer = nil;
         self->_processingPreviewImageView = nil;
         self->_processingProgressView = nil;
         self->_processingProgressTrackLayer = nil;
@@ -2190,10 +2257,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         _imageEditStream = nil;
         [_imageEditProgressTimer invalidate];
         _imageEditProgressTimer = nil;
+        [self setImageEditing:NO];
     }
 }
 
 - (void)dealloc {
+    // Covers teardown paths where UIKit does not call viewWillDisappear.
+    if (_isEditingImage) EZKeepDeviceAwakeEnd();
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
@@ -2779,6 +2849,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 @property (nonatomic, strong) UIView                *musicAudioPromptOverlay;
 @property (nonatomic, assign) BOOL                   selectingPhotos;
 @property (nonatomic, copy) NSArray<NSString *>     *musicVideoSourcePaths;
+@property (nonatomic, assign) BOOL                   awaitingElevenVideoMusic;
 @property (nonatomic, strong) UIView                 *musicRenderingOverlay;
 @property (nonatomic, strong) UIVisualEffectView     *musicRenderingBlur;
 @property (nonatomic, strong) UIActivityIndicatorView *musicRenderingSpinner;
@@ -3195,6 +3266,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         return;
     }
     NSString *path  = self.filePaths[indexPath.item];
+    if (self.onSelectMediaURL) {
+        self.onSelectMediaURL([NSURL fileURLWithPath:path]);
+        [self dismissViewControllerAnimated:YES completion:nil];
+        return;
+    }
     if ([@[@"mov", @"mp4", @"m4v", @"avi"] containsObject:path.pathExtension.lowercaseString]) {
         AVPlayerViewController *player = [AVPlayerViewController new];
         player.player = [AVPlayer playerWithURL:[NSURL fileURLWithPath:path]];
@@ -3603,7 +3679,7 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     [overlay addSubview:dismissTarget];
 
     CGFloat cardWidth = MIN(360.0, CGRectGetWidth(overlay.bounds) - 32.0);
-    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, 286.0)];
+    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, 346.0)];
     card.center = CGPointMake(CGRectGetMidX(overlay.bounds), CGRectGetMidY(overlay.bounds));
     card.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin |
                             UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
@@ -3627,7 +3703,7 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     [card addSubview:title];
 
     UILabel *subtitle = [[UILabel alloc] initWithFrame:CGRectMake(24, 89, cardWidth - 48, 54)];
-    subtitle.text = @"Choose one audio track. Your selected photos, GIFs, and videos will loop until the music ends.";
+    subtitle.text = @"Attach your own track, or let ElevenLabs compose music matched to the finished visuals.";
     subtitle.textAlignment = NSTextAlignmentCenter;
     subtitle.numberOfLines = 3;
     subtitle.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
@@ -3651,8 +3727,17 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     attach.frame = CGRectMake(20, 155, cardWidth - 40, 48);
     [card addSubview:attach];
 
+    UIButton *generate = [self selectionActionButtonWithTitle:@"Generate Synced Music"
+                                                         image:@"sparkles"
+                                                         color:[UIColor colorWithRed:0.74 green:0.52 blue:1.0 alpha:1.0]
+                                                   destructive:NO enabled:YES handler:^{
+        [weakSelf dismissMusicAudioPromptWithCompletion:^{ [weakSelf generateElevenMusicVideo]; }];
+    }];
+    generate.frame = CGRectMake(20, 211, cardWidth - 40, 48);
+    [card addSubview:generate];
+
     UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem];
-    cancel.frame = CGRectMake(20, 215, cardWidth - 40, 44);
+    cancel.frame = CGRectMake(20, 271, cardWidth - 40, 44);
     cancel.backgroundColor = [UIColor colorWithRed:0.63 green:0.35 blue:1.0 alpha:0.88];
     cancel.layer.cornerRadius = 13.0;
     cancel.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBold];
@@ -3664,6 +3749,23 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     [card addSubview:cancel];
 
     [UIView animateWithDuration:0.18 animations:^{ overlay.alpha = 1.0; }];
+}
+
+- (NSURL *)temporarySilentWAVForSeconds:(NSUInteger)seconds {
+    const uint32_t rate = 44100; const uint16_t channels = 2, bits = 16;
+    uint32_t frames = (uint32_t)(MAX(10, seconds) * rate), dataBytes = frames * channels * (bits / 8), riffSize = 36 + dataBytes;
+    NSMutableData *data = [NSMutableData dataWithLength:44 + dataBytes]; uint8_t *p = data.mutableBytes;
+    memcpy(p, "RIFF", 4); memcpy(p + 8, "WAVEfmt ", 8); uint32_t fmt = 16, byteRate = rate * channels * 2; uint16_t pcm = 1, align = channels * 2;
+    memcpy(p + 4, &riffSize, 4); memcpy(p + 16, &fmt, 4); memcpy(p + 20, &pcm, 2); memcpy(p + 22, &channels, 2); memcpy(p + 24, &rate, 4); memcpy(p + 28, &byteRate, 4); memcpy(p + 32, &align, 2); memcpy(p + 34, &bits, 2); memcpy(p + 36, "data", 4); memcpy(p + 40, &dataBytes, 4);
+    NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"ez-silent-%@.wav", NSUUID.UUID.UUIDString]]]; [data writeToURL:url atomically:YES]; return url;
+}
+
+- (void)generateElevenMusicVideo {
+    if (!self.musicVideoSourcePaths.count) return;
+    self.awaitingElevenVideoMusic = YES;
+    // A silent first pass is the visual analysis input; the final pass below uses
+    // ElevenLabs' returned audio and is the only one surfaced to the user.
+    [self renderMusicVideoWithAudioURL:[self temporarySilentWAVForSeconds:60] sources:self.musicVideoSourcePaths];
 }
 
 - (void)finishMusicVideoWithErrorMessage:(NSString *)message cleanupURLs:(NSArray<NSURL *> *)urls {
@@ -3684,8 +3786,19 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
 - (void)finishMusicVideoAtURL:(NSURL *)finalURL temporaryURL:(NSURL *)tempURL {
     if (tempURL) [[NSFileManager defaultManager] removeItemAtURL:tempURL error:nil];
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self stopMusicRenderingOverlay];
-        self.musicVideoSourcePaths = nil;
+        if (self.awaitingElevenVideoMusic) {
+            self.awaitingElevenVideoMusic = NO;
+            NSArray<NSString *> *sources = self.musicVideoSourcePaths;
+            [[EZMusicService sharedService] generateMusicForVideoURLs:@[finalURL] description:nil completion:^(NSData *audioData, NSError *error) {
+                [[NSFileManager defaultManager] removeItemAtURL:finalURL error:nil];
+                if (!audioData.length) { [self finishMusicVideoWithErrorMessage:error.localizedDescription ?: @"Couldn’t generate music for that video." cleanupURLs:@[]]; return; }
+                NSURL *audioURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"eleven-video-music-%@.mp3", NSUUID.UUID.UUIDString]]];
+                [audioData writeToURL:audioURL atomically:YES];
+                [self renderMusicVideoWithAudioURL:audioURL sources:sources];
+            }];
+            return;
+        }
+        [self stopMusicRenderingOverlay]; self.musicVideoSourcePaths = nil;
         [self loadFilePaths];
         UIActivityViewController *share = [[UIActivityViewController alloc]
             initWithActivityItems:@[finalURL] applicationActivities:nil];

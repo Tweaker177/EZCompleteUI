@@ -31,6 +31,9 @@ extern NSNotificationName const EZEditImageInChat;
 /// Optional selection mode for flows that need an existing gallery image
 /// without re-importing or duplicating the underlying file.
 @property (nonatomic, copy, nullable) void (^onSelectImage)(UIImage *image);
+/// Optional single-media selection for flows such as music references. Receives
+/// the original local gallery URL (including videos), without re-encoding it.
+@property (nonatomic, copy, nullable) void (^onSelectMediaURL)(NSURL *fileURL);
 /// Opens the existing gallery directly in image-only multi-select mode for chat.
 @property (nonatomic, assign) BOOL chatAttachmentSelectionMode;
 /// Maximum number of images selectable in chat mode (zero uses the default cap).

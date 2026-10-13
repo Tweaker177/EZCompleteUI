@@ -38,6 +38,7 @@
 #import "EZTTSLibraryManager.h"
 #import "EZTTSLibraryViewController.h"
 #import "EZVoicePickerViewController.h"
+#import "EZMusicViewController.h"
 
 static NSString * const kDefaultVoiceID = @"JBFqnCBsd6RMkjVDRZzb"; // fallback example
 static NSString * const kDefaultModelID = @"eleven_v4";
@@ -59,8 +60,10 @@ static NSUInteger const kPromptCharacterLimit = 2000;
 @property (nonatomic, strong) UILabel *voiceSectionLabel;
 @property (nonatomic, strong) UIButton *voiceButton;
 @property (nonatomic, strong) UIButton *playButton;
+@property (nonatomic, strong) UIButton *addMusicButton;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @property (nonatomic, strong) AVAudioPlayer *player;
+@property (nonatomic, copy, nullable) NSURL *latestTTSFileURL;
 
 // Timer added to address your invalidate error
 @property (nonatomic, strong, nullable) NSTimer *stopMeterTimer;
@@ -386,6 +389,19 @@ static NSString *timestampString(void) {
     [self.playButton addTarget:self action:@selector(synthesizeAndPlay:) forControlEvents:UIControlEventTouchUpInside];
     [self.container addSubview:self.playButton];
 
+    self.addMusicButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.addMusicButton.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.addMusicButton.layer.cornerRadius = 14;
+    self.addMusicButton.layer.borderWidth = 1;
+    self.addMusicButton.layer.borderColor = [UIColor systemPurpleColor].CGColor;
+    [self.addMusicButton setTitle:@"Add Music" forState:UIControlStateNormal];
+    [self.addMusicButton setImage:[UIImage systemImageNamed:@"music.note"] forState:UIControlStateNormal];
+    self.addMusicButton.tintColor = [UIColor systemPurpleColor];
+    self.addMusicButton.enabled = NO;
+    self.addMusicButton.alpha = 0.5;
+    [self.addMusicButton addTarget:self action:@selector(addMusicTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [self.container addSubview:self.addMusicButton];
+
     // Spinner
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner.hidesWhenStopped = YES;
@@ -465,7 +481,9 @@ static NSString *timestampString(void) {
     curY += 28 + 24;
 
     self.playButton.frame = CGRectMake(innerX, curY, innerW, 58);
-    curY += 58 + 16;
+    curY += 58 + 10;
+    self.addMusicButton.frame = CGRectMake(innerX, curY, innerW, 48);
+    curY += 48 + 16;
 
     // Container height derives from its actual content — no leftover empty space now
     // that the format picker, download button, fetch-voices button, and voices table
@@ -568,6 +586,9 @@ static NSString *timestampString(void) {
                 [self showAlert:NSLocalizedString(@"EZTTS.ErrorTitle", nil) message:NSLocalizedString(@"EZTTS.NoAudioReturned", nil)];
                 return;
             }
+            self.latestTTSFileURL = fileURL;
+            self.addMusicButton.enabled = YES;
+            self.addMusicButton.alpha = 1.0;
 
             NSError *sessionError = nil;
             if (!EZActivatePlaybackAudioSession(&sessionError)) {
@@ -594,6 +615,20 @@ static NSString *timestampString(void) {
             EZLogf(EZLogLevelInfo, @"TTS", @"Playback started %@", fileURL.lastPathComponent);
         });
     }];
+}
+
+- (void)addMusicTapped:(id)sender {
+    if (!self.latestTTSFileURL.isFileURL) return;
+    EZMusicViewController *music = [[EZMusicViewController alloc]
+        initWithReferenceURL:self.latestTTSFileURL
+                   sourceName:@"TTS clip"
+                referenceMode:EZMusicReferenceModeSource];
+    if (self.navigationController) {
+        [self.navigationController pushViewController:music animated:YES];
+    } else {
+        [self presentViewController:[[UINavigationController alloc] initWithRootViewController:music]
+                         animated:YES completion:nil];
+    }
 }
 
 #pragma mark - Core: TTS via Supabase Edge Function

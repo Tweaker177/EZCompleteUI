@@ -36,6 +36,10 @@
 
 #import "EZMusicViewController.h"
 #import <AVFoundation/AVFoundation.h>
+#import <MobileCoreServices/MobileCoreServices.h>
+#import <PhotosUI/PhotosUI.h>
+#import "EZMusicLibraryManager.h"
+#import "EZPhotoGalleryViewController.h"
 #import "EZMusicService.h"
 #import "EZEntitlementManager.h"
 #import "EZCoinStoreViewController.h"
@@ -257,7 +261,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 #pragma mark - View controller
 
 @interface EZMusicViewController () <UITableViewDataSource, UITableViewDelegate,
-                                     UITextViewDelegate, UITextFieldDelegate>
+                                     UITextViewDelegate, UITextFieldDelegate, UIDocumentPickerDelegate,
+                                     PHPickerViewControllerDelegate>
 
 // Chrome
 @property (nonatomic, strong) UISegmentedControl *tabControl;
@@ -268,6 +273,12 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, strong) UITextView *promptTextView;
 @property (nonatomic, strong) UILabel *promptPlaceholderLabel;
 @property (nonatomic, strong) UILabel *characterCountLabel;
+@property (nonatomic, strong) UITextView *lyricsTextView;
+@property (nonatomic, strong) UIButton *referenceButton;
+@property (nonatomic, strong) UILabel *referenceDetailLabel;
+@property (nonatomic, strong) UISegmentedControl *referenceModeControl;
+@property (nonatomic, strong) UIButton *videoSoundtrackButton;
+@property (nonatomic, assign) BOOL pickingVideoSoundtrack;
 @property (nonatomic, strong) UITextField *titleField;
 @property (nonatomic, strong) UISwitch *instrumentalSwitch;
 @property (nonatomic, strong) UISlider *durationSlider;
@@ -275,6 +286,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, strong) UISegmentedControl *variantControl;
 @property (nonatomic, strong) UILabel *quoteLabel;
 @property (nonatomic, strong) UIButton *generateButton;
+@property (nonatomic, strong) UIButton *surpriseButton;
 @property (nonatomic, strong) UILabel *statusLabel;
 
 // Library tab
@@ -301,6 +313,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, assign) BOOL isStartingGeneration;
 @property (nonatomic, strong) NSMutableDictionary<NSString *, EZMusicPollToken *> *pollTokens;
 @property (nonatomic, strong) NSMutableSet<NSString *> *announcedGenerationIDs;
+@property (nonatomic, strong) NSMutableSet<NSString *> *retainingEntryIDs;
 
 // Playback
 @property (nonatomic, strong, nullable) AVPlayer *player;
@@ -309,10 +322,32 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, copy, nullable) NSString *playingEntryID;   // loaded song (may be paused)
 @property (nonatomic, copy, nullable) NSString *loadingEntryID;   // song whose URL/audio is loading
 @property (nonatomic, assign) BOOL isPlaybackActive;
+@property (nonatomic, copy, nullable) NSURL *referenceURL;
+@property (nonatomic, copy, nullable) NSString *referenceSourceName;
+@property (nonatomic, assign) EZMusicReferenceMode referenceMode;
+@property (nonatomic, assign) BOOL referenceModeLocked;
+@property (nonatomic, strong, nullable) UIView *referenceSourceOverlay;
 
 @end
 
 @implementation EZMusicViewController
+
+- (instancetype)initWithReferenceURL:(NSURL *)referenceURL sourceName:(NSString *)sourceName {
+    return [self initWithReferenceURL:referenceURL sourceName:sourceName referenceMode:EZMusicReferenceModeSource];
+}
+
+- (instancetype)initWithReferenceURL:(NSURL *)referenceURL
+                          sourceName:(NSString *)sourceName
+                       referenceMode:(EZMusicReferenceMode)referenceMode {
+    self = [super init];
+    if (self) {
+        _referenceURL = [referenceURL copy];
+        _referenceSourceName = [sourceName copy];
+        _referenceMode = referenceMode;
+        _referenceModeLocked = YES;
+    }
+    return self;
+}
 
 #pragma mark - Lifecycle
 
@@ -323,6 +358,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     self.entries = [NSMutableArray array];
     self.pollTokens = [NSMutableDictionary dictionary];
     self.announcedGenerationIDs = [NSMutableSet set];
+    self.retainingEntryIDs = [NSMutableSet set];
 
     self.tabControl = [[UISegmentedControl alloc] initWithItems:@[
         EZMusicText(@"EZMusic.Tab.Create", @"Create"),
@@ -341,6 +377,11 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
     [self buildLibraryView];
     [self buildCreateView];
+    if (self.referenceURL.isFileURL && self.referenceModeLocked) {
+        [[EZMusicLibraryManager sharedManager] archiveReferenceAtURL:self.referenceURL
+                                                           sourceName:self.referenceSourceName
+                                                                mode:@"source"];
+    }
     [self showTab:EZMusicTabCreate];
 
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
@@ -457,6 +498,74 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     ]];
     [stack addArrangedSubview:self.promptContainer];
 
+    // ── Lyrics ───────────────────────────────────────────────────────────────
+    [stack setCustomSpacing:16 afterView:self.promptContainer];
+    [stack addArrangedSubview:[self sectionHeaderLabelWithText:@"Lyrics (optional)"]];
+    self.lyricsTextView = [[UITextView alloc] init];
+    self.lyricsTextView.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.lyricsTextView.layer.cornerRadius = 12;
+    self.lyricsTextView.layer.borderWidth = 1;
+    self.lyricsTextView.layer.borderColor = [UIColor systemGray4Color].CGColor;
+    self.lyricsTextView.font = [UIFont systemFontOfSize:15];
+    self.lyricsTextView.textContainerInset = UIEdgeInsetsMake(10, 10, 10, 10);
+    self.lyricsTextView.text = @"";
+    self.lyricsTextView.accessibilityLabel = @"Lyrics";
+    [self.lyricsTextView.heightAnchor constraintEqualToConstant:116].active = YES;
+    [stack addArrangedSubview:self.lyricsTextView];
+
+    // ── Reference ────────────────────────────────────────────────────────────
+    [stack setCustomSpacing:16 afterView:self.lyricsTextView];
+    [stack addArrangedSubview:[self sectionHeaderLabelWithText:@"Audio reference (optional)"]];
+    self.referenceButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.referenceButton.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.referenceButton.layer.cornerRadius = 12;
+    self.referenceButton.layer.borderWidth = 1;
+    self.referenceButton.layer.borderColor = [UIColor systemGray4Color].CGColor;
+    self.referenceButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+    self.referenceButton.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
+    [self.referenceButton setImage:[UIImage systemImageNamed:@"waveform.badge.plus"] forState:UIControlStateNormal];
+    [self.referenceButton setTitle:@"  Add audio reference" forState:UIControlStateNormal];
+    [self.referenceButton addTarget:self action:@selector(referenceTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.referenceButton.heightAnchor constraintEqualToConstant:48].active = YES;
+    [stack addArrangedSubview:self.referenceButton];
+    self.referenceModeControl = [[UISegmentedControl alloc] initWithItems:@[
+        @"Guide new music", @"Use in song"
+    ]];
+    self.referenceModeControl.selectedSegmentIndex = self.referenceMode;
+    self.referenceModeControl.accessibilityLabel = @"How to use the audio reference";
+    self.referenceModeControl.enabled = self.referenceURL.isFileURL && !self.referenceModeLocked;
+    [self.referenceModeControl addTarget:self action:@selector(referenceModeChanged:) forControlEvents:UIControlEventValueChanged];
+    [stack addArrangedSubview:self.referenceModeControl];
+    self.referenceDetailLabel = [[UILabel alloc] init];
+    self.referenceDetailLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    self.referenceDetailLabel.textColor = [UIColor secondaryLabelColor];
+    self.referenceDetailLabel.numberOfLines = 0;
+    [stack addArrangedSubview:self.referenceDetailLabel];
+    [self updateReferencePresentation];
+
+    // Video-to-music is intentionally separate from audio reference modes.
+    // It analyses the visual video and creates a soundtrack to mux onto it.
+    [stack setCustomSpacing:18 afterView:self.referenceDetailLabel];
+    [stack addArrangedSubview:[self sectionHeaderLabelWithText:@"Video soundtrack"]];
+    self.videoSoundtrackButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.videoSoundtrackButton.backgroundColor = [UIColor systemPurpleColor];
+    self.videoSoundtrackButton.layer.cornerRadius = 12;
+    self.videoSoundtrackButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+    self.videoSoundtrackButton.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
+    [self.videoSoundtrackButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    [self.videoSoundtrackButton setImage:[UIImage systemImageNamed:@"video.badge.plus"] forState:UIControlStateNormal];
+    [self.videoSoundtrackButton setTintColor:UIColor.whiteColor];
+    [self.videoSoundtrackButton setTitle:@"  Compose music for a video" forState:UIControlStateNormal];
+    [self.videoSoundtrackButton addTarget:self action:@selector(videoSoundtrackTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.videoSoundtrackButton.heightAnchor constraintEqualToConstant:48].active = YES;
+    [stack addArrangedSubview:self.videoSoundtrackButton];
+    UILabel *videoDetail = [[UILabel alloc] init];
+    videoDetail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    videoDetail.textColor = UIColor.secondaryLabelColor;
+    videoDetail.numberOfLines = 0;
+    videoDetail.text = @"Analyzes the video’s visuals, generates a matching soundtrack, then attaches it to the finished video. This is not a style or source-audio reference.";
+    [stack addArrangedSubview:videoDetail];
+
     // ── Optional title ───────────────────────────────────────────────────────
     UILabel *titleHeader = [self sectionHeaderLabelWithText:EZMusicText(@"EZMusic.Title.Header", @"Title")];
     [stack addArrangedSubview:titleHeader];
@@ -468,7 +577,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     self.titleField.font = [UIFont systemFontOfSize:16];
     self.titleField.placeholder = EZMusicText(@"EZMusic.Title.Placeholder", @"Optional - defaults to your description");
     self.titleField.returnKeyType = UIReturnKeyDone;
-    self.titleField.autocapitalizationType = UIAutocapitalizationTypeSentences;
+    self.titleField.autocapitalizationType = UITextAutocapitalizationTypeSentences;
     self.titleField.clearButtonMode = UITextFieldViewModeWhileEditing;
     self.titleField.delegate = self;
     UIView *leftPadding = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 12, 10)];
@@ -536,7 +645,18 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [self.generateButton setTitleColor:[UIColor whiteColor] forState:UIControlStateDisabled];
     [self.generateButton addTarget:self action:@selector(generateTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.generateButton.heightAnchor constraintEqualToConstant:52].active = YES;
-    [stack addArrangedSubview:self.generateButton];
+    self.surpriseButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.surpriseButton.backgroundColor = [UIColor systemPurpleColor];
+    self.surpriseButton.layer.cornerRadius = 14;
+    [self.surpriseButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    [self.surpriseButton setTitle:@"Surprise me" forState:UIControlStateNormal];
+    [self.surpriseButton addTarget:self action:@selector(surpriseTapped) forControlEvents:UIControlEventTouchUpInside];
+    UIStackView *actions = [[UIStackView alloc] initWithArrangedSubviews:@[self.generateButton, self.surpriseButton]];
+    actions.axis = UILayoutConstraintAxisHorizontal;
+    actions.spacing = 10;
+    actions.distribution = UIStackViewDistributionFillEqually;
+    [actions.heightAnchor constraintEqualToConstant:52].active = YES;
+    [stack addArrangedSubview:actions];
 
     self.statusLabel = [[UILabel alloc] init];
     self.statusLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
@@ -783,6 +903,280 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [self updateQuote];
 }
 
+- (void)updateReferencePresentation {
+    if (self.referenceURL.isFileURL) {
+        NSString *name = self.referenceSourceName.length ? self.referenceSourceName : self.referenceURL.lastPathComponent;
+        [self.referenceButton setTitle:[NSString stringWithFormat:@"  %@", name] forState:UIControlStateNormal];
+        if (self.referenceMode == EZMusicReferenceModeSource) {
+            self.referenceDetailLabel.text = self.referenceModeLocked
+                ? @"This TTS clip will be kept in the song; music is composed after it."
+                : @"The clip itself is kept in the finished song; new music is composed around it.";
+        } else {
+            self.referenceDetailLabel.text = @"New music is generated, guided by this clip’s sound. The source audio is not inserted into the song.";
+        }
+    } else {
+        [self.referenceButton setTitle:@"  Add audio reference" forState:UIControlStateNormal];
+        self.referenceDetailLabel.text = @"Compressed and lossless audio are accepted. Video soundtrack generation is separate below.";
+        self.referenceModeControl.enabled = NO;
+    }
+}
+
+- (void)referenceModeChanged:(UISegmentedControl *)sender {
+    self.referenceMode = (EZMusicReferenceMode)sender.selectedSegmentIndex;
+    [self updateReferencePresentation];
+}
+
+- (void)referenceTapped {
+    self.pickingVideoSoundtrack = NO;
+    [self presentReferenceSourceMenu];
+}
+
+- (void)videoSoundtrackTapped {
+    self.pickingVideoSoundtrack = YES;
+    [self presentReferenceSourceMenu];
+}
+
+- (void)presentReferenceSourceMenu {
+    if (self.referenceSourceOverlay) return;
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.38];
+    self.referenceSourceOverlay = overlay;
+    [self.view addSubview:overlay];
+
+    UIView *card = [[UIView alloc] init];
+    card.translatesAutoresizingMaskIntoConstraints = NO;
+    card.backgroundColor = [UIColor systemBackgroundColor];
+    card.layer.cornerRadius = 22;
+    [overlay addSubview:card];
+    BOOL videoMode = self.pickingVideoSoundtrack;
+    UILabel *title = [[UILabel alloc] init]; title.text = videoMode ? @"Compose music for video" : @"Add an audio reference"; title.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold]; title.translatesAutoresizingMaskIntoConstraints = NO;
+    UILabel *detail = [[UILabel alloc] init]; detail.text = videoMode ? @"The video’s visuals guide a new soundtrack." : @"Choose an audio clip to guide or include in a song."; detail.textColor = UIColor.secondaryLabelColor; detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.translatesAutoresizingMaskIntoConstraints = NO;
+    [card addSubview:title]; [card addSubview:detail];
+    UIStackView *choices = [[UIStackView alloc] init]; choices.translatesAutoresizingMaskIntoConstraints = NO; choices.axis = UILayoutConstraintAxisVertical; choices.spacing = 10; [card addSubview:choices];
+    NSArray *rows = videoMode
+        ? @[@[@"Photo Library", @"Choose a video from Photos", @"photo.on.rectangle", @"photo"], @[@"EZ Photo Gallery", @"Use a video already in the app", @"square.grid.2x2", @"gallery"], @[@"Files", @"Choose a video file", @"folder", @"files"]]
+        : @[@[@"Files", @"Compressed or lossless audio", @"folder", @"files"]];
+    for (NSArray *row in rows) {
+        UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; button.tag = [rows indexOfObject:row]; button.backgroundColor = UIColor.secondarySystemBackgroundColor; button.layer.cornerRadius = 14; button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft; button.contentEdgeInsets = UIEdgeInsetsMake(10, 14, 10, 14); [button addTarget:self action:@selector(referenceSourceChosen:) forControlEvents:UIControlEventTouchUpInside];
+        UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:row[2]]]; icon.tintColor = UIColor.systemPurpleColor; icon.translatesAutoresizingMaskIntoConstraints = NO;
+        UILabel *name = [[UILabel alloc] init]; name.text = row[0]; name.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+        UILabel *sub = [[UILabel alloc] init]; sub.text = row[1]; sub.textColor = UIColor.secondaryLabelColor; sub.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+        UIStackView *labels = [[UIStackView alloc] initWithArrangedSubviews:@[name, sub]]; labels.axis = UILayoutConstraintAxisVertical; labels.spacing = 2;
+        UIStackView *line = [[UIStackView alloc] initWithArrangedSubviews:@[icon, labels]]; line.userInteractionEnabled = NO; line.axis = UILayoutConstraintAxisHorizontal; line.alignment = UIStackViewAlignmentCenter; line.spacing = 12; [button addSubview:line]; line.translatesAutoresizingMaskIntoConstraints = NO;
+        [NSLayoutConstraint activateConstraints:@[[line.leadingAnchor constraintEqualToAnchor:button.leadingAnchor constant:14], [line.trailingAnchor constraintEqualToAnchor:button.trailingAnchor constant:-14], [line.topAnchor constraintEqualToAnchor:button.topAnchor constant:10], [line.bottomAnchor constraintEqualToAnchor:button.bottomAnchor constant:-10], [icon.widthAnchor constraintEqualToConstant:28]]];
+        [choices addArrangedSubview:button];
+    }
+    UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem]; cancel.translatesAutoresizingMaskIntoConstraints = NO; [cancel setTitle:@"Cancel" forState:UIControlStateNormal]; cancel.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold]; [cancel addTarget:self action:@selector(dismissReferenceSourceMenu) forControlEvents:UIControlEventTouchUpInside]; [card addSubview:cancel];
+    [NSLayoutConstraint activateConstraints:@[[card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:18], [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-18], [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor], [title.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [title.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [detail.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:3], [detail.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [choices.topAnchor constraintEqualToAnchor:detail.bottomAnchor constant:20], [choices.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:14], [choices.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-14], [cancel.topAnchor constraintEqualToAnchor:choices.bottomAnchor constant:8], [cancel.centerXAnchor constraintEqualToAnchor:card.centerXAnchor], [cancel.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-12]]];
+    overlay.alpha = 0; [UIView animateWithDuration:.2 animations:^{ overlay.alpha = 1; }];
+}
+
+- (void)dismissReferenceSourceMenu { UIView *overlay = self.referenceSourceOverlay; self.referenceSourceOverlay = nil; [UIView animateWithDuration:.18 animations:^{ overlay.alpha = 0; } completion:^(__unused BOOL done) { [overlay removeFromSuperview]; }]; }
+
+- (void)referenceSourceChosen:(UIButton *)button {
+    NSInteger source = button.tag; [self dismissReferenceSourceMenu];
+    if (!self.pickingVideoSoundtrack) {
+        UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
+            initWithDocumentTypes:@[@"public.audio"] inMode:UIDocumentPickerModeImport];
+        picker.delegate = self;
+        picker.allowsMultipleSelection = NO;
+        [self presentViewController:picker animated:YES completion:nil];
+        return;
+    }
+    if (source == 0) {
+        PHPickerConfiguration *config = [[PHPickerConfiguration alloc] initWithPhotoLibrary:[PHPhotoLibrary sharedPhotoLibrary]];
+        config.filter = [PHPickerFilter videosFilter]; config.selectionLimit = 1;
+        PHPickerViewController *picker = [[PHPickerViewController alloc] initWithConfiguration:config]; picker.delegate = self; [self presentViewController:picker animated:YES completion:nil];
+    } else if (source == 1) {
+        EZPhotoGalleryViewController *gallery = [EZPhotoGalleryViewController new]; __weak typeof(self) weakSelf = self;
+        gallery.onSelectMediaURL = ^(NSURL *url) { [weakSelf importVideoForSoundtrackFromURL:url]; };
+        [self presentViewController:[[UINavigationController alloc] initWithRootViewController:gallery] animated:YES completion:nil];
+    } else {
+    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
+        initWithDocumentTypes:@[@"public.movie"]
+                         inMode:UIDocumentPickerModeImport];
+    picker.delegate = self;
+    picker.allowsMultipleSelection = NO;
+    [self presentViewController:picker animated:YES completion:nil];
+    }
+}
+
+- (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+    NSURL *sourceURL = urls.firstObject;
+    if (!sourceURL) return;
+    if (self.pickingVideoSoundtrack) [self importVideoForSoundtrackFromURL:sourceURL];
+    else [self importReferenceFromURL:sourceURL];
+}
+
+- (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results {
+    [picker dismissViewControllerAnimated:YES completion:nil];
+    NSItemProvider *provider = results.firstObject.itemProvider;
+    if (!provider || ![provider hasItemConformingToTypeIdentifier:@"public.movie"]) return;
+    __weak typeof(self) weakSelf = self;
+    [provider loadFileRepresentationForTypeIdentifier:@"public.movie" completionHandler:^(NSURL *url, NSError *error) {
+        if (!url) { dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf setStatusMessage:@"Couldn’t load that video from Photos."]; }); return; }
+        NSString *name = [NSString stringWithFormat:@"music_photo_%@.%@", NSUUID.UUID.UUIDString, url.pathExtension.length ? url.pathExtension : @"mov"];
+        NSURL *copy = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:name]];
+        [[NSFileManager defaultManager] removeItemAtURL:copy error:nil];
+        NSError *copyError = nil; [[NSFileManager defaultManager] copyItemAtURL:url toURL:copy error:&copyError];
+        dispatch_async(dispatch_get_main_queue(), ^{ if (copyError) [weakSelf setStatusMessage:@"Couldn’t import that video from Photos."]; else [weakSelf importVideoForSoundtrackFromURL:copy]; });
+    }];
+}
+
+- (void)importReferenceFromURL:(NSURL *)sourceURL {
+    if (!sourceURL) return;
+    [sourceURL startAccessingSecurityScopedResource];
+    NSString *suffix = sourceURL.pathExtension.length ? sourceURL.pathExtension : @"m4a";
+    NSString *name = [NSString stringWithFormat:@"music_reference_%@.%@", NSUUID.UUID.UUIDString, suffix];
+    NSURL *destination = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:name]];
+    [[NSFileManager defaultManager] removeItemAtURL:destination error:nil];
+    NSError *copyError = nil;
+    [[NSFileManager defaultManager] copyItemAtURL:sourceURL toURL:destination error:&copyError];
+    [sourceURL stopAccessingSecurityScopedResource];
+    if (copyError) {
+        [self setStatusMessage:@"Couldn’t import that reference file."];
+        return;
+    }
+
+    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:destination options:nil];
+    if ([[asset tracksWithMediaType:AVMediaTypeVideo] count] > 0) {
+        [self setStatusMessage:@"Videos are for Video Soundtrack, not audio reference. Choose Compose music for a video below."];
+        return;
+    }
+    self.referenceURL = destination;
+    self.referenceSourceName = sourceURL.lastPathComponent;
+    self.referenceModeLocked = NO;
+    self.referenceModeControl.enabled = YES;
+    [self updateReferencePresentation];
+}
+
+// This intentionally does not extract the video's audio. Video-to-music uses
+// the picture/motion as the provider input and produces a new soundtrack.
+- (void)importVideoForSoundtrackFromURL:(NSURL *)sourceURL {
+    if (!sourceURL) return;
+    self.pickingVideoSoundtrack = NO;
+    [sourceURL startAccessingSecurityScopedResource];
+    NSString *suffix = sourceURL.pathExtension.length ? sourceURL.pathExtension : @"mov";
+    NSURL *videoURL = [NSURL fileURLWithPath:[NSTemporaryDirectory()
+        stringByAppendingPathComponent:[NSString stringWithFormat:@"music_video_%@.%@", NSUUID.UUID.UUIDString, suffix]]];
+    [[NSFileManager defaultManager] removeItemAtURL:videoURL error:nil];
+    NSError *copyError = nil;
+    [[NSFileManager defaultManager] copyItemAtURL:sourceURL toURL:videoURL error:&copyError];
+    [sourceURL stopAccessingSecurityScopedResource];
+    if (copyError) {
+        [self setStatusMessage:@"Couldn’t import that video."];
+        return;
+    }
+    AVURLAsset *videoAsset = [AVURLAsset URLAssetWithURL:videoURL options:nil];
+    if ([[videoAsset tracksWithMediaType:AVMediaTypeVideo] count] == 0) {
+        [[NSFileManager defaultManager] removeItemAtURL:videoURL error:nil];
+        [self setStatusMessage:@"Choose a video for Video Soundtrack. Audio files belong in Audio Reference."];
+        return;
+    }
+
+    NSString *notes = [self trimmedPrompt];
+    [self showBusyOverlayWithText:@"Analyzing video and composing its soundtrack…"];
+    __weak typeof(self) weakSelf = self;
+    [[EZMusicService sharedService] generateMusicForVideoURLs:@[videoURL]
+                                                   description:notes.length ? notes : nil
+                                                    completion:^(NSData *audioData, NSError *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        if (!audioData.length) {
+            [[NSFileManager defaultManager] removeItemAtURL:videoURL error:nil];
+            [self hideBusyOverlay];
+            [self presentAlertWithTitle:@"Couldn’t create soundtrack"
+                                message:error.localizedDescription ?: @"The video-to-music service did not return audio."];
+            return;
+        }
+        NSURL *audioURL = [NSURL fileURLWithPath:[NSTemporaryDirectory()
+            stringByAppendingPathComponent:[NSString stringWithFormat:@"video_soundtrack_%@.mp3", NSUUID.UUID.UUIDString]]];
+        if (![audioData writeToURL:audioURL atomically:YES]) {
+            [[NSFileManager defaultManager] removeItemAtURL:videoURL error:nil];
+            [self hideBusyOverlay];
+            [self presentAlertWithTitle:@"Couldn’t save soundtrack" message:@"Please try the video again."];
+            return;
+        }
+        [self muxVideoURL:videoURL audioURL:audioURL completion:^(NSURL *finishedVideoURL, NSError *muxError) {
+            [[NSFileManager defaultManager] removeItemAtURL:videoURL error:nil];
+            [[NSFileManager defaultManager] removeItemAtURL:audioURL error:nil];
+            [self hideBusyOverlay];
+            if (!finishedVideoURL) {
+                [self presentAlertWithTitle:@"Couldn’t attach soundtrack"
+                                    message:muxError.localizedDescription ?: @"The music was created but could not be attached to the video."];
+                return;
+            }
+            UIActivityViewController *share = [[UIActivityViewController alloc]
+                initWithActivityItems:@[finishedVideoURL] applicationActivities:nil];
+            [self presentViewController:share animated:YES completion:nil];
+        }];
+    }];
+}
+
+- (void)muxVideoURL:(NSURL *)videoURL audioURL:(NSURL *)audioURL
+          completion:(void (^)(NSURL * _Nullable finishedVideoURL, NSError * _Nullable error))completion {
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        AVURLAsset *videoAsset = [AVURLAsset URLAssetWithURL:videoURL options:nil];
+        AVURLAsset *audioAsset = [AVURLAsset URLAssetWithURL:audioURL options:nil];
+        AVAssetTrack *videoTrack = [videoAsset tracksWithMediaType:AVMediaTypeVideo].firstObject;
+        AVAssetTrack *audioTrack = [audioAsset tracksWithMediaType:AVMediaTypeAudio].firstObject;
+        if (!videoTrack || !audioTrack) {
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, [NSError errorWithDomain:@"EZMusic" code:1 userInfo:@{NSLocalizedDescriptionKey: @"The video or generated soundtrack could not be read."}]); });
+            return;
+        }
+        AVMutableComposition *composition = [AVMutableComposition composition];
+        AVMutableCompositionTrack *outputVideo = [composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
+        AVMutableCompositionTrack *outputAudio = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+        NSError *insertError = nil;
+        CMTimeRange videoRange = CMTimeRangeMake(kCMTimeZero, videoAsset.duration);
+        if (![outputVideo insertTimeRange:videoRange ofTrack:videoTrack atTime:kCMTimeZero error:&insertError]) {
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, insertError); });
+            return;
+        }
+        CMTime audioDuration = CMTimeMinimum(audioAsset.duration, videoAsset.duration);
+        if (![outputAudio insertTimeRange:CMTimeRangeMake(kCMTimeZero, audioDuration) ofTrack:audioTrack atTime:kCMTimeZero error:&insertError]) {
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, insertError); });
+            return;
+        }
+        outputVideo.preferredTransform = videoTrack.preferredTransform;
+        NSURL *outputURL = [NSURL fileURLWithPath:[NSTemporaryDirectory()
+            stringByAppendingPathComponent:[NSString stringWithFormat:@"video_with_music_%@.mp4", NSUUID.UUID.UUIDString]]];
+        AVAssetExportSession *exporter = [[AVAssetExportSession alloc] initWithAsset:composition presetName:AVAssetExportPresetHighestQuality];
+        exporter.outputURL = outputURL;
+        exporter.outputFileType = AVFileTypeMPEG4;
+        [exporter exportAsynchronouslyWithCompletionHandler:^{
+            NSError *resultError = exporter.status == AVAssetExportSessionStatusCompleted ? nil : exporter.error;
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(resultError ? nil : outputURL, resultError); });
+        }];
+    });
+}
+
+- (void)surpriseTapped {
+    // One intentional take: duration is the only user-controlled cost factor.
+    NSArray<NSString *> *ideas = @[
+        @"Warm cinematic electronic track with a slow sunrise build, soft percussion, and an uplifting final chorus",
+        @"Playful future-funk groove with crisp drums, elastic bass, and bright chopped vocal textures",
+        @"Dreamy late-night R&B instrumental with intimate keys, vinyl warmth, and a restrained beat",
+        @"Inventive indie-pop song with handclaps, shimmering guitars, and a memorable hopeful hook"
+    ];
+    self.promptTextView.text = ideas[arc4random_uniform((u_int32_t)ideas.count)];
+    self.titleField.text = @"";
+    self.lyricsTextView.text = @"";
+    self.referenceURL = nil;
+    self.referenceSourceName = nil;
+    self.referenceModeLocked = NO;
+    self.referenceMode = EZMusicReferenceModeStyle;
+    self.referenceModeControl.selectedSegmentIndex = self.referenceMode;
+    self.referenceModeControl.enabled = NO;
+    [self updateReferencePresentation];
+    self.instrumentalSwitch.on = NO;
+    self.variantControl.selectedSegmentIndex = 0;
+    [self updatePromptDecorations];
+    [self updateQuote];
+    [self generateTapped];
+}
+
 - (void)generateTapped {
     [self.view endEditing:YES];
 
@@ -797,6 +1191,11 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         return;
     }
     NSString *prompt = [self trimmedPrompt];
+    NSString *lyrics = [self.lyricsTextView.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (prompt.length > 4100 || lyrics.length > 6100) {
+        [self setStatusMessage:@"The description may be up to 4,100 characters and lyrics up to 6,100."];
+        return;
+    }
     if (prompt.length == 0) {
         [self presentAlertWithTitle:EZMusicText(@"EZMusic.Alert.NeedPromptTitle", @"Describe Your Song")
                             message:EZMusicText(@"EZMusic.Alert.NeedPromptMessage", @"Tell me what kind of music you want, then tap Generate.")];
@@ -815,10 +1214,17 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [self updateGenerateButtonState];
 
     NSString *title = [self.titleField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (self.referenceURL.isFileURL && !self.referenceModeLocked) {
+        [[EZMusicLibraryManager sharedManager] archiveReferenceAtURL:self.referenceURL
+                                                           sourceName:self.referenceSourceName
+                                                                mode:(self.referenceMode == EZMusicReferenceModeSource ? @"source" : @"style")];
+    }
     __weak typeof(self) weakSelf = self;
     [[EZMusicService sharedService]
         startGenerationWithPrompt:prompt
-                  compositionPlan:nil
+                            lyrics:lyrics
+                      referenceURL:self.referenceURL
+                     referenceMode:(self.referenceMode == EZMusicReferenceModeSource ? @"source" : @"style")
                             title:title
                   durationSeconds:[self selectedDurationSeconds]
                      variantCount:[self selectedVariantCount]
@@ -1012,6 +1418,13 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         [strongSelf.libraryTable reloadData];
         [strongSelf updateEmptyState];
         [strongSelf resumePollingForPendingEntries];
+        // Backfill songs made before a prior archive attempt failed, and keep
+        // every completed song available offline rather than only ones played.
+        for (NSDictionary *entry in strongSelf.entries) {
+            if ([EZMusicString(entry[@"status"]) isEqualToString:@"complete"]) {
+                [strongSelf retainCompletedEntry:entry];
+            }
+        }
     }];
 }
 
@@ -1140,6 +1553,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         NSString *status = EZMusicString(entry[@"status"]);
         if ([status isEqualToString:@"complete"]) {
             completedCount++;
+            [self retainCompletedEntry:entry];
         } else if ([status isEqualToString:@"failed"] && !firstFailureText) {
             NSString *errorText = EZMusicString(entry[@"error_text"]);
             firstFailureText = errorText.length > 0 ? errorText
@@ -1163,6 +1577,20 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
             ? EZMusicText(@"EZMusic.Toast.ReadyOne", @"Your song is ready")
             : EZMusicText(@"EZMusic.Toast.ReadyMany", @"Your songs are ready")];
     }
+}
+
+- (void)retainCompletedEntry:(NSDictionary *)entry {
+    NSString *entryID = EZMusicString(entry[@"id"]);
+    if (entryID.length == 0 || [self.retainingEntryIDs containsObject:entryID] ||
+        [[EZMusicLibraryManager sharedManager] localSongURLForEntryID:entryID]) return;
+    [self.retainingEntryIDs addObject:entryID];
+    __weak typeof(self) weakSelf = self;
+    [[EZMusicService sharedService] fetchPlaybackURLForEntryID:entryID forDownload:NO completion:^(NSURL *url, NSError *error) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        if (url) [strongSelf retainStreamedSongAtURL:url entry:entry];
+        else [strongSelf.retainingEntryIDs removeObject:entryID];
+    }];
 }
 
 #pragma mark - Table data source
@@ -1473,6 +1901,13 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     self.loadingEntryID = entryID;
     [self reloadRowForEntryID:entryID];
 
+    // Offline/local playback wins once a streamed original has been retained.
+    NSURL *localURL = [[EZMusicLibraryManager sharedManager] localSongURLForEntryID:entryID];
+    if (localURL) {
+        [self startPlayerWithURL:localURL];
+        return;
+    }
+
     __weak typeof(self) weakSelf = self;
     [[EZMusicService sharedService] fetchPlaybackURLForEntryID:entryID forDownload:NO completion:^(NSURL *url, NSError *error) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
@@ -1485,8 +1920,37 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
                                       message:error.localizedDescription];
             return;
         }
-        [strongSelf startPlayerWithURL:url];
+        [strongSelf startPlayerWithURL:url]; // start immediately; don't make playback wait for archiving
+        [strongSelf retainStreamedSongAtURL:url entry:entry];
     }];
+}
+
+// AVPlayer streams the signed original for a fast first play.  In parallel we
+// retain that same original in Documents/EZMusic so later plays work locally.
+- (void)retainStreamedSongAtURL:(NSURL *)url entry:(NSDictionary *)entry {
+    NSString *entryID = EZMusicString(entry[@"id"]);
+    NSURLSessionDownloadTask *task = [[NSURLSession sharedSession] downloadTaskWithURL:url completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
+        NSInteger status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
+        if (!error && location && status >= 200 && status < 300) {
+            [[EZMusicLibraryManager sharedManager] archiveSongAtTemporaryURL:location entry:entry completion:^(NSURL *localURL, NSError *archiveError) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self.retainingEntryIDs removeObject:entryID];
+                    if (archiveError) {
+                        EZLogf(EZLogLevelWarning, @"Music", @"Could not retain %@ locally: %@", entryID, archiveError.localizedDescription);
+                    } else {
+                        EZLogf(EZLogLevelInfo, @"Music", @"Archived %@ as %@", entryID, localURL.lastPathComponent);
+                    }
+                });
+            }];
+        } else {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.retainingEntryIDs removeObject:entryID];
+                EZLogf(EZLogLevelWarning, @"Music", @"Could not download %@ for local archive: %@", entryID,
+                       error.localizedDescription ?: [NSString stringWithFormat:@"HTTP %ld", (long)status]);
+            });
+        }
+    }];
+    [task resume];
 }
 
 - (void)startPlayerWithURL:(NSURL *)url {

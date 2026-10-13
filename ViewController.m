@@ -742,9 +742,15 @@ static NSString *EZFriendlyImageTransportMessage(NSError *error) {
     NSDictionary *event = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:nil];
     if (![event isKindOfClass:[NSDictionary class]]) return;
     NSString *type = [event[@"type"] isKindOfClass:[NSString class]] ? event[@"type"] : @"";
-    if ([type isEqualToString:@"complete"]) {
+    // The edge function has used a few terminal event names over time.  Also
+    // accept a result payload with images even if an intermediary/proxy drops
+    // its type field, so a successful edit is never discarded at EOF.
+    if ([type isEqualToString:@"complete"] || [type isEqualToString:@"completed"] ||
+        [type isEqualToString:@"done"] || [type isEqualToString:@"result"] ||
+        [type isEqualToString:@"final"] ||
+        [event[@"images"] isKindOfClass:[NSArray class]]) {
         self.finalResult = event;
-    } else if ([type isEqualToString:@"error"]) {
+    } else if ([type isEqualToString:@"error"] || [type isEqualToString:@"failed"]) {
         NSString *message = [event[@"error"] isKindOfClass:[NSString class]] ? event[@"error"] : @"Image generation failed";
         self.finalResult = @{ @"error": message, @"reason": event[@"reason"] ?: @"" };
     }
@@ -781,8 +787,8 @@ static NSString *EZFriendlyImageTransportMessage(NSError *error) {
         [self consumeFrame:frame];
     }
     if (self.finalResult) [self finishWithResult:self.finalResult error:nil];
-    else [self finishWithResult:nil error:[NSError errorWithDomain:@"EZImageStream" code:-1
-        userInfo:@{NSLocalizedDescriptionKey: @"Image stream ended before completion"}]];
+    else [self finishWithResult:nil error:[NSError errorWithDomain:@"EZImageStream" code:NSURLErrorNetworkConnectionLost
+        userInfo:@{NSLocalizedDescriptionKey: @"Image stream connection closed early; retrying."}]];
 }
 
 - (void)finishWithResult:(NSDictionary *)result error:(NSError *)error {

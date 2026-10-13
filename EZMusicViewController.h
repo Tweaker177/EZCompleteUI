@@ -29,7 +29,24 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+typedef NS_ENUM(NSInteger, EZMusicReferenceMode) {
+    /// Creates new material guided by the reference's sonic character.
+    EZMusicReferenceModeStyle = 0,
+    /// Keeps the source clip in the composition, then creates music around it.
+    EZMusicReferenceModeSource = 1,
+};
+
 @interface EZMusicViewController : UIViewController
+/// Opens Create with a locally prepared audio reference (for example a TTS
+/// clip or an imported video whose audio was extracted). This initializer uses
+/// source mode so the supplied clip becomes part of the composition.
+- (instancetype)initWithReferenceURL:(NSURL *)referenceURL sourceName:(NSString *)sourceName;
+
+/// Source mode is deliberately exposed for TTS: spoken audio should be kept in
+/// the composition, not treated as a musical style sample.
+- (instancetype)initWithReferenceURL:(NSURL *)referenceURL
+                          sourceName:(NSString *)sourceName
+                       referenceMode:(EZMusicReferenceMode)referenceMode;
 @end
 
 NS_ASSUME_NONNULL_END

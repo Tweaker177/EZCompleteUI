@@ -15,6 +15,7 @@
 #import "EZEntitlementManager.h"
 #import "EZSupabaseConfig.h"
 #import "helpers.h"
+#import <AVFoundation/AVFoundation.h>
 
 NSString * const EZMusicServiceErrorDomain    = @"EZMusicServiceErrorDomain";
 NSString * const EZMusicServiceServerCodeKey  = @"EZMusicServiceServerCode";
@@ -22,6 +23,7 @@ NSString * const EZMusicServiceServerCodeKey  = @"EZMusicServiceServerCode";
 // Request and retry tuning.
 static const NSTimeInterval kRequestTimeoutSeconds   = 45.0;
 static const NSInteger      kMaxNetworkRetries       = 2;
+static const NSUInteger     kMaximumReferenceBytes   = 12 * 1024 * 1024;
 static const NSTimeInterval kRetryBaseDelaySeconds   = 1.5;
 
 // Polling tuning. The server refunds anything unfinished after ~15 minutes, so
@@ -221,6 +223,16 @@ static BOOL EZMusicAnyEntryPending(NSArray<NSDictionary *> *entries) {
     }];
 }
 
+- (void)generateMusicForVideoURLs:(NSArray<NSURL *> *)videoURLs description:(NSString *)description completion:(void (^)(NSData *, NSError *))completion {
+    if (!videoURLs.count || videoURLs.count > 10) { completion(nil, EZMusicError(EZMusicServiceErrorInvalidInput, @"Choose 1–10 videos.", nil)); return; }
+    NSString *boundary = [NSString stringWithFormat:@"EZMusic%@", NSUUID.UUID.UUIDString]; NSMutableData *body = [NSMutableData data];
+    void (^field)(NSString *, NSString *) = ^(NSString *name, NSString *value) { [body appendData:[[NSString stringWithFormat:@"--%@\r\nContent-Disposition: form-data; name=\"%@\"\r\n\r\n%@\r\n", boundary, name, value] dataUsingEncoding:NSUTF8StringEncoding]]; };
+    field(@"action", @"video_to_music"); if (description.length) field(@"description", description);
+    for (NSURL *url in videoURLs) { NSData *data = [NSData dataWithContentsOfURL:url]; if (!data.length) { completion(nil, EZMusicError(EZMusicServiceErrorInvalidInput, @"Couldn’t read a selected video.", nil)); return; } [body appendData:[[NSString stringWithFormat:@"--%@\r\nContent-Disposition: form-data; name=\"videos[]\"; filename=\"%@\"\r\nContent-Type: video/mp4\r\n\r\n", boundary, url.lastPathComponent] dataUsingEncoding:NSUTF8StringEncoding]]; [body appendData:data]; [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]]; }
+    [body appendData:[[NSString stringWithFormat:@"--%@--\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
+    [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *authError) { if (!token.length) { completion(nil, EZMusicError(EZMusicServiceErrorNotSignedIn, @"Please sign in to use music generation.", nil)); return; } NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/ez-music"]]]; request.HTTPMethod = @"POST"; request.HTTPBody = body; request.timeoutInterval = 300; [request setValue:[NSString stringWithFormat:@"multipart/form-data; boundary=%@", boundary] forHTTPHeaderField:@"Content-Type"]; [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"]; [request setValue:EZSupabaseAnonKey forHTTPHeaderField:@"apikey"]; [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) { NSInteger status = [(NSHTTPURLResponse *)response statusCode]; dispatch_async(dispatch_get_main_queue(), ^{ completion((!error && status >= 200 && status < 300) ? data : nil, error ?: EZMusicError(EZMusicServiceErrorServer, @"Couldn’t generate music for that video.", nil)); }); }] resume]; }];
+}
+
 #pragma mark - Generation
 
 - (void)startGenerationWithPrompt:(NSString *)prompt
@@ -273,6 +285,81 @@ static BOOL EZMusicAnyEntryPending(NSArray<NSDictionary *> *entries) {
         } else {
             [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger refreshedBalance) {}];
         }
+        completion(generationID, entries, MAX(balance, 0), nil);
+    }];
+}
+
+- (void)startGenerationWithPrompt:(NSString *)prompt
+                            lyrics:(NSString *)lyrics
+                      referenceURL:(NSURL *)referenceURL
+                     referenceMode:(NSString *)referenceMode
+                            title:(NSString *)title
+                  durationSeconds:(NSInteger)durationSeconds
+                     variantCount:(NSInteger)variantCount
+                forceInstrumental:(BOOL)forceInstrumental
+                       completion:(void (^)(NSString *, NSArray<NSDictionary *> *, NSInteger, NSError *))completion {
+    NSString *trimmedPrompt = [prompt stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSString *trimmedLyrics = [lyrics stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (trimmedPrompt.length == 0) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(nil, nil, 0, EZMusicError(EZMusicServiceErrorInvalidInput, @"Describe the music you want.", nil));
+        });
+        return;
+    }
+    if (trimmedPrompt.length > 4100 || trimmedLyrics.length > 6100) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(nil, nil, 0, EZMusicError(EZMusicServiceErrorInvalidInput, @"The description or lyrics are too long.", nil));
+        });
+        return;
+    }
+
+    NSMutableDictionary *payload = [@{
+        @"generation_id": [[NSUUID UUID].UUIDString lowercaseString],
+        @"prompt": trimmedPrompt,
+        @"duration_seconds": @(durationSeconds),
+        @"variant_count": @(MAX(1, variantCount)),
+    } mutableCopy];
+    if (trimmedLyrics.length) payload[@"lyrics"] = trimmedLyrics;
+    if (title.length) payload[@"title"] = title;
+    if (forceInstrumental) payload[@"force_instrumental"] = @YES;
+
+    if (referenceURL.isFileURL) {
+        NSError *readError = nil;
+        NSData *data = [NSData dataWithContentsOfURL:referenceURL options:NSDataReadingMappedIfSafe error:&readError];
+        if (!data || data.length == 0 || data.length > kMaximumReferenceBytes) {
+            NSString *message = data.length > kMaximumReferenceBytes
+                ? @"That reference is over the 12 MB upload limit. Choose a shorter clip or a compressed copy."
+                : @"Couldn’t read that audio reference.";
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(nil, nil, 0, EZMusicError(EZMusicServiceErrorInvalidInput, message,
+                    readError ? @{ NSUnderlyingErrorKey: readError } : nil));
+            });
+            return;
+        }
+        NSString *extension = referenceURL.pathExtension.lowercaseString;
+        NSDictionary *mimeTypes = @{ @"mp3": @"audio/mpeg", @"m4a": @"audio/mp4", @"aac": @"audio/aac",
+                                      @"wav": @"audio/wav", @"aif": @"audio/aiff", @"aiff": @"audio/aiff",
+                                      @"flac": @"audio/flac", @"ogg": @"audio/ogg", @"opus": @"audio/ogg" };
+        AVURLAsset *asset = [AVURLAsset URLAssetWithURL:referenceURL options:nil];
+        CMTime duration = asset.duration;
+        NSInteger durationMs = CMTIME_IS_NUMERIC(duration) ? (NSInteger)llround(CMTimeGetSeconds(duration) * 1000.0) : 0;
+        payload[@"reference"] = @{
+            @"audio_base64": [data base64EncodedStringWithOptions:0],
+            @"filename": referenceURL.lastPathComponent ?: @"reference.m4a",
+            @"mime_type": mimeTypes[extension] ?: @"application/octet-stream",
+            @"mode": [referenceMode isEqualToString:@"source"] ? @"source" : @"style",
+            @"duration_ms": @(MAX(0, durationMs)),
+        };
+    }
+
+    NSString *generationID = payload[@"generation_id"];
+    [self performAction:@"generate" payload:payload completion:^(NSDictionary *json, NSError *error) {
+        if (error) { completion(nil, nil, 0, error); return; }
+        NSArray<NSDictionary *> *entries = EZMusicEntryDictionaries(json[@"entries"]);
+        if (entries.count == 0) { completion(nil, nil, 0, EZMusicError(EZMusicServiceErrorBadResponse, @"The server sent an unexpected reply.", nil)); return; }
+        NSInteger balance = [json[@"balance"] isKindOfClass:[NSNumber class]] ? [json[@"balance"] integerValue] : -1;
+        if (balance >= 0) [[EZEntitlementManager shared] applyKnownBalance:balance];
+        else [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger refreshedBalance) {}];
         completion(generationID, entries, MAX(balance, 0), nil);
     }];
 }

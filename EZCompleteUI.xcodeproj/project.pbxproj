@@ -82,6 +82,7 @@
 		B20000000000000000000002 /* EZCompleteUIShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* EZCompleteUIShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A2000000000000000000004E /* EZMusicService.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004E /* EZMusicService.m */; };
 		A2000000000000000000004F /* EZMusicViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004F /* EZMusicViewController.m */; };
+		A20000000000000000000050 /* EZMusicLibraryManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000050 /* EZMusicLibraryManager.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -170,6 +171,7 @@
 		B30000000000000000000002 /* EZCompleteUIShare.appex */ = {isa = PBXFileReference; explicitFileType = wrapper.app-extension; includeInIndex = 0; path = EZCompleteUIShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000000000000000000004E /* EZMusicService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicService.m; sourceTree = "<group>"; };
 		A1000000000000000000004F /* EZMusicViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicViewController.m; sourceTree = "<group>"; };
+		A10000000000000000000050 /* EZMusicLibraryManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicLibraryManager.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -295,6 +297,7 @@
 				A1000000000000000000004C /* BRSlotRoomViewController.m */,
 				A1000000000000000000004F /* EZMusicViewController.m */,
 				A1000000000000000000004E /* EZMusicService.m */,
+				A10000000000000000000050 /* EZMusicLibraryManager.m */,
 				A1000000000000000000004D /* BRSlotRoomViewController.h */,
 			);
 			name = Sources;
@@ -507,6 +510,7 @@
 				A20000000000000000000047 /* BRSlotRoomViewController.m in Sources */,
 				A2000000000000000000004E /* EZMusicService.m in Sources */,
 				A2000000000000000000004F /* EZMusicViewController.m in Sources */,
+				A20000000000000000000050 /* EZMusicLibraryManager.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

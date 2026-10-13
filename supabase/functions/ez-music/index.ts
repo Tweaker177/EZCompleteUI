@@ -50,19 +50,22 @@ declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | unde
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ELEVENLABS_URL = "https://api.elevenlabs.io/v1/music";
+const ELEVENLABS_VIDEO_TO_MUSIC_URL = "https://api.elevenlabs.io/v1/music/video-to-music";
 const STORAGE_BUCKET = "music-assets";
 
-// Only models whose per-minute price has been confirmed. Add music_v2 /
-// music_v2_5 here once their pricing is verified in the ElevenLabs dashboard.
-const ALLOWED_MODELS = ["music_v1"];
-const DEFAULT_MODEL = "music_v1";
+// v2.5 is the current high-quality Music model. The public API still defaults
+// to v1 during ElevenLabs' transition unless we explicitly select a v2 model,
+// so never rely on the provider default here.
+const ALLOWED_MODELS = ["music_v2_5", "music_v2", "music_v1"];
+const DEFAULT_MODEL = "music_v2_5";
 
 // output_format → bitrate in bits per second (used to estimate duration from size).
 const ALLOWED_FORMATS: Record<string, number> = {
   mp3_44100_128: 128_000,
   mp3_44100_192: 192_000,
+  mp3_48000_192: 192_000,
 };
-const DEFAULT_FORMAT = "mp3_44100_128";
+const DEFAULT_FORMAT = "mp3_48000_192";
 const FALLBACK_FORMAT = "mp3_44100_128";
 
 const PROMPT_MAX_CHARS = 4100;        // ElevenLabs limit for `prompt`
@@ -70,6 +73,7 @@ const TITLE_MAX_CHARS = 120;
 const PLAN_MAX_JSON_CHARS = 20_000;
 const PLAN_MAX_SECTIONS = 30;
 const PLAN_MIN_SECTION_MS = 3_000;
+const MAX_REFERENCE_BYTES = 12 * 1024 * 1024;
 const MAX_PROVIDER_ATTEMPTS = 3;
 const MAX_RETRY_DELAY_MS = 15_000;
 const MIN_USABLE_AUDIO_BYTES = 4_096;
@@ -153,6 +157,17 @@ interface GenerateRequest {
   outputFormat: string;
   durationMs: number;
   variantCount: number;
+  lyrics: string | null;
+  reference: ReferenceUpload | null;
+}
+
+type ReferenceMode = "style" | "source";
+interface ReferenceUpload {
+  audio: Uint8Array;
+  filename: string;
+  mimeType: string;
+  mode: ReferenceMode;
+  durationMs: number;
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -167,6 +182,7 @@ function validateGenerateRequest(body: Record<string, unknown>, config: MusicCon
   }
 
   const rawPrompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+  const lyrics = typeof body.lyrics === "string" ? body.lyrics.trim() : "";
   const compositionPlan = body.composition_plan && typeof body.composition_plan === "object"
     ? body.composition_plan as Record<string, unknown> : null;
   if (rawPrompt && compositionPlan) {
@@ -177,6 +193,26 @@ function validateGenerateRequest(body: Record<string, unknown>, config: MusicCon
   }
   if (rawPrompt.length > PROMPT_MAX_CHARS) {
     return { reason: `The description is too long (max ${PROMPT_MAX_CHARS} characters).` };
+  }
+  if (lyrics.length > 6_100) return { reason: "Lyrics are too long (max 6,100 characters)." };
+
+  let reference: ReferenceUpload | null = null;
+  if (body.reference !== undefined && body.reference !== null) {
+    const rawReference = body.reference as Record<string, unknown>;
+    const encoded = typeof rawReference.audio_base64 === "string" ? rawReference.audio_base64 : "";
+    const filename = typeof rawReference.filename === "string" ? rawReference.filename.slice(0, 160) : "reference.m4a";
+    const mimeType = typeof rawReference.mime_type === "string" ? rawReference.mime_type.slice(0, 100) : "application/octet-stream";
+    const mode: ReferenceMode = rawReference.mode === "source" ? "source" : "style";
+    const durationMs = Number(rawReference.duration_ms ?? 0);
+    if (!encoded || encoded.length > Math.ceil(MAX_REFERENCE_BYTES * 4 / 3) + 8) {
+      return { reason: "That audio reference is too large. Choose a clip under 12 MB." };
+    }
+    try {
+      const binary = atob(encoded);
+      const audio = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+      if (!audio.length || audio.length > MAX_REFERENCE_BYTES) return { reason: "That audio reference is too large." };
+      reference = { audio, filename, mimeType, mode, durationMs: Number.isFinite(durationMs) ? Math.max(0, Math.floor(durationMs)) : 0 };
+    } catch { return { reason: "That audio reference could not be decoded." }; }
   }
 
   const modelId = String(body.model_id ?? DEFAULT_MODEL);
@@ -236,6 +272,8 @@ function validateGenerateRequest(body: Record<string, unknown>, config: MusicCon
       outputFormat,
       durationMs,
       variantCount,
+      lyrics: lyrics || null,
+      reference,
     },
   };
 }
@@ -249,6 +287,76 @@ class ProviderError extends Error {
     public httpStatus: number | null = null,
     public suggestion: string | null = null,
   ) { super(message); }
+}
+
+// A v2 audio-source chunk is replayed in the output.  A conditioning_ref, in
+// contrast, only guides newly generated material.  Keep those meanings apart:
+// it prevents a TTS clip from being treated as a useless "style" sample.
+async function uploadReferenceToProvider(reference: ReferenceUpload, modelId: string): Promise<string> {
+  const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
+  if (!apiKey) throw new ProviderError("provider_unavailable", "Music generation is temporarily unavailable.");
+  const form = new FormData();
+  form.append("file", new Blob([reference.audio], { type: reference.mimeType }), reference.filename);
+  // Returning the extracted v2.5 plan is useful to ElevenLabs for inspecting
+  // the upload, even though we construct the small, user-directed plan below.
+  form.append("extract_composition_plan", modelId);
+  const response = await fetch("https://api.elevenlabs.io/v1/music/upload", {
+    method: "POST", headers: { "xi-api-key": apiKey }, body: form,
+  });
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 300);
+    console.error(`[ez-music] reference upload failed (${response.status}): ${detail}`);
+    if (response.status === 400 || response.status === 422) {
+      throw new ProviderError("reference_rejected", "That audio could not be used as a music reference.", response.status);
+    }
+    throw new ProviderError("provider_unavailable", "The music service could not upload that reference.", response.status);
+  }
+  const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
+  const songId = typeof payload?.song_id === "string" ? payload.song_id : "";
+  if (!songId) throw new ProviderError("reference_upload_failed", "The music service did not return a usable audio reference.");
+  return songId;
+}
+
+function stylesForPrompt(prompt: string): string[] {
+  // v2.5 benefits from concrete early-chunk directions.  The prompt remains
+  // one direction while these ensure an intentional, coherent starting point.
+  return [prompt.slice(0, 500), "high fidelity production", "cohesive arrangement",
+    "expressive performance", "clear dynamics", "balanced mix", "musical development"];
+}
+
+function buildReferencePlan(request: GenerateRequest, songId: string): Record<string, unknown> {
+  const generatedChunk: Record<string, unknown> = {
+    text: request.lyrics ? `[Song]\n${request.lyrics}` : "{Instrumental musical development}",
+    duration_ms: request.durationMs,
+    positive_styles: stylesForPrompt(request.prompt ?? "original music"),
+    negative_styles: [],
+    context_adherence: "high",
+  };
+  // Conditioning is intentionally capped at 30 seconds.  Longer source clips
+  // may be preserved in source mode, but forcing the model to condition on a
+  // long clip makes continuation less predictable.
+  const sourceEndMs = Math.max(3_000, Math.min(request.reference?.durationMs || 600_000, 600_000));
+  const range = { start_ms: 0, end_ms: request.reference?.mode === "style" ? Math.min(sourceEndMs, 30_000) : sourceEndMs };
+  if (request.reference?.mode === "style") {
+    // Conditioning affects new material only; the uploaded clip is never
+    // copied into the result.  The first generated chunk has the broadest
+    // influence, so attach it there at high adherence.
+    generatedChunk.conditioning_ref = { song_id: songId, range };
+    generatedChunk.condition_strength = "high";
+    return { chunks: [generatedChunk] };
+  }
+  // Source chunks preserve the actual reference in the resulting song.  The
+  // following generation is deliberately high-adherence so it joins cleanly.
+  return { chunks: [{ song_id: songId, range }, generatedChunk] };
+}
+
+function buildLyricsPlan(request: GenerateRequest): Record<string, unknown> {
+  return { chunks: [{
+    text: `[Song]\n${request.lyrics ?? ""}`,
+    duration_ms: request.durationMs,
+    positive_styles: stylesForPrompt(request.prompt ?? "original music"),
+    negative_styles: [], context_adherence: "high",
+  }] };
 }
 
 interface ProviderResult {
@@ -559,6 +667,22 @@ async function handleGenerate(
   if ("reason" in validation) return errorResponse(400, "invalid_request", validation.reason);
   const request = validation.request;
 
+  // Upload before reserving the app's generation coins.  An upload may be
+  // rejected by the provider's copyright inspection; that must never leave a
+  // user with a reserved generation that cannot be composed.
+  try {
+    if (request.reference) {
+      const songId = await uploadReferenceToProvider(request.reference, request.modelId);
+      request.compositionPlan = buildReferencePlan(request, songId);
+    } else if (request.lyrics) {
+      request.compositionPlan = buildLyricsPlan(request);
+    }
+  } catch (caught) {
+    if (caught instanceof ProviderError) return errorResponse(422, caught.code, caught.message);
+    console.error("[ez-music] preparing reference failed:", caught);
+    return errorResponse(503, "provider_unavailable", "The music service is temporarily unavailable.");
+  }
+
   const coinsPerVariant = coinsForMilliseconds(config, request.durationMs);
 
   const { data: reserved, error: reserveError } = await service.rpc("reserve_music_generation", {
@@ -711,6 +835,35 @@ async function handleDelete(service: SupabaseClient, userId: string, body: Recor
   return jsonResponse({ success: true });
 }
 
+// Multipart pass-through keeps video binary out of JSON/base64 and preserves the
+// provider's documented 200 MB / 10-video capability.  The app authenticates to
+// this function; the ElevenLabs key remains server-only.
+async function handleVideoToMusic(form: FormData): Promise<Response> {
+  const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
+  if (!apiKey) return errorResponse(503, "provider_unavailable", "Music generation is temporarily unavailable.");
+  const videos = form.getAll("videos[]").filter((value): value is File => value instanceof File);
+  if (!videos.length || videos.length > 10) return errorResponse(400, "invalid_video", "Choose 1–10 video files.");
+  const totalBytes = videos.reduce((sum, video) => sum + video.size, 0);
+  if (totalBytes > 200 * 1024 * 1024) return errorResponse(400, "video_too_large", "Selected videos exceed the 200 MB limit.");
+  const outbound = new FormData();
+  for (const video of videos) outbound.append("videos[]", video, video.name);
+  const description = String(form.get("description") ?? "").trim();
+  if (description) outbound.append("description", description.slice(0, PROMPT_MAX_CHARS));
+  outbound.append("model_id", "music_v2_5");
+  const response = await fetch(`${ELEVENLABS_VIDEO_TO_MUSIC_URL}?output_format=${DEFAULT_FORMAT}`, {
+    method: "POST", headers: { "xi-api-key": apiKey }, body: outbound,
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    console.error(`[ez-music] video-to-music failed ${response.status}: ${detail.slice(0, 300)}`);
+    return errorResponse(response.status === 422 ? 422 : 503, "video_music_failed", "Couldn’t generate music for that video.");
+  }
+  return new Response(response.body, { status: 200, headers: {
+    ...CORS_HEADERS, "Content-Type": response.headers.get("content-type") ?? "audio/mpeg",
+    "X-EZ-Song-ID": response.headers.get("song-id") ?? "",
+  }});
+}
+
 // ── Entry point ──────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
@@ -728,6 +881,11 @@ Deno.serve(async (req: Request) => {
     if (authError || !authData?.user) return errorResponse(401, "unauthorized", "Please sign in again.");
     const userId = authData.user.id;
 
+    if ((req.headers.get("content-type") ?? "").startsWith("multipart/form-data")) {
+      const form = await req.formData();
+      if (form.get("action") === "video_to_music") return await handleVideoToMusic(form);
+      return errorResponse(400, "invalid_request", "Unknown multipart action.");
+    }
     const body = await req.json().catch(() => null) as Record<string, unknown> | null;
     if (!body || typeof body !== "object") return errorResponse(400, "invalid_request", "Invalid JSON body.");
 

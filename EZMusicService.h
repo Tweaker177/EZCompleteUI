@@ -64,6 +64,12 @@ typedef NS_ENUM(NSInteger, EZMusicServiceErrorCode) {
 - (void)fetchConfigWithCompletion:(void (^)(NSDictionary * _Nullable config,
                                             NSError * _Nullable error))completion;
 
+/// Sends rendered video(s) directly to the Video-to-Music route. Completion is
+/// the generated audio data, ready for the gallery to mux into its MP4.
+- (void)generateMusicForVideoURLs:(NSArray<NSURL *> *)videoURLs
+                       description:(nullable NSString *)description
+                        completion:(void (^)(NSData * _Nullable audioData, NSError * _Nullable error))completion;
+
 /// Reserves coins and starts generation. Provide either `prompt` or `compositionPlan`.
 /// For prompt mode `durationSeconds` is required; for a plan the server sums the
 /// section durations. On success `entries` holds one dictionary per variant with
@@ -71,6 +77,23 @@ typedef NS_ENUM(NSInteger, EZMusicServiceErrorCode) {
 /// balance (also applied to EZEntitlementManager).
 - (void)startGenerationWithPrompt:(nullable NSString *)prompt
                   compositionPlan:(nullable NSDictionary *)compositionPlan
+                            title:(nullable NSString *)title
+                  durationSeconds:(NSInteger)durationSeconds
+                     variantCount:(NSInteger)variantCount
+                forceInstrumental:(BOOL)forceInstrumental
+                       completion:(void (^)(NSString * _Nullable generationID,
+                                            NSArray<NSDictionary *> * _Nullable entries,
+                                            NSInteger balance,
+                                            NSError * _Nullable error))completion;
+
+/// As above, with optional written lyrics and a local audio reference.  `referenceMode`
+/// is either `style` (make new music guided by it) or `source` (keep the clip in
+/// the result and compose after it).  The audio is sent only to our authenticated
+/// music function; the ElevenLabs key never reaches the app.
+- (void)startGenerationWithPrompt:(NSString *)prompt
+                            lyrics:(nullable NSString *)lyrics
+                      referenceURL:(nullable NSURL *)referenceURL
+                     referenceMode:(nullable NSString *)referenceMode
                             title:(nullable NSString *)title
                   durationSeconds:(NSInteger)durationSeconds
                      variantCount:(NSInteger)variantCount
