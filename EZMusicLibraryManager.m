@@ -1,9 +1,25 @@
+// EZMusicLibraryManager.m
+// EZCompleteUI v1.1
+//
+// Purpose:
+//   Implementation of the on-device song library described in
+//   EZMusicLibraryManager.h. All manifest reads and writes run on one serial
+//   queue (`queue`) so the JSON file is never written by two threads at once.
+//
+// Changes from v1.0:
+//   - Added -retainSongFromRemoteURL:entry:completion: (download + archive,
+//     with one shared download per entry).
+//   - Added this header comment.
+
 #import "EZMusicLibraryManager.h"
 #import <AVFoundation/AVFoundation.h>
 @interface EZMusicLibraryManager ()
 @property (nonatomic, strong) NSURL *libraryRootURL, *songsURL, *referencesURL, *stagingURL, *manifestURL;
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *items;
 @property (nonatomic) dispatch_queue_t queue;
+// Completion blocks waiting on a song that is currently downloading, keyed by
+// entry ID. Created on first use and only touched inside @synchronized(self).
+@property (nonatomic, strong) NSMutableDictionary<NSString *, NSMutableArray *> *pendingRetainCompletions;
 @end
 
 static NSString *EZMusicStyleLabel(NSString *prompt) {
@@ -158,5 +174,75 @@ static NSString *EZMusicStyleLabel(NSString *prompt) {
         if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(destination, nil); });
     });
 }
+- (void)retainSongFromRemoteURL:(NSURL *)remoteURL
+                          entry:(NSDictionary *)entry
+                     completion:(void (^)(NSURL *localURL, NSError *error))completion {
+    NSString *entryID = [entry[@"id"] isKindOfClass:NSString.class] ? entry[@"id"] : @"";
+    void (^finalCompletion)(NSURL *, NSError *) = completion ?: ^(NSURL *localURL, NSError *error) {};
+
+    if (!remoteURL || entryID.length == 0) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            finalCompletion(nil, [NSError errorWithDomain:@"EZMusicLibrary" code:4
+                                                 userInfo:@{NSLocalizedDescriptionKey: @"The song's download link was unavailable."}]);
+        });
+        return;
+    }
+
+    // Already on the device and readable: nothing to download.
+    NSURL *existingURL = [self localSongURLForEntryID:entryID];
+    if (existingURL) {
+        [self updateSongMetadataForEntry:entry];
+        dispatch_async(dispatch_get_main_queue(), ^{ finalCompletion(existingURL, nil); });
+        return;
+    }
+
+    // If this song is already downloading, wait for that download instead of
+    // starting a second one.
+    BOOL downloadAlreadyRunning = NO;
+    @synchronized (self) {
+        if (!self.pendingRetainCompletions) self.pendingRetainCompletions = [NSMutableDictionary dictionary];
+        NSMutableArray *waitingCompletions = self.pendingRetainCompletions[entryID];
+        downloadAlreadyRunning = (waitingCompletions != nil);
+        if (!waitingCompletions) {
+            waitingCompletions = [NSMutableArray array];
+            self.pendingRetainCompletions[entryID] = waitingCompletions;
+        }
+        [waitingCompletions addObject:[finalCompletion copy]];
+    }
+    if (downloadAlreadyRunning) return;
+
+    // Hands the result to everyone waiting on this song, on the main queue.
+    void (^finishDownload)(NSURL *, NSError *) = ^(NSURL *localURL, NSError *error) {
+        NSArray *waitingCompletions;
+        @synchronized (self) {
+            waitingCompletions = [self.pendingRetainCompletions[entryID] copy];
+            [self.pendingRetainCompletions removeObjectForKey:entryID];
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            for (id waitingBlock in waitingCompletions) {
+                ((void (^)(NSURL *, NSError *))waitingBlock)(localURL, error);
+            }
+        });
+    };
+
+    NSURLSessionDownloadTask *downloadTask = [[NSURLSession sharedSession] downloadTaskWithURL:remoteURL
+        completionHandler:^(NSURL *location, NSURLResponse *response, NSError *downloadError) {
+        NSInteger httpStatus = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
+        if (downloadError || !location || httpStatus < 200 || httpStatus >= 300) {
+            NSString *reason = downloadError.localizedDescription
+                ?: [NSString stringWithFormat:@"The song couldn't be downloaded (HTTP %ld).", (long)httpStatus];
+            finishDownload(nil, downloadError ?: [NSError errorWithDomain:@"EZMusicLibrary" code:5
+                                                                  userInfo:@{NSLocalizedDescriptionKey: reason}]);
+            return;
+        }
+        // archiveSongAtTemporaryURL copies `location` before returning, which
+        // matters because NSURLSession deletes it as soon as this block ends.
+        [self archiveSongAtTemporaryURL:location entry:entry completion:^(NSURL *localURL, NSError *archiveError) {
+            finishDownload(localURL, archiveError);
+        }];
+    }];
+    [downloadTask resume];
+}
+
 - (void)archiveReferenceAtURL:(NSURL *)sourceURL sourceName:(NSString *)sourceName mode:(NSString *)mode { if (!sourceURL.isFileURL) return; dispatch_async(self.queue, ^{ [self setup]; NSString *identifier = NSUUID.UUID.UUIDString; NSString *ext = sourceURL.pathExtension.length ? sourceURL.pathExtension : @"m4a"; NSString *path = [@"References" stringByAppendingPathComponent:[[NSString stringWithFormat:@"reference_%@", identifier] stringByAppendingPathExtension:ext]]; NSURL *to = [self.libraryRootURL URLByAppendingPathComponent:path]; if (![NSFileManager.defaultManager copyItemAtURL:sourceURL toURL:to error:nil]) return; [self.items addObject:@{ @"kind": @"reference", @"id": identifier, @"path": path, @"source_name": sourceName ?: sourceURL.lastPathComponent ?: @"Reference", @"reference_mode": mode ?: @"style", @"added_at": @([[NSDate date] timeIntervalSince1970]) }]; [self persist]; }); }
 @end

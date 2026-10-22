@@ -1,5 +1,5 @@
 // EZMusicViewController.m
-// EZCompleteUI v1.0
+// EZCompleteUI v1.1
 //
 // Purpose:
 //   The "AI Music" screen. See EZMusicViewController.h for the overview.
@@ -31,7 +31,13 @@
 //     - Pagination uses an inclusive timestamp cursor and de-duplicates by id,
 //       so variants created at the same instant are never skipped.
 //
-// Changes:
+// Changes from v1.0:
+//   - -retainStreamedSongAtURL:entry: no longer downloads and archives the song
+//     itself. It calls -[EZMusicLibraryManager retainSongFromRemoteURL:...],
+//     which the chat music card (EZChatMusicCoordinator) uses too, so there is
+//     one copy of that logic instead of two.
+//
+// v1.0:
 //   - Initial version.
 
 #import "EZMusicViewController.h"
@@ -2275,30 +2281,21 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 // retain that same original in Documents/EZMusic so later plays work locally.
 - (void)retainStreamedSongAtURL:(NSURL *)url entry:(NSDictionary *)entry {
     NSString *entryID = EZMusicString(entry[@"id"]);
-    NSURLSessionDownloadTask *task = [[NSURLSession sharedSession] downloadTaskWithURL:url completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
-        NSInteger status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
-        if (!error && location && status >= 200 && status < 300) {
-            [[EZMusicLibraryManager sharedManager] archiveSongAtTemporaryURL:location entry:entry completion:^(NSURL *localURL, NSError *archiveError) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [self.retainingEntryIDs removeObject:entryID];
-                    if (archiveError) {
-                        EZLogf(EZLogLevelWarning, @"Music", @"Could not retain %@ locally: %@", entryID, archiveError.localizedDescription);
-                    } else {
-                        EZLogf(EZLogLevelInfo, @"Music", @"Archived %@ as %@", entryID, localURL.lastPathComponent);
-                        [self reloadRowForEntryID:entryID];
-                        [self updatePlaylistHeader];
-                    }
-                });
-            }];
-        } else {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [self.retainingEntryIDs removeObject:entryID];
-                EZLogf(EZLogLevelWarning, @"Music", @"Could not download %@ for local archive: %@", entryID,
-                       error.localizedDescription ?: [NSString stringWithFormat:@"HTTP %ld", (long)status]);
-            });
+    // The download and archive work lives in EZMusicLibraryManager so the chat
+    // music card can reuse it; this screen only reacts to the outcome.
+    __weak typeof(self) weakSelf = self;
+    [[EZMusicLibraryManager sharedManager] retainSongFromRemoteURL:url entry:entry completion:^(NSURL *localURL, NSError *error) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        [strongSelf.retainingEntryIDs removeObject:entryID];
+        if (error) {
+            EZLogf(EZLogLevelWarning, @"Music", @"Could not retain %@ locally: %@", entryID, error.localizedDescription);
+            return;
         }
+        EZLogf(EZLogLevelInfo, @"Music", @"Archived %@ as %@", entryID, localURL.lastPathComponent);
+        [strongSelf reloadRowForEntryID:entryID];
+        [strongSelf updatePlaylistHeader];
     }];
-    [task resume];
 }
 
 - (void)startPlayerWithURL:(NSURL *)url {
