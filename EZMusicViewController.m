@@ -38,6 +38,8 @@
 #import <AVFoundation/AVFoundation.h>
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <PhotosUI/PhotosUI.h>
+#import <objc/runtime.h>
+#import <math.h>
 #import "EZMusicLibraryManager.h"
 #import "EZPhotoGalleryViewController.h"
 #import "EZMusicService.h"
@@ -77,6 +79,18 @@ static NSInteger EZMusicInteger(id value) {
     return [value isKindOfClass:[NSNumber class]] ? [(NSNumber *)value integerValue] : 0;
 }
 
+static NSString *EZMusicCompactStyle(NSString *prompt) {
+    NSArray<NSString *> *words = [[prompt stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]
+        componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    NSMutableArray<NSString *> *chosen = [NSMutableArray arrayWithCapacity:3];
+    for (NSString *word in words) {
+        NSString *clean = [word stringByTrimmingCharactersInSet:NSCharacterSet.punctuationCharacterSet];
+        if (clean.length) [chosen addObject:clean];
+        if (chosen.count == 3) break;
+    }
+    return [chosen componentsJoinedByString:@" "];
+}
+
 static NSString *EZMusicFormattedDuration(NSInteger totalSeconds) {
     NSInteger safeSeconds = MAX(0, totalSeconds);
     return [NSString stringWithFormat:@"%ld:%02ld", (long)(safeSeconds / 60), (long)(safeSeconds % 60)];
@@ -111,6 +125,114 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 #pragma mark - Library row
 
+@interface EZMusicWaveformView : UIView
+@property (nonatomic, copy) NSString *representedIdentifier;
+- (void)showWaveformForURL:(nullable NSURL *)url identifier:(NSString *)identifier;
+@end
+
+@implementation EZMusicWaveformView
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        self.backgroundColor = UIColor.clearColor;
+        self.opaque = NO;
+        self.contentMode = UIViewContentModeRedraw;
+    }
+    return self;
+}
+
+- (void)drawRect:(CGRect)rect {
+    NSArray<NSNumber *> *levels = objc_getAssociatedObject(self, @selector(drawRect:));
+    if (!levels.count) return;
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    CGFloat count = levels.count, gap = 2.0;
+    CGFloat width = MAX(1.0, (CGRectGetWidth(rect) - gap * (count - 1)) / count);
+    CGFloat middle = CGRectGetMidY(rect);
+    UIColor *color = [UIColor systemBlueColor];
+    CGContextSetFillColorWithColor(context, [color colorWithAlphaComponent:0.68].CGColor);
+    for (NSUInteger index = 0; index < levels.count; index++) {
+        CGFloat height = MAX(3.0, MIN(CGRectGetHeight(rect), levels[index].doubleValue * CGRectGetHeight(rect)));
+        CGRect bar = CGRectMake(index * (width + gap), middle - height / 2.0, width, height);
+        UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:bar cornerRadius:width / 2.0];
+        [path fill];
+    }
+}
+
+- (void)showWaveformForURL:(NSURL *)url identifier:(NSString *)identifier {
+    self.representedIdentifier = identifier;
+    static NSCache<NSString *, NSArray<NSNumber *> *> *cache;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{ cache = [[NSCache alloc] init]; cache.countLimit = 80; });
+    NSArray<NSNumber *> *cached = url.path.length ? [cache objectForKey:url.path] : nil;
+    if (cached) { objc_setAssociatedObject(self, @selector(drawRect:), cached, OBJC_ASSOCIATION_RETAIN_NONATOMIC); [self setNeedsDisplay]; return; }
+
+    // A deterministic placeholder keeps completed rows visually informative
+    // until their background local archive has finished downloading.
+    NSMutableArray<NSNumber *> *placeholder = [NSMutableArray arrayWithCapacity:42];
+    NSUInteger seed = identifier.hash;
+    for (NSUInteger index = 0; index < 42; index++) {
+        seed = seed * 1103515245u + 12345u;
+        [placeholder addObject:@(0.18 + ((seed >> 16) & 0x7F) / 190.0)];
+    }
+    objc_setAssociatedObject(self, @selector(drawRect:), placeholder, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [self setNeedsDisplay];
+    if (!url.isFileURL) return;
+
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        AVURLAsset *asset = [AVURLAsset URLAssetWithURL:url options:nil];
+        AVAssetTrack *track = [asset tracksWithMediaType:AVMediaTypeAudio].firstObject;
+        if (!track) return;
+        NSError *readerError = nil;
+        AVAssetReader *reader = [[AVAssetReader alloc] initWithAsset:asset error:&readerError];
+        if (!reader) return;
+        NSDictionary *settings = @{ AVFormatIDKey: @(kAudioFormatLinearPCM), AVLinearPCMBitDepthKey: @32,
+                                    AVLinearPCMIsFloatKey: @YES, AVNumberOfChannelsKey: @1 };
+        AVAssetReaderTrackOutput *output = [[AVAssetReaderTrackOutput alloc] initWithTrack:track outputSettings:settings];
+        if (![reader canAddOutput:output]) return;
+        [reader addOutput:output];
+        if (![reader startReading]) return;
+        NSMutableArray<NSNumber *> *samples = [NSMutableArray array];
+        const NSUInteger stride = 1024, maximumSamples = 42000;
+        NSUInteger sampleIndex = 0;
+        CMSampleBufferRef buffer;
+        while ((buffer = [output copyNextSampleBuffer])) {
+            CMBlockBufferRef block = CMSampleBufferGetDataBuffer(buffer);
+            size_t length = CMBlockBufferGetDataLength(block);
+            char *bytes = NULL;
+            if (CMBlockBufferGetDataPointer(block, 0, NULL, &length, &bytes) == kCMBlockBufferNoErr) {
+                const float *values = (const float *)bytes;
+                NSUInteger count = length / sizeof(float);
+                for (NSUInteger i = 0; i < count; i++, sampleIndex++) {
+                    if (sampleIndex % stride == 0) {
+                        [samples addObject:@(MIN(1.0, fabsf(values[i])))];
+                        if (samples.count >= maximumSamples) break;
+                    }
+                }
+            }
+            CFRelease(buffer);
+            if (samples.count >= maximumSamples) break;
+        }
+        if (samples.count < 2) return;
+        NSMutableArray<NSNumber *> *levels = [NSMutableArray arrayWithCapacity:42];
+        for (NSUInteger bar = 0; bar < 42; bar++) {
+            NSUInteger start = bar * samples.count / 42, end = MAX(start + 1, (bar + 1) * samples.count / 42);
+            double peak = 0;
+            for (NSUInteger i = start; i < MIN(end, samples.count); i++) peak = MAX(peak, samples[i].doubleValue);
+            [levels addObject:@(0.12 + sqrt(peak) * 0.88)];
+        }
+        [cache setObject:levels forKey:url.path];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            EZMusicWaveformView *strongSelf = weakSelf;
+            if (!strongSelf || ![strongSelf.representedIdentifier isEqualToString:identifier]) return;
+            objc_setAssociatedObject(strongSelf, @selector(drawRect:), levels, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            [strongSelf setNeedsDisplay];
+        });
+    });
+}
+@end
+
 @interface EZMusicTrackCell : UITableViewCell
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UILabel *detailLabel;
@@ -118,6 +240,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @property (nonatomic, strong) UIProgressView *progressView;
 @property (nonatomic, strong) UIImageView *favoriteView;
+@property (nonatomic, strong) EZMusicWaveformView *waveformView;
+@property (nonatomic, strong) NSLayoutConstraint *waveformHeightConstraint;
 @property (nonatomic, copy, nullable) void (^playHandler)(void);
 - (void)configureWithTitle:(NSString *)title
                     detail:(NSString *)detail
@@ -126,7 +250,9 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
                  isPlaying:(BOOL)isPlaying
             isLoadingAudio:(BOOL)isLoadingAudio
                   favorite:(BOOL)favorite
-             detailIsError:(BOOL)detailIsError;
+             detailIsError:(BOOL)detailIsError
+             waveformURL:(nullable NSURL *)waveformURL
+      waveformIdentifier:(NSString *)waveformIdentifier;
 @end
 
 @implementation EZMusicTrackCell
@@ -162,6 +288,11 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _detailLabel.numberOfLines = 0;
     [self.contentView addSubview:_detailLabel];
 
+    _waveformView = [[EZMusicWaveformView alloc] initWithFrame:CGRectZero];
+    _waveformView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.contentView addSubview:_waveformView];
+    _waveformHeightConstraint = [_waveformView.heightAnchor constraintEqualToConstant:0];
+
     _favoriteView = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"star.fill"]];
     _favoriteView.translatesAutoresizingMaskIntoConstraints = NO;
     _favoriteView.tintColor = [UIColor systemYellowColor];
@@ -194,7 +325,11 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
         [_detailLabel.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],
         [_detailLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-14],
-        [_detailLabel.topAnchor constraintEqualToAnchor:_titleLabel.bottomAnchor constant:3],
+        [_waveformView.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],
+        [_waveformView.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-14],
+        [_waveformView.topAnchor constraintEqualToAnchor:_titleLabel.bottomAnchor constant:5],
+        _waveformHeightConstraint,
+        [_detailLabel.topAnchor constraintEqualToAnchor:_waveformView.bottomAnchor constant:3],
         [_detailLabel.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-12],
 
         [_progressView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
@@ -223,11 +358,17 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
                  isPlaying:(BOOL)isPlaying
             isLoadingAudio:(BOOL)isLoadingAudio
                   favorite:(BOOL)favorite
-             detailIsError:(BOOL)detailIsError {
+             detailIsError:(BOOL)detailIsError
+             waveformURL:(NSURL *)waveformURL
+      waveformIdentifier:(NSString *)waveformIdentifier {
     self.titleLabel.text = title;
     self.detailLabel.text = detail;
     self.detailLabel.textColor = detailIsError ? [UIColor systemOrangeColor] : [UIColor secondaryLabelColor];
     self.favoriteView.hidden = !favorite;
+    BOOL showWaveform = [status isEqualToString:@"complete"];
+    self.waveformHeightConstraint.constant = showWaveform ? 30 : 0;
+    self.waveformView.hidden = !showWaveform;
+    if (showWaveform) [self.waveformView showWaveformForURL:waveformURL identifier:waveformIdentifier];
 
     BOOL showSpinner = [status isEqualToString:@"pending"] || isLoadingAudio;
     if (showSpinner) [self.spinner startAnimating]; else [self.spinner stopAnimating];
@@ -259,6 +400,9 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @end
 
 #pragma mark - View controller
+
+static const NSTimeInterval kEZMusicMaximumReferenceSeconds = 120.0;
+static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL * 1024ULL;
 
 @interface EZMusicViewController () <UITableViewDataSource, UITableViewDelegate,
                                      UITextViewDelegate, UITextFieldDelegate, UIDocumentPickerDelegate,
@@ -293,6 +437,11 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, strong) UITableView *libraryTable;
 @property (nonatomic, strong) UILabel *emptyStateLabel;
 @property (nonatomic, strong) UIRefreshControl *libraryRefreshControl;
+@property (nonatomic, strong) UILabel *playlistTitleLabel;
+@property (nonatomic, strong) UILabel *playlistDetailLabel;
+@property (nonatomic, strong) UIButton *playlistPreviousButton;
+@property (nonatomic, strong) UIButton *playlistPlayButton;
+@property (nonatomic, strong) UIButton *playlistNextButton;
 
 // Overlays
 @property (nonatomic, strong, nullable) UIView *busyOverlay;
@@ -327,6 +476,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, assign) EZMusicReferenceMode referenceMode;
 @property (nonatomic, assign) BOOL referenceModeLocked;
 @property (nonatomic, strong, nullable) UIView *referenceSourceOverlay;
+@property (nonatomic, strong, nullable) UIView *musicDialogOverlay;
 
 @end
 
@@ -706,6 +856,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     self.libraryTable.separatorInset = UIEdgeInsetsMake(0, 64, 0, 0);
     self.libraryTable.tableFooterView = [[UIView alloc] init];
     [self.libraryTable registerClass:[EZMusicTrackCell class] forCellReuseIdentifier:@"EZMusicTrackCell"];
+    [self buildPlaylistHeader];
 
     self.libraryRefreshControl = [[UIRefreshControl alloc] init];
     [self.libraryRefreshControl addTarget:self action:@selector(libraryPulledToRefresh) forControlEvents:UIControlEventValueChanged];
@@ -726,6 +877,57 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         [self.libraryTable.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
     ]];
     [self updateEmptyState];
+}
+
+- (void)buildPlaylistHeader {
+    UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 76)];
+    header.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    UILabel *title = [[UILabel alloc] init];
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    title.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+    title.numberOfLines = 1;
+    [header addSubview:title];
+    self.playlistTitleLabel = title;
+
+    UILabel *detail = [[UILabel alloc] init];
+    detail.translatesAutoresizingMaskIntoConstraints = NO;
+    detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    detail.textColor = UIColor.secondaryLabelColor;
+    detail.numberOfLines = 1;
+    [header addSubview:detail];
+    self.playlistDetailLabel = detail;
+
+    NSArray<NSString *> *symbols = @[ @"backward.end.fill", @"play.fill", @"forward.end.fill" ];
+    SEL actions[] = { @selector(playlistPreviousTapped), @selector(playlistPlayTapped), @selector(playlistNextTapped) };
+    NSMutableArray<UIButton *> *buttons = [NSMutableArray array];
+    for (NSInteger index = 0; index < symbols.count; index++) {
+        UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+        button.translatesAutoresizingMaskIntoConstraints = NO;
+        [button setImage:[UIImage systemImageNamed:symbols[index]] forState:UIControlStateNormal];
+        button.tintColor = UIColor.systemBlueColor;
+        [button addTarget:self action:actions[index] forControlEvents:UIControlEventTouchUpInside];
+        [header addSubview:button];
+        [buttons addObject:button];
+    }
+    self.playlistPreviousButton = buttons[0];
+    self.playlistPlayButton = buttons[1];
+    self.playlistNextButton = buttons[2];
+    [NSLayoutConstraint activateConstraints:@[
+        [title.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:16],
+        [title.trailingAnchor constraintLessThanOrEqualToAnchor:buttons[0].leadingAnchor constant:-8],
+        [title.topAnchor constraintEqualToAnchor:header.topAnchor constant:13],
+        [detail.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
+        [detail.trailingAnchor constraintLessThanOrEqualToAnchor:buttons[0].leadingAnchor constant:-8],
+        [detail.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:3],
+        [buttons[2].trailingAnchor constraintEqualToAnchor:header.trailingAnchor constant:-14],
+        [buttons[2].centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+        [buttons[1].trailingAnchor constraintEqualToAnchor:buttons[2].leadingAnchor constant:-13],
+        [buttons[1].centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+        [buttons[0].trailingAnchor constraintEqualToAnchor:buttons[1].leadingAnchor constant:-13],
+        [buttons[0].centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+    ]];
+    self.libraryTable.tableHeaderView = header;
+    [self updatePlaylistHeader];
 }
 
 #pragma mark - Tabs
@@ -1024,6 +1226,86 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     }];
 }
 
+- (void)usePreparedReferenceURL:(NSURL *)url sourceName:(NSString *)sourceName {
+    self.referenceURL = url;
+    self.referenceSourceName = sourceName;
+    self.referenceModeLocked = NO;
+    self.referenceModeControl.enabled = YES;
+    [self updateReferencePresentation];
+}
+
+- (void)exportReferenceURL:(NSURL *)source timeRange:(CMTimeRange)timeRange completion:(void (^)(NSURL * _Nullable, NSError * _Nullable))completion {
+    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:source options:nil];
+    AVAssetExportSession *exporter = [[AVAssetExportSession alloc] initWithAsset:asset presetName:AVAssetExportPresetAppleM4A];
+    NSURL *output = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:
+        [NSString stringWithFormat:@"music_reference_%@.m4a", NSUUID.UUID.UUIDString]]];
+    [[NSFileManager defaultManager] removeItemAtURL:output error:nil];
+    if (!exporter || ![exporter.supportedFileTypes containsObject:AVFileTypeAppleM4A]) {
+        completion(nil, [NSError errorWithDomain:@"EZMusic" code:20 userInfo:@{NSLocalizedDescriptionKey: @"This audio file can’t be prepared as a reference."}]);
+        return;
+    }
+    exporter.outputURL = output;
+    exporter.outputFileType = AVFileTypeAppleM4A;
+    exporter.timeRange = timeRange;
+    exporter.shouldOptimizeForNetworkUse = YES;
+    [exporter exportAsynchronouslyWithCompletionHandler:^{
+        NSError *error = exporter.status == AVAssetExportSessionStatusCompleted ? nil : exporter.error;
+        NSDictionary *attributes = error ? nil : [[NSFileManager defaultManager] attributesOfItemAtPath:output.path error:nil];
+        if (!error && [attributes fileSize] > kEZMusicMaximumReferenceBytes) {
+            error = [NSError errorWithDomain:@"EZMusic" code:21 userInfo:@{NSLocalizedDescriptionKey: @"That reference could not be compressed below 12 MB."}];
+            [[NSFileManager defaultManager] removeItemAtURL:output error:nil];
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(error ? nil : output, error); });
+    }];
+}
+
+- (void)presentReferenceTrimPickerForURL:(NSURL *)url sourceName:(NSString *)sourceName duration:(NSTimeInterval)duration {
+    if (self.musicDialogOverlay) return;
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.backgroundColor = [UIColor colorWithWhite:0 alpha:0.48];
+    self.musicDialogOverlay = overlay;
+    [self.view addSubview:overlay];
+    UIView *card = [UIView new]; card.translatesAutoresizingMaskIntoConstraints = NO; card.backgroundColor = UIColor.systemBackgroundColor; card.layer.cornerRadius = 22; [overlay addSubview:card];
+    UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem]; closeButton.translatesAutoresizingMaskIntoConstraints = NO; [closeButton setImage:[UIImage systemImageNamed:@"xmark.circle.fill"] forState:UIControlStateNormal]; closeButton.tintColor = UIColor.secondaryLabelColor; [card addSubview:closeButton];
+    [closeButton addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; }] forControlEvents:UIControlEventTouchUpInside];
+    UILabel *title = [UILabel new]; title.translatesAutoresizingMaskIntoConstraints = NO; title.text = @"Choose a 2-minute reference"; title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold]; [card addSubview:title];
+    UILabel *detail = [UILabel new]; detail.translatesAutoresizingMaskIntoConstraints = NO; detail.numberOfLines = 0; detail.textColor = UIColor.secondaryLabelColor; detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.text = @"References longer than two minutes are rejected before generation. Pick the part of this song you want to use."; [card addSubview:detail];
+    UILabel *range = [UILabel new]; range.translatesAutoresizingMaskIntoConstraints = NO; range.textAlignment = NSTextAlignmentCenter; range.font = [UIFont monospacedDigitSystemFontOfSize:15 weight:UIFontWeightSemibold]; [card addSubview:range];
+    UISlider *slider = [UISlider new]; slider.translatesAutoresizingMaskIntoConstraints = NO; slider.minimumValue = 0; slider.maximumValue = MAX(0, duration - kEZMusicMaximumReferenceSeconds); [card addSubview:slider];
+    void (^refresh)(void) = ^{ range.text = [NSString stringWithFormat:@"%.0f:%02.0f – %.0f:%02.0f", floor(slider.value / 60), fmod(slider.value, 60), floor((slider.value + 120) / 60), fmod(slider.value + 120, 60)]; };
+    [slider addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { refresh(); }] forControlEvents:UIControlEventValueChanged]; refresh();
+    UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem]; cancel.translatesAutoresizingMaskIntoConstraints = NO; [cancel setTitle:@"Cancel" forState:UIControlStateNormal]; [card addSubview:cancel];
+    UIButton *use = [UIButton buttonWithType:UIButtonTypeSystem]; use.translatesAutoresizingMaskIntoConstraints = NO; use.backgroundColor = UIColor.systemPurpleColor; use.tintColor = UIColor.whiteColor; use.layer.cornerRadius = 12; [use setTitle:@"Use selected clip" forState:UIControlStateNormal]; [card addSubview:use];
+    [cancel addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; }] forControlEvents:UIControlEventTouchUpInside];
+    [use addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) {
+        [overlay removeFromSuperview]; self.musicDialogOverlay = nil;
+        [self showBusyOverlayWithText:@"Preparing your selected reference…"];
+        CMTime start = CMTimeMakeWithSeconds(slider.value, 600); CMTime length = CMTimeMakeWithSeconds(kEZMusicMaximumReferenceSeconds, 600);
+        [self exportReferenceURL:url timeRange:CMTimeRangeMake(start, length) completion:^(NSURL *clip, NSError *error) {
+            [self hideBusyOverlay];
+            if (clip) [self usePreparedReferenceURL:clip sourceName:sourceName];
+            else [self presentAlertWithTitle:@"Couldn’t prepare reference" message:error.localizedDescription];
+        }];
+    }] forControlEvents:UIControlEventTouchUpInside];
+    [NSLayoutConstraint activateConstraints:@[[card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:20], [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-20], [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor], [title.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [title.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [title.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [detail.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:8], [detail.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [detail.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [range.topAnchor constraintEqualToAnchor:detail.bottomAnchor constant:20], [range.centerXAnchor constraintEqualToAnchor:card.centerXAnchor], [slider.topAnchor constraintEqualToAnchor:range.bottomAnchor constant:8], [slider.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [slider.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [cancel.topAnchor constraintEqualToAnchor:slider.bottomAnchor constant:18], [cancel.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [cancel.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-16], [use.topAnchor constraintEqualToAnchor:cancel.topAnchor], [use.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [use.widthAnchor constraintEqualToConstant:150], [use.heightAnchor constraintEqualToConstant:44]]];
+}
+
+- (void)prepareReferenceURL:(NSURL *)url sourceName:(NSString *)sourceName {
+    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:url options:nil];
+    NSTimeInterval duration = CMTimeGetSeconds(asset.duration);
+    if (!isfinite(duration) || duration <= 0) { [self setStatusMessage:@"Couldn’t read that audio reference."]; return; }
+    if (duration > kEZMusicMaximumReferenceSeconds) { [self presentReferenceTrimPickerForURL:url sourceName:sourceName duration:duration]; return; }
+    unsigned long long bytes = [[[NSFileManager defaultManager] attributesOfItemAtPath:url.path error:nil] fileSize];
+    if (bytes <= kEZMusicMaximumReferenceBytes) { [self usePreparedReferenceURL:url sourceName:sourceName]; return; }
+    [self showBusyOverlayWithText:@"Compressing reference for upload…"];
+    [self exportReferenceURL:url timeRange:CMTimeRangeMake(kCMTimeZero, asset.duration) completion:^(NSURL *clip, NSError *error) {
+        [self hideBusyOverlay];
+        if (clip) [self usePreparedReferenceURL:clip sourceName:sourceName];
+        else [self presentAlertWithTitle:@"Couldn’t prepare reference" message:error.localizedDescription];
+    }];
+}
+
 - (void)importReferenceFromURL:(NSURL *)sourceURL {
     if (!sourceURL) return;
     [sourceURL startAccessingSecurityScopedResource];
@@ -1044,11 +1326,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         [self setStatusMessage:@"Videos are for Video Soundtrack, not audio reference. Choose Compose music for a video below."];
         return;
     }
-    self.referenceURL = destination;
-    self.referenceSourceName = sourceURL.lastPathComponent;
-    self.referenceModeLocked = NO;
-    self.referenceModeControl.enabled = YES;
-    [self updateReferencePresentation];
+    [self prepareReferenceURL:destination sourceName:sourceURL.lastPathComponent];
 }
 
 // This intentionally does not extract the video's audio. Video-to-music uses
@@ -1286,17 +1564,10 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     } else {
         message = EZMusicText(@"EZMusic.Alert.CoinsMessage", @"You don't have enough coins for this song.");
     }
-    UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:EZMusicText(@"EZMusic.Alert.CoinsTitle", @"Not Enough Coins")
-                         message:message
-                  preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Cancel", @"Cancel")
-                                              style:UIAlertActionStyleCancel handler:nil]];
     __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Alert.GetCoins", @"Get Coins")
-                                              style:UIAlertActionStyleDefault
-                                            handler:^(UIAlertAction *action) { [weakSelf presentCoinStore]; }]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [self presentMusicDialogWithTitle:EZMusicText(@"EZMusic.Alert.CoinsTitle", @"Not Enough Coins")
+                              message:message primaryTitle:EZMusicText(@"EZMusic.Alert.GetCoins", @"Get Coins")
+                       primaryHandler:^{ [weakSelf presentCoinStore]; }];
 }
 
 - (void)presentCoinStore {
@@ -1431,7 +1702,10 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 - (void)updateEmptyState {
     BOOL isEmpty = (self.entries.count == 0);
     self.emptyStateLabel.hidden = !isEmpty;
-    if (!isEmpty) return;
+    if (!isEmpty) {
+        [self updatePlaylistHeader];
+        return;
+    }
     if (!self.libraryLoadedOnce) {
         self.emptyStateLabel.text = EZMusicText(@"EZMusic.Library.Loading", @"Loading your songs...");
     } else if (self.libraryErrorMessage.length > 0) {
@@ -1440,6 +1714,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     } else {
         self.emptyStateLabel.text = EZMusicText(@"EZMusic.Library.Empty", @"No songs yet.\nCreate one on the Create tab.");
     }
+    [self updatePlaylistHeader];
 }
 
 - (NSInteger)rowForEntryID:(NSString *)entryID {
@@ -1581,8 +1856,11 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 - (void)retainCompletedEntry:(NSDictionary *)entry {
     NSString *entryID = EZMusicString(entry[@"id"]);
-    if (entryID.length == 0 || [self.retainingEntryIDs containsObject:entryID] ||
-        [[EZMusicLibraryManager sharedManager] localSongURLForEntryID:entryID]) return;
+    if (entryID.length == 0 || [self.retainingEntryIDs containsObject:entryID]) return;
+    if ([[EZMusicLibraryManager sharedManager] localSongURLForEntryID:entryID]) {
+        [[EZMusicLibraryManager sharedManager] updateSongMetadataForEntry:entry];
+        return;
+    }
     [self.retainingEntryIDs addObject:entryID];
     __weak typeof(self) weakSelf = self;
     [[EZMusicService sharedService] fetchPlaybackURLForEntryID:entryID forDownload:NO completion:^(NSURL *url, NSError *error) {
@@ -1628,16 +1906,14 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     NSMutableArray<NSString *> *parts = [NSMutableArray array];
     NSInteger durationMs = EZMusicInteger(entry[@"duration_actual_ms"]);
     if (durationMs <= 0) durationMs = EZMusicInteger(entry[@"duration_requested_ms"]);
+    NSString *style = EZMusicCompactStyle(EZMusicString(entry[@"prompt"]));
+    if (style.length) [parts addObject:style];
     [parts addObject:EZMusicFormattedDuration((durationMs + 500) / 1000)];
 
     NSString *generationID = EZMusicString(entry[@"generation_id"]);
     if ([self variantCountForGenerationID:generationID] > 1) {
         [parts addObject:[NSString stringWithFormat:EZMusicText(@"EZMusic.Row.Take", @"Version %ld"),
             (long)(EZMusicInteger(entry[@"variant_index"]) + 1)]];
-    }
-    NSInteger coinsCharged = EZMusicInteger(entry[@"coins_charged"]);
-    if (coinsCharged > 0) {
-        [parts addObject:[NSString stringWithFormat:EZMusicText(@"EZMusic.Row.Coins", @"%ld coins"), (long)coinsCharged]];
     }
     NSDate *createdAt = EZMusicDateFromServerString(EZMusicString(entry[@"created_at"]));
     if (createdAt) {
@@ -1671,7 +1947,9 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
                    isPlaying:self.isPlaybackActive
               isLoadingAudio:[entryID isEqualToString:self.loadingEntryID]
                     favorite:[entry[@"is_favorite"] boolValue]
-               detailIsError:detailIsError];
+               detailIsError:detailIsError
+                 waveformURL:[[EZMusicLibraryManager sharedManager] localSongURLForEntryID:entryID]
+          waveformIdentifier:entryID];
 
     __weak typeof(self) weakSelf = self;
     cell.playHandler = ^{ [weakSelf togglePlaybackForEntryID:entryID]; };
@@ -1779,17 +2057,11 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 }
 
 - (void)confirmDeleteEntryID:(NSString *)entryID {
-    UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:EZMusicText(@"EZMusic.Delete.Title", @"Delete This Song?")
-                         message:EZMusicText(@"EZMusic.Delete.Message", @"This permanently removes the song and its audio. It can't be undone, and coins aren't refunded.")
-                  preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Cancel", @"Cancel")
-                                              style:UIAlertActionStyleCancel handler:nil]];
     __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Action.Delete", @"Delete")
-                                              style:UIAlertActionStyleDestructive
-                                            handler:^(UIAlertAction *action) { [weakSelf deleteEntryID:entryID]; }]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [self presentMusicDialogWithTitle:EZMusicText(@"EZMusic.Delete.Title", @"Delete This Song?")
+                              message:EZMusicText(@"EZMusic.Delete.Message", @"This permanently removes the song and its audio. It can't be undone, and coins aren't refunded.")
+                         primaryTitle:EZMusicText(@"EZMusic.Action.Delete", @"Delete")
+                      primaryHandler:^{ [weakSelf deleteEntryID:entryID]; }];
 }
 
 - (void)deleteEntryID:(NSString *)entryID {
@@ -1879,6 +2151,77 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 #pragma mark - Playback
 
+// The manifest, rather than table order, is the playlist's source of truth.
+// Keeping it local means an already-downloaded run can continue offline.
+- (NSArray<NSString *> *)playlistEntryIDs {
+    NSArray<NSString *> *manifestIDs = [[EZMusicLibraryManager sharedManager] localSongEntryIDs];
+    NSMutableArray<NSString *> *playable = [NSMutableArray array];
+    for (NSString *entryID in manifestIDs) {
+        NSDictionary *entry = [self entryForID:entryID];
+        if ([EZMusicString(entry[@"status"]) isEqualToString:@"complete"]) [playable addObject:entryID];
+    }
+    // Before the first local download completes, use completed library rows so
+    // playback still behaves like a playlist for newly generated songs.
+    if (playable.count == 0) {
+        for (NSDictionary *entry in self.entries) {
+            if ([EZMusicString(entry[@"status"]) isEqualToString:@"complete"]) {
+                [playable addObject:EZMusicString(entry[@"id"])];
+            }
+        }
+    }
+    return playable;
+}
+
+- (nullable NSString *)playlistEntryIDFromCurrent:(NSString *)current direction:(NSInteger)direction wrap:(BOOL)wrap {
+    NSArray<NSString *> *playlist = [self playlistEntryIDs];
+    if (!playlist.count) return nil;
+    NSInteger index = [playlist indexOfObject:current];
+    if (index == NSNotFound) return playlist.firstObject;
+    NSInteger target = index + direction;
+    if (target < 0 || target >= (NSInteger)playlist.count) {
+        if (!wrap) return nil;
+        target = target < 0 ? (NSInteger)playlist.count - 1 : 0;
+    }
+    return playlist[(NSUInteger)target];
+}
+
+- (void)playlistPreviousTapped {
+    NSString *current = self.playingEntryID ?: self.loadingEntryID;
+    NSString *previous = [self playlistEntryIDFromCurrent:current direction:-1 wrap:YES];
+    if (previous) [self togglePlaybackForEntryID:previous];
+}
+
+- (void)playlistNextTapped {
+    NSString *current = self.playingEntryID ?: self.loadingEntryID;
+    NSString *next = [self playlistEntryIDFromCurrent:current direction:1 wrap:YES];
+    if (next) [self togglePlaybackForEntryID:next];
+}
+
+- (void)playlistPlayTapped {
+    NSString *entryID = self.playingEntryID ?: self.loadingEntryID ?: [self playlistEntryIDs].firstObject;
+    if (entryID) [self togglePlaybackForEntryID:entryID];
+}
+
+- (void)updatePlaylistHeader {
+    if (!self.playlistTitleLabel) return;
+    NSArray<NSString *> *playlist = [self playlistEntryIDs];
+    NSString *current = self.playingEntryID ?: self.loadingEntryID;
+    NSDictionary *entry = current.length ? [self entryForID:current] : nil;
+    NSString *title = EZMusicString(entry[@"title"]);
+    self.playlistTitleLabel.text = title.length ? title : EZMusicText(@"EZMusic.Playlist.Title", @"Local playlist");
+    NSInteger currentIndex = current.length ? [playlist indexOfObject:current] + 1 : 0;
+    self.playlistDetailLabel.text = playlist.count
+        ? (currentIndex ? [NSString stringWithFormat:@"%ld of %ld  •  plays next automatically", (long)currentIndex, (long)playlist.count]
+                        : [NSString stringWithFormat:@"%ld downloaded songs", (long)playlist.count])
+        : EZMusicText(@"EZMusic.Playlist.Empty", @"Downloaded songs will appear here");
+    NSString *symbol = self.isPlaybackActive ? @"pause.fill" : @"play.fill";
+    [self.playlistPlayButton setImage:[UIImage systemImageNamed:symbol] forState:UIControlStateNormal];
+    BOOL hasSongs = playlist.count > 0;
+    self.playlistPlayButton.enabled = hasSongs;
+    self.playlistPreviousButton.enabled = hasSongs;
+    self.playlistNextButton.enabled = hasSongs;
+}
+
 - (void)togglePlaybackForEntryID:(NSString *)entryID {
     // Same song: pause or resume.
     if ([entryID isEqualToString:self.playingEntryID]) {
@@ -1890,6 +2233,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
             self.isPlaybackActive = YES;
         }
         [self reloadRowForEntryID:entryID];
+        [self updatePlaylistHeader];
         return;
     }
     if ([entryID isEqualToString:self.loadingEntryID]) return;   // already fetching this one
@@ -1900,6 +2244,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [self stopPlaybackReleasingSession:NO];
     self.loadingEntryID = entryID;
     [self reloadRowForEntryID:entryID];
+    [self updatePlaylistHeader];
 
     // Offline/local playback wins once a streamed original has been retained.
     NSURL *localURL = [[EZMusicLibraryManager sharedManager] localSongURLForEntryID:entryID];
@@ -1916,6 +2261,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         if (!url) {
             strongSelf.loadingEntryID = nil;
             [strongSelf reloadRowForEntryID:entryID];
+            [strongSelf updatePlaylistHeader];
             [strongSelf presentAlertWithTitle:EZMusicText(@"EZMusic.Play.FailedTitle", @"Couldn't Play Song")
                                       message:error.localizedDescription];
             return;
@@ -1939,6 +2285,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
                         EZLogf(EZLogLevelWarning, @"Music", @"Could not retain %@ locally: %@", entryID, archiveError.localizedDescription);
                     } else {
                         EZLogf(EZLogLevelInfo, @"Music", @"Archived %@ as %@", entryID, localURL.lastPathComponent);
+                        [self reloadRowForEntryID:entryID];
+                        [self updatePlaylistHeader];
                     }
                 });
             }];
@@ -1998,6 +2346,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
             self.isPlaybackActive = YES;
             [self.player play];
             [self reloadRowForEntryID:entryID];
+            [self updatePlaylistHeader];
         } else if (item.status == AVPlayerItemStatusFailed) {
             NSString *message = item.error.localizedDescription ?: EZMusicText(@"EZMusic.Play.Failed", @"The song couldn't be played.");
             [self stopPlaybackReleasingSession:YES];
@@ -2007,12 +2356,19 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 }
 
 - (void)playerItemDidFinish:(NSNotification *)note {
-    // Rewind and pause; tapping play again replays the song.
+    NSString *finishedEntryID = self.playingEntryID;
+    NSString *nextEntryID = [self playlistEntryIDFromCurrent:finishedEntryID direction:1 wrap:NO];
+    // The queue ends naturally at the final song; it does not loop forever.
+    if (nextEntryID) {
+        [self togglePlaybackForEntryID:nextEntryID];
+        return;
+    }
     [self.player pause];
     [self.player seekToTime:kCMTimeZero];
     self.isPlaybackActive = NO;
     [self updatePlaybackProgress];
     [self reloadRowForEntryID:self.playingEntryID];
+    [self updatePlaylistHeader];
 }
 
 - (void)playerItemFailedToFinish:(NSNotification *)note {
@@ -2028,6 +2384,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         // A call or alarm paused audio; reflect that in the row instead of showing a stale pause icon.
         self.isPlaybackActive = NO;
         [self reloadRowForEntryID:self.playingEntryID];
+        [self updatePlaylistHeader];
     }
 }
 
@@ -2067,6 +2424,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     self.isPlaybackActive = NO;
     [self reloadRowForEntryID:previousPlaying];
     [self reloadRowForEntryID:previousLoading];
+    [self updatePlaylistHeader];
     if (releaseSession) {
         [[AVAudioSession sharedInstance] setActive:NO
                                        withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
@@ -2076,20 +2434,26 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 #pragma mark - Alerts, toast, busy overlay
 
+- (void)presentMusicDialogWithTitle:(NSString *)title message:(NSString *)message primaryTitle:(NSString *)primaryTitle primaryHandler:(void (^)(void))primaryHandler {
+    if (self.musicDialogOverlay || self.view.window == nil) return;
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.backgroundColor = [UIColor colorWithWhite:0 alpha:0.48];
+    self.musicDialogOverlay = overlay;
+    [self.view addSubview:overlay];
+    UIView *card = [UIView new]; card.translatesAutoresizingMaskIntoConstraints = NO; card.backgroundColor = UIColor.systemBackgroundColor; card.layer.cornerRadius = 22; [overlay addSubview:card];
+    UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem]; closeButton.translatesAutoresizingMaskIntoConstraints = NO; [closeButton setImage:[UIImage systemImageNamed:@"xmark.circle.fill"] forState:UIControlStateNormal]; closeButton.tintColor = UIColor.secondaryLabelColor; [card addSubview:closeButton];
+    [closeButton addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; }] forControlEvents:UIControlEventTouchUpInside];
+    UILabel *heading = [UILabel new]; heading.translatesAutoresizingMaskIntoConstraints = NO; heading.text = title; heading.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold]; heading.numberOfLines = 0; [card addSubview:heading];
+    UILabel *body = [UILabel new]; body.translatesAutoresizingMaskIntoConstraints = NO; body.text = message; body.textColor = UIColor.secondaryLabelColor; body.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; body.numberOfLines = 0; [card addSubview:body];
+    UIButton *dismiss = [UIButton buttonWithType:UIButtonTypeSystem]; dismiss.translatesAutoresizingMaskIntoConstraints = NO; [dismiss setTitle:primaryTitle ?: EZMusicText(@"EZMusic.OK", @"OK") forState:UIControlStateNormal]; dismiss.backgroundColor = UIColor.systemPurpleColor; dismiss.tintColor = UIColor.whiteColor; dismiss.layer.cornerRadius = 12; [card addSubview:dismiss];
+    [dismiss addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; if (primaryHandler) primaryHandler(); }] forControlEvents:UIControlEventTouchUpInside];
+    [NSLayoutConstraint activateConstraints:@[[card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:28], [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-28], [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor], [closeButton.topAnchor constraintEqualToAnchor:card.topAnchor constant:12], [closeButton.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-12], [closeButton.widthAnchor constraintEqualToConstant:28], [closeButton.heightAnchor constraintEqualToConstant:28], [heading.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [heading.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [heading.trailingAnchor constraintEqualToAnchor:closeButton.leadingAnchor constant:-8], [body.topAnchor constraintEqualToAnchor:heading.bottomAnchor constant:9], [body.leadingAnchor constraintEqualToAnchor:heading.leadingAnchor], [body.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [dismiss.topAnchor constraintEqualToAnchor:body.bottomAnchor constant:22], [dismiss.leadingAnchor constraintEqualToAnchor:heading.leadingAnchor], [dismiss.trailingAnchor constraintEqualToAnchor:body.trailingAnchor], [dismiss.heightAnchor constraintEqualToConstant:46], [dismiss.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18]]];
+    overlay.alpha = 0; [UIView animateWithDuration:.18 animations:^{ overlay.alpha = 1; }];
+}
+
 - (void)presentAlertWithTitle:(NSString *)title message:(NSString *)message {
-    UIViewController *presenter = self;
-    while (presenter.presentedViewController) {
-        // Never stack a second alert on a visible one; the first already has the user's attention.
-        if ([presenter.presentedViewController isKindOfClass:[UIAlertController class]]) return;
-        presenter = presenter.presentedViewController;
-    }
-    if (self.view.window == nil) return;
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
-                                                                   message:message
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.OK", @"OK")
-                                              style:UIAlertActionStyleDefault handler:nil]];
-    [presenter presentViewController:alert animated:YES completion:nil];
+    [self presentMusicDialogWithTitle:title message:message primaryTitle:nil primaryHandler:nil];
 }
 
 - (void)showToast:(NSString *)message {

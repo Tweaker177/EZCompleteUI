@@ -24,6 +24,7 @@ NSString * const EZMusicServiceServerCodeKey  = @"EZMusicServiceServerCode";
 static const NSTimeInterval kRequestTimeoutSeconds   = 45.0;
 static const NSInteger      kMaxNetworkRetries       = 2;
 static const NSUInteger     kMaximumReferenceBytes   = 12 * 1024 * 1024;
+static const NSUInteger     kMaximumVideoBytes       = 200 * 1024 * 1024;
 static const NSTimeInterval kRetryBaseDelaySeconds   = 1.5;
 
 // Polling tuning. The server refunds anything unfinished after ~15 minutes, so
@@ -81,6 +82,105 @@ static BOOL EZMusicAnyEntryPending(NSArray<NSDictionary *> *entries) {
         if ([entry[@"status"] isEqual:@"pending"]) return YES;
     }
     return NO;
+}
+
+static NSString *EZMusicVideoMimeType(NSURL *url) {
+    static NSDictionary<NSString *, NSString *> *types;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        types = @{ @"mp4": @"video/mp4", @"m4v": @"video/x-m4v",
+                   @"mov": @"video/quicktime", @"webm": @"video/webm",
+                   @"avi": @"video/x-msvideo" };
+    });
+    return types[url.pathExtension.lowercaseString] ?: @"application/octet-stream";
+}
+
+static BOOL EZMusicLooksLikeMP3(NSData *data) {
+    if (data.length < 3) return NO;
+    const uint8_t *bytes = data.bytes;
+    return (bytes[0] == 'I' && bytes[1] == 'D' && bytes[2] == '3') ||
+           (bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0);
+}
+
+static NSError *EZMusicVideoError(NSData *data, NSInteger statusCode, NSError *networkError) {
+    if (networkError) {
+        return EZMusicError(EZMusicServiceErrorNetwork,
+                            @"Couldn't reach the music service. Check your connection and try again.",
+                            @{ NSUnderlyingErrorKey: networkError });
+    }
+    NSDictionary *json = nil;
+    if (data.length) {
+        id parsed = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        if ([parsed isKindOfClass:[NSDictionary class]]) json = parsed;
+    }
+    NSString *serverCode = [json[@"error"] isKindOfClass:[NSString class]] ? json[@"error"] : @"";
+    NSString *message = [json[@"message"] isKindOfClass:[NSString class]] ? json[@"message"] : nil;
+    if (!message.length) {
+        message = statusCode == 401 ? @"Your session expired. Please sign in again."
+                : statusCode == 413 ? @"That video is too large. Choose videos totaling 200 MB or less."
+                : @"Couldn't generate music for that video. Please try again.";
+    }
+    NSMutableDictionary *info = [NSMutableDictionary dictionary];
+    if (serverCode.length) info[EZMusicServiceServerCodeKey] = serverCode;
+    return EZMusicError(statusCode == 401 ? EZMusicServiceErrorNotSignedIn : EZMusicServiceErrorServer,
+                        message, info);
+}
+
+static BOOL EZMusicIsH264MP4(NSURL *url) {
+    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:url options:nil];
+    AVAssetTrack *track = [asset tracksWithMediaType:AVMediaTypeVideo].firstObject;
+    CMFormatDescriptionRef description = (__bridge CMFormatDescriptionRef)track.formatDescriptions.firstObject;
+    return track && description && CMFormatDescriptionGetMediaSubType(description) == kCMVideoCodecType_H264;
+}
+
+static void EZMusicPrepareVideoAtIndex(NSArray<NSURL *> *sourceURLs, NSMutableArray<NSURL *> *prepared,
+                                       NSMutableArray<NSURL *> *temporary, NSUInteger index,
+                                       void (^completion)(NSArray<NSURL *> * _Nullable, NSArray<NSURL *> *, NSError * _Nullable)) {
+    if (index >= sourceURLs.count) { completion(prepared, temporary, nil); return; }
+    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:sourceURLs[index] options:nil];
+    if (![asset tracksWithMediaType:AVMediaTypeVideo].count) {
+        completion(nil, temporary, EZMusicError(EZMusicServiceErrorInvalidInput, @"Choose a video file for Video Soundtrack.", nil));
+        return;
+    }
+    // Normalize the source rather than merely changing its extension.  This
+    // strips HEVC/HDR and high-resolution iPhone capture variants and creates
+    // the conventional 720p H.264/AAC MP4 ingest format.
+    NSString *preset = [[AVAssetExportSession exportPresetsCompatibleWithAsset:asset] containsObject:AVAssetExportPreset1280x720]
+        ? AVAssetExportPreset1280x720 : AVAssetExportPresetMediumQuality;
+    AVAssetExportSession *exporter = [[AVAssetExportSession alloc] initWithAsset:asset presetName:preset];
+    NSURL *outputURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:
+        [NSString stringWithFormat:@"music-upload-%@.mp4", NSUUID.UUID.UUIDString]]];
+    [[NSFileManager defaultManager] removeItemAtURL:outputURL error:nil];
+    if (!exporter || ![exporter.supportedFileTypes containsObject:AVFileTypeMPEG4]) {
+        completion(nil, temporary, EZMusicError(EZMusicServiceErrorInvalidInput, @"This video can't be converted to a compatible H.264 MP4.", nil));
+        return;
+    }
+    exporter.outputURL = outputURL;
+    exporter.outputFileType = AVFileTypeMPEG4;
+    exporter.shouldOptimizeForNetworkUse = YES;
+    [exporter exportAsynchronouslyWithCompletionHandler:^{
+        if (exporter.status != AVAssetExportSessionStatusCompleted || !EZMusicIsH264MP4(outputURL)) {
+            [[NSFileManager defaultManager] removeItemAtURL:outputURL error:nil];
+            NSError *error = exporter.error;
+            completion(nil, temporary, EZMusicError(EZMusicServiceErrorInvalidInput,
+                error.localizedDescription ?: @"This video could not be normalized to an H.264 MP4.", error ? @{ NSUnderlyingErrorKey: error } : nil));
+            return;
+        }
+        [prepared addObject:outputURL];
+        [temporary addObject:outputURL];
+        EZMusicPrepareVideoAtIndex(sourceURLs, prepared, temporary, index + 1, completion);
+    }];
+}
+
+// ElevenLabs accepts MP4/MOV containers, but rejects some otherwise valid iOS
+// recordings when their codec profile is not in its ingest set.  Re-exporting
+// through AVFoundation produces an explicitly encoded H.264 MP4 copy.
+static void EZMusicPrepareVideosForUpload(NSArray<NSURL *> *sourceURLs,
+                                          void (^completion)(NSArray<NSURL *> * _Nullable preparedURLs,
+                                                             NSArray<NSURL *> *temporaryURLs,
+                                                             NSError * _Nullable error)) {
+    EZMusicPrepareVideoAtIndex(sourceURLs, [NSMutableArray arrayWithCapacity:sourceURLs.count],
+                               [NSMutableArray arrayWithCapacity:sourceURLs.count], 0, completion);
 }
 
 @interface EZMusicService ()
@@ -224,13 +324,78 @@ static BOOL EZMusicAnyEntryPending(NSArray<NSDictionary *> *entries) {
 }
 
 - (void)generateMusicForVideoURLs:(NSArray<NSURL *> *)videoURLs description:(NSString *)description completion:(void (^)(NSData *, NSError *))completion {
-    if (!videoURLs.count || videoURLs.count > 10) { completion(nil, EZMusicError(EZMusicServiceErrorInvalidInput, @"Choose 1–10 videos.", nil)); return; }
-    NSString *boundary = [NSString stringWithFormat:@"EZMusic%@", NSUUID.UUID.UUIDString]; NSMutableData *body = [NSMutableData data];
-    void (^field)(NSString *, NSString *) = ^(NSString *name, NSString *value) { [body appendData:[[NSString stringWithFormat:@"--%@\r\nContent-Disposition: form-data; name=\"%@\"\r\n\r\n%@\r\n", boundary, name, value] dataUsingEncoding:NSUTF8StringEncoding]]; };
-    field(@"action", @"video_to_music"); if (description.length) field(@"description", description);
-    for (NSURL *url in videoURLs) { NSData *data = [NSData dataWithContentsOfURL:url]; if (!data.length) { completion(nil, EZMusicError(EZMusicServiceErrorInvalidInput, @"Couldn’t read a selected video.", nil)); return; } [body appendData:[[NSString stringWithFormat:@"--%@\r\nContent-Disposition: form-data; name=\"videos[]\"; filename=\"%@\"\r\nContent-Type: video/mp4\r\n\r\n", boundary, url.lastPathComponent] dataUsingEncoding:NSUTF8StringEncoding]]; [body appendData:data]; [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]]; }
-    [body appendData:[[NSString stringWithFormat:@"--%@--\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
-    [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *authError) { if (!token.length) { completion(nil, EZMusicError(EZMusicServiceErrorNotSignedIn, @"Please sign in to use music generation.", nil)); return; } NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/ez-music"]]]; request.HTTPMethod = @"POST"; request.HTTPBody = body; request.timeoutInterval = 300; [request setValue:[NSString stringWithFormat:@"multipart/form-data; boundary=%@", boundary] forHTTPHeaderField:@"Content-Type"]; [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"]; [request setValue:EZSupabaseAnonKey forHTTPHeaderField:@"apikey"]; [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) { NSInteger status = [(NSHTTPURLResponse *)response statusCode]; dispatch_async(dispatch_get_main_queue(), ^{ completion((!error && status >= 200 && status < 300) ? data : nil, error ?: EZMusicError(EZMusicServiceErrorServer, @"Couldn’t generate music for that video.", nil)); }); }] resume]; }];
+    if (!videoURLs.count || videoURLs.count > 10) {
+        completion(nil, EZMusicError(EZMusicServiceErrorInvalidInput, @"Choose 1–10 videos.", nil));
+        return;
+    }
+
+    EZMusicPrepareVideosForUpload(videoURLs, ^(NSArray<NSURL *> *preparedURLs, NSArray<NSURL *> *temporaryURLs, NSError *preparationError) {
+        if (preparationError) {
+            for (NSURL *url in temporaryURLs) [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, preparationError); });
+            return;
+        }
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSString *boundary = [NSString stringWithFormat:@"EZMusic%@", NSUUID.UUID.UUIDString];
+        NSMutableData *body = [NSMutableData data];
+        void (^field)(NSString *, NSString *) = ^(NSString *name, NSString *value) {
+            [body appendData:[[NSString stringWithFormat:@"--%@\r\nContent-Disposition: form-data; name=\"%@\"\r\n\r\n%@\r\n", boundary, name, value]
+                              dataUsingEncoding:NSUTF8StringEncoding]];
+        };
+        field(@"action", @"video_to_music");
+        NSString *trimmedDescription = [description stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+        if (trimmedDescription.length) field(@"description", [trimmedDescription substringToIndex:MIN(trimmedDescription.length, 4100)]);
+
+        NSUInteger totalBytes = 0;
+        for (NSURL *url in preparedURLs) {
+            NSError *readError = nil;
+            NSData *data = [NSData dataWithContentsOfURL:url options:NSDataReadingMappedIfSafe error:&readError];
+            if (!data.length) {
+                for (NSURL *temporaryURL in temporaryURLs) [[NSFileManager defaultManager] removeItemAtURL:temporaryURL error:nil];
+                dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, EZMusicError(EZMusicServiceErrorInvalidInput, @"Couldn’t read a selected video.", readError ? @{ NSUnderlyingErrorKey: readError } : nil)); });
+                return;
+            }
+            totalBytes += data.length;
+            if (totalBytes > kMaximumVideoBytes) {
+                for (NSURL *temporaryURL in temporaryURLs) [[NSFileManager defaultManager] removeItemAtURL:temporaryURL error:nil];
+                dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, EZMusicError(EZMusicServiceErrorInvalidInput, @"Choose videos totaling 200 MB or less.", nil)); });
+                return;
+            }
+            NSString *filename = url.lastPathComponent.length ? url.lastPathComponent : @"video";
+            [body appendData:[[NSString stringWithFormat:@"--%@\r\nContent-Disposition: form-data; name=\"videos[]\"; filename=\"%@\"\r\nContent-Type: %@\r\n\r\n", boundary, filename, EZMusicVideoMimeType(url)] dataUsingEncoding:NSUTF8StringEncoding]];
+            [body appendData:data];
+            [body appendData:[@"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+        }
+        [body appendData:[[NSString stringWithFormat:@"--%@--\r\n", boundary] dataUsingEncoding:NSUTF8StringEncoding]];
+
+        [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *authError) {
+            if (!token.length) {
+                for (NSURL *temporaryURL in temporaryURLs) [[NSFileManager defaultManager] removeItemAtURL:temporaryURL error:nil];
+                dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, EZMusicError(EZMusicServiceErrorNotSignedIn, @"Please sign in to use music generation.", authError ? @{ NSUnderlyingErrorKey: authError } : nil)); });
+                return;
+            }
+            NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/ez-music"]]
+                                                                   cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                                               timeoutInterval:300.0];
+            request.HTTPMethod = @"POST";
+            request.HTTPBody = body;
+            [request setValue:[NSString stringWithFormat:@"multipart/form-data; boundary=%@", boundary] forHTTPHeaderField:@"Content-Type"];
+            [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
+            [request setValue:EZSupabaseAnonKey forHTTPHeaderField:@"apikey"];
+            [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+                NSInteger status = [response isKindOfClass:[NSHTTPURLResponse class]] ? ((NSHTTPURLResponse *)response).statusCode : 0;
+                BOOL succeeded = !error && status >= 200 && status < 300 && EZMusicLooksLikeMP3(data);
+                NSError *resultError = succeeded ? nil : EZMusicVideoError(data, status, error);
+                if (!succeeded && !error && status >= 200 && status < 300) {
+                    resultError = EZMusicError(EZMusicServiceErrorBadResponse, @"The music service returned an unusable audio file. Please try again.", nil);
+                }
+                if (resultError) EZLogf(EZLogLevelWarning, @"Music", @"Video-to-music failed (HTTP %ld): %@", (long)status, resultError.localizedDescription);
+                for (NSURL *temporaryURL in temporaryURLs) [[NSFileManager defaultManager] removeItemAtURL:temporaryURL error:nil];
+                dispatch_async(dispatch_get_main_queue(), ^{ completion(succeeded ? data : nil, resultError); });
+            }] resume];
+        }];
+    });
+    });
 }
 
 #pragma mark - Generation
@@ -324,6 +489,16 @@ static BOOL EZMusicAnyEntryPending(NSArray<NSDictionary *> *entries) {
     if (forceInstrumental) payload[@"force_instrumental"] = @YES;
 
     if (referenceURL.isFileURL) {
+        AVURLAsset *asset = [AVURLAsset URLAssetWithURL:referenceURL options:nil];
+        CMTime duration = asset.duration;
+        NSInteger durationMs = CMTIME_IS_NUMERIC(duration) ? (NSInteger)llround(CMTimeGetSeconds(duration) * 1000.0) : 0;
+        if (durationMs <= 0 || durationMs > 120000) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(nil, nil, 0, EZMusicError(EZMusicServiceErrorInvalidInput,
+                    @"Audio references must be two minutes or shorter. Choose a section before generating.", nil));
+            });
+            return;
+        }
         NSError *readError = nil;
         NSData *data = [NSData dataWithContentsOfURL:referenceURL options:NSDataReadingMappedIfSafe error:&readError];
         if (!data || data.length == 0 || data.length > kMaximumReferenceBytes) {
@@ -340,9 +515,6 @@ static BOOL EZMusicAnyEntryPending(NSArray<NSDictionary *> *entries) {
         NSDictionary *mimeTypes = @{ @"mp3": @"audio/mpeg", @"m4a": @"audio/mp4", @"aac": @"audio/aac",
                                       @"wav": @"audio/wav", @"aif": @"audio/aiff", @"aiff": @"audio/aiff",
                                       @"flac": @"audio/flac", @"ogg": @"audio/ogg", @"opus": @"audio/ogg" };
-        AVURLAsset *asset = [AVURLAsset URLAssetWithURL:referenceURL options:nil];
-        CMTime duration = asset.duration;
-        NSInteger durationMs = CMTIME_IS_NUMERIC(duration) ? (NSInteger)llround(CMTimeGetSeconds(duration) * 1000.0) : 0;
         payload[@"reference"] = @{
             @"audio_base64": [data base64EncodedStringWithOptions:0],
             @"filename": referenceURL.lastPathComponent ?: @"reference.m4a",

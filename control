@@ -1,9 +1,9 @@
 Package: com.i0stweak3r.ezcompleteui
 Name: EZCompleteUI
 Author: i0s_tweak3r
-Description: An OpenAI multimodel chatbot multi-AI-Tool all in one application for iOS built with Objective C, using the latest models including GPT 6-astra. In addition to having outstanding memory recall abilities, app can do transcriptions, analyze attached files and images, generate files images, process image edits, responses can be given with elevenlabs voices and users can clone their own as well. There's a searchable memories page that has summaries of all interactions with attachment previews inline. Also a photo gallery with attached and generated images, and a custom video game creation engine with community shared games available to download. The app works with a coin store system with free coins given out every 6 hours, in addition to purchase options.  Source Code and faq on github.com/tweaker177/EZCompleteUI
+Description: An OpenAI multimodel chatbot multi-AI-Tool all in one application for iOS built with Objective C, using the latest models including GPT 6-astra. In addition to having outstanding memory recall abilities, app can do transcriptions, analyze attached files and images, generate files images, music, process image edits, responses can be given with elevenlabs voices and users can clone their own as well. There's a searchable memories page that has summaries of all interactions with attachment previews inline. Also a photo gallery with attached and generated images, and a custom video game creation engine with community shared games available to download. The app works with a coin store system with free coins given out every 6 hours, in addition to purchase options.  Source Code and faq on github.com/tweaker177/EZCompleteUI
 Depends: firmware (>= 15.0)
 Maintainer: i0s_tweak3r <djvs23@gmail.com>
 Architecture: iphoneos-arm64
 Section: Utilities
-Version: 7.1.15
+Version: 7.1.16

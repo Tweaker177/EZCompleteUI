@@ -4,7 +4,76 @@ All notable changes to EZCompleteUI are documented here. Version numbers refer
 to the app/package version. Server-backed features also require their matching
 Supabase Edge Function deployments and migrations.
 
-## Unreleased — post 7.1.12
+## 7.1.15 — 2026-10-17
+
+### Highlights since 7.1.12
+
+### Selectable thread export
+
+- Replaced the thread **Memories** action with **Select**, allowing individual
+  prompts, text responses, code blocks, and attachments to be selected for a
+  focused export or action.
+- Added Select All, selected-item deletion, sharing, translation, and export
+  workflows for selected thread content.
+- Improved document exports so they preserve each image at its original thread
+  position, including repeated uses of the same attachment, and retain the
+  time each item was added.
+- Refined PDF layout to read more like an illustrated conversation: text and
+  images share pages where possible, attachments use compact grids or aligned
+  cards, and code is exported in full instead of being limited to the visible
+  portion of a chat cell.
+- Internal system instructions are excluded from exports. User-provided custom
+  instructions and user-added system messages remain exportable.
+
+### Image studio and gallery editing
+
+- Expanded **Surprise Me** image editing recipes. Gallery analysis now chooses
+  appropriate single-image edits or blends using two to four compatible image
+  sources, rather than always attempting the same type of combination.
+- Improved gallery edit resilience with streaming partial previews, bounded
+  automatic recovery from transient connection failures, and a keep-awake
+  state while an edit is active.
+- Restored the animated teal/blue lava treatment behind the blurred source
+  image and progress meter. It continues moving through the edit and fades as
+  streamed image previews arrive.
+- Kept long edit prompts from pushing the image under the navigation bar, and
+  prevented accidental sheet pull-down dismissal while editing.
+
+### AI Music and voice workflows
+
+- Added the AI Music Create and Library experience, with background generation,
+  coin quotes, song status polling, playback, favorites, sharing, and deletion.
+- Added lyrics, a one-take **Surprise me** generator, and separate audio
+  reference modes: guide a new composition by sound or retain a source clip in
+  the composition.
+- Added Text-to-Speech **Add Music**, which sends a completed TTS clip into
+  music creation as source audio rather than treating spoken voice as a style
+  sample.
+- Added local `Documents/EZMusic` song/reference storage and a manifest. A
+  completed streamed song is retained as WAV for future local playback, and
+  invalid local candidates fall back to a fresh stream.
+- Added a distinct Video Soundtrack flow. It analyzes selected video visuals,
+  generates music for those visuals, and attaches the resulting soundtrack to
+  the finished video; videos are no longer treated as audio references.
+
+### Sharing, rewards, and access controls
+
+- Added the EZCompleteUI Share Extension for incoming shared content, including
+  photo workflows that can accept more than one selected image.
+- Restored new-user welcome coins alongside free spins and added server-side
+  installation/IP-aware bonus auditing to make repeated reward collection
+  easier to detect and prevent.
+- Added daily-reward IP audit data to the administrative ledger.
+- Enforced purchase gating for the premium Astra and 6.1 Sol model choices,
+  directing users to the store when access is required.
+- Kept non-paying image generation at Medium quality or below.
+
+### Slots and lounge refinements
+
+- Moved the Lounge winners presentation so it no longer blocks the more
+  important back navigation controls.
+- Improved localized slot banner sizing so long translations scale to fit
+  instead of clipping.
 
 ### AI music generation (ElevenLabs)
 

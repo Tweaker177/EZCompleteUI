@@ -46,6 +46,13 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/claim-welcome-bonus/index.ts"
 
+# Invoked only by a trusted scheduler or administrator carrying
+# REMINDER_CRON_SECRET. It cannot use a normal end-user JWT.
+[functions.send-verification-reminders]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/send-verification-reminders/index.ts"
+
 [functions.ez-elevenlabs]
 enabled = true
 verify_jwt = true

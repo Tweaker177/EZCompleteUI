@@ -74,8 +74,10 @@ const PLAN_MAX_JSON_CHARS = 20_000;
 const PLAN_MAX_SECTIONS = 30;
 const PLAN_MIN_SECTION_MS = 3_000;
 const MAX_REFERENCE_BYTES = 12 * 1024 * 1024;
+const MAX_REFERENCE_DURATION_MS = 120_000;
 const MAX_PROVIDER_ATTEMPTS = 3;
 const MAX_RETRY_DELAY_MS = 15_000;
+const VIDEO_PROVIDER_TIMEOUT_MS = 280_000;
 const MIN_USABLE_AUDIO_BYTES = 4_096;
 // A track shorter than this fraction of the requested length is billed by its
 // real length instead of the requested one.
@@ -204,6 +206,9 @@ function validateGenerateRequest(body: Record<string, unknown>, config: MusicCon
     const mimeType = typeof rawReference.mime_type === "string" ? rawReference.mime_type.slice(0, 100) : "application/octet-stream";
     const mode: ReferenceMode = rawReference.mode === "source" ? "source" : "style";
     const durationMs = Number(rawReference.duration_ms ?? 0);
+    if (!Number.isFinite(durationMs) || durationMs <= 0 || durationMs > MAX_REFERENCE_DURATION_MS) {
+      return { reason: "Audio references must be 2 minutes or shorter. Choose a section of the song first." };
+    }
     if (!encoded || encoded.length > Math.ceil(MAX_REFERENCE_BYTES * 4 / 3) + 8) {
       return { reason: "That audio reference is too large. Choose a clip under 12 MB." };
     }
@@ -320,16 +325,23 @@ async function uploadReferenceToProvider(reference: ReferenceUpload, modelId: st
 function stylesForPrompt(prompt: string): string[] {
   // v2.5 benefits from concrete early-chunk directions.  The prompt remains
   // one direction while these ensure an intentional, coherent starting point.
-  return [prompt.slice(0, 500), "high fidelity production", "cohesive arrangement",
+  // ElevenLabs caps each individual style descriptor at 200 characters.
+  return [prompt.slice(0, 200), "high fidelity production", "cohesive arrangement",
     "expressive performance", "clear dynamics", "balanced mix", "musical development"];
+}
+
+function lyricStyles(prompt: string, firstChunk: boolean): string[] {
+  const vocalDirection = ["lead singer performs the supplied lyrics", "clear intelligible sung words", "vocal-forward mix"];
+  return firstChunk ? [...stylesForPrompt(prompt), ...vocalDirection]
+    : ["cohesive continuation", "same lead singer", "continue singing the supplied lyrics", "clear intelligible words"];
 }
 
 function buildReferencePlan(request: GenerateRequest, songId: string): Record<string, unknown> {
   const generatedChunk: Record<string, unknown> = {
     text: request.lyrics ? `[Song]\n${request.lyrics}` : "{Instrumental musical development}",
     duration_ms: request.durationMs,
-    positive_styles: stylesForPrompt(request.prompt ?? "original music"),
-    negative_styles: [],
+    positive_styles: request.lyrics ? lyricStyles(request.prompt ?? "original music", true) : stylesForPrompt(request.prompt ?? "original music"),
+    negative_styles: request.lyrics ? ["instrumental-only", "wordless humming"] : [],
     context_adherence: "high",
   };
   // Conditioning is intentionally capped at 30 seconds.  Longer source clips
@@ -351,12 +363,42 @@ function buildReferencePlan(request: GenerateRequest, songId: string): Record<st
 }
 
 function buildLyricsPlan(request: GenerateRequest): Record<string, unknown> {
-  return { chunks: [{
-    text: `[Song]\n${request.lyrics ?? ""}`,
-    duration_ms: request.durationMs,
-    positive_styles: stylesForPrompt(request.prompt ?? "original music"),
-    negative_styles: [], context_adherence: "high",
-  }] };
+  // ElevenLabs allows a full song, but each lyric *line* must be <=200 chars,
+  // with no more than 30 lines in a chunk.  Preserve the writer's line breaks
+  // and split only an overlong line at word boundaries.
+  const lyricLines: string[] = [];
+  for (const rawLine of (request.lyrics ?? "").replace(/\r/g, "").split("\n")) {
+    let remaining = rawLine.trim();
+    while (remaining.length > 200) {
+      let splitAt = remaining.lastIndexOf(" ", 200);
+      if (splitAt < 1) splitAt = 200;
+      lyricLines.push(remaining.slice(0, splitAt).trim());
+      remaining = remaining.slice(splitAt).trim();
+    }
+    if (remaining) lyricLines.push(remaining);
+  }
+  const chunkCount = Math.max(Math.ceil(request.durationMs / 120_000), Math.ceil(lyricLines.length / 30));
+  const chunks: Record<string, unknown>[] = [];
+  let consumedDuration = 0;
+  for (let index = 0; index < chunkCount; index++) {
+    const remainingChunks = chunkCount - index;
+    const duration = Math.floor((request.durationMs - consumedDuration) / remainingChunks);
+    consumedDuration += duration;
+    const start = Math.floor(index * lyricLines.length / chunkCount);
+    const end = Math.floor((index + 1) * lyricLines.length / chunkCount);
+    const lyricText = lyricLines.slice(start, end).join("\n");
+    chunks.push({
+      text: lyricText
+        ? `[${index === 0 ? "Verse" : index === chunkCount - 1 ? "Chorus" : `Verse ${index + 1}`}]\n${lyricText}`
+        : `[Instrumental]\n{instrumental continuation}`,
+      duration_ms: duration,
+      positive_styles: lyricText ? lyricStyles(request.prompt ?? "original music", index === 0)
+        : ["cohesive instrumental continuation"],
+      negative_styles: lyricText ? ["instrumental-only", "wordless humming"] : ["vocals", "lyrics"],
+      context_adherence: "high",
+    });
+  }
+  return { chunks };
 }
 
 interface ProviderResult {
@@ -365,6 +407,22 @@ interface ProviderResult {
   providerRequestId: string | null;
   attempts: number;
   formatUsed: string;
+}
+
+function providerMessage(value: unknown): string {
+  if (typeof value === "string") return value.trim().slice(0, 280);
+  if (Array.isArray(value)) {
+    for (const item of value) { const message = providerMessage(item); if (message) return message; }
+    return "";
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["message", "reason", "msg", "detail", "error"]) {
+      const message = providerMessage(record[key]);
+      if (message) return message;
+    }
+  }
+  return "";
 }
 
 // Pulls the useful parts out of ElevenLabs' 400/422 bodies (bad_prompt etc.).
@@ -377,17 +435,30 @@ function interpretProviderRejection(httpStatus: number, bodyText: string): Provi
 
   const status = String((detail as { status?: unknown })?.status ?? "");
   const data = ((detail as { data?: Record<string, unknown> })?.data ?? {}) as Record<string, unknown>;
+  const providerDetail = JSON.stringify(detail ?? {}).toLowerCase();
+  const reason = providerMessage(detail) || bodyText.trim().slice(0, 280);
   if (status === "bad_prompt") {
     return new ProviderError("prompt_rejected",
       "That description can't be used (it may reference copyrighted material or protected names).",
       httpStatus, typeof data.prompt_suggestion === "string" ? data.prompt_suggestion : null);
   }
   if (status === "bad_composition_plan") {
+    if (/duration|120.?000|chunk/.test(providerDetail)) {
+      return new ProviderError("plan_duration_invalid",
+        "The lyrics could not fit the selected song length. Try generating it again.", httpStatus, null);
+    }
+    if (/copyright|protected|artist|artist_name/.test(providerDetail)) {
+      return new ProviderError("plan_rejected",
+        "The lyrics or style request references protected material. Remove artist names or copyrighted lyrics and try again.",
+        httpStatus, null);
+    }
     return new ProviderError("plan_rejected",
-      "That composition plan can't be used (it may reference copyrighted material or protected names).",
+      "The music service could not use the lyric structure. Try shorter lines or add section labels such as [Verse] and [Chorus].",
       httpStatus, null);
   }
-  return new ProviderError("invalid_request", "The music service could not process that request.", httpStatus);
+  return new ProviderError("invalid_request",
+    reason ? `The music service rejected this request: ${reason}` : "The music service could not process that request.",
+    httpStatus);
 }
 
 async function requestProviderOnce(
@@ -639,7 +710,26 @@ function runInBackground(work: Promise<unknown>): Promise<unknown> | void {
 const PUBLIC_ENTRY_COLUMNS =
   "id, generation_id, title, prompt, model_id, duration_requested_ms, duration_actual_ms, " +
   "variant_index, output_format, file_size_bytes, coins_reserved, coins_charged, status, " +
-  "error_code, error_text, is_downloadable, is_favorite, created_at, completed_at";
+  "error_code, error_text, is_downloadable, is_favorite, created_at, completed_at, composition_plan";
+
+// Lyrics live inside the v2 composition plan rather than in a separate
+// database field. Return only the user-facing words to the app—not provider
+// style directives or source-audio references—so local libraries can preserve
+// lyrics without exposing implementation details.
+function lyricsFromCompositionPlan(rawPlan: unknown): string | null {
+  const chunks = (rawPlan as { chunks?: unknown })?.chunks;
+  if (!Array.isArray(chunks)) return null;
+  const lines = chunks.map((chunk) => typeof (chunk as { text?: unknown })?.text === "string"
+    ? (chunk as { text: string }).text.replace(/^\[[^\]]+\]\s*/m, "").trim() : "")
+    .filter((text) => text.length > 0 && !/^\{instrumental/i.test(text));
+  return lines.length ? lines.join("\n\n") : null;
+}
+
+function publicMusicEntry(row: Record<string, unknown>): Record<string, unknown> {
+  const { composition_plan: compositionPlan, ...entry } = row;
+  const lyrics = lyricsFromCompositionPlan(compositionPlan);
+  return lyrics ? { ...entry, lyrics } : entry;
+}
 
 function publicConfig(config: MusicConfig) {
   return {
@@ -775,7 +865,7 @@ async function handleStatus(service: SupabaseClient, userId: string, body: Recor
     console.error("[ez-music] status query failed:", error.message);
     return errorResponse(500, "query_failed", "Could not load your songs.");
   }
-  return jsonResponse({ success: true, entries: data ?? [] });
+  return jsonResponse({ success: true, entries: (data ?? []).map((row) => publicMusicEntry(row as Record<string, unknown>)) });
 }
 
 async function loadOwnedEntry(service: SupabaseClient, userId: string, entryId: unknown) {
@@ -846,17 +936,59 @@ async function handleVideoToMusic(form: FormData): Promise<Response> {
   const totalBytes = videos.reduce((sum, video) => sum + video.size, 0);
   if (totalBytes > 200 * 1024 * 1024) return errorResponse(400, "video_too_large", "Selected videos exceed the 200 MB limit.");
   const outbound = new FormData();
-  for (const video of videos) outbound.append("videos[]", video, video.name);
+  for (let index = 0; index < videos.length; index += 1) {
+    const video = videos[index];
+    // The iOS client has already normalized this to H.264 MP4. Recreate the
+    // File with an explicit type here: Deno's FormData forwarding otherwise
+    // may fall back to application/octet-stream for a multipart File. This
+    // does not encode, decode, or alter a single video byte.
+    const filename = `ez-music-video-${index + 1}.mp4`;
+    const mp4 = new File([video], filename, { type: "video/mp4" });
+    console.info(`[ez-music] forwarding video ${index + 1}: ${video.size} bytes, inbound=${video.type || "unset"}, outbound=${mp4.type}`);
+    outbound.append("videos[]", mp4, filename);
+  }
   const description = String(form.get("description") ?? "").trim();
   if (description) outbound.append("description", description.slice(0, PROMPT_MAX_CHARS));
   outbound.append("model_id", "music_v2_5");
-  const response = await fetch(`${ELEVENLABS_VIDEO_TO_MUSIC_URL}?output_format=${DEFAULT_FORMAT}`, {
-    method: "POST", headers: { "xi-api-key": apiKey }, body: outbound,
-  });
+  // This account uses Creator-tier output, matching the high-quality format
+  // used for normal music generation.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), VIDEO_PROVIDER_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${ELEVENLABS_VIDEO_TO_MUSIC_URL}?output_format=${DEFAULT_FORMAT}`, {
+      method: "POST", headers: { "xi-api-key": apiKey }, body: outbound, signal: controller.signal,
+    });
+  } catch (caught) {
+    const timedOut = caught instanceof DOMException && caught.name === "AbortError";
+    console.error("[ez-music] video-to-music request failed:", caught);
+    return errorResponse(503, timedOut ? "video_music_timeout" : "video_music_network",
+      timedOut ? "Music generation took too long. Please try a shorter video." : "Could not reach the music service. Please try again.");
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     console.error(`[ez-music] video-to-music failed ${response.status}: ${detail.slice(0, 300)}`);
-    return errorResponse(response.status === 422 ? 422 : 503, "video_music_failed", "Couldn’t generate music for that video.");
+    // ElevenLabs uses 422 for several unrelated input problems.  Translate
+    // its detail into an action the person can take instead of always blaming
+    // the file type (which made valid MP4/MOV clips look broken).
+    const normalizedDetail = detail.toLowerCase();
+    let message: string;
+    if (response.status === 422 && /duration|600\s*(seconds|s)|10\s*(minutes|min)/.test(normalizedDetail)) {
+      message = "That video is over the 10-minute limit. Choose a shorter clip.";
+    } else if (response.status === 422 && /codec|encoding|container|format|unsupported.*video/.test(normalizedDetail)) {
+      message = "That video’s encoding is not supported. Export it from Photos as an H.264 MP4, then try again.";
+    } else if (response.status === 422 && /empty|no.*video|could not.*read|corrupt/.test(normalizedDetail)) {
+      message = "That video could not be read. Export a new copy from Photos and try again.";
+    } else if (response.status === 422) {
+      message = "The music provider rejected this video. Try a short H.264 MP4 exported from Photos.";
+    } else if (response.status === 403) {
+      message = "Video music generation is not available for this music-service account.";
+    } else {
+      message = "Couldn’t generate music for that video. Please try again.";
+    }
+    return errorResponse(response.status === 422 ? 422 : 503, "video_music_failed", message);
   }
   return new Response(response.body, { status: 200, headers: {
     ...CORS_HEADERS, "Content-Type": response.headers.get("content-type") ?? "audio/mpeg",

@@ -2,7 +2,7 @@
 
 EZCompleteUI is a native iOS AI workspace built with Objective-C and Theos. It combines coin-metered AI chat, a gallery-first image studio, transcription, voice tools, local thread history, searchable memories, and a custom game-creation area in one app.
 
-The current release is **7.1.12** and targets iOS 15.0 and later. See
+The current release is **7.1.15** and targets iOS 15.0 and later. See
 [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## What it includes

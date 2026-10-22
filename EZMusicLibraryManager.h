@@ -4,6 +4,11 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)sharedManager;
 @property (nonatomic, readonly) NSURL *libraryRootURL;
 - (nullable NSURL *)localSongURLForEntryID:(NSString *)entryID;
+/// Entry IDs in the on-device song manifest, in archive order. This is the
+/// offline playlist source; references are deliberately excluded.
+- (NSArray<NSString *> *)localSongEntryIDs;
+/// Refreshes local metadata for an already archived song without copying audio again.
+- (void)updateSongMetadataForEntry:(NSDictionary *)entry;
 - (void)archiveSongAtTemporaryURL:(NSURL *)temporaryURL entry:(NSDictionary *)entry;
 - (void)archiveSongAtTemporaryURL:(NSURL *)temporaryURL
                             entry:(NSDictionary *)entry
