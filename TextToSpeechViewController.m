@@ -42,12 +42,17 @@
 
 static NSString * const kDefaultVoiceID = @"JBFqnCBsd6RMkjVDRZzb"; // fallback example
 static NSString * const kDefaultModelID = @"eleven_v4";
-static NSString * const kFallbackMP3Format = @"mp3_44100_128";
+// Keep this aligned with the server policy. Creator-plan output is 44.1 kHz
+// MP3 at 192 kbps; the Edge Function is authoritative if a modified client
+// submits another format.
+static NSString * const kFallbackMP3Format = @"mp3_44100_192";
 static NSString * const kVoiceIDDefaultsKey = @"elevenVoiceID";
 static NSString * const kVoiceNameDefaultsKey = @"elevenVoiceName";
 static NSString * const kPendingTTSRequestsDefaultsKey = @"EZTTSPendingRequests";
 
 static NSUInteger const kPromptCharacterLimit = 2000;
+// Let the environment outlive the final word, then fade it rather than cutting.
+static const Float64 kBackgroundAudioTailSeconds = 3.0;
 
 @interface TextToSpeechViewController : UIViewController <UITextViewDelegate>
 @end
@@ -61,9 +66,12 @@ static NSUInteger const kPromptCharacterLimit = 2000;
 @property (nonatomic, strong) UIButton *voiceButton;
 @property (nonatomic, strong) UIButton *playButton;
 @property (nonatomic, strong) UIButton *addMusicButton;
+@property (nonatomic, strong) UIButton *backgroundAudioButton;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @property (nonatomic, strong) AVAudioPlayer *player;
 @property (nonatomic, copy, nullable) NSURL *latestTTSFileURL;
+@property (nonatomic, copy, nullable) NSString *backgroundAudioPrompt;
+@property (nonatomic) BOOL backgroundAudioSurpriseMe;
 
 // Timer added to address your invalidate error
 @property (nonatomic, strong, nullable) NSTimer *stopMeterTimer;
@@ -236,7 +244,9 @@ static NSString *timestampString(void) {
         completion(nil, nil, writeError);
         return;
     }
-    [self archiveGeneratedAudio:audioData extension:extension prompt:text voiceID:voiceID];
+    if (!(self.backgroundAudioPrompt.length || self.backgroundAudioSurpriseMe)) {
+        [self archiveGeneratedAudio:audioData extension:extension prompt:text voiceID:voiceID];
+    }
     EZLogf(EZLogLevelInfo, @"TTS", @"Audio saved: %@", filename);
     completion(temporaryURL, mime, nil);
 }
@@ -365,6 +375,18 @@ static NSString *timestampString(void) {
                 forControlEvents:UIControlEventValueChanged];
     [self.container addSubview:self.speedSlider];
 
+    self.backgroundAudioButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.backgroundAudioButton.backgroundColor = [UIColor systemBackgroundColor];
+    self.backgroundAudioButton.layer.cornerRadius = 12;
+    self.backgroundAudioButton.layer.borderWidth = 1.0;
+    self.backgroundAudioButton.layer.borderColor = [UIColor systemTealColor].CGColor;
+    self.backgroundAudioButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+    self.backgroundAudioButton.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
+    [self.backgroundAudioButton addTarget:self action:@selector(backgroundAudioTapped:)
+                         forControlEvents:UIControlEventTouchUpInside];
+    [self updateBackgroundAudioButtonTitle];
+    [self.container addSubview:self.backgroundAudioButton];
+
     // One big, obvious primary action — everything generated is archived automatically,
     // so there's no separate Download button anymore; Play is the whole interaction.
     self.playButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -478,7 +500,10 @@ static NSString *timestampString(void) {
     curY += 18 + 4;
 
     self.speedSlider.frame = CGRectMake(innerX, curY, innerW, 28);
-    curY += 28 + 24;
+    curY += 28 + 14;
+
+    self.backgroundAudioButton.frame = CGRectMake(innerX, curY, innerW, 48);
+    curY += 48 + 16;
 
     self.playButton.frame = CGRectMake(innerX, curY, innerW, 58);
     curY += 58 + 10;
@@ -546,6 +571,94 @@ static NSString *timestampString(void) {
     self.speedLabel.text = [NSString stringWithFormat:NSLocalizedString(@"EZTTS.SpeedFormat", nil), snapped];
 }
 
+- (void)updateBackgroundAudioButtonTitle {
+    NSString *title = self.backgroundAudioSurpriseMe ? @"🌄  Background Audio: Surprise Me" :
+        self.backgroundAudioPrompt.length ? @"🌄  Background Audio: Custom Scene" :
+        @"🌄  Add Background Audio";
+    [self.backgroundAudioButton setTitle:[title stringByAppendingString:@"   ›"] forState:UIControlStateNormal];
+}
+
+- (void)backgroundAudioTapped:(id)sender {
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.45];
+    [self.view addSubview:overlay];
+
+    UIView *card = [[UIView alloc] init];
+    card.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    card.layer.cornerRadius = 20;
+    card.layer.borderWidth = 1;
+    card.layer.borderColor = [UIColor systemTealColor].CGColor;
+    card.translatesAutoresizingMaskIntoConstraints = NO;
+    [overlay addSubview:card];
+
+    UILabel *title = [[UILabel alloc] init];
+    title.text = @"BACKGROUND AUDIO";
+    title.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBold];
+    title.textColor = [UIColor systemTealColor];
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    [card addSubview:title];
+    UILabel *detail = [[UILabel alloc] init];
+    detail.text = @"Create a looping environmental bed beneath your narration.";
+    detail.numberOfLines = 0;
+    detail.font = [UIFont systemFontOfSize:15];
+    detail.textColor = [UIColor secondaryLabelColor];
+    detail.translatesAutoresizingMaskIntoConstraints = NO;
+    [card addSubview:detail];
+    UITextView *promptField = [[UITextView alloc] init];
+    promptField.text = self.backgroundAudioPrompt ?: @"";
+    promptField.font = [UIFont systemFontOfSize:16];
+    promptField.backgroundColor = [UIColor systemBackgroundColor];
+    promptField.layer.cornerRadius = 12;
+    promptField.layer.borderWidth = 1;
+    promptField.layer.borderColor = [UIColor systemGray4Color].CGColor;
+    promptField.textContainerInset = UIEdgeInsetsMake(10, 10, 10, 10);
+    promptField.translatesAutoresizingMaskIntoConstraints = NO;
+    [card addSubview:promptField];
+    UILabel *hint = [[UILabel alloc] init];
+    hint.text = @"Describe ambience only — no speech or lyrics.";
+    hint.font = [UIFont systemFontOfSize:12]; hint.textColor = [UIColor tertiaryLabelColor];
+    hint.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:hint];
+
+    __weak typeof(self) weakSelf = self;
+    void (^dismiss)(void) = ^{ [overlay removeFromSuperview]; };
+    UIButton *(^button)(NSString *, UIColor *) = ^UIButton *(NSString *text, UIColor *color) {
+        UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; button.translatesAutoresizingMaskIntoConstraints = NO;
+        [button setTitle:text forState:UIControlStateNormal]; button.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+        button.backgroundColor = color; button.layer.cornerRadius = 11; [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal]; [card addSubview:button]; return button;
+    };
+    UIButton *surprise = button(@"✦  Surprise Me", [UIColor systemTealColor]);
+    UIButton *useScene = button(@"Use This Scene", [UIColor systemBlueColor]);
+    UIButton *remove = button(@"Remove Background", [UIColor systemRedColor]);
+    UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem]; cancel.translatesAutoresizingMaskIntoConstraints = NO; [cancel setTitle:@"Cancel" forState:UIControlStateNormal]; [card addSubview:cancel];
+    [surprise addAction:[UIAction actionWithHandler:^(__unused UIAction *a) {
+        weakSelf.backgroundAudioSurpriseMe = YES;
+        weakSelf.backgroundAudioPrompt = nil;
+        [weakSelf updateBackgroundAudioButtonTitle];
+        dismiss();
+    }] forControlEvents:UIControlEventTouchUpInside];
+    [useScene addAction:[UIAction actionWithHandler:^(__unused UIAction *a) {
+        NSString *prompt = [promptField.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+        if (prompt.length) { weakSelf.backgroundAudioPrompt = prompt; weakSelf.backgroundAudioSurpriseMe = NO; [weakSelf updateBackgroundAudioButtonTitle]; dismiss(); }
+    }] forControlEvents:UIControlEventTouchUpInside];
+    [remove addAction:[UIAction actionWithHandler:^(__unused UIAction *a) {
+        weakSelf.backgroundAudioPrompt = nil; weakSelf.backgroundAudioSurpriseMe = NO; [weakSelf updateBackgroundAudioButtonTitle];
+        dismiss();
+    }] forControlEvents:UIControlEventTouchUpInside];
+    [cancel addAction:[UIAction actionWithHandler:^(__unused UIAction *a) { dismiss(); }] forControlEvents:UIControlEventTouchUpInside];
+    [NSLayoutConstraint activateConstraints:@[
+        [card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:20], [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-20], [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor],
+        [title.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [title.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [detail.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:8], [detail.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [detail.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20],
+        [promptField.topAnchor constraintEqualToAnchor:detail.bottomAnchor constant:16], [promptField.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [promptField.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [promptField.heightAnchor constraintEqualToConstant:100],
+        [hint.topAnchor constraintEqualToAnchor:promptField.bottomAnchor constant:6], [hint.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
+        [surprise.topAnchor constraintEqualToAnchor:hint.bottomAnchor constant:16], [surprise.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [surprise.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [surprise.heightAnchor constraintEqualToConstant:44],
+        [useScene.topAnchor constraintEqualToAnchor:surprise.bottomAnchor constant:8], [useScene.leadingAnchor constraintEqualToAnchor:surprise.leadingAnchor], [useScene.trailingAnchor constraintEqualToAnchor:surprise.trailingAnchor], [useScene.heightAnchor constraintEqualToConstant:44],
+        [remove.topAnchor constraintEqualToAnchor:useScene.bottomAnchor constant:8], [remove.leadingAnchor constraintEqualToAnchor:surprise.leadingAnchor], [remove.trailingAnchor constraintEqualToAnchor:surprise.trailingAnchor], [remove.heightAnchor constraintEqualToConstant:40],
+        [cancel.topAnchor constraintEqualToAnchor:remove.bottomAnchor constant:4], [cancel.centerXAnchor constraintEqualToAnchor:card.centerXAnchor], [cancel.heightAnchor constraintEqualToConstant:40], [cancel.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-12],
+    ]];
+    overlay.alpha = 0; [UIView animateWithDuration:0.2 animations:^{ overlay.alpha = 1; }];
+}
+
 #pragma mark - Character limit
 
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text {
@@ -586,35 +699,138 @@ static NSString *timestampString(void) {
                 [self showAlert:NSLocalizedString(@"EZTTS.ErrorTitle", nil) message:NSLocalizedString(@"EZTTS.NoAudioReturned", nil)];
                 return;
             }
-            self.latestTTSFileURL = fileURL;
-            self.addMusicButton.enabled = YES;
-            self.addMusicButton.alpha = 1.0;
-
-            NSError *sessionError = nil;
-            if (!EZActivatePlaybackAudioSession(&sessionError)) {
-                EZLogf(EZLogLevelError, @"TTS", @"Could not activate playback audio session: %@", sessionError.localizedDescription);
-                [self showAlert:NSLocalizedString(@"EZTTS.PlaybackError", nil)
-                         message:sessionError.localizedDescription ?: NSLocalizedString(@"EZTTS.UnableToPlay", nil)];
+            if (!self.backgroundAudioPrompt.length && !self.backgroundAudioSurpriseMe) {
+                [self playGeneratedTTSFile:fileURL];
                 return;
             }
-
-            NSError *perr = nil;
-            self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:fileURL error:&perr];
-            if (perr) {
-                EZLogf(EZLogLevelError, @"TTS", @"Playback error: %@", perr.localizedDescription);
-                [self showAlert:NSLocalizedString(@"EZTTS.PlaybackError", nil) message:perr.localizedDescription ?: NSLocalizedString(@"EZTTS.UnableToPlay", nil)];
-                return;
-            }
-            [self.player prepareToPlay];
-            if (![self.player play]) {
-                EZLog(EZLogLevelError, @"TTS", @"AVAudioPlayer refused to start playback");
-                [self showAlert:NSLocalizedString(@"EZTTS.PlaybackError", nil)
-                         message:NSLocalizedString(@"EZTTS.UnableToPlay", nil)];
-                return;
-            }
-            EZLogf(EZLogLevelInfo, @"TTS", @"Playback started %@", fileURL.lastPathComponent);
+            [self requestBackgroundAudioForSpeech:text completion:^(NSURL *backgroundURL, NSError *backgroundError) {
+                if (backgroundError || !backgroundURL) {
+                    [self showAlert:@"Background Audio" message:backgroundError.localizedDescription ?: @"Could not generate background audio. Your narration is still available."];
+                    NSData *dryData = [NSData dataWithContentsOfURL:fileURL];
+                    if (dryData.length) [self archiveGeneratedAudio:dryData extension:fileURL.pathExtension prompt:text voiceID:self.selectedVoiceID];
+                    [self playGeneratedTTSFile:fileURL];
+                    return;
+                }
+                [self mixNarrationURL:fileURL backgroundURL:backgroundURL completion:^(NSURL *mixedURL, NSError *mixError) {
+                    if (mixError || !mixedURL) {
+                        [self showAlert:@"Background Audio" message:mixError.localizedDescription ?: @"Could not mix the background audio."];
+                        NSData *dryData = [NSData dataWithContentsOfURL:fileURL];
+                        if (dryData.length) [self archiveGeneratedAudio:dryData extension:fileURL.pathExtension prompt:text voiceID:self.selectedVoiceID];
+                        [self playGeneratedTTSFile:fileURL];
+                        return;
+                    }
+                    [self archiveSceneAssetsWithNarrationURL:fileURL backgroundURL:backgroundURL completion:^(NSDictionary<NSString *,id> *metadata) {
+                        NSData *mixedData = [NSData dataWithContentsOfURL:mixedURL];
+                        if (mixedData.length) {
+                            [self archiveGeneratedAudio:mixedData extension:@"m4a" prompt:text voiceID:self.selectedVoiceID metadata:metadata];
+                        }
+                        [self playGeneratedTTSFile:mixedURL];
+                    }];
+                }];
+            }];
         });
     }];
+}
+
+- (void)requestBackgroundAudioForSpeech:(NSString *)speech completion:(void (^)(NSURL * _Nullable, NSError * _Nullable))completion {
+    NSString *token = [EZAuthManager shared].accessToken;
+    if (!token.length) { completion(nil, [self ttsErrorWithCode:401 description:@"Sign in to generate background audio."]); return; }
+    NSMutableDictionary *body = [@{ @"action": @"background_audio", @"duration_seconds": @30,
+                                    @"surprise_me": @(self.backgroundAudioSurpriseMe),
+                                    @"speech_text": speech ?: @"" } mutableCopy];
+    if (!self.backgroundAudioSurpriseMe) body[@"prompt"] = self.backgroundAudioPrompt ?: @"";
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-elevenlabs"]];
+    request.HTTPMethod = @"POST"; request.timeoutInterval = 100;
+    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
+    request.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
+        NSDictionary *json = data.length ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+        if (error || http.statusCode != 200) {
+            NSString *reason = [json[@"reason"] isKindOfClass:NSString.class] ? json[@"reason"] : @"Background audio generation failed.";
+            completion(nil, error ?: [self ttsErrorWithCode:http.statusCode ?: -30 description:reason]); return;
+        }
+        NSData *audio = [[NSData alloc] initWithBase64EncodedString:json[@"audio_b64"] options:0];
+        if (!audio.length) { completion(nil, [self ttsErrorWithCode:-31 description:@"No background audio was returned."]); return; }
+        NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"background_%@.mp3", timestampString()]]];
+        NSError *writeError = nil; [audio writeToURL:url options:NSDataWritingAtomic error:&writeError];
+        completion(writeError ? nil : url, writeError);
+    }] resume];
+}
+
+- (void)mixNarrationURL:(NSURL *)narrationURL backgroundURL:(NSURL *)backgroundURL completion:(void (^)(NSURL * _Nullable, NSError * _Nullable))completion {
+    AVURLAsset *narration = [AVURLAsset URLAssetWithURL:narrationURL options:nil];
+    AVURLAsset *background = [AVURLAsset URLAssetWithURL:backgroundURL options:nil];
+    AVAssetTrack *voiceTrack = [[narration tracksWithMediaType:AVMediaTypeAudio] firstObject];
+    AVAssetTrack *backgroundTrack = [[background tracksWithMediaType:AVMediaTypeAudio] firstObject];
+    CMTime narrationDuration = narration.duration;
+    CMTime tailDuration = CMTimeMakeWithSeconds(kBackgroundAudioTailSeconds, 600);
+    CMTime mixDuration = CMTimeAdd(narrationDuration, tailDuration);
+    if (!voiceTrack || !backgroundTrack || !CMTIME_IS_NUMERIC(narrationDuration) || CMTIME_COMPARE_INLINE(narrationDuration, <=, kCMTimeZero) || CMTIME_COMPARE_INLINE(background.duration, <=, kCMTimeZero)) { completion(nil, [self ttsErrorWithCode:-32 description:@"Could not prepare the audio tracks for mixing."]); return; }
+    AVMutableComposition *composition = [AVMutableComposition composition];
+    NSError *insertError = nil;
+    AVMutableCompositionTrack *voice = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+    [voice insertTimeRange:CMTimeRangeMake(kCMTimeZero, narrationDuration) ofTrack:voiceTrack atTime:kCMTimeZero error:&insertError];
+    AVMutableCompositionTrack *bed = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+    CMTime cursor = kCMTimeZero;
+    while (!insertError && CMTIME_COMPARE_INLINE(cursor, <, mixDuration)) {
+        CMTime remaining = CMTimeSubtract(mixDuration, cursor);
+        CMTime part = CMTimeMinimum(background.duration, remaining);
+        [bed insertTimeRange:CMTimeRangeMake(kCMTimeZero, part) ofTrack:backgroundTrack atTime:cursor error:&insertError];
+        cursor = CMTimeAdd(cursor, part);
+    }
+    if (insertError) { completion(nil, insertError); return; }
+    AVMutableAudioMix *audioMix = [AVMutableAudioMix audioMix];
+    AVMutableAudioMixInputParameters *bedMix = [AVMutableAudioMixInputParameters audioMixInputParametersWithTrack:bed];
+    [bedMix setVolume:0.5 atTime:kCMTimeZero];
+    [bedMix setVolumeRampFromStartVolume:0.5 toEndVolume:0.0 timeRange:CMTimeRangeMake(narrationDuration, tailDuration)];
+    audioMix.inputParameters = @[bedMix];
+    NSURL *output = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"tts_scene_%@.m4a", timestampString()]]];
+    [[NSFileManager defaultManager] removeItemAtURL:output error:nil];
+    AVAssetExportSession *exporter = [[AVAssetExportSession alloc] initWithAsset:composition presetName:AVAssetExportPresetAppleM4A];
+    exporter.outputURL = output; exporter.outputFileType = AVFileTypeAppleM4A; exporter.audioMix = audioMix;
+    [exporter exportAsynchronouslyWithCompletionHandler:^{ completion(exporter.status == AVAssetExportSessionStatusCompleted ? output : nil, exporter.error); }];
+}
+
+- (void)archiveSceneAssetsWithNarrationURL:(NSURL *)narrationURL
+                             backgroundURL:(NSURL *)backgroundURL
+                                completion:(void (^)(NSDictionary<NSString *, id> *metadata))completion {
+    EZTTSLibraryManager *library = [EZTTSLibraryManager sharedManager];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        NSString *token = [[NSUUID UUID] UUIDString];
+        NSString *narrationName = [NSString stringWithFormat:@"narration_%@.%@", token, narrationURL.pathExtension ?: @"mp3"];
+        NSString *backgroundName = [NSString stringWithFormat:@"sound_%@.%@", token, backgroundURL.pathExtension ?: @"mp3"];
+        NSString *narrationPath = [@"Sources" stringByAppendingPathComponent:narrationName];
+        NSString *backgroundPath = [@"Sounds" stringByAppendingPathComponent:backgroundName];
+        NSURL *narrationDestination = [library.libraryRootURL URLByAppendingPathComponent:narrationPath];
+        NSURL *backgroundDestination = [library.libraryRootURL URLByAppendingPathComponent:backgroundPath];
+        NSError *error = nil;
+        NSFileManager *fm = [NSFileManager defaultManager];
+        BOOL ready = [fm createDirectoryAtURL:narrationDestination.URLByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:&error] &&
+                     [fm createDirectoryAtURL:backgroundDestination.URLByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:&error];
+        if (ready) {
+            [fm removeItemAtURL:narrationDestination error:nil];
+            [fm removeItemAtURL:backgroundDestination error:nil];
+            ready = [fm copyItemAtURL:narrationURL toURL:narrationDestination error:&error] &&
+                    [fm copyItemAtURL:backgroundURL toURL:backgroundDestination error:&error];
+        }
+        NSDictionary *metadata = ready ? @{ @"sceneNarrationPath": narrationPath, @"sceneBackgroundPath": backgroundPath, @"sceneBackgroundLevel": @0.5 } : @{};
+        if (!ready) EZLogf(EZLogLevelWarning, @"TTS", @"Could not archive scene layers: %@", error.localizedDescription);
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(metadata); });
+    });
+}
+
+- (void)playGeneratedTTSFile:(NSURL *)fileURL {
+    self.latestTTSFileURL = fileURL;
+    self.addMusicButton.enabled = YES;
+    self.addMusicButton.alpha = 1.0;
+    NSError *sessionError = nil;
+    if (!EZActivatePlaybackAudioSession(&sessionError)) { [self showAlert:NSLocalizedString(@"EZTTS.PlaybackError", nil) message:sessionError.localizedDescription]; return; }
+    NSError *error = nil;
+    self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:fileURL error:&error];
+    if (error || ![self.player play]) { [self showAlert:NSLocalizedString(@"EZTTS.PlaybackError", nil) message:error.localizedDescription ?: NSLocalizedString(@"EZTTS.UnableToPlay", nil)]; return; }
+    EZLogf(EZLogLevelInfo, @"TTS", @"Playback started %@", fileURL.lastPathComponent);
 }
 
 - (void)addMusicTapped:(id)sender {
@@ -872,6 +1088,15 @@ static NSString *timestampString(void) {
                         prompt:(NSString *)prompt
                        voiceID:(NSString *)voiceID
 {
+    [self archiveGeneratedAudio:audioData extension:extension prompt:prompt voiceID:voiceID metadata:nil];
+}
+
+- (void)archiveGeneratedAudio:(NSData *)audioData
+                     extension:(NSString *)extension
+                        prompt:(NSString *)prompt
+                       voiceID:(NSString *)voiceID
+                      metadata:(NSDictionary<NSString *, id> *)metadata
+{
     [[EZTTSLibraryManager sharedManager] saveAudioData:audioData
                                                   prompt:prompt
                                                voiceName:self.selectedVoiceName
@@ -879,6 +1104,7 @@ static NSString *timestampString(void) {
                                                 provider:@"elevenlabs"
                                                    model:kDefaultModelID
                                                extension:extension
+                                                metadata:metadata
                                               completion:^(EZTTSManifestEntry *entry, NSError *error) {
         if (error) {
             EZLogf(EZLogLevelError, @"TTSLibrary", @"Archive failed: %@", error.localizedDescription);

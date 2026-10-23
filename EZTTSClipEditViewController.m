@@ -13,13 +13,21 @@
 #import <AVFoundation/AVFoundation.h>
 
 static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
+static const Float64 kEZSceneBackgroundTailSeconds = 3.0;
+
+static UIColor *EZEditElectricBlue(void) {
+    return [UIColor colorWithRed:0.00 green:0.48 blue:1.00 alpha:1.0];
+}
 
 @interface EZTTSClipEditViewController () <AVAudioPlayerDelegate>
 
 @property (nonatomic, strong) EZTTSManifestEntry *entry;
 
 @property (nonatomic, strong) UIScrollView *scrollView;
+@property (nonatomic, strong) UIView *promptContainer;
 @property (nonatomic, strong) UILabel *promptLabel;
+@property (nonatomic, strong) UIImageView *promptDisclosureImage;
+@property (nonatomic) BOOL promptExpanded;
 
 // Waveform + range selection — at the top of the screen, directly under the prompt.
 @property (nonatomic, strong) UILabel *waveformSectionLabel;
@@ -30,6 +38,10 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
 @property (nonatomic, strong) UIButton *normalizeButton;
 @property (nonatomic, strong) UIButton *trimButton;
 @property (nonatomic, strong) UIActivityIndicatorView *exportSpinner;
+
+@property (nonatomic, strong) UILabel *backgroundSectionLabel;
+@property (nonatomic, strong) UISlider *backgroundLevelSlider;
+@property (nonatomic, strong) UILabel *backgroundLevelLabel;
 
 // Speed
 @property (nonatomic, strong) UILabel *speedSectionLabel;
@@ -77,19 +89,40 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
     [super viewDidLoad];
     self.title = @"Edit Clip";
     self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.tintColor = EZEditElectricBlue();
 
     self.scrollView = [[UIScrollView alloc] init];
     [self.view addSubview:self.scrollView];
+
+    self.promptContainer = [[UIView alloc] init];
+    self.promptContainer.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.promptContainer.layer.cornerRadius = 12;
+    self.promptContainer.layer.borderWidth = 1.0;
+    self.promptContainer.layer.borderColor = [EZEditElectricBlue() colorWithAlphaComponent:0.35].CGColor;
+    self.promptContainer.userInteractionEnabled = YES;
+    [self.promptContainer addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handlePromptTapped:)]];
+    [self.scrollView addSubview:self.promptContainer];
 
     self.promptLabel = [self sectionBodyLabel];
     NSString *displayTitle = self.entry.metadata[@"title"];
     self.promptLabel.text = [displayTitle isKindOfClass:[NSString class]] && displayTitle.length > 0
         ? displayTitle : self.entry.prompt;
-    [self.scrollView addSubview:self.promptLabel];
+    self.promptLabel.numberOfLines = 3;
+    [self.promptContainer addSubview:self.promptLabel];
+    self.promptDisclosureImage = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"chevron.down"]];
+    self.promptDisclosureImage.tintColor = [UIColor secondaryLabelColor];
+    self.promptDisclosureImage.contentMode = UIViewContentModeCenter;
+    [self.promptContainer addSubview:self.promptDisclosureImage];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"doc.on.doc"]
+                                                                               style:UIBarButtonItemStylePlain
+                                                                              target:self
+                                                                              action:@selector(copyPromptTapped:)];
+    self.navigationItem.rightBarButtonItem.tintColor = EZEditElectricBlue();
 
     // Waveform sits directly under the prompt text now — it's the most important thing
     // on this screen, so it gets first billing.
     [self setupWaveformSection];
+    if ([self hasEditableBackgroundAudio]) [self setupBackgroundAudioSection];
     [self setupSpeedSection];
     [self setupVoiceSection];
     [self setupEffectsSection];
@@ -106,7 +139,7 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
 - (UILabel *)sectionHeaderLabel {
     UILabel *label = [[UILabel alloc] init];
     label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
-    label.textColor = [UIColor secondaryLabelColor];
+    label.textColor = [EZEditElectricBlue() colorWithAlphaComponent:0.90];
     return label;
 }
 
@@ -115,6 +148,19 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
     label.font = [UIFont systemFontOfSize:15];
     label.numberOfLines = 3;
     return label;
+}
+
+- (void)handlePromptTapped:(UITapGestureRecognizer *)gesture {
+    self.promptExpanded = !self.promptExpanded;
+    self.promptLabel.numberOfLines = self.promptExpanded ? 0 : 3;
+    self.promptDisclosureImage.image = [UIImage systemImageNamed:self.promptExpanded ? @"chevron.up" : @"chevron.down"];
+    [UIView animateWithDuration:0.2 animations:^{ [self.view setNeedsLayout]; [self.view layoutIfNeeded]; }];
+}
+
+- (void)copyPromptTapped:(id)sender {
+    UIPasteboard.generalPasteboard.string = self.entry.prompt ?: @"";
+    UINotificationFeedbackGenerator *feedback = [[UINotificationFeedbackGenerator alloc] init];
+    [feedback notificationOccurred:UINotificationFeedbackTypeSuccess];
 }
 
 #pragma mark - Waveform + range selection section
@@ -128,7 +174,7 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
     self.editWaveformView.symmetric = YES;
     self.editWaveformView.lineWidth = 1.5;
     self.editWaveformView.waveColor = [UIColor systemGray3Color];
-    self.editWaveformView.progressColor = self.view.tintColor;
+    self.editWaveformView.progressColor = EZEditElectricBlue();
     self.editWaveformView.userInteractionEnabled = NO; // purely visual — the range selector overlaid on top handles touches
     [self.scrollView addSubview:self.editWaveformView];
 
@@ -149,15 +195,15 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
     self.selectionTimeLabel.textAlignment = NSTextAlignmentCenter;
     [self.scrollView addSubview:self.selectionTimeLabel];
 
-    self.insertSilenceButton = [self smallActionButtonWithTitle:@"Silence" systemImage:@"speaker.slash.fill"];
+    self.insertSilenceButton = [self smallActionButtonWithTitle:@"Silence" systemImage:@"speaker.slash.fill" color:[UIColor systemOrangeColor]];
     [self.insertSilenceButton addTarget:self action:@selector(handleInsertSilenceTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:self.insertSilenceButton];
 
-    self.normalizeButton = [self smallActionButtonWithTitle:@"Normalize" systemImage:@"waveform.path.ecg"];
+    self.normalizeButton = [self smallActionButtonWithTitle:@"Normalize" systemImage:@"waveform.path.ecg" color:[UIColor systemTealColor]];
     [self.normalizeButton addTarget:self action:@selector(handleNormalizeTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:self.normalizeButton];
 
-    self.trimButton = [self smallActionButtonWithTitle:@"Trim" systemImage:@"scissors"];
+    self.trimButton = [self smallActionButtonWithTitle:@"Trim" systemImage:@"scissors" color:[UIColor systemPinkColor]];
     [self.trimButton addTarget:self action:@selector(handleTrimTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:self.trimButton];
 
@@ -207,6 +253,103 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
     NSTimeInterval end = self.entry.duration * self.rangeSelector.endFraction;
     self.selectionTimeLabel.text = [NSString stringWithFormat:@"Selection: %@ – %@ (%@)",
         [self formattedTime:start], [self formattedTime:end], [self formattedTime:end - start]];
+}
+
+#pragma mark - Background scene mix
+
+- (NSURL *)sceneAssetURLForMetadataKey:(NSString *)key {
+    NSString *relativePath = [self.entry.metadata[key] isKindOfClass:NSString.class] ? self.entry.metadata[key] : nil;
+    if (!relativePath.length || [relativePath hasPrefix:@"/"] || [relativePath containsString:@".."]) return nil;
+    NSURL *url = [[[EZTTSLibraryManager sharedManager] libraryRootURL] URLByAppendingPathComponent:relativePath];
+    return [[NSFileManager defaultManager] fileExistsAtPath:url.path] ? url : nil;
+}
+
+- (BOOL)hasEditableBackgroundAudio {
+    return [self sceneAssetURLForMetadataKey:@"sceneNarrationPath"] != nil &&
+           [self sceneAssetURLForMetadataKey:@"sceneBackgroundPath"] != nil;
+}
+
+- (void)setupBackgroundAudioSection {
+    self.backgroundSectionLabel = [self sectionHeaderLabel];
+    self.backgroundSectionLabel.text = @"BACKGROUND AUDIO — SAVES TO THIS CLIP";
+    [self.scrollView addSubview:self.backgroundSectionLabel];
+    self.backgroundLevelLabel = [[UILabel alloc] init];
+    self.backgroundLevelLabel.font = [UIFont monospacedDigitSystemFontOfSize:14 weight:UIFontWeightRegular];
+    self.backgroundLevelLabel.textAlignment = NSTextAlignmentRight;
+    [self.scrollView addSubview:self.backgroundLevelLabel];
+    self.backgroundLevelSlider = [[UISlider alloc] init];
+    self.backgroundLevelSlider.minimumValue = 0.0;
+    self.backgroundLevelSlider.maximumValue = 1.0;
+    self.backgroundLevelSlider.tintColor = EZEditElectricBlue();
+    id saved = self.entry.metadata[@"sceneBackgroundLevel"];
+    self.backgroundLevelSlider.value = [saved isKindOfClass:NSNumber.class] ? [saved floatValue] : 0.5f;
+    [self.backgroundLevelSlider addTarget:self action:@selector(handleBackgroundLevelChanged:) forControlEvents:UIControlEventValueChanged];
+    [self.backgroundLevelSlider addTarget:self action:@selector(handleBackgroundLevelReleased:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+    [self.scrollView addSubview:self.backgroundLevelSlider];
+    [self updateBackgroundLevelLabel];
+}
+
+- (void)updateBackgroundLevelLabel {
+    self.backgroundLevelLabel.text = [NSString stringWithFormat:@"%.0f%%", self.backgroundLevelSlider.value * 100.0f];
+}
+
+- (void)handleBackgroundLevelChanged:(UISlider *)slider { [self updateBackgroundLevelLabel]; }
+
+- (void)handleBackgroundLevelReleased:(UISlider *)slider {
+    NSURL *narrationURL = [self sceneAssetURLForMetadataKey:@"sceneNarrationPath"];
+    NSURL *backgroundURL = [self sceneAssetURLForMetadataKey:@"sceneBackgroundPath"];
+    if (!narrationURL || !backgroundURL) return;
+    slider.enabled = NO;
+    [self.exportSpinner startAnimating];
+    [self remixNarrationURL:narrationURL backgroundURL:backgroundURL level:slider.value completion:^(NSData *audioData, NSError *error) {
+        if (error || !audioData.length) {
+            slider.enabled = YES; [self.exportSpinner stopAnimating];
+            [self presentErrorAlert:error ?: [self errorWithCode:-40 message:@"Could not render the new background level."] title:@"Couldn't update background audio"];
+            return;
+        }
+        [[EZTTSLibraryManager sharedManager] replaceAudioForClipUUID:self.entry.uuid withData:audioData extension:@"m4a" completion:^(EZTTSManifestEntry *entry, NSError *replaceError) {
+            if (replaceError) { slider.enabled = YES; [self.exportSpinner stopAnimating]; [self presentErrorAlert:replaceError title:@"Couldn't update background audio"]; return; }
+            [[EZTTSLibraryManager sharedManager] setSceneBackgroundLevel:slider.value forClipUUID:self.entry.uuid completion:^(EZTTSManifestEntry *updated, NSError *metadataError) {
+                slider.enabled = YES; [self.exportSpinner stopAnimating];
+                if (metadataError) { [self presentErrorAlert:metadataError title:@"Couldn't save background level"]; return; }
+                self.entry = updated; [self loadWaveform];
+            }];
+        }];
+    }];
+}
+
+- (void)remixNarrationURL:(NSURL *)narrationURL backgroundURL:(NSURL *)backgroundURL level:(float)level completion:(void (^)(NSData * _Nullable, NSError * _Nullable))completion {
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        AVURLAsset *narration = [AVURLAsset URLAssetWithURL:narrationURL options:nil];
+        AVURLAsset *background = [AVURLAsset URLAssetWithURL:backgroundURL options:nil];
+        AVAssetTrack *voiceTrack = [[narration tracksWithMediaType:AVMediaTypeAudio] firstObject];
+        AVAssetTrack *backgroundTrack = [[background tracksWithMediaType:AVMediaTypeAudio] firstObject];
+        CMTime narrationDuration = narration.duration;
+        CMTime tailDuration = CMTimeMakeWithSeconds(kEZSceneBackgroundTailSeconds, 600);
+        CMTime mixDuration = CMTimeAdd(narrationDuration, tailDuration);
+        if (!voiceTrack || !backgroundTrack || !CMTIME_IS_NUMERIC(narrationDuration) || CMTIME_COMPARE_INLINE(narrationDuration, <=, kCMTimeZero) || CMTIME_COMPARE_INLINE(background.duration, <=, kCMTimeZero)) {
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, [self errorWithCode:-41 message:@"The original scene layers are unavailable."]); }); return;
+        }
+        AVMutableComposition *composition = [AVMutableComposition composition]; NSError *insertError = nil;
+        AVMutableCompositionTrack *voice = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+        [voice insertTimeRange:CMTimeRangeMake(kCMTimeZero, narrationDuration) ofTrack:voiceTrack atTime:kCMTimeZero error:&insertError];
+        AVMutableCompositionTrack *bed = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+        for (CMTime cursor = kCMTimeZero; !insertError && CMTIME_COMPARE_INLINE(cursor, <, mixDuration); ) {
+            CMTime part = CMTimeMinimum(background.duration, CMTimeSubtract(mixDuration, cursor));
+            [bed insertTimeRange:CMTimeRangeMake(kCMTimeZero, part) ofTrack:backgroundTrack atTime:cursor error:&insertError]; cursor = CMTimeAdd(cursor, part);
+        }
+        if (insertError) { dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, insertError); }); return; }
+        AVMutableAudioMixInputParameters *bedMix = [AVMutableAudioMixInputParameters audioMixInputParametersWithTrack:bed];
+        [bedMix setVolume:level atTime:kCMTimeZero];
+        [bedMix setVolumeRampFromStartVolume:level toEndVolume:0.0 timeRange:CMTimeRangeMake(narrationDuration, tailDuration)];
+        AVMutableAudioMix *mix = [AVMutableAudioMix audioMix]; mix.inputParameters = @[bedMix];
+        NSURL *output = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"scene_remix_%@.m4a", NSUUID.UUID.UUIDString]]];
+        AVAssetExportSession *exporter = [[AVAssetExportSession alloc] initWithAsset:composition presetName:AVAssetExportPresetAppleM4A]; exporter.outputURL = output; exporter.outputFileType = AVFileTypeAppleM4A; exporter.audioMix = mix;
+        [exporter exportAsynchronouslyWithCompletionHandler:^{
+            NSData *data = exporter.status == AVAssetExportSessionStatusCompleted ? [NSData dataWithContentsOfURL:output] : nil;
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(data, exporter.error); });
+        }];
+    });
 }
 
 - (NSString *)formattedTime:(NSTimeInterval)seconds {
@@ -564,12 +707,13 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
 
 - (void)setupSpeedSection {
     self.speedSectionLabel = [self sectionHeaderLabel];
-    self.speedSectionLabel.text = @"SPEED (PLAYBACK ONLY — DOES NOT REGENERATE)";
+    self.speedSectionLabel.text = @"SPEED (PLAYBACK ONLY)";
     [self.scrollView addSubview:self.speedSectionLabel];
 
     self.speedSlider = [[UISlider alloc] init];
     self.speedSlider.minimumValue = 0.5;
     self.speedSlider.maximumValue = 2.0;
+    self.speedSlider.tintColor = EZEditElectricBlue();
     id storedRate = self.entry.metadata[@"playbackRate"];
     self.speedSlider.value = [storedRate isKindOfClass:[NSNumber class]] ? [storedRate floatValue] : 1.0f;
     [self.speedSlider addTarget:self action:@selector(handleSpeedSliderChanged:) forControlEvents:UIControlEventValueChanged];
@@ -662,7 +806,7 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
 
 - (void)setupVoiceSection {
     self.voiceSectionLabel = [self sectionHeaderLabel];
-    self.voiceSectionLabel.text = @"CHANGE VOICE (REGENERATES A NEW CLIP)";
+    self.voiceSectionLabel.text = @"CHANGE VOICE";
     [self.scrollView addSubview:self.voiceSectionLabel];
 
     self.voiceButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -670,6 +814,8 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
     self.voiceButton.titleLabel.font = [UIFont systemFontOfSize:15];
     self.voiceButton.backgroundColor = [UIColor secondarySystemBackgroundColor];
     self.voiceButton.layer.cornerRadius = 8;
+    self.voiceButton.layer.borderWidth = 1.0;
+    self.voiceButton.layer.borderColor = [EZEditElectricBlue() colorWithAlphaComponent:0.3].CGColor;
     self.voiceButton.contentEdgeInsets = UIEdgeInsetsMake(0, 12, 0, 12);
     [self updateVoiceButtonTitle];
     [self.voiceButton addTarget:self action:@selector(handleVoiceButtonTapped) forControlEvents:UIControlEventTouchUpInside];
@@ -717,7 +863,7 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
 
 - (void)setupEffectsSection {
     self.effectsSectionLabel = [self sectionHeaderLabel];
-    self.effectsSectionLabel.text = @"EFFECTS (WHOLE CLIP — ALWAYS SAVES AS A NEW CLIP)";
+    self.effectsSectionLabel.text = @"EFFECTS — APPLIED TO WHOLE CLIP";
     [self.scrollView addSubview:self.effectsSectionLabel];
 
     self.pitchValueLabel = [[UILabel alloc] init];
@@ -729,6 +875,7 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
     self.pitchSlider.minimumValue = -1200; // cents: -12 semitones
     self.pitchSlider.maximumValue = 1200;  // +12 semitones
     self.pitchSlider.value = 0;
+    self.pitchSlider.tintColor = EZEditElectricBlue();
     self.pitchSlider.minimumValueImage = [UIImage systemImageNamed:@"arrow.down"];
     self.pitchSlider.maximumValueImage = [UIImage systemImageNamed:@"arrow.up"];
     [self.pitchSlider addTarget:self action:@selector(handlePitchSliderChanged:) forControlEvents:UIControlEventValueChanged];
@@ -739,17 +886,17 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
     [self.applyPitchButton addTarget:self action:@selector(handlePitchApplyTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:self.applyPitchButton];
 
-    self.reverbButton = [self smallActionButtonWithTitle:@"Reverb" systemImage:@"circle.dashed"];
+    self.reverbButton = [self smallActionButtonWithTitle:@"Reverb" systemImage:@"circle.dashed" color:[UIColor systemPurpleColor]];
     self.reverbButton.hidden = NO; // unlike the range-tools row, these three are always available
     [self.reverbButton addTarget:self action:@selector(handleReverbTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:self.reverbButton];
 
-    self.echoButton = [self smallActionButtonWithTitle:@"Echo" systemImage:@"waveform.path.ecg.rectangle"];
+    self.echoButton = [self smallActionButtonWithTitle:@"Echo" systemImage:@"waveform.path.ecg.rectangle" color:[UIColor systemOrangeColor]];
     self.echoButton.hidden = NO;
     [self.echoButton addTarget:self action:@selector(handleEchoTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:self.echoButton];
 
-    self.eqButton = [self smallActionButtonWithTitle:@"EQ" systemImage:@"slider.horizontal.3"];
+    self.eqButton = [self smallActionButtonWithTitle:@"EQ" systemImage:@"slider.horizontal.3" color:[UIColor systemTealColor]];
     self.eqButton.hidden = NO;
     [self.eqButton addTarget:self action:@selector(handleEQTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:self.eqButton];
@@ -977,18 +1124,19 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
     [button setImage:[UIImage systemImageNamed:imageName] forState:UIControlStateNormal];
     button.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+    button.tintColor = EZEditElectricBlue();
     return button;
 }
 
-- (UIButton *)smallActionButtonWithTitle:(NSString *)title systemImage:(NSString *)imageName {
+- (UIButton *)smallActionButtonWithTitle:(NSString *)title systemImage:(NSString *)imageName color:(UIColor *)color {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
     UIButtonConfiguration *config = [UIButtonConfiguration filledButtonConfiguration];
     config.title = title;
     config.image = [UIImage systemImageNamed:imageName];
     config.imagePadding = 4;
     config.imagePlacement = NSDirectionalRectEdgeTop;
-    config.baseBackgroundColor = [UIColor secondarySystemBackgroundColor];
-    config.baseForegroundColor = self.view.tintColor;
+    config.baseBackgroundColor = [color colorWithAlphaComponent:0.16];
+    config.baseForegroundColor = color;
     config.cornerStyle = UIButtonConfigurationCornerStyleMedium;
     config.titleTextAttributesTransformer =
         ^NSDictionary<NSAttributedStringKey,id> * _Nonnull(NSDictionary<NSAttributedStringKey,id> * _Nonnull attrs) {
@@ -1021,8 +1169,14 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
 
     self.scrollView.frame = self.view.bounds;
 
-    self.promptLabel.frame = CGRectMake(margin, y, width, 60);
-    y = CGRectGetMaxY(self.promptLabel.frame) + 20;
+    CGFloat promptTextWidth = width - 48;
+    CGFloat promptTextHeight = [self.promptLabel sizeThatFits:CGSizeMake(promptTextWidth, CGFLOAT_MAX)].height;
+    CGFloat collapsedHeight = 60;
+    CGFloat promptHeight = self.promptExpanded ? MAX(collapsedHeight, ceil(promptTextHeight) + 24) : collapsedHeight;
+    self.promptContainer.frame = CGRectMake(margin, y, width, promptHeight);
+    self.promptLabel.frame = CGRectMake(12, 10, promptTextWidth, promptHeight - 20);
+    self.promptDisclosureImage.frame = CGRectMake(width - 32, 8, 24, 24);
+    y = CGRectGetMaxY(self.promptContainer.frame) + 20;
 
     // Waveform section — first, right under the prompt.
     self.waveformSectionLabel.frame = CGRectMake(margin, y, width, 16);
@@ -1040,6 +1194,14 @@ static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
     self.trimButton.frame = CGRectMake(margin + (actionButtonWidth + 8) * 2, y, actionButtonWidth, actionButtonHeight);
     self.exportSpinner.center = CGPointMake(self.view.bounds.size.width / 2.0, y + actionButtonHeight / 2.0);
     y += actionButtonHeight + 28;
+
+    if (self.backgroundSectionLabel) {
+        self.backgroundSectionLabel.frame = CGRectMake(margin, y, width, 16);
+        y = CGRectGetMaxY(self.backgroundSectionLabel.frame) + 8;
+        self.backgroundLevelLabel.frame = CGRectMake(margin, y, 52, 24);
+        self.backgroundLevelSlider.frame = CGRectMake(margin + 60, y, width - 60, 24);
+        y = CGRectGetMaxY(self.backgroundLevelSlider.frame) + 28;
+    }
 
     // Speed section
     self.speedSectionLabel.frame = CGRectMake(margin, y, width, 16);
