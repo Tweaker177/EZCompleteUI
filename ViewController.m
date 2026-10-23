@@ -4201,6 +4201,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     ezBody[@"estimated_tokens"] = @(totalEstimate);
     ezBody[@"max_tokens"]        = @(maxCompletionTokens);
     ezBody[@"feature_tier"]     = featureTier;
+    NSString *fastMode = [defaults stringForKey:@"fastMode"];
+    if ([fastMode isEqualToString:@"flex"] || [fastMode isEqualToString:@"fast"] || [fastMode isEqualToString:@"ultrafast"]) {
+        ezBody[@"fast_mode"] = fastMode;
+    }
     ezBody[@"image_tools"] = @YES;
     ezBody[@"image_source_available"] = @(capturedImageSource.length > 0);
     if (userPreferences.length > 0) ezBody[@"user_preferences"] = userPreferences;
