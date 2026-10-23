@@ -4,6 +4,30 @@ All notable changes to EZCompleteUI are documented here. Version numbers refer
 to the app/package version. Server-backed features also require their matching
 Supabase Edge Function deployments and migrations.
 
+## Unreleased
+
+### Chat models can create songs
+
+- Added a `create_music` tool for chat models. When you ask a model to make a
+  song or instrumental, it picks the description, title, optional lyrics,
+  instrumental flag and length, and the app sends that through the existing
+  AI Music service. The finished song appears in the chat as a card with
+  **Play** (Quick Look) and **Share**, and is also saved in AI Music.
+- Chat songs are limited to 2 minutes and one version, so a single chat song
+  costs at most 60 coins at the current price. All pricing, charging, refunds
+  and the limit on songs composing at once stay in the `ez-music` Edge
+  Function; the chat server only passes along a validated request.
+- Song cards survive closing and reopening a chat, and a song that finishes
+  while another chat is open is saved into the chat that asked for it. The
+  model is told when a song finished or failed, so follow-ups such as "make it
+  faster" work.
+- Known limit: a song still composing when the app is closed finishes on the
+  server and appears in AI Music, but its card is not added to the chat.
+- Server: `ez-chat` v1.7 accepts `music_tools` and returns `music_request`;
+  new shared module `_shared/chat-music-tool.mjs`. Deploy both together.
+- Shared the "download a finished song and keep it on the device" code between
+  the AI Music screen and chat (`EZMusicLibraryManager`).
+
 ## 7.1.15 — 2026-10-17
 
 ### Highlights since 7.1.12

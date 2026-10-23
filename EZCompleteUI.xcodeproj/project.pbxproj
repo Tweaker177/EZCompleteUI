@@ -83,6 +83,7 @@
 		A2000000000000000000004E /* EZMusicService.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004E /* EZMusicService.m */; };
 		A2000000000000000000004F /* EZMusicViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004F /* EZMusicViewController.m */; };
 		A20000000000000000000050 /* EZMusicLibraryManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000050 /* EZMusicLibraryManager.m */; };
+		A20000000000000000000051 /* EZMusicBubbleCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000051 /* EZMusicBubbleCell.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -172,6 +173,7 @@
 		A1000000000000000000004E /* EZMusicService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicService.m; sourceTree = "<group>"; };
 		A1000000000000000000004F /* EZMusicViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicViewController.m; sourceTree = "<group>"; };
 		A10000000000000000000050 /* EZMusicLibraryManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicLibraryManager.m; sourceTree = "<group>"; };
+		A10000000000000000000051 /* EZMusicBubbleCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicBubbleCell.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -298,6 +300,7 @@
 				A1000000000000000000004F /* EZMusicViewController.m */,
 				A1000000000000000000004E /* EZMusicService.m */,
 				A10000000000000000000050 /* EZMusicLibraryManager.m */,
+				A10000000000000000000051 /* EZMusicBubbleCell.m */,
 				A1000000000000000000004D /* BRSlotRoomViewController.h */,
 			);
 			name = Sources;
@@ -511,6 +514,7 @@
 				A2000000000000000000004E /* EZMusicService.m in Sources */,
 				A2000000000000000000004F /* EZMusicViewController.m in Sources */,
 				A20000000000000000000050 /* EZMusicLibraryManager.m in Sources */,
+				A20000000000000000000051 /* EZMusicBubbleCell.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

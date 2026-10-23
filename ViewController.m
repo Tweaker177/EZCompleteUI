@@ -1,5 +1,32 @@
 // ViewController.m
-// EZCompleteUI v9.5
+// EZCompleteUI v9.6
+//
+// Changes from v9.5:
+//   - Chat models can now create songs. The app tells ez-chat it supports the
+//     tool (music_tools: YES). When the model calls it, ez-chat returns a
+//     "music_request" (description, optional title/lyrics, instrumental flag,
+//     length) and -performChatMusicRequest: takes over:
+//       1. Loads current limits from ez-music (EZMusicService) and clamps the
+//          length to what the server allows, never above 2 minutes in chat
+//          and always a single version, which keeps one chat song at or under
+//          60 coins at the current price.
+//       2. Starts the song right away through EZMusicService (no confirmation
+//          dialog, by request). Pricing, charging, refunds and the limit on
+//          songs composing at once all stay in the ez-music Edge Function.
+//          A system line tells the user the song was started and what it
+//          reserved.
+//       3. Polls until the song is finished and keeps the MP3 on the device
+//          through EZMusicLibraryManager.
+//       4. Adds a song card (EZMusicBubbleCell, display role "music") with
+//          Play and Share, plus a UI-only "_ui_music" event in the thread so
+//          the card survives a restore and the model knows what happened
+//          (summarized in sanitizedContextForAPI, like image results). If you
+//          switched to another chat while the song composed, the card is saved
+//          into the chat that asked for it.
+//   - Known limits: polling runs inside this screen. If the app is closed
+//     while a song is composing, it still finishes on the server and shows up
+//     in AI Music, but its card is not added to the chat afterward. Song
+//     cards are not selectable for thread export yet.
 //
 // Changes from v9.4:
 //   - Added the AI Music entry point: the history drawer's new "music" action
@@ -559,6 +586,9 @@
 #import "EZCoinPotView.h"
 #import "TextToSpeechViewController.h"
 #import "EZMusicViewController.h"
+#import "EZMusicService.h"
+#import "EZMusicLibraryManager.h"
+#import "EZMusicBubbleCell.h"
 #import "MemoriesViewController.h"
 #import "SupportRequestViewController.h"
 #import "BrainRotViewController.h"
@@ -817,6 +847,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     EZAttachModeAnalyze,
 };
 
+// Defined with the chat music code further down; needed earlier by thread restore.
+static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
+
 @interface ViewController () <UIDocumentPickerDelegate,
                                UITextFieldDelegate,
                                UITextViewDelegate,
@@ -985,6 +1018,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
 @property (nonatomic, strong) UILabel *coinBalanceLabel; // kept for compatibility
 @property (nonatomic, strong) EZCoinPotView *coinPotView;
 @property (nonatomic, copy) NSString *chatImageSourcePath;
+// Songs a chat model asked for that are still composing, keyed by generation
+// ID, so each one is polled exactly once. Created on first use.
+@property (nonatomic, strong) NSMutableDictionary<NSString *, EZMusicPollToken *> *chatMusicPollTokens;
 
 // Private helpers added since previous interface
 - (void)restoreImageGridCellsForThread:(NSString *)threadID;
@@ -1027,6 +1063,8 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
                     errorText:(nullable NSString *)errorText;
 - (void)persistImagePath:(NSString *)path prompt:(NSString *)prompt;
 - (void)performChatImageRequest:(NSDictionary *)imageRequest sourcePath:(NSString *)sourcePath;
+- (void)performChatMusicRequest:(NSDictionary *)musicRequest;
+- (NSString *)ez_chatMusicSummaryForEvent:(NSDictionary *)event;
 - (void)callGptImage1:(NSString *)prompt model:(NSString *)imageModel;
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath
                model:(NSString *)imageModel preserveChatModel:(BOOL)preserveChatModel;
@@ -1463,6 +1501,17 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         NSString *role    = msg[@"role"] ?: @"";
         id        content = msg[@"content"];
         NSString *text    = [content isKindOfClass:[NSString class]] ? content : nil;
+
+        // Songs a chat model created are UI-only timeline events too. A failed
+        // song has no card (its error line was a transient system message), so
+        // only successful ones are rebuilt.
+        if ([role isEqualToString:@"_ui_music"]) {
+            NSString *songEntryID = [msg[@"entryID"] isKindOfClass:[NSString class]] ? msg[@"entryID"] : @"";
+            if (![msg[@"isError"] boolValue] && songEntryID.length > 0) {
+                [self.displayMessages addObject:EZChatMusicDisplayMessage(msg)];
+            }
+            continue;
+        }
 
         // Image-generation results are UI-only timeline events.  Keeping them
         // in the thread (rather than a separate UserDefaults side cache) is
@@ -1923,6 +1972,7 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     [self.chatTableView registerClass:[EZSystemCell class]    forCellReuseIdentifier:@"EZSystem"];
     [self.chatTableView registerClass:[EZCodeBlockCell class] forCellReuseIdentifier:@"EZCodeBlock"];
     [self.chatTableView registerClass:[EZImageGridCell class] forCellReuseIdentifier:@"EZImageGrid"];
+    [self.chatTableView registerClass:[EZMusicBubbleCell class] forCellReuseIdentifier:@"EZMusic"];
     [self.chatTableView registerClass:[EZAttachmentPreviewCell class] forCellReuseIdentifier:@"EZAttachment"];
     [self.view addSubview:self.chatTableView];
 
@@ -4202,6 +4252,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     ezBody[@"max_tokens"]        = @(maxCompletionTokens);
     ezBody[@"feature_tier"]     = featureTier;
     ezBody[@"image_tools"] = @YES;
+    // Lets ez-chat offer the model its create_music tool. The server only ever
+    // returns a music_request; it never generates or charges for a song.
+    ezBody[@"music_tools"] = @YES;
     ezBody[@"image_source_available"] = @(capturedImageSource.length > 0);
     if (userPreferences.length > 0) ezBody[@"user_preferences"] = userPreferences;
     if (useWebSearch)           ezBody[@"web_search"] = @YES;
@@ -4309,6 +4362,31 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                     return;
                 }
                 [self performChatImageRequest:imageRequest sourcePath:capturedImageSource];
+            });
+            return;
+        }
+
+        NSDictionary *musicRequest = [json[@"music_request"] isKindOfClass:[NSDictionary class]]
+            ? json[@"music_request"] : nil;
+        if (musicRequest) {
+            NSString *introReply = [json[@"reply"] isKindOfClass:[NSString class]] ? json[@"reply"] : @"";
+            dispatch_async(dispatch_get_main_queue(), ^{
+                id musicBalance = json[@"balance"];
+                if ([musicBalance respondsToSelector:@selector(integerValue)]) {
+                    [[EZEntitlementManager shared] applyKnownBalance:[musicBalance integerValue]];
+                }
+                [self updateCoinBalanceDisplay];
+                self.sendButton.enabled = YES;
+                if (![self.activeThread.threadID isEqualToString:capturedThreadID]) {
+                    [self appendToChat:@"[System: Song request stopped because the conversation changed. Please resend it in the original chat.]"];
+                    return;
+                }
+                // If the model said something before calling the tool, keep it.
+                if (introReply.length > 0) {
+                    [self.chatContext addObject:@{@"role": @"assistant", @"content": introReply}];
+                    [self appendToChat:[NSString stringWithFormat:@"AI: %@", introReply]];
+                }
+                [self performChatMusicRequest:musicRequest];
             });
             return;
         }
@@ -5247,6 +5325,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                     failed ? @"failed" : @"completed; the image is displayed in chat and saved in the gallery",
                     msg[@"prompt"] ?: @"", failed ? [NSString stringWithFormat:@". Error: %@", msg[@"errorText"] ?: @"Unknown error"] : @""];
                 [result addObject:@{@"role": @"assistant", @"content": summary}];
+            } else if ([msg[@"role"] isEqualToString:@"_ui_music"]) {
+                [result addObject:@{@"role": @"assistant",
+                                    @"content": [self ez_chatMusicSummaryForEvent:msg]}];
             }
             continue;
         }
@@ -6741,6 +6822,284 @@ static NSString *EZThreadExportTimestampNow(void) {
 /// Legacy name kept so all existing call sites compile unchanged.
 - (void)appendToOldChat:(NSString *)text { [self appendToChat:text]; }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Chat music (create_music tool)
+// ─────────────────────────────────────────────────────────────────────────────
+// Flow: ez-chat returns a music_request -> performChatMusicRequest: validates
+// and clamps it -> EZMusicService starts the song (the server charges) ->
+// pollGenerationWithID: waits for it -> the MP3 is kept on the device -> a
+// song card and a _ui_music thread event are added. Nothing here decides a
+// price; see the header comment at the top of this file.
+
+/// The longest song a chat model may ask for. ez-chat clamps the same number;
+/// ez-music enforces its own limits no matter what either one sends.
+static NSInteger const kEZChatMusicMaxSeconds = 120;
+
+/// How a song looks in the chat's UI-only thread timeline.
+static NSDictionary *EZChatMusicEvent(NSString *entryID, NSString *title, NSString *prompt,
+                                      NSInteger durationSeconds, BOOL isError, NSString *errorText,
+                                      NSString *timestamp) {
+    return @{
+        @"role": @"_ui_music",
+        @"entryID": entryID ?: @"",
+        @"title": title ?: @"",
+        @"prompt": prompt ?: @"",
+        @"durationSeconds": @(durationSeconds),
+        @"isError": @(isError),
+        @"errorText": errorText ?: @"",
+        @"timestamp": timestamp ?: @"time unavailable",
+        @"_uiOnly": @YES,
+    };
+}
+
+/// Turns a stored _ui_music event into the display row the song card draws.
+static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
+    NSInteger seconds = [event[@"durationSeconds"] respondsToSelector:@selector(integerValue)]
+        ? [event[@"durationSeconds"] integerValue] : 0;
+    NSInteger minutes = seconds / 60;
+    NSString *subtitle = seconds > 0
+        ? [NSString stringWithFormat:@"AI song  •  %ld:%02ld", (long)minutes, (long)(seconds % 60)]
+        : @"AI song";
+    return @{
+        @"role": @"music",
+        @"entryID": event[@"entryID"] ?: @"",
+        @"title": event[@"title"] ?: @"AI song",
+        @"subtitle": subtitle,
+        @"timestamp": event[@"timestamp"] ?: @"time unavailable",
+    };
+}
+
+- (void)performChatMusicRequest:(NSDictionary *)musicRequest {
+    NSString *prompt = [musicRequest[@"prompt"] isKindOfClass:[NSString class]]
+        ? [musicRequest[@"prompt"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
+    NSString *title = [musicRequest[@"title"] isKindOfClass:[NSString class]]
+        ? [musicRequest[@"title"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
+    NSString *lyrics = [musicRequest[@"lyrics"] isKindOfClass:[NSString class]]
+        ? [musicRequest[@"lyrics"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
+    BOOL instrumental = [musicRequest[@"instrumental"] respondsToSelector:@selector(boolValue)]
+        && [musicRequest[@"instrumental"] boolValue];
+    NSInteger requestedSeconds = [musicRequest[@"duration_seconds"] respondsToSelector:@selector(integerValue)]
+        ? [musicRequest[@"duration_seconds"] integerValue] : 60;
+
+    if (prompt.length == 0 || prompt.length > 4100 || lyrics.length > 6100) {
+        [self handleAPIError:@"The song request was incomplete. Please try again."];
+        return;
+    }
+    if (title.length > 120) title = [title substringToIndex:120];
+    // Lyrics and an instrumental flag contradict each other; keep the lyrics.
+    if (lyrics.length > 0) instrumental = NO;
+
+    NSString *threadID = self.activeThread.threadID;
+    NSString *timestamp = EZThreadExportTimestampNow();
+    self.sendButton.enabled = NO;
+    [self appendToChat:@"[System: Preparing your song...]"];
+
+    __weak typeof(self) weakSelf = self;
+    [[EZMusicService sharedService] fetchConfigWithCompletion:^(NSDictionary *config, NSError *configError) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        strongSelf.sendButton.enabled = YES;
+
+        if (!config) {
+            [strongSelf handleAPIError:[NSString stringWithFormat:@"Couldn't reach AI Music: %@",
+                configError.localizedDescription ?: @"please try again."]];
+            return;
+        }
+        if (![config[@"enabled"] boolValue]) {
+            [strongSelf appendToChat:@"[System: AI Music is temporarily unavailable. Please try again later.]"];
+            return;
+        }
+
+        // Clamp to what the server allows, and to the shorter chat limit.
+        NSInteger minimumSeconds = [config[@"minimum_song_duration_seconds"] integerValue];
+        NSInteger maximumSeconds = [config[@"max_song_duration_seconds"] integerValue];
+        if (minimumSeconds <= 0) minimumSeconds = 10;
+        if (maximumSeconds <= 0) maximumSeconds = kEZChatMusicMaxSeconds;
+        maximumSeconds = MIN(maximumSeconds, kEZChatMusicMaxSeconds);
+        NSInteger seconds = MAX(minimumSeconds, MIN(requestedSeconds, maximumSeconds));
+
+        // Quote only for the "not enough coins" check and the status line. The
+        // server recomputes the real charge from its own rules.
+        double coinsPerMinute = [config[@"coins_per_minute"] doubleValue];
+        NSInteger minimumCharge = [config[@"minimum_generation_charge"] integerValue];
+        NSInteger quotedCoins = MAX(minimumCharge, (NSInteger)ceil(((double)seconds / 60.0) * coinsPerMinute));
+        NSNumber *knownBalance = [EZEntitlementManager shared].coinBalance;
+        if (knownBalance && knownBalance.integerValue < quotedCoins) {
+            [strongSelf appendToChat:[NSString stringWithFormat:
+                @"[System: This song needs about %ld coins and you have %ld.]",
+                (long)quotedCoins, (long)knownBalance.integerValue]];
+            [strongSelf presentCoinStoreForFeature:@"AI music"];
+            return;
+        }
+
+        [[EZMusicService sharedService]
+            startGenerationWithPrompt:prompt
+                               lyrics:(lyrics.length > 0 ? lyrics : nil)
+                         referenceURL:nil
+                        referenceMode:nil
+                                title:title
+                      durationSeconds:seconds
+                         variantCount:1
+                    forceInstrumental:instrumental
+                           completion:^(NSString *generationID, NSArray<NSDictionary *> *startedEntries,
+                                        NSInteger balanceAfter, NSError *startError) {
+            __strong typeof(weakSelf) innerSelf = weakSelf;
+            if (!innerSelf) return;
+            if (startError) { [innerSelf handleChatMusicStartError:startError]; return; }
+
+            [innerSelf updateCoinBalanceDisplay];
+            NSString *shownTitle = title.length > 0 ? title : @"your song";
+            [innerSelf appendToChat:[NSString stringWithFormat:
+                @"[System: Composing \"%@\" (about %ld sec, up to %ld coins). It will appear here when it's ready; unfinished songs are refunded automatically.]",
+                shownTitle, (long)seconds, (long)quotedCoins]];
+            [innerSelf trackChatMusicGenerationID:generationID title:title prompt:prompt
+                                  requestedSeconds:seconds threadID:threadID timestamp:timestamp];
+        }];
+    }];
+}
+
+/// Explains a failed start in chat and, for the cases that have an obvious next
+/// step, offers it (coin store).
+- (void)handleChatMusicStartError:(NSError *)error {
+    NSString *serverCode = [error.userInfo[EZMusicServiceServerCodeKey] isKindOfClass:[NSString class]]
+        ? error.userInfo[EZMusicServiceServerCodeKey] : @"";
+    if ([serverCode isEqualToString:@"insufficient_coins"]) {
+        [self appendToChat:@"[System: You don't have enough coins for this song.]"];
+        [self presentCoinStoreForFeature:@"AI music"];
+    } else if ([serverCode isEqualToString:@"too_many_active"]) {
+        [self appendToChat:@"[System: You already have songs being created. Wait for them to finish, then ask again.]"];
+    } else if (error.code == EZMusicServiceErrorNetwork || error.code == EZMusicServiceErrorBadResponse) {
+        // The server may have accepted the request even though we never heard back.
+        [self appendToChat:@"[System: The connection dropped before we heard back about your song. Check AI Music: if it isn't there, you weren't charged and you can ask again.]"];
+    } else {
+        [self appendToChat:[NSString stringWithFormat:@"[System: Couldn't start the song: %@]",
+            error.localizedDescription ?: @"please try again."]];
+    }
+}
+
+/// Watches one chat song until it finishes, then adds its card.
+- (void)trackChatMusicGenerationID:(NSString *)generationID
+                             title:(NSString *)requestedTitle
+                            prompt:(NSString *)prompt
+                  requestedSeconds:(NSInteger)requestedSeconds
+                          threadID:(NSString *)threadID
+                         timestamp:(NSString *)timestamp {
+    if (generationID.length == 0) return;
+    if (!self.chatMusicPollTokens) self.chatMusicPollTokens = [NSMutableDictionary dictionary];
+    if (self.chatMusicPollTokens[generationID]) return;
+
+    __weak typeof(self) weakSelf = self;
+    EZMusicPollToken *pollToken = [[EZMusicService sharedService]
+        pollGenerationWithID:generationID
+                    progress:nil
+                  completion:^(NSArray<NSDictionary *> *finalEntries, NSError *pollError) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        [strongSelf.chatMusicPollTokens removeObjectForKey:generationID];
+
+        NSDictionary *finishedEntry = nil;
+        NSString *failureText = nil;
+        for (NSDictionary *entry in finalEntries) {
+            if ([entry[@"status"] isEqual:@"complete"]) { finishedEntry = entry; break; }
+            if (!failureText && [entry[@"status"] isEqual:@"failed"] &&
+                [entry[@"error_text"] isKindOfClass:[NSString class]]) {
+                failureText = entry[@"error_text"];
+            }
+        }
+        [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {}];
+
+        if (!finishedEntry) {
+            NSString *reason = failureText.length > 0 ? failureText
+                : (pollError.localizedDescription ?: @"The song couldn't be created.");
+            BOOL refunded = (failureText.length > 0);
+            NSString *message = refunded
+                ? [NSString stringWithFormat:@"%@ Your coins for this song were refunded.", reason]
+                : [NSString stringWithFormat:@"%@ If it finishes, it will be in AI Music.", reason];
+            [strongSelf deliverChatMusicEvent:EZChatMusicEvent(@"", requestedTitle, prompt, requestedSeconds,
+                                                                YES, message, timestamp)
+                                     toThread:threadID];
+            return;
+        }
+
+        NSString *entryID = [finishedEntry[@"id"] isKindOfClass:[NSString class]] ? finishedEntry[@"id"] : @"";
+        NSString *finalTitle = [finishedEntry[@"title"] isKindOfClass:[NSString class]] && [finishedEntry[@"title"] length] > 0
+            ? finishedEntry[@"title"] : (requestedTitle.length > 0 ? requestedTitle : @"AI song");
+        NSInteger actualSeconds = [finishedEntry[@"duration_actual_ms"] respondsToSelector:@selector(integerValue)]
+            ? (NSInteger)llround([finishedEntry[@"duration_actual_ms"] doubleValue] / 1000.0) : 0;
+        NSInteger shownSeconds = actualSeconds > 0 ? actualSeconds : requestedSeconds;
+
+        // Keep the MP3 on the device so Play and Share work offline. If this
+        // fails the card is still added; its buttons download the file on demand.
+        [[EZMusicService sharedService] fetchPlaybackURLForEntryID:entryID forDownload:NO
+                                                        completion:^(NSURL *remoteURL, NSError *linkError) {
+            void (^addCard)(void) = ^{
+                __strong typeof(weakSelf) innerSelf = weakSelf;
+                if (!innerSelf) return;
+                [innerSelf deliverChatMusicEvent:EZChatMusicEvent(entryID, finalTitle, prompt, shownSeconds,
+                                                                   NO, nil, timestamp)
+                                        toThread:threadID];
+            };
+            if (!remoteURL) {
+                EZLogf(EZLogLevelWarning, @"Music", @"No download link for chat song %@: %@",
+                       entryID, linkError.localizedDescription);
+                addCard();
+                return;
+            }
+            [[EZMusicLibraryManager sharedManager] retainSongFromRemoteURL:remoteURL entry:finishedEntry
+                                                                completion:^(NSURL *localURL, NSError *saveError) {
+                if (saveError) {
+                    EZLogf(EZLogLevelWarning, @"Music", @"Could not keep chat song %@ locally: %@",
+                           entryID, saveError.localizedDescription);
+                }
+                addCard();
+            }];
+        }];
+    }];
+    self.chatMusicPollTokens[generationID] = pollToken;
+}
+
+/// Puts a finished (or failed) song into the chat that asked for it. If that
+/// chat is on screen the card appears right away; otherwise the event is
+/// written into the saved thread so it is there when the user returns.
+- (void)deliverChatMusicEvent:(NSDictionary *)event toThread:(NSString *)threadID {
+    BOOL isError = [event[@"isError"] boolValue];
+
+    if ([self.activeThread.threadID isEqualToString:threadID]) {
+        if (isError) {
+            [self appendToChat:[NSString stringWithFormat:@"[System: %@]", event[@"errorText"] ?: @"The song couldn't be created."]];
+        } else {
+            [self.displayMessages addObject:EZChatMusicDisplayMessage(event)];
+            [self reloadAndScrollTable];
+        }
+        [self.chatContext addObject:event];
+        [self saveActiveThread];
+        return;
+    }
+
+    // The user is in a different chat now: add the event to the saved thread.
+    EZChatThread *originalThread = threadID.length > 0 ? EZThreadLoad(threadID) : nil;
+    if (!originalThread) {
+        EZLogf(EZLogLevelWarning, @"Music", @"Song finished but its chat %@ no longer exists", threadID);
+        return;
+    }
+    NSMutableArray *context = [originalThread.chatContext mutableCopy] ?: [NSMutableArray array];
+    [context addObject:event];
+    originalThread.chatContext = [context copy];
+    EZThreadSave(originalThread, nil);
+}
+
+/// Text the chat model sees for a song event, so follow-ups like "make it
+/// faster" know what already happened.
+- (NSString *)ez_chatMusicSummaryForEvent:(NSDictionary *)event {
+    if ([event[@"isError"] boolValue]) {
+        return [NSString stringWithFormat:@"Song creation failed. Request: %@. Error: %@",
+                event[@"prompt"] ?: @"", event[@"errorText"] ?: @"Unknown error"];
+    }
+    return [NSString stringWithFormat:
+        @"Song \"%@\" completed; it is shown in chat with Play and Share buttons and saved in AI Music. Request: %@",
+        event[@"title"] ?: @"AI song", event[@"prompt"] ?: @""];
+}
+
 // ── Inline image grid insertion ───────────────────────────────────────────────
 
 /// Inserts an image grid cell into the chat for one or more generated/edited images.
@@ -6896,6 +7255,16 @@ static NSString *EZThreadExportTimestampNow(void) {
                             errorText:msg[@"errorText"]
                  presentingController:self];
         [self configureThreadSelectionDotForCell:cell indexPath:indexPath];
+        return cell;
+    }
+
+    if ([role isEqualToString:@"music"]) {
+        EZMusicBubbleCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZMusic"
+                                                                  forIndexPath:indexPath];
+        [cell configureWithTitle:msg[@"title"] ?: @"AI song"
+                        subtitle:msg[@"subtitle"] ?: @"AI song"
+                         entryID:msg[@"entryID"] ?: @""
+            presentingController:self];
         return cell;
     }
 
