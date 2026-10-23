@@ -4284,6 +4284,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     ezBody[@"estimated_tokens"] = @(totalEstimate);
     ezBody[@"max_tokens"]        = @(maxCompletionTokens);
     ezBody[@"feature_tier"]     = featureTier;
+    NSString *fastMode = [defaults stringForKey:@"fastMode"];
+    if ([fastMode isEqualToString:@"flex"] || [fastMode isEqualToString:@"fast"] || [fastMode isEqualToString:@"ultrafast"]) {
+        ezBody[@"fast_mode"] = fastMode;
+    }
     ezBody[@"image_tools"] = @YES;
     // Lets ez-chat offer the model its create_music tool. The server only ever
     // returns a music_request; it never generates or charges for a song.
