@@ -69,6 +69,19 @@ typedef NS_ENUM(NSInteger, EZTTSLibraryErrorCode) {
              extension:(NSString *)extension
             completion:(void (^)(EZTTSManifestEntry * _Nullable entry, NSError * _Nullable error))completion;
 
+/// Same as the primary save method, with JSON-safe metadata attached atomically to
+/// the new manifest entry. Scene clips use this to retain links to their dry voice
+/// and background assets for later re-mixing.
+- (void)saveAudioData:(NSData *)audioData
+                prompt:(NSString *)prompt
+             voiceName:(nullable NSString *)voiceName
+               voiceID:(nullable NSString *)voiceID
+              provider:(NSString *)provider
+                 model:(nullable NSString *)model
+             extension:(NSString *)extension
+              metadata:(nullable NSDictionary<NSString *, id> *)metadata
+            completion:(void (^)(EZTTSManifestEntry * _Nullable entry, NSError * _Nullable error))completion;
+
 #pragma mark - Reading
 
 /// All clips, newest first. Safe to call from any thread; returns an immediate snapshot.
@@ -108,6 +121,12 @@ typedef NS_ENUM(NSInteger, EZTTSLibraryErrorCode) {
 - (void)setPlaybackRate:(float)rate
              forClipUUID:(NSString *)uuid
               completion:(nullable void (^)(EZTTSManifestEntry * _Nullable entry, NSError * _Nullable error))completion;
+
+/// Persists the bed level for a scene clip after its two original layers have been
+/// re-mixed into the clip's existing History entry.
+- (void)setSceneBackgroundLevel:(float)level
+                   forClipUUID:(NSString *)uuid
+                     completion:(nullable void (^)(EZTTSManifestEntry * _Nullable entry, NSError * _Nullable error))completion;
 
 /// Replaces a clip's underlying audio file in place — same uuid, same position in
 /// History, same favorite/tags/metadata — only the audio bytes, duration, sample rate,

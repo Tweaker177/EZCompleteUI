@@ -15,10 +15,9 @@
 //   - uploadIVCWithAPIKey:, createPVCWithAPIKey:, uploadPVCSampleWithAPIKey:
 //     replaced by callEZElevenLabs:completion: edge function helper.
 //   - deleteVoiceWithID: and refreshVoicesFromServer route through edge function.
-//   - PVC segment (index 1) disabled + alpha 0.5 until Creator plan active.
-//     Code retained so re-enabling is a one-line change.
-//   - 402 (insufficient coins) and 403 (slot limit / membership required)
-//     responses handled with descriptive alerts.
+//   - Instant Voice Cloning is the sole clone mode.
+//   - 402 (insufficient coins) and 403 (slot limit) responses are handled
+//     with descriptive alerts.
 //   - Slot count and limit returned from edge function, shown in success alert.
 //
 // Requires: WaveformView.h
@@ -56,7 +55,6 @@ static NSString * const kEZElevenLabsURL         =
 // ---- Voice config ----
 @property (nonatomic, strong) UITextField *nameField;
 @property (nonatomic, strong) UITextField *langField;
-@property (nonatomic, strong) UISegmentedControl *modeControl;
 @property (nonatomic, strong) UISwitch *noiseSwitch;
 
 // ---- Record / transport buttons ----
@@ -93,9 +91,7 @@ static NSString * const kEZElevenLabsURL         =
 @property (nonatomic, strong) CADisplayLink *playbackDisplayLink;
 
 // ---- State ----
-@property (nonatomic, copy) NSString *createdPVCVoiceID;
 @property (nonatomic) BOOL hasShownQuickLookForCurrentFile;
-@property (nonatomic) BOOL isCheckingCloneSubscription;
 
 @end
 
@@ -179,29 +175,6 @@ static NSString * const kEZElevenLabsURL         =
     self.langField.autocorrectionType = UITextAutocorrectionTypeNo;
     [self.scrollView addSubview:self.langField];
     y += 44;
-
-    // ---- Clone mode ----
-    self.modeControl = [[UISegmentedControl alloc]
-                        initWithItems:@[NSLocalizedString(@"ElevenLabsClone.Instant", @"Instant voice cloning mode"), NSLocalizedString(@"ElevenLabsClone.Professional", @"Professional voice cloning mode")]];
-    self.modeControl.frame = CGRectMake(m, y, w, 32);
-    self.modeControl.selectedSegmentIndex = 0;
-    // PVC disabled until Creator plan active — segment stays in UI so
-    // re-enabling is removing these two lines only.
-    [self.modeControl setEnabled:NO forSegmentAtIndex:1];
-    [self.modeControl setTitleTextAttributes:@{NSForegroundColorAttributeName:
-        [UIColor tertiaryLabelColor]} forState:UIControlStateDisabled];
-    [self.modeControl addTarget:self
-                         action:@selector(modeChanged:)
-               forControlEvents:UIControlEventValueChanged];
-    [self.scrollView addSubview:self.modeControl];
-    y += 38;
-
-    UILabel *pvcNote = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w, 18)];
-    pvcNote.text = NSLocalizedString(@"ElevenLabsClone.ProfessionalNote", @"Professional voice cloning availability note");
-    pvcNote.font = [UIFont systemFontOfSize:11];
-    pvcNote.textColor = [UIColor secondaryLabelColor];
-    [self.scrollView addSubview:pvcNote];
-    y += 26;
 
     // ---- Noise switch ----
     UILabel *noiseLbl = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w - 60, 24)];
@@ -420,11 +393,6 @@ static NSString * const kEZElevenLabsURL         =
 }
 
 - (void)dismissKeyboard { [self.view endEditing:YES]; }
-
-- (void)modeChanged:(UISegmentedControl *)seg {
-    EZLogf(EZLogLevelInfo, @"ELEVEN", @"Mode → %@",
-           seg.selectedSegmentIndex == 0 ? @"IVC" : @"PVC");
-}
 
 // Enable / disable all file-dependent controls as a group
 - (void)setFileActionsEnabled:(BOOL)enabled {
@@ -888,22 +856,20 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     return [EZAuthManager shared].accessToken;
 }
 
-- (BOOL)hasPurchasedAccess {
-    EZEntitlementManager *entitlements = [EZEntitlementManager shared];
-    static NSSet<NSString *> *supportedTiers;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        supportedTiers = [NSSet setWithObjects:@"basic", @"basic_weekly", @"standard", @"standard_annual",
-                          @"pro", @"pro_annual", @"ultra", @"ultra_annual", @"power", @"power_annual",
-                          @"enterprise", @"enterprise_annual", nil];
-    });
-    return entitlements.hasEverPurchased || [supportedTiers containsObject:entitlements.currentTier];
-}
-
-- (void)showSubscriptionRequiredAlert {
+- (void)showCloneRetentionSubscriptionPrompt {
+    NSString *title = NSLocalizedString(@"ElevenLabsClone.CloneRetentionTitle", @"Clone retention subscription prompt title");
+    NSString *message = NSLocalizedString(@"ElevenLabsClone.CloneRetentionMessage", @"Clone retention subscription prompt message");
+    // Keep the prompt understandable in existing localizations until their
+    // translated string tables receive these new entries.
+    if ([title isEqualToString:@"ElevenLabsClone.CloneRetentionTitle"]) {
+        title = @"Keep Your Clone";
+    }
+    if ([message isEqualToString:@"ElevenLabsClone.CloneRetentionMessage"]) {
+        message = @"Your clone was created with coins. Without an active subscription, clones may be deleted after 7 days to make room for additional slots for subscribers.";
+    }
     UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:NSLocalizedString(@"ElevenLabsClone.SubscriptionRequired", @"Subscription required alert title")
-                         message:NSLocalizedString(@"ElevenLabsClone.SubscriptionRequiredMessage", @"Subscription required alert message")
+        alertControllerWithTitle:title
+                         message:message
                   preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"ElevenLabsClone.NotNow", @"Subscription alert cancel button")
                                               style:UIAlertActionStyleCancel
@@ -916,6 +882,32 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         if (!self) return;
         [self.navigationController pushViewController:[[EZCoinStoreViewController alloc] init]
                                              animated:YES];
+    }]];
+    [self presentViewControllerSafely:alert animated:YES retryCount:3];
+}
+
+- (void)promptForSubscriptionAfterCloneIfNeeded {
+    __weak typeof(self) weakSelf = self;
+    [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:
+        ^(BOOL refreshed, __unused NSInteger balance) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self || !refreshed) return;
+            if (![[EZEntitlementManager shared].currentStatus isEqualToString:@"active"]) {
+                [self showCloneRetentionSubscriptionPrompt];
+            }
+        }];
+}
+
+- (void)showCloneSuccessWithVoiceID:(NSString *)voiceID slotInfo:(NSString *)slotInfo {
+    UIAlertController *alert = [UIAlertController
+        alertControllerWithTitle:NSLocalizedString(@"ElevenLabsClone.VoiceCloned", @"Voice cloned success alert title")
+                         message:[NSString stringWithFormat:NSLocalizedString(@"ElevenLabsClone.VoiceClonedMessage", @"Voice cloned success alert message format"), voiceID, slotInfo]
+                  preferredStyle:UIAlertControllerStyleAlert];
+    __weak typeof(self) weakSelf = self;
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"ElevenLabsClone.OK", @"Alert confirmation")
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(__unused UIAlertAction *action) {
+        [weakSelf promptForSubscriptionAfterCloneIfNeeded];
     }]];
     [self presentViewControllerSafely:alert animated:YES retryCount:3];
 }
@@ -940,40 +932,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         return;
     }
 
-    if (self.isCheckingCloneSubscription) return;
-    self.isCheckingCloneSubscription = YES;
-    self.uploadButton.enabled = NO;
-
-    // Refresh instead of trusting a cached plan, then fail closed if the
-    // current subscription cannot be verified. This check never spends coins.
-    __weak typeof(self) weakSelf = self;
-    [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:
-        ^(BOOL refreshed, __unused NSInteger balance) {
-            __strong typeof(weakSelf) self = weakSelf;
-            if (!self) return;
-            self.isCheckingCloneSubscription = NO;
-            self.uploadButton.enabled = (self.recordedFileURL != nil);
-
-            if (!refreshed) {
-                [self showAlert:NSLocalizedString(@"ElevenLabsClone.SubscriptionCheckUnavailable", @"Subscription check failure title")
-                        message:NSLocalizedString(@"ElevenLabsClone.SubscriptionCheckUnavailableMessage", @"Subscription check failure message")];
-                return;
-            }
-            if (![self hasPurchasedAccess]) {
-                EZLog(EZLogLevelInfo, @"CLONE", @"Blocked voice clone: no purchase history");
-                [self showSubscriptionRequiredAlert];
-                return;
-            }
-            [self submitCloneWithName:name jwt:jwt];
-        }];
+    [self submitCloneWithName:name jwt:jwt];
 }
 
 - (void)submitCloneWithName:(NSString *)name jwt:(NSString *)jwt {
-
-    // PVC is currently disabled — segment index 1 is greyed out in buildUI.
-    // If somehow triggered, route it to the server which will return 403 plan_required.
-    NSString *action = (self.modeControl.selectedSegmentIndex == 0)
-                     ? @"clone_voice" : @"pvc_clone";
 
     NSData *audioData = [NSData dataWithContentsOfURL:self.recordedFileURL];
     if (audioData.length == 0) {
@@ -986,7 +948,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     [self setLoading:YES];
     NSDictionary *payload = @{
-        @"action":                    action,
+        @"action":                    @"clone_voice",
         @"name":                      name,
         @"audio_b64":                 audioB64,
         @"filename":                  audioFilename,
@@ -1013,11 +975,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             }
             if (statusCode == 403) {
                 NSString *errKey = responseDict[@"error"] ?: @"";
+                if ([errKey isEqualToString:@"clone_slot_limit"] &&
+                    [responseDict[@"limit"] integerValue] == 1) {
+                    [self showCloneRetentionSubscriptionPrompt];
+                    return;
+                }
                 NSString *reason = responseDict[@"reason"] ?: NSLocalizedString(@"ElevenLabsClone.AccessDenied", @"Access denied fallback message");
                 NSString *title  = [errKey isEqualToString:@"clone_slot_limit"]
                                  ? NSLocalizedString(@"ElevenLabsClone.VoiceSlotFull", @"Voice clone slot limit title")
-                                 : [errKey isEqualToString:@"membership_required"]
-                                 ? NSLocalizedString(@"ElevenLabsClone.SubscriptionRequired", @"Subscription required alert title")
                                  : NSLocalizedString(@"ElevenLabsClone.NotAvailable", @"Unavailable alert title");
                 [self showAlert:title message:reason];
                 return;
@@ -1049,8 +1014,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 ? [NSString stringWithFormat:NSLocalizedString(@"ElevenLabsClone.SlotsUsedFormat", @"Voice clone slots used format"),
                    (long)slotsUsed, (long)slotsLimit]
                 : @"";
-            [self showAlert:NSLocalizedString(@"ElevenLabsClone.VoiceCloned", @"Voice cloned success alert title")
-                    message:[NSString stringWithFormat:NSLocalizedString(@"ElevenLabsClone.VoiceClonedMessage", @"Voice cloned success alert message format"), voiceID, slotInfo]];
+            [self showCloneSuccessWithVoiceID:voiceID slotInfo:slotInfo];
             EZLogf(EZLogLevelInfo, @"CLONE", @"Created voice %@", voiceID);
         });
     }];
