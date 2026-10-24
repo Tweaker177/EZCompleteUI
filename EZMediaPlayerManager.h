@@ -1,5 +1,5 @@
 // EZMediaPlayerManager.h
-// EZCompleteUI v1.1
+// EZCompleteUI v1.2
 //
 // Purpose:
 //   The app's single, shared audio player. Anything that wants to play a
@@ -38,8 +38,14 @@
 //     the item, or go back to the one that played before it). The lock screen
 //     shows skip +/-15s for a single clip and previous/next once there is a
 //     list to move through.
+//
+// Changes from v1.1:
+//   - Items can carry cover art, shown on the lock screen / Control Center.
+//     Songs get theirs a little after they finish, so the player also picks it
+//     up by itself when EZMusicArtworkService finishes a cover for the song
+//     that is playing.
 
-#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -80,6 +86,10 @@ typedef NS_ENUM(NSInteger, EZMediaPlayerState) {
 
 /// Speed the item plays at (1.0 = normal). Pitch is preserved.
 @property (nonatomic, readonly) float playbackRate;
+
+/// Cover picture for the lock screen. Optional; the player fills it in later
+/// for songs whose cover arrives after playback started.
+@property (nonatomic, strong, nullable) UIImage *artwork;
 
 + (instancetype)itemWithIdentifier:(NSString *)identifier
                              title:(NSString *)title

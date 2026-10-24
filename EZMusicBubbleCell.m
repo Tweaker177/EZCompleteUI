@@ -1,5 +1,5 @@
 // EZMusicBubbleCell.m
-// EZCompleteUI v1.1
+// EZCompleteUI v1.2
 //
 // Purpose:
 //   Implementation of the inline song player card described in
@@ -17,6 +17,11 @@
 //        Otherwise -withLocalFile: gets the MP3 onto the device (downloading it
 //        if needed) and hands it to the manager.
 //
+//   Cover art: the square at the top left shows the song's generated cover
+//   (EZMusicArtworkService) or a music-note placeholder. Covers are made a few
+//   seconds after a song finishes, so the card listens for
+//   EZMusicArtworkDidUpdateNotification and swaps the picture in when it lands.
+//
 //   Edge cases handled on purpose:
 //     - The row is reused for another song while a download is running: the
 //       late result is ignored instead of playing the wrong song.
@@ -31,8 +36,10 @@
 #import "EZMediaPlayerManager.h"
 #import "EZMusicService.h"
 #import "EZMusicLibraryManager.h"
+#import "EZMusicArtworkService.h"
 
 @implementation EZMusicBubbleCell {
+    UIImageView *_artworkView;
     UILabel *_titleLabel;
     UILabel *_subtitleLabel;
     UIButton *_playButton;
@@ -69,11 +76,15 @@
 
     UIColor *accentColor = [UIColor colorWithRed:0.05 green:0.92 blue:0.72 alpha:1.0];
 
-    UIImageView *iconView = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"music.note"]];
-    iconView.tintColor = accentColor;
-    iconView.contentMode = UIViewContentModeScaleAspectFit;
-    iconView.translatesAutoresizingMaskIntoConstraints = NO;
-    [container addSubview:iconView];
+    // Cover art, or a music-note placeholder until one exists.
+    _artworkView = [[UIImageView alloc] init];
+    _artworkView.tintColor = accentColor;
+    _artworkView.backgroundColor = [UIColor colorWithWhite:0.2 alpha:1.0];
+    _artworkView.layer.cornerRadius = 8;
+    _artworkView.clipsToBounds = YES;
+    _artworkView.isAccessibilityElement = NO;
+    _artworkView.translatesAutoresizingMaskIntoConstraints = NO;
+    [container addSubview:_artworkView];
 
     _titleLabel = [[UILabel alloc] init];
     _titleLabel.font = [UIFont boldSystemFontOfSize:15];
@@ -135,10 +146,10 @@
         [container.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:12],
         [container.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-12],
 
-        [iconView.leadingAnchor constraintEqualToAnchor:container.leadingAnchor constant:12],
-        [iconView.topAnchor constraintEqualToAnchor:container.topAnchor constant:14],
-        [iconView.widthAnchor constraintEqualToConstant:22],
-        [iconView.heightAnchor constraintEqualToConstant:22],
+        [_artworkView.leadingAnchor constraintEqualToAnchor:container.leadingAnchor constant:12],
+        [_artworkView.topAnchor constraintEqualToAnchor:container.topAnchor constant:12],
+        [_artworkView.widthAnchor constraintEqualToConstant:48],
+        [_artworkView.heightAnchor constraintEqualToConstant:48],
 
         [_shareButton.topAnchor constraintEqualToAnchor:container.topAnchor constant:6],
         [_shareButton.trailingAnchor constraintEqualToAnchor:container.trailingAnchor constant:-6],
@@ -146,14 +157,14 @@
         [_shareButton.heightAnchor constraintEqualToConstant:40],
 
         [_titleLabel.topAnchor constraintEqualToAnchor:container.topAnchor constant:12],
-        [_titleLabel.leadingAnchor constraintEqualToAnchor:iconView.trailingAnchor constant:10],
+        [_titleLabel.leadingAnchor constraintEqualToAnchor:_artworkView.trailingAnchor constant:10],
         [_titleLabel.trailingAnchor constraintEqualToAnchor:_shareButton.leadingAnchor constant:-4],
 
         [_subtitleLabel.topAnchor constraintEqualToAnchor:_titleLabel.bottomAnchor constant:2],
         [_subtitleLabel.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],
         [_subtitleLabel.trailingAnchor constraintEqualToAnchor:container.trailingAnchor constant:-12],
 
-        [_playButton.topAnchor constraintEqualToAnchor:_subtitleLabel.bottomAnchor constant:8],
+        [_playButton.topAnchor constraintGreaterThanOrEqualToAnchor:_artworkView.bottomAnchor constant:6],
         [_playButton.leadingAnchor constraintEqualToAnchor:container.leadingAnchor constant:6],
         [_playButton.widthAnchor constraintEqualToConstant:44],
         [_playButton.heightAnchor constraintEqualToConstant:44],
@@ -171,8 +182,16 @@
         [_scrubber.centerYAnchor constraintEqualToAnchor:_playButton.centerYAnchor],
     ]];
 
+    // Stay close under the subtitle when it is tall; the rule above keeps the
+    // controls clear of the cover when the text is short.
+    NSLayoutConstraint *belowSubtitle = [_playButton.topAnchor constraintEqualToAnchor:_subtitleLabel.bottomAnchor constant:8];
+    belowSubtitle.priority = UILayoutPriorityDefaultHigh;
+    belowSubtitle.active = YES;
+
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playerDidUpdate)
                                                  name:EZMediaPlayerDidUpdateNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(artworkDidUpdate:)
+                                                 name:EZMusicArtworkDidUpdateNotification object:nil];
     return self;
 }
 
@@ -199,7 +218,28 @@
     _titleLabel.text = _songTitle;
     _isPreparing = NO;
     _isScrubbing = NO;
+    [self showArtwork:[[EZMusicArtworkService sharedService] cachedArtworkForEntryID:_entryID]];
     [self syncWithPlayer];
+}
+
+// MARK: - Cover art
+
+/// Shows `artwork`, or the music-note placeholder when there is none.
+- (void)showArtwork:(UIImage *)artwork {
+    if (artwork) {
+        _artworkView.contentMode = UIViewContentModeScaleAspectFill;
+        _artworkView.image = artwork;
+    } else {
+        _artworkView.contentMode = UIViewContentModeCenter;
+        _artworkView.image = [UIImage systemImageNamed:@"music.note"
+                                     withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22]];
+    }
+}
+
+- (void)artworkDidUpdate:(NSNotification *)note {
+    NSString *updatedEntryID = note.userInfo[EZMusicArtworkEntryIDKey];
+    if (updatedEntryID.length == 0 || ![updatedEntryID isEqualToString:_entryID]) return;
+    [self showArtwork:[[EZMusicArtworkService sharedService] cachedArtworkForEntryID:_entryID]];
 }
 
 // MARK: - Mirroring the shared player
@@ -279,12 +319,14 @@
         __strong typeof(weakSelf) strongSelf = weakSelf;
         // The row may have been reused for a different song while downloading.
         if (!strongSelf || ![strongSelf->_entryID isEqualToString:requestedEntryID]) return;
-        [[EZMediaPlayerManager sharedManager]
-            playItem:[EZMediaPlayerItem itemWithIdentifier:requestedEntryID
-                                                     title:strongSelf->_songTitle
-                                                  subtitle:strongSelf->_baseSubtitle
-                                                   fileURL:fileURL
-                                              durationHint:(NSTimeInterval)strongSelf->_durationSeconds]];
+        EZMediaPlayerItem *item = [EZMediaPlayerItem itemWithIdentifier:requestedEntryID
+                                                                  title:strongSelf->_songTitle
+                                                               subtitle:strongSelf->_baseSubtitle
+                                                                fileURL:fileURL
+                                                           durationHint:(NSTimeInterval)strongSelf->_durationSeconds];
+        // Cover for the lock screen; if it isn't ready yet the player adds it when it arrives.
+        item.artwork = [[EZMusicArtworkService sharedService] cachedArtworkForEntryID:requestedEntryID];
+        [[EZMediaPlayerManager sharedManager] playItem:item];
     }];
 }
 

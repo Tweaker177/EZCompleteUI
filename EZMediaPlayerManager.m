@@ -1,5 +1,5 @@
 // EZMediaPlayerManager.m
-// EZCompleteUI v1.1
+// EZCompleteUI v1.2
 //
 // Purpose:
 //   Implementation of the app's shared audio player described in
@@ -33,6 +33,12 @@
 // Changes from v1.0:
 //   - Per-item playback speed (pitch preserved).
 //   - skipBySeconds:, playPrevious and a short play history.
+//
+// Changes from v1.1:
+//   - Lock-screen artwork (EZMediaPlayerItem.artwork). When a song's cover
+//     finishes generating while it is playing, the lock screen is refreshed.
+//
+// Changes from v1.0 (continued):
 //   - Lock screen: skip forward/back 15s and previous track commands. iOS shows
 //     the track buttons only when previous or next is enabled, so they are
 //     enabled only when there actually is somewhere to go; a lone clip gets
@@ -41,6 +47,7 @@
 #import "EZMediaPlayerManager.h"
 #import <AVFoundation/AVFoundation.h>
 #import <MediaPlayer/MediaPlayer.h>
+#import "EZMusicArtworkService.h"
 #import "helpers.h"
 
 NSNotificationName const EZMediaPlayerDidUpdateNotification = @"EZMediaPlayerDidUpdateNotification";
@@ -144,6 +151,8 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
                    name:AVAudioSessionInterruptionNotification object:nil];
     [center addObserver:self selector:@selector(audioRouteChanged:)
                    name:AVAudioSessionRouteChangeNotification object:nil];
+    [center addObserver:self selector:@selector(musicArtworkDidUpdate:)
+                   name:EZMusicArtworkDidUpdateNotification object:nil];
     return self;
 }
 
@@ -467,6 +476,16 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     });
 }
 
+/// A cover finished generating. Song items use the song's entry ID as their
+/// identifier, so if it is the one loaded, show the cover on the lock screen.
+- (void)musicArtworkDidUpdate:(NSNotification *)note {
+    NSString *entryID = note.userInfo[EZMusicArtworkEntryIDKey];
+    EZMediaPlayerItem *item = self.currentItem;
+    if (entryID.length == 0 || !item || ![item.identifier isEqualToString:entryID]) return;
+    item.artwork = [[EZMusicArtworkService sharedService] cachedArtworkForEntryID:entryID];
+    [self publishChange];
+}
+
 - (void)audioRouteChanged:(NSNotification *)note {
     dispatch_async(dispatch_get_main_queue(), ^{
         AVAudioSessionRouteChangeReason reason =
@@ -577,6 +596,14 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = @(item.playbackRate);
     double length = self.duration;
     if (length > 0) info[MPMediaItemPropertyPlaybackDuration] = @(length);
+    UIImage *artworkImage = item.artwork;
+    if (artworkImage) {
+        // The block is called by the system at whatever size it needs; the
+        // stored cover is small and square, so returning it as-is is fine.
+        info[MPMediaItemPropertyArtwork] = [[MPMediaItemArtwork alloc]
+            initWithBoundsSize:artworkImage.size
+                requestHandler:^UIImage * _Nonnull(CGSize size) { return artworkImage; }];
+    }
     infoCenter.nowPlayingInfo = info;
 }
 

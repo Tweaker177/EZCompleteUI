@@ -1,5 +1,5 @@
 // EZMusicViewController.m
-// EZCompleteUI v1.2
+// EZCompleteUI v1.3
 //
 // Purpose:
 //   The "AI Music" screen. See EZMusicViewController.h for the overview.
@@ -31,6 +31,10 @@
 //     - Pagination uses an inclusive timestamp cursor and de-duplicates by id,
 //       so variants created at the same instant are never skipped.
 //
+// Changes from v1.2:
+//   - Library rows show each song's generated cover art (EZMusicArtworkService),
+//     refresh when a cover lands, and the cover is deleted with the song.
+//
 // Changes from v1.1:
 //   - Keeps only one song playing across the app. Starting playback here stops
 //     the shared EZMediaPlayerManager (chat song cards), and when that player
@@ -47,6 +51,7 @@
 //   - Initial version.
 
 #import "EZMusicViewController.h"
+#import "EZMusicArtworkService.h"
 #import <AVFoundation/AVFoundation.h>
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <PhotosUI/PhotosUI.h>
@@ -253,6 +258,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @property (nonatomic, strong) UIProgressView *progressView;
 @property (nonatomic, strong) UIImageView *favoriteView;
+// Square cover art (or a music-note placeholder) between the play button and the title.
+@property (nonatomic, strong) UIImageView *artworkView;
 @property (nonatomic, strong) EZMusicWaveformView *waveformView;
 @property (nonatomic, strong) NSLayoutConstraint *waveformHeightConstraint;
 @property (nonatomic, copy, nullable) void (^playHandler)(void);
@@ -266,6 +273,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
              detailIsError:(BOOL)detailIsError
              waveformURL:(nullable NSURL *)waveformURL
       waveformIdentifier:(NSString *)waveformIdentifier;
+- (void)setArtwork:(nullable UIImage *)artwork;
 @end
 
 @implementation EZMusicTrackCell
@@ -285,6 +293,15 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _spinner.translatesAutoresizingMaskIntoConstraints = NO;
     _spinner.hidesWhenStopped = YES;
     [self.contentView addSubview:_spinner];
+
+    _artworkView = [[UIImageView alloc] init];
+    _artworkView.translatesAutoresizingMaskIntoConstraints = NO;
+    _artworkView.tintColor = [UIColor secondaryLabelColor];
+    _artworkView.backgroundColor = [UIColor secondarySystemFillColor];
+    _artworkView.layer.cornerRadius = 8;
+    _artworkView.clipsToBounds = YES;
+    _artworkView.isAccessibilityElement = NO;
+    [self.contentView addSubview:_artworkView];
 
     _titleLabel = [[UILabel alloc] init];
     _titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -332,7 +349,12 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         [_favoriteView.widthAnchor constraintEqualToConstant:18],
         [_favoriteView.heightAnchor constraintEqualToConstant:18],
 
-        [_titleLabel.leadingAnchor constraintEqualToAnchor:_playButton.trailingAnchor constant:8],
+        [_artworkView.leadingAnchor constraintEqualToAnchor:_playButton.trailingAnchor constant:8],
+        [_artworkView.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        [_artworkView.widthAnchor constraintEqualToConstant:52],
+        [_artworkView.heightAnchor constraintEqualToConstant:52],
+
+        [_titleLabel.leadingAnchor constraintEqualToAnchor:_artworkView.trailingAnchor constant:10],
         [_titleLabel.trailingAnchor constraintEqualToAnchor:_favoriteView.leadingAnchor constant:-8],
         [_titleLabel.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:10],
 
@@ -354,6 +376,18 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 - (void)playButtonTapped {
     if (self.playHandler) self.playHandler();
+}
+
+/// Shows `artwork`, or the music-note placeholder when the song has no cover.
+- (void)setArtwork:(nullable UIImage *)artwork {
+    if (artwork) {
+        self.artworkView.contentMode = UIViewContentModeScaleAspectFill;
+        self.artworkView.image = artwork;
+    } else {
+        self.artworkView.contentMode = UIViewContentModeCenter;
+        self.artworkView.image = [UIImage systemImageNamed:@"music.note"
+                                         withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22]];
+    }
 }
 
 - (void)prepareForReuse {
@@ -522,6 +556,9 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.pollTokens = [NSMutableDictionary dictionary];
     self.announcedGenerationIDs = [NSMutableSet set];
     self.retainingEntryIDs = [NSMutableSet set];
+    // Covers are made a few seconds after a song finishes; refresh its row when one lands.
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(artworkDidUpdate:)
+                                                 name:EZMusicArtworkDidUpdateNotification object:nil];
 
     self.tabControl = [[UISegmentedControl alloc] initWithItems:@[
         EZMusicText(@"EZMusic.Tab.Create", @"Create"),
@@ -1748,6 +1785,10 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     return row == NSNotFound ? nil : self.entries[(NSUInteger)row];
 }
 
+- (void)artworkDidUpdate:(NSNotification *)notification {
+    [self reloadRowForEntryID:notification.userInfo[EZMusicArtworkEntryIDKey]];
+}
+
 - (void)reloadRowForEntryID:(nullable NSString *)entryID {
     if (!self.isViewLoaded) return;
     NSInteger row = [self rowForEntryID:entryID];
@@ -1969,6 +2010,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
                  waveformURL:[[EZMusicLibraryManager sharedManager] localSongURLForEntryID:entryID]
           waveformIdentifier:entryID];
 
+    [cell setArtwork:[[EZMusicArtworkService sharedService] cachedArtworkForEntryID:entryID]];
+
     __weak typeof(self) weakSelf = self;
     cell.playHandler = ^{ [weakSelf togglePlaybackForEntryID:entryID]; };
     return cell;
@@ -2097,6 +2140,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         if ([entryID isEqualToString:strongSelf.playingEntryID] || [entryID isEqualToString:strongSelf.loadingEntryID]) {
             [strongSelf stopPlaybackReleasingSession:YES];
         }
+        [[EZMusicArtworkService sharedService] removeArtworkForEntryID:entryID];
         NSInteger row = [strongSelf rowForEntryID:entryID];
         if (row != NSNotFound) {
             [strongSelf.entries removeObjectAtIndex:(NSUInteger)row];

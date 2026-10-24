@@ -1,5 +1,5 @@
 // EZMusicLibraryManager.m
-// EZCompleteUI v1.1
+// EZCompleteUI v1.2
 //
 // Purpose:
 //   Implementation of the on-device song library described in
@@ -10,8 +10,15 @@
 //   - Added -retainSongFromRemoteURL:entry:completion: (download + archive,
 //     with one shared download per entry).
 //   - Added this header comment.
+//
+// Changes from v1.1:
+//   - After a NEW song is saved on the device, cover art generation is
+//     started through EZMusicArtworkService. Every path that saves a song
+//     (chat tool, AI Music screen, share/download) ends up in the archive
+//     method below, so this is the single place that triggers it.
 
 #import "EZMusicLibraryManager.h"
+#import "EZMusicArtworkService.h"
 #import <AVFoundation/AVFoundation.h>
 @interface EZMusicLibraryManager ()
 @property (nonatomic, strong) NSURL *libraryRootURL, *songsURL, *referencesURL, *stagingURL, *manifestURL;
@@ -171,6 +178,11 @@ static NSString *EZMusicStyleLabel(NSString *prompt) {
         }];
         if (index == NSNotFound) [self.items addObject:record]; else self.items[index] = record;
         [self persist];
+        // The song is safely on the device; now start its cover art. The service
+        // skips songs that already have a cover, so re-saving is harmless.
+        NSMutableDictionary *artworkEntry = [entryCopy mutableCopy];
+        artworkEntry[@"id"] = entryID;
+        [[EZMusicArtworkService sharedService] generateArtworkIfNeededForEntry:artworkEntry];
         if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(destination, nil); });
     });
 }

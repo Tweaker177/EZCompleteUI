@@ -1,5 +1,5 @@
 // EZMusicBubbleCell.h
-// EZCompleteUI v1.1
+// EZCompleteUI v1.2
 //
 // Purpose:
 //   Chat row for a finished song that a chat model created through its
@@ -20,6 +20,9 @@
 //   it first.
 //
 //   Fed by ViewController for display messages whose role is "music".
+//
+// Changes from v1.1:
+//   - Shows the song's generated cover art (or a placeholder) at the left.
 //
 // Changes from v1.0:
 //   - Play no longer opens Quick Look; the card plays inline through

@@ -17,6 +17,13 @@ Supabase Edge Function deployments and migrations.
   the background and from the lock screen, and only one thing plays at a time
   (starting a chat song stops the AI Music screen's player and vice versa).
   It already has an Up Next queue in code; the queue UI comes later.
+- New songs get AI cover art. When a song finishes saving, the app asks
+  `ez-image` for a cover (cheapest model, `gpt-image-1-mini`, low quality)
+  based on the title and lyrics, or on the style description for instrumentals.
+  It shows on the chat song card, in the AI Music library list and on the lock
+  screen. Pricing and coin charging happen in `ez-image`; if you're out of
+  coins or offline the song simply has no cover. Existing songs are not
+  back-filled. Set the `musicAutoArtworkDisabled` default to YES to turn it off.
 - Text to Speech (the generator screen and History) now plays through the shared
   player too: lock-screen / Control Center controls now work for TTS clips,
   clips keep playing after you leave the screen, and clips keep their saved
