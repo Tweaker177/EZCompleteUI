@@ -2,7 +2,7 @@
 
 EZCompleteUI is a native iOS AI workspace built with Objective-C and Theos. It combines coin-metered AI chat, a gallery-first image studio, transcription, voice tools, local thread history, searchable memories, and a custom game-creation area in one app.
 
-The current release is **7.1.15** and targets iOS 15.0 and later. See
+The current release is **7.1.17** and targets iOS 15.0 and later. See
 [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## What it includes
@@ -17,7 +17,9 @@ The current release is **7.1.15** and targets iOS 15.0 and later. See
 - Presentation-ready export: download the clean result; share a branded image with the prompt, gradient border, and optional before card; or create looping before/after GIF exports.
 - File and vision workflows for images, PDFs, ePub, text, HTML, RTF, CSV, and JSON files.
 - Apple speech dictation, Whisper transcription, Apple text-to-speech, ElevenLabs text-to-speech, and ElevenLabs voice-clone management.
-- Text to Speech library where all your TTS generations live.  You can replay or export them, re-order them, and even edit the audio files, maximizing volume, adding effects like reverb and echo, and you can combine multiple files into one.
+- AI Music: create songs from a text description, choose instrumental or vocal output, duration, and variants, then keep generated tracks in a dedicated music library for playback, sharing, and reuse. Chat can also turn a music request into a generated song directly in the conversation.
+- Sound generation (Sound GX) for TTS scenes: add a custom-described or “Surprise Me” background of ambience, environmental noise, effects, or music beneath narration. Scene mixes retain their layers for later background-level adjustment and use a short ambient fade-out after the voice ends.
+- Text to Speech library where all your TTS generations live. You can replay or export them, re-order them, edit the audio files, maximize volume, add effects such as reverb and echo, and combine multiple files into one.
 - Web search toggle with an optional location hint.
 - BrainRot custom-game creation, saved games, game library/picker, and community/admin game tools.
 - In-app Terms, Privacy, Refund, and Support/Feedback screens.

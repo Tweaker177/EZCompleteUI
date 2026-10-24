@@ -716,6 +716,7 @@ static BOOL _looksLikePathOrIdentifier(NSString *term) {
 // ─────────────────────────────────────────────────────────────────────────────
 static NSString *_callHelperModelSync(NSString *systemPrompt,
                                       NSString *userMessage,
+                                      NSArray<NSString *> * _Nullable imageDataURLs,
                                       NSString *jwtToken,
                                       NSInteger maxTokens) {
     if (jwtToken.length == 0) return nil;  // no JWT → bail immediately
@@ -726,11 +727,14 @@ static NSString *_callHelperModelSync(NSString *systemPrompt,
     [request setValue:@"application/json"                              forHTTPHeaderField:@"Content-Type"];
     [request setValue:[NSString stringWithFormat:@"Bearer %@", jwtToken] forHTTPHeaderField:@"Authorization"];
 
-    // ez-helper accepts { system, message, max_tokens }.
+    // ez-helper accepts prepared data-URL images alongside text. Keeping the
+    // file-text extraction in userMessage avoids a second upload path for
+    // documents while preserving vision for the current turn.
     // Model selection and temperature are controlled server-side.
     NSDictionary *requestBody = @{
         @"system":     systemPrompt ?: @"",
         @"message":    userMessage  ?: @"",
+        @"images":     imageDataURLs ?: @[],
         @"max_tokens": @(maxTokens),
     };
 
@@ -1295,7 +1299,8 @@ NSString *EZThreadSearchMemory(NSString *searchQuery, NSString *jwtToken) {
     // truly relevant, verbatim. No summaries, no grep output, no invented text.
     //
     // WHY TWO SHORT EXAMPLES instead of one long one?
-    //   Helper models like gpt-4.1-nano have small contexts and limited reasoning.
+    //   GPT-6 Luna has a large context window, but this ranker still gets a
+    //   small, focused prompt so relevance decisions stay precise and fast.
     //   One short "do this" example teaches the copy-verbatim rule. One short
     //   "no match → 0" example teaches the bail-out rule. Together they cover
     //   the two most common failure modes without overwhelming the model.
@@ -1344,6 +1349,7 @@ NSString *EZThreadSearchMemory(NSString *searchQuery, NSString *jwtToken) {
 
     NSString *rankerResponse = _callHelperModelSync(rankerSystemPrompt,
                                                     rankerUserMessage,
+                                                    nil,
                                                     jwtToken,
                                                     kMemorySearchRankerMaxTokens);
     NSString *trimmed = [rankerResponse stringByTrimmingCharactersInSet:
@@ -1884,6 +1890,7 @@ static NSString *_validatedThreadID(NSString *candidate, NSString *fallback) {
 // ─────────────────────────────────────────────────────────────────────────────
 static NSDictionary * _Nullable _runTriageHelper(NSString *userPrompt,
                                                  NSString * _Nullable recentTurnsText,
+                                                 NSArray<NSString *> * _Nullable imageDataURLs,
                                                  NSString *jwtToken) {
     // If recent turns were provided (Stage 1b re-evaluation), append them so
     // the model has the same context the user is currently seeing.
@@ -1907,8 +1914,9 @@ static NSDictionary * _Nullable _runTriageHelper(NSString *userPrompt,
         @"  NEEDS_CONTEXT — prompt references something from a prior session (past decision, past file, past event)\n"
         @"  UNCERTAIN     — genuinely cannot classify without seeing recent conversation turns\n\n"
         //
-        // Key disambiguation rule: a file already in THIS session is not "prior context."
-        @"If an attached file is already visible in this session classify as COMPLEX, not NEEDS_CONTEXT.\n\n"
+        // Attachment material belongs to this request, not historical context.
+        @"Attached file text and images supplied with this request are current input, not prior context. "
+        @"Use them when deciding whether a genuinely simple answer is complete; otherwise classify as COMPLEX, not NEEDS_CONTEXT.\n\n"
         //
         // ── ONE-SHOT EXAMPLES ───────────────────────────────────────────────
         // One clear example per verdict. The examples were chosen to span the
@@ -1952,7 +1960,7 @@ static NSDictionary * _Nullable _runTriageHelper(NSString *userPrompt,
 
     NSString *userMessage = [NSString stringWithFormat:@"User prompt: \"%@\"%@",
                               userPrompt, contextSection];
-    NSString *rawResponse = _callHelperModelSync(systemPrompt, userMessage, jwtToken, 350);
+    NSString *rawResponse = _callHelperModelSync(systemPrompt, userMessage, imageDataURLs, jwtToken, 350);
     _logHelperAPICall(@"Stage1-Triage", systemPrompt, userMessage, rawResponse,
                       @{@"via": @"ez-helper", @"max_tokens": @(350)});
     if (rawResponse.length == 0) return nil;
@@ -1973,6 +1981,7 @@ static NSDictionary * _Nullable _runTriageHelper(NSString *userPrompt,
 // ─────────────────────────────────────────────────────────────────────────────
 static NSDictionary * _Nullable _runDirectAnswerValidator(NSString *userPrompt,
                                                           NSString *proposedAnswer,
+                                                          NSArray<NSString *> * _Nullable imageDataURLs,
                                                           NSString *jwtToken) {
     if (userPrompt.length == 0 || proposedAnswer.length == 0 || jwtToken.length == 0) return nil;
 
@@ -1993,7 +2002,7 @@ static NSDictionary * _Nullable _runDirectAnswerValidator(NSString *userPrompt,
         @"User request:\n%@\n\nProposed answer:\n%@",
         userPrompt, proposedAnswer];
 
-    NSString *rawResponse = _callHelperModelSync(systemPrompt, userMessage, jwtToken, 220);
+    NSString *rawResponse = _callHelperModelSync(systemPrompt, userMessage, imageDataURLs, jwtToken, 220);
     _logHelperAPICall(@"Stage1a-Validator", systemPrompt, userMessage, rawResponse,
                       @{@"max_tokens": @(220)});
     if (rawResponse.length == 0) return nil;
@@ -2066,6 +2075,7 @@ static NSString *_formatRecentTurns(NSString *chatKey, NSInteger turnCount) {
 static NSDictionary * _Nullable _runMemoryRanker(NSString *userPrompt,
                                                  NSString * _Nullable recentTurnsText,
                                                  NSString *rankedMemories,
+                                                 NSArray<NSString *> * _Nullable imageDataURLs,
                                                  NSString *jwtToken) {
     NSMutableString *contextSection = [NSMutableString string];
     if (recentTurnsText.length > 0) {
@@ -2101,7 +2111,7 @@ static NSDictionary * _Nullable _runMemoryRanker(NSString *userPrompt,
         @"User prompt: \"%@\"\n%@\nMemory entries:\n%@",
         userPrompt, contextSection, rankedMemories];
 
-    NSString *rawResponse = _callHelperModelSync(systemPrompt, userMessage, jwtToken, 600);
+    NSString *rawResponse = _callHelperModelSync(systemPrompt, userMessage, imageDataURLs, jwtToken, 600);
     _logHelperAPICall(@"Stage3-Ranker", systemPrompt, userMessage, rawResponse,
                       @{@"ranked_memories": rankedMemories ?: @""});
     if (rawResponse.length == 0) return nil;
@@ -2153,6 +2163,16 @@ void analyzePromptForContext(NSString *userPrompt,
                              NSString *jwtToken,
                              NSString * _Nullable chatKey,
                              void (^completion)(EZContextResult *result)) {
+    analyzePromptForContextWithImages(userPrompt, memoryContext, nil, jwtToken,
+                                      chatKey, completion);
+}
+
+void analyzePromptForContextWithImages(NSString *userPrompt,
+                                       NSString * _Nullable memoryContext,
+                                       NSArray<NSString *> * _Nullable imageDataURLs,
+                                       NSString *jwtToken,
+                                       NSString * _Nullable chatKey,
+                                       void (^completion)(EZContextResult *result)) {
 
     // NSCParameterAssert crashes in DEBUG builds if a required parameter is nil.
     // This catches programming errors (calling this without a prompt or key)
@@ -2177,7 +2197,7 @@ void analyzePromptForContext(NSString *userPrompt,
         __block NSString *recentTurnsText = @"";
 
         // ── STAGE 1: TRIAGE ──────────────────────────────────────────────────
-        NSDictionary *triageResult = _runTriageHelper(userPrompt, nil, jwtToken);
+        NSDictionary *triageResult = _runTriageHelper(userPrompt, nil, imageDataURLs, jwtToken);
 
         if (!triageResult) {
             // Helper call failed (no network, bad key, etc.) — safe fallback:
@@ -2222,7 +2242,7 @@ void analyzePromptForContext(NSString *userPrompt,
             confidence >= kDirectAnswerConfidenceThreshold &&
             directAnswer.length > 0 &&
             allowHelperDirectAnswers) {
-            NSDictionary *validatorResult = _runDirectAnswerValidator(userPrompt, directAnswer, jwtToken);
+            NSDictionary *validatorResult = _runDirectAnswerValidator(userPrompt, directAnswer, imageDataURLs, jwtToken);
             BOOL validatorApproved = [validatorResult[@"is_valid"] respondsToSelector:@selector(boolValue)]
                 ? [validatorResult[@"is_valid"] boolValue] : NO;
             float validatorConfidence = [validatorResult[@"confidence"] respondsToSelector:@selector(floatValue)]
@@ -2280,7 +2300,7 @@ void analyzePromptForContext(NSString *userPrompt,
             EZLog(EZLogLevelInfo, @"TRIAGE", @"Stage 1b — UNCERTAIN, fetching recent turns for re-evaluation...");
             recentTurnsText = _formatRecentTurns(chatKey ?: @"", kTriageUncertainTurnFetch);
 
-            NSDictionary *reEvalResult = _runTriageHelper(userPrompt, recentTurnsText, jwtToken);
+            NSDictionary *reEvalResult = _runTriageHelper(userPrompt, recentTurnsText, imageDataURLs, jwtToken);
 
             if (reEvalResult) {
                 // Overwrite all the stage-1 variables with the re-eval values.
@@ -2311,7 +2331,7 @@ void analyzePromptForContext(NSString *userPrompt,
                     confidence >= kDirectAnswerConfidenceThreshold &&
                     directAnswer.length > 0 &&
                     allowHelperDirectAnswers) {
-                    NSDictionary *validatorResult = _runDirectAnswerValidator(userPrompt, directAnswer, jwtToken);
+                    NSDictionary *validatorResult = _runDirectAnswerValidator(userPrompt, directAnswer, imageDataURLs, jwtToken);
                     BOOL validatorApproved = [validatorResult[@"is_valid"] respondsToSelector:@selector(boolValue)]
                         ? [validatorResult[@"is_valid"] boolValue] : NO;
                     float validatorConfidence = [validatorResult[@"confidence"] respondsToSelector:@selector(floatValue)]
@@ -2405,7 +2425,7 @@ void analyzePromptForContext(NSString *userPrompt,
         // ── STAGE 3: MEMORY RANKER ───────────────────────────────────────────
         EZLog(EZLogLevelInfo, @"TRIAGE", @"Stage 3 — memory ranker...");
 
-        NSDictionary *rankerResult = _runMemoryRanker(userPrompt, recentTurnsText, rankedMemories, jwtToken);
+        NSDictionary *rankerResult = _runMemoryRanker(userPrompt, recentTurnsText, rankedMemories, imageDataURLs, jwtToken);
 
         if (!rankerResult) {
             // Ranker call failed — inject all keyword-ranked memories as-is and
@@ -2693,8 +2713,8 @@ void EZCreateMemoryEntry(NSString *userPrompt,
 
         // ── SUMMARIZER SYSTEM PROMPT ─────────────────────────────────────────
         // Design goals for this prompt:
-        //   • The helper model (gpt-4.1-nano) has a small context and limited
-        //     reasoning capacity. Keep instructions short and concrete.
+        //   • The helper model (GPT-6 Luna) can handle a large context, but
+        //     focused instructions keep this background task fast and precise.
         //   • Every rule addresses a specific failure mode seen in production.
         //   • Two short examples are better than one long complex one:
         //     the first teaches specificity; the second teaches the "don't parrot"
@@ -2743,7 +2763,7 @@ void EZCreateMemoryEntry(NSString *userPrompt,
                 ? [NSString stringWithFormat:@"\nAttachments: %@", attachmentContext] : @"",
             truncatedReply];
 
-        NSString *summary = _callHelperModelSync(systemPrompt, contentToSummarize, jwtToken, 150);
+        NSString *summary = _callHelperModelSync(systemPrompt, contentToSummarize, nil, jwtToken, 150);
         if (summary.length == 0) {
             EZLog(EZLogLevelWarning, @"MEMORY", @"Summarizer returned empty — skipping save");
             dispatch_async(dispatch_get_main_queue(), ^{ completion(nil); });
@@ -3007,7 +3027,7 @@ NSString *EZCallHelperModel(NSString *systemPrompt,
                             NSString *userMessage,
                             NSString *jwtToken,
                             NSInteger maxTokens) {
-    return _callHelperModelSync(systemPrompt, userMessage, jwtToken, maxTokens);
+    return _callHelperModelSync(systemPrompt, userMessage, nil, jwtToken, maxTokens);
 }
 
 // EZHelperStats — generates a human-readable summary of the app's state:

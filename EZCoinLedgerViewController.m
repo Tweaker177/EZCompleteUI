@@ -1010,12 +1010,13 @@ static NSInteger const kPageSize = 50;
 - (void)setupTable {
     // ── Search bar ────────────────────────────────────────────────────────────
     // Floats at the top of the view, above the table. Does not scroll away.
-    // Typing an @-sign triggers an email filter; anything else filters by
-    // feature name (case-insensitive substring, e.g. "tts", "chat", "image").
+    // A complete email address opens that account's complete timeline, from
+    // signup through its latest transaction. Anything else filters by feature
+    // name (case-insensitive substring, e.g. "tts", "chat", "image").
     // Fetches are debounced 0.4s after the last keystroke to avoid hammering
     // the server on every character. Clearing the field instantly resets.
     self.searchBar                    = [UISearchBar new];
-    self.searchBar.placeholder        = @"email or feature (tts, chat, image…)";
+    self.searchBar.placeholder        = @"Email = full account history • or feature";
     self.searchBar.searchBarStyle     = UISearchBarStyleMinimal;
     self.searchBar.barStyle           = UIBarStyleBlack;
     self.searchBar.tintColor          = EZGold();
@@ -1188,7 +1189,10 @@ static NSInteger const kPageSize = 50;
 
             if ([newRows isKindOfClass:[NSArray class]]) {
                 [self.rows addObjectsFromArray:newRows];
-                self.hasMore = ((NSInteger)newRows.count == kPageSize);
+                NSNumber *serverHasMore = [json[@"has_more"] isKindOfClass:[NSNumber class]]
+                    ? json[@"has_more"] : nil;
+                self.hasMore = serverHasMore ? serverHasMore.boolValue
+                    : ((NSInteger)newRows.count == kPageSize);
             }
 
             if ([agg isKindOfClass:[NSDictionary class]]) {
@@ -1467,7 +1471,9 @@ static NSInteger const kExportPageSize  = 1000;
         stringByAddingPercentEncodingWithAllowedCharacters:
         [NSCharacterSet URLQueryAllowedCharacterSet]];
     if ([self.activeSearchQuery containsString:@"@"]) {
-        return [NSString stringWithFormat:@"&email=%@", encoded];
+        // account_email requests one account's complete history, including
+        // signup and credits with no usage-log counterpart.
+        return [NSString stringWithFormat:@"&account_email=%@", encoded];
     }
     if (self.excludesFeature) {
         return [NSString stringWithFormat:@"&exclude_feature=%@", encoded];
@@ -1570,7 +1576,10 @@ static NSInteger const kExportPageSize  = 1000;
             [accumulated addObjectsFromArray:newRows];
         }
 
-        BOOL serverHasMore = ((NSInteger)newRows.count == kExportPageSize);
+        NSNumber *serverHasMoreValue = [json[@"has_more"] isKindOfClass:[NSNumber class]]
+            ? json[@"has_more"] : nil;
+        BOOL serverHasMore = serverHasMoreValue ? serverHasMoreValue.boolValue
+            : ((NSInteger)newRows.count == kExportPageSize);
         BOOL hitCap        = (NSInteger)accumulated.count >= kExportRowLimit;
 
         if (serverHasMore && !hitCap) {
