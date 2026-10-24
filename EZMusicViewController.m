@@ -665,7 +665,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
     // ── Reference ────────────────────────────────────────────────────────────
     [stack setCustomSpacing:16 afterView:self.lyricsTextView];
-    [stack addArrangedSubview:[self sectionHeaderLabelWithText:@"Audio reference (optional)"]];
+    [stack addArrangedSubview:[self sectionHeaderLabelWithText:@"Audio reference (coming soon)"]];
     self.referenceButton = [UIButton buttonWithType:UIButtonTypeSystem];
     self.referenceButton.backgroundColor = [UIColor secondarySystemBackgroundColor];
     self.referenceButton.layer.cornerRadius = 12;
@@ -676,6 +676,9 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [self.referenceButton setImage:[UIImage systemImageNamed:@"waveform.badge.plus"] forState:UIControlStateNormal];
     [self.referenceButton setTitle:@"  Add audio reference" forState:UIControlStateNormal];
     [self.referenceButton addTarget:self action:@selector(referenceTapped) forControlEvents:UIControlEventTouchUpInside];
+    // Reference audio is not available yet: keep the button visible but
+    // disabled until the feature ships (header above marks it coming soon).
+    self.referenceButton.enabled = NO;
     [self.referenceButton.heightAnchor constraintEqualToConstant:48].active = YES;
     [stack addArrangedSubview:self.referenceButton];
     self.referenceModeControl = [[UISegmentedControl alloc] initWithItems:@[
