@@ -1,5 +1,5 @@
 // EZMediaPlayerManager.m
-// EZCompleteUI v1.0
+// EZCompleteUI v1.1
 //
 // Purpose:
 //   Implementation of the app's shared audio player described in
@@ -28,6 +28,15 @@
 //       users expect, instead of blasting out of the phone speaker.
 //     - Callbacks arrive on background threads (KVO, lock-screen buttons):
 //       they all hop to the main queue before touching any state.
+//     - Items with a custom speed keep it after pause/resume and seeking.
+//
+// Changes from v1.0:
+//   - Per-item playback speed (pitch preserved).
+//   - skipBySeconds:, playPrevious and a short play history.
+//   - Lock screen: skip forward/back 15s and previous track commands. iOS shows
+//     the track buttons only when previous or next is enabled, so they are
+//     enabled only when there actually is somewhere to go; a lone clip gets
+//     the +/-15s buttons instead.
 
 #import "EZMediaPlayerManager.h"
 #import <AVFoundation/AVFoundation.h>
@@ -40,6 +49,13 @@ NSNotificationName const EZMediaPlayerWillStartNotification = @"EZMediaPlayerWil
 // KVO contexts. Their addresses identify who the callback is for.
 static void *kPlayerItemStatusContext = &kPlayerItemStatusContext;
 static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
+
+// Lock-screen skip buttons jump this many seconds.
+static const NSTimeInterval kEZMediaPlayerSkipSeconds = 15.0;
+// "Previous" restarts the item if it has played longer than this.
+static const NSTimeInterval kEZMediaPlayerRestartThreshold = 3.0;
+// How many earlier items "previous" can walk back through.
+static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 
 #pragma mark - EZMediaPlayerItem
 
@@ -56,6 +72,20 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
     item->_subtitle = [subtitle copy];
     item->_fileURL = fileURL;
     item->_durationHint = MAX(durationHint, 0);
+    item->_playbackRate = 1.0f;
+    return item;
+}
+
++ (instancetype)itemWithIdentifier:(NSString *)identifier
+                             title:(NSString *)title
+                          subtitle:(NSString *)subtitle
+                           fileURL:(NSURL *)fileURL
+                      durationHint:(NSTimeInterval)durationHint
+                      playbackRate:(float)playbackRate {
+    EZMediaPlayerItem *item = [self itemWithIdentifier:identifier title:title subtitle:subtitle
+                                               fileURL:fileURL durationHint:durationHint];
+    // AVPlayer supports roughly 0.5x-2x with pitch correction; stay in range.
+    item->_playbackRate = (isfinite(playbackRate) && playbackRate > 0) ? MIN(MAX(playbackRate, 0.5f), 2.0f) : 1.0f;
     return item;
 }
 
@@ -72,6 +102,8 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
 // removed exactly once when it is replaced.
 @property (nonatomic, strong, nullable) AVPlayerItem *observedPlayerItem;
 @property (nonatomic, strong) NSMutableArray<EZMediaPlayerItem *> *queue;
+// Items that played before the current one, oldest first. Used by -playPrevious.
+@property (nonatomic, strong) NSMutableArray<EZMediaPlayerItem *> *history;
 @property (nonatomic, strong) id timeObserver;
 @property (nonatomic, assign) BOOL commandsConfigured;
 // YES once the user (or the lock screen) paused on purpose. An interruption
@@ -93,6 +125,7 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
     if (!self) return nil;
 
     _queue = [NSMutableArray array];
+    _history = [NSMutableArray array];
     _player = [[AVPlayer alloc] init];
     // Stop (rather than blank or loop) when an item ends; we decide what is next.
     _player.actionAtItemEnd = AVPlayerActionAtItemEndPause;
@@ -151,7 +184,18 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
 #pragma mark - Starting, queueing, stopping
 
 - (void)playItem:(EZMediaPlayerItem *)item {
+    [self startItem:item recordingHistory:YES];
+}
+
+/// `recordHistory` is NO when going back, so "previous" doesn't pile up the
+/// item we just left as if it were new history.
+- (void)startItem:(EZMediaPlayerItem *)item recordingHistory:(BOOL)recordHistory {
     if (!item || !item.fileURL) return;
+
+    if (recordHistory && self.currentItem && ![self.currentItem.identifier isEqualToString:item.identifier]) {
+        [self.history addObject:self.currentItem];
+        if (self.history.count > kEZMediaPlayerHistoryLimit) [self.history removeObjectAtIndex:0];
+    }
 
     // Tell players that haven't moved onto this manager yet to stop.
     [[NSNotificationCenter defaultCenter] postNotificationName:EZMediaPlayerWillStartNotification object:self];
@@ -180,6 +224,8 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
     }
 
     AVPlayerItem *playerItem = [AVPlayerItem playerItemWithURL:item.fileURL];
+    // Keeps voices natural when a clip plays faster or slower than normal.
+    playerItem.audioTimePitchAlgorithm = AVAudioTimePitchAlgorithmSpectral;
     [playerItem addObserver:self forKeyPath:@"status"
                     options:NSKeyValueObservingOptionNew context:kPlayerItemStatusContext];
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
@@ -191,8 +237,15 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
 
     [self configureRemoteCommandsIfNeeded];
     [self.player replaceCurrentItemWithPlayerItem:playerItem];
-    [self.player play];   // Begins as soon as the file is ready.
+    [self startPlayerAtCurrentItemRate];   // Begins as soon as the file is ready.
     [self refreshStateAndPublish];
+}
+
+/// -play always starts at 1x, so a custom speed is applied right after it.
+- (void)startPlayerAtCurrentItemRate {
+    [self.player play];
+    float rate = self.currentItem.playbackRate;
+    if (rate > 0 && fabsf(rate - 1.0f) > 0.001f) self.player.rate = rate;
 }
 
 - (void)enqueueItem:(EZMediaPlayerItem *)item {
@@ -216,7 +269,23 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
     [self playItem:next];
 }
 
+- (void)playPrevious {
+    if (!self.currentItem) return;
+    EZMediaPlayerItem *previous = self.history.lastObject;
+    if (self.currentTime > kEZMediaPlayerRestartThreshold || !previous) {
+        [self seekToSeconds:0];
+        return;
+    }
+    EZMediaPlayerItem *leaving = self.currentItem;
+    [self.history removeLastObject];
+    [self startItem:previous recordingHistory:NO];
+    // The one we left is next in line again.
+    [self.queue insertObject:leaving atIndex:0];
+    [self publishChange];
+}
+
 - (void)stop {
+    [self.history removeAllObjects];
     [self.queue removeAllObjects];
     [self clearCurrentItemDeactivatingSession:NO];
 }
@@ -272,7 +341,7 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
     if (sessionError) {
         EZLogf(EZLogLevelWarning, @"Player", @"Could not reactivate audio session: %@", sessionError.localizedDescription);
     }
-    [self.player play];
+    [self startPlayerAtCurrentItemRate];
     [self refreshStateAndPublish];
 }
 
@@ -281,12 +350,29 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
     double length = self.duration;
     if (length <= 0) return;
     double clamped = MIN(MAX(fraction, 0.0), 1.0);
-    CMTime target = CMTimeMakeWithSeconds(clamped * length, 600);
+    [self seekToSeconds:clamped * length];
+}
+
+/// Seeks to an absolute position. Position 0 works even before the length is known.
+- (void)seekToSeconds:(NSTimeInterval)seconds {
+    if (!self.currentItem || self.state == EZMediaPlayerStateFailed) return;
+    CMTime target = CMTimeMakeWithSeconds(MAX(seconds, 0), 600);
     __weak typeof(self) weakSelf = self;
     [self.player seekToTime:target toleranceBefore:kCMTimeZero toleranceAfter:kCMTimeZero
           completionHandler:^(BOOL finished) {
         dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf publishChange]; });
     }];
+}
+
+- (void)skipBySeconds:(NSTimeInterval)seconds {
+    if (!self.currentItem || self.state == EZMediaPlayerStateFailed) return;
+    double length = self.duration;
+    double target = self.currentTime + seconds;
+    if (length > 0 && target >= length - 0.1) {
+        [self playNext];   // Skipped past the end: same as finishing.
+        return;
+    }
+    [self seekToSeconds:target];
 }
 
 #pragma mark - State
@@ -404,9 +490,26 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
     [commandCenter.pauseCommand addTarget:self action:@selector(handlePauseCommand:)];
     [commandCenter.togglePlayPauseCommand addTarget:self action:@selector(handleTogglePlayPauseCommand:)];
     [commandCenter.nextTrackCommand addTarget:self action:@selector(handleNextTrackCommand:)];
+    [commandCenter.previousTrackCommand addTarget:self action:@selector(handlePreviousTrackCommand:)];
     [commandCenter.changePlaybackPositionCommand addTarget:self action:@selector(handleChangePositionCommand:)];
-    // There is no "previous" history yet.
-    commandCenter.previousTrackCommand.enabled = NO;
+    commandCenter.skipForwardCommand.preferredIntervals = @[@(kEZMediaPlayerSkipSeconds)];
+    commandCenter.skipBackwardCommand.preferredIntervals = @[@(kEZMediaPlayerSkipSeconds)];
+    [commandCenter.skipForwardCommand addTarget:self action:@selector(handleSkipCommand:)];
+    [commandCenter.skipBackwardCommand addTarget:self action:@selector(handleSkipCommand:)];
+}
+
+- (MPRemoteCommandHandlerStatus)handlePreviousTrackCommand:(MPRemoteCommandEvent *)event {
+    if (!self.currentItem) return MPRemoteCommandHandlerStatusNoActionableNowPlayingItem;
+    dispatch_async(dispatch_get_main_queue(), ^{ [self playPrevious]; });
+    return MPRemoteCommandHandlerStatusSuccess;
+}
+
+- (MPRemoteCommandHandlerStatus)handleSkipCommand:(MPSkipIntervalCommandEvent *)event {
+    if (!self.currentItem) return MPRemoteCommandHandlerStatusNoActionableNowPlayingItem;
+    BOOL forward = (event.command == [MPRemoteCommandCenter sharedCommandCenter].skipForwardCommand);
+    NSTimeInterval interval = event.interval > 0 ? event.interval : kEZMediaPlayerSkipSeconds;
+    dispatch_async(dispatch_get_main_queue(), ^{ [self skipBySeconds:(forward ? interval : -interval)]; });
+    return MPRemoteCommandHandlerStatusSuccess;
 }
 
 - (MPRemoteCommandHandlerStatus)handlePlayCommand:(MPRemoteCommandEvent *)event {
@@ -452,6 +555,11 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
     commandCenter.togglePlayPauseCommand.enabled = hasItem;
     commandCenter.changePlaybackPositionCommand.enabled = hasItem;
     commandCenter.nextTrackCommand.enabled = (self.queue.count > 0);
+    // iOS swaps the skip buttons for track buttons whenever previous or next is
+    // enabled, so previous is only enabled when there is an earlier item.
+    commandCenter.previousTrackCommand.enabled = (self.history.count > 0);
+    commandCenter.skipForwardCommand.enabled = hasItem;
+    commandCenter.skipBackwardCommand.enabled = hasItem;
 }
 
 - (void)updateNowPlayingInfo {
@@ -465,8 +573,8 @@ static void *kPlayerTimeControlContext = &kPlayerTimeControlContext;
     info[MPMediaItemPropertyTitle] = item.title;
     info[MPMediaItemPropertyArtist] = item.subtitle.length > 0 ? item.subtitle : @"EZCompleteUI";
     info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(self.currentTime);
-    info[MPNowPlayingInfoPropertyPlaybackRate] = @(self.state == EZMediaPlayerStatePlaying ? 1.0 : 0.0);
-    info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = @1.0;
+    info[MPNowPlayingInfoPropertyPlaybackRate] = @(self.state == EZMediaPlayerStatePlaying ? item.playbackRate : 0.0);
+    info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = @(item.playbackRate);
     double length = self.duration;
     if (length > 0) info[MPMediaItemPropertyPlaybackDuration] = @(length);
     infoCenter.nowPlayingInfo = info;

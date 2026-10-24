@@ -2,9 +2,12 @@
 //  EZTTSClipEditViewController.m
 //  EZTTSLibrary
 //
+// Change: starting a preview here stops any clip still playing from the shared
+// player (EZMediaPlayerManager), so the two never overlap.
 
 #import "EZTTSClipEditViewController.h"
 #import "EZTTSLibraryManager.h"
+#import "EZMediaPlayerManager.h"
 #import "TextToSpeechViewController.h"
 #import "EZVoicePickerViewController.h"
 #import "EZWaveformRangeSelector.h"
@@ -775,6 +778,8 @@ static UIColor *EZEditElectricBlue(void) {
 /// scrub-to-preview and the speed preview button. Only one preview is ever audible at a
 /// time; whichever control triggers this one takes over.
 - (void)startScrubPreviewFromFraction:(CGFloat)fraction {
+    // A clip may still be playing from History; the preview takes over.
+    [[EZMediaPlayerManager sharedManager] stop];
     NSError *sessionError = nil;
     if (!EZActivatePlaybackAudioSession(&sessionError)) {
         [self presentErrorAlert:sessionError title:@"Couldn't start audio playback"];

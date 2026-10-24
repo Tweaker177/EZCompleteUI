@@ -1,5 +1,5 @@
 // EZMediaPlayerManager.h
-// EZCompleteUI v1.0
+// EZCompleteUI v1.1
 //
 // Purpose:
 //   The app's single, shared audio player. Anything that wants to play a
@@ -27,9 +27,17 @@
 //   Threading: call everything from the main queue. Notifications are posted
 //   on the main queue.
 //
-//   Not done yet (planned): the AI Music screen and Text to Speech still use
-//   their own players. The AI Music screen already stops this player when it
-//   starts and the other way around, so two things never play together.
+//   Who uses it today: song cards in chat, the Text to Speech screen and the
+//   Text to Speech History list. The AI Music screen still has its own player;
+//   it already stops this one when it starts and the other way around, so two
+//   things never play together.
+//
+// Changes from v1.0:
+//   - Items can carry a playback speed (Text to Speech clips remember one).
+//   - Added skip forward / back by a number of seconds and "previous" (restart
+//     the item, or go back to the one that played before it). The lock screen
+//     shows skip +/-15s for a single clip and previous/next once there is a
+//     list to move through.
 
 #import <Foundation/Foundation.h>
 
@@ -69,6 +77,16 @@ typedef NS_ENUM(NSInteger, EZMediaPlayerState) {
                           subtitle:(nullable NSString *)subtitle
                            fileURL:(NSURL *)fileURL
                       durationHint:(NSTimeInterval)durationHint;
+
+/// Speed the item plays at (1.0 = normal). Pitch is preserved.
+@property (nonatomic, readonly) float playbackRate;
+
++ (instancetype)itemWithIdentifier:(NSString *)identifier
+                             title:(NSString *)title
+                          subtitle:(nullable NSString *)subtitle
+                           fileURL:(NSURL *)fileURL
+                      durationHint:(NSTimeInterval)durationHint
+                      playbackRate:(float)playbackRate;
 @end
 
 @interface EZMediaPlayerManager : NSObject
@@ -107,8 +125,18 @@ typedef NS_ENUM(NSInteger, EZMediaPlayerState) {
 /// Jumps to a position in the current item. `fraction` is clamped to 0...1.
 - (void)seekToFraction:(double)fraction;
 
+/// Moves `seconds` forward (positive) or back (negative) in the current item.
+/// Going back past the start lands on 0; going forward past the end counts as
+/// finishing the item (the next one starts, or playback ends).
+- (void)skipBySeconds:(NSTimeInterval)seconds;
+
 /// Skips to the first item in Up Next. If Up Next is empty, stops.
 - (void)playNext;
+
+/// Restarts the current item if it has played for more than a few seconds (or
+/// nothing came before it); otherwise goes back to the item that played before.
+/// The item that was playing returns to the front of Up Next.
+- (void)playPrevious;
 
 /// Removes the current item and Up Next and clears the lock-screen entry. Does
 /// not change the audio session (callers that are about to play something

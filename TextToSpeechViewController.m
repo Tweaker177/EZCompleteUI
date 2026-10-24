@@ -1,6 +1,6 @@
 //
 // TextToSpeechViewController.m
-// EZCompleteUI v1.1
+// EZCompleteUI v1.2
 //
 // Purpose: standalone "type text, pick a voice, synthesize" screen — distinct
 // from the auto-read-AI-response flow in ViewController.m's speakLastResponse.
@@ -10,6 +10,12 @@
 // it back with one big Play button. Downloading was removed as a separate
 // action since everything is already saved automatically — use History's
 // Share action for exporting a clip.
+//
+// Changes from v1.1:
+//   - Playback of a generated clip now goes through the shared
+//     EZMediaPlayerManager instead of a private AVAudioPlayer, so the lock
+//     screen / Control Center show the clip with play, pause, skip and scrub,
+//     and it keeps playing if you leave this screen.
 //
 // Changes from v1.0:
 //   - kPromptCharacterLimit doubled, 120 → 240. The old value predates a fix
@@ -39,6 +45,7 @@
 #import "EZTTSLibraryViewController.h"
 #import "EZVoicePickerViewController.h"
 #import "EZMusicViewController.h"
+#import "EZMediaPlayerManager.h"
 
 static NSString * const kDefaultVoiceID = @"JBFqnCBsd6RMkjVDRZzb"; // fallback example
 static NSString * const kDefaultModelID = @"eleven_v4";
@@ -68,7 +75,6 @@ static const Float64 kBackgroundAudioTailSeconds = 3.0;
 @property (nonatomic, strong) UIButton *addMusicButton;
 @property (nonatomic, strong) UIButton *backgroundAudioButton;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
-@property (nonatomic, strong) AVAudioPlayer *player;
 @property (nonatomic, copy, nullable) NSURL *latestTTSFileURL;
 @property (nonatomic, copy, nullable) NSString *backgroundAudioPrompt;
 @property (nonatomic) BOOL backgroundAudioSurpriseMe;
@@ -461,8 +467,8 @@ static NSString *timestampString(void) {
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     [self invalidateStopMeterTimer];
-    [self.player stop];
-    self.player = nil;
+    // Playback is owned by EZMediaPlayerManager, so it keeps going after this
+    // screen closes. Nothing to stop here.
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -825,11 +831,20 @@ static NSString *timestampString(void) {
     self.latestTTSFileURL = fileURL;
     self.addMusicButton.enabled = YES;
     self.addMusicButton.alpha = 1.0;
-    NSError *sessionError = nil;
-    if (!EZActivatePlaybackAudioSession(&sessionError)) { [self showAlert:NSLocalizedString(@"EZTTS.PlaybackError", nil) message:sessionError.localizedDescription]; return; }
-    NSError *error = nil;
-    self.player = [[AVAudioPlayer alloc] initWithContentsOfURL:fileURL error:&error];
-    if (error || ![self.player play]) { [self showAlert:NSLocalizedString(@"EZTTS.PlaybackError", nil) message:error.localizedDescription ?: NSLocalizedString(@"EZTTS.UnableToPlay", nil)]; return; }
+    if (![[NSFileManager defaultManager] fileExistsAtPath:fileURL.path]) {
+        [self showAlert:NSLocalizedString(@"EZTTS.PlaybackError", nil) message:NSLocalizedString(@"EZTTS.UnableToPlay", nil)];
+        return;
+    }
+    // The shared player handles the audio session, lock-screen controls and
+    // background playback; failures show up on the History rows / lock screen.
+    NSString *spokenText = [self.textView.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (spokenText.length > 60) spokenText = [[spokenText substringToIndex:60] stringByAppendingString:@"…"];
+    EZMediaPlayerItem *item = [EZMediaPlayerItem itemWithIdentifier:[@"tts-generated:" stringByAppendingString:fileURL.lastPathComponent]
+                                                              title:(spokenText.length > 0 ? spokenText : @"Text to Speech")
+                                                           subtitle:@"Text to Speech"
+                                                            fileURL:fileURL
+                                                       durationHint:0];
+    [[EZMediaPlayerManager sharedManager] playItem:item];
     EZLogf(EZLogLevelInfo, @"TTS", @"Playback started %@", fileURL.lastPathComponent);
 }
 

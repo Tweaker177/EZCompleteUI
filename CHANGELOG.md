@@ -17,6 +17,11 @@ Supabase Edge Function deployments and migrations.
   the background and from the lock screen, and only one thing plays at a time
   (starting a chat song stops the AI Music screen's player and vice versa).
   It already has an Up Next queue in code; the queue UI comes later.
+- Text to Speech (the generator screen and History) now plays through the shared
+  player too: lock-screen / Control Center controls now work for TTS clips,
+  clips keep playing after you leave the screen, and clips keep their saved
+  speed. The lock screen has skip back/forward 15 seconds and a scrub bar;
+  previous/next appear once there is something to move to.
 - Chat songs are limited to 2 minutes and one version, so a single chat song
   costs at most 60 coins at the current price. All pricing, charging, refunds
   and the limit on songs composing at once stay in the `ez-music` Edge

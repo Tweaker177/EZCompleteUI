@@ -2,29 +2,44 @@
 //  EZTTSLibraryViewController.m
 //  EZTTSLibrary
 //
+// Purpose:
+//   "History" list of every saved Text to Speech clip: play, favorite, edit,
+//   regenerate, delete, share and combine several clips into one.
+//
+// Changes (playback moved to the shared player):
+//   - Clips now play through EZMediaPlayerManager instead of a private
+//     AVAudioPlayer. That gives them lock-screen / Control Center controls
+//     (play, pause, skip +/-15s, scrub), background playback, and a clip keeps
+//     playing after leaving this screen.
+//   - The row buttons and progress bars mirror the shared player; the screen
+//     no longer owns a player, a timer or any playback state of its own.
+//   - Tapping the play button of the clip that is already loaded pauses or
+//     resumes it (it used to stop it).
+//
 
 #import "EZTTSLibraryViewController.h"
 #import "EZTTSLibraryManager.h"
 #import "EZTTSLibraryClipCell.h"
 #import "EZTTSClipEditViewController.h"
 #import "TextToSpeechViewController.h"
+#import "EZMediaPlayerManager.h"
 #import "helpers.h"
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
 
+// Prefix for EZMediaPlayerItem identifiers made here. The shared player is used
+// by other screens too, so this tells us which current item is one of our clips.
+static NSString * const kEZTTSPlayerIdentifierPrefix = @"tts-clip:";
+
 static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
 
-@interface EZTTSLibraryViewController () <UITableViewDataSource, UITableViewDelegate, UISearchResultsUpdating, AVAudioPlayerDelegate>
+@interface EZTTSLibraryViewController () <UITableViewDataSource, UITableViewDelegate, UISearchResultsUpdating>
 
 @property (nonatomic, strong) UITableView *tableView;
 @property (nonatomic, strong) UISearchController *searchController;
 @property (nonatomic, strong) UILabel *emptyStateLabel;
 
 @property (nonatomic, copy) NSArray<EZTTSManifestEntry *> *clips;
-
-@property (nonatomic, strong) AVAudioPlayer *player;
-@property (nonatomic, strong) NSTimer *progressTimer;
-@property (nonatomic, copy, nullable) NSString *playingUUID;
 
 // Combine feature: UUIDs of clips picked in the History screen's multi-select mode,
 // in the order the user tapped them — that tap order becomes the concatenation order.
@@ -89,8 +104,17 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
                                              self.view.bounds.size.width - margin * 2, 80);
 }
 
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:EZMediaPlayerDidUpdateNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(sharedPlayerDidUpdate:)
+                                                 name:EZMediaPlayerDidUpdateNotification
+                                               object:nil];
     // Clips may have changed since last time this screen was shown (new generations,
     // deletes elsewhere) — always refresh from the source of truth on appear.
     [self reloadClips];
@@ -98,7 +122,9 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
 
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
-    [self stopPlayback];
+    // Playback is intentionally NOT stopped here: a clip keeps playing after
+    // leaving this screen. Only the UI updates are paused.
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:EZMediaPlayerDidUpdateNotification object:nil];
     if (self.tableView.isEditing) {
         [self setSelectionModeActive:NO];
     }
@@ -165,7 +191,8 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
     NSURL *audioURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:entry];
 
     [cell configureWithEntry:entry audioURL:audioURL];
-    [cell setPlaying:[entry.uuid isEqualToString:self.playingUUID]];
+    [cell setPlaying:[self isClipUUIDActivelyPlaying:entry.uuid]];
+    if ([self isClipUUIDLoaded:entry.uuid]) [cell setPlaybackProgress:[self currentPlaybackProgress] animated:NO];
 
     __weak typeof(self) weakSelf = self;
     cell.onPlayTapped = ^{ [weakSelf togglePlaybackForEntry:entry]; };
@@ -308,7 +335,7 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
 }
 
 - (void)deleteEntry:(EZTTSManifestEntry *)entry completion:(void (^)(BOOL success))completion {
-    if ([entry.uuid isEqualToString:self.playingUUID]) {
+    if ([self isClipUUIDLoaded:entry.uuid]) {
         [self stopPlayback];
     }
     [[EZTTSLibraryManager sharedManager] deleteClipWithUUID:entry.uuid completion:^(BOOL success, NSError * _Nullable error) {
@@ -325,92 +352,101 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
 #pragma mark - Playback
 
 - (void)togglePlaybackForEntry:(EZTTSManifestEntry *)entry {
-    if ([entry.uuid isEqualToString:self.playingUUID]) {
-        [self stopPlayback];
-        return;
-    }
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
 
-    [self stopPlayback]; // stop whatever else was playing first
-
-    NSError *sessionError = nil;
-    if (!EZActivatePlaybackAudioSession(&sessionError)) {
-        [self presentErrorAlert:sessionError title:@"Couldn't start audio playback"];
+    // Same clip as the one already loaded: pause or resume it.
+    if ([self isClipUUIDLoaded:entry.uuid] && player.state != EZMediaPlayerStateFailed) {
+        [player togglePlayPause];
         return;
     }
 
     NSURL *audioURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:entry];
-    NSError *playerError;
-    AVAudioPlayer *player = [[AVAudioPlayer alloc] initWithContentsOfURL:audioURL error:&playerError];
-    if (!player) {
-        [self presentErrorAlert:playerError title:@"Couldn't play clip"];
+    if (!audioURL || ![[NSFileManager defaultManager] fileExistsAtPath:audioURL.path]) {
+        NSError *missingError = [NSError errorWithDomain:@"EZTTSLibrary"
+                                                    code:-2
+                                                userInfo:@{ NSLocalizedDescriptionKey: @"This clip's audio file is missing. Try regenerating it." }];
+        [self presentErrorAlert:missingError title:@"Couldn't play clip"];
         return;
     }
 
-    player.delegate = self;
-    player.enableRate = YES;
     id storedRate = entry.metadata[@"playbackRate"];
-    player.rate = [storedRate isKindOfClass:[NSNumber class]] ? [storedRate floatValue] : 1.0f;
-    [player prepareToPlay];
-    if (![player play]) {
-        NSError *error = [NSError errorWithDomain:@"EZTTSLibrary"
-                                             code:-1
-                                         userInfo:@{ NSLocalizedDescriptionKey: @"The audio player could not start playback." }];
-        [self presentErrorAlert:error title:@"Couldn't play clip"];
-        return;
-    }
+    float rate = [storedRate isKindOfClass:[NSNumber class]] ? [storedRate floatValue] : 1.0f;
+    NSString *title = entry.preview.length > 0 ? entry.preview : entry.prompt;
+    if (title.length > 60) title = [[title substringToIndex:60] stringByAppendingString:@"…"];
+    NSString *subtitle = entry.voiceName.length > 0
+        ? [NSString stringWithFormat:@"Text to Speech · %@", entry.voiceName]
+        : @"Text to Speech";
 
-    self.player = player;
-    self.playingUUID = entry.uuid;
-    [self updateCellPlayingStateForUUID:entry.uuid playing:YES];
-
-    self.progressTimer = [NSTimer scheduledTimerWithTimeInterval:0.05
-                                                            target:self
-                                                          selector:@selector(handleProgressTick)
-                                                          userInfo:nil
-                                                           repeats:YES];
+    [player playItem:[EZMediaPlayerItem itemWithIdentifier:[kEZTTSPlayerIdentifierPrefix stringByAppendingString:entry.uuid]
+                                                     title:title
+                                                  subtitle:subtitle
+                                                   fileURL:audioURL
+                                              durationHint:entry.duration
+                                              playbackRate:rate]];
 }
 
-- (void)handleProgressTick {
-    if (!self.player || self.playingUUID == nil) return;
-    CGFloat progress = self.player.duration > 0 ? (CGFloat)(self.player.currentTime / self.player.duration) : 0;
-    [self updateCellPlaybackProgressForUUID:self.playingUUID progress:progress];
-}
-
+/// Stops the shared player, but only when what is loaded is one of this
+/// screen's clips (the player is shared with chat songs and other screens).
 - (void)stopPlayback {
-    [self.player stop];
-    self.player = nil;
-    [self.progressTimer invalidate];
-    self.progressTimer = nil;
-
-    NSString *previousUUID = self.playingUUID;
-    self.playingUUID = nil;
-    if (previousUUID) [self updateCellPlayingStateForUUID:previousUUID playing:NO];
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    if (player.currentItem && [player.currentItem.identifier hasPrefix:kEZTTSPlayerIdentifierPrefix]) {
+        [player stop];
+    }
 }
 
-- (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
-    [self stopPlayback];
+#pragma mark - Shared player mirroring
+
+/// YES if this clip is the one loaded in the shared player (playing, paused or loading).
+- (BOOL)isClipUUIDLoaded:(NSString *)uuid {
+    if (uuid.length == 0) return NO;
+    return [[EZMediaPlayerManager sharedManager]
+            isCurrentItemWithIdentifier:[kEZTTSPlayerIdentifierPrefix stringByAppendingString:uuid]];
 }
 
-- (void)audioPlayerDecodeErrorDidOccur:(AVAudioPlayer *)player error:(NSError * _Nullable)error {
-    [self stopPlayback];
-    if (error) [self presentErrorAlert:error title:@"Playback error"];
+/// YES if this clip is loaded and not paused or failed, which is what the row
+/// button's "playing" look means.
+- (BOOL)isClipUUIDActivelyPlaying:(NSString *)uuid {
+    if (![self isClipUUIDLoaded:uuid]) return NO;
+    EZMediaPlayerState state = [EZMediaPlayerManager sharedManager].state;
+    return state == EZMediaPlayerStatePlaying || state == EZMediaPlayerStateLoading;
+}
+
+- (CGFloat)currentPlaybackProgress {
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    return player.duration > 0 ? (CGFloat)(player.currentTime / player.duration) : 0;
+}
+
+/// Called whenever the shared player changes (and ~4x a second while playing).
+/// Walks the visible rows so each shows its own play state and progress, which
+/// also clears the old row when another clip or a chat song takes over.
+- (void)sharedPlayerDidUpdate:(NSNotification *)notification {
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    for (NSIndexPath *indexPath in self.tableView.indexPathsForVisibleRows) {
+        if (indexPath.row >= (NSInteger)self.clips.count) continue;
+        EZTTSManifestEntry *entry = self.clips[indexPath.row];
+        EZTTSLibraryClipCell *cell = (EZTTSLibraryClipCell *)[self.tableView cellForRowAtIndexPath:indexPath];
+        if (![cell isKindOfClass:[EZTTSLibraryClipCell class]]) continue;
+        BOOL loaded = [self isClipUUIDLoaded:entry.uuid];
+        [cell setPlaying:[self isClipUUIDActivelyPlaying:entry.uuid]];
+        [cell setPlaybackProgress:(loaded ? [self currentPlaybackProgress] : 0) animated:NO];
+    }
+    if ([self isCurrentClipFailed:player]) {
+        // The shared player has no UI of its own. Show the reason once, then
+        // unload the clip so the alert doesn't repeat on every update.
+        NSString *reason = player.errorMessage ?: @"The clip couldn't be played.";
+        [player stop];
+        NSError *error = [NSError errorWithDomain:@"EZTTSLibrary" code:-3
+                                         userInfo:@{ NSLocalizedDescriptionKey: reason }];
+        [self presentErrorAlert:error title:@"Couldn't play clip"];
+    }
+}
+
+- (BOOL)isCurrentClipFailed:(EZMediaPlayerManager *)player {
+    return player.state == EZMediaPlayerStateFailed &&
+           [player.currentItem.identifier hasPrefix:kEZTTSPlayerIdentifierPrefix];
 }
 
 #pragma mark - Cell lookup helpers
-
-- (void)updateCellPlayingStateForUUID:(NSString *)uuid playing:(BOOL)playing {
-    NSIndexPath *indexPath = [self indexPathForClipUUID:uuid];
-    if (!indexPath) return;
-    EZTTSLibraryClipCell *cell = (EZTTSLibraryClipCell *)[self.tableView cellForRowAtIndexPath:indexPath];
-    if (cell) [cell setPlaying:playing];
-}
-
-- (void)updateCellPlaybackProgressForUUID:(NSString *)uuid progress:(CGFloat)progress {
-    NSIndexPath *indexPath = [self indexPathForClipUUID:uuid];
-    if (!indexPath) return;
-    EZTTSLibraryClipCell *cell = (EZTTSLibraryClipCell *)[self.tableView cellForRowAtIndexPath:indexPath];
-    if (cell) [cell setPlaybackProgress:progress animated:NO];
-}
 
 - (nullable NSIndexPath *)indexPathForClipUUID:(NSString *)uuid {
     NSUInteger idx = [self.clips indexOfObjectPassingTest:^BOOL(EZTTSManifestEntry *entry, NSUInteger i, BOOL *stop) {
