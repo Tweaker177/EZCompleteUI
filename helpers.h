@@ -70,6 +70,16 @@ void analyzePromptForContext(NSString *userPrompt,
                              NSString * _Nullable chatKey,
                              void (^completion)(EZContextResult *result));
 
+/// Attachment-aware routing variant. `imageDataURLs` contains prepared image
+/// data URLs for the current unsent turn; files are represented in userPrompt
+/// by their extracted text.
+void analyzePromptForContextWithImages(NSString *userPrompt,
+                                       NSString * _Nullable memoryContext,
+                                       NSArray<NSString *> * _Nullable imageDataURLs,
+                                       NSString *apiKey,
+                                       NSString * _Nullable chatKey,
+                                       void (^completion)(EZContextResult *result));
+
 NSString *EZMemoryGetPath(void);
 
 /// Legacy-compatible wrapper. `chatKey` is treated as promptID.

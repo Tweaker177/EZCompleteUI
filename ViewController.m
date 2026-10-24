@@ -899,7 +899,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UIButton      *historyButton;
 @property (nonatomic, strong) UIButton      *addChatButton;
 @property (nonatomic, strong) UIButton      *memoriesButton;
-/// Reuses the former Memories slot as the thread-selection entry point.
+@property (nonatomic, strong) UIButton      *threadSelectionButton;
 @property (nonatomic, assign) BOOL          threadSelectionActive;
 @property (nonatomic, strong) NSMutableIndexSet *selectedThreadMessageIndexes;
 @property (nonatomic, strong) UIView        *threadSelectionBar;
@@ -1063,6 +1063,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (NSArray *)sanitizedContextForAPI:(NSArray *)context
                   modelSupportsVision:(BOOL)supportsVision
                       useResponsesAPI:(BOOL)useResponsesAPI;
+- (NSDictionary *)loggableChatRequestBody:(NSDictionary *)body;
 // - (void)downloadAndShowVideo:(NSString *)urlString;   // SORA — see the big commented block
 - (void)appendImageGridToChat:(NSArray<NSString *> *)imagePaths
                        prompt:(NSString *)prompt
@@ -1878,12 +1879,15 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 
     self.textToSpeechButton = [self _iconButton:@"play.circle.fill" tint:nil action:@selector(openTTS)];
 
-    // The former Memories slot is now the thread export/selection entry point.
-    self.memoriesButton   = [self _iconButton:@"checkmark.circle" tint:nil
-                                      action:@selector(toggleThreadSelection)];
-    [self.memoriesButton setTitle:@"Select" forState:UIControlStateNormal];
-    self.memoriesButton.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
-    self.memoriesButton.accessibilityLabel = @"Select parts of this thread";
+    // Keep Memories and multi-select as separate, discoverable actions.
+    self.memoriesButton = [self _iconButton:@"brain.head.profile" tint:[UIColor systemTealColor]
+                                     action:@selector(openMemories)];
+    self.memoriesButton.accessibilityLabel = @"Memories";
+    self.threadSelectionButton = [self _iconButton:@"checkmark.circle" tint:[UIColor systemBlueColor]
+                                            action:@selector(toggleThreadSelection)];
+    [self.threadSelectionButton setTitle:@"SEL" forState:UIControlStateNormal];
+    self.threadSelectionButton.titleLabel.font = [UIFont systemFontOfSize:10 weight:UIFontWeightBold];
+    self.threadSelectionButton.accessibilityLabel = @"Select parts of this thread";
     // Web search toggle
     self.webSearchButton = [self _iconButton:@"globe" tint:nil
                                       action:@selector(toggleWebSearch)];
@@ -1912,7 +1916,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
     [self.coinPotView addGestureRecognizer:potTap];
 
     // Keep navigation and response actions on the left, the balance centered,
-    // and Memories on the far right so it aligns with its shelf drawer.
+    // and distinct selection/memory actions on the right.
     UIView *topStack = [[UIView alloc] init];
     topStack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:topStack];
@@ -1920,6 +1924,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
     [topStack addSubview:self.coinPotView];
     [topStack addSubview:self.clipboardButton];
     [topStack addSubview:self.speakButton];
+    [topStack addSubview:self.threadSelectionButton];
     [topStack addSubview:self.memoriesButton];
     [topStack addSubview:self.supportRequestButton];
 
@@ -1936,8 +1941,10 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
         [self.speakButton.leadingAnchor constraintEqualToAnchor:self.clipboardButton.trailingAnchor constant:8],
         [self.speakButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
         [self.memoriesButton.trailingAnchor constraintEqualToAnchor:topStack.trailingAnchor],
-        [self.supportRequestButton.trailingAnchor constraintEqualToAnchor:self.memoriesButton.leadingAnchor constant:-8],
+        [self.threadSelectionButton.trailingAnchor constraintEqualToAnchor:self.memoriesButton.leadingAnchor constant:-8],
+        [self.supportRequestButton.trailingAnchor constraintEqualToAnchor:self.threadSelectionButton.leadingAnchor constant:-8],
         [self.supportRequestButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
+        [self.threadSelectionButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
         [self.memoriesButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
         [self.speakButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.coinPotView.leadingAnchor constant:-8],
         [self.supportRequestButton.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.coinPotView.trailingAnchor constant:8],
@@ -2474,9 +2481,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 
 // A validated helper answer is a completed chat turn, not merely a routing
 // hint. Keep its persistence/display path equivalent to a main-model reply so
-// the thread and memory stores remain internally consistent. File/image and
-// web-search turns intentionally never reach here because their full content
-// or tools are only available to the main model.
+// the thread and memory stores remain internally consistent.
 - (void)completeHelperDirectAnswer:(NSString *)answer
                      originalPrompt:(NSString *)prompt
                               token:(NSString *)token
@@ -3809,8 +3814,25 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // }
 
     // ── Chat / reasoning models ───────────────────────────────────────────────
-    [self fetchRelevantMemories:text completion:^(NSString *memories) {
-        analyzePromptForContext(text, memories, jwtToken, self.activeThread.threadID,
+    // Give the helper the same current-turn attachment material it needs to
+    // safely short-circuit: extracted file text is already in fullPrompt, and
+    // prepared images are sent as vision data URLs. These are the same prepared
+    // bytes used by the main chat request, not separate originals.
+    NSMutableArray<NSString *> *helperImageDataURLs = [NSMutableArray array];
+    for (NSString *path in self.pendingImagePaths) {
+        NSData *imageData = [NSData dataWithContentsOfFile:path];
+        if (!imageData.length) continue;
+        NSString *extension = path.pathExtension.lowercaseString;
+        NSString *mimeType = [extension isEqualToString:@"png"] ? @"image/png"
+            : [extension isEqualToString:@"webp"] ? @"image/webp"
+            : [extension isEqualToString:@"gif"] ? @"image/gif" : @"image/jpeg";
+        [helperImageDataURLs addObject:[NSString stringWithFormat:@"data:%@;base64,%@",
+            mimeType, [imageData base64EncodedStringWithOptions:0]]];
+    }
+
+    [self fetchRelevantMemories:fullPrompt completion:^(NSString *memories) {
+        analyzePromptForContextWithImages(fullPrompt, memories, helperImageDataURLs,
+        jwtToken, self.activeThread.threadID,
         ^(EZContextResult *result) {
             EZLogf(EZLogLevelInfo, @"SEND",
                    @"Tier %ld — conf=%.2f tokens≈%ld reason: %@",
@@ -3818,26 +3840,16 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                    (long)result.estimatedTokens, result.reason);
 
             BOOL hasAttachedFileContext = ![fullPrompt isEqualToString:text];
-            BOOL hasPendingImageAttachment = self.pendingImagePaths.count > 0;
 
-            // A validated helper answer is the intended result of the
-            // lightning-bolt setting. Do not use it for requests that require
-            // information the helper never received (file/image attachments)
-            // or a tool the helper cannot invoke (web search).
-            if (result.shortCircuitAnswer.length > 0 &&
-                !hasAttachedFileContext &&
-                !hasPendingImageAttachment &&
-                !self.webSearchEnabled) {
+            // The helper has the file text and current images, so those no
+            // longer suppress a validated direct answer. Live web search is
+            // the one remaining exception: the helper cannot invoke that tool.
+            if (result.shortCircuitAnswer.length > 0 && !self.webSearchEnabled) {
                 [self completeHelperDirectAnswer:result.shortCircuitAnswer
                                    originalPrompt:text
                                             token:jwtToken
                                          threadID:requestThreadID];
                 return;
-            }
-            if (result.shortCircuitAnswer.length > 0) {
-                EZLogf(EZLogLevelInfo, @"TRIAGE",
-                       @"Helper direct answer deferred to main model (file=%d image=%d web=%d)",
-                       hasAttachedFileContext, hasPendingImageAttachment, self.webSearchEnabled);
             }
 
             // Triage/memory routing enriches the short typed question. When a
@@ -3845,7 +3857,21 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             // expanded prompt so the attached file's extracted text reaches
             // ez-chat instead of being silently discarded by this replacement.
             NSString *promptForMainModel = result.finalPrompt;
-            if (hasAttachedFileContext && result.tier >= EZRoutingTierMemory) {
+            if (result.shortCircuitAnswer.length > 0 && self.webSearchEnabled) {
+                // Preserve the helper/ranker result as context for the model
+                // that will perform the live lookup. Previously it was simply
+                // discarded, which caused the model to claim it had no memory.
+                promptForMainModel = [NSString stringWithFormat:
+                    @"[Validated helper answer — verify or update with web search:]\n%@\n\n[User message]\n%@",
+                    result.shortCircuitAnswer, fullPrompt];
+                if (self.chatContext.count > 0) [self.chatContext removeLastObject];
+                [self.chatContext addObject:@{ @"role": @"user", @"content": promptForMainModel }];
+                [self appendToChat:@"[System: Helper answer included for web verification ✓]"];
+                [self callChatCompletions];
+                return;
+            }
+            if (hasAttachedFileContext && result.tier >= EZRoutingTierMemory &&
+                [result.finalPrompt rangeOfString:@"[Attached file:"].location == NSNotFound) {
                 NSRange typedQuestionRange = [promptForMainModel rangeOfString:text
                                                                        options:NSBackwardsSearch];
                 if (typedQuestionRange.location != NSNotFound &&
@@ -4292,7 +4318,23 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     else                                                     request.timeoutInterval = 250;
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
-    request.HTTPBody = [NSJSONSerialization dataWithJSONObject:ezBody options:0 error:nil];
+    NSError *requestEncodingError = nil;
+    request.HTTPBody = [NSJSONSerialization dataWithJSONObject:ezBody options:0 error:&requestEncodingError];
+    if (!request.HTTPBody.length) {
+        [self handleAPIError:requestEncodingError.localizedDescription ?: @"Couldn't encode the chat request."];
+        return;
+    }
+
+    // Record the actual bytes handed to NSURLSession for debugging. Keep the
+    // bearer credential out of the System Log: anyone with that token can act
+    // as this user, while the endpoint, headers, and JSON body are sufficient
+    // to reproduce request-shape issues.
+    NSDictionary *logBody = [self loggableChatRequestBody:ezBody];
+    NSData *logBodyData = [NSJSONSerialization dataWithJSONObject:logBody options:0 error:nil];
+    NSString *requestBody = [[NSString alloc] initWithData:logBodyData encoding:NSUTF8StringEncoding] ?: @"<non-UTF-8 JSON>";
+    EZLogf(EZLogLevelInfo, @"API",
+           @"Outgoing request:\nPOST %@\nContent-Type: application/json\nAuthorization: [REDACTED]\nBody: %@",
+           request.URL.absoluteString ?: @"<missing URL>", requestBody);
 
     EZLogf(EZLogLevelInfo, @"API", @"→ ez-chat [%@]%@", self.selectedModel, useWebSearch ? @" +web" : @"");
     dispatch_async(dispatch_get_main_queue(), ^{ self.sendButton.enabled = NO; });
@@ -5570,6 +5612,50 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     return [result copy];
 }
 
+/// Produces a diagnostic copy of the request body. It keeps the exact request
+/// shape and all ordinary text, while collapsing embedded image bytes so one
+/// attachment cannot fill the System Log with megabytes of Base64.
+- (NSDictionary *)loggableChatRequestBody:(NSDictionary *)body {
+    NSMutableDictionary *logBody = [body mutableCopy] ?: [NSMutableDictionary dictionary];
+    NSArray *messages = [body[@"messages"] isKindOfClass:NSArray.class] ? body[@"messages"] : nil;
+    if (!messages) return [logBody copy];
+
+    NSMutableArray *logMessages = [NSMutableArray arrayWithCapacity:messages.count];
+    for (NSDictionary *message in messages) {
+        if (![message isKindOfClass:NSDictionary.class]) { [logMessages addObject:message ?: @{}]; continue; }
+        NSMutableDictionary *logMessage = [message mutableCopy];
+        NSArray *content = [message[@"content"] isKindOfClass:NSArray.class] ? message[@"content"] : nil;
+        if (!content) { [logMessages addObject:logMessage]; continue; }
+
+        NSMutableArray *logContent = [NSMutableArray arrayWithCapacity:content.count];
+        for (NSDictionary *block in content) {
+            if (![block isKindOfClass:NSDictionary.class]) { [logContent addObject:block ?: @{}]; continue; }
+            NSMutableDictionary *logBlock = [block mutableCopy];
+            NSString *type = [block[@"type"] isKindOfClass:NSString.class] ? block[@"type"] : @"";
+            if ([type isEqualToString:@"image_url"]) {
+                id imageURL = block[@"image_url"];
+                NSString *url = [imageURL isKindOfClass:NSDictionary.class] ? imageURL[@"url"]
+                    : [imageURL isKindOfClass:NSString.class] ? imageURL : nil;
+                if ([url hasPrefix:@"data:"]) {
+                    NSRange marker = [url rangeOfString:@";base64,"];
+                    NSString *mime = marker.location == NSNotFound ? @"image" : [url substringWithRange:NSMakeRange(5, marker.location - 5)];
+                    NSUInteger chars = marker.location == NSNotFound ? url.length : url.length - NSMaxRange(marker);
+                    logBlock[@"image_url"] = @{ @"url": [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)chars] };
+                }
+            } else if ([type isEqualToString:@"input_image"] && [block[@"data"] isKindOfClass:NSString.class]) {
+                NSString *data = block[@"data"];
+                NSString *mime = [block[@"media_type"] isKindOfClass:NSString.class] ? block[@"media_type"] : @"image";
+                logBlock[@"data"] = [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)data.length];
+            }
+            [logContent addObject:logBlock];
+        }
+        logMessage[@"content"] = logContent;
+        [logMessages addObject:logMessage];
+    }
+    logBody[@"messages"] = logMessages;
+    return [logBody copy];
+}
+
 - (NSString *)featureLabel:(EZFeature)feature {
     switch (feature) {
         case EZFeatureImageLow:    return @"image_low";
@@ -6348,6 +6434,9 @@ static NSString *EZThreadExportTimestampNow(void) {
 
     NSArray<NSString *> *titles = @[ @"All", @"Delete", @"Translate", @"Share", @"Export", @"Done" ];
     NSArray<NSString *> *symbols = @[ @"checkmark.circle", @"trash", @"character.bubble", @"square.and.arrow.up", @"doc.badge.arrow.up", @"xmark.circle" ];
+    NSArray<UIColor *> *colors = @[ UIColor.systemTealColor, UIColor.systemRedColor,
+                                    UIColor.systemPurpleColor, UIColor.systemGreenColor,
+                                    UIColor.systemOrangeColor, UIColor.whiteColor ];
     NSArray<NSString *> *selectors = @[ NSStringFromSelector(@selector(selectAllThreadItems)),
                                         NSStringFromSelector(@selector(deleteSelectedThreadItems)),
                                         NSStringFromSelector(@selector(translateSelectedThreadItems)),
@@ -6362,12 +6451,22 @@ static NSString *EZThreadExportTimestampNow(void) {
     NSMutableArray<UIButton *> *buttons = [NSMutableArray array];
     for (NSUInteger i = 0; i < titles.count; i++) {
         UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
-        [button setTitle:titles[i] forState:UIControlStateNormal];
-        [button setImage:[UIImage systemImageNamed:symbols[i]] forState:UIControlStateNormal];
-        button.tintColor = UIColor.whiteColor;
-        button.titleLabel.font = [UIFont systemFontOfSize:10 weight:UIFontWeightBold];
-        button.imageView.contentMode = UIViewContentModeScaleAspectFit;
-        button.contentEdgeInsets = UIEdgeInsetsMake(4, 2, 4, 2);
+        UIColor *color = colors[i];
+        UIButtonConfiguration *config = [UIButtonConfiguration filledButtonConfiguration];
+        config.title = titles[i];
+        config.image = [UIImage systemImageNamed:symbols[i]];
+        config.imagePlacement = NSDirectionalRectEdgeTop;
+        config.imagePadding = 3;
+        config.baseForegroundColor = color;
+        config.baseBackgroundColor = [color colorWithAlphaComponent:(i == 5 ? 0.22 : 0.16)];
+        config.cornerStyle = UIButtonConfigurationCornerStyleMedium;
+        config.contentInsets = NSDirectionalEdgeInsetsMake(5, 2, 5, 2);
+        config.titleTextAttributesTransformer = ^NSDictionary<NSAttributedStringKey,id> * _Nonnull(NSDictionary<NSAttributedStringKey,id> * _Nonnull attributes) {
+            NSMutableDictionary *result = [attributes mutableCopy];
+            result[NSFontAttributeName] = [UIFont systemFontOfSize:10 weight:UIFontWeightBold];
+            return result;
+        };
+        button.configuration = config;
         [button addTarget:self action:NSSelectorFromString(selectors[i]) forControlEvents:UIControlEventTouchUpInside];
         [stack addArrangedSubview:button];
         [buttons addObject:button];
@@ -6401,7 +6500,7 @@ static NSString *EZThreadExportTimestampNow(void) {
     self.threadSelectionActive = !self.threadSelectionActive;
     if (!self.threadSelectionActive) [self.selectedThreadMessageIndexes removeAllIndexes];
     self.threadSelectionBar.hidden = !self.threadSelectionActive;
-    [self.memoriesButton setTitle:self.threadSelectionActive ? @"Done" : @"Select"
+    [self.threadSelectionButton setTitle:self.threadSelectionActive ? @"DONE" : @"SEL"
                          forState:UIControlStateNormal];
     [self updateThreadSelectionUI];
 }
@@ -7078,6 +7177,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         }
         [self.chatContext addObject:event];
         [self saveActiveThread];
+        [self indexCompletedChatMusicEvent:event threadID:threadID];
         return;
     }
 
@@ -7091,6 +7191,30 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     [context addObject:event];
     originalThread.chatContext = [context copy];
     EZThreadSave(originalThread, nil);
+    [self indexCompletedChatMusicEvent:event threadID:threadID];
+}
+
+/// A completed chat song is a real assistant outcome, not just a decorative
+/// timeline card. Index it after it has been written to its source thread so
+/// memory search can find the song title and scene/style prompt later.
+- (void)indexCompletedChatMusicEvent:(NSDictionary *)event threadID:(NSString *)threadID {
+    if ([event[@"isError"] boolValue]) return;
+    NSString *token = [EZAuthManager shared].accessToken;
+    NSString *prompt = [event[@"prompt"] isKindOfClass:NSString.class] ? event[@"prompt"] : @"";
+    NSString *title = [event[@"title"] isKindOfClass:NSString.class] ? event[@"title"] : @"AI song";
+    NSString *entryID = [event[@"entryID"] isKindOfClass:NSString.class] ? event[@"entryID"] : @"";
+    if (!token.length || !prompt.length) {
+        EZLog(EZLogLevelWarning, @"MEMORY", @"Skipped chat music memory: missing session token or song prompt");
+        return;
+    }
+    NSString *assistantReply = [NSString stringWithFormat:
+        @"Created the AI song \"%@\" and saved it in AI Music. Song ID: %@. The track is available in this chat with Play and Share controls.",
+        title, entryID.length ? entryID : @"unavailable"];
+    createMemoryFromCompletion(prompt, assistantReply, token, threadID, @[], ^(NSString *entry) {
+        if (entry) {
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"Indexed completed chat song %@", entryID.length ? entryID : title);
+        }
+    });
 }
 
 /// Text the chat model sees for a song event, so follow-ups like "make it
