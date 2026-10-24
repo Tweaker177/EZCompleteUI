@@ -1,4 +1,4 @@
-// EZMusicViewController.m
+//EZMusicViewController.m
 // EZCompleteUI v1.3
 //
 // Purpose:
@@ -717,7 +717,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.lyricsTextView.accessibilityLabel = @"Lyrics";
     [self.lyricsTextView.heightAnchor constraintEqualToConstant:116].active = YES;
     [stack addArrangedSubview:self.lyricsTextView];
-
+/*
     // ── Reference ────────────────────────────────────────────────────────────
     [stack setCustomSpacing:16 afterView:self.lyricsTextView];
     [stack addArrangedSubview:[self sectionHeaderLabelWithText:@"Audio reference (coming soon)"]];
@@ -750,30 +750,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.referenceDetailLabel.numberOfLines = 0;
     [stack addArrangedSubview:self.referenceDetailLabel];
     [self updateReferencePresentation];
-
-    // Video-to-music is intentionally separate from audio reference modes.
-    // It analyses the visual video and creates a soundtrack to mux onto it.
-    [stack setCustomSpacing:18 afterView:self.referenceDetailLabel];
-    [stack addArrangedSubview:[self sectionHeaderLabelWithText:@"Video soundtrack"]];
-    self.videoSoundtrackButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    self.videoSoundtrackButton.backgroundColor = [UIColor systemPurpleColor];
-    self.videoSoundtrackButton.layer.cornerRadius = 12;
-    self.videoSoundtrackButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
-    self.videoSoundtrackButton.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
-    [self.videoSoundtrackButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-    [self.videoSoundtrackButton setImage:[UIImage systemImageNamed:@"video.badge.plus"] forState:UIControlStateNormal];
-    [self.videoSoundtrackButton setTintColor:UIColor.whiteColor];
-    [self.videoSoundtrackButton setTitle:@"  Compose music for a video" forState:UIControlStateNormal];
-    [self.videoSoundtrackButton addTarget:self action:@selector(videoSoundtrackTapped) forControlEvents:UIControlEventTouchUpInside];
-    [self.videoSoundtrackButton.heightAnchor constraintEqualToConstant:48].active = YES;
-    [stack addArrangedSubview:self.videoSoundtrackButton];
-    UILabel *videoDetail = [[UILabel alloc] init];
-    videoDetail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-    videoDetail.textColor = UIColor.secondaryLabelColor;
-    videoDetail.numberOfLines = 0;
-    videoDetail.text = @"Analyzes the video’s visuals, generates a matching soundtrack, then attaches it to the finished video. This is not a style or source-audio reference.";
-    [stack addArrangedSubview:videoDetail];
-
+**/
+   
     // ── Optional title ───────────────────────────────────────────────────────
     UILabel *titleHeader = [self sectionHeaderLabelWithText:EZMusicText(@"EZMusic.Title.Header", @"Title")];
     [stack addArrangedSubview:titleHeader];
@@ -883,6 +861,30 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         @"Songs are composed in the background, so you can close this screen and find them in your Library. If a song fails, your coins are refunded automatically.");
     [stack setCustomSpacing:16 afterView:self.generateButton];
     [stack addArrangedSubview:footnote];
+    
+        // Video-to-music is intentionally separate from audio reference modes.
+        // It analyses the visual video and creates a soundtrack to mux onto it.
+        [stack setCustomSpacing:18 afterView:self.surpriseButton];
+        [stack addArrangedSubview:[self sectionHeaderLabelWithText:@"Video soundtrack"]];
+        self.videoSoundtrackButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        self.videoSoundtrackButton.backgroundColor = [UIColor systemPurpleColor];
+        self.videoSoundtrackButton.layer.cornerRadius = 12;
+        self.videoSoundtrackButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+        self.videoSoundtrackButton.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
+        [self.videoSoundtrackButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+        [self.videoSoundtrackButton setImage:[UIImage systemImageNamed:@"video.badge.plus"] forState:UIControlStateNormal];
+        [self.videoSoundtrackButton setTintColor:UIColor.whiteColor];
+        [self.videoSoundtrackButton setTitle:@"  Compose music for a video" forState:UIControlStateNormal];
+        [self.videoSoundtrackButton addTarget:self action:@selector(videoSoundtrackTapped) forControlEvents:UIControlEventTouchUpInside];
+        [self.videoSoundtrackButton.heightAnchor constraintEqualToConstant:48].active = YES;
+        [stack addArrangedSubview:self.videoSoundtrackButton];
+        UILabel *videoDetail = [[UILabel alloc] init];
+        videoDetail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+        videoDetail.textColor = UIColor.secondaryLabelColor;
+        videoDetail.numberOfLines = 0;
+        videoDetail.text = @"Analyzes the video’s visuals, generates a matching soundtrack, then attaches it to the finished video.";
+        [stack addArrangedSubview:videoDetail];
+
 
     UILayoutGuide *contentGuide = self.createScrollView.contentLayoutGuide;
     UILayoutGuide *frameGuide = self.createScrollView.frameLayoutGuide;
