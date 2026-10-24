@@ -1,43 +1,52 @@
 // EZMusicBubbleCell.m
-// EZCompleteUI v1.0
+// EZCompleteUI v1.1
 //
 // Purpose:
-//   Implementation of the chat song card described in EZMusicBubbleCell.h.
+//   Implementation of the inline song player card described in
+//   EZMusicBubbleCell.h.
 //
 //   How it works:
-//     1. -configureWithTitle:... stores which song the row shows and resets
-//        the buttons (table cells are reused, so this runs for every row).
-//     2. Play and Share both call -withLocalFile:, which hands back the MP3 on
-//        this device. If the file isn't there yet it asks the ez-music
-//        function for a signed link, downloads it through
-//        EZMusicLibraryManager, and then continues.
-//     3. While that download runs the buttons are disabled and a spinner is
-//        shown, so a second tap can't start a second download.
+//     1. -configureWithTitle:... stores which song the row shows and redraws
+//        (table cells are reused, so this runs for every row that appears).
+//     2. -syncWithPlayer is the one place that draws the play button,
+//        scrubber and time. It asks EZMediaPlayerManager "is MY song the
+//        current one, and what is it doing?" and draws exactly that. It runs
+//        after configure and again on every EZMediaPlayerDidUpdateNotification,
+//        which is how the card follows playback it did not start itself.
+//     3. Tapping play: if this song is already loaded it toggles pause/resume.
+//        Otherwise -withLocalFile: gets the MP3 onto the device (downloading it
+//        if needed) and hands it to the manager.
 //
 //   Edge cases handled on purpose:
-//     - The cell is reused for another song while a download is running: the
-//       late result is ignored instead of opening the wrong song.
-//     - The download fails (offline, expired session): the user gets an alert
-//       and the buttons come back so they can try again.
+//     - The row is reused for another song while a download is running: the
+//       late result is ignored instead of playing the wrong song.
+//     - The download fails (offline, expired session): an alert explains and
+//       the button comes back so the user can try again.
+//     - Dragging the scrubber stops incoming progress updates from fighting
+//       the user's finger; the seek happens when they let go.
+//     - Playback fails (corrupt file): the subtitle shows why; tapping play
+//       tries again from scratch.
 
 #import "EZMusicBubbleCell.h"
-#import <QuickLook/QuickLook.h>
+#import "EZMediaPlayerManager.h"
 #import "EZMusicService.h"
 #import "EZMusicLibraryManager.h"
-
-@interface EZMusicBubbleCell () <QLPreviewControllerDataSource>
-@end
 
 @implementation EZMusicBubbleCell {
     UILabel *_titleLabel;
     UILabel *_subtitleLabel;
     UIButton *_playButton;
     UIButton *_shareButton;
+    UISlider *_scrubber;
+    UILabel *_timeLabel;
     UIActivityIndicatorView *_spinner;
 
     NSString *_entryID;
     NSString *_songTitle;
-    NSURL *_previewURL;                      // File shown by the Quick Look sheet.
+    NSString *_baseSubtitle;
+    NSInteger _durationSeconds;
+    BOOL _isPreparing;        // Fetching/downloading the MP3 before playback.
+    BOOL _isScrubbing;        // The user's finger is on the scrubber.
     __weak UIViewController *_presentingController;
 }
 
@@ -76,24 +85,49 @@
     _subtitleLabel = [[UILabel alloc] init];
     _subtitleLabel.font = [UIFont systemFontOfSize:12];
     _subtitleLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1.0];
+    _subtitleLabel.numberOfLines = 2;
     _subtitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [container addSubview:_subtitleLabel];
 
-    _playButton = [self makeButtonWithTitle:@"Play" symbol:@"play.fill" accentColor:accentColor];
-    [_playButton addTarget:self action:@selector(playTapped) forControlEvents:UIControlEventTouchUpInside];
-    _shareButton = [self makeButtonWithTitle:@"Share" symbol:@"square.and.arrow.up" accentColor:accentColor];
+    _shareButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [_shareButton setImage:[UIImage systemImageNamed:@"square.and.arrow.up"] forState:UIControlStateNormal];
+    _shareButton.tintColor = accentColor;
+    _shareButton.accessibilityLabel = @"Share song";
+    _shareButton.translatesAutoresizingMaskIntoConstraints = NO;
     [_shareButton addTarget:self action:@selector(shareTapped) forControlEvents:UIControlEventTouchUpInside];
+    [container addSubview:_shareButton];
+
+    _playButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    _playButton.tintColor = accentColor;
+    _playButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [_playButton addTarget:self action:@selector(playTapped) forControlEvents:UIControlEventTouchUpInside];
+    [container addSubview:_playButton];
 
     _spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     _spinner.color = accentColor;
     _spinner.hidesWhenStopped = YES;
+    _spinner.userInteractionEnabled = NO;
+    _spinner.translatesAutoresizingMaskIntoConstraints = NO;
+    [container addSubview:_spinner];
 
-    UIStackView *buttonRow = [[UIStackView alloc] initWithArrangedSubviews:@[_playButton, _shareButton, _spinner]];
-    buttonRow.axis = UILayoutConstraintAxisHorizontal;
-    buttonRow.spacing = 16;
-    buttonRow.alignment = UIStackViewAlignmentCenter;
-    buttonRow.translatesAutoresizingMaskIntoConstraints = NO;
-    [container addSubview:buttonRow];
+    _scrubber = [[UISlider alloc] init];
+    _scrubber.minimumValue = 0;
+    _scrubber.maximumValue = 1;
+    _scrubber.minimumTrackTintColor = accentColor;
+    _scrubber.maximumTrackTintColor = [UIColor colorWithWhite:0.3 alpha:1.0];
+    _scrubber.translatesAutoresizingMaskIntoConstraints = NO;
+    [_scrubber addTarget:self action:@selector(scrubberTouchBegan) forControlEvents:UIControlEventTouchDown];
+    [_scrubber addTarget:self action:@selector(scrubberValueChanged) forControlEvents:UIControlEventValueChanged];
+    [_scrubber addTarget:self action:@selector(scrubberTouchEnded)
+        forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
+    [container addSubview:_scrubber];
+
+    _timeLabel = [[UILabel alloc] init];
+    _timeLabel.font = [UIFont monospacedDigitSystemFontOfSize:11 weight:UIFontWeightRegular];
+    _timeLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1.0];
+    _timeLabel.textAlignment = NSTextAlignmentRight;
+    _timeLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    [container addSubview:_timeLabel];
 
     [NSLayoutConstraint activateConstraints:@[
         [container.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:4],
@@ -106,65 +140,151 @@
         [iconView.widthAnchor constraintEqualToConstant:22],
         [iconView.heightAnchor constraintEqualToConstant:22],
 
+        [_shareButton.topAnchor constraintEqualToAnchor:container.topAnchor constant:6],
+        [_shareButton.trailingAnchor constraintEqualToAnchor:container.trailingAnchor constant:-6],
+        [_shareButton.widthAnchor constraintEqualToConstant:40],
+        [_shareButton.heightAnchor constraintEqualToConstant:40],
+
         [_titleLabel.topAnchor constraintEqualToAnchor:container.topAnchor constant:12],
         [_titleLabel.leadingAnchor constraintEqualToAnchor:iconView.trailingAnchor constant:10],
-        [_titleLabel.trailingAnchor constraintEqualToAnchor:container.trailingAnchor constant:-12],
+        [_titleLabel.trailingAnchor constraintEqualToAnchor:_shareButton.leadingAnchor constant:-4],
 
         [_subtitleLabel.topAnchor constraintEqualToAnchor:_titleLabel.bottomAnchor constant:2],
         [_subtitleLabel.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],
-        [_subtitleLabel.trailingAnchor constraintEqualToAnchor:_titleLabel.trailingAnchor],
+        [_subtitleLabel.trailingAnchor constraintEqualToAnchor:container.trailingAnchor constant:-12],
 
-        [buttonRow.topAnchor constraintEqualToAnchor:_subtitleLabel.bottomAnchor constant:10],
-        [buttonRow.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],
-        [buttonRow.bottomAnchor constraintEqualToAnchor:container.bottomAnchor constant:-12],
+        [_playButton.topAnchor constraintEqualToAnchor:_subtitleLabel.bottomAnchor constant:8],
+        [_playButton.leadingAnchor constraintEqualToAnchor:container.leadingAnchor constant:6],
+        [_playButton.widthAnchor constraintEqualToConstant:44],
+        [_playButton.heightAnchor constraintEqualToConstant:44],
+        [_playButton.bottomAnchor constraintEqualToAnchor:container.bottomAnchor constant:-8],
+
+        [_spinner.centerXAnchor constraintEqualToAnchor:_playButton.centerXAnchor],
+        [_spinner.centerYAnchor constraintEqualToAnchor:_playButton.centerYAnchor],
+
+        [_timeLabel.trailingAnchor constraintEqualToAnchor:container.trailingAnchor constant:-12],
+        [_timeLabel.centerYAnchor constraintEqualToAnchor:_playButton.centerYAnchor],
+        [_timeLabel.widthAnchor constraintEqualToConstant:84],
+
+        [_scrubber.leadingAnchor constraintEqualToAnchor:_playButton.trailingAnchor constant:4],
+        [_scrubber.trailingAnchor constraintEqualToAnchor:_timeLabel.leadingAnchor constant:-8],
+        [_scrubber.centerYAnchor constraintEqualToAnchor:_playButton.centerYAnchor],
     ]];
+
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playerDidUpdate)
+                                                 name:EZMediaPlayerDidUpdateNotification object:nil];
     return self;
 }
 
-- (UIButton *)makeButtonWithTitle:(NSString *)title symbol:(NSString *)symbolName accentColor:(UIColor *)accentColor {
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
-    [button setTitle:[@" " stringByAppendingString:title] forState:UIControlStateNormal];
-    [button setImage:[UIImage systemImageNamed:symbolName] forState:UIControlStateNormal];
-    button.tintColor = accentColor;
-    button.titleLabel.font = [UIFont boldSystemFontOfSize:14];
-    return button;
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 - (void)prepareForReuse {
     [super prepareForReuse];
-    _previewURL = nil;
-    [self setBusy:NO];
+    _isPreparing = NO;
+    _isScrubbing = NO;
 }
 
 - (void)configureWithTitle:(NSString *)title
                   subtitle:(NSString *)subtitle
+           durationSeconds:(NSInteger)durationSeconds
                    entryID:(NSString *)entryID
       presentingController:(UIViewController *)presentingController {
     _entryID = [entryID copy];
     _songTitle = title.length > 0 ? [title copy] : @"AI song";
+    _baseSubtitle = [subtitle copy];
+    _durationSeconds = MAX(durationSeconds, 0);
     _presentingController = presentingController;
     _titleLabel.text = _songTitle;
-    _subtitleLabel.text = subtitle;
-    [self setBusy:NO];
+    _isPreparing = NO;
+    _isScrubbing = NO;
+    [self syncWithPlayer];
+}
+
+// MARK: - Mirroring the shared player
+
+- (void)playerDidUpdate {
+    [self syncWithPlayer];
+}
+
+/// Draws the play button, scrubber, time and subtitle from the shared player's
+/// current state. The only place those controls are updated.
+- (void)syncWithPlayer {
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    BOOL isCurrent = [player isCurrentItemWithIdentifier:_entryID];
+    EZMediaPlayerState state = isCurrent ? player.state : EZMediaPlayerStateIdle;
+
+    BOOL showSpinner = _isPreparing || (state == EZMediaPlayerStateLoading);
+    NSString *symbol = (state == EZMediaPlayerStatePlaying) ? @"pause.fill" : @"play.fill";
+    [_playButton setImage:(showSpinner ? nil : [UIImage systemImageNamed:symbol
+                                                   withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22]])
+                 forState:UIControlStateNormal];
+    _playButton.accessibilityLabel = (state == EZMediaPlayerStatePlaying) ? @"Pause" : @"Play";
+    // Tapping during a load would pause/resume something not yet playing.
+    _playButton.enabled = !_isPreparing;
+    if (showSpinner) [_spinner startAnimating]; else [_spinner stopAnimating];
+
+    _subtitleLabel.text = (state == EZMediaPlayerStateFailed && player.errorMessage.length > 0)
+        ? player.errorMessage : _baseSubtitle;
+
+    NSTimeInterval total = isCurrent && player.duration > 0 ? player.duration : (NSTimeInterval)_durationSeconds;
+    NSTimeInterval elapsed = isCurrent ? player.currentTime : 0;
+    // The scrubber only means something for the song that is loaded.
+    _scrubber.enabled = isCurrent && total > 0 && state != EZMediaPlayerStateFailed;
+    if (!_isScrubbing) {
+        _scrubber.value = (isCurrent && total > 0) ? (float)MIN(elapsed / total, 1.0) : 0;
+        _timeLabel.text = [self timeTextForElapsed:elapsed total:total];
+    }
+}
+
+- (NSString *)timeTextForElapsed:(NSTimeInterval)elapsed total:(NSTimeInterval)total {
+    NSString *totalText = total > 0 ? [EZMediaPlayerManager formattedTime:total] : @"--:--";
+    return [NSString stringWithFormat:@"%@ / %@", [EZMediaPlayerManager formattedTime:elapsed], totalText];
+}
+
+// MARK: - Scrubber
+
+- (void)scrubberTouchBegan {
+    _isScrubbing = YES;
+}
+
+- (void)scrubberValueChanged {
+    // Show where the finger is; the actual seek waits until it lifts.
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    NSTimeInterval total = player.duration > 0 ? player.duration : (NSTimeInterval)_durationSeconds;
+    _timeLabel.text = [self timeTextForElapsed:_scrubber.value * total total:total];
+}
+
+- (void)scrubberTouchEnded {
+    _isScrubbing = NO;
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    if ([player isCurrentItemWithIdentifier:_entryID]) [player seekToFraction:_scrubber.value];
+    [self syncWithPlayer];
 }
 
 // MARK: - Buttons
 
-- (void)setBusy:(BOOL)busy {
-    _playButton.enabled = !busy;
-    _shareButton.enabled = !busy;
-    if (busy) [_spinner startAnimating]; else [_spinner stopAnimating];
-}
-
 - (void)playTapped {
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    BOOL isCurrent = [player isCurrentItemWithIdentifier:_entryID];
+    if (isCurrent && player.state != EZMediaPlayerStateFailed) {
+        [player togglePlayPause];
+        return;
+    }
+
+    NSString *requestedEntryID = _entryID;
     __weak typeof(self) weakSelf = self;
     [self withLocalFile:^(NSURL *fileURL) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
-        if (!strongSelf) return;
-        strongSelf->_previewURL = fileURL;
-        QLPreviewController *previewController = [[QLPreviewController alloc] init];
-        previewController.dataSource = strongSelf;
-        [[strongSelf topPresenter] presentViewController:previewController animated:YES completion:nil];
+        // The row may have been reused for a different song while downloading.
+        if (!strongSelf || ![strongSelf->_entryID isEqualToString:requestedEntryID]) return;
+        [[EZMediaPlayerManager sharedManager]
+            playItem:[EZMediaPlayerItem itemWithIdentifier:requestedEntryID
+                                                     title:strongSelf->_songTitle
+                                                  subtitle:strongSelf->_baseSubtitle
+                                                   fileURL:fileURL
+                                              durationHint:(NSTimeInterval)strongSelf->_durationSeconds]];
     }];
 }
 
@@ -201,7 +321,8 @@
     NSURL *localURL = [[EZMusicLibraryManager sharedManager] localSongURLForEntryID:requestedEntryID];
     if (localURL) { ready(localURL); return; }
 
-    [self setBusy:YES];
+    _isPreparing = YES;
+    [self syncWithPlayer];
     __weak typeof(self) weakSelf = self;
     [[EZMusicService sharedService] fetchPlaybackURLForEntryID:requestedEntryID forDownload:NO
                                                     completion:^(NSURL *remoteURL, NSError *linkError) {
@@ -216,7 +337,8 @@
             if (!innerSelf) return;
             // The row may have been reused for a different song meanwhile.
             if (![innerSelf->_entryID isEqualToString:requestedEntryID]) return;
-            [innerSelf setBusy:NO];
+            innerSelf->_isPreparing = NO;
+            [innerSelf syncWithPlayer];
             if (!savedURL) { [innerSelf finishFailedPrepareForEntryID:requestedEntryID error:downloadError]; return; }
             ready(savedURL);
         }];
@@ -225,23 +347,14 @@
 
 - (void)finishFailedPrepareForEntryID:(NSString *)entryID error:(NSError *)error {
     if (![_entryID isEqualToString:entryID]) return;
-    [self setBusy:NO];
+    _isPreparing = NO;
+    [self syncWithPlayer];
     UIAlertController *alert = [UIAlertController
         alertControllerWithTitle:@"Couldn't Open Song"
                          message:error.localizedDescription ?: @"The song couldn't be downloaded. Check your connection and try again."
                   preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
     [[self topPresenter] presentViewController:alert animated:YES completion:nil];
-}
-
-// MARK: - QLPreviewControllerDataSource
-
-- (NSInteger)numberOfPreviewItemsInPreviewController:(QLPreviewController *)controller {
-    return _previewURL ? 1 : 0;
-}
-
-- (id<QLPreviewItem>)previewController:(QLPreviewController *)controller previewItemAtIndex:(NSInteger)index {
-    return _previewURL;
 }
 
 @end

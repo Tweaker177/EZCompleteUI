@@ -1,5 +1,5 @@
 // EZMusicViewController.m
-// EZCompleteUI v1.1
+// EZCompleteUI v1.2
 //
 // Purpose:
 //   The "AI Music" screen. See EZMusicViewController.h for the overview.
@@ -31,6 +31,12 @@
 //     - Pagination uses an inclusive timestamp cursor and de-duplicates by id,
 //       so variants created at the same instant are never skipped.
 //
+// Changes from v1.1:
+//   - Keeps only one song playing across the app. Starting playback here stops
+//     the shared EZMediaPlayerManager (chat song cards), and when that player
+//     starts it posts EZMediaPlayerWillStartNotification, which stops this
+//     screen's player. This screen has not moved onto the shared player yet.
+//
 // Changes from v1.0:
 //   - -retainStreamedSongAtURL:entry: no longer downloads and archives the song
 //     itself. It calls -[EZMusicLibraryManager retainSongFromRemoteURL:...],
@@ -47,6 +53,7 @@
 #import <objc/runtime.h>
 #import <math.h>
 #import "EZMusicLibraryManager.h"
+#import "EZMediaPlayerManager.h"
 #import "EZPhotoGalleryViewController.h"
 #import "EZMusicService.h"
 #import "EZEntitlementManager.h"
@@ -549,6 +556,10 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
                    name:UIApplicationDidBecomeActiveNotification object:nil];
     [center addObserver:self selector:@selector(audioSessionInterrupted:)
                    name:AVAudioSessionInterruptionNotification object:nil];
+    // The shared player (chat song cards) is about to play: stop this screen's
+    // own player so two songs never play together.
+    [center addObserver:self selector:@selector(sharedPlayerWillStart)
+                   name:EZMediaPlayerWillStartNotification object:nil];
 
     [self updateQuote];
     [self loadConfig];
@@ -566,7 +577,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     // sheet or the coin store is merely presented on top of it.
     if (self.isBeingDismissed || self.navigationController.isBeingDismissed || self.isMovingFromParentViewController) {
         [self cancelAllPolling];
-        [self stopPlaybackReleasingSession:YES];
+        // Keep the audio session if a chat song is loaded in the shared player.
+        [self stopPlaybackReleasingSession:([EZMediaPlayerManager sharedManager].currentItem == nil)];
     }
 }
 
@@ -2298,7 +2310,18 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     }];
 }
 
+/// The shared EZMediaPlayerManager is starting something. Let go of this
+/// screen's player (without releasing the audio session, which the shared
+/// player is about to use).
+- (void)sharedPlayerWillStart {
+    if (self.player) [self stopPlaybackReleasingSession:NO];
+}
+
 - (void)startPlayerWithURL:(NSURL *)url {
+    // This screen still has its own player. Unload anything the shared player
+    // (chat song cards) has, so it can't keep playing or own the lock screen.
+    [[EZMediaPlayerManager sharedManager] stop];
+
     NSError *sessionError = nil;
     AVAudioSession *session = [AVAudioSession sharedInstance];
     [session setCategory:AVAudioSessionCategoryPlayback error:&sessionError];

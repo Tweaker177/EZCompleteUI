@@ -1,5 +1,12 @@
 // ViewController.m
-// EZCompleteUI v9.6
+// EZCompleteUI v9.7
+//
+// Changes from v9.6:
+//   - Chat song cards are now real inline players. Play no longer opens Quick
+//     Look: EZMusicBubbleCell plays through the app-wide EZMediaPlayerManager
+//     (background audio, lock-screen controls, scrubber). This file only passes
+//     the card the song's length (display key "durationSeconds") so the total
+//     time shows before playback.
 //
 // Changes from v9.5:
 //   - Chat models can now create songs. The app tells ez-chat it supports the
@@ -18,7 +25,7 @@
 //       3. Polls until the song is finished and keeps the MP3 on the device
 //          through EZMusicLibraryManager.
 //       4. Adds a song card (EZMusicBubbleCell, display role "music") with
-//          Play and Share, plus a UI-only "_ui_music" event in the thread so
+//          an inline player and Share, plus a UI-only "_ui_music" event in the thread so
 //          the card survives a restore and the model knows what happened
 //          (summarized in sanitizedContextForAPI, like image results). If you
 //          switched to another chat while the song composed, the card is saved
@@ -6856,15 +6863,13 @@ static NSDictionary *EZChatMusicEvent(NSString *entryID, NSString *title, NSStri
 static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     NSInteger seconds = [event[@"durationSeconds"] respondsToSelector:@selector(integerValue)]
         ? [event[@"durationSeconds"] integerValue] : 0;
-    NSInteger minutes = seconds / 60;
-    NSString *subtitle = seconds > 0
-        ? [NSString stringWithFormat:@"AI song  •  %ld:%02ld", (long)minutes, (long)(seconds % 60)]
-        : @"AI song";
     return @{
         @"role": @"music",
         @"entryID": event[@"entryID"] ?: @"",
         @"title": event[@"title"] ?: @"AI song",
-        @"subtitle": subtitle,
+        @"subtitle": @"AI song",
+        // The card shows the length (and plays it) itself; see EZMusicBubbleCell.
+        @"durationSeconds": @(MAX(seconds, 0)),
         @"timestamp": event[@"timestamp"] ?: @"time unavailable",
     };
 }
@@ -7263,6 +7268,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
                                                                   forIndexPath:indexPath];
         [cell configureWithTitle:msg[@"title"] ?: @"AI song"
                         subtitle:msg[@"subtitle"] ?: @"AI song"
+                 durationSeconds:[msg[@"durationSeconds"] integerValue]
                          entryID:msg[@"entryID"] ?: @""
             presentingController:self];
         return cell;

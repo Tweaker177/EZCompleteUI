@@ -11,8 +11,12 @@ Supabase Edge Function deployments and migrations.
 - Added a `create_music` tool for chat models. When you ask a model to make a
   song or instrumental, it picks the description, title, optional lyrics,
   instrumental flag and length, and the app sends that through the existing
-  AI Music service. The finished song appears in the chat as a card with
-  **Play** (Quick Look) and **Share**, and is also saved in AI Music.
+  AI Music service. The finished song appears in the chat as an inline player
+  card (play/pause, scrubber, time, **Share**) and is also saved in AI Music.
+- New shared audio player (`EZMediaPlayerManager`): chat songs keep playing in
+  the background and from the lock screen, and only one thing plays at a time
+  (starting a chat song stops the AI Music screen's player and vice versa).
+  It already has an Up Next queue in code; the queue UI comes later.
 - Chat songs are limited to 2 minutes and one version, so a single chat song
   costs at most 60 coins at the current price. All pricing, charging, refunds
   and the limit on songs composing at once stay in the `ez-music` Edge
