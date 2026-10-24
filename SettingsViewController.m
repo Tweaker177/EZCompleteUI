@@ -21,6 +21,13 @@
     #import <SafariServices/SafariServices.h>
 
     static NSString * const kHelperTemperatureDefaultsKey = @"helperTemperature";
+    static NSString * const kSpeedModeDefaultsKey       = @"fastMode";
+
+    // Speed modes in segment order. Index 1 (@"standard") is the default and
+    // sends no service tier; the others map to service_tier in ez-chat.
+    static NSArray<NSString *> *EZSpeedModeValues(void) {
+        return @[@"flex", @"standard", @"fast", @"ultrafast"];
+    }
 
     // PayPal sandbox plan ID — replace with live Plan ID before release
     static NSString * const kPayPalPlanID = @"P-1HW38522AL709604TNHUUASA";
@@ -50,6 +57,9 @@
     @property (nonatomic, strong) UILabel      *tempLabel;
     @property (nonatomic, strong) UILabel      *helperTempLabel;
     @property (nonatomic, strong) UILabel      *freqLabel;
+
+    // ── Speed mode ────────────────────────────────────────────────────────────────
+    @property (nonatomic, strong) UISegmentedControl *speedModeControl;
 
     // ── Web search ────────────────────────────────────────────────────────────────
     @property (nonatomic, strong) UITextField  *webLocationField;
@@ -229,6 +239,15 @@
         self.helperTempSlider = [self addSlider:w y:&y min:0 max:0.5f];
         self.freqLabel  = [self addLabel:@"Freq Penalty: 0.00" y:&y];
         self.freqSlider = [self addSlider:w y:&y min:-2 max:2];
+
+        // ── Speed Mode ────────────────────────────────────────────────────────────
+        [self addSection:@"⚡ Speed" y:&y];
+        [self addLabel:@"Response speed:" y:&y];
+        self.speedModeControl = [[UISegmentedControl alloc] initWithItems:@[@"Flex", @"Normal", @"Fast", @"Ultrafast"]];
+        self.speedModeControl.frame = CGRectMake(20, y, w, 32);
+        [self.scrollView addSubview:self.speedModeControl];
+        y += 42;
+        [self addLabel:@"Flex: slower, half price · Fast: 2× · Ultrafast: 6× (Sol & Astra only)" y:&y];
 
         // ── Web Search ────────────────────────────────────────────────────────────
         [self addSection:@"🌐 Web Search" y:&y];
@@ -705,6 +724,8 @@
         self.freqSlider.value         = [defaults floatForKey:@"frequency"];
         self.elVoiceField.text        = [defaults stringForKey:@"elevenVoiceID"];
         self.webSearchSwitch.on       = [defaults boolForKey:@"webSearchEnabled"];
+        NSUInteger savedSpeedIdx      = [EZSpeedModeValues() indexOfObject:[defaults stringForKey:kSpeedModeDefaultsKey] ?: @"standard"];
+        self.speedModeControl.selectedSegmentIndex = (savedSpeedIdx == NSNotFound) ? 1 : (NSInteger)savedSpeedIdx;
         self.webLocationField.text    = [defaults stringForKey:@"webSearchLocation"];
    //     self.soraModelField.text      = [defaults stringForKey:@"soraModel"]   ?: @"sora-2";
    //     self.soraSizeField.text       = [defaults stringForKey:@"soraSize"]    ?: @"1280x720";
@@ -727,6 +748,7 @@
         [defaults setFloat:self.freqSlider.value        forKey:@"frequency"];
         [defaults setObject:self.elVoiceField.text      forKey:@"elevenVoiceID"];
         [defaults setBool:self.webSearchSwitch.isOn     forKey:@"webSearchEnabled"];
+        [defaults setObject:EZSpeedModeValues()[(NSUInteger)self.speedModeControl.selectedSegmentIndex] forKey:kSpeedModeDefaultsKey];
         [defaults setObject:self.webLocationField.text  forKey:@"webSearchLocation"];
       //  [defaults setObject:self.soraModelField.text    forKey:@"soraModel"];
       //  [defaults setObject:self.soraSizeField.text     forKey:@"soraSize"];
