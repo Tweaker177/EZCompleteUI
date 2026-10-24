@@ -298,6 +298,8 @@
 "ElevenLabsClone.SlotsUsedFormat" = "\\nSlots used: %ld / %ld";
 "ElevenLabsClone.VoiceCloned" = "Voice Cloned";
 "ElevenLabsClone.VoiceClonedMessage" = "Voice ID: %@%@";
+"ElevenLabsClone.CloneRetentionTitle" = "Keep Your Clone";
+"ElevenLabsClone.CloneRetentionMessage" = "Your clone was created with coins. Without an active subscription, clones may be deleted after 7 days to make room for additional slots for subscribers.";
 "ElevenLabsClone.UnnamedVoice" = "Unnamed Voice";
 "ElevenLabsClone.NoClonedVoices" = "No cloned voices found. Record and upload to create one.";
 "ElevenLabsClone.ShowingVoicesFormat" = "Showing %lu of %lu voices";

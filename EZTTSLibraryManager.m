@@ -274,6 +274,20 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
              extension:(NSString *)extension
             completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
 {
+    [self saveAudioData:audioData prompt:prompt voiceName:voiceName voiceID:voiceID
+               provider:provider model:model extension:extension metadata:nil completion:completion];
+}
+
+- (void)saveAudioData:(NSData *)audioData
+                prompt:(NSString *)prompt
+             voiceName:(nullable NSString *)voiceName
+               voiceID:(nullable NSString *)voiceID
+              provider:(NSString *)provider
+                 model:(nullable NSString *)model
+             extension:(NSString *)extension
+              metadata:(nullable NSDictionary<NSString *, id> *)metadata
+            completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
+{
     if (audioData.length == 0 || prompt.length == 0 || provider.length == 0 || extension.length == 0) {
         NSError *err = EZLibraryError(EZTTSLibraryErrorCodeInvalidArgument,
             @"audioData, prompt, provider, and extension are all required.");
@@ -318,6 +332,7 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
                                                                    duration:duration
                                                                  sampleRate:sampleRate
                                                                    fileSize:fileSize];
+        entry.metadata = metadata ?: @{};
 
         [self.entries addObject:entry];
 
@@ -445,6 +460,17 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
     [self mutateEntryWithUUID:uuid completion:completion mutator:^(EZTTSManifestEntry *entry) {
         NSMutableDictionary *meta = [entry.metadata mutableCopy] ?: [NSMutableDictionary dictionary];
         meta[@"playbackRate"] = @(rate);
+        entry.metadata = meta;
+    }];
+}
+
+- (void)setSceneBackgroundLevel:(float)level
+                   forClipUUID:(NSString *)uuid
+                     completion:(nullable void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
+{
+    [self mutateEntryWithUUID:uuid completion:completion mutator:^(EZTTSManifestEntry *entry) {
+        NSMutableDictionary *meta = [entry.metadata mutableCopy] ?: [NSMutableDictionary dictionary];
+        meta[@"sceneBackgroundLevel"] = @(MIN(1.0f, MAX(0.0f, level)));
         entry.metadata = meta;
     }];
 }
