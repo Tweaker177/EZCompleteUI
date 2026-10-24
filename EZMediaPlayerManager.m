@@ -1,5 +1,5 @@
 // EZMediaPlayerManager.m
-// EZCompleteUI v1.2
+// EZCompleteUI v1.3
 //
 // Purpose:
 //   Implementation of the app's shared audio player described in
@@ -34,6 +34,10 @@
 //   - Per-item playback speed (pitch preserved).
 //   - skipBySeconds:, playPrevious and a short play history.
 //
+// Changes from v1.2:
+//   - -replaceUpNext: and -removeItemWithIdentifier:. The will-start
+//     notification was removed (no screen has its own player to stop anymore).
+//
 // Changes from v1.1:
 //   - Lock-screen artwork (EZMediaPlayerItem.artwork). When a song's cover
 //     finishes generating while it is playing, the lock screen is refreshed.
@@ -51,7 +55,6 @@
 #import "helpers.h"
 
 NSNotificationName const EZMediaPlayerDidUpdateNotification = @"EZMediaPlayerDidUpdateNotification";
-NSNotificationName const EZMediaPlayerWillStartNotification = @"EZMediaPlayerWillStartNotification";
 
 // KVO contexts. Their addresses identify who the callback is for.
 static void *kPlayerItemStatusContext = &kPlayerItemStatusContext;
@@ -206,9 +209,6 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
         if (self.history.count > kEZMediaPlayerHistoryLimit) [self.history removeObjectAtIndex:0];
     }
 
-    // Tell players that haven't moved onto this manager yet to stop.
-    [[NSNotificationCenter defaultCenter] postNotificationName:EZMediaPlayerWillStartNotification object:self];
-
     [self detachObservedItem];
     self.currentItem = item;
     self.errorMessage = nil;
@@ -276,6 +276,35 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     EZMediaPlayerItem *next = self.queue.firstObject;
     [self.queue removeObjectAtIndex:0];
     [self playItem:next];
+}
+
+- (void)replaceUpNext:(NSArray<EZMediaPlayerItem *> *)items {
+    NSMutableArray<EZMediaPlayerItem *> *cleaned = [NSMutableArray array];
+    NSMutableSet<NSString *> *seenIdentifiers = [NSMutableSet set];
+    if (self.currentItem) [seenIdentifiers addObject:self.currentItem.identifier];
+    for (EZMediaPlayerItem *item in items) {
+        if (![item isKindOfClass:[EZMediaPlayerItem class]] || !item.fileURL) continue;
+        if ([seenIdentifiers containsObject:item.identifier]) continue;
+        [seenIdentifiers addObject:item.identifier];
+        [cleaned addObject:item];
+    }
+    self.queue = cleaned;
+    [self publishChange];
+}
+
+- (void)removeItemWithIdentifier:(NSString *)identifier {
+    if (identifier.length == 0) return;
+    BOOL isCurrent = [self.currentItem.identifier isEqualToString:identifier];
+    BOOL (^matches)(EZMediaPlayerItem *, NSUInteger, BOOL *) = ^BOOL(EZMediaPlayerItem *item, NSUInteger index, BOOL *stop) {
+        return [item.identifier isEqualToString:identifier];
+    };
+    [self.queue removeObjectsAtIndexes:[self.queue indexesOfObjectsPassingTest:matches]];
+    [self.history removeObjectsAtIndexes:[self.history indexesOfObjectsPassingTest:matches]];
+    if (isCurrent) {
+        [self playNext];   // Starts the next item, or stops and releases the session.
+    } else {
+        [self publishChange];
+    }
 }
 
 - (void)playPrevious {

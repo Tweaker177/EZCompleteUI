@@ -1,5 +1,5 @@
 // EZMusicViewController.m
-// EZCompleteUI v1.3
+// EZCompleteUI v1.4
 //
 // Purpose:
 //   The "AI Music" screen. See EZMusicViewController.h for the overview.
@@ -14,8 +14,10 @@
 //       composing show a spinner, and one poll per generation (EZMusicPollToken)
 //       keeps them updating. If the user leaves and comes back, the library load
 //       finds any still-pending songs and resumes polling, so nothing is lost.
-//     - Playback streams from a short-lived signed URL fetched fresh on each
-//       play, so an expired link can never break a song.
+//     - Playback uses the app-wide EZMediaPlayerManager, not a player of its own,
+//       so a song keeps playing after this screen closes. It plays the local copy
+//       when there is one, otherwise a short-lived signed URL fetched fresh on
+//       each play, so an expired link can never break a song.
 //     - Sharing downloads the MP3 to a temp file and opens the share sheet
 //       (Save to Files, AirDrop, Messages, ...).
 //
@@ -31,15 +33,23 @@
 //     - Pagination uses an inclusive timestamp cursor and de-duplicates by id,
 //       so variants created at the same instant are never skipped.
 //
+// Changes from v1.3:
+//   - Playback now goes through the app-wide EZMediaPlayerManager instead of a
+//     private AVPlayer. Closing this screen no longer stops the music: it keeps
+//     playing (with lock-screen controls and cover art) until something else is
+//     played. The screen owns no player; rows, the playlist header and
+//     progress all mirror the shared player.
+//   - Starting a song puts the rest of the downloaded library in the player's
+//     Up Next list, so the playlist keeps going with this screen closed.
+//   - Deleting the song that is playing moves the player on to the next one.
+//
 // Changes from v1.2:
 //   - Library rows show each song's generated cover art (EZMusicArtworkService),
 //     refresh when a cover lands, and the cover is deleted with the song.
 //
 // Changes from v1.1:
-//   - Keeps only one song playing across the app. Starting playback here stops
-//     the shared EZMediaPlayerManager (chat song cards), and when that player
-//     starts it posts EZMediaPlayerWillStartNotification, which stops this
-//     screen's player. This screen has not moved onto the shared player yet.
+//   - Keeps only one song playing across the app (superseded by v1.4, which
+//     uses the shared player directly).
 //
 // Changes from v1.0:
 //   - -retainStreamedSongAtURL:entry: no longer downloads and archives the song
@@ -78,8 +88,8 @@ static const NSInteger  kDurationStepSeconds    = 5;
 static const NSInteger  kDefaultDurationSeconds = 60;
 static const NSInteger  kMaxVariantChoices      = 5;
 
-// KVO context for AVPlayerItem.status so we only react to our own observation.
-static void *kEZMusicItemStatusContext = &kEZMusicItemStatusContext;
+// How many following library songs are put in the shared player's Up Next list.
+static const NSUInteger kEZMusicUpNextLimit = 50;
 
 typedef NS_ENUM(NSInteger, EZMusicTab) {
     EZMusicTabCreate  = 0,
@@ -511,13 +521,13 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 @property (nonatomic, strong) NSMutableSet<NSString *> *announcedGenerationIDs;
 @property (nonatomic, strong) NSMutableSet<NSString *> *retainingEntryIDs;
 
-// Playback
-@property (nonatomic, strong, nullable) AVPlayer *player;
-@property (nonatomic, strong, nullable) AVPlayerItem *observedItem;
-@property (nonatomic, strong, nullable) id timeObserver;
-@property (nonatomic, copy, nullable) NSString *playingEntryID;   // loaded song (may be paused)
-@property (nonatomic, copy, nullable) NSString *loadingEntryID;   // song whose URL/audio is loading
-@property (nonatomic, assign) BOOL isPlaybackActive;
+// Playback. The audio itself lives in EZMediaPlayerManager; these only mirror it.
+@property (nonatomic, readonly, nullable) NSString *playingEntryID;   // library song loaded in the shared player (may be paused)
+@property (nonatomic, readonly) BOOL isPlaybackActive;                // that song is actually playing
+@property (nonatomic, copy, nullable) NSString *loadingEntryID;       // song whose download link is being fetched
+@property (nonatomic, copy, nullable) NSString *lastStartedEntryID;   // last song this screen started (to report its failures)
+@property (nonatomic, copy, nullable) NSString *lastObservedEntryID;  // what the rows last showed, to spot changes
+@property (nonatomic, assign) EZMediaPlayerState lastObservedState;
 @property (nonatomic, copy, nullable) NSURL *referenceURL;
 @property (nonatomic, copy, nullable) NSString *referenceSourceName;
 @property (nonatomic, assign) EZMusicReferenceMode referenceMode;
@@ -591,12 +601,9 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
                    name:@"EZSubscriptionUpdated" object:nil];
     [center addObserver:self selector:@selector(coinBalanceMayHaveChanged)
                    name:UIApplicationDidBecomeActiveNotification object:nil];
-    [center addObserver:self selector:@selector(audioSessionInterrupted:)
-                   name:AVAudioSessionInterruptionNotification object:nil];
-    // The shared player (chat song cards) is about to play: stop this screen's
-    // own player so two songs never play together.
-    [center addObserver:self selector:@selector(sharedPlayerWillStart)
-                   name:EZMediaPlayerWillStartNotification object:nil];
+    // Rows, the playlist header and progress follow the shared player.
+    [center addObserver:self selector:@selector(sharedPlayerDidUpdate:)
+                   name:EZMediaPlayerDidUpdateNotification object:nil];
 
     [self updateQuote];
     [self loadConfig];
@@ -613,16 +620,14 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     // Only tear down when the screen is really going away, not when a share
     // sheet or the coin store is merely presented on top of it.
     if (self.isBeingDismissed || self.navigationController.isBeingDismissed || self.isMovingFromParentViewController) {
+        // Playback is deliberately left running: it belongs to the shared player.
         [self cancelAllPolling];
-        // Keep the audio session if a chat song is loaded in the shared player.
-        [self stopPlaybackReleasingSession:([EZMediaPlayerManager sharedManager].currentItem == nil)];
     }
 }
 
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     [self cancelAllPolling];
-    [self releasePlayerResources];
 }
 
 - (void)closeTapped {
@@ -2004,7 +2009,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
                       status:EZMusicString(entry[@"status"])
                    isCurrent:[entryID isEqualToString:self.playingEntryID]
                    isPlaying:self.isPlaybackActive
-              isLoadingAudio:[entryID isEqualToString:self.loadingEntryID]
+              isLoadingAudio:[self isEntryIDLoadingAudio:entryID]
                     favorite:[entry[@"is_favorite"] boolValue]
                detailIsError:detailIsError
                  waveformURL:[[EZMusicLibraryManager sharedManager] localSongURLForEntryID:entryID]
@@ -2137,9 +2142,9 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
                                       message:error.localizedDescription];
             return;
         }
-        if ([entryID isEqualToString:strongSelf.playingEntryID] || [entryID isEqualToString:strongSelf.loadingEntryID]) {
-            [strongSelf stopPlaybackReleasingSession:YES];
-        }
+        if ([entryID isEqualToString:strongSelf.loadingEntryID]) strongSelf.loadingEntryID = nil;
+        // If it is playing, the player moves on to the next song (or stops).
+        [[EZMediaPlayerManager sharedManager] removeItemWithIdentifier:entryID];
         [[EZMusicArtworkService sharedService] removeArtworkForEntryID:entryID];
         NSInteger row = [strongSelf rowForEntryID:entryID];
         if (row != NSNotFound) {
@@ -2284,18 +2289,30 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.playlistNextButton.enabled = hasSongs;
 }
 
+- (nullable NSString *)playingEntryID {
+    EZMediaPlayerItem *currentItem = [EZMediaPlayerManager sharedManager].currentItem;
+    // The shared player also plays chat songs and speech clips; only a song
+    // from this library counts here.
+    if (!currentItem || ![self entryForID:currentItem.identifier]) return nil;
+    return currentItem.identifier;
+}
+
+- (BOOL)isPlaybackActive {
+    return self.playingEntryID != nil && [EZMediaPlayerManager sharedManager].state == EZMediaPlayerStatePlaying;
+}
+
+/// Spinner state for a row: fetching its link, or the shared player is buffering it.
+- (BOOL)isEntryIDLoadingAudio:(NSString *)entryID {
+    if ([entryID isEqualToString:self.loadingEntryID]) return YES;
+    return [entryID isEqualToString:self.playingEntryID] &&
+           [EZMediaPlayerManager sharedManager].state == EZMediaPlayerStateLoading;
+}
+
 - (void)togglePlaybackForEntryID:(NSString *)entryID {
-    // Same song: pause or resume.
-    if ([entryID isEqualToString:self.playingEntryID]) {
-        if (self.isPlaybackActive) {
-            [self.player pause];
-            self.isPlaybackActive = NO;
-        } else {
-            [self.player play];
-            self.isPlaybackActive = YES;
-        }
-        [self reloadRowForEntryID:entryID];
-        [self updatePlaylistHeader];
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    // Same song: pause or resume. (A failed song falls through and starts over.)
+    if ([player isCurrentItemWithIdentifier:entryID] && player.state != EZMediaPlayerStateFailed) {
+        [player togglePlayPause];
         return;
     }
     if ([entryID isEqualToString:self.loadingEntryID]) return;   // already fetching this one
@@ -2303,15 +2320,17 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     NSDictionary *entry = [self entryForID:entryID];
     if (![EZMusicString(entry[@"status"]) isEqualToString:@"complete"]) return;
 
-    [self stopPlaybackReleasingSession:NO];
+    // Whatever was playing keeps playing until the new song is ready to replace it.
+    NSString *previousLoading = self.loadingEntryID;
     self.loadingEntryID = entryID;
+    [self reloadRowForEntryID:previousLoading];
     [self reloadRowForEntryID:entryID];
     [self updatePlaylistHeader];
 
     // Offline/local playback wins once a streamed original has been retained.
     NSURL *localURL = [[EZMusicLibraryManager sharedManager] localSongURLForEntryID:entryID];
     if (localURL) {
-        [self startPlayerWithURL:localURL];
+        [self startSong:entry atURL:localURL];
         return;
     }
 
@@ -2328,9 +2347,51 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
                                       message:error.localizedDescription];
             return;
         }
-        [strongSelf startPlayerWithURL:url]; // start immediately; don't make playback wait for archiving
+        [strongSelf startSong:entry atURL:url]; // start immediately; don't make playback wait for archiving
         [strongSelf retainStreamedSongAtURL:url entry:entry];
     }];
+}
+
+/// Hands a song to the shared player and queues the rest of the downloaded
+/// library after it, so the playlist continues even if this screen is closed.
+- (void)startSong:(NSDictionary *)entry atURL:(NSURL *)url {
+    NSString *entryID = EZMusicString(entry[@"id"]);
+    self.loadingEntryID = nil;
+    self.lastStartedEntryID = entryID;
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    [player playItem:[self playerItemForEntry:entry fileURL:url]];
+    [player replaceUpNext:[self upNextItemsAfterEntryID:entryID]];
+    [self reloadRowForEntryID:entryID];
+    [self updatePlaylistHeader];
+}
+
+- (EZMediaPlayerItem *)playerItemForEntry:(NSDictionary *)entry fileURL:(NSURL *)url {
+    NSString *entryID = EZMusicString(entry[@"id"]);
+    NSNumber *durationMilliseconds = [entry[@"duration_actual_ms"] isKindOfClass:[NSNumber class]] ? entry[@"duration_actual_ms"] : nil;
+    EZMediaPlayerItem *item = [EZMediaPlayerItem itemWithIdentifier:entryID
+                                                              title:EZMusicString(entry[@"title"])
+                                                           subtitle:@"AI Music"
+                                                            fileURL:url
+                                                       durationHint:durationMilliseconds.doubleValue / 1000.0];
+    item.artwork = [[EZMusicArtworkService sharedService] cachedArtworkForEntryID:entryID];
+    return item;
+}
+
+/// The downloaded songs that follow `entryID` in playlist order. Songs without
+/// a file on the device are skipped, because Up Next needs a playable URL.
+- (NSArray<EZMediaPlayerItem *> *)upNextItemsAfterEntryID:(NSString *)entryID {
+    NSArray<NSString *> *playlist = [self playlistEntryIDs];
+    NSUInteger currentIndex = [playlist indexOfObject:entryID];
+    if (currentIndex == NSNotFound) return @[];
+    NSMutableArray<EZMediaPlayerItem *> *items = [NSMutableArray array];
+    for (NSUInteger index = currentIndex + 1; index < playlist.count && items.count < kEZMusicUpNextLimit; index++) {
+        NSString *followingID = playlist[index];
+        NSURL *followingURL = [[EZMusicLibraryManager sharedManager] localSongURLForEntryID:followingID];
+        NSDictionary *followingEntry = [self entryForID:followingID];
+        if (!followingURL || !followingEntry) continue;
+        [items addObject:[self playerItemForEntry:followingEntry fileURL:followingURL]];
+    }
+    return items;
 }
 
 // AVPlayer streams the signed original for a fast first play.  In parallel we
@@ -2354,146 +2415,52 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     }];
 }
 
-/// The shared EZMediaPlayerManager is starting something. Let go of this
-/// screen's player (without releasing the audio session, which the shared
-/// player is about to use).
-- (void)sharedPlayerWillStart {
-    if (self.player) [self stopPlaybackReleasingSession:NO];
-}
+#pragma mark - Mirroring the shared player
 
-- (void)startPlayerWithURL:(NSURL *)url {
-    // This screen still has its own player. Unload anything the shared player
-    // (chat song cards) has, so it can't keep playing or own the lock screen.
-    [[EZMediaPlayerManager sharedManager] stop];
+/// Called whenever the shared player changes, and about four times a second
+/// while it plays. Rows are only reloaded when the song or its state changed;
+/// the per-tick work is just moving the progress line.
+- (void)sharedPlayerDidUpdate:(NSNotification *)notification {
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    NSString *currentID = self.playingEntryID;
+    EZMediaPlayerState state = currentID ? player.state : EZMediaPlayerStateIdle;
+    NSString *previousID = self.lastObservedEntryID;
+    BOOL songChanged = (previousID != currentID) && ![previousID isEqualToString:currentID];
 
-    NSError *sessionError = nil;
-    AVAudioSession *session = [AVAudioSession sharedInstance];
-    [session setCategory:AVAudioSessionCategoryPlayback error:&sessionError];
-    [session setActive:YES error:&sessionError];
-    if (sessionError) {
-        EZLogf(EZLogLevelWarning, @"Music", @"Audio session setup failed: %@", sessionError.localizedDescription);
-    }
-
-    AVPlayerItem *item = [AVPlayerItem playerItemWithURL:url];
-    [item addObserver:self forKeyPath:@"status" options:NSKeyValueObservingOptionNew context:kEZMusicItemStatusContext];
-    self.observedItem = item;
-    self.player = [AVPlayer playerWithPlayerItem:item];
-
-    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
-    [center addObserver:self selector:@selector(playerItemDidFinish:)
-                   name:AVPlayerItemDidPlayToEndTimeNotification object:item];
-    [center addObserver:self selector:@selector(playerItemFailedToFinish:)
-                   name:AVPlayerItemFailedToPlayToEndTimeNotification object:item];
-
-    __weak typeof(self) weakSelf = self;
-    self.timeObserver = [self.player addPeriodicTimeObserverForInterval:CMTimeMake(1, 4)
-                                                                  queue:dispatch_get_main_queue()
-                                                             usingBlock:^(CMTime time) {
-        [weakSelf updatePlaybackProgress];
-    }];
-    // Playback starts from the KVO callback once the item reports it is ready.
-}
-
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
-    if (context != kEZMusicItemStatusContext) {
-        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
-        return;
-    }
-    AVPlayerItem *item = object;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (item != self.observedItem) return;   // a newer song replaced this one
-        if (item.status == AVPlayerItemStatusReadyToPlay) {
-            NSString *entryID = self.loadingEntryID;
-            if (!entryID) return;
-            self.playingEntryID = entryID;
-            self.loadingEntryID = nil;
-            self.isPlaybackActive = YES;
-            [self.player play];
-            [self reloadRowForEntryID:entryID];
-            [self updatePlaylistHeader];
-        } else if (item.status == AVPlayerItemStatusFailed) {
-            NSString *message = item.error.localizedDescription ?: EZMusicText(@"EZMusic.Play.Failed", @"The song couldn't be played.");
-            [self stopPlaybackReleasingSession:YES];
-            [self presentAlertWithTitle:EZMusicText(@"EZMusic.Play.FailedTitle", @"Couldn't Play Song") message:message];
-        }
-    });
-}
-
-- (void)playerItemDidFinish:(NSNotification *)note {
-    NSString *finishedEntryID = self.playingEntryID;
-    NSString *nextEntryID = [self playlistEntryIDFromCurrent:finishedEntryID direction:1 wrap:NO];
-    // The queue ends naturally at the final song; it does not loop forever.
-    if (nextEntryID) {
-        [self togglePlaybackForEntryID:nextEntryID];
-        return;
-    }
-    [self.player pause];
-    [self.player seekToTime:kCMTimeZero];
-    self.isPlaybackActive = NO;
-    [self updatePlaybackProgress];
-    [self reloadRowForEntryID:self.playingEntryID];
-    [self updatePlaylistHeader];
-}
-
-- (void)playerItemFailedToFinish:(NSNotification *)note {
-    NSError *playbackError = note.userInfo[AVPlayerItemFailedToPlayToEndTimeErrorKey];
-    [self stopPlaybackReleasingSession:YES];
-    [self presentAlertWithTitle:EZMusicText(@"EZMusic.Play.FailedTitle", @"Couldn't Play Song")
-                        message:playbackError.localizedDescription ?: EZMusicText(@"EZMusic.Play.Failed", @"The song couldn't be played.")];
-}
-
-- (void)audioSessionInterrupted:(NSNotification *)note {
-    AVAudioSessionInterruptionType type = [note.userInfo[AVAudioSessionInterruptionTypeKey] unsignedIntegerValue];
-    if (type == AVAudioSessionInterruptionTypeBegan && self.isPlaybackActive) {
-        // A call or alarm paused audio; reflect that in the row instead of showing a stale pause icon.
-        self.isPlaybackActive = NO;
-        [self reloadRowForEntryID:self.playingEntryID];
+    if (songChanged || state != self.lastObservedState) {
+        self.lastObservedEntryID = currentID;
+        self.lastObservedState = state;
+        [self reloadRowForEntryID:previousID];
+        [self reloadRowForEntryID:currentID];
         [self updatePlaylistHeader];
+        if (state == EZMediaPlayerStateFailed) [self reportFailureOfCurrentSong];
     }
+    [self updatePlaybackProgress];
+}
+
+/// The shared player has no screen of its own, so a song this screen started
+/// that fails (corrupt file, expired link) is explained here, then unloaded so
+/// the alert doesn't repeat.
+- (void)reportFailureOfCurrentSong {
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    NSString *failedID = player.currentItem.identifier;
+    if (failedID.length == 0 || ![failedID isEqualToString:self.lastStartedEntryID]) return;
+    NSString *message = player.errorMessage ?: EZMusicText(@"EZMusic.Play.Failed", @"The song couldn't be played.");
+    self.lastStartedEntryID = nil;
+    [player removeItemWithIdentifier:failedID];
+    [self presentAlertWithTitle:EZMusicText(@"EZMusic.Play.FailedTitle", @"Couldn't Play Song") message:message];
 }
 
 - (void)updatePlaybackProgress {
-    if (!self.playingEntryID || !self.player) return;
-    NSInteger row = [self rowForEntryID:self.playingEntryID];
+    NSString *currentID = self.playingEntryID;
+    if (!currentID) return;
+    NSInteger row = [self rowForEntryID:currentID];
     if (row == NSNotFound) return;
-    double duration = CMTimeGetSeconds(self.player.currentItem.duration);
-    double current = CMTimeGetSeconds(self.player.currentTime);
-    float progress = (isfinite(duration) && duration > 0 && isfinite(current)) ? (float)(current / duration) : 0.0f;
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    double duration = player.duration;
+    float progress = duration > 0 ? (float)(player.currentTime / duration) : 0.0f;
     EZMusicTrackCell *cell = (EZMusicTrackCell *)[self.libraryTable cellForRowAtIndexPath:[NSIndexPath indexPathForRow:row inSection:0]];
     [cell.progressView setProgress:MIN(MAX(progress, 0.0f), 1.0f) animated:NO];
-}
-
-// Frees the player objects without touching any UI. Safe from -dealloc.
-- (void)releasePlayerResources {
-    if (self.timeObserver && self.player) {
-        [self.player removeTimeObserver:self.timeObserver];
-    }
-    self.timeObserver = nil;
-    if (self.observedItem) {
-        [self.observedItem removeObserver:self forKeyPath:@"status" context:kEZMusicItemStatusContext];
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:AVPlayerItemDidPlayToEndTimeNotification object:self.observedItem];
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:AVPlayerItemFailedToPlayToEndTimeNotification object:self.observedItem];
-        self.observedItem = nil;
-    }
-    [self.player pause];
-    self.player = nil;
-}
-
-- (void)stopPlaybackReleasingSession:(BOOL)releaseSession {
-    NSString *previousPlaying = self.playingEntryID;
-    NSString *previousLoading = self.loadingEntryID;
-    [self releasePlayerResources];
-    self.playingEntryID = nil;
-    self.loadingEntryID = nil;
-    self.isPlaybackActive = NO;
-    [self reloadRowForEntryID:previousPlaying];
-    [self reloadRowForEntryID:previousLoading];
-    [self updatePlaylistHeader];
-    if (releaseSession) {
-        [[AVAudioSession sharedInstance] setActive:NO
-                                       withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
-                                             error:nil];
-    }
 }
 
 #pragma mark - Alerts, toast, busy overlay
