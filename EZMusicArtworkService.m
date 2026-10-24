@@ -1,5 +1,5 @@
 // EZMusicArtworkService.m
-// EZCompleteUI v1.0
+// EZCompleteUI v1.1
 //
 // Purpose:
 //   Implementation of the song cover-art generator described in
@@ -9,6 +9,11 @@
 //     checks (id, setting, signed in, not already done/started) -> prompt ->
 //     POST ez-image -> download the picture -> shrink + save JPEG on a
 //     background queue -> notify.
+//
+// Changes from v1.0:
+//   - Checked against ez-image v1.4: its non-streaming generate response is
+//     { images: [{ url, path }], balance }, which is what this reads.
+//   - Timeout and content-refusal handling described below.
 //
 //   Failure handling, on purpose:
 //     - Network trouble, timeouts, HTTP 429 and 5xx: retried once after a short
@@ -21,6 +26,12 @@
 //       retry something that will keep failing.
 //     - The server only charges for images it actually returns. The balance it
 //       reports is passed to EZEntitlementManager so the coin display updates.
+//     - A request that times out on OUR side is not retried: ez-image may still
+//       be finishing (and charging for) the first one, so a second request could
+//       charge twice.
+//     - ez-image answers HTTP 502 both for OpenAI outages and for content
+//       refusals. Refusals (safety/moderation wording) are remembered like other
+//       permanent failures; everything else gets the one retry.
 //     - At most one request per song at a time, and a song is only tried once
 //       per launch, so a notification storm can't create duplicate charges.
 
@@ -226,7 +237,7 @@ static NSString * const kEZMusicArtworkDisabledDefaultsKey = @"musicAutoArtworkD
     NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/functions/v1/ez-image", EZSupabaseURL]];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
     request.HTTPMethod = @"POST";
-    request.timeoutInterval = 90.0;
+    request.timeoutInterval = 120.0;
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [request setValue:EZSupabaseAnonKey forHTTPHeaderField:@"apikey"];
     [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
@@ -257,6 +268,15 @@ static NSString * const kEZMusicArtworkDisabledDefaultsKey = @"musicAutoArtworkD
         NSDictionary *json = data.length > 0 ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
         if (![json isKindOfClass:[NSDictionary class]]) json = nil;
 
+        if (networkError.code == NSURLErrorTimedOut) {
+            [strongSelf finishEntryID:entryID rememberingSkip:NO reason:@"request timed out (not retried to avoid a double charge)"];
+            return;
+        }
+        NSString *serverMessage = [json[@"error"] isKindOfClass:[NSString class]] ? json[@"error"] : @"";
+        if (statusCode == 502 && [strongSelf isContentRefusalMessage:serverMessage]) {
+            [strongSelf finishEntryID:entryID rememberingSkip:YES reason:[NSString stringWithFormat:@"image refused: %@", serverMessage]];
+            return;
+        }
         if (networkError || statusCode == 429 || statusCode >= 500) {
             [strongSelf retryOrFinishEntryID:entryID prompt:prompt attempt:attempt
                                       reason:networkError.localizedDescription ?: [NSString stringWithFormat:@"HTTP %ld", (long)statusCode]];
@@ -281,6 +301,16 @@ static NSString * const kEZMusicArtworkDisabledDefaultsKey = @"musicAutoArtworkD
         if (![firstImage isKindOfClass:[NSDictionary class]]) firstImage = nil;
         [strongSelf loadImageFromResultEntry:firstImage entryID:entryID prompt:prompt attempt:attempt];
     }] resume];
+}
+
+/// True when OpenAI's error text says the prompt itself was refused, which
+/// retrying will not fix.
+- (BOOL)isContentRefusalMessage:(NSString *)message {
+    NSString *lowercased = message.lowercaseString;
+    for (NSString *keyword in @[ @"safety", @"moderation", @"content policy", @"content_policy", @"rejected" ]) {
+        if ([lowercased containsString:keyword]) return YES;
+    }
+    return NO;
 }
 
 /// The result is either a signed download link or inline base64 data.

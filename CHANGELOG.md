@@ -17,7 +17,7 @@ Supabase Edge Function deployments and migrations.
   the background and from the lock screen, and only one thing plays at a time
   (starting a chat song stops the AI Music screen's player and vice versa).
   It already has an Up Next queue in code; the queue UI comes later.
-- New songs get AI cover art. When a song finishes saving, the app asks
+- New songs get AI cover art (about 2 coins each). When a song finishes saving, the app asks
   `ez-image` for a cover (cheapest model, `gpt-image-1-mini`, low quality)
   based on the title and lyrics, or on the style description for instrumentals.
   It shows on the chat song card, in the AI Music library list and on the lock
