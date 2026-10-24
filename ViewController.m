@@ -905,6 +905,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UIView        *threadSelectionBar;
 @property (nonatomic, strong) UILabel       *threadSelectionCountLabel;
 @property (nonatomic, strong) NSArray<UIButton *> *threadSelectionActionButtons;
+@property (nonatomic, strong) UIView        *threadActionOverlay;
 @property (nonatomic, strong) UIButton      *supportRequestButton;
 @property (nonatomic, strong) UIButton      *textToSpeechButton;
 @property (nonatomic, strong) UIButton      *cloningButton;
@@ -2531,36 +2532,135 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
     }
 }
 
-/// Shows an alert with a prefilled text field so the user can rename the thread.
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Styled Thread Menus
+// ─────────────────────────────────────────────────────────────────────────────
+
+- (void)dismissThreadActionOverlay {
+    UIView *overlay = self.threadActionOverlay;
+    self.threadActionOverlay = nil;
+    [UIView animateWithDuration:0.18 animations:^{ overlay.alpha = 0; }
+                     completion:^(__unused BOOL finished) { [overlay removeFromSuperview]; }];
+}
+
+- (UIView *)presentThreadActionCardWithTitle:(NSString *)title detail:(NSString *)detail {
+    [self dismissThreadActionOverlay];
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.60];
+    overlay.alpha = 0;
+    self.threadActionOverlay = overlay;
+    [self.view addSubview:overlay];
+
+    UIView *card = [UIView new];
+    card.translatesAutoresizingMaskIntoConstraints = NO;
+    card.backgroundColor = [UIColor colorWithRed:0.035 green:0.075 blue:0.14 alpha:1.0];
+    card.layer.cornerRadius = 24;
+    card.layer.borderWidth = 1;
+    card.layer.borderColor = [UIColor colorWithRed:0.15 green:0.78 blue:1.0 alpha:0.70].CGColor;
+    [overlay addSubview:card];
+    UILabel *titleLabel = [UILabel new];
+    titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    titleLabel.text = title;
+    titleLabel.textColor = UIColor.whiteColor;
+    titleLabel.font = [UIFont systemFontOfSize:21 weight:UIFontWeightBold];
+    [card addSubview:titleLabel];
+    UILabel *detailLabel = [UILabel new];
+    detailLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    detailLabel.text = detail;
+    detailLabel.textColor = [UIColor colorWithWhite:0.72 alpha:1];
+    detailLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
+    detailLabel.numberOfLines = 0;
+    [card addSubview:detailLabel];
+    [NSLayoutConstraint activateConstraints:@[
+        [card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:20],
+        [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-20],
+        [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor],
+        [titleLabel.topAnchor constraintEqualToAnchor:card.topAnchor constant:22],
+        [titleLabel.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:22],
+        [titleLabel.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-22],
+        [detailLabel.topAnchor constraintEqualToAnchor:titleLabel.bottomAnchor constant:5],
+        [detailLabel.leadingAnchor constraintEqualToAnchor:titleLabel.leadingAnchor],
+        [detailLabel.trailingAnchor constraintEqualToAnchor:titleLabel.trailingAnchor],
+    ]];
+    [UIView animateWithDuration:0.20 animations:^{ overlay.alpha = 1; }];
+    return card;
+}
+
+- (UIButton *)threadActionButtonWithTitle:(NSString *)title symbol:(NSString *)symbol color:(UIColor *)color {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.translatesAutoresizingMaskIntoConstraints = NO;
+    UIButtonConfiguration *configuration = [UIButtonConfiguration filledButtonConfiguration];
+    configuration.title = title;
+    configuration.image = [UIImage systemImageNamed:symbol];
+    configuration.imagePadding = 10;
+    configuration.baseForegroundColor = color;
+    configuration.baseBackgroundColor = [color colorWithAlphaComponent:0.16];
+    configuration.cornerStyle = UIButtonConfigurationCornerStyleLarge;
+    configuration.contentInsets = NSDirectionalEdgeInsetsMake(14, 16, 14, 16);
+    configuration.titleTextAttributesTransformer = ^NSDictionary<NSAttributedStringKey,id> * _Nonnull(NSDictionary<NSAttributedStringKey,id> * _Nonnull attributes) {
+        NSMutableDictionary *styled = [attributes mutableCopy];
+        styled[NSFontAttributeName] = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
+        return styled;
+    };
+    button.configuration = configuration;
+    return button;
+}
+
+/// Presents an in-app replacement for the generic system rename alert.
 - (void)renameThread {
     NSString *current = self.activeThread.title.length > 0
         ? self.activeThread.title : @"";
-    UIAlertController *alert =
-        [UIAlertController alertControllerWithTitle:@"Rename Thread"
-                                            message:nil
-                                     preferredStyle:UIAlertControllerStyleAlert];
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *tf) {
-        tf.text             = current;
-        tf.placeholder      = @"Thread name";
-        tf.clearButtonMode  = UITextFieldViewModeWhileEditing;
-        tf.returnKeyType    = UIReturnKeyDone;
-        tf.autocapitalizationType = UITextAutocapitalizationTypeSentences;
-    }];
+    UIView *card = [self presentThreadActionCardWithTitle:@"Rename thread"
+                                                   detail:@"Give this conversation a name you will recognize later."];
+    UITextField *field = [UITextField new];
+    field.translatesAutoresizingMaskIntoConstraints = NO;
+    field.text = current;
+    field.placeholder = @"Thread name";
+    field.textColor = UIColor.whiteColor;
+    field.attributedPlaceholder = [[NSAttributedString alloc] initWithString:field.placeholder
+        attributes:@{ NSForegroundColorAttributeName: [UIColor colorWithWhite:0.48 alpha:1] }];
+    field.backgroundColor = [UIColor colorWithWhite:1 alpha:0.08];
+    field.layer.cornerRadius = 13;
+    field.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 13, 1)];
+    field.leftViewMode = UITextFieldViewModeAlways;
+    field.clearButtonMode = UITextFieldViewModeWhileEditing;
+    field.returnKeyType = UIReturnKeyDone;
+    field.autocapitalizationType = UITextAutocapitalizationTypeSentences;
+    [card addSubview:field];
+    UIButton *cancel = [self threadActionButtonWithTitle:@"Cancel" symbol:@"xmark"
+                                                    color:[UIColor colorWithWhite:0.78 alpha:1]];
+    UIButton *save = [self threadActionButtonWithTitle:@"Save name" symbol:@"checkmark"
+                                                  color:[UIColor colorWithRed:0.12 green:0.82 blue:1.0 alpha:1]];
+    [card addSubview:cancel]; [card addSubview:save];
     __weak typeof(self) ws = self;
-    [alert addAction:[UIAlertAction actionWithTitle:@"Save"
-                                              style:UIAlertActionStyleDefault
-                                            handler:^(UIAlertAction *_) {
-        NSString *newTitle = [alert.textFields.firstObject.text
+    [cancel addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { [ws dismissThreadActionOverlay]; }]
+      forControlEvents:UIControlEventTouchUpInside];
+    [save addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
+        NSString *newTitle = [field.text
             stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
         if (!newTitle.length) return;
         ws.activeThread.title = newTitle;
         [ws updateThreadTitleLabel];
         [ws saveActiveThread];
+        [ws dismissThreadActionOverlay];
         EZLogf(EZLogLevelInfo, @"THREAD", @"Renamed to: %@", newTitle);
-    }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel"
-                                              style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:alert animated:YES completion:nil];
+    }] forControlEvents:UIControlEventTouchUpInside];
+    [NSLayoutConstraint activateConstraints:@[
+        [field.topAnchor constraintEqualToAnchor:card.topAnchor constant:86],
+        [field.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:18],
+        [field.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
+        [field.heightAnchor constraintEqualToConstant:52],
+        [cancel.topAnchor constraintEqualToAnchor:field.bottomAnchor constant:16],
+        [cancel.leadingAnchor constraintEqualToAnchor:field.leadingAnchor],
+        [save.topAnchor constraintEqualToAnchor:cancel.topAnchor],
+        [save.leadingAnchor constraintEqualToAnchor:cancel.trailingAnchor constant:10],
+        [save.trailingAnchor constraintEqualToAnchor:field.trailingAnchor],
+        [cancel.widthAnchor constraintEqualToAnchor:save.widthAnchor],
+        [cancel.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
+        [save.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
+    ]];
+    [field becomeFirstResponder];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -6436,15 +6536,14 @@ static NSString *EZThreadExportTimestampNow(void) {
     [bar addSubview:count];
     self.threadSelectionCountLabel = count;
 
-    NSArray<NSString *> *titles = @[ @"All", @"Delete", @"Translate", @"Share", @"Export", @"Done" ];
-    NSArray<NSString *> *symbols = @[ @"checkmark.circle", @"trash", @"character.bubble", @"square.and.arrow.up", @"doc.badge.arrow.up", @"xmark.circle" ];
+    NSArray<NSString *> *titles = @[ @"All", @"Delete", @"Translate", @"Export", @"Done" ];
+    NSArray<NSString *> *symbols = @[ @"checkmark.circle", @"trash", @"character.bubble", @"doc.badge.arrow.up", @"xmark.circle" ];
     NSArray<UIColor *> *colors = @[ UIColor.systemTealColor, UIColor.systemRedColor,
-                                    UIColor.systemPurpleColor, UIColor.systemGreenColor,
-                                    UIColor.systemOrangeColor, UIColor.whiteColor ];
+                                    UIColor.systemPurpleColor, UIColor.systemOrangeColor,
+                                    UIColor.whiteColor ];
     NSArray<NSString *> *selectors = @[ NSStringFromSelector(@selector(selectAllThreadItems)),
                                         NSStringFromSelector(@selector(deleteSelectedThreadItems)),
                                         NSStringFromSelector(@selector(translateSelectedThreadItems)),
-                                        NSStringFromSelector(@selector(shareSelectedThreadItems)),
                                         NSStringFromSelector(@selector(exportSelectedThreadItems)),
                                         NSStringFromSelector(@selector(toggleThreadSelection)) ];
     UIStackView *stack = [UIStackView new];
@@ -6460,14 +6559,14 @@ static NSString *EZThreadExportTimestampNow(void) {
         config.title = titles[i];
         config.image = [UIImage systemImageNamed:symbols[i]];
         config.imagePlacement = NSDirectionalRectEdgeTop;
-        config.imagePadding = 3;
+        config.imagePadding = 5;
         config.baseForegroundColor = color;
         config.baseBackgroundColor = [color colorWithAlphaComponent:(i == 5 ? 0.22 : 0.16)];
         config.cornerStyle = UIButtonConfigurationCornerStyleMedium;
-        config.contentInsets = NSDirectionalEdgeInsetsMake(5, 2, 5, 2);
+        config.contentInsets = NSDirectionalEdgeInsetsMake(7, 3, 7, 3);
         config.titleTextAttributesTransformer = ^NSDictionary<NSAttributedStringKey,id> * _Nonnull(NSDictionary<NSAttributedStringKey,id> * _Nonnull attributes) {
             NSMutableDictionary *result = [attributes mutableCopy];
-            result[NSFontAttributeName] = [UIFont systemFontOfSize:10 weight:UIFontWeightBold];
+            result[NSFontAttributeName] = [UIFont systemFontOfSize:12 weight:UIFontWeightBold];
             return result;
         };
         button.configuration = config;
@@ -6516,7 +6615,7 @@ static NSString *EZThreadExportTimestampNow(void) {
         : @"Choose parts of this thread";
     for (NSUInteger i = 0; i < self.threadSelectionActionButtons.count; i++) {
         // All and Done remain useful before any item is selected.
-        self.threadSelectionActionButtons[i].enabled = (i == 0 || i == 5 || selectedCount > 0);
+        self.threadSelectionActionButtons[i].enabled = (i == 0 || i == 4 || selectedCount > 0);
         self.threadSelectionActionButtons[i].alpha = self.threadSelectionActionButtons[i].enabled ? 1.0 : 0.38;
     }
     [self.chatTableView reloadData];
@@ -6780,42 +6879,116 @@ static NSString *EZThreadExportTimestampNow(void) {
     }];
 }
 
+- (void)performThreadExportFormat:(NSString *)format name:(NSString *)name {
+    NSString *text = [self selectedThreadText];
+    NSArray *images = [self selectedThreadImageURLs];
+    NSData *data = nil;
+    if ([format isEqualToString:@"pdf"]) {
+        data = [self threadPDFDataWithSelectedMessages:[self selectedThreadMessages]
+                                                 title:name.length ? name : @"EZCompleteUI Thread"];
+    } else if ([format isEqualToString:@"rtf"]) {
+        NSAttributedString *attributed = [[NSAttributedString alloc] initWithString:text
+            attributes:@{ NSFontAttributeName: [UIFont systemFontOfSize:12] }];
+        data = [attributed dataFromRange:NSMakeRange(0, text.length)
+                      documentAttributes:@{ NSDocumentTypeDocumentAttribute: NSRTFTextDocumentType }
+                                   error:nil];
+    } else {
+        data = [text dataUsingEncoding:NSUTF8StringEncoding];
+    }
+    NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory()
+        stringByAppendingPathComponent:[self threadExportFilenameFromName:name extension:format]]];
+    [data writeToURL:url atomically:YES];
+    NSMutableArray *items = [NSMutableArray arrayWithObject:url];
+    if ([format isEqualToString:@"txt"]) [items addObjectsFromArray:images];
+    UIActivityViewController *share = [[UIActivityViewController alloc]
+        initWithActivityItems:items applicationActivities:nil];
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        share.popoverPresentationController.sourceView = self.threadSelectionBar;
+        share.popoverPresentationController.sourceRect = self.threadSelectionBar.bounds;
+    }
+    [self presentViewController:share animated:YES completion:nil];
+}
+
+- (void)presentThreadExportFormatMenuWithName:(NSString *)name {
+    UIView *card = [self presentThreadActionCardWithTitle:@"Export selection"
+                                                   detail:@"Choose how to package the selected conversation."];
+    NSArray<NSArray<NSString *> *> *options = @[
+        @[ @"PDF", @"doc.richtext", @"Text, cards, and images in one document", @"pdf" ],
+        @[ @"Rich Text", @"text.document", @"Editable .rtf document", @"rtf" ],
+        @[ @"Text + images", @"photo.on.rectangle", @"Plain text plus the original image files", @"txt" ],
+    ];
+    UIStackView *stack = [UIStackView new];
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = 10;
+    [card addSubview:stack];
+    __weak typeof(self) weakSelf = self;
+    for (NSArray<NSString *> *option in options) {
+        UIButton *button = [self threadActionButtonWithTitle:option[0] symbol:option[1]
+                                                        color:[UIColor colorWithRed:0.12 green:0.82 blue:1.0 alpha:1]];
+        button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+        [button addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
+            [weakSelf dismissThreadActionOverlay];
+            [weakSelf performThreadExportFormat:option[3] name:name];
+        }] forControlEvents:UIControlEventTouchUpInside];
+        [stack addArrangedSubview:button];
+    }
+    UIButton *cancel = [self threadActionButtonWithTitle:@"Cancel" symbol:@"xmark"
+                                                    color:[UIColor colorWithWhite:0.78 alpha:1]];
+    [cancel addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { [weakSelf dismissThreadActionOverlay]; }]
+      forControlEvents:UIControlEventTouchUpInside];
+    [card addSubview:cancel];
+    [NSLayoutConstraint activateConstraints:@[
+        [stack.topAnchor constraintEqualToAnchor:card.topAnchor constant:88],
+        [stack.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:18],
+        [stack.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
+        [cancel.topAnchor constraintEqualToAnchor:stack.bottomAnchor constant:14],
+        [cancel.leadingAnchor constraintEqualToAnchor:stack.leadingAnchor],
+        [cancel.trailingAnchor constraintEqualToAnchor:stack.trailingAnchor],
+        [cancel.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
+    ]];
+}
+
 - (void)exportSelectedThreadItems {
-    UIAlertController *nameAlert = [UIAlertController alertControllerWithTitle:@"Export thread"
-        message:@"Name the selected export, then choose a format." preferredStyle:UIAlertControllerStyleAlert];
-    [nameAlert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.text = self.activeThread.title ?: @"EZCompleteUI Thread"; }];
-    [nameAlert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [nameAlert addAction:[UIAlertAction actionWithTitle:@"Continue" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
-        NSString *name = nameAlert.textFields.firstObject.text ?: @"";
-        UIAlertController *formats = [UIAlertController alertControllerWithTitle:@"Export format" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
-        void (^performExport)(NSString *) = ^(NSString *format) {
-            NSString *text = [self selectedThreadText]; NSArray *images = [self selectedThreadImageURLs]; NSData *data = nil;
-            if ([format isEqualToString:@"pdf"]) {
-                data = [self threadPDFDataWithSelectedMessages:[self selectedThreadMessages] title:name.length ? name : @"EZCompleteUI Thread"];
-            } else if ([format isEqualToString:@"rtf"]) {
-                NSAttributedString *attributed = [[NSAttributedString alloc] initWithString:text
-                    attributes:@{ NSFontAttributeName: [UIFont systemFontOfSize:12] }];
-                data = [attributed dataFromRange:NSMakeRange(0, text.length)
-                              documentAttributes:@{ NSDocumentTypeDocumentAttribute: NSRTFTextDocumentType }
-                                           error:nil];
-            } else {
-                data = [text dataUsingEncoding:NSUTF8StringEncoding];
-            }
-            NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[self threadExportFilenameFromName:name extension:format]]];
-            [data writeToURL:url atomically:YES];
-            NSMutableArray *items = [NSMutableArray arrayWithObject:url]; if ([format isEqualToString:@"txt"]) [items addObjectsFromArray:images];
-            UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
-            if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) { share.popoverPresentationController.sourceView = self.threadSelectionBar; share.popoverPresentationController.sourceRect = self.threadSelectionBar.bounds; }
-            [self presentViewController:share animated:YES completion:nil];
-        };
-        [formats addAction:[UIAlertAction actionWithTitle:@"PDF (text and images)" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) { performExport(@"pdf"); }]];
-        [formats addAction:[UIAlertAction actionWithTitle:@"Rich Text (.rtf)" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) { performExport(@"rtf"); }]];
-        [formats addAction:[UIAlertAction actionWithTitle:@"Text + original images" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) { performExport(@"txt"); }]];
-        [formats addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-        if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) { formats.popoverPresentationController.sourceView = self.threadSelectionBar; formats.popoverPresentationController.sourceRect = self.threadSelectionBar.bounds; }
-        [self presentViewController:formats animated:YES completion:nil];
-    }]];
-    [self presentViewController:nameAlert animated:YES completion:nil];
+    UIView *card = [self presentThreadActionCardWithTitle:@"Export thread"
+                                                   detail:@"Name this selection, then choose its export format."];
+    UITextField *field = [UITextField new];
+    field.translatesAutoresizingMaskIntoConstraints = NO;
+    field.text = self.activeThread.title ?: @"EZCompleteUI Thread";
+    field.placeholder = @"Export name";
+    field.textColor = UIColor.whiteColor;
+    field.backgroundColor = [UIColor colorWithWhite:1 alpha:0.08];
+    field.layer.cornerRadius = 13;
+    field.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 13, 1)];
+    field.leftViewMode = UITextFieldViewModeAlways;
+    [card addSubview:field];
+    UIButton *cancel = [self threadActionButtonWithTitle:@"Cancel" symbol:@"xmark"
+                                                    color:[UIColor colorWithWhite:0.78 alpha:1]];
+    UIButton *continueButton = [self threadActionButtonWithTitle:@"Choose format" symbol:@"arrow.right"
+                                                            color:[UIColor colorWithRed:0.12 green:0.82 blue:1.0 alpha:1]];
+    [card addSubview:cancel]; [card addSubview:continueButton];
+    __weak typeof(self) weakSelf = self;
+    [cancel addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { [weakSelf dismissThreadActionOverlay]; }]
+      forControlEvents:UIControlEventTouchUpInside];
+    [continueButton addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
+        NSString *name = [field.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        [weakSelf presentThreadExportFormatMenuWithName:name.length ? name : @"EZCompleteUI Thread"];
+    }] forControlEvents:UIControlEventTouchUpInside];
+    [NSLayoutConstraint activateConstraints:@[
+        [field.topAnchor constraintEqualToAnchor:card.topAnchor constant:86],
+        [field.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:18],
+        [field.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
+        [field.heightAnchor constraintEqualToConstant:52],
+        [cancel.topAnchor constraintEqualToAnchor:field.bottomAnchor constant:16],
+        [cancel.leadingAnchor constraintEqualToAnchor:field.leadingAnchor],
+        [continueButton.topAnchor constraintEqualToAnchor:cancel.topAnchor],
+        [continueButton.leadingAnchor constraintEqualToAnchor:cancel.trailingAnchor constant:10],
+        [continueButton.trailingAnchor constraintEqualToAnchor:field.trailingAnchor],
+        [cancel.widthAnchor constraintEqualToAnchor:continueButton.widthAnchor],
+        [cancel.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
+        [continueButton.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
+    ]];
+    [field becomeFirstResponder];
 }
 
 /// Primary append entry point. Detects role from prefix ("You: ", "AI: "),
