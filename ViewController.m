@@ -4256,9 +4256,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         || [self.selectedModel isEqualToString:@"gpt-4o"]
         || [self.selectedModel isEqualToString:@"gpt-4o-mini"];
     BOOL useWebSearch    = self.webSearchEnabled && modelSupportsWebSearch;
-    // gpt-4.1 family uses the Responses API natively; also required for web search.
+    // gpt-4.1 family uses the Responses API natively.
     BOOL isGPT41       = [self.selectedModel hasPrefix:@"gpt-4.1"];
-    BOOL useResponsesAPI = isGPT5 || isGPT41 || [self.selectedModel hasPrefix:@"o"] || useWebSearch;
+    // Web search must not flip the payload shape by itself: ez-chat serves
+    // gpt-4o / gpt-4o-mini through Chat Completions even with search on, and
+    // Responses-shaped blocks (input_image / input_text) are rejected there.
+    BOOL useResponsesAPI = isGPT5 || isGPT41 || [self.selectedModel hasPrefix:@"o"];
 
     if (self.webSearchEnabled && !modelSupportsWebSearch) {
         [self appendToChat:[NSString stringWithFormat:
