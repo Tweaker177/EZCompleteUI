@@ -1342,8 +1342,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
            @"gpt-6.1-sol", @"gpt-6-luna",
            @"gpt-5.6-terra",
            @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
-           @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
-           @"gpt-3.5-turbo",
+           @"gpt-4o", @"gpt-4o-mini",
            // ── Image Generation & Edit ───────────────────────────────────────
            @"gpt-image-2.5-sunburst", // recommended precision image editing — low/medium/high/xhigh/max
            @"gpt-image-2.5-flare",    // newest, fastest — low/medium/high/xhigh/max
@@ -1376,7 +1375,12 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
     } else if ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
                [self.selectedModel isEqualToString:@"gpt-image-1.5"] ||
                [self.selectedModel isEqualToString:@"chatgpt-image-latest"]) {
-        self.selectedModel = @"gpt-image-2.5-flare";
+        self.selectedModel = @"gpt-image-2";
+    } else if ([self.selectedModel isEqualToString:@"gpt-4"] ||
+               [self.selectedModel isEqualToString:@"gpt-4-turbo"]) {
+        self.selectedModel = @"gpt-4o";
+    } else if ([self.selectedModel isEqualToString:@"gpt-3.5-turbo"]) {
+        self.selectedModel = @"gpt-4o-mini";
     }
     [[NSUserDefaults standardUserDefaults] setObject:self.selectedModel forKey:@"selectedModel"];
     self.webSearchEnabled  = [[NSUserDefaults standardUserDefaults] boolForKey:@"webSearchEnabled"];
