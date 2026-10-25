@@ -1349,7 +1349,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
            @"gpt-image-2.5-flare",    // newest, fastest — low/medium/high/xhigh/max
            @"gpt-image-2",          // low/medium/high only
            @"gpt-image-1-mini",     // faster/cheaper image generation
-           @"chatgpt-image-latest", // always points to current ChatGPT image model
         // ── Video ─────────────────────────────────────────────────────────
         // SORA — commented out, not deleted. User removed Sora from Settings;
         // OpenAI's Sora API is also scheduled for shutdown 2026-09-24
@@ -1375,7 +1374,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
     } else if ([self.selectedModel isEqualToString:@"gpt-5.6-luna"]) {
         self.selectedModel = @"gpt-6-luna";
     } else if ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
-               [self.selectedModel isEqualToString:@"gpt-image-1.5"]) {
+               [self.selectedModel isEqualToString:@"gpt-image-1.5"] ||
+               [self.selectedModel isEqualToString:@"chatgpt-image-latest"]) {
         self.selectedModel = @"gpt-image-2.5-flare";
     }
     [[NSUserDefaults standardUserDefaults] setObject:self.selectedModel forKey:@"selectedModel"];
@@ -5362,8 +5362,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     dispatch_once(&onceToken, ^{
         editCapableModels = [NSSet setWithObjects:
             @"gpt-image-1-mini",
-            @"gpt-image-2", @"gpt-image-2.5-flare", @"gpt-image-2.5-sunburst",
-            @"chatgpt-image-latest", nil];
+            @"gpt-image-2", @"gpt-image-2.5-flare", @"gpt-image-2.5-sunburst", nil];
     });
     if ([editCapableModels containsObject:self.selectedModel]) {
         self.preEditModeModel = self.selectedModel;

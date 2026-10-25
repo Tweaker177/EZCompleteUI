@@ -40,7 +40,6 @@ static NSDictionary<NSString *, NSString *> *EZModelLabels(void) {
         @"gpt-image-2.5-sunburst": EZLocalized(@"EZModelLabel.ImageGenEditPrecision"),
         @"gpt-image-2":            EZLocalized(@"EZModelLabel.ImageGenEdit"),
         @"gpt-image-1-mini":       EZLocalized(@"EZModelLabel.ImageGenFastCheap"),
-       @"chatgpt-image-latest":   EZLocalized(@"EZModelLabel.ChatGPTImageLatest"),
         @"whisper-1":              EZLocalized(@"EZModelLabel.AudioTranscriptionOnly"),
     };
 }
@@ -59,7 +58,7 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
         @[@"gpt-6-astra", @"gpt-6.1-sol", @"gpt-6-luna", @"gpt-5.6-terra", //@"gpt-5-pro",
           @"gpt-5-mini"],
         @[@"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4", @"gpt-3.5-turbo"],
-        @[@"gpt-image-2.5-sunburst", @"gpt-image-2.5-flare", @"gpt-image-2", @"gpt-image-1-mini", @"chatgpt-image-latest"],
+        @[@"gpt-image-2.5-sunburst", @"gpt-image-2.5-flare", @"gpt-image-2", @"gpt-image-1-mini"],
         @[@"whisper-1"]
     ];
 }
