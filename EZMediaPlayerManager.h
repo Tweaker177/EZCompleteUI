@@ -1,5 +1,5 @@
 // EZMediaPlayerManager.h
-// EZCompleteUI v1.2
+// EZCompleteUI v1.3
 //
 // Purpose:
 //   The app's single, shared audio player. Anything that wants to play a
@@ -27,10 +27,10 @@
 //   Threading: call everything from the main queue. Notifications are posted
 //   on the main queue.
 //
-//   Who uses it today: song cards in chat, the Text to Speech screen and the
-//   Text to Speech History list. The AI Music screen still has its own player;
-//   it already stops this one when it starts and the other way around, so two
-//   things never play together.
+//   Who uses it today: song cards in chat, the AI Music screen, the Text to
+//   Speech screen and the Text to Speech History list. The only other audio
+//   player left in the app is the clip editor's short preview, which stops
+//   this one before it starts.
 //
 // Changes from v1.0:
 //   - Items can carry a playback speed (Text to Speech clips remember one).
@@ -38,6 +38,11 @@
 //     the item, or go back to the one that played before it). The lock screen
 //     shows skip +/-15s for a single clip and previous/next once there is a
 //     list to move through.
+//
+// Changes from v1.2:
+//   - Added -replaceUpNext: and -removeItemWithIdentifier:.
+//   - Removed EZMediaPlayerWillStartNotification: it existed only so screens
+//     with their own players could stop themselves, and none are left.
 //
 // Changes from v1.1:
 //   - Items can carry cover art, shown on the lock screen / Control Center.
@@ -52,10 +57,6 @@ NS_ASSUME_NONNULL_BEGIN
 /// Posted when playback state, the current item, Up Next or the duration
 /// changes, and repeatedly while playing so progress UI can follow along.
 extern NSNotificationName const EZMediaPlayerDidUpdateNotification;
-
-/// Posted just before the player starts a new item. Other players in the app
-/// (which have not moved onto this manager yet) listen for it and stop.
-extern NSNotificationName const EZMediaPlayerWillStartNotification;
 
 typedef NS_ENUM(NSInteger, EZMediaPlayerState) {
     EZMediaPlayerStateIdle = 0,   // Nothing loaded.
@@ -139,6 +140,14 @@ typedef NS_ENUM(NSInteger, EZMediaPlayerState) {
 /// Going back past the start lands on 0; going forward past the end counts as
 /// finishing the item (the next one starts, or playback ends).
 - (void)skipBySeconds:(NSTimeInterval)seconds;
+
+/// Replaces the whole Up Next list. The current item and duplicates are left out.
+- (void)replaceUpNext:(NSArray<EZMediaPlayerItem *> *)items;
+
+/// Takes an item out of Up Next and the "previous" history (for example when
+/// its file was deleted). If it is the current item, moves on to the next one
+/// or, when nothing is queued, stops and releases the audio session.
+- (void)removeItemWithIdentifier:(NSString *)identifier;
 
 /// Skips to the first item in Up Next. If Up Next is empty, stops.
 - (void)playNext;

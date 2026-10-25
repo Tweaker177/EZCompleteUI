@@ -1,5 +1,5 @@
 // EZMusicArtworkService.h
-// EZCompleteUI v1.0
+// EZCompleteUI v1.1
 //
 // Purpose:
 //   Creates and stores cover art for AI songs. When a new song has been saved
@@ -23,8 +23,16 @@
 //   songs are not back-filled automatically, because that would spend the
 //   user's coins without them asking.
 //
+//   Songs can also get a new cover on request (-regenerateArtworkForEntry:...),
+//   which the AI Music library uses for its double-tap-the-cover gesture. That
+//   path works for any finished song, including ones from before covers
+//   existed, and keeps the old cover until the new one is ready.
+//
 //   Turning it off: set the NSUserDefaults bool "musicAutoArtworkDisabled" to
 //   YES (a Settings switch can write this key).
+//
+// Changes from v1.0:
+//   - Added -regenerateArtworkForEntry:completion:.
 //
 //   Threading: call from any thread. Notifications are posted on the main queue.
 
@@ -51,6 +59,19 @@ extern NSString * const EZMusicArtworkEntryIDKey;
 /// is the music service's song dictionary: it needs "id" and should have
 /// "title", "lyrics" and "prompt".
 - (void)generateArtworkIfNeededForEntry:(NSDictionary *)entry;
+
+/// Makes a brand-new cover for a finished song, replacing any existing one once
+/// the new picture is saved (the old one stays visible until then). Unlike the
+/// automatic path this ignores the "auto artwork" setting, earlier failures and
+/// the once-per-launch limit, because the user asked for it. Costs coins the
+/// same way (charged by ez-image). `completion` runs once on the main queue:
+/// YES on success, otherwise NO and a short message fit to show the user. If a
+/// cover for this song is already being made, `completion` gets NO right away.
+- (void)regenerateArtworkForEntry:(NSDictionary *)entry
+                       completion:(void (^)(BOOL success, NSString * _Nullable errorMessage))completion;
+
+/// YES while a cover is being generated for this song (automatic or requested).
+- (BOOL)isGeneratingArtworkForEntryID:(NSString *)entryID;
 
 /// Deletes a song's cover (call when the song itself is deleted).
 - (void)removeArtworkForEntryID:(NSString *)entryID;

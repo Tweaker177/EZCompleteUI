@@ -1,5 +1,5 @@
 // EZMusicArtworkService.m
-// EZCompleteUI v1.1
+// EZCompleteUI v1.2
 //
 // Purpose:
 //   Implementation of the song cover-art generator described in
@@ -9,6 +9,11 @@
 //     checks (id, setting, signed in, not already done/started) -> prompt ->
 //     POST ez-image -> download the picture -> shrink + save JPEG on a
 //     background queue -> notify.
+//
+// Changes from v1.1:
+//   - -regenerateArtworkForEntry:completion: (user-requested new cover). It
+//     skips the "already has one / already tried" checks, never writes a
+//     permanent "skip" marker, and reports the outcome to its caller.
 //
 // Changes from v1.0:
 //   - Checked against ez-image v1.4: its non-streaming generate response is
@@ -64,6 +69,8 @@ static NSString * const kEZMusicArtworkDisabledDefaultsKey = @"musicAutoArtworkD
 // Song IDs being generated right now / already tried this launch. Main queue only.
 @property (nonatomic, strong) NSMutableSet<NSString *> *inFlightEntryIDs;
 @property (nonatomic, strong) NSMutableSet<NSString *> *attemptedEntryIDs;
+// Songs whose current attempt was asked for by the user, and who to tell when it ends.
+@property (nonatomic, strong) NSMutableDictionary<NSString *, void (^)(BOOL, NSString *)> *requestCompletions;
 @property (nonatomic, strong) dispatch_queue_t imageQueue;
 @end
 
@@ -82,6 +89,7 @@ static NSString * const kEZMusicArtworkDisabledDefaultsKey = @"musicAutoArtworkD
     _imageCache = [[NSCache alloc] init];
     _inFlightEntryIDs = [NSMutableSet set];
     _attemptedEntryIDs = [NSMutableSet set];
+    _requestCompletions = [NSMutableDictionary dictionary];
     _imageQueue = dispatch_queue_create("com.ezcompleteui.music-artwork", DISPATCH_QUEUE_SERIAL);
     return self;
 }
@@ -144,6 +152,56 @@ static NSString * const kEZMusicArtworkDisabledDefaultsKey = @"musicAutoArtworkD
     dispatch_async(dispatch_get_main_queue(), ^{
         [self startGenerationForEntry:entrySnapshot];
     });
+}
+
+- (BOOL)isGeneratingArtworkForEntryID:(NSString *)entryID {
+    __block BOOL generating = NO;
+    if ([NSThread isMainThread]) return [self.inFlightEntryIDs containsObject:entryID];
+    dispatch_sync(dispatch_get_main_queue(), ^{ generating = [self.inFlightEntryIDs containsObject:entryID]; });
+    return generating;
+}
+
+- (void)regenerateArtworkForEntry:(NSDictionary *)entry
+                       completion:(void (^)(BOOL, NSString *))completion {
+    NSDictionary *entrySnapshot = [entry isKindOfClass:[NSDictionary class]] ? [entry copy] : @{};
+    void (^finalCompletion)(BOOL, NSString *) = [completion copy];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSString *entryID = [entrySnapshot[@"id"] isKindOfClass:[NSString class]] ? entrySnapshot[@"id"] : @"";
+        NSString *prompt = [self imagePromptForEntry:entrySnapshot];
+        if ([self artworkFileURLForEntryID:entryID] == nil || prompt.length == 0) {
+            if (finalCompletion) finalCompletion(NO, @"This song doesn't have enough information to make a cover from.");
+            return;
+        }
+        if (!EZAuthManager.shared.isLoggedIn) {
+            if (finalCompletion) finalCompletion(NO, @"Sign in to make new cover art.");
+            return;
+        }
+        if ([self.inFlightEntryIDs containsObject:entryID]) {
+            if (finalCompletion) finalCompletion(NO, @"A cover is already being made for this song.");
+            return;
+        }
+        [self.inFlightEntryIDs addObject:entryID];
+        [self.attemptedEntryIDs addObject:entryID];
+        if (finalCompletion) self.requestCompletions[entryID] = finalCompletion;
+        EZLogf(EZLogLevelInfo, @"MusicArt", @"Regenerating cover art for %@ (requested by the user)", entryID);
+        [self requestImageForEntryID:entryID prompt:prompt attempt:0];
+    });
+}
+
+/// Tells whoever asked for this song's cover how it went. Main queue.
+- (void)reportOutcomeForEntryID:(NSString *)entryID success:(BOOL)success reason:(nullable NSString *)reason {
+    void (^completion)(BOOL, NSString *) = self.requestCompletions[entryID];
+    if (!completion) return;
+    [self.requestCompletions removeObjectForKey:entryID];
+    NSString *message = nil;
+    if (!success) {
+        NSString *lowercasedReason = reason.lowercaseString;
+        if ([lowercasedReason containsString:@"coins"]) message = @"You don't have enough coins for new cover art.";
+        else if ([lowercasedReason containsString:@"refused"]) message = @"The image couldn't be made from this song's lyrics. Try again for a different result.";
+        else if ([lowercasedReason containsString:@"timed out"]) message = @"Making the cover took too long. Check your coins before trying again.";
+        else message = @"Couldn't make new cover art right now. Please try again.";
+    }
+    completion(success, message);
 }
 
 - (void)startGenerationForEntry:(NSDictionary *)entry {
@@ -383,6 +441,7 @@ static NSString * const kEZMusicArtworkDisabledDefaultsKey = @"musicAutoArtworkD
             [self.imageCache setObject:scaled forKey:entryID];
             [self.inFlightEntryIDs removeObject:entryID];
             EZLogf(EZLogLevelInfo, @"MusicArt", @"Saved cover art for %@", entryID);
+            [self reportOutcomeForEntryID:entryID success:YES reason:nil];
             [[NSNotificationCenter defaultCenter] postNotificationName:EZMusicArtworkDidUpdateNotification
                                                                 object:self
                                                               userInfo:@{ EZMusicArtworkEntryIDKey: entryID }];
@@ -414,13 +473,27 @@ static NSString * const kEZMusicArtworkDisabledDefaultsKey = @"musicAutoArtworkD
     EZLogf(EZLogLevelWarning, @"MusicArt", @"No cover art for %@: %@", entryID, reason);
     NSURL *markerURL = [self skipMarkerURLForEntryID:entryID];
     NSURL *directoryURL = [self artworkDirectoryURL];
-    if (rememberSkip && markerURL) {
+    // When the user asked for this cover they can simply ask again, so a
+    // failure is reported to them instead of being remembered on disk.
+    BOOL userRequested = [self isUserRequestedEntryID:entryID];
+    if (rememberSkip && markerURL && !userRequested) {
         dispatch_async(self.imageQueue, ^{
             [[NSFileManager defaultManager] createDirectoryAtURL:directoryURL withIntermediateDirectories:YES attributes:nil error:nil];
             [[reason dataUsingEncoding:NSUTF8StringEncoding] writeToURL:markerURL options:NSDataWritingAtomic error:nil];
         });
     }
-    dispatch_async(dispatch_get_main_queue(), ^{ [self.inFlightEntryIDs removeObject:entryID]; });
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.inFlightEntryIDs removeObject:entryID];
+        [self reportOutcomeForEntryID:entryID success:NO reason:reason];
+    });
+}
+
+/// Safe to call from any thread.
+- (BOOL)isUserRequestedEntryID:(NSString *)entryID {
+    __block BOOL requested = NO;
+    if ([NSThread isMainThread]) return self.requestCompletions[entryID] != nil;
+    dispatch_sync(dispatch_get_main_queue(), ^{ requested = (self.requestCompletions[entryID] != nil); });
+    return requested;
 }
 
 @end
