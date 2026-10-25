@@ -34,7 +34,7 @@
 //       so variants created at the same instant are never skipped.
 //
 // Changes from v1.4:
-//   - Double-tapping a song's cover art in the Library asks
+//   - Long-pressing a song's cover art in the Library and choosing Generate asks
 //     EZMusicArtworkService for a new cover (works for songs that have no cover
 //     yet too). The cover shows a spinner while it is made; failures are
 //     explained in an alert. VoiceOver gets the same action in the row's
@@ -271,7 +271,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 }
 @end
 
-@interface EZMusicTrackCell : UITableViewCell
+@interface EZMusicTrackCell : UITableViewCell <UIContextMenuInteractionDelegate>
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UILabel *detailLabel;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
@@ -281,7 +281,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 // Square cover art (or a music-note placeholder) between the play button and the title.
 @property (nonatomic, strong) UIImageView *artworkView;
 @property (nonatomic, strong) UIActivityIndicatorView *artworkSpinner;
-@property (nonatomic, copy, nullable) void (^artworkDoubleTapHandler)(void);
+@property (nonatomic, copy, nullable) void (^artworkGenerateHandler)(void);
 @property (nonatomic, strong) EZMusicWaveformView *waveformView;
 @property (nonatomic, strong) NSLayoutConstraint *waveformHeightConstraint;
 @property (nonatomic, copy, nullable) void (^playHandler)(void);
@@ -322,11 +322,12 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _artworkView.layer.borderColor = [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:0.60].CGColor;
     _artworkView.clipsToBounds = YES;
     _artworkView.isAccessibilityElement = NO;
-    // Double-tap the cover to make a new one (the handler is set per row).
+    // Long-press the cover for a context menu whose Generate action makes a
+    // new cover (the handler is set per row). Two deliberate steps on purpose:
+    // a stray double-tap used to spend coins on art nobody asked for.
     _artworkView.userInteractionEnabled = YES;
-    UITapGestureRecognizer *artworkDoubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(artworkDoubleTapped)];
-    artworkDoubleTap.numberOfTapsRequired = 2;
-    [_artworkView addGestureRecognizer:artworkDoubleTap];
+    UIContextMenuInteraction *artworkMenu = [[UIContextMenuInteraction alloc] initWithDelegate:self];
+    [_artworkView addInteraction:artworkMenu];
     [self.contentView addSubview:_artworkView];
 
     // Animated wash shown over the artwork while a song is generating — big,
@@ -465,8 +466,21 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     }
 }
 
-- (void)artworkDoubleTapped {
-    if (self.artworkDoubleTapHandler) self.artworkDoubleTapHandler();
+- (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
+                        configurationForMenuAtLocation:(CGPoint)location {
+    if (!self.artworkGenerateHandler) return nil;
+    __weak typeof(self) weakSelf = self;
+    return [UIContextMenuConfiguration configurationWithIdentifier:nil
+                                                   previewProvider:nil
+                                                    actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
+        UIAction *generate = [UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.GenerateCover", @"Generate")
+                                                   image:[UIImage systemImageNamed:@"sparkles"]
+                                              identifier:nil
+                                                 handler:^(__kindof UIAction *action) {
+            if (weakSelf.artworkGenerateHandler) weakSelf.artworkGenerateHandler();
+        }];
+        return [UIMenu menuWithTitle:@"" children:@[generate]];
+    }];
 }
 
 /// Dims the cover and shows a spinner while a new one is being made.
@@ -478,7 +492,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 - (void)prepareForReuse {
     [super prepareForReuse];
     self.playHandler = nil;
-    self.artworkDoubleTapHandler = nil;
+    self.artworkGenerateHandler = nil;
     self.accessibilityCustomActions = nil;
     [self setArtworkBusy:NO];
     [self setGenerating:NO];
@@ -1875,7 +1889,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     return row == NSNotFound ? nil : self.entries[(NSUInteger)row];
 }
 
-/// Double-tap on a cover: make a new one. The server charges coins for it
+/// Generate in a cover's long-press menu: make a new one. The server charges coins for it
 /// (through ez-image), so the row shows a spinner and a second request for the
 /// same song is ignored until this one ends.
 - (void)regenerateArtworkForEntryID:(NSString *)entryID {
@@ -2144,15 +2158,18 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     cell.playHandler = ^{ [weakSelf togglePlaybackForEntryID:entryID]; };
     // Only finished songs can get a new cover.
     if ([EZMusicString(entry[@"status"]) isEqualToString:@"complete"]) {
-        cell.artworkDoubleTapHandler = ^{ [weakSelf regenerateArtworkForEntryID:entryID]; };
-        // Same action for VoiceOver users, who can't double-tap an image.
-        cell.accessibilityCustomActions = @[
+        cell.artworkGenerateHandler = ^{ [weakSelf regenerateArtworkForEntryID:entryID]; };
+        // Same action for VoiceOver users, who can't use the long-press menu.
+        // Appended, not assigned: -configureWithTitle:... already installed the
+        // cell's Play/Pause action, and the row keeps both.
+        UIAccessibilityCustomAction *newCoverAction =
             [[UIAccessibilityCustomAction alloc] initWithName:EZMusicText(@"EZMusic.A11y.NewCover", @"Make new cover art")
                                                         actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
                 [weakSelf regenerateArtworkForEntryID:entryID];
                 return YES;
-            }],
-        ];
+            }];
+        cell.accessibilityCustomActions =
+            [@[newCoverAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
     }
     return cell;
 }
