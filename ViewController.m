@@ -1293,8 +1293,6 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
            @"gpt-image-2.5-sunburst", // recommended precision image editing — low/medium/high/xhigh/max
            @"gpt-image-2.5-flare",    // newest, fastest — low/medium/high/xhigh/max
            @"gpt-image-2",          // low/medium/high only
-           @"gpt-image-1.5",
-           @"gpt-image-1",          // generation + edit
            @"gpt-image-1-mini",     // faster/cheaper image generation
            @"chatgpt-image-latest", // always points to current ChatGPT image model
         // ── Video ─────────────────────────────────────────────────────────
@@ -1321,6 +1319,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
         self.selectedModel = @"gpt-6.1-sol";
     } else if ([self.selectedModel isEqualToString:@"gpt-5.6-luna"]) {
         self.selectedModel = @"gpt-6-luna";
+    } else if ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
+               [self.selectedModel isEqualToString:@"gpt-image-1.5"]) {
+        self.selectedModel = @"gpt-image-2";
     }
     [[NSUserDefaults standardUserDefaults] setObject:self.selectedModel forKey:@"selectedModel"];
     self.webSearchEnabled  = [[NSUserDefaults standardUserDefaults] boolForKey:@"webSearchEnabled"];
@@ -3530,7 +3531,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         BOOL isEdit = [self.selectedModel isEqualToString:@"gpt-image-1-edit"] ||
                       [self.selectedModel isEqualToString:@"dall-e-2-edit"];
-        NSString *apiModel = isEdit ? (self.preEditModeModel ?: @"gpt-image-1") : self.selectedModel;
+        NSString *apiModel = isEdit ? (self.preEditModeModel ?: @"gpt-image-1-mini") : self.selectedModel;
 
         EZLogf(EZLogLevelInfo, @"COINS",
                @"Image cost: feature=%@ n=%ld size=%@ sizeMultiplier=%.2f quantity=%ld isEdit=%d",
@@ -4415,7 +4416,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)callGptImage1:(NSString *)prompt {
     NSString *model = self.selectedModel;
-    if ([model isEqualToString:@"gpt-image-1-edit"]) model = self.preEditModeModel ?: @"gpt-image-1";
+    if ([model isEqualToString:@"gpt-image-1-edit"]) model = self.preEditModeModel ?: @"gpt-image-1-mini";
     [self callGptImage1:prompt model:model];
 }
 
@@ -4576,7 +4577,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath {
-    [self callImageEdit:prompt imagePath:imagePath model:self.preEditModeModel ?: @"gpt-image-1"
+    [self callImageEdit:prompt imagePath:imagePath model:self.preEditModeModel ?: @"gpt-image-1-mini"
      preserveChatModel:NO];
 }
 
@@ -5103,7 +5104,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         editCapableModels = [NSSet setWithObjects:
-            @"gpt-image-1", @"gpt-image-1-mini", @"gpt-image-1.5",
+            @"gpt-image-1-mini",
             @"gpt-image-2", @"gpt-image-2.5-flare", @"gpt-image-2.5-sunburst",
             @"chatgpt-image-latest", nil];
     });
