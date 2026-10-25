@@ -61,6 +61,19 @@ static NSUInteger const kPromptCharacterLimit = 2000;
 // Let the environment outlive the final word, then fade it rather than cutting.
 static const Float64 kBackgroundAudioTailSeconds = 3.0;
 
+// ── Neon arcade palette (this screen only) ───────────────────────────────────
+// Deep-space background, glowing violet/cyan borders, hot pink primary action.
+// No system blue anywhere on this screen.
+static UIColor *EZTTSNeonBackground(void) { return [UIColor colorWithRed:0.03 green:0.02 blue:0.09 alpha:1.0]; }
+static UIColor *EZTTSNeonPanel(void)      { return [UIColor colorWithRed:0.09 green:0.05 blue:0.18 alpha:1.0]; }
+static UIColor *EZTTSNeonField(void)      { return [UIColor colorWithRed:0.14 green:0.09 blue:0.28 alpha:1.0]; }
+static UIColor *EZTTSNeonViolet(void)     { return [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0]; }
+static UIColor *EZTTSNeonCyan(void)       { return [UIColor colorWithRed:0.00 green:0.88 blue:1.00 alpha:1.0]; }
+static UIColor *EZTTSNeonMint(void)       { return [UIColor colorWithRed:0.15 green:0.95 blue:0.80 alpha:1.0]; }
+static UIColor *EZTTSNeonPink(void)       { return [UIColor colorWithRed:1.00 green:0.25 blue:0.62 alpha:1.0]; }
+static UIColor *EZTTSNeonText(void)       { return [UIColor colorWithRed:0.94 green:0.92 blue:1.00 alpha:1.0]; }
+static UIColor *EZTTSNeonDimText(void)    { return [UIColor colorWithRed:0.66 green:0.60 blue:0.90 alpha:1.0]; }
+
 @interface TextToSpeechViewController : UIViewController <UITextViewDelegate>
 @end
 
@@ -295,7 +308,7 @@ static NSString *timestampString(void) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = NSLocalizedString(@"EZTTS.Title", nil);
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = EZTTSNeonBackground();
 
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
         initWithImage:[UIImage systemImageNamed:@"clock.arrow.circlepath"]
@@ -309,14 +322,14 @@ static NSString *timestampString(void) {
 
     // Container view (styled)
     self.container = [[UIView alloc] initWithFrame:CGRectZero];
-    self.container.backgroundColor = [UIColor secondarySystemBackgroundColor];
-    self.container.layer.cornerRadius = 16.0;
-    self.container.layer.borderWidth = 1.0;
-    self.container.layer.borderColor = [UIColor systemGray4Color].CGColor;
-    self.container.layer.shadowColor = [UIColor colorWithRed:0 green:0.48 blue:1 alpha:0.15].CGColor;
-    self.container.layer.shadowOpacity = 1.0;
-    self.container.layer.shadowOffset = CGSizeMake(0, 6);
-    self.container.layer.shadowRadius = 18;
+    self.container.backgroundColor = EZTTSNeonPanel();
+    self.container.layer.cornerRadius = 18.0;
+    self.container.layer.borderWidth = 2.0;
+    self.container.layer.borderColor = EZTTSNeonViolet().CGColor;
+    self.container.layer.shadowColor = EZTTSNeonViolet().CGColor;
+    self.container.layer.shadowOpacity = 0.55;
+    self.container.layer.shadowOffset = CGSizeMake(0, 4);
+    self.container.layer.shadowRadius = 16;
     [self.view addSubview:self.container];
 
     self.promptSectionLabel = [self sectionHeaderLabel];
@@ -327,9 +340,12 @@ static NSString *timestampString(void) {
     self.textView = [[UITextView alloc] initWithFrame:CGRectZero];
     self.textView.font = [UIFont systemFontOfSize:16];
     self.textView.layer.cornerRadius = 12;
-    self.textView.layer.borderWidth = 1.0;
-    self.textView.layer.borderColor = [UIColor systemGray4Color].CGColor;
-    self.textView.backgroundColor = [UIColor systemBackgroundColor];
+    self.textView.layer.borderWidth = 1.5;
+    self.textView.layer.borderColor = [EZTTSNeonCyan() colorWithAlphaComponent:0.65].CGColor;
+    self.textView.backgroundColor = EZTTSNeonField();
+    self.textView.textColor = EZTTSNeonText();
+    self.textView.tintColor = EZTTSNeonCyan();
+    self.textView.keyboardAppearance = UIKeyboardAppearanceDark;
     self.textView.textContainerInset = UIEdgeInsetsMake(14, 12, 14, 12);
     self.textView.delegate = self;
     [self.container addSubview:self.textView];
@@ -340,7 +356,7 @@ static NSString *timestampString(void) {
     // cap around a since-fixed crash in ez-elevenlabs' base64 encoding).
     self.charCountLabel = [[UILabel alloc] init];
     self.charCountLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightRegular];
-    self.charCountLabel.textColor = [UIColor secondaryLabelColor];
+    self.charCountLabel.textColor = EZTTSNeonDimText();
     self.charCountLabel.textAlignment = NSTextAlignmentRight;
     [self.container addSubview:self.charCountLabel];
     [self updateCharCountLabel];
@@ -353,10 +369,12 @@ static NSString *timestampString(void) {
     self.voiceButton = [UIButton buttonWithType:UIButtonTypeSystem];
     self.voiceButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
     self.voiceButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
-    self.voiceButton.backgroundColor = [UIColor systemBackgroundColor];
+    self.voiceButton.backgroundColor = EZTTSNeonField();
     self.voiceButton.layer.cornerRadius = 12;
-    self.voiceButton.layer.borderWidth = 1.0;
-    self.voiceButton.layer.borderColor = [UIColor systemGray4Color].CGColor;
+    self.voiceButton.layer.borderWidth = 1.5;
+    self.voiceButton.layer.borderColor = EZTTSNeonViolet().CGColor;
+    [self.voiceButton setTitleColor:EZTTSNeonText() forState:UIControlStateNormal];
+    self.voiceButton.tintColor = EZTTSNeonCyan();
     self.voiceButton.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
     [self updateVoiceButtonTitle];
     [self.voiceButton addTarget:self action:@selector(voiceButtonTapped) forControlEvents:UIControlEventTouchUpInside];
@@ -367,7 +385,7 @@ static NSString *timestampString(void) {
     self.speedLabel.text = NSLocalizedString(@"EZTTS.SpeedFormat", nil);
     self.speedLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
     self.speedLabel.textAlignment = NSTextAlignmentCenter;
-    self.speedLabel.textColor = [UIColor secondaryLabelColor];
+    self.speedLabel.textColor = EZTTSNeonDimText();
     [self.container addSubview:self.speedLabel];
 
     self.speedSlider = [[UISlider alloc] initWithFrame:CGRectZero];
@@ -376,16 +394,22 @@ static NSString *timestampString(void) {
     self.speedSlider.value = 1.0f;
     self.speedSlider.minimumValueImage = [UIImage systemImageNamed:@"tortoise.fill"];
     self.speedSlider.maximumValueImage = [UIImage systemImageNamed:@"hare.fill"];
+    self.speedSlider.minimumTrackTintColor = EZTTSNeonCyan();
+    self.speedSlider.maximumTrackTintColor = [UIColor colorWithRed:0.25 green:0.20 blue:0.45 alpha:1.0];
+    self.speedSlider.thumbTintColor = EZTTSNeonPink();
+    self.speedSlider.tintColor = EZTTSNeonPink();
     [self.speedSlider addTarget:self
                           action:@selector(speedSliderChanged:)
                 forControlEvents:UIControlEventValueChanged];
     [self.container addSubview:self.speedSlider];
 
     self.backgroundAudioButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    self.backgroundAudioButton.backgroundColor = [UIColor systemBackgroundColor];
+    self.backgroundAudioButton.backgroundColor = EZTTSNeonField();
     self.backgroundAudioButton.layer.cornerRadius = 12;
-    self.backgroundAudioButton.layer.borderWidth = 1.0;
-    self.backgroundAudioButton.layer.borderColor = [UIColor systemTealColor].CGColor;
+    self.backgroundAudioButton.layer.borderWidth = 1.5;
+    self.backgroundAudioButton.layer.borderColor = EZTTSNeonMint().CGColor;
+    [self.backgroundAudioButton setTitleColor:EZTTSNeonText() forState:UIControlStateNormal];
+    self.backgroundAudioButton.tintColor = EZTTSNeonMint();
     self.backgroundAudioButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
     self.backgroundAudioButton.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
     [self.backgroundAudioButton addTarget:self action:@selector(backgroundAudioTapped:)
@@ -400,31 +424,32 @@ static NSString *timestampString(void) {
     playConfig.title = NSLocalizedString(@"EZTTS.Generate", nil);
     playConfig.image = [UIImage systemImageNamed:@"play.fill"];
     playConfig.imagePadding = 8;
-    playConfig.baseBackgroundColor = [UIColor systemBlueColor];
+    playConfig.baseBackgroundColor = EZTTSNeonPink();
     playConfig.baseForegroundColor = [UIColor whiteColor];
     playConfig.cornerStyle = UIButtonConfigurationCornerStyleLarge;
     playConfig.titleTextAttributesTransformer =
         ^NSDictionary<NSAttributedStringKey,id> * _Nonnull(NSDictionary<NSAttributedStringKey,id> * _Nonnull attrs) {
         NSMutableDictionary *m = [attrs mutableCopy];
-        m[NSFontAttributeName] = [UIFont systemFontOfSize:19 weight:UIFontWeightSemibold];
+        m[NSFontAttributeName] = [UIFont systemFontOfSize:19 weight:UIFontWeightBlack];
         return m;
     };
     self.playButton.configuration = playConfig;
-    self.playButton.layer.shadowColor = [UIColor systemBlueColor].CGColor;
-    self.playButton.layer.shadowOpacity = 0.3;
+    self.playButton.layer.shadowColor = EZTTSNeonPink().CGColor;
+    self.playButton.layer.shadowOpacity = 0.55;
     self.playButton.layer.shadowOffset = CGSizeMake(0, 6);
     self.playButton.layer.shadowRadius = 12;
     [self.playButton addTarget:self action:@selector(synthesizeAndPlay:) forControlEvents:UIControlEventTouchUpInside];
     [self.container addSubview:self.playButton];
 
     self.addMusicButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    self.addMusicButton.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.addMusicButton.backgroundColor = EZTTSNeonField();
     self.addMusicButton.layer.cornerRadius = 14;
-    self.addMusicButton.layer.borderWidth = 1;
-    self.addMusicButton.layer.borderColor = [UIColor systemPurpleColor].CGColor;
+    self.addMusicButton.layer.borderWidth = 1.5;
+    self.addMusicButton.layer.borderColor = EZTTSNeonViolet().CGColor;
     [self.addMusicButton setTitle:@"Add Music" forState:UIControlStateNormal];
     [self.addMusicButton setImage:[UIImage systemImageNamed:@"music.note"] forState:UIControlStateNormal];
-    self.addMusicButton.tintColor = [UIColor systemPurpleColor];
+    [self.addMusicButton setTitleColor:[UIColor colorWithRed:0.85 green:0.62 blue:1.00 alpha:1.0] forState:UIControlStateNormal];
+    self.addMusicButton.tintColor = [UIColor colorWithRed:0.85 green:0.62 blue:1.00 alpha:1.0];
     self.addMusicButton.enabled = NO;
     self.addMusicButton.alpha = 0.5;
     [self.addMusicButton addTarget:self action:@selector(addMusicTapped:) forControlEvents:UIControlEventTouchUpInside];
@@ -432,6 +457,7 @@ static NSString *timestampString(void) {
 
     // Spinner
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    self.spinner.color = EZTTSNeonCyan();
     self.spinner.hidesWhenStopped = YES;
     [self.container addSubview:self.spinner];
 
@@ -459,8 +485,8 @@ static NSString *timestampString(void) {
 
 - (UILabel *)sectionHeaderLabel {
     UILabel *label = [[UILabel alloc] init];
-    label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
-    label.textColor = [UIColor secondaryLabelColor];
+    label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack];
+    label.textColor = EZTTSNeonCyan();
     return label;
 }
 
@@ -591,39 +617,46 @@ static NSString *timestampString(void) {
     [self.view addSubview:overlay];
 
     UIView *card = [[UIView alloc] init];
-    card.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    card.backgroundColor = EZTTSNeonPanel();
     card.layer.cornerRadius = 20;
-    card.layer.borderWidth = 1;
-    card.layer.borderColor = [UIColor systemTealColor].CGColor;
+    card.layer.borderWidth = 1.5;
+    card.layer.borderColor = EZTTSNeonMint().CGColor;
+    card.layer.shadowColor = EZTTSNeonMint().CGColor;
+    card.layer.shadowOpacity = 0.35;
+    card.layer.shadowOffset = CGSizeMake(0, 4);
+    card.layer.shadowRadius = 14;
     card.translatesAutoresizingMaskIntoConstraints = NO;
     [overlay addSubview:card];
 
     UILabel *title = [[UILabel alloc] init];
     title.text = @"BACKGROUND AUDIO";
-    title.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBold];
-    title.textColor = [UIColor systemTealColor];
+    title.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBlack];
+    title.textColor = EZTTSNeonMint();
     title.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:title];
     UILabel *detail = [[UILabel alloc] init];
     detail.text = @"Create a looping environmental bed beneath your narration.";
     detail.numberOfLines = 0;
     detail.font = [UIFont systemFontOfSize:15];
-    detail.textColor = [UIColor secondaryLabelColor];
+    detail.textColor = EZTTSNeonDimText();
     detail.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:detail];
     UITextView *promptField = [[UITextView alloc] init];
     promptField.text = self.backgroundAudioPrompt ?: @"";
     promptField.font = [UIFont systemFontOfSize:16];
-    promptField.backgroundColor = [UIColor systemBackgroundColor];
+    promptField.backgroundColor = EZTTSNeonField();
+    promptField.textColor = EZTTSNeonText();
+    promptField.tintColor = EZTTSNeonCyan();
+    promptField.keyboardAppearance = UIKeyboardAppearanceDark;
     promptField.layer.cornerRadius = 12;
-    promptField.layer.borderWidth = 1;
-    promptField.layer.borderColor = [UIColor systemGray4Color].CGColor;
+    promptField.layer.borderWidth = 1.5;
+    promptField.layer.borderColor = [EZTTSNeonCyan() colorWithAlphaComponent:0.5].CGColor;
     promptField.textContainerInset = UIEdgeInsetsMake(10, 10, 10, 10);
     promptField.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:promptField];
     UILabel *hint = [[UILabel alloc] init];
     hint.text = @"Describe ambience only — no speech or lyrics.";
-    hint.font = [UIFont systemFontOfSize:12]; hint.textColor = [UIColor tertiaryLabelColor];
+    hint.font = [UIFont systemFontOfSize:12]; hint.textColor = [EZTTSNeonDimText() colorWithAlphaComponent:0.8];
     hint.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:hint];
 
     __weak typeof(self) weakSelf = self;
@@ -633,10 +666,10 @@ static NSString *timestampString(void) {
         [button setTitle:text forState:UIControlStateNormal]; button.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
         button.backgroundColor = color; button.layer.cornerRadius = 11; [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal]; [card addSubview:button]; return button;
     };
-    UIButton *surprise = button(@"✦  Surprise Me", [UIColor systemTealColor]);
-    UIButton *useScene = button(@"Use This Scene", [UIColor systemBlueColor]);
+    UIButton *surprise = button(@"✦  Surprise Me", [UIColor colorWithRed:0.00 green:0.55 blue:0.62 alpha:1.0]);
+    UIButton *useScene = button(@"Use This Scene", EZTTSNeonPink());
     UIButton *remove = button(@"Remove Background", [UIColor systemRedColor]);
-    UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem]; cancel.translatesAutoresizingMaskIntoConstraints = NO; [cancel setTitle:@"Cancel" forState:UIControlStateNormal]; [card addSubview:cancel];
+    UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem]; cancel.translatesAutoresizingMaskIntoConstraints = NO; [cancel setTitle:@"Cancel" forState:UIControlStateNormal]; [cancel setTitleColor:EZTTSNeonDimText() forState:UIControlStateNormal]; [card addSubview:cancel];
     [surprise addAction:[UIAction actionWithHandler:^(__unused UIAction *a) {
         weakSelf.backgroundAudioSurpriseMe = YES;
         weakSelf.backgroundAudioPrompt = nil;
@@ -684,7 +717,7 @@ static NSString *timestampString(void) {
     } else if (remaining <= 30) {
         self.charCountLabel.textColor = [UIColor systemOrangeColor];
     } else {
-        self.charCountLabel.textColor = [UIColor secondaryLabelColor];
+        self.charCountLabel.textColor = EZTTSNeonDimText();
     }
 }
 
