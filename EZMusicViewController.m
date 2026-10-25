@@ -282,6 +282,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, strong) UIImageView *artworkView;
 @property (nonatomic, strong) UIActivityIndicatorView *artworkSpinner;
 @property (nonatomic, copy, nullable) void (^artworkGenerateHandler)(void);
+@property (nonatomic, copy, nullable) void (^artworkLyricsHandler)(void);
 @property (nonatomic, strong) EZMusicWaveformView *waveformView;
 @property (nonatomic, strong) NSLayoutConstraint *waveformHeightConstraint;
 @property (nonatomic, copy, nullable) void (^playHandler)(void);
@@ -468,18 +469,29 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location {
-    if (!self.artworkGenerateHandler) return nil;
+    if (!self.artworkGenerateHandler && !self.artworkLyricsHandler) return nil;
     __weak typeof(self) weakSelf = self;
     return [UIContextMenuConfiguration configurationWithIdentifier:nil
                                                    previewProvider:nil
                                                     actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
-        UIAction *generate = [UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.GenerateCover", @"Generate")
-                                                   image:[UIImage systemImageNamed:@"sparkles"]
-                                              identifier:nil
-                                                 handler:^(__kindof UIAction *action) {
-            if (weakSelf.artworkGenerateHandler) weakSelf.artworkGenerateHandler();
-        }];
-        return [UIMenu menuWithTitle:@"" children:@[generate]];
+        NSMutableArray<UIMenuElement *> *actions = [NSMutableArray array];
+        if (weakSelf.artworkGenerateHandler) {
+            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.GenerateCover", @"Generate")
+                                                     image:[UIImage systemImageNamed:@"sparkles"]
+                                                identifier:nil
+                                                   handler:^(__kindof UIAction *action) {
+                if (weakSelf.artworkGenerateHandler) weakSelf.artworkGenerateHandler();
+            }]];
+        }
+        if (weakSelf.artworkLyricsHandler) {
+            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Lyrics", @"Lyrics")
+                                                     image:[UIImage systemImageNamed:@"text.quote"]
+                                                identifier:nil
+                                                   handler:^(__kindof UIAction *action) {
+                if (weakSelf.artworkLyricsHandler) weakSelf.artworkLyricsHandler();
+            }]];
+        }
+        return [UIMenu menuWithTitle:@"" children:actions];
     }];
 }
 
@@ -493,6 +505,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [super prepareForReuse];
     self.playHandler = nil;
     self.artworkGenerateHandler = nil;
+    self.artworkLyricsHandler = nil;
     self.accessibilityCustomActions = nil;
     [self setArtworkBusy:NO];
     [self setGenerating:NO];
@@ -544,6 +557,52 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 - (BOOL)performPlayAccessibilityAction:(UIAccessibilityCustomAction *)action {
     if (self.playHandler) self.playHandler();
     return YES;
+}
+
+@end
+
+#pragma mark - Lyrics sheet
+
+/// Read-only lyrics for one song, presented as a sheet: pull it down to the
+/// half detent to leave it minimized over the library, swipe it away (or tap
+/// Done) to dismiss it.
+@interface EZMusicLyricsViewController : UIViewController
+@property (nonatomic, copy) NSString *songTitle;
+@property (nonatomic, copy) NSString *lyricsText;
+@end
+
+@implementation EZMusicLyricsViewController
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = self.songTitle.length ? self.songTitle : EZMusicText(@"EZMusic.Lyrics.Title", @"Lyrics");
+    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.navigationItem.rightBarButtonItem =
+        [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                                                      target:self
+                                                      action:@selector(doneTapped)];
+
+    UITextView *textView = [[UITextView alloc] initWithFrame:self.view.bounds];
+    textView.translatesAutoresizingMaskIntoConstraints = NO;
+    textView.editable = NO;
+    textView.selectable = YES;
+    textView.backgroundColor = [UIColor clearColor];
+    textView.font = [UIFont systemFontOfSize:16];
+    textView.textColor = [UIColor labelColor];
+    textView.textContainerInset = UIEdgeInsetsMake(16, 16, 24, 16);
+    textView.text = self.lyricsText;
+    textView.accessibilityLabel = EZMusicText(@"EZMusic.A11y.Lyrics", @"Song lyrics");
+    [self.view addSubview:textView];
+    [NSLayoutConstraint activateConstraints:@[
+        [textView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [textView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [textView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [textView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+    ]];
+}
+
+- (void)doneTapped {
+    [self dismissViewControllerAnimated:YES completion:nil];
 }
 
 @end
@@ -1699,6 +1758,9 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         }
         // The song is queued and paid for. Jump to the Library, where the new
         // rows show a spinner, and start watching this generation.
+        // Remember the written lyrics under the generation id so they are
+        // saved with the song when it lands (see -noteLyrics:forGenerationID:).
+        [[EZMusicLibraryManager sharedManager] noteLyrics:lyrics forGenerationID:generationID];
         [strongSelf ensurePollingForGenerationID:generationID];
         [strongSelf showTab:EZMusicTabLibrary];
         [strongSelf loadLibraryResetting:YES];
@@ -1927,6 +1989,24 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 - (nullable NSDictionary *)entryForID:(NSString *)entryID {
     NSInteger row = [self rowForEntryID:entryID];
     return row == NSNotFound ? nil : self.entries[(NSUInteger)row];
+}
+
+/// Shows the song's saved lyrics in a sheet the user can pull down to a
+/// half-height detent (minimized over the library) or dismiss entirely.
+- (void)presentLyricsForTitle:(NSString *)title lyrics:(NSString *)lyrics {
+    EZMusicLyricsViewController *lyricsVC = [[EZMusicLyricsViewController alloc] init];
+    lyricsVC.songTitle = title;
+    lyricsVC.lyricsText = lyrics;
+    UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:lyricsVC];
+    navigation.modalPresentationStyle = UIModalPresentationPageSheet;
+    if (@available(iOS 15.0, *)) {
+        navigation.sheetPresentationController.detents = @[
+            UISheetPresentationControllerDetent.mediumDetent,
+            UISheetPresentationControllerDetent.largeDetent,
+        ];
+        navigation.sheetPresentationController.prefersGrabberVisible = YES;
+    }
+    [self presentViewController:navigation animated:YES completion:nil];
 }
 
 /// Generate in a cover's long-press menu: make a new one. The server charges coins for it
@@ -2210,6 +2290,19 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
             }];
         cell.accessibilityCustomActions =
             [@[newCoverAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
+    }
+    // Songs with saved lyrics get a Lyrics item in the same long-press menu.
+    NSString *songLyrics = [[EZMusicLibraryManager sharedManager] lyricsForEntry:entry];
+    if (songLyrics.length > 0) {
+        cell.artworkLyricsHandler = ^{ [weakSelf presentLyricsForTitle:title lyrics:songLyrics]; };
+        UIAccessibilityCustomAction *lyricsAction =
+            [[UIAccessibilityCustomAction alloc] initWithName:EZMusicText(@"EZMusic.A11y.ViewLyrics", @"View lyrics")
+                                                        actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
+                [weakSelf presentLyricsForTitle:title lyrics:songLyrics];
+                return YES;
+            }];
+        cell.accessibilityCustomActions =
+            [@[lyricsAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
     }
     return cell;
 }
