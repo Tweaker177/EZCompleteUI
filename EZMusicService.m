@@ -624,6 +624,11 @@ consecutiveFailures:(NSInteger)consecutiveFailures
              completion:^(NSDictionary *json, NSError *error) { completion(error); }];
 }
 
+- (void)renameEntryID:(NSString *)entryID toTitle:(NSString *)title completion:(void (^)(NSError *))completion {
+    [self performAction:@"rename" payload:@{@"entry_id": entryID, @"title": title}
+             completion:^(NSDictionary *json, NSError *error) { completion(error); }];
+}
+
 - (void)deleteEntryID:(NSString *)entryID completion:(void (^)(NSError *))completion {
     [self performAction:@"delete" payload:@{@"entry_id": entryID}
              completion:^(NSDictionary *json, NSError *error) { completion(error); }];
