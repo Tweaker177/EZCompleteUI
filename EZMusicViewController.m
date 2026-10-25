@@ -283,6 +283,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, strong) UIActivityIndicatorView *artworkSpinner;
 @property (nonatomic, copy, nullable) void (^artworkGenerateHandler)(void);
 @property (nonatomic, copy, nullable) void (^artworkLyricsHandler)(void);
+@property (nonatomic, copy, nullable) void (^artworkPromptHandler)(void);
+@property (nonatomic, copy, nullable) void (^artworkRemixHandler)(void);
 @property (nonatomic, strong) EZMusicWaveformView *waveformView;
 @property (nonatomic, strong) NSLayoutConstraint *waveformHeightConstraint;
 @property (nonatomic, copy, nullable) void (^playHandler)(void);
@@ -471,26 +473,43 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location {
-    if (!self.artworkGenerateHandler && !self.artworkLyricsHandler) return nil;
+    if (!self.artworkGenerateHandler && !self.artworkLyricsHandler &&
+        !self.artworkPromptHandler && !self.artworkRemixHandler) return nil;
     __weak typeof(self) weakSelf = self;
     return [UIContextMenuConfiguration configurationWithIdentifier:nil
                                                    previewProvider:nil
                                                     actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
         NSMutableArray<UIMenuElement *> *actions = [NSMutableArray array];
-        if (weakSelf.artworkGenerateHandler) {
-            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.GenerateCover", @"Generate")
-                                                     image:[UIImage systemImageNamed:@"sparkles"]
-                                                identifier:nil
-                                                   handler:^(__kindof UIAction *action) {
-                if (weakSelf.artworkGenerateHandler) weakSelf.artworkGenerateHandler();
-            }]];
-        }
         if (weakSelf.artworkLyricsHandler) {
             [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Lyrics", @"Lyrics")
                                                      image:[UIImage systemImageNamed:@"text.quote"]
                                                 identifier:nil
                                                    handler:^(__kindof UIAction *action) {
                 if (weakSelf.artworkLyricsHandler) weakSelf.artworkLyricsHandler();
+            }]];
+        }
+        if (weakSelf.artworkPromptHandler) {
+            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Prompt", @"Prompt")
+                                                     image:[UIImage systemImageNamed:@"text.alignleft"]
+                                                identifier:nil
+                                                   handler:^(__kindof UIAction *action) {
+                if (weakSelf.artworkPromptHandler) weakSelf.artworkPromptHandler();
+            }]];
+        }
+        if (weakSelf.artworkRemixHandler) {
+            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Remix", @"Remix")
+                                                     image:[UIImage systemImageNamed:@"arrow.triangle.2.circlepath"]
+                                                identifier:nil
+                                                   handler:^(__kindof UIAction *action) {
+                if (weakSelf.artworkRemixHandler) weakSelf.artworkRemixHandler();
+            }]];
+        }
+        if (weakSelf.artworkGenerateHandler) {
+            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.GenerateCover", @"Generate")
+                                                     image:[UIImage systemImageNamed:@"sparkles"]
+                                                identifier:nil
+                                                   handler:^(__kindof UIAction *action) {
+                if (weakSelf.artworkGenerateHandler) weakSelf.artworkGenerateHandler();
             }]];
         }
         return [UIMenu menuWithTitle:@"" children:actions];
@@ -508,6 +527,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     self.playHandler = nil;
     self.artworkGenerateHandler = nil;
     self.artworkLyricsHandler = nil;
+    self.artworkPromptHandler = nil;
+    self.artworkRemixHandler = nil;
     self.accessibilityCustomActions = nil;
     [self setArtworkBusy:NO];
     [self setGenerating:NO];
@@ -563,26 +584,33 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 @end
 
-#pragma mark - Lyrics sheet
+#pragma mark - Text sheet (lyrics / prompt)
 
-/// Read-only lyrics for one song, presented as a sheet: pull it down to the
-/// half detent to leave it minimized over the library, swipe it away (or tap
-/// Done) to dismiss it.
-@interface EZMusicLyricsViewController : UIViewController
-@property (nonatomic, copy) NSString *songTitle;
-@property (nonatomic, copy) NSString *lyricsText;
+/// Read-only text for one song — its lyrics, or the prompt that made it —
+/// presented as a sheet: pull it down to the half detent to leave it
+/// minimized over the library, swipe it away (or tap Done) to dismiss it.
+/// Copy puts the whole text on the clipboard.
+@interface EZMusicTextSheetViewController : UIViewController
+@property (nonatomic, copy) NSString *heading;
+@property (nonatomic, copy) NSString *bodyText;
+@property (nonatomic, copy) NSString *accessibilityName;
 @end
 
-@implementation EZMusicLyricsViewController
+@implementation EZMusicTextSheetViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = self.songTitle.length ? self.songTitle : EZMusicText(@"EZMusic.Lyrics.Title", @"Lyrics");
+    self.title = self.heading;
     self.view.backgroundColor = [UIColor systemBackgroundColor];
     self.navigationItem.rightBarButtonItem =
         [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
                                                       target:self
                                                       action:@selector(doneTapped)];
+    self.navigationItem.leftBarButtonItem =
+        [[UIBarButtonItem alloc] initWithTitle:EZMusicText(@"EZMusic.Action.Copy", @"Copy")
+                                         style:UIBarButtonItemStylePlain
+                                        target:self
+                                        action:@selector(copyTapped)];
 
     UITextView *textView = [[UITextView alloc] initWithFrame:self.view.bounds];
     textView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -592,8 +620,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     textView.font = [UIFont systemFontOfSize:16];
     textView.textColor = [UIColor labelColor];
     textView.textContainerInset = UIEdgeInsetsMake(16, 16, 24, 16);
-    textView.text = self.lyricsText;
-    textView.accessibilityLabel = EZMusicText(@"EZMusic.A11y.Lyrics", @"Song lyrics");
+    textView.text = self.bodyText;
+    textView.accessibilityLabel = self.accessibilityName;
     [self.view addSubview:textView];
     [NSLayoutConstraint activateConstraints:@[
         [textView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
@@ -601,6 +629,16 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         [textView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [textView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
     ]];
+}
+
+- (void)copyTapped {
+    [UIPasteboard generalPasteboard].string = self.bodyText ?: @"";
+    UIBarButtonItem *copyItem = self.navigationItem.leftBarButtonItem;
+    copyItem.title = EZMusicText(@"EZMusic.Action.Copied", @"Copied");
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.2 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        copyItem.title = EZMusicText(@"EZMusic.Action.Copy", @"Copy");
+    });
 }
 
 - (void)doneTapped {
@@ -1998,13 +2036,17 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     return row == NSNotFound ? nil : self.entries[(NSUInteger)row];
 }
 
-/// Shows the song's saved lyrics in a sheet the user can pull down to a
-/// half-height detent (minimized over the library) or dismiss entirely.
-- (void)presentLyricsForTitle:(NSString *)title lyrics:(NSString *)lyrics {
-    EZMusicLyricsViewController *lyricsVC = [[EZMusicLyricsViewController alloc] init];
-    lyricsVC.songTitle = title;
-    lyricsVC.lyricsText = lyrics;
-    UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:lyricsVC];
+/// Shows one of a song's texts (its lyrics, or the prompt that made it) in
+/// a sheet the user can pull down to a half-height detent (minimized over
+/// the library) or dismiss entirely. The sheet has a Copy button.
+- (void)presentTextSheetWithHeading:(NSString *)heading
+                               text:(NSString *)text
+                  accessibilityName:(NSString *)accessibilityName {
+    EZMusicTextSheetViewController *sheet = [[EZMusicTextSheetViewController alloc] init];
+    sheet.heading = heading;
+    sheet.bodyText = text;
+    sheet.accessibilityName = accessibilityName;
+    UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:sheet];
     navigation.modalPresentationStyle = UIModalPresentationPageSheet;
     if (@available(iOS 15.0, *)) {
         navigation.sheetPresentationController.detents = @[
@@ -2014,6 +2056,30 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         navigation.sheetPresentationController.prefersGrabberVisible = YES;
     }
     [self presentViewController:navigation animated:YES completion:nil];
+}
+
+- (void)presentLyricsForTitle:(NSString *)title lyrics:(NSString *)lyrics {
+    [self presentTextSheetWithHeading:title
+                                 text:lyrics
+                    accessibilityName:EZMusicText(@"EZMusic.A11y.Lyrics", @"Song lyrics")];
+}
+
+- (void)presentPrompt:(NSString *)prompt {
+    [self presentTextSheetWithHeading:EZMusicText(@"EZMusic.Prompt.Title", @"Prompt")
+                                 text:prompt
+                    accessibilityName:EZMusicText(@"EZMusic.A11y.Prompt", @"Song prompt")];
+}
+
+/// Remix: seed the Create form with a finished song's prompt and lyrics.
+/// Nothing is generated — the form stays fully editable and the user hits
+/// Generate themselves when they're happy with it.
+- (void)remixSongWithPrompt:(NSString *)prompt lyrics:(NSString *)lyrics {
+    self.promptTextView.text = prompt ?: @"";
+    self.lyricsTextView.text = lyrics ?: @"";
+    [self updatePromptDecorations];
+    [self updateGenerateButtonState];
+    [self showTab:EZMusicTabCreate];
+    [self showToast:EZMusicText(@"EZMusic.Toast.Remix", @"Remix loaded — tweak anything, then tap Generate")];
 }
 
 /// Generate in a cover's long-press menu: make a new one. The server charges coins for it
@@ -2283,9 +2349,17 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
     __weak typeof(self) weakSelf = self;
     cell.playHandler = ^{ [weakSelf togglePlaybackForEntryID:entryID]; };
+    // What this song was made from, resolved once for the menu actions below.
+    NSString *songLyrics = [[EZMusicLibraryManager sharedManager] lyricsForEntry:entry];
+    NSString *songPrompt = EZMusicString(entry[@"prompt"]);
+    if (songPrompt.length == 0) {
+        NSDictionary *songRecord = [[EZMusicLibraryManager sharedManager] localSongRecordForEntryID:entryID];
+        songPrompt = [songRecord[@"prompt"] isKindOfClass:[NSString class]] ? songRecord[@"prompt"] : @"";
+    }
     // Only finished songs can get a new cover.
     if ([EZMusicString(entry[@"status"]) isEqualToString:@"complete"]) {
         cell.artworkGenerateHandler = ^{ [weakSelf regenerateArtworkForEntryID:entryID]; };
+        cell.artworkRemixHandler = ^{ [weakSelf remixSongWithPrompt:songPrompt lyrics:songLyrics]; };
         // Same action for VoiceOver users, who can't use the long-press menu.
         // Appended, not assigned: -configureWithTitle:... already installed the
         // cell's Play/Pause action, and the row keeps both.
@@ -2297,9 +2371,16 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
             }];
         cell.accessibilityCustomActions =
             [@[newCoverAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
+        UIAccessibilityCustomAction *remixAction =
+            [[UIAccessibilityCustomAction alloc] initWithName:EZMusicText(@"EZMusic.A11y.Remix", @"Remix")
+                                                        actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
+                [weakSelf remixSongWithPrompt:songPrompt lyrics:songLyrics];
+                return YES;
+            }];
+        cell.accessibilityCustomActions =
+            [@[remixAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
     }
     // Songs with saved lyrics get a Lyrics item in the same long-press menu.
-    NSString *songLyrics = [[EZMusicLibraryManager sharedManager] lyricsForEntry:entry];
     if (songLyrics.length > 0) {
         cell.artworkLyricsHandler = ^{ [weakSelf presentLyricsForTitle:title lyrics:songLyrics]; };
         UIAccessibilityCustomAction *lyricsAction =
@@ -2310,6 +2391,19 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
             }];
         cell.accessibilityCustomActions =
             [@[lyricsAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
+    }
+    // The prompt that made the song gets a Prompt item in the same menu,
+    // shown in the same sheet as the lyrics.
+    if (songPrompt.length > 0) {
+        cell.artworkPromptHandler = ^{ [weakSelf presentPrompt:songPrompt]; };
+        UIAccessibilityCustomAction *promptAction =
+            [[UIAccessibilityCustomAction alloc] initWithName:EZMusicText(@"EZMusic.A11y.ViewPrompt", @"View prompt")
+                                                        actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
+                [weakSelf presentPrompt:songPrompt];
+                return YES;
+            }];
+        cell.accessibilityCustomActions =
+            [@[promptAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
     }
     return cell;
 }
