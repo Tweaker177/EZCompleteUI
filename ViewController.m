@@ -1319,11 +1319,9 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     } else if ([self.selectedModel isEqualToString:@"gpt-5.6-luna"]) {
         self.selectedModel = @"gpt-6-luna";
     } else if ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
-    } else if ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
                [self.selectedModel isEqualToString:@"gpt-image-1.5"] ||
                [self.selectedModel isEqualToString:@"chatgpt-image-latest"]) {
         self.selectedModel = @"gpt-image-2";
-    }
     }
     [[NSUserDefaults standardUserDefaults] setObject:self.selectedModel forKey:@"selectedModel"];
     self.webSearchEnabled  = [[NSUserDefaults standardUserDefaults] boolForKey:@"webSearchEnabled"];
