@@ -1,39 +1,5 @@
 // ViewController.m
-// EZCompleteUI v9.7
-//
-// Changes from v9.6:
-//   - Chat song cards are now real inline players. Play no longer opens Quick
-//     Look: EZMusicBubbleCell plays through the app-wide EZMediaPlayerManager
-//     (background audio, lock-screen controls, scrubber). This file only passes
-//     the card the song's length (display key "durationSeconds") so the total
-//     time shows before playback.
-//
-// Changes from v9.5:
-//   - Chat models can now create songs. The app tells ez-chat it supports the
-//     tool (music_tools: YES). When the model calls it, ez-chat returns a
-//     "music_request" (description, optional title/lyrics, instrumental flag,
-//     length) and -performChatMusicRequest: takes over:
-//       1. Loads current limits from ez-music (EZMusicService) and clamps the
-//          length to what the server allows, never above 2 minutes in chat
-//          and always a single version, which keeps one chat song at or under
-//          60 coins at the current price.
-//       2. Starts the song right away through EZMusicService (no confirmation
-//          dialog, by request). Pricing, charging, refunds and the limit on
-//          songs composing at once all stay in the ez-music Edge Function.
-//          A system line tells the user the song was started and what it
-//          reserved.
-//       3. Polls until the song is finished and keeps the MP3 on the device
-//          through EZMusicLibraryManager.
-//       4. Adds a song card (EZMusicBubbleCell, display role "music") with
-//          an inline player and Share, plus a UI-only "_ui_music" event in the thread so
-//          the card survives a restore and the model knows what happened
-//          (summarized in sanitizedContextForAPI, like image results). If you
-//          switched to another chat while the song composed, the card is saved
-//          into the chat that asked for it.
-//   - Known limits: polling runs inside this screen. If the app is closed
-//     while a song is composing, it still finishes on the server and shows up
-//     in AI Music, but its card is not added to the chat afterward. Song
-//     cards are not selectable for thread export yet.
+// EZCompleteUI v9.5
 //
 // Changes from v9.4:
 //   - Added the AI Music entry point: the history drawer's new "music" action
@@ -593,9 +559,6 @@
 #import "EZCoinPotView.h"
 #import "TextToSpeechViewController.h"
 #import "EZMusicViewController.h"
-#import "EZMusicService.h"
-#import "EZMusicLibraryManager.h"
-#import "EZMusicBubbleCell.h"
 #import "MemoriesViewController.h"
 #import "SupportRequestViewController.h"
 #import "BrainRotViewController.h"
@@ -854,9 +817,6 @@ typedef NS_ENUM(NSInteger, EZAttachMode) {
     EZAttachModeAnalyze,
 };
 
-// Defined with the chat music code further down; needed earlier by thread restore.
-static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
-
 @interface ViewController () <UIDocumentPickerDelegate,
                                UITextFieldDelegate,
                                UITextViewDelegate,
@@ -899,13 +859,12 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UIButton      *historyButton;
 @property (nonatomic, strong) UIButton      *addChatButton;
 @property (nonatomic, strong) UIButton      *memoriesButton;
-@property (nonatomic, strong) UIButton      *threadSelectionButton;
+/// Reuses the former Memories slot as the thread-selection entry point.
 @property (nonatomic, assign) BOOL          threadSelectionActive;
 @property (nonatomic, strong) NSMutableIndexSet *selectedThreadMessageIndexes;
 @property (nonatomic, strong) UIView        *threadSelectionBar;
 @property (nonatomic, strong) UILabel       *threadSelectionCountLabel;
 @property (nonatomic, strong) NSArray<UIButton *> *threadSelectionActionButtons;
-@property (nonatomic, strong) UIView        *threadActionOverlay;
 @property (nonatomic, strong) UIButton      *supportRequestButton;
 @property (nonatomic, strong) UIButton      *textToSpeechButton;
 @property (nonatomic, strong) UIButton      *cloningButton;
@@ -1026,9 +985,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UILabel *coinBalanceLabel; // kept for compatibility
 @property (nonatomic, strong) EZCoinPotView *coinPotView;
 @property (nonatomic, copy) NSString *chatImageSourcePath;
-// Songs a chat model asked for that are still composing, keyed by generation
-// ID, so each one is polled exactly once. Created on first use.
-@property (nonatomic, strong) NSMutableDictionary<NSString *, EZMusicPollToken *> *chatMusicPollTokens;
 
 // Private helpers added since previous interface
 - (void)restoreImageGridCellsForThread:(NSString *)threadID;
@@ -1064,7 +1020,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (NSArray *)sanitizedContextForAPI:(NSArray *)context
                   modelSupportsVision:(BOOL)supportsVision
                       useResponsesAPI:(BOOL)useResponsesAPI;
-- (NSDictionary *)loggableChatRequestBody:(NSDictionary *)body;
 // - (void)downloadAndShowVideo:(NSString *)urlString;   // SORA — see the big commented block
 - (void)appendImageGridToChat:(NSArray<NSString *> *)imagePaths
                        prompt:(NSString *)prompt
@@ -1072,8 +1027,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
                     errorText:(nullable NSString *)errorText;
 - (void)persistImagePath:(NSString *)path prompt:(NSString *)prompt;
 - (void)performChatImageRequest:(NSDictionary *)imageRequest sourcePath:(NSString *)sourcePath;
-- (void)performChatMusicRequest:(NSDictionary *)musicRequest;
-- (NSString *)ez_chatMusicSummaryForEvent:(NSDictionary *)event;
 - (void)callGptImage1:(NSString *)prompt model:(NSString *)imageModel;
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath
                model:(NSString *)imageModel preserveChatModel:(BOOL)preserveChatModel;
@@ -1332,7 +1285,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
            // ── Chat / Reasoning ──────────────────────────────────────────────
            @"gpt-6-astra", // newest flagship reasoning model
            @"gpt-6.1-sol", @"gpt-6-luna",
-           @"gpt-5.6-sol", @"gpt-5.6-terra",
+           @"gpt-5.6-terra",
            @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
            @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
            @"gpt-3.5-turbo",
@@ -1363,7 +1316,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
                              ?: self.models[0];
     // Retired picker choices can remain in a user's saved preference. Move
     // them to their current equivalents before the first request is made.
-    if ([self.selectedModel isEqualToString:@"gpt-6-sol"]) {
+    if ([self.selectedModel isEqualToString:@"gpt-6-sol"] ||
+        [self.selectedModel isEqualToString:@"gpt-5.6-sol"]) {
         self.selectedModel = @"gpt-6.1-sol";
     } else if ([self.selectedModel isEqualToString:@"gpt-5.6-luna"]) {
         self.selectedModel = @"gpt-6-luna";
@@ -1510,17 +1464,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
         NSString *role    = msg[@"role"] ?: @"";
         id        content = msg[@"content"];
         NSString *text    = [content isKindOfClass:[NSString class]] ? content : nil;
-
-        // Songs a chat model created are UI-only timeline events too. A failed
-        // song has no card (its error line was a transient system message), so
-        // only successful ones are rebuilt.
-        if ([role isEqualToString:@"_ui_music"]) {
-            NSString *songEntryID = [msg[@"entryID"] isKindOfClass:[NSString class]] ? msg[@"entryID"] : @"";
-            if (![msg[@"isError"] boolValue] && songEntryID.length > 0) {
-                [self.displayMessages addObject:EZChatMusicDisplayMessage(msg)];
-            }
-            continue;
-        }
 
         // Image-generation results are UI-only timeline events.  Keeping them
         // in the thread (rather than a separate UserDefaults side cache) is
@@ -1880,15 +1823,12 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 
     self.textToSpeechButton = [self _iconButton:@"play.circle.fill" tint:nil action:@selector(openTTS)];
 
-    // Keep Memories and multi-select as separate, discoverable actions.
-    self.memoriesButton = [self _iconButton:@"brain.head.profile" tint:[UIColor systemTealColor]
-                                     action:@selector(openMemories)];
-    self.memoriesButton.accessibilityLabel = @"Memories";
-    self.threadSelectionButton = [self _iconButton:@"checkmark.circle" tint:[UIColor systemBlueColor]
-                                            action:@selector(toggleThreadSelection)];
-    [self.threadSelectionButton setTitle:@"SEL" forState:UIControlStateNormal];
-    self.threadSelectionButton.titleLabel.font = [UIFont systemFontOfSize:10 weight:UIFontWeightBold];
-    self.threadSelectionButton.accessibilityLabel = @"Select parts of this thread";
+    // The former Memories slot is now the thread export/selection entry point.
+    self.memoriesButton   = [self _iconButton:@"checkmark.circle" tint:nil
+                                      action:@selector(toggleThreadSelection)];
+    [self.memoriesButton setTitle:@"Select" forState:UIControlStateNormal];
+    self.memoriesButton.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
+    self.memoriesButton.accessibilityLabel = @"Select parts of this thread";
     // Web search toggle
     self.webSearchButton = [self _iconButton:@"globe" tint:nil
                                       action:@selector(toggleWebSearch)];
@@ -1917,7 +1857,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
     [self.coinPotView addGestureRecognizer:potTap];
 
     // Keep navigation and response actions on the left, the balance centered,
-    // and distinct selection/memory actions on the right.
+    // and Memories on the far right so it aligns with its shelf drawer.
     UIView *topStack = [[UIView alloc] init];
     topStack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:topStack];
@@ -1925,7 +1865,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
     [topStack addSubview:self.coinPotView];
     [topStack addSubview:self.clipboardButton];
     [topStack addSubview:self.speakButton];
-    [topStack addSubview:self.threadSelectionButton];
     [topStack addSubview:self.memoriesButton];
     [topStack addSubview:self.supportRequestButton];
 
@@ -1942,10 +1881,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
         [self.speakButton.leadingAnchor constraintEqualToAnchor:self.clipboardButton.trailingAnchor constant:8],
         [self.speakButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
         [self.memoriesButton.trailingAnchor constraintEqualToAnchor:topStack.trailingAnchor],
-        [self.threadSelectionButton.trailingAnchor constraintEqualToAnchor:self.memoriesButton.leadingAnchor constant:-8],
-        [self.supportRequestButton.trailingAnchor constraintEqualToAnchor:self.threadSelectionButton.leadingAnchor constant:-8],
+        [self.supportRequestButton.trailingAnchor constraintEqualToAnchor:self.memoriesButton.leadingAnchor constant:-8],
         [self.supportRequestButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
-        [self.threadSelectionButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
         [self.memoriesButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
         [self.speakButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.coinPotView.leadingAnchor constant:-8],
         [self.supportRequestButton.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.coinPotView.trailingAnchor constant:8],
@@ -1987,7 +1924,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
     [self.chatTableView registerClass:[EZSystemCell class]    forCellReuseIdentifier:@"EZSystem"];
     [self.chatTableView registerClass:[EZCodeBlockCell class] forCellReuseIdentifier:@"EZCodeBlock"];
     [self.chatTableView registerClass:[EZImageGridCell class] forCellReuseIdentifier:@"EZImageGrid"];
-    [self.chatTableView registerClass:[EZMusicBubbleCell class] forCellReuseIdentifier:@"EZMusic"];
     [self.chatTableView registerClass:[EZAttachmentPreviewCell class] forCellReuseIdentifier:@"EZAttachment"];
     [self.view addSubview:self.chatTableView];
 
@@ -2482,7 +2418,9 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 
 // A validated helper answer is a completed chat turn, not merely a routing
 // hint. Keep its persistence/display path equivalent to a main-model reply so
-// the thread and memory stores remain internally consistent.
+// the thread and memory stores remain internally consistent. File/image and
+// web-search turns intentionally never reach here because their full content
+// or tools are only available to the main model.
 - (void)completeHelperDirectAnswer:(NSString *)answer
                      originalPrompt:(NSString *)prompt
                               token:(NSString *)token
@@ -2532,135 +2470,36 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - Styled Thread Menus
-// ─────────────────────────────────────────────────────────────────────────────
-
-- (void)dismissThreadActionOverlay {
-    UIView *overlay = self.threadActionOverlay;
-    self.threadActionOverlay = nil;
-    [UIView animateWithDuration:0.18 animations:^{ overlay.alpha = 0; }
-                     completion:^(__unused BOOL finished) { [overlay removeFromSuperview]; }];
-}
-
-- (UIView *)presentThreadActionCardWithTitle:(NSString *)title detail:(NSString *)detail {
-    [self dismissThreadActionOverlay];
-    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
-    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    overlay.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.60];
-    overlay.alpha = 0;
-    self.threadActionOverlay = overlay;
-    [self.view addSubview:overlay];
-
-    UIView *card = [UIView new];
-    card.translatesAutoresizingMaskIntoConstraints = NO;
-    card.backgroundColor = [UIColor colorWithRed:0.035 green:0.075 blue:0.14 alpha:1.0];
-    card.layer.cornerRadius = 24;
-    card.layer.borderWidth = 1;
-    card.layer.borderColor = [UIColor colorWithRed:0.15 green:0.78 blue:1.0 alpha:0.70].CGColor;
-    [overlay addSubview:card];
-    UILabel *titleLabel = [UILabel new];
-    titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    titleLabel.text = title;
-    titleLabel.textColor = UIColor.whiteColor;
-    titleLabel.font = [UIFont systemFontOfSize:21 weight:UIFontWeightBold];
-    [card addSubview:titleLabel];
-    UILabel *detailLabel = [UILabel new];
-    detailLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    detailLabel.text = detail;
-    detailLabel.textColor = [UIColor colorWithWhite:0.72 alpha:1];
-    detailLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
-    detailLabel.numberOfLines = 0;
-    [card addSubview:detailLabel];
-    [NSLayoutConstraint activateConstraints:@[
-        [card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:20],
-        [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-20],
-        [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor],
-        [titleLabel.topAnchor constraintEqualToAnchor:card.topAnchor constant:22],
-        [titleLabel.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:22],
-        [titleLabel.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-22],
-        [detailLabel.topAnchor constraintEqualToAnchor:titleLabel.bottomAnchor constant:5],
-        [detailLabel.leadingAnchor constraintEqualToAnchor:titleLabel.leadingAnchor],
-        [detailLabel.trailingAnchor constraintEqualToAnchor:titleLabel.trailingAnchor],
-    ]];
-    [UIView animateWithDuration:0.20 animations:^{ overlay.alpha = 1; }];
-    return card;
-}
-
-- (UIButton *)threadActionButtonWithTitle:(NSString *)title symbol:(NSString *)symbol color:(UIColor *)color {
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
-    button.translatesAutoresizingMaskIntoConstraints = NO;
-    UIButtonConfiguration *configuration = [UIButtonConfiguration filledButtonConfiguration];
-    configuration.title = title;
-    configuration.image = [UIImage systemImageNamed:symbol];
-    configuration.imagePadding = 10;
-    configuration.baseForegroundColor = color;
-    configuration.baseBackgroundColor = [color colorWithAlphaComponent:0.16];
-    configuration.cornerStyle = UIButtonConfigurationCornerStyleLarge;
-    configuration.contentInsets = NSDirectionalEdgeInsetsMake(14, 16, 14, 16);
-    configuration.titleTextAttributesTransformer = ^NSDictionary<NSAttributedStringKey,id> * _Nonnull(NSDictionary<NSAttributedStringKey,id> * _Nonnull attributes) {
-        NSMutableDictionary *styled = [attributes mutableCopy];
-        styled[NSFontAttributeName] = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
-        return styled;
-    };
-    button.configuration = configuration;
-    return button;
-}
-
-/// Presents an in-app replacement for the generic system rename alert.
+/// Shows an alert with a prefilled text field so the user can rename the thread.
 - (void)renameThread {
     NSString *current = self.activeThread.title.length > 0
         ? self.activeThread.title : @"";
-    UIView *card = [self presentThreadActionCardWithTitle:@"Rename thread"
-                                                   detail:@"Give this conversation a name you will recognize later."];
-    UITextField *field = [UITextField new];
-    field.translatesAutoresizingMaskIntoConstraints = NO;
-    field.text = current;
-    field.placeholder = @"Thread name";
-    field.textColor = UIColor.whiteColor;
-    field.attributedPlaceholder = [[NSAttributedString alloc] initWithString:field.placeholder
-        attributes:@{ NSForegroundColorAttributeName: [UIColor colorWithWhite:0.48 alpha:1] }];
-    field.backgroundColor = [UIColor colorWithWhite:1 alpha:0.08];
-    field.layer.cornerRadius = 13;
-    field.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 13, 1)];
-    field.leftViewMode = UITextFieldViewModeAlways;
-    field.clearButtonMode = UITextFieldViewModeWhileEditing;
-    field.returnKeyType = UIReturnKeyDone;
-    field.autocapitalizationType = UITextAutocapitalizationTypeSentences;
-    [card addSubview:field];
-    UIButton *cancel = [self threadActionButtonWithTitle:@"Cancel" symbol:@"xmark"
-                                                    color:[UIColor colorWithWhite:0.78 alpha:1]];
-    UIButton *save = [self threadActionButtonWithTitle:@"Save name" symbol:@"checkmark"
-                                                  color:[UIColor colorWithRed:0.12 green:0.82 blue:1.0 alpha:1]];
-    [card addSubview:cancel]; [card addSubview:save];
+    UIAlertController *alert =
+        [UIAlertController alertControllerWithTitle:@"Rename Thread"
+                                            message:nil
+                                     preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *tf) {
+        tf.text             = current;
+        tf.placeholder      = @"Thread name";
+        tf.clearButtonMode  = UITextFieldViewModeWhileEditing;
+        tf.returnKeyType    = UIReturnKeyDone;
+        tf.autocapitalizationType = UITextAutocapitalizationTypeSentences;
+    }];
     __weak typeof(self) ws = self;
-    [cancel addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { [ws dismissThreadActionOverlay]; }]
-      forControlEvents:UIControlEventTouchUpInside];
-    [save addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
-        NSString *newTitle = [field.text
+    [alert addAction:[UIAlertAction actionWithTitle:@"Save"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *_) {
+        NSString *newTitle = [alert.textFields.firstObject.text
             stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
         if (!newTitle.length) return;
         ws.activeThread.title = newTitle;
         [ws updateThreadTitleLabel];
         [ws saveActiveThread];
-        [ws dismissThreadActionOverlay];
         EZLogf(EZLogLevelInfo, @"THREAD", @"Renamed to: %@", newTitle);
-    }] forControlEvents:UIControlEventTouchUpInside];
-    [NSLayoutConstraint activateConstraints:@[
-        [field.topAnchor constraintEqualToAnchor:card.topAnchor constant:86],
-        [field.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:18],
-        [field.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
-        [field.heightAnchor constraintEqualToConstant:52],
-        [cancel.topAnchor constraintEqualToAnchor:field.bottomAnchor constant:16],
-        [cancel.leadingAnchor constraintEqualToAnchor:field.leadingAnchor],
-        [save.topAnchor constraintEqualToAnchor:cancel.topAnchor],
-        [save.leadingAnchor constraintEqualToAnchor:cancel.trailingAnchor constant:10],
-        [save.trailingAnchor constraintEqualToAnchor:field.trailingAnchor],
-        [cancel.widthAnchor constraintEqualToAnchor:save.widthAnchor],
-        [cancel.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
-        [save.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
-    ]];
-    [field becomeFirstResponder];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel"
+                                              style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3914,25 +3753,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // }
 
     // ── Chat / reasoning models ───────────────────────────────────────────────
-    // Give the helper the same current-turn attachment material it needs to
-    // safely short-circuit: extracted file text is already in fullPrompt, and
-    // prepared images are sent as vision data URLs. These are the same prepared
-    // bytes used by the main chat request, not separate originals.
-    NSMutableArray<NSString *> *helperImageDataURLs = [NSMutableArray array];
-    for (NSString *path in self.pendingImagePaths) {
-        NSData *imageData = [NSData dataWithContentsOfFile:path];
-        if (!imageData.length) continue;
-        NSString *extension = path.pathExtension.lowercaseString;
-        NSString *mimeType = [extension isEqualToString:@"png"] ? @"image/png"
-            : [extension isEqualToString:@"webp"] ? @"image/webp"
-            : [extension isEqualToString:@"gif"] ? @"image/gif" : @"image/jpeg";
-        [helperImageDataURLs addObject:[NSString stringWithFormat:@"data:%@;base64,%@",
-            mimeType, [imageData base64EncodedStringWithOptions:0]]];
-    }
-
-    [self fetchRelevantMemories:fullPrompt completion:^(NSString *memories) {
-        analyzePromptForContextWithImages(fullPrompt, memories, helperImageDataURLs,
-        jwtToken, self.activeThread.threadID,
+    [self fetchRelevantMemories:text completion:^(NSString *memories) {
+        analyzePromptForContext(text, memories, jwtToken, self.activeThread.threadID,
         ^(EZContextResult *result) {
             EZLogf(EZLogLevelInfo, @"SEND",
                    @"Tier %ld — conf=%.2f tokens≈%ld reason: %@",
@@ -3940,16 +3762,26 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                    (long)result.estimatedTokens, result.reason);
 
             BOOL hasAttachedFileContext = ![fullPrompt isEqualToString:text];
+            BOOL hasPendingImageAttachment = self.pendingImagePaths.count > 0;
 
-            // The helper has the file text and current images, so those no
-            // longer suppress a validated direct answer. Live web search is
-            // the one remaining exception: the helper cannot invoke that tool.
-            if (result.shortCircuitAnswer.length > 0 && !self.webSearchEnabled) {
+            // A validated helper answer is the intended result of the
+            // lightning-bolt setting. Do not use it for requests that require
+            // information the helper never received (file/image attachments)
+            // or a tool the helper cannot invoke (web search).
+            if (result.shortCircuitAnswer.length > 0 &&
+                !hasAttachedFileContext &&
+                !hasPendingImageAttachment &&
+                !self.webSearchEnabled) {
                 [self completeHelperDirectAnswer:result.shortCircuitAnswer
                                    originalPrompt:text
                                             token:jwtToken
                                          threadID:requestThreadID];
                 return;
+            }
+            if (result.shortCircuitAnswer.length > 0) {
+                EZLogf(EZLogLevelInfo, @"TRIAGE",
+                       @"Helper direct answer deferred to main model (file=%d image=%d web=%d)",
+                       hasAttachedFileContext, hasPendingImageAttachment, self.webSearchEnabled);
             }
 
             // Triage/memory routing enriches the short typed question. When a
@@ -3957,21 +3789,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             // expanded prompt so the attached file's extracted text reaches
             // ez-chat instead of being silently discarded by this replacement.
             NSString *promptForMainModel = result.finalPrompt;
-            if (result.shortCircuitAnswer.length > 0 && self.webSearchEnabled) {
-                // Preserve the helper/ranker result as context for the model
-                // that will perform the live lookup. Previously it was simply
-                // discarded, which caused the model to claim it had no memory.
-                promptForMainModel = [NSString stringWithFormat:
-                    @"[Validated helper answer — verify or update with web search:]\n%@\n\n[User message]\n%@",
-                    result.shortCircuitAnswer, fullPrompt];
-                if (self.chatContext.count > 0) [self.chatContext removeLastObject];
-                [self.chatContext addObject:@{ @"role": @"user", @"content": promptForMainModel }];
-                [self appendToChat:@"[System: Helper answer included for web verification ✓]"];
-                [self callChatCompletions];
-                return;
-            }
-            if (hasAttachedFileContext && result.tier >= EZRoutingTierMemory &&
-                [result.finalPrompt rangeOfString:@"[Attached file:"].location == NSNotFound) {
+            if (hasAttachedFileContext && result.tier >= EZRoutingTierMemory) {
                 NSRange typedQuestionRange = [promptForMainModel rangeOfString:text
                                                                        options:NSBackwardsSearch];
                 if (typedQuestionRange.location != NSNotFound &&
@@ -4384,14 +4202,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     ezBody[@"estimated_tokens"] = @(totalEstimate);
     ezBody[@"max_tokens"]        = @(maxCompletionTokens);
     ezBody[@"feature_tier"]     = featureTier;
-    NSString *fastMode = [defaults stringForKey:@"fastMode"];
-    if ([fastMode isEqualToString:@"flex"] || [fastMode isEqualToString:@"fast"] || [fastMode isEqualToString:@"ultrafast"]) {
-        ezBody[@"fast_mode"] = fastMode;
-    }
     ezBody[@"image_tools"] = @YES;
-    // Lets ez-chat offer the model its create_music tool. The server only ever
-    // returns a music_request; it never generates or charges for a song.
-    ezBody[@"music_tools"] = @YES;
     ezBody[@"image_source_available"] = @(capturedImageSource.length > 0);
     if (userPreferences.length > 0) ezBody[@"user_preferences"] = userPreferences;
     if (useWebSearch)           ezBody[@"web_search"] = @YES;
@@ -4411,8 +4222,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSURL *ezURL = [NSURL URLWithString:@"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-chat"];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:ezURL];
     request.HTTPMethod = @"POST";
-    BOOL isHeavyReasoningModel = [self.selectedModel isEqualToString:@"gpt-5.6-sol"] ||
-                                  [self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
+    BOOL isHeavyReasoningModel = [self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
                                   [self.selectedModel isEqualToString:@"gpt-6-astra"];
     // Leave headroom beyond ez-chat's server-side OpenAI deadline. Previously
     // the 90s/180s client deadlines could cancel a request the server was still
@@ -4422,23 +4232,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     else                                                     request.timeoutInterval = 250;
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
-    NSError *requestEncodingError = nil;
-    request.HTTPBody = [NSJSONSerialization dataWithJSONObject:ezBody options:0 error:&requestEncodingError];
-    if (!request.HTTPBody.length) {
-        [self handleAPIError:requestEncodingError.localizedDescription ?: @"Couldn't encode the chat request."];
-        return;
-    }
-
-    // Record the actual bytes handed to NSURLSession for debugging. Keep the
-    // bearer credential out of the System Log: anyone with that token can act
-    // as this user, while the endpoint, headers, and JSON body are sufficient
-    // to reproduce request-shape issues.
-    NSDictionary *logBody = [self loggableChatRequestBody:ezBody];
-    NSData *logBodyData = [NSJSONSerialization dataWithJSONObject:logBody options:0 error:nil];
-    NSString *requestBody = [[NSString alloc] initWithData:logBodyData encoding:NSUTF8StringEncoding] ?: @"<non-UTF-8 JSON>";
-    EZLogf(EZLogLevelInfo, @"API",
-           @"Outgoing request:\nPOST %@\nContent-Type: application/json\nAuthorization: [REDACTED]\nBody: %@",
-           request.URL.absoluteString ?: @"<missing URL>", requestBody);
+    request.HTTPBody = [NSJSONSerialization dataWithJSONObject:ezBody options:0 error:nil];
 
     EZLogf(EZLogLevelInfo, @"API", @"→ ez-chat [%@]%@", self.selectedModel, useWebSearch ? @" +web" : @"");
     dispatch_async(dispatch_get_main_queue(), ^{ self.sendButton.enabled = NO; });
@@ -4515,31 +4309,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                     return;
                 }
                 [self performChatImageRequest:imageRequest sourcePath:capturedImageSource];
-            });
-            return;
-        }
-
-        NSDictionary *musicRequest = [json[@"music_request"] isKindOfClass:[NSDictionary class]]
-            ? json[@"music_request"] : nil;
-        if (musicRequest) {
-            NSString *introReply = [json[@"reply"] isKindOfClass:[NSString class]] ? json[@"reply"] : @"";
-            dispatch_async(dispatch_get_main_queue(), ^{
-                id musicBalance = json[@"balance"];
-                if ([musicBalance respondsToSelector:@selector(integerValue)]) {
-                    [[EZEntitlementManager shared] applyKnownBalance:[musicBalance integerValue]];
-                }
-                [self updateCoinBalanceDisplay];
-                self.sendButton.enabled = YES;
-                if (![self.activeThread.threadID isEqualToString:capturedThreadID]) {
-                    [self appendToChat:@"[System: Song request stopped because the conversation changed. Please resend it in the original chat.]"];
-                    return;
-                }
-                // If the model said something before calling the tool, keep it.
-                if (introReply.length > 0) {
-                    [self.chatContext addObject:@{@"role": @"assistant", @"content": introReply}];
-                    [self appendToChat:[NSString stringWithFormat:@"AI: %@", introReply]];
-                }
-                [self performChatMusicRequest:musicRequest];
             });
             return;
         }
@@ -5478,9 +5247,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                     failed ? @"failed" : @"completed; the image is displayed in chat and saved in the gallery",
                     msg[@"prompt"] ?: @"", failed ? [NSString stringWithFormat:@". Error: %@", msg[@"errorText"] ?: @"Unknown error"] : @""];
                 [result addObject:@{@"role": @"assistant", @"content": summary}];
-            } else if ([msg[@"role"] isEqualToString:@"_ui_music"]) {
-                [result addObject:@{@"role": @"assistant",
-                                    @"content": [self ez_chatMusicSummaryForEvent:msg]}];
             }
             continue;
         }
@@ -5714,50 +5480,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 
     return [result copy];
-}
-
-/// Produces a diagnostic copy of the request body. It keeps the exact request
-/// shape and all ordinary text, while collapsing embedded image bytes so one
-/// attachment cannot fill the System Log with megabytes of Base64.
-- (NSDictionary *)loggableChatRequestBody:(NSDictionary *)body {
-    NSMutableDictionary *logBody = [body mutableCopy] ?: [NSMutableDictionary dictionary];
-    NSArray *messages = [body[@"messages"] isKindOfClass:NSArray.class] ? body[@"messages"] : nil;
-    if (!messages) return [logBody copy];
-
-    NSMutableArray *logMessages = [NSMutableArray arrayWithCapacity:messages.count];
-    for (NSDictionary *message in messages) {
-        if (![message isKindOfClass:NSDictionary.class]) { [logMessages addObject:message ?: @{}]; continue; }
-        NSMutableDictionary *logMessage = [message mutableCopy];
-        NSArray *content = [message[@"content"] isKindOfClass:NSArray.class] ? message[@"content"] : nil;
-        if (!content) { [logMessages addObject:logMessage]; continue; }
-
-        NSMutableArray *logContent = [NSMutableArray arrayWithCapacity:content.count];
-        for (NSDictionary *block in content) {
-            if (![block isKindOfClass:NSDictionary.class]) { [logContent addObject:block ?: @{}]; continue; }
-            NSMutableDictionary *logBlock = [block mutableCopy];
-            NSString *type = [block[@"type"] isKindOfClass:NSString.class] ? block[@"type"] : @"";
-            if ([type isEqualToString:@"image_url"]) {
-                id imageURL = block[@"image_url"];
-                NSString *url = [imageURL isKindOfClass:NSDictionary.class] ? imageURL[@"url"]
-                    : [imageURL isKindOfClass:NSString.class] ? imageURL : nil;
-                if ([url hasPrefix:@"data:"]) {
-                    NSRange marker = [url rangeOfString:@";base64,"];
-                    NSString *mime = marker.location == NSNotFound ? @"image" : [url substringWithRange:NSMakeRange(5, marker.location - 5)];
-                    NSUInteger chars = marker.location == NSNotFound ? url.length : url.length - NSMaxRange(marker);
-                    logBlock[@"image_url"] = @{ @"url": [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)chars] };
-                }
-            } else if ([type isEqualToString:@"input_image"] && [block[@"data"] isKindOfClass:NSString.class]) {
-                NSString *data = block[@"data"];
-                NSString *mime = [block[@"media_type"] isKindOfClass:NSString.class] ? block[@"media_type"] : @"image";
-                logBlock[@"data"] = [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)data.length];
-            }
-            [logContent addObject:logBlock];
-        }
-        logMessage[@"content"] = logContent;
-        [logMessages addObject:logMessage];
-    }
-    logBody[@"messages"] = logMessages;
-    return [logBody copy];
 }
 
 - (NSString *)featureLabel:(EZFeature)feature {
@@ -6536,14 +6258,12 @@ static NSString *EZThreadExportTimestampNow(void) {
     [bar addSubview:count];
     self.threadSelectionCountLabel = count;
 
-    NSArray<NSString *> *titles = @[ @"All", @"Delete", @"Translate", @"Export", @"Done" ];
-    NSArray<NSString *> *symbols = @[ @"checkmark.circle", @"trash", @"character.bubble", @"doc.badge.arrow.up", @"xmark.circle" ];
-    NSArray<UIColor *> *colors = @[ UIColor.systemTealColor, UIColor.systemRedColor,
-                                    UIColor.systemPurpleColor, UIColor.systemOrangeColor,
-                                    UIColor.whiteColor ];
+    NSArray<NSString *> *titles = @[ @"All", @"Delete", @"Translate", @"Share", @"Export", @"Done" ];
+    NSArray<NSString *> *symbols = @[ @"checkmark.circle", @"trash", @"character.bubble", @"square.and.arrow.up", @"doc.badge.arrow.up", @"xmark.circle" ];
     NSArray<NSString *> *selectors = @[ NSStringFromSelector(@selector(selectAllThreadItems)),
                                         NSStringFromSelector(@selector(deleteSelectedThreadItems)),
                                         NSStringFromSelector(@selector(translateSelectedThreadItems)),
+                                        NSStringFromSelector(@selector(shareSelectedThreadItems)),
                                         NSStringFromSelector(@selector(exportSelectedThreadItems)),
                                         NSStringFromSelector(@selector(toggleThreadSelection)) ];
     UIStackView *stack = [UIStackView new];
@@ -6554,22 +6274,12 @@ static NSString *EZThreadExportTimestampNow(void) {
     NSMutableArray<UIButton *> *buttons = [NSMutableArray array];
     for (NSUInteger i = 0; i < titles.count; i++) {
         UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
-        UIColor *color = colors[i];
-        UIButtonConfiguration *config = [UIButtonConfiguration filledButtonConfiguration];
-        config.title = titles[i];
-        config.image = [UIImage systemImageNamed:symbols[i]];
-        config.imagePlacement = NSDirectionalRectEdgeTop;
-        config.imagePadding = 5;
-        config.baseForegroundColor = color;
-        config.baseBackgroundColor = [color colorWithAlphaComponent:(i == 5 ? 0.22 : 0.16)];
-        config.cornerStyle = UIButtonConfigurationCornerStyleMedium;
-        config.contentInsets = NSDirectionalEdgeInsetsMake(7, 3, 7, 3);
-        config.titleTextAttributesTransformer = ^NSDictionary<NSAttributedStringKey,id> * _Nonnull(NSDictionary<NSAttributedStringKey,id> * _Nonnull attributes) {
-            NSMutableDictionary *result = [attributes mutableCopy];
-            result[NSFontAttributeName] = [UIFont systemFontOfSize:12 weight:UIFontWeightBold];
-            return result;
-        };
-        button.configuration = config;
+        [button setTitle:titles[i] forState:UIControlStateNormal];
+        [button setImage:[UIImage systemImageNamed:symbols[i]] forState:UIControlStateNormal];
+        button.tintColor = UIColor.whiteColor;
+        button.titleLabel.font = [UIFont systemFontOfSize:10 weight:UIFontWeightBold];
+        button.imageView.contentMode = UIViewContentModeScaleAspectFit;
+        button.contentEdgeInsets = UIEdgeInsetsMake(4, 2, 4, 2);
         [button addTarget:self action:NSSelectorFromString(selectors[i]) forControlEvents:UIControlEventTouchUpInside];
         [stack addArrangedSubview:button];
         [buttons addObject:button];
@@ -6603,7 +6313,7 @@ static NSString *EZThreadExportTimestampNow(void) {
     self.threadSelectionActive = !self.threadSelectionActive;
     if (!self.threadSelectionActive) [self.selectedThreadMessageIndexes removeAllIndexes];
     self.threadSelectionBar.hidden = !self.threadSelectionActive;
-    [self.threadSelectionButton setTitle:self.threadSelectionActive ? @"DONE" : @"SEL"
+    [self.memoriesButton setTitle:self.threadSelectionActive ? @"Done" : @"Select"
                          forState:UIControlStateNormal];
     [self updateThreadSelectionUI];
 }
@@ -6615,7 +6325,7 @@ static NSString *EZThreadExportTimestampNow(void) {
         : @"Choose parts of this thread";
     for (NSUInteger i = 0; i < self.threadSelectionActionButtons.count; i++) {
         // All and Done remain useful before any item is selected.
-        self.threadSelectionActionButtons[i].enabled = (i == 0 || i == 4 || selectedCount > 0);
+        self.threadSelectionActionButtons[i].enabled = (i == 0 || i == 5 || selectedCount > 0);
         self.threadSelectionActionButtons[i].alpha = self.threadSelectionActionButtons[i].enabled ? 1.0 : 0.38;
     }
     [self.chatTableView reloadData];
@@ -6879,116 +6589,42 @@ static NSString *EZThreadExportTimestampNow(void) {
     }];
 }
 
-- (void)performThreadExportFormat:(NSString *)format name:(NSString *)name {
-    NSString *text = [self selectedThreadText];
-    NSArray *images = [self selectedThreadImageURLs];
-    NSData *data = nil;
-    if ([format isEqualToString:@"pdf"]) {
-        data = [self threadPDFDataWithSelectedMessages:[self selectedThreadMessages]
-                                                 title:name.length ? name : @"EZCompleteUI Thread"];
-    } else if ([format isEqualToString:@"rtf"]) {
-        NSAttributedString *attributed = [[NSAttributedString alloc] initWithString:text
-            attributes:@{ NSFontAttributeName: [UIFont systemFontOfSize:12] }];
-        data = [attributed dataFromRange:NSMakeRange(0, text.length)
-                      documentAttributes:@{ NSDocumentTypeDocumentAttribute: NSRTFTextDocumentType }
-                                   error:nil];
-    } else {
-        data = [text dataUsingEncoding:NSUTF8StringEncoding];
-    }
-    NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory()
-        stringByAppendingPathComponent:[self threadExportFilenameFromName:name extension:format]]];
-    [data writeToURL:url atomically:YES];
-    NSMutableArray *items = [NSMutableArray arrayWithObject:url];
-    if ([format isEqualToString:@"txt"]) [items addObjectsFromArray:images];
-    UIActivityViewController *share = [[UIActivityViewController alloc]
-        initWithActivityItems:items applicationActivities:nil];
-    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
-        share.popoverPresentationController.sourceView = self.threadSelectionBar;
-        share.popoverPresentationController.sourceRect = self.threadSelectionBar.bounds;
-    }
-    [self presentViewController:share animated:YES completion:nil];
-}
-
-- (void)presentThreadExportFormatMenuWithName:(NSString *)name {
-    UIView *card = [self presentThreadActionCardWithTitle:@"Export selection"
-                                                   detail:@"Choose how to package the selected conversation."];
-    NSArray<NSArray<NSString *> *> *options = @[
-        @[ @"PDF", @"doc.richtext", @"Text, cards, and images in one document", @"pdf" ],
-        @[ @"Rich Text", @"text.document", @"Editable .rtf document", @"rtf" ],
-        @[ @"Text + images", @"photo.on.rectangle", @"Plain text plus the original image files", @"txt" ],
-    ];
-    UIStackView *stack = [UIStackView new];
-    stack.translatesAutoresizingMaskIntoConstraints = NO;
-    stack.axis = UILayoutConstraintAxisVertical;
-    stack.spacing = 10;
-    [card addSubview:stack];
-    __weak typeof(self) weakSelf = self;
-    for (NSArray<NSString *> *option in options) {
-        UIButton *button = [self threadActionButtonWithTitle:option[0] symbol:option[1]
-                                                        color:[UIColor colorWithRed:0.12 green:0.82 blue:1.0 alpha:1]];
-        button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
-        [button addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
-            [weakSelf dismissThreadActionOverlay];
-            [weakSelf performThreadExportFormat:option[3] name:name];
-        }] forControlEvents:UIControlEventTouchUpInside];
-        [stack addArrangedSubview:button];
-    }
-    UIButton *cancel = [self threadActionButtonWithTitle:@"Cancel" symbol:@"xmark"
-                                                    color:[UIColor colorWithWhite:0.78 alpha:1]];
-    [cancel addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { [weakSelf dismissThreadActionOverlay]; }]
-      forControlEvents:UIControlEventTouchUpInside];
-    [card addSubview:cancel];
-    [NSLayoutConstraint activateConstraints:@[
-        [stack.topAnchor constraintEqualToAnchor:card.topAnchor constant:88],
-        [stack.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:18],
-        [stack.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
-        [cancel.topAnchor constraintEqualToAnchor:stack.bottomAnchor constant:14],
-        [cancel.leadingAnchor constraintEqualToAnchor:stack.leadingAnchor],
-        [cancel.trailingAnchor constraintEqualToAnchor:stack.trailingAnchor],
-        [cancel.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
-    ]];
-}
-
 - (void)exportSelectedThreadItems {
-    UIView *card = [self presentThreadActionCardWithTitle:@"Export thread"
-                                                   detail:@"Name this selection, then choose its export format."];
-    UITextField *field = [UITextField new];
-    field.translatesAutoresizingMaskIntoConstraints = NO;
-    field.text = self.activeThread.title ?: @"EZCompleteUI Thread";
-    field.placeholder = @"Export name";
-    field.textColor = UIColor.whiteColor;
-    field.backgroundColor = [UIColor colorWithWhite:1 alpha:0.08];
-    field.layer.cornerRadius = 13;
-    field.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 13, 1)];
-    field.leftViewMode = UITextFieldViewModeAlways;
-    [card addSubview:field];
-    UIButton *cancel = [self threadActionButtonWithTitle:@"Cancel" symbol:@"xmark"
-                                                    color:[UIColor colorWithWhite:0.78 alpha:1]];
-    UIButton *continueButton = [self threadActionButtonWithTitle:@"Choose format" symbol:@"arrow.right"
-                                                            color:[UIColor colorWithRed:0.12 green:0.82 blue:1.0 alpha:1]];
-    [card addSubview:cancel]; [card addSubview:continueButton];
-    __weak typeof(self) weakSelf = self;
-    [cancel addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { [weakSelf dismissThreadActionOverlay]; }]
-      forControlEvents:UIControlEventTouchUpInside];
-    [continueButton addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
-        NSString *name = [field.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        [weakSelf presentThreadExportFormatMenuWithName:name.length ? name : @"EZCompleteUI Thread"];
-    }] forControlEvents:UIControlEventTouchUpInside];
-    [NSLayoutConstraint activateConstraints:@[
-        [field.topAnchor constraintEqualToAnchor:card.topAnchor constant:86],
-        [field.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:18],
-        [field.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
-        [field.heightAnchor constraintEqualToConstant:52],
-        [cancel.topAnchor constraintEqualToAnchor:field.bottomAnchor constant:16],
-        [cancel.leadingAnchor constraintEqualToAnchor:field.leadingAnchor],
-        [continueButton.topAnchor constraintEqualToAnchor:cancel.topAnchor],
-        [continueButton.leadingAnchor constraintEqualToAnchor:cancel.trailingAnchor constant:10],
-        [continueButton.trailingAnchor constraintEqualToAnchor:field.trailingAnchor],
-        [cancel.widthAnchor constraintEqualToAnchor:continueButton.widthAnchor],
-        [cancel.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
-        [continueButton.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
-    ]];
-    [field becomeFirstResponder];
+    UIAlertController *nameAlert = [UIAlertController alertControllerWithTitle:@"Export thread"
+        message:@"Name the selected export, then choose a format." preferredStyle:UIAlertControllerStyleAlert];
+    [nameAlert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.text = self.activeThread.title ?: @"EZCompleteUI Thread"; }];
+    [nameAlert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [nameAlert addAction:[UIAlertAction actionWithTitle:@"Continue" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        NSString *name = nameAlert.textFields.firstObject.text ?: @"";
+        UIAlertController *formats = [UIAlertController alertControllerWithTitle:@"Export format" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+        void (^performExport)(NSString *) = ^(NSString *format) {
+            NSString *text = [self selectedThreadText]; NSArray *images = [self selectedThreadImageURLs]; NSData *data = nil;
+            if ([format isEqualToString:@"pdf"]) {
+                data = [self threadPDFDataWithSelectedMessages:[self selectedThreadMessages] title:name.length ? name : @"EZCompleteUI Thread"];
+            } else if ([format isEqualToString:@"rtf"]) {
+                NSAttributedString *attributed = [[NSAttributedString alloc] initWithString:text
+                    attributes:@{ NSFontAttributeName: [UIFont systemFontOfSize:12] }];
+                data = [attributed dataFromRange:NSMakeRange(0, text.length)
+                              documentAttributes:@{ NSDocumentTypeDocumentAttribute: NSRTFTextDocumentType }
+                                           error:nil];
+            } else {
+                data = [text dataUsingEncoding:NSUTF8StringEncoding];
+            }
+            NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[self threadExportFilenameFromName:name extension:format]]];
+            [data writeToURL:url atomically:YES];
+            NSMutableArray *items = [NSMutableArray arrayWithObject:url]; if ([format isEqualToString:@"txt"]) [items addObjectsFromArray:images];
+            UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
+            if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) { share.popoverPresentationController.sourceView = self.threadSelectionBar; share.popoverPresentationController.sourceRect = self.threadSelectionBar.bounds; }
+            [self presentViewController:share animated:YES completion:nil];
+        };
+        [formats addAction:[UIAlertAction actionWithTitle:@"PDF (text and images)" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) { performExport(@"pdf"); }]];
+        [formats addAction:[UIAlertAction actionWithTitle:@"Rich Text (.rtf)" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) { performExport(@"rtf"); }]];
+        [formats addAction:[UIAlertAction actionWithTitle:@"Text + original images" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) { performExport(@"txt"); }]];
+        [formats addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+        if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) { formats.popoverPresentationController.sourceView = self.threadSelectionBar; formats.popoverPresentationController.sourceRect = self.threadSelectionBar.bounds; }
+        [self presentViewController:formats animated:YES completion:nil];
+    }]];
+    [self presentViewController:nameAlert animated:YES completion:nil];
 }
 
 /// Primary append entry point. Detects role from prefix ("You: ", "AI: "),
@@ -7104,307 +6740,6 @@ static NSString *EZThreadExportTimestampNow(void) {
 
 /// Legacy name kept so all existing call sites compile unchanged.
 - (void)appendToOldChat:(NSString *)text { [self appendToChat:text]; }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - Chat music (create_music tool)
-// ─────────────────────────────────────────────────────────────────────────────
-// Flow: ez-chat returns a music_request -> performChatMusicRequest: validates
-// and clamps it -> EZMusicService starts the song (the server charges) ->
-// pollGenerationWithID: waits for it -> the MP3 is kept on the device -> a
-// song card and a _ui_music thread event are added. Nothing here decides a
-// price; see the header comment at the top of this file.
-
-/// The longest song a chat model may ask for. ez-chat clamps the same number;
-/// ez-music enforces its own limits no matter what either one sends.
-static NSInteger const kEZChatMusicMaxSeconds = 120;
-
-/// How a song looks in the chat's UI-only thread timeline.
-static NSDictionary *EZChatMusicEvent(NSString *entryID, NSString *title, NSString *prompt,
-                                      NSInteger durationSeconds, BOOL isError, NSString *errorText,
-                                      NSString *timestamp) {
-    return @{
-        @"role": @"_ui_music",
-        @"entryID": entryID ?: @"",
-        @"title": title ?: @"",
-        @"prompt": prompt ?: @"",
-        @"durationSeconds": @(durationSeconds),
-        @"isError": @(isError),
-        @"errorText": errorText ?: @"",
-        @"timestamp": timestamp ?: @"time unavailable",
-        @"_uiOnly": @YES,
-    };
-}
-
-/// Turns a stored _ui_music event into the display row the song card draws.
-static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
-    NSInteger seconds = [event[@"durationSeconds"] respondsToSelector:@selector(integerValue)]
-        ? [event[@"durationSeconds"] integerValue] : 0;
-    return @{
-        @"role": @"music",
-        @"entryID": event[@"entryID"] ?: @"",
-        @"title": event[@"title"] ?: @"AI song",
-        @"subtitle": @"AI song",
-        // The card shows the length (and plays it) itself; see EZMusicBubbleCell.
-        @"durationSeconds": @(MAX(seconds, 0)),
-        @"timestamp": event[@"timestamp"] ?: @"time unavailable",
-    };
-}
-
-- (void)performChatMusicRequest:(NSDictionary *)musicRequest {
-    NSString *prompt = [musicRequest[@"prompt"] isKindOfClass:[NSString class]]
-        ? [musicRequest[@"prompt"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
-    NSString *title = [musicRequest[@"title"] isKindOfClass:[NSString class]]
-        ? [musicRequest[@"title"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
-    NSString *lyrics = [musicRequest[@"lyrics"] isKindOfClass:[NSString class]]
-        ? [musicRequest[@"lyrics"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
-    BOOL instrumental = [musicRequest[@"instrumental"] respondsToSelector:@selector(boolValue)]
-        && [musicRequest[@"instrumental"] boolValue];
-    NSInteger requestedSeconds = [musicRequest[@"duration_seconds"] respondsToSelector:@selector(integerValue)]
-        ? [musicRequest[@"duration_seconds"] integerValue] : 60;
-
-    if (prompt.length == 0 || prompt.length > 4100 || lyrics.length > 6100) {
-        [self handleAPIError:@"The song request was incomplete. Please try again."];
-        return;
-    }
-    if (title.length > 120) title = [title substringToIndex:120];
-    // Lyrics and an instrumental flag contradict each other; keep the lyrics.
-    if (lyrics.length > 0) instrumental = NO;
-
-    NSString *threadID = self.activeThread.threadID;
-    NSString *timestamp = EZThreadExportTimestampNow();
-    self.sendButton.enabled = NO;
-    [self appendToChat:@"[System: Preparing your song...]"];
-
-    __weak typeof(self) weakSelf = self;
-    [[EZMusicService sharedService] fetchConfigWithCompletion:^(NSDictionary *config, NSError *configError) {
-        __strong typeof(weakSelf) strongSelf = weakSelf;
-        if (!strongSelf) return;
-        strongSelf.sendButton.enabled = YES;
-
-        if (!config) {
-            [strongSelf handleAPIError:[NSString stringWithFormat:@"Couldn't reach AI Music: %@",
-                configError.localizedDescription ?: @"please try again."]];
-            return;
-        }
-        if (![config[@"enabled"] boolValue]) {
-            [strongSelf appendToChat:@"[System: AI Music is temporarily unavailable. Please try again later.]"];
-            return;
-        }
-
-        // Clamp to what the server allows, and to the shorter chat limit.
-        NSInteger minimumSeconds = [config[@"minimum_song_duration_seconds"] integerValue];
-        NSInteger maximumSeconds = [config[@"max_song_duration_seconds"] integerValue];
-        if (minimumSeconds <= 0) minimumSeconds = 10;
-        if (maximumSeconds <= 0) maximumSeconds = kEZChatMusicMaxSeconds;
-        maximumSeconds = MIN(maximumSeconds, kEZChatMusicMaxSeconds);
-        NSInteger seconds = MAX(minimumSeconds, MIN(requestedSeconds, maximumSeconds));
-
-        // Quote only for the "not enough coins" check and the status line. The
-        // server recomputes the real charge from its own rules.
-        double coinsPerMinute = [config[@"coins_per_minute"] doubleValue];
-        NSInteger minimumCharge = [config[@"minimum_generation_charge"] integerValue];
-        NSInteger quotedCoins = MAX(minimumCharge, (NSInteger)ceil(((double)seconds / 60.0) * coinsPerMinute));
-        NSNumber *knownBalance = [EZEntitlementManager shared].coinBalance;
-        if (knownBalance && knownBalance.integerValue < quotedCoins) {
-            [strongSelf appendToChat:[NSString stringWithFormat:
-                @"[System: This song needs about %ld coins and you have %ld.]",
-                (long)quotedCoins, (long)knownBalance.integerValue]];
-            [strongSelf presentCoinStoreForFeature:@"AI music"];
-            return;
-        }
-
-        [[EZMusicService sharedService]
-            startGenerationWithPrompt:prompt
-                               lyrics:(lyrics.length > 0 ? lyrics : nil)
-                         referenceURL:nil
-                        referenceMode:nil
-                                title:title
-                      durationSeconds:seconds
-                         variantCount:1
-                    forceInstrumental:instrumental
-                           completion:^(NSString *generationID, NSArray<NSDictionary *> *startedEntries,
-                                        NSInteger balanceAfter, NSError *startError) {
-            __strong typeof(weakSelf) innerSelf = weakSelf;
-            if (!innerSelf) return;
-            if (startError) { [innerSelf handleChatMusicStartError:startError]; return; }
-
-            [innerSelf updateCoinBalanceDisplay];
-            NSString *shownTitle = title.length > 0 ? title : @"your song";
-            [innerSelf appendToChat:[NSString stringWithFormat:
-                @"[System: Composing \"%@\" (about %ld sec, up to %ld coins). It will appear here when it's ready; unfinished songs are refunded automatically.]",
-                shownTitle, (long)seconds, (long)quotedCoins]];
-            [innerSelf trackChatMusicGenerationID:generationID title:title prompt:prompt
-                                  requestedSeconds:seconds threadID:threadID timestamp:timestamp];
-        }];
-    }];
-}
-
-/// Explains a failed start in chat and, for the cases that have an obvious next
-/// step, offers it (coin store).
-- (void)handleChatMusicStartError:(NSError *)error {
-    NSString *serverCode = [error.userInfo[EZMusicServiceServerCodeKey] isKindOfClass:[NSString class]]
-        ? error.userInfo[EZMusicServiceServerCodeKey] : @"";
-    if ([serverCode isEqualToString:@"insufficient_coins"]) {
-        [self appendToChat:@"[System: You don't have enough coins for this song.]"];
-        [self presentCoinStoreForFeature:@"AI music"];
-    } else if ([serverCode isEqualToString:@"too_many_active"]) {
-        [self appendToChat:@"[System: You already have songs being created. Wait for them to finish, then ask again.]"];
-    } else if (error.code == EZMusicServiceErrorNetwork || error.code == EZMusicServiceErrorBadResponse) {
-        // The server may have accepted the request even though we never heard back.
-        [self appendToChat:@"[System: The connection dropped before we heard back about your song. Check AI Music: if it isn't there, you weren't charged and you can ask again.]"];
-    } else {
-        [self appendToChat:[NSString stringWithFormat:@"[System: Couldn't start the song: %@]",
-            error.localizedDescription ?: @"please try again."]];
-    }
-}
-
-/// Watches one chat song until it finishes, then adds its card.
-- (void)trackChatMusicGenerationID:(NSString *)generationID
-                             title:(NSString *)requestedTitle
-                            prompt:(NSString *)prompt
-                  requestedSeconds:(NSInteger)requestedSeconds
-                          threadID:(NSString *)threadID
-                         timestamp:(NSString *)timestamp {
-    if (generationID.length == 0) return;
-    if (!self.chatMusicPollTokens) self.chatMusicPollTokens = [NSMutableDictionary dictionary];
-    if (self.chatMusicPollTokens[generationID]) return;
-
-    __weak typeof(self) weakSelf = self;
-    EZMusicPollToken *pollToken = [[EZMusicService sharedService]
-        pollGenerationWithID:generationID
-                    progress:nil
-                  completion:^(NSArray<NSDictionary *> *finalEntries, NSError *pollError) {
-        __strong typeof(weakSelf) strongSelf = weakSelf;
-        if (!strongSelf) return;
-        [strongSelf.chatMusicPollTokens removeObjectForKey:generationID];
-
-        NSDictionary *finishedEntry = nil;
-        NSString *failureText = nil;
-        for (NSDictionary *entry in finalEntries) {
-            if ([entry[@"status"] isEqual:@"complete"]) { finishedEntry = entry; break; }
-            if (!failureText && [entry[@"status"] isEqual:@"failed"] &&
-                [entry[@"error_text"] isKindOfClass:[NSString class]]) {
-                failureText = entry[@"error_text"];
-            }
-        }
-        [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {}];
-
-        if (!finishedEntry) {
-            NSString *reason = failureText.length > 0 ? failureText
-                : (pollError.localizedDescription ?: @"The song couldn't be created.");
-            BOOL refunded = (failureText.length > 0);
-            NSString *message = refunded
-                ? [NSString stringWithFormat:@"%@ Your coins for this song were refunded.", reason]
-                : [NSString stringWithFormat:@"%@ If it finishes, it will be in AI Music.", reason];
-            [strongSelf deliverChatMusicEvent:EZChatMusicEvent(@"", requestedTitle, prompt, requestedSeconds,
-                                                                YES, message, timestamp)
-                                     toThread:threadID];
-            return;
-        }
-
-        NSString *entryID = [finishedEntry[@"id"] isKindOfClass:[NSString class]] ? finishedEntry[@"id"] : @"";
-        NSString *finalTitle = [finishedEntry[@"title"] isKindOfClass:[NSString class]] && [finishedEntry[@"title"] length] > 0
-            ? finishedEntry[@"title"] : (requestedTitle.length > 0 ? requestedTitle : @"AI song");
-        NSInteger actualSeconds = [finishedEntry[@"duration_actual_ms"] respondsToSelector:@selector(integerValue)]
-            ? (NSInteger)llround([finishedEntry[@"duration_actual_ms"] doubleValue] / 1000.0) : 0;
-        NSInteger shownSeconds = actualSeconds > 0 ? actualSeconds : requestedSeconds;
-
-        // Keep the MP3 on the device so Play and Share work offline. If this
-        // fails the card is still added; its buttons download the file on demand.
-        [[EZMusicService sharedService] fetchPlaybackURLForEntryID:entryID forDownload:NO
-                                                        completion:^(NSURL *remoteURL, NSError *linkError) {
-            void (^addCard)(void) = ^{
-                __strong typeof(weakSelf) innerSelf = weakSelf;
-                if (!innerSelf) return;
-                [innerSelf deliverChatMusicEvent:EZChatMusicEvent(entryID, finalTitle, prompt, shownSeconds,
-                                                                   NO, nil, timestamp)
-                                        toThread:threadID];
-            };
-            if (!remoteURL) {
-                EZLogf(EZLogLevelWarning, @"Music", @"No download link for chat song %@: %@",
-                       entryID, linkError.localizedDescription);
-                addCard();
-                return;
-            }
-            [[EZMusicLibraryManager sharedManager] retainSongFromRemoteURL:remoteURL entry:finishedEntry
-                                                                completion:^(NSURL *localURL, NSError *saveError) {
-                if (saveError) {
-                    EZLogf(EZLogLevelWarning, @"Music", @"Could not keep chat song %@ locally: %@",
-                           entryID, saveError.localizedDescription);
-                }
-                addCard();
-            }];
-        }];
-    }];
-    self.chatMusicPollTokens[generationID] = pollToken;
-}
-
-/// Puts a finished (or failed) song into the chat that asked for it. If that
-/// chat is on screen the card appears right away; otherwise the event is
-/// written into the saved thread so it is there when the user returns.
-- (void)deliverChatMusicEvent:(NSDictionary *)event toThread:(NSString *)threadID {
-    BOOL isError = [event[@"isError"] boolValue];
-
-    if ([self.activeThread.threadID isEqualToString:threadID]) {
-        if (isError) {
-            [self appendToChat:[NSString stringWithFormat:@"[System: %@]", event[@"errorText"] ?: @"The song couldn't be created."]];
-        } else {
-            [self.displayMessages addObject:EZChatMusicDisplayMessage(event)];
-            [self reloadAndScrollTable];
-        }
-        [self.chatContext addObject:event];
-        [self saveActiveThread];
-        [self indexCompletedChatMusicEvent:event threadID:threadID];
-        return;
-    }
-
-    // The user is in a different chat now: add the event to the saved thread.
-    EZChatThread *originalThread = threadID.length > 0 ? EZThreadLoad(threadID) : nil;
-    if (!originalThread) {
-        EZLogf(EZLogLevelWarning, @"Music", @"Song finished but its chat %@ no longer exists", threadID);
-        return;
-    }
-    NSMutableArray *context = [originalThread.chatContext mutableCopy] ?: [NSMutableArray array];
-    [context addObject:event];
-    originalThread.chatContext = [context copy];
-    EZThreadSave(originalThread, nil);
-    [self indexCompletedChatMusicEvent:event threadID:threadID];
-}
-
-/// A completed chat song is a real assistant outcome, not just a decorative
-/// timeline card. Index it after it has been written to its source thread so
-/// memory search can find the song title and scene/style prompt later.
-- (void)indexCompletedChatMusicEvent:(NSDictionary *)event threadID:(NSString *)threadID {
-    if ([event[@"isError"] boolValue]) return;
-    NSString *token = [EZAuthManager shared].accessToken;
-    NSString *prompt = [event[@"prompt"] isKindOfClass:NSString.class] ? event[@"prompt"] : @"";
-    NSString *title = [event[@"title"] isKindOfClass:NSString.class] ? event[@"title"] : @"AI song";
-    NSString *entryID = [event[@"entryID"] isKindOfClass:NSString.class] ? event[@"entryID"] : @"";
-    if (!token.length || !prompt.length) {
-        EZLog(EZLogLevelWarning, @"MEMORY", @"Skipped chat music memory: missing session token or song prompt");
-        return;
-    }
-    NSString *assistantReply = [NSString stringWithFormat:
-        @"Created the AI song \"%@\" and saved it in AI Music. Song ID: %@. The track is available in this chat with Play and Share controls.",
-        title, entryID.length ? entryID : @"unavailable"];
-    createMemoryFromCompletion(prompt, assistantReply, token, threadID, @[], ^(NSString *entry) {
-        if (entry) {
-            EZLogf(EZLogLevelInfo, @"MEMORY", @"Indexed completed chat song %@", entryID.length ? entryID : title);
-        }
-    });
-}
-
-/// Text the chat model sees for a song event, so follow-ups like "make it
-/// faster" know what already happened.
-- (NSString *)ez_chatMusicSummaryForEvent:(NSDictionary *)event {
-    if ([event[@"isError"] boolValue]) {
-        return [NSString stringWithFormat:@"Song creation failed. Request: %@. Error: %@",
-                event[@"prompt"] ?: @"", event[@"errorText"] ?: @"Unknown error"];
-    }
-    return [NSString stringWithFormat:
-        @"Song \"%@\" completed; it is shown in chat with Play and Share buttons and saved in AI Music. Request: %@",
-        event[@"title"] ?: @"AI song", event[@"prompt"] ?: @""];
-}
 
 // ── Inline image grid insertion ───────────────────────────────────────────────
 
@@ -7561,17 +6896,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
                             errorText:msg[@"errorText"]
                  presentingController:self];
         [self configureThreadSelectionDotForCell:cell indexPath:indexPath];
-        return cell;
-    }
-
-    if ([role isEqualToString:@"music"]) {
-        EZMusicBubbleCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZMusic"
-                                                                  forIndexPath:indexPath];
-        [cell configureWithTitle:msg[@"title"] ?: @"AI song"
-                        subtitle:msg[@"subtitle"] ?: @"AI song"
-                 durationSeconds:[msg[@"durationSeconds"] integerValue]
-                         entryID:msg[@"entryID"] ?: @""
-            presentingController:self];
         return cell;
     }
 
