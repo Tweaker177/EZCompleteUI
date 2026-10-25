@@ -1,5 +1,5 @@
 // EZMusicLibraryManager.h
-// EZCompleteUI v1.1
+// EZCompleteUI v1.2
 //
 // Purpose:
 //   Owns the on-device copy of generated songs: Documents/EZMusic/Songs holds
@@ -11,6 +11,9 @@
 //   Songs are created on the server by the ez-music Edge Function (see
 //   EZMusicService). This class only keeps the downloaded audio and the small
 //   amount of metadata (title, prompt, lyrics, length) that goes with it.
+//
+// Changes from v1.1:
+//   - Added -localSongRecordForEntryID: (saved title/prompt/lyrics of a song).
 //
 // Changes from v1.0:
 //   - Added -retainSongFromRemoteURL:entry:completion: so the AI Music screen
@@ -28,6 +31,11 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)sharedManager;
 @property (nonatomic, readonly) NSURL *libraryRootURL;
 - (nullable NSURL *)localSongURLForEntryID:(NSString *)entryID;
+
+/// The saved details of a song kept on this device (title, prompt, lyrics, ...),
+/// or nil if it isn't saved here. The lyrics are only known to the app if they
+/// were saved with the song, which is why callers that need them ask here.
+- (nullable NSDictionary *)localSongRecordForEntryID:(NSString *)entryID;
 /// Entry IDs in the on-device song manifest, in archive order. This is the
 /// offline playlist source; references are deliberately excluded.
 - (NSArray<NSString *> *)localSongEntryIDs;

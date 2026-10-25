@@ -28,6 +28,10 @@ Supabase Edge Function deployments and migrations.
   longer stops the song, and playback has the same lock-screen controls and
   cover art. The rest of your downloaded songs queue up after the one you
   start, so the playlist keeps going. Playing anything else replaces it.
+- Double-tap a song's cover in the AI Music library to make a new one (also
+  works on songs that have no cover). It costs the same as an automatic cover
+  and shows a spinner while it works; the old cover stays until the new one is
+  ready.
 - Text to Speech (the generator screen and History) now plays through the shared
   player too: lock-screen / Control Center controls now work for TTS clips,
   clips keep playing after you leave the screen, and clips keep their saved

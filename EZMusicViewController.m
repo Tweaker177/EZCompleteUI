@@ -1,5 +1,5 @@
 // EZMusicViewController.m
-// EZCompleteUI v1.4
+// EZCompleteUI v1.5
 //
 // Purpose:
 //   The "AI Music" screen. See EZMusicViewController.h for the overview.
@@ -32,6 +32,13 @@
 //       and the song is waiting in the Library next time.
 //     - Pagination uses an inclusive timestamp cursor and de-duplicates by id,
 //       so variants created at the same instant are never skipped.
+//
+// Changes from v1.4:
+//   - Double-tapping a song's cover art in the Library asks
+//     EZMusicArtworkService for a new cover (works for songs that have no cover
+//     yet too). The cover shows a spinner while it is made; failures are
+//     explained in an alert. VoiceOver gets the same action in the row's
+//     actions menu.
 //
 // Changes from v1.3:
 //   - Playback now goes through the app-wide EZMediaPlayerManager instead of a
@@ -273,6 +280,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, strong) UIImageView *favoriteView;
 // Square cover art (or a music-note placeholder) between the play button and the title.
 @property (nonatomic, strong) UIImageView *artworkView;
+@property (nonatomic, strong) UIActivityIndicatorView *artworkSpinner;
+@property (nonatomic, copy, nullable) void (^artworkDoubleTapHandler)(void);
 @property (nonatomic, strong) EZMusicWaveformView *waveformView;
 @property (nonatomic, strong) NSLayoutConstraint *waveformHeightConstraint;
 @property (nonatomic, copy, nullable) void (^playHandler)(void);
@@ -287,6 +296,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
              waveformURL:(nullable NSURL *)waveformURL
       waveformIdentifier:(NSString *)waveformIdentifier;
 - (void)setArtwork:(nullable UIImage *)artwork;
+- (void)setArtworkBusy:(BOOL)busy;
 @end
 
 @implementation EZMusicTrackCell
@@ -314,7 +324,22 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _artworkView.layer.cornerRadius = 8;
     _artworkView.clipsToBounds = YES;
     _artworkView.isAccessibilityElement = NO;
+    // Double-tap the cover to make a new one (the handler is set per row).
+    _artworkView.userInteractionEnabled = YES;
+    UITapGestureRecognizer *artworkDoubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(artworkDoubleTapped)];
+    artworkDoubleTap.numberOfTapsRequired = 2;
+    [_artworkView addGestureRecognizer:artworkDoubleTap];
     [self.contentView addSubview:_artworkView];
+
+    _artworkSpinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    _artworkSpinner.translatesAutoresizingMaskIntoConstraints = NO;
+    _artworkSpinner.hidesWhenStopped = YES;
+    _artworkSpinner.userInteractionEnabled = NO;
+    [_artworkView addSubview:_artworkSpinner];
+    [NSLayoutConstraint activateConstraints:@[
+        [_artworkSpinner.centerXAnchor constraintEqualToAnchor:_artworkView.centerXAnchor],
+        [_artworkSpinner.centerYAnchor constraintEqualToAnchor:_artworkView.centerYAnchor],
+    ]];
 
     _titleLabel = [[UILabel alloc] init];
     _titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -403,9 +428,22 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     }
 }
 
+- (void)artworkDoubleTapped {
+    if (self.artworkDoubleTapHandler) self.artworkDoubleTapHandler();
+}
+
+/// Dims the cover and shows a spinner while a new one is being made.
+- (void)setArtworkBusy:(BOOL)busy {
+    self.artworkView.alpha = busy ? 0.45 : 1.0;
+    if (busy) [self.artworkSpinner startAnimating]; else [self.artworkSpinner stopAnimating];
+}
+
 - (void)prepareForReuse {
     [super prepareForReuse];
     self.playHandler = nil;
+    self.artworkDoubleTapHandler = nil;
+    self.accessibilityCustomActions = nil;
+    [self setArtworkBusy:NO];
     [self.spinner stopAnimating];
     self.progressView.progress = 0;
     self.progressView.hidden = YES;
@@ -528,6 +566,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 @property (nonatomic, readonly, nullable) NSString *playingEntryID;   // library song loaded in the shared player (may be paused)
 @property (nonatomic, readonly) BOOL isPlaybackActive;                // that song is actually playing
 @property (nonatomic, copy, nullable) NSString *loadingEntryID;       // song whose download link is being fetched
+@property (nonatomic, strong) NSMutableSet<NSString *> *regeneratingArtworkEntryIDs;   // covers being remade on request
 @property (nonatomic, copy, nullable) NSString *lastStartedEntryID;   // last song this screen started (to report its failures)
 @property (nonatomic, copy, nullable) NSString *lastObservedEntryID;  // what the rows last showed, to spot changes
 @property (nonatomic, assign) EZMediaPlayerState lastObservedState;
@@ -569,6 +608,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.pollTokens = [NSMutableDictionary dictionary];
     self.announcedGenerationIDs = [NSMutableSet set];
     self.retainingEntryIDs = [NSMutableSet set];
+    self.regeneratingArtworkEntryIDs = [NSMutableSet set];
     // Covers are made a few seconds after a song finishes; refresh its row when one lands.
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(artworkDidUpdate:)
                                                  name:EZMusicArtworkDidUpdateNotification object:nil];
@@ -1798,6 +1838,43 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     return row == NSNotFound ? nil : self.entries[(NSUInteger)row];
 }
 
+/// Double-tap on a cover: make a new one. The server charges coins for it
+/// (through ez-image), so the row shows a spinner and a second request for the
+/// same song is ignored until this one ends.
+- (void)regenerateArtworkForEntryID:(NSString *)entryID {
+    NSDictionary *entry = [self entryForID:entryID];
+    if (!entry || [self.regeneratingArtworkEntryIDs containsObject:entryID]) return;
+    if (![EZMusicString(entry[@"status"]) isEqualToString:@"complete"]) return;
+
+    [self.regeneratingArtworkEntryIDs addObject:entryID];
+    [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium] impactOccurred];
+    [self reloadRowForEntryID:entryID];
+
+    // The library row may not carry the lyrics; fill in anything missing from
+    // the copy saved on this device so the new cover is based on them.
+    NSMutableDictionary *artworkEntry = [entry mutableCopy];
+    NSDictionary *savedRecord = [[EZMusicLibraryManager sharedManager] localSongRecordForEntryID:entryID];
+    for (NSString *key in @[ @"title", @"lyrics", @"prompt" ]) {
+        if (EZMusicString(artworkEntry[key]).length == 0 && EZMusicString(savedRecord[key]).length > 0) {
+            artworkEntry[key] = savedRecord[key];
+        }
+    }
+    __weak typeof(self) weakSelf = self;
+    [[EZMusicArtworkService sharedService] regenerateArtworkForEntry:artworkEntry
+                                                          completion:^(BOOL success, NSString *errorMessage) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        [strongSelf.regeneratingArtworkEntryIDs removeObject:entryID];
+        [strongSelf reloadRowForEntryID:entryID];
+        if (success) {
+            [[[UINotificationFeedbackGenerator alloc] init] notificationOccurred:UINotificationFeedbackTypeSuccess];
+        } else {
+            [strongSelf presentAlertWithTitle:EZMusicText(@"EZMusic.NewCover.FailedTitle", @"No New Cover")
+                                      message:errorMessage ?: @"Please try again."];
+        }
+    }];
+}
+
 - (void)artworkDidUpdate:(NSNotification *)notification {
     [self reloadRowForEntryID:notification.userInfo[EZMusicArtworkEntryIDKey]];
 }
@@ -2024,9 +2101,22 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
           waveformIdentifier:entryID];
 
     [cell setArtwork:[[EZMusicArtworkService sharedService] cachedArtworkForEntryID:entryID]];
+    [cell setArtworkBusy:[self.regeneratingArtworkEntryIDs containsObject:entryID]];
 
     __weak typeof(self) weakSelf = self;
     cell.playHandler = ^{ [weakSelf togglePlaybackForEntryID:entryID]; };
+    // Only finished songs can get a new cover.
+    if ([EZMusicString(entry[@"status"]) isEqualToString:@"complete"]) {
+        cell.artworkDoubleTapHandler = ^{ [weakSelf regenerateArtworkForEntryID:entryID]; };
+        // Same action for VoiceOver users, who can't double-tap an image.
+        cell.accessibilityCustomActions = @[
+            [[UIAccessibilityCustomAction alloc] initWithName:EZMusicText(@"EZMusic.A11y.NewCover", @"Make new cover art")
+                                                        actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
+                [weakSelf regenerateArtworkForEntryID:entryID];
+                return YES;
+            }],
+        ];
+    }
     return cell;
 }
 

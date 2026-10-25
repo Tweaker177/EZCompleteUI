@@ -1,5 +1,5 @@
 // EZMusicLibraryManager.m
-// EZCompleteUI v1.2
+// EZCompleteUI v1.3
 //
 // Purpose:
 //   Implementation of the on-device song library described in
@@ -10,6 +10,9 @@
 //   - Added -retainSongFromRemoteURL:entry:completion: (download + archive,
 //     with one shared download per entry).
 //   - Added this header comment.
+//
+// Changes from v1.2:
+//   - Added -localSongRecordForEntryID:.
 //
 // Changes from v1.1:
 //   - After a NEW song is saved on the device, cover art generation is
@@ -49,6 +52,20 @@ static NSString *EZMusicStyleLabel(NSString *prompt) {
 - (instancetype)initPrivate { if ((self = [super init])) { _queue = dispatch_queue_create("com.ez.musiclibrary", DISPATCH_QUEUE_SERIAL); NSURL *docs = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject; _libraryRootURL = [docs URLByAppendingPathComponent:@"EZMusic" isDirectory:YES]; _songsURL = [_libraryRootURL URLByAppendingPathComponent:@"Songs" isDirectory:YES]; _referencesURL = [_libraryRootURL URLByAppendingPathComponent:@"References" isDirectory:YES]; _stagingURL = [_libraryRootURL URLByAppendingPathComponent:@"Staging" isDirectory:YES]; _manifestURL = [_libraryRootURL URLByAppendingPathComponent:@"Manifest.json"]; _items = [NSMutableArray array]; [self setup]; NSData *data = [NSData dataWithContentsOfURL:_manifestURL]; NSDictionary *manifest = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil; for (id item in [manifest[@"items"] isKindOfClass:NSArray.class] ? manifest[@"items"] : @[]) if ([item isKindOfClass:NSDictionary.class]) [_items addObject:item]; [self persist]; } return self; }
 - (void)setup { [NSFileManager.defaultManager createDirectoryAtURL:self.songsURL withIntermediateDirectories:YES attributes:nil error:nil]; [NSFileManager.defaultManager createDirectoryAtURL:self.referencesURL withIntermediateDirectories:YES attributes:nil error:nil]; [NSFileManager.defaultManager createDirectoryAtURL:self.stagingURL withIntermediateDirectories:YES attributes:nil error:nil]; }
 - (void)persist { NSData *data = [NSJSONSerialization dataWithJSONObject:@{ @"version": @1, @"items": self.items } options:NSJSONWritingPrettyPrinted error:nil]; [data writeToURL:self.manifestURL options:NSDataWritingAtomic error:nil]; }
+- (NSDictionary *)localSongRecordForEntryID:(NSString *)entryID {
+    if (entryID.length == 0) return nil;
+    __block NSDictionary *record = nil;
+    dispatch_sync(self.queue, ^{
+        for (NSDictionary *item in self.items) {
+            if ([item[@"kind"] isEqual:@"song"] && [item[@"entry_id"] isEqual:entryID]) {
+                record = [item copy];
+                break;
+            }
+        }
+    });
+    return record;
+}
+
 - (NSURL *)localSongURLForEntryID:(NSString *)entryID {
     __block NSString *path;
     dispatch_sync(self.queue, ^{
