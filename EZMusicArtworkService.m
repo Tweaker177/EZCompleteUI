@@ -50,8 +50,9 @@
 NSNotificationName const EZMusicArtworkDidUpdateNotification = @"EZMusicArtworkDidUpdateNotification";
 NSString * const EZMusicArtworkEntryIDKey = @"entryID";
 
-// The cheapest and fastest image model ez-image offers.
-static NSString * const kEZMusicArtworkModel = @"gpt-image-1-mini";
+// Flare at its lowest quality: visibly better covers than the mini model
+// for a small step up in cost and time (quality stays "low" below).
+static NSString * const kEZMusicArtworkModel = @"gpt-image-2.5-flare";
 // Low quality at the smallest square size is plenty for a cover thumbnail.
 static NSString * const kEZMusicArtworkQuality = @"low";
 static NSString * const kEZMusicArtworkSize = @"1024x1024";
