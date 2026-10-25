@@ -47,6 +47,8 @@ static NSString *EZMusicStyleLabel(NSString *prompt) {
     NSString *label = [labelWords componentsJoinedByString:@" "];
     return label.length ? label : @"AI Music";
 }
+static NSString * const kEZMusicSubmittedLyricsKey = @"EZMusicSubmittedLyricsByGeneration";
+
 @implementation EZMusicLibraryManager
 + (instancetype)sharedManager { static EZMusicLibraryManager *m; static dispatch_once_t once; dispatch_once(&once, ^{ m = [[self alloc] initPrivate]; }); return m; }
 - (instancetype)initPrivate { if ((self = [super init])) { _queue = dispatch_queue_create("com.ez.musiclibrary", DISPATCH_QUEUE_SERIAL); NSURL *docs = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject; _libraryRootURL = [docs URLByAppendingPathComponent:@"EZMusic" isDirectory:YES]; _songsURL = [_libraryRootURL URLByAppendingPathComponent:@"Songs" isDirectory:YES]; _referencesURL = [_libraryRootURL URLByAppendingPathComponent:@"References" isDirectory:YES]; _stagingURL = [_libraryRootURL URLByAppendingPathComponent:@"Staging" isDirectory:YES]; _manifestURL = [_libraryRootURL URLByAppendingPathComponent:@"Manifest.json"]; _items = [NSMutableArray array]; [self setup]; NSData *data = [NSData dataWithContentsOfURL:_manifestURL]; NSDictionary *manifest = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil; for (id item in [manifest[@"items"] isKindOfClass:NSArray.class] ? manifest[@"items"] : @[]) if ([item isKindOfClass:NSDictionary.class]) [_items addObject:item]; [self persist]; } return self; }
@@ -115,6 +117,44 @@ static NSString *EZMusicStyleLabel(NSString *prompt) {
     return identifiers ?: @[];
 }
 
+#pragma mark - Submitted lyrics
+
+- (void)noteLyrics:(NSString *)lyrics forGenerationID:(NSString *)generationID {
+    NSString *trimmed = [lyrics isKindOfClass:NSString.class]
+        ? [lyrics stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
+    if (trimmed.length == 0 || ![generationID isKindOfClass:NSString.class] || generationID.length == 0) return;
+    dispatch_async(self.queue, ^{
+        NSMutableDictionary *noted = [[self submittedLyricsByGeneration] mutableCopy];
+        noted[generationID] = trimmed;
+        // Best-effort memory, not a database: keep a bounded handful of
+        // generations and let older ones fall away.
+        while (noted.count > 100) [noted removeObjectForKey:noted.allKeys.firstObject];
+        [[NSUserDefaults standardUserDefaults] setObject:noted forKey:kEZMusicSubmittedLyricsKey];
+    });
+}
+
+- (NSDictionary *)submittedLyricsByGeneration {
+    NSDictionary *stored = [[NSUserDefaults standardUserDefaults] dictionaryForKey:kEZMusicSubmittedLyricsKey];
+    return [stored isKindOfClass:NSDictionary.class] ? stored : @{};
+}
+
+- (NSString *)notedLyricsForGenerationID:(NSString *)generationID {
+    if (![generationID isKindOfClass:NSString.class] || generationID.length == 0) return @"";
+    NSString *lyrics = [self submittedLyricsByGeneration][generationID];
+    return [lyrics isKindOfClass:NSString.class] ? lyrics : @"";
+}
+
+- (NSString *)lyricsForEntry:(NSDictionary *)entry {
+    NSString *lyrics = [entry[@"lyrics"] isKindOfClass:NSString.class] ? entry[@"lyrics"] : @"";
+    if (lyrics.length > 0) return lyrics;
+    NSString *entryID = [entry[@"id"] isKindOfClass:NSString.class] ? entry[@"id"] : @"";
+    NSDictionary *record = entryID.length ? [self localSongRecordForEntryID:entryID] : nil;
+    lyrics = [record[@"lyrics"] isKindOfClass:NSString.class] ? record[@"lyrics"] : @"";
+    if (lyrics.length > 0) return lyrics;
+    NSString *generationID = [entry[@"generation_id"] isKindOfClass:NSString.class] ? entry[@"generation_id"] : @"";
+    return [self notedLyricsForGenerationID:generationID];
+}
+
 - (void)updateSongMetadataForEntry:(NSDictionary *)entry {
     NSString *entryID = [entry[@"id"] isKindOfClass:NSString.class] ? entry[@"id"] : @"";
     if (!entryID.length) return;
@@ -125,9 +165,18 @@ static NSString *EZMusicStyleLabel(NSString *prompt) {
         }];
         if (index == NSNotFound) return;
         NSMutableDictionary *record = [self.items[index] mutableCopy];
-        for (NSString *key in @[ @"title", @"prompt", @"lyrics", @"generation_id", @"model_id", @"created_at", @"completed_at" ]) {
+        for (NSString *key in @[ @"title", @"prompt", @"generation_id", @"model_id", @"created_at", @"completed_at" ]) {
             if ([entryCopy[key] isKindOfClass:NSString.class]) record[key] = entryCopy[key];
         }
+        // Lyrics are sticky: a refresh whose entry carries none must not
+        // erase lyrics saved earlier, and lyrics noted at generation time
+        // fill the gap when the server's entry never had them.
+        NSString *refreshedLyrics = [entryCopy[@"lyrics"] isKindOfClass:NSString.class] ? entryCopy[@"lyrics"] : @"";
+        if (refreshedLyrics.length == 0) {
+            NSString *generationID = [entryCopy[@"generation_id"] isKindOfClass:NSString.class] ? entryCopy[@"generation_id"] : @"";
+            refreshedLyrics = [self notedLyricsForGenerationID:generationID];
+        }
+        if (refreshedLyrics.length > 0) record[@"lyrics"] = refreshedLyrics;
         if ([entryCopy[@"prompt"] isKindOfClass:NSString.class]) record[@"style"] = EZMusicStyleLabel(entryCopy[@"prompt"]);
         if ([entryCopy[@"duration_actual_ms"] isKindOfClass:NSNumber.class]) record[@"duration_ms"] = entryCopy[@"duration_actual_ms"];
         self.items[index] = record;
@@ -164,6 +213,21 @@ static NSString *EZMusicStyleLabel(NSString *prompt) {
     dispatch_async(self.queue, ^{
         [self setup];
         NSString *entryID = [entryCopy[@"id"] isKindOfClass:NSString.class] ? entryCopy[@"id"] : NSUUID.UUID.UUIDString;
+        NSUInteger existingIndex = [self.items indexOfObjectPassingTest:^BOOL(NSDictionary *item, NSUInteger idx, BOOL *stop) {
+            return [item[@"kind"] isEqual:@"song"] && [item[@"entry_id"] isEqual:entryID];
+        }];
+        NSDictionary *existingRecord = existingIndex == NSNotFound ? nil : self.items[existingIndex];
+        // Save the lyrics with the rest of the metadata: prefer the entry's
+        // own, keep any saved earlier, and fall back to the lyrics noted
+        // when this generation was started.
+        NSString *lyricsToSave = [entryCopy[@"lyrics"] isKindOfClass:NSString.class] ? entryCopy[@"lyrics"] : @"";
+        if (lyricsToSave.length == 0 && [existingRecord[@"lyrics"] isKindOfClass:NSString.class]) {
+            lyricsToSave = existingRecord[@"lyrics"];
+        }
+        if (lyricsToSave.length == 0) {
+            NSString *generationID = [entryCopy[@"generation_id"] isKindOfClass:NSString.class] ? entryCopy[@"generation_id"] : @"";
+            lyricsToSave = [self notedLyricsForGenerationID:generationID];
+        }
         // Keep the exact bytes downloaded from our music service.  The previous
         // MP3-to-WAV conversion was unnecessary for AVPlayer playback and could
         // fail on valid provider MP3s, silently leaving Songs empty.
@@ -183,22 +247,20 @@ static NSString *EZMusicStyleLabel(NSString *prompt) {
             @"format": @"mp3", @"title": [entryCopy[@"title"] isKindOfClass:NSString.class] ? entryCopy[@"title"] : @"Untitled song",
             @"prompt": [entryCopy[@"prompt"] isKindOfClass:NSString.class] ? entryCopy[@"prompt"] : @"",
             @"style": EZMusicStyleLabel([entryCopy[@"prompt"] isKindOfClass:NSString.class] ? entryCopy[@"prompt"] : @""),
-            @"lyrics": [entryCopy[@"lyrics"] isKindOfClass:NSString.class] ? entryCopy[@"lyrics"] : @"",
+            @"lyrics": lyricsToSave,
             @"generation_id": [entryCopy[@"generation_id"] isKindOfClass:NSString.class] ? entryCopy[@"generation_id"] : @"",
             @"model_id": [entryCopy[@"model_id"] isKindOfClass:NSString.class] ? entryCopy[@"model_id"] : @"",
             @"created_at": [entryCopy[@"created_at"] isKindOfClass:NSString.class] ? entryCopy[@"created_at"] : @"",
             @"completed_at": [entryCopy[@"completed_at"] isKindOfClass:NSString.class] ? entryCopy[@"completed_at"] : @"",
             @"duration_ms": [entryCopy[@"duration_actual_ms"] isKindOfClass:NSNumber.class] ? entryCopy[@"duration_actual_ms"] : @0,
             @"archived_at": @([[NSDate date] timeIntervalSince1970]) } mutableCopy];
-        NSUInteger index = [self.items indexOfObjectPassingTest:^BOOL(NSDictionary *item, NSUInteger idx, BOOL *stop) {
-            return [item[@"kind"] isEqual:@"song"] && [item[@"entry_id"] isEqual:entryID];
-        }];
-        if (index == NSNotFound) [self.items addObject:record]; else self.items[index] = record;
+        if (existingIndex == NSNotFound) [self.items addObject:record]; else self.items[existingIndex] = record;
         [self persist];
         // The song is safely on the device; now start its cover art. The service
         // skips songs that already have a cover, so re-saving is harmless.
         NSMutableDictionary *artworkEntry = [entryCopy mutableCopy];
         artworkEntry[@"id"] = entryID;
+        artworkEntry[@"lyrics"] = lyricsToSave;
         [[EZMusicArtworkService sharedService] generateArtworkIfNeededForEntry:artworkEntry];
         if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(destination, nil); });
     });

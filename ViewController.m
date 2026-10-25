@@ -7228,6 +7228,10 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
             if (!innerSelf) return;
             if (startError) { [innerSelf handleChatMusicStartError:startError]; return; }
 
+            // Remember the written lyrics under the generation id so they
+            // are saved with the song when it lands (see
+            // -[EZMusicLibraryManager noteLyrics:forGenerationID:]).
+            [[EZMusicLibraryManager sharedManager] noteLyrics:lyrics forGenerationID:generationID];
             [innerSelf updateCoinBalanceDisplay];
             NSString *shownTitle = title.length > 0 ? title : @"your song";
             [innerSelf appendToChat:[NSString stringWithFormat:
