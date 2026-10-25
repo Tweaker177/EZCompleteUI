@@ -274,8 +274,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @interface EZMusicTrackCell : UITableViewCell
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UILabel *detailLabel;
-@property (nonatomic, strong) UIButton *playButton;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
+@property (nonatomic, strong) CAGradientLayer *generatingGradient;
 @property (nonatomic, strong) UIProgressView *progressView;
 @property (nonatomic, strong) UIImageView *favoriteView;
 // Square cover art (or a music-note placeholder) between the play button and the title.
@@ -307,12 +307,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
     self.selectionStyle = UITableViewCellSelectionStyleNone;
 
-    _playButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    _playButton.translatesAutoresizingMaskIntoConstraints = NO;
-    [_playButton addTarget:self action:@selector(playButtonTapped) forControlEvents:UIControlEventTouchUpInside];
-    [self.contentView addSubview:_playButton];
-
-    _spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    _spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
+    _spinner.color = [UIColor whiteColor];
     _spinner.translatesAutoresizingMaskIntoConstraints = NO;
     _spinner.hidesWhenStopped = YES;
     [self.contentView addSubview:_spinner];
@@ -321,7 +317,9 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _artworkView.translatesAutoresizingMaskIntoConstraints = NO;
     _artworkView.tintColor = [UIColor secondaryLabelColor];
     _artworkView.backgroundColor = [UIColor secondarySystemFillColor];
-    _artworkView.layer.cornerRadius = 8;
+    _artworkView.layer.cornerRadius = 0;
+    _artworkView.layer.borderWidth = 1.0;
+    _artworkView.layer.borderColor = [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:0.60].CGColor;
     _artworkView.clipsToBounds = YES;
     _artworkView.isAccessibilityElement = NO;
     // Double-tap the cover to make a new one (the handler is set per row).
@@ -331,7 +329,22 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [_artworkView addGestureRecognizer:artworkDoubleTap];
     [self.contentView addSubview:_artworkView];
 
-    _artworkSpinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    // Animated wash shown over the artwork while a song is generating — big,
+    // saturated, and cycling, so a composing row is obvious at a glance.
+    _generatingGradient = [CAGradientLayer layer];
+    _generatingGradient.colors = @[
+        (id)[UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0].CGColor,
+        (id)[UIColor colorWithRed:1.00 green:0.25 blue:0.62 alpha:1.0].CGColor,
+        (id)[UIColor colorWithRed:0.00 green:0.88 blue:1.00 alpha:1.0].CGColor,
+        (id)[UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0].CGColor,
+    ];
+    _generatingGradient.startPoint = CGPointMake(0, 0);
+    _generatingGradient.endPoint = CGPointMake(1, 1);
+    _generatingGradient.hidden = YES;
+    [_artworkView.layer addSublayer:_generatingGradient];
+
+    _artworkSpinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
+    _artworkSpinner.color = [UIColor whiteColor];
     _artworkSpinner.translatesAutoresizingMaskIntoConstraints = NO;
     _artworkSpinner.hidesWhenStopped = YES;
     _artworkSpinner.userInteractionEnabled = NO;
@@ -374,23 +387,18 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [self.contentView addSubview:_progressView];
 
     [NSLayoutConstraint activateConstraints:@[
-        [_playButton.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:10],
-        [_playButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-        [_playButton.widthAnchor constraintEqualToConstant:46],
-        [_playButton.heightAnchor constraintEqualToConstant:46],
-
-        [_spinner.centerXAnchor constraintEqualToAnchor:_playButton.centerXAnchor],
-        [_spinner.centerYAnchor constraintEqualToAnchor:_playButton.centerYAnchor],
+        [_spinner.centerXAnchor constraintEqualToAnchor:_artworkView.centerXAnchor],
+        [_spinner.centerYAnchor constraintEqualToAnchor:_artworkView.centerYAnchor],
 
         [_favoriteView.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-14],
         [_favoriteView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:12],
         [_favoriteView.widthAnchor constraintEqualToConstant:18],
         [_favoriteView.heightAnchor constraintEqualToConstant:18],
 
-        [_artworkView.leadingAnchor constraintEqualToAnchor:_playButton.trailingAnchor constant:8],
-        [_artworkView.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
-        [_artworkView.widthAnchor constraintEqualToConstant:52],
-        [_artworkView.heightAnchor constraintEqualToConstant:52],
+        [_artworkView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
+        [_artworkView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],
+        [_artworkView.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor],
+        [_artworkView.widthAnchor constraintEqualToAnchor:_artworkView.heightAnchor],
 
         [_titleLabel.leadingAnchor constraintEqualToAnchor:_artworkView.trailingAnchor constant:10],
         [_titleLabel.trailingAnchor constraintEqualToAnchor:_favoriteView.leadingAnchor constant:-8],
@@ -412,8 +420,37 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     return self;
 }
 
-- (void)playButtonTapped {
-    if (self.playHandler) self.playHandler();
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    self.generatingGradient.frame = self.artworkView.bounds;
+}
+
+/// Generating state: a saturated gradient wash cycling violet -> pink -> cyan
+/// over the whole (now full-height) cover, with a large white spinner on top.
+/// Deliberately loud — the old medium gray spinner over the play button was
+/// nearly invisible against the row background.
+- (void)setGenerating:(BOOL)generating {
+    self.generatingGradient.hidden = !generating;
+    if (generating) {
+        [self.spinner startAnimating];
+        CAKeyframeAnimation *cycle = [CAKeyframeAnimation animationWithKeyPath:@"colors"];
+        UIColor *violet = [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0];
+        UIColor *pink   = [UIColor colorWithRed:1.00 green:0.25 blue:0.62 alpha:1.0];
+        UIColor *cyan   = [UIColor colorWithRed:0.00 green:0.88 blue:1.00 alpha:1.0];
+        cycle.values = @[
+            @[(id)violet.CGColor, (id)pink.CGColor, (id)cyan.CGColor, (id)violet.CGColor],
+            @[(id)pink.CGColor, (id)cyan.CGColor, (id)violet.CGColor, (id)pink.CGColor],
+            @[(id)cyan.CGColor, (id)violet.CGColor, (id)pink.CGColor, (id)cyan.CGColor],
+            @[(id)violet.CGColor, (id)pink.CGColor, (id)cyan.CGColor, (id)violet.CGColor],
+        ];
+        cycle.duration = 1.8;
+        cycle.repeatCount = HUGE_VALF;
+        cycle.removedOnCompletion = NO;
+        [self.generatingGradient addAnimation:cycle forKey:@"ezGeneratingCycle"];
+    } else {
+        [self.spinner stopAnimating];
+        [self.generatingGradient removeAllAnimations];
+    }
 }
 
 /// Shows `artwork`, or the music-note placeholder when the song has no cover.
@@ -444,7 +481,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     self.artworkDoubleTapHandler = nil;
     self.accessibilityCustomActions = nil;
     [self setArtworkBusy:NO];
-    [self.spinner stopAnimating];
+    [self setGenerating:NO];
     self.progressView.progress = 0;
     self.progressView.hidden = YES;
 }
@@ -469,30 +506,30 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     if (showWaveform) [self.waveformView showWaveformForURL:waveformURL identifier:waveformIdentifier];
 
     BOOL showSpinner = [status isEqualToString:@"pending"] || isLoadingAudio;
-    if (showSpinner) [self.spinner startAnimating]; else [self.spinner stopAnimating];
-    self.playButton.hidden = showSpinner;
+    [self setGenerating:showSpinner];
 
-    UIImageSymbolConfiguration *symbolConfig =
-        [UIImageSymbolConfiguration configurationWithPointSize:34 weight:UIImageSymbolWeightRegular];
+    // Playback lives on the artwork tap / row tap now that the play button is
+    // gone, so the Play/Pause affordance moves to a cell custom action.
     if ([status isEqualToString:@"failed"]) {
-        [self.playButton setImage:[UIImage systemImageNamed:@"exclamationmark.triangle.fill" withConfiguration:symbolConfig]
-                         forState:UIControlStateNormal];
-        self.playButton.tintColor = [UIColor systemOrangeColor];
-        self.playButton.enabled = NO;
-        self.playButton.accessibilityLabel = EZMusicText(@"EZMusic.A11y.Failed", @"Song failed");
+        self.accessibilityCustomActions = nil;
     } else {
-        NSString *symbol = (isCurrent && isPlaying) ? @"pause.circle.fill" : @"play.circle.fill";
-        [self.playButton setImage:[UIImage systemImageNamed:symbol withConfiguration:symbolConfig]
-                         forState:UIControlStateNormal];
-        self.playButton.tintColor = [UIColor systemBlueColor];
-        self.playButton.enabled = YES;
-        self.playButton.accessibilityLabel = (isCurrent && isPlaying)
+        NSString *actionName = (isCurrent && isPlaying)
             ? EZMusicText(@"EZMusic.A11y.Pause", @"Pause")
             : EZMusicText(@"EZMusic.A11y.Play", @"Play");
+        UIAccessibilityCustomAction *playAction =
+            [[UIAccessibilityCustomAction alloc] initWithName:actionName
+                                                       target:self
+                                                     selector:@selector(performPlayAccessibilityAction:)];
+        self.accessibilityCustomActions = @[playAction];
     }
 
     self.progressView.hidden = !isCurrent;
     if (!isCurrent) self.progressView.progress = 0;
+}
+
+- (BOOL)performPlayAccessibilityAction:(UIAccessibilityCustomAction *)action {
+    if (self.playHandler) self.playHandler();
+    return YES;
 }
 
 @end
