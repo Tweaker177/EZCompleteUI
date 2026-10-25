@@ -1340,7 +1340,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
            // ── Chat / Reasoning ──────────────────────────────────────────────
            @"gpt-6-astra", // newest flagship reasoning model
            @"gpt-6.1-sol", @"gpt-6-luna",
-           @"gpt-5.6-sol", @"gpt-5.6-terra",
+           @"gpt-5.6-terra",
            @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
            @"gpt-4o", @"gpt-4o-mini", @"gpt-4-turbo", @"gpt-4",
            @"gpt-3.5-turbo",
@@ -1371,7 +1371,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
                              ?: self.models[0];
     // Retired picker choices can remain in a user's saved preference. Move
     // them to their current equivalents before the first request is made.
-    if ([self.selectedModel isEqualToString:@"gpt-6-sol"]) {
+    if ([self.selectedModel isEqualToString:@"gpt-6-sol"] ||
+        [self.selectedModel isEqualToString:@"gpt-5.6-sol"]) {
         self.selectedModel = @"gpt-6.1-sol";
     } else if ([self.selectedModel isEqualToString:@"gpt-5.6-luna"]) {
         self.selectedModel = @"gpt-6-luna";
@@ -4437,8 +4438,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSURL *ezURL = [NSURL URLWithString:@"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-chat"];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:ezURL];
     request.HTTPMethod = @"POST";
-    BOOL isHeavyReasoningModel = [self.selectedModel isEqualToString:@"gpt-5.6-sol"] ||
-                                  [self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
+    BOOL isHeavyReasoningModel = [self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
                                   [self.selectedModel isEqualToString:@"gpt-6-astra"];
     // Leave headroom beyond ez-chat's server-side OpenAI deadline. Previously
     // the 90s/180s client deadlines could cancel a request the server was still
