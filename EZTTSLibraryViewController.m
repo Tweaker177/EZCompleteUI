@@ -33,6 +33,16 @@ static NSString * const kEZTTSPlayerIdentifierPrefix = @"tts-clip:";
 
 static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
 
+static UIColor *EZTTSNeonBackground(void) { return [UIColor colorWithRed:0.03 green:0.02 blue:0.09 alpha:1.0]; }
+static UIColor *EZTTSNeonPanel(void)      { return [UIColor colorWithRed:0.09 green:0.05 blue:0.18 alpha:1.0]; }
+static UIColor *EZTTSNeonField(void)      { return [UIColor colorWithRed:0.14 green:0.09 blue:0.28 alpha:1.0]; }
+static UIColor *EZTTSNeonViolet(void)     { return [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0]; }
+static UIColor *EZTTSNeonCyan(void)       { return [UIColor colorWithRed:0.00 green:0.88 blue:1.00 alpha:1.0]; }
+static UIColor *EZTTSNeonPink(void)       { return [UIColor colorWithRed:1.00 green:0.25 blue:0.62 alpha:1.0]; }
+static UIColor *EZTTSNeonText(void)       { return [UIColor colorWithRed:0.94 green:0.92 blue:1.00 alpha:1.0]; }
+static UIColor *EZTTSNeonDimText(void)    { return [UIColor colorWithRed:0.66 green:0.60 blue:0.90 alpha:1.0]; }
+
+
 @interface EZTTSLibraryViewController () <UITableViewDataSource, UITableViewDelegate, UISearchResultsUpdating>
 
 @property (nonatomic, strong) UITableView *tableView;
@@ -54,12 +64,15 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"History";
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = EZTTSNeonBackground();
     self.clips = @[];
 
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
     self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.tableView.rowHeight = 84;
+    self.tableView.backgroundColor = EZTTSNeonBackground();
+    self.tableView.separatorColor = [EZTTSNeonViolet() colorWithAlphaComponent:0.35];
+    self.tableView.tintColor = EZTTSNeonCyan();
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
     [self.tableView registerClass:[EZTTSLibraryClipCell class] forCellReuseIdentifier:kEZClipCellReuseID];
@@ -69,12 +82,16 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
     self.searchController.searchResultsUpdater = self;
     self.searchController.obscuresBackgroundDuringPresentation = NO;
     self.searchController.searchBar.placeholder = @"Search prompt, voice, or tag";
+    self.searchController.searchBar.tintColor = EZTTSNeonCyan();
+    self.searchController.searchBar.searchTextField.backgroundColor = EZTTSNeonField();
+    self.searchController.searchBar.searchTextField.textColor = EZTTSNeonText();
+    self.searchController.searchBar.searchTextField.keyboardAppearance = UIKeyboardAppearanceDark;
     self.navigationItem.searchController = self.searchController;
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
 
     self.emptyStateLabel = [[UILabel alloc] init];
     self.emptyStateLabel.text = @"No archived clips yet — generate something to see it here.";
-    self.emptyStateLabel.textColor = [UIColor secondaryLabelColor];
+    self.emptyStateLabel.textColor = EZTTSNeonDimText();
     self.emptyStateLabel.font = [UIFont systemFontOfSize:15];
     self.emptyStateLabel.numberOfLines = 0;
     self.emptyStateLabel.textAlignment = NSTextAlignmentCenter;
@@ -95,6 +112,8 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
                                                                   target:self
                                                                   action:@selector(combineButtonTapped)];
     self.combineBarButtonItem.enabled = NO;
+    self.selectBarButtonItem.tintColor = EZTTSNeonCyan();
+    self.combineBarButtonItem.tintColor = EZTTSNeonPink();
 }
 
 - (void)viewWillLayoutSubviews {
@@ -216,7 +235,7 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
         completionHandler(YES);
     }];
     share.image = [UIImage systemImageNamed:@"square.and.arrow.up"];
-    share.backgroundColor = [UIColor systemBlueColor];
+    share.backgroundColor = EZTTSNeonViolet();
     return [UISwipeActionsConfiguration configurationWithActions:@[share]];
 }
 
@@ -514,6 +533,7 @@ static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
                                                                         message:@"Combining clips…\n\n"
                                                                  preferredStyle:UIAlertControllerStyleAlert];
     UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    spinner.color = EZTTSNeonCyan();
     spinner.translatesAutoresizingMaskIntoConstraints = NO;
     [progress.view addSubview:spinner];
     [NSLayoutConstraint activateConstraints:@[
