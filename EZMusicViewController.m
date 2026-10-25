@@ -1540,6 +1540,27 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         return;
     }
 
+    // One free song: a never-purchased user who already has a finished song
+    // hits the paywall before another creation starts. Refresh the purchase
+    // flag before denying — a purchase may have landed since it was cached
+    // (same pattern as the model picker's purchase gate).
+    if (![EZEntitlementManager shared].hasEverPurchased &&
+        [EZMusicLibraryManager sharedManager].createdSongCount >= 1) {
+        __weak typeof(self) weakSelf = self;
+        [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:^(__unused BOOL refreshed, __unused NSInteger balance) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                __strong typeof(weakSelf) strongSelf = weakSelf;
+                if (!strongSelf) return;
+                if ([EZEntitlementManager shared].hasEverPurchased) {
+                    [strongSelf generateTapped];
+                    return;
+                }
+                [strongSelf presentSongCreationPaywall];
+            });
+        }];
+        return;
+    }
+
     NSInteger totalCoins = [self quotedTotalCoins];
     NSNumber *balance = [EZEntitlementManager shared].coinBalance;
     if (balance && balance.integerValue < totalCoins) {
@@ -1637,6 +1658,25 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:store];
     navigation.modalPresentationStyle = UIModalPresentationFormSheet;
     [self presentViewController:navigation animated:YES completion:nil];
+}
+
+// Denial warnings for the song paywall: explain, then offer the coin store —
+// the same warning-then-store flow the rest of the app uses for
+// purchase-gated features. The dialog's close button is the "not now" path.
+- (void)presentSongCreationPaywall {
+    __weak typeof(self) weakSelf = self;
+    [self presentMusicDialogWithTitle:EZMusicText(@"EZMusic.Paywall.CreateTitle", @"Purchase Required")
+                              message:EZMusicText(@"EZMusic.Paywall.CreateMessage", @"You've made your free song. Any purchase unlocks unlimited song creation.")
+                       primaryTitle:EZMusicText(@"EZMusic.Paywall.ViewStore", @"View Store")
+                     primaryHandler:^{ [weakSelf presentCoinStore]; }];
+}
+
+- (void)presentSongExportPaywall {
+    __weak typeof(self) weakSelf = self;
+    [self presentMusicDialogWithTitle:EZMusicText(@"EZMusic.Paywall.ExportTitle", @"Purchase Required")
+                              message:EZMusicText(@"EZMusic.Paywall.ExportMessage", @"Exporting songs is a paid feature. Any purchase unlocks it.")
+                       primaryTitle:EZMusicText(@"EZMusic.Paywall.ViewStore", @"View Store")
+                     primaryHandler:^{ [weakSelf presentCoinStore]; }];
 }
 
 #pragma mark - Prompt and text field delegates
@@ -2158,6 +2198,24 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
 // Downloads the MP3 to a temporary file, then opens the system share sheet.
 - (void)shareEntryID:(NSString *)entryID {
+    // Exporting is a paid feature: never-purchased users get the denial
+    // warning and the coin store instead of the share sheet. Refresh the
+    // purchase flag first so a just-completed purchase is never blocked.
+    if (![EZEntitlementManager shared].hasEverPurchased) {
+        __weak typeof(self) weakSelf = self;
+        [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:^(__unused BOOL refreshed, __unused NSInteger balance) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                __strong typeof(weakSelf) strongSelf = weakSelf;
+                if (!strongSelf) return;
+                if ([EZEntitlementManager shared].hasEverPurchased) {
+                    [strongSelf shareEntryID:entryID];
+                    return;
+                }
+                [strongSelf presentSongExportPaywall];
+            });
+        }];
+        return;
+    }
     NSDictionary *entry = [self entryForID:entryID];
     if (!entry) return;
     NSString *songTitle = EZMusicString(entry[@"title"]);
