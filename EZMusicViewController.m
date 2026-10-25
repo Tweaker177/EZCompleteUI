@@ -278,6 +278,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, strong) CAGradientLayer *generatingGradient;
 @property (nonatomic, strong) UIProgressView *progressView;
 @property (nonatomic, strong) UIImageView *favoriteView;
+@property (nonatomic, strong) UIButton *editButton;
 // Square cover art (or a music-note placeholder) between the play button and the title.
 @property (nonatomic, strong) UIImageView *artworkView;
 @property (nonatomic, strong) UIActivityIndicatorView *artworkSpinner;
@@ -285,6 +286,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, copy, nullable) void (^artworkLyricsHandler)(void);
 @property (nonatomic, copy, nullable) void (^artworkPromptHandler)(void);
 @property (nonatomic, copy, nullable) void (^artworkRemixHandler)(void);
+/// Set for finished songs only; also drives the edit button's visibility.
+@property (nonatomic, copy, nullable) void (^renameHandler)(void);
 @property (nonatomic, strong) EZMusicWaveformView *waveformView;
 @property (nonatomic, strong) NSLayoutConstraint *waveformHeightConstraint;
 @property (nonatomic, copy, nullable) void (^playHandler)(void);
@@ -385,6 +388,15 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _favoriteView.hidden = YES;
     [self.contentView addSubview:_favoriteView];
 
+    _editButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    _editButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [_editButton setImage:[UIImage systemImageNamed:@"pencil"] forState:UIControlStateNormal];
+    _editButton.tintColor = [UIColor secondaryLabelColor];
+    _editButton.accessibilityLabel = EZMusicText(@"EZMusic.A11y.Rename", @"Rename song");
+    _editButton.hidden = YES;
+    [_editButton addTarget:self action:@selector(editButtonTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.contentView addSubview:_editButton];
+
     // Thin playback progress line along the bottom edge of the row.
     _progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
     _progressView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -400,13 +412,18 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         [_favoriteView.widthAnchor constraintEqualToConstant:18],
         [_favoriteView.heightAnchor constraintEqualToConstant:18],
 
+        [_editButton.trailingAnchor constraintEqualToAnchor:_favoriteView.leadingAnchor constant:-10],
+        [_editButton.centerYAnchor constraintEqualToAnchor:_favoriteView.centerYAnchor],
+        [_editButton.widthAnchor constraintEqualToConstant:22],
+        [_editButton.heightAnchor constraintEqualToConstant:22],
+
         [_artworkView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
         [_artworkView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],
         [_artworkView.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor],
         [_artworkView.widthAnchor constraintEqualToAnchor:_artworkView.heightAnchor],
 
         [_titleLabel.leadingAnchor constraintEqualToAnchor:_artworkView.trailingAnchor constant:10],
-        [_titleLabel.trailingAnchor constraintEqualToAnchor:_favoriteView.leadingAnchor constant:-8],
+        [_titleLabel.trailingAnchor constraintEqualToAnchor:_editButton.leadingAnchor constant:-6],
         [_titleLabel.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:10],
 
         [_detailLabel.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],
@@ -471,10 +488,20 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     }
 }
 
+- (void)setRenameHandler:(void (^)(void))renameHandler {
+    _renameHandler = [renameHandler copy];
+    _editButton.hidden = (renameHandler == nil);
+}
+
+- (void)editButtonTapped {
+    if (self.renameHandler) self.renameHandler();
+}
+
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
                         configurationForMenuAtLocation:(CGPoint)location {
     if (!self.artworkGenerateHandler && !self.artworkLyricsHandler &&
-        !self.artworkPromptHandler && !self.artworkRemixHandler) return nil;
+        !self.artworkPromptHandler && !self.artworkRemixHandler &&
+        !self.renameHandler) return nil;
     __weak typeof(self) weakSelf = self;
     return [UIContextMenuConfiguration configurationWithIdentifier:nil
                                                    previewProvider:nil
@@ -494,6 +521,14 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
                                                 identifier:nil
                                                    handler:^(__kindof UIAction *action) {
                 if (weakSelf.artworkPromptHandler) weakSelf.artworkPromptHandler();
+            }]];
+        }
+        if (weakSelf.renameHandler) {
+            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Rename", @"Rename")
+                                                     image:[UIImage systemImageNamed:@"pencil"]
+                                                identifier:nil
+                                                   handler:^(__kindof UIAction *action) {
+                if (weakSelf.renameHandler) weakSelf.renameHandler();
             }]];
         }
         if (weakSelf.artworkRemixHandler) {
@@ -529,6 +564,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     self.artworkLyricsHandler = nil;
     self.artworkPromptHandler = nil;
     self.artworkRemixHandler = nil;
+    self.renameHandler = nil;
     self.accessibilityCustomActions = nil;
     [self setArtworkBusy:NO];
     [self setGenerating:NO];
@@ -2360,6 +2396,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     if ([EZMusicString(entry[@"status"]) isEqualToString:@"complete"]) {
         cell.artworkGenerateHandler = ^{ [weakSelf regenerateArtworkForEntryID:entryID]; };
         cell.artworkRemixHandler = ^{ [weakSelf remixSongWithPrompt:songPrompt lyrics:songLyrics]; };
+        cell.renameHandler = ^{ [weakSelf renameEntryID:entryID]; };
         // Same action for VoiceOver users, who can't use the long-press menu.
         // Appended, not assigned: -configureWithTitle:... already installed the
         // cell's Play/Pause action, and the row keeps both.
@@ -2379,6 +2416,14 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
             }];
         cell.accessibilityCustomActions =
             [@[remixAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
+        UIAccessibilityCustomAction *renameAction =
+            [[UIAccessibilityCustomAction alloc] initWithName:EZMusicText(@"EZMusic.A11y.Rename", @"Rename song")
+                                                        actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
+                [weakSelf renameEntryID:entryID];
+                return YES;
+            }];
+        cell.accessibilityCustomActions =
+            [@[renameAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
     }
     // Songs with saved lyrics get a Lyrics item in the same long-press menu.
     if (songLyrics.length > 0) {
@@ -2505,6 +2550,65 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
             [strongSelf reloadRowForEntryID:entryID];
         }
         [strongSelf showToast:EZMusicText(@"EZMusic.Toast.FavoriteFailed", @"Couldn't update the star. Try again.")];
+    }];
+}
+
+/// Rename prompt for a finished song. The new name is applied optimistically
+/// (like the favorite star) and reverted with a toast if ez-music refuses it.
+- (void)renameEntryID:(NSString *)entryID {
+    NSDictionary *entry = [self entryForID:entryID];
+    if (!entry) return;
+    NSString *currentTitle = EZMusicString(entry[@"title"]);
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:EZMusicText(@"EZMusic.Rename.Title", @"Rename Song")
+                                                                   message:nil
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+        textField.text = currentTitle;
+        textField.placeholder = EZMusicText(@"EZMusic.Rename.Placeholder", @"Song title");
+        textField.clearButtonMode = UITextFieldViewModeWhileEditing;
+        textField.returnKeyType = UIReturnKeyDone;
+        textField.autocapitalizationType = UITextAutocapitalizationTypeSentences;
+    }];
+    __weak typeof(self) weakSelf = self;
+    [alert addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Action.Save", @"Save")
+                                               style:UIAlertActionStyleDefault
+                                             handler:^(UIAlertAction *action) {
+        NSString *newTitle = [alert.textFields.firstObject.text
+            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (newTitle.length == 0 || [newTitle isEqualToString:currentTitle]) return;
+        [weakSelf applyRenameToTitle:newTitle forEntryID:entryID];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Action.Cancel", @"Cancel")
+                                               style:UIAlertActionStyleCancel
+                                             handler:nil]];
+    [self presentViewController:alert animated:YES completion:^{
+        [alert.textFields.firstObject selectAll:nil];
+    }];
+}
+
+- (void)applyRenameToTitle:(NSString *)newTitle forEntryID:(NSString *)entryID {
+    NSInteger row = [self rowForEntryID:entryID];
+    if (row == NSNotFound) return;
+    NSDictionary *original = self.entries[(NSUInteger)row];
+    NSMutableDictionary *updated = [original mutableCopy];
+    updated[@"title"] = newTitle;
+    self.entries[(NSUInteger)row] = updated;
+    [self reloadRowForEntryID:entryID];
+    if ([entryID isEqualToString:self.playingEntryID]) [self updatePlaylistHeader];
+    [[EZMusicLibraryManager sharedManager] updateSongMetadataForEntry:updated];
+
+    __weak typeof(self) weakSelf = self;
+    [[EZMusicService sharedService] renameEntryID:entryID toTitle:newTitle completion:^(NSError *error) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf || !error) return;
+        NSInteger currentRow = [strongSelf rowForEntryID:entryID];
+        if (currentRow != NSNotFound) {
+            strongSelf.entries[(NSUInteger)currentRow] = original;
+            [strongSelf reloadRowForEntryID:entryID];
+            if ([entryID isEqualToString:strongSelf.playingEntryID]) [strongSelf updatePlaylistHeader];
+        }
+        [[EZMusicLibraryManager sharedManager] updateSongMetadataForEntry:original];
+        [strongSelf showToast:EZMusicText(@"EZMusic.Toast.RenameFailed", @"Couldn't rename. Try again.")];
     }];
 }
 

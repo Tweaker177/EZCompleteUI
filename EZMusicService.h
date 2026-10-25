@@ -132,6 +132,11 @@ typedef NS_ENUM(NSInteger, EZMusicServiceErrorCode) {
          forEntryID:(NSString *)entryID
          completion:(void (^)(NSError * _Nullable error))completion;
 
+/// Renames an entry. Backed by ez-music's "rename" action.
+- (void)renameEntryID:(NSString *)entryID
+              toTitle:(NSString *)title
+           completion:(void (^)(NSError * _Nullable error))completion;
+
 /// Deletes a finished or failed entry and its audio file.
 - (void)deleteEntryID:(NSString *)entryID
            completion:(void (^)(NSError * _Nullable error))completion;
