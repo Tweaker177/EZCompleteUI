@@ -367,7 +367,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _detailLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     _detailLabel.adjustsFontForContentSizeCategory = YES;
     _detailLabel.textColor = [UIColor secondaryLabelColor];
-    _detailLabel.numberOfLines = 0;
+    _detailLabel.numberOfLines = 1;
+    _detailLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     [self.contentView addSubview:_detailLabel];
 
     _waveformView = [[EZMusicWaveformView alloc] initWithFrame:CGRectZero];
@@ -412,7 +413,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         [_waveformView.topAnchor constraintEqualToAnchor:_titleLabel.bottomAnchor constant:5],
         _waveformHeightConstraint,
         [_detailLabel.topAnchor constraintEqualToAnchor:_waveformView.bottomAnchor constant:3],
-        [_detailLabel.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-12],
+        // No bottom pin on the detail label: rows are a fixed height (see
+        // the table setup), so the text column is anchored from the top only.
 
         [_progressView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
         [_progressView.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor],
@@ -1010,8 +1012,13 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.libraryTable.translatesAutoresizingMaskIntoConstraints = NO;
     self.libraryTable.dataSource = self;
     self.libraryTable.delegate = self;
-    self.libraryTable.rowHeight = UITableViewAutomaticDimension;
-    self.libraryTable.estimatedRowHeight = 76;
+    // Fixed row height. The cover fills the row's full height, so when rows
+    // self-sized, wrapping text stretched the row and the cover with it —
+    // every cover a different size and text squeezed or clipped. At a fixed
+    // 108 every row, and every cover, is the same size, and long titles or
+    // details truncate instead of stretching anything.
+    self.libraryTable.rowHeight = 108;
+    self.libraryTable.estimatedRowHeight = 108;
     self.libraryTable.separatorInset = UIEdgeInsetsMake(0, 64, 0, 0);
     self.libraryTable.tableFooterView = [[UIView alloc] init];
     [self.libraryTable registerClass:[EZMusicTrackCell class] forCellReuseIdentifier:@"EZMusicTrackCell"];
