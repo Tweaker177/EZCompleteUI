@@ -1,0 +1,146 @@
+/* EZCoinStoreViewController localization */
+
+"EZCoinStore.Title" = "🪙 EZ 金幣商店";
+
+"EZCoinStore.CancelPlan" = "取消方案";
+
+"EZCoinStore.Subscribe" = "訂閱";
+
+"EZCoinStore.BuyNow" = "立即購買";
+
+"EZCoinStore.Badge.Buy1Get1" = "🔥 買一送一";
+
+"EZCoinStore.Promo.SubscriptionBadgeFormat" = "+%ld 免費金幣*";
+
+"EZCoinStore.Promo.SubscriptionFootnote" = "*額外金幣為一次性贈送，不會每月增加。";
+
+"EZCoinStore.Tier.Basic" = "基本版";
+
+"EZCoinStore.Tier.BasicSubtitle" = "每月 400 金幣\n適合輕度使用";
+
+"EZCoinStore.Tier.BasicPrice" = "$5 / 月";
+
+"EZCoinStore.Tier.Standard" = "標準版";
+
+"EZCoinStore.Tier.StandardSubtitle" = "每月 900 金幣\n適合一般使用者";
+
+"EZCoinStore.Tier.StandardPrice" = "$10 / 月";
+
+"EZCoinStore.Badge.Popular" = "熱門";
+
+"EZCoinStore.Tier.Pro" = "Pro";
+
+"EZCoinStore.Tier.ProSubtitle" = "每月 1,600 金幣\n適合每天使用";
+
+"EZCoinStore.Tier.ProPrice" = "$15 / 月";
+
+"EZCoinStore.Badge.BestValue" = "最超值";
+
+"EZCoinStore.Tier.Ultra" = "Ultra";
+
+"EZCoinStore.Tier.UltraSubtitle" = "每月 2,500 金幣\n歡迎進階使用者";
+
+"EZCoinStore.Tier.UltraPrice" = "$20 / 月";
+
+"EZCoinStore.Badge.Ultra" = "ULTRA";
+
+"EZCoinStore.TopUp.Starter" = "金幣入門包";
+
+"EZCoinStore.TopUp.StarterSubtitle" = "400 金幣，一次性\n永不過期";
+
+"EZCoinStore.TopUp.Value" = "金幣超值包";
+
+"EZCoinStore.TopUp.ValueSubtitle" = "900 金幣，一次性\n永不過期";
+
+"EZCoinStore.Badge.Save10" = "省 10%";
+
+"EZCoinStore.Promo.Headline" = "🔥 買一送一 🔥";
+
+"EZCoinStore.Promo.Subtitle" = "所有金幣與訂閱 — 限時優惠！";
+
+"EZCoinStore.LoadingBalance" = "正在載入餘額...";
+
+"EZCoinStore.ThisFeature" = "此功能";
+
+"EZCoinStore.NotEnoughCoins" = "⚠️ %@ 所需金幣不足。請在下方加值。";
+
+"EZCoinStore.NoActiveSubscription" = "沒有有效的訂閱";
+
+"EZCoinStore.BalanceFormat" = "🪙 %ld 金幣   •   %@";
+
+"EZCoinStore.Section.Subscriptions" = "訂閱方案";
+
+"EZCoinStore.Section.OneTimeTopUps" = "一次性加值";
+
+"EZCoinStore.DailyCoins" = "🎁 每日金幣";
+
+"EZCoinStore.DailyCoins.FreeFormat" = "🎁 +%ld 免費！";
+
+"EZCoinStore.DailyCoins.Free" = "🎁 免費金幣！";
+
+"EZCoinStore.DailyCoins.NextHours" = "🎁 下一次：%ld小時 %ld分";
+
+"EZCoinStore.DailyCoins.NextMinutes" = "🎁 下一次：%ld分 %ld秒";
+
+"EZCoinStore.DailyCoins.NextSeconds" = "🎁 下一次：%ld秒";
+
+"EZCoinStore.DailyCoins.Claiming" = "⏳ 正在領取...";
+
+"EZCoinStore.Alert.NotSignedIn" = "尚未登入";
+
+"EZCoinStore.Alert.SignInDailyCoins" = "請登入以領取每日金幣。";
+
+"EZCoinStore.Alert.NetworkError" = "網路錯誤";
+
+"EZCoinStore.Alert.ServerUnreachable" = "無法連線到伺服器。請再試一次。";
+
+"EZCoinStore.Alert.AlreadyClaimed" = "已領取";
+
+"EZCoinStore.Alert.AlreadyClaimedMessage" = "你已領取免費金幣。6 小時後再回來看看！";
+
+"EZCoinStore.Alert.GenericRetry" = "發生錯誤。請再試一次。";
+
+"EZCoinStore.Alert.Error" = "錯誤";
+
+"EZCoinStore.Ledger" = "交易明細";
+
+"EZCoinStore.Alert.NotLoggedIn" = "尚未登入";
+
+"EZCoinStore.Alert.SignInFirst" = "請先登入。";
+
+"EZCoinStore.Alert.CancelSubscription" = "取消訂閱？";
+
+"EZCoinStore.Alert.CancelSubscriptionMessage" = "你剩餘的金幣會保留在帳戶中。此操作無法復原。";
+
+"EZCoinStore.KeepPlan" = "保留方案";
+
+"EZCoinStore.Alert.Cancelled" = "已取消";
+
+"EZCoinStore.Alert.CancelledMessage" = "你的訂閱已取消。你的金幣仍可使用。";
+
+"EZCoinStore.Alert.CancelFailed" = "無法取消訂閱。請再試一次。";
+
+"EZCoinStore.Alert.CheckoutStartFailed" = "無法開始結帳。請再試一次。";
+
+"EZCoinStore.Alert.PurchaseConfirmFailed" = "無法確認購買。請查看餘額 — 金幣可能已加入。";
+
+"EZCoinStore.Alert.PurchaseNotConfirmed" = "無法確認購買。";
+
+"EZCoinStore.Alert.PurchaseIssue" = "購買問題";
+
+"EZCoinStore.Celebration.CoinsAdded" = "🪙 金幣已加入！";
+
+"EZCoinStore.Celebration.AmountFormat" = "+%ld 金幣";
+
+"EZCoinStore.Celebration.NewBalanceFormat" = "新餘額：%ld 金幣";
+
+"EZCoinStore.Celebration.Sweet" = "太棒了！";
+
+"EZCoinStore.OK" = "確定";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZCoinStore.Feature.AIMusic" = "AI 音樂";
+"EZCoinStore.FreeSpins.Title" = "🎁 免費旋轉！";
+"EZCoinStore.FreeSpins.Message" = "你在 Brainrot Slots 獲得了 %ld 次免費旋轉 — 試試手氣吧！";
+"EZCoinStore.FreeSpins.PlayNow" = "立即遊玩";
+"EZCoinStore.FreeSpins.Later" = "稍後";
