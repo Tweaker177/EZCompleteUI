@@ -1,0 +1,529 @@
+/* EZModelPickerViewController localization */
+
+"EZModelPicker.Title" = "選擇模型";
+
+"EZModelSection.FrontierReasoning" = "進階推理";
+"EZModelSection.GPT4Chat" = "GPT-4 聊天";
+"EZModelSection.ImageGeneration" = "圖片生成";
+"EZModelSection.AudioTranscription" = "語音轉文字";
+
+"EZModelLabel.ChatVisionNewest" = "💬 聊天 + 👁 視覺 ⭐ 最新";
+"EZModelLabel.ChatVision" = "💬 聊天 + 👁 視覺";
+"EZModelLabel.ChatVisionBalanced" = "💬 聊天 + 👁 視覺（均衡）";
+"EZModelLabel.ChatVisionFastCheap" = "💬 聊天 + 👁 視覺（快速／實惠）";
+"EZModelLabel.ChatOnly" = "💬 僅聊天";
+"EZModelLabel.ImageGenNewestFast" = "🖼 圖片生成（最新、快速）— 低／中／高／非常高／最大";
+"EZModelLabel.ImageGenEditPrecision" = "🖼 圖片生成 + ✏️ 編輯（精確）— 低／中／高／非常高／最大";
+"EZModelLabel.ImageGenEdit" = "🖼 圖片生成 + ✏️ 編輯 — 低／中／高";
+"EZModelLabel.ImageGen" = "🖼 圖片生成";
+"EZModelLabel.ImageGenFastCheap" = "🖼 圖片生成（快速／實惠）";
+"EZModelLabel.ChatGPTImageLatest" = "🖼 ChatGPT 圖片（最新）";
+"EZModelLabel.AudioTranscriptionOnly" = "🎙 僅語音轉文字";
+
+
+/* TextToSpeechViewController localization */
+
+"EZTTS.Title" = "文字轉語音";
+
+"EZTTS.PromptHeader" = "要說什麼內容？";
+
+"EZTTS.VoiceHeader" = "語音";
+
+"EZTTS.SpeedFormat" = "速度：%.2f×";
+
+"EZTTS.Generate" = "生成";
+
+"EZTTS.ChooseVoice" = "選擇語音…";
+
+"EZTTS.CharactersRemaining" = "還剩 %lu 個字元";
+
+"EZTTS.MissingTextTitle" = "缺少文字";
+
+"EZTTS.MissingTextMessage" = "請輸入要合成的文字。";
+
+"EZTTS.ErrorTitle" = "TTS 錯誤";
+
+"EZTTS.FailedToSynthesize" = "合成失敗。";
+
+"EZTTS.NoAudioReturned" = "未傳回音訊。";
+
+"EZTTS.PlaybackError" = "播放錯誤";
+
+"EZTTS.UnableToPlay" = "無法播放音訊。";
+
+"EZTTS.NotLoggedIn" = "尚未登入。";
+
+"EZTTS.NotAuthorized" = "未獲授權。請重新登入。";
+
+"EZTTS.InvalidServerResponse" = "伺服器回應無效。";
+
+"EZTTS.EmptyAudio" = "傳回的音訊為空。";
+
+"EZTTS.FailedWavWrap" = "無法將 PCM 包裝成 WAV。";
+
+"EZTTS.InsufficientCoins" = "你的金幣不足，無法進行這次合成。";
+
+"EZTTS.NeedCoins" = "需要 %@ 金幣，你目前有 %@。";
+
+"EZTTS.ServerError" = "伺服器錯誤";
+
+"EZTTS.OK" = "確定";
+
+/* Subscription paywall */
+"EZSubscription.RequiredTitle" = "需要訂閱";
+"EZSubscription.NotNow" = "現在不要";
+"EZSubscription.ViewPlans" = "查看方案";
+"EZSubscription.ModelRequiredFormat" = "%@ 需有有效的 EZComplete 訂閱才能使用。訂閱即可使用此模型。";
+"EZSubscription.ImageSettingsRequired" = "高品質圖片需要有效的 EZComplete 訂閱。";
+
+/* EZCoinStoreViewController localization */
+
+"EZCoinStore.Title" = "🪙 EZ 金幣商店";
+
+"EZCoinStore.CancelPlan" = "取消方案";
+
+"EZCoinStore.Subscribe" = "訂閱";
+
+"EZCoinStore.BuyNow" = "立即購買";
+
+"EZCoinStore.Badge.Buy1Get1" = "🔥 買一送一";
+
+"EZCoinStore.Promo.SubscriptionBadgeFormat" = "+%ld 免費金幣*";
+
+"EZCoinStore.Promo.SubscriptionFootnote" = "*額外金幣為一次性贈送，不會每月增加。";
+
+"EZCoinStore.Tier.Basic" = "基本版";
+
+"EZCoinStore.Tier.BasicSubtitle" = "每月 400 金幣\n適合輕度使用";
+
+"EZCoinStore.Tier.BasicPrice" = "$5 / 月";
+
+"EZCoinStore.Tier.Standard" = "標準版";
+
+"EZCoinStore.Tier.StandardSubtitle" = "每月 900 金幣\n適合一般使用者";
+
+"EZCoinStore.Tier.StandardPrice" = "$10 / 月";
+
+"EZCoinStore.Badge.Popular" = "熱門";
+
+"EZCoinStore.Tier.Pro" = "Pro";
+
+"EZCoinStore.Tier.ProSubtitle" = "每月 1,600 金幣\n適合每天使用";
+
+"EZCoinStore.Tier.ProPrice" = "$15 / 月";
+
+"EZCoinStore.Badge.BestValue" = "最超值";
+
+"EZCoinStore.Tier.Ultra" = "Ultra";
+
+"EZCoinStore.Tier.UltraSubtitle" = "每月 2,500 金幣\n歡迎進階使用者";
+
+"EZCoinStore.Tier.UltraPrice" = "$20 / 月";
+
+"EZCoinStore.Badge.Ultra" = "ULTRA";
+
+"EZCoinStore.Tier.Power" = "進階使用者";
+
+"EZCoinStore.Tier.PowerSubtitle" = "每月 6,250 金幣\n需要時隨時可用。";
+
+"EZCoinStore.Tier.Enterprise" = "企業版";
+
+"EZCoinStore.Tier.EnterpriseSubtitle" = "每月 12,500 金幣\n滿足你所有的商務需求";
+
+"EZCoinStore.TopUp.Starter" = "金幣入門包";
+
+"EZCoinStore.TopUp.StarterSubtitle" = "400 金幣，一次性\n永不過期";
+
+"EZCoinStore.TopUp.Ultra" = "Ultra 加值包";
+
+"EZCoinStore.TopUp.UltraSubtitle" = "2500 金幣，一次性\n永不過期";
+
+"EZCoinStore.TopUp.Power" = "Power 加值包";
+
+"EZCoinStore.TopUp.PowerSubtitle" = "6250 金幣，一次性\n永不過期";
+
+"EZCoinStore.TopUp.Enterprise" = "企業加值包";
+
+"EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 金幣，一次性\n永不過期";
+
+
+
+"EZCoinStore.TopUp.Value" = "金幣超值包";
+
+"EZCoinStore.TopUp.ValueSubtitle" = "900 金幣，一次性\n永不過期";
+
+"EZCoinStore.Badge.Save10" = "省 10%";
+
+"EZCoinStore.Promo.Headline" = "🔥 買一送一 🔥";
+
+"EZCoinStore.Promo.Subtitle" = "所有金幣與訂閱 — 限時優惠！";
+
+"EZCoinStore.LoadingBalance" = "正在載入餘額...";
+
+"EZCoinStore.ThisFeature" = "此功能";
+
+"EZCoinStore.NotEnoughCoins" = "⚠️ %@ 所需金幣不足。請在下方加值。";
+
+"EZCoinStore.NoActiveSubscription" = "沒有有效的訂閱";
+
+"EZCoinStore.BalanceFormat" = "🪙 %ld 金幣   •   %@";
+
+"EZCoinStore.Section.Subscriptions" = "訂閱方案";
+
+"EZCoinStore.Section.OneTimeTopUps" = "一次性加值";
+
+"EZCoinStore.DailyCoins" = "🎁 每日金幣";
+
+"EZCoinStore.DailyCoins.FreeFormat" = "🎁 +%ld 免費！";
+
+"EZCoinStore.DailyCoins.Free" = "🎁 免費金幣！";
+"EZCoinStore.DailyReminder.Title" = "你的免費金幣已準備好";
+"EZCoinStore.DailyReminder.Body" = "準備好時即可領取你的金幣。";
+
+"EZCoinStore.DailyCoins.NextHours" = "🎁 下一次：%ld小時 %ld分";
+
+"EZCoinStore.DailyCoins.NextMinutes" = "🎁 下一次：%ld分 %ld秒";
+
+"EZCoinStore.DailyCoins.NextSeconds" = "🎁 下一次：%ld秒";
+
+"EZCoinStore.DailyCoins.Claiming" = "⏳ 正在領取...";
+
+"EZCoinStore.Alert.NotSignedIn" = "尚未登入";
+
+"EZCoinStore.Alert.SignInDailyCoins" = "請登入以領取每日金幣。";
+
+"EZCoinStore.Alert.NetworkError" = "網路錯誤";
+
+"EZCoinStore.Alert.ServerUnreachable" = "無法連線到伺服器。請再試一次。";
+
+"EZCoinStore.Alert.AlreadyClaimed" = "已領取";
+
+"EZCoinStore.Alert.AlreadyClaimedMessage" = "你已領取免費金幣。6 小時後再回來看看！";
+
+"EZCoinStore.Alert.GenericRetry" = "發生錯誤。請再試一次。";
+
+"EZCoinStore.Alert.Error" = "錯誤";
+
+"EZCoinStore.Ledger" = "交易明細";
+
+"EZCoinStore.Alert.NotLoggedIn" = "尚未登入";
+
+"EZCoinStore.Alert.SignInFirst" = "請先登入。";
+
+"EZCoinStore.Alert.CancelSubscription" = "取消訂閱？";
+
+"EZCoinStore.Alert.CancelSubscriptionMessage" = "你剩餘的金幣會保留在帳戶中。此操作無法復原。";
+
+"EZCoinStore.KeepPlan" = "保留方案";
+
+"EZCoinStore.Alert.Cancelled" = "已取消";
+
+"EZCoinStore.Alert.CancelledMessage" = "你的訂閱已取消。你的金幣仍可使用。";
+
+"EZCoinStore.Alert.CancelFailed" = "無法取消訂閱。請再試一次。";
+
+"EZCoinStore.Alert.CheckoutStartFailed" = "無法開始結帳。請再試一次。";
+
+"EZCoinStore.Alert.PurchaseConfirmFailed" = "無法確認購買。請查看餘額 — 金幣可能已加入。";
+
+"EZCoinStore.Alert.PurchaseNotConfirmed" = "無法確認購買。";
+
+"EZCoinStore.Alert.PurchaseIssue" = "購買問題";
+
+"EZCoinStore.Celebration.CoinsAdded" = "🪙 金幣已加入！";
+
+"EZCoinStore.Celebration.AmountFormat" = "+%ld 金幣";
+
+"EZCoinStore.Celebration.NewBalanceFormat" = "新餘額：%ld 金幣";
+
+"EZCoinStore.Celebration.Sweet" = "太棒了！";
+
+"EZCoinStore.OK" = "確定";
+
+/* ElevenLabs voice cloning */
+"ElevenLabsClone.Title" = "語音複製工具";
+"ElevenLabsClone.VoiceName" = "語音名稱";
+"ElevenLabsClone.VoiceNamePlaceholder" = "例如：MyProVoice";
+"ElevenLabsClone.LanguageCode" = "語言代碼";
+"ElevenLabsClone.LanguageCodePlaceholder" = "例如：en";
+"ElevenLabsClone.Instant" = "即時 (IVC)";
+"ElevenLabsClone.Professional" = "專業 (PVC)";
+"ElevenLabsClone.ProfessionalNote" = "⚠️ 專業語音複製 — 需要 Creator 方案（即將推出）";
+"ElevenLabsClone.RemoveNoise" = "消除背景噪音";
+"ElevenLabsClone.StartRecording" = "⏺  開始錄音";
+"ElevenLabsClone.StopRecording" = "⏹  停止錄音";
+"ElevenLabsClone.Play" = "▶︎ 播放";
+"ElevenLabsClone.Stop" = "⏹ 停止";
+"ElevenLabsClone.ImportFile" = "📂  匯入檔案";
+"ElevenLabsClone.QuickLook" = "🔍  快速查看";
+"ElevenLabsClone.UploadClone" = "上傳並複製語音";
+"ElevenLabsClone.MyVoices" = "我複製的語音";
+"ElevenLabsClone.Refresh" = "↻ 重新整理";
+"ElevenLabsClone.Notice" = "注意";
+"ElevenLabsClone.OK" = "確定";
+"ElevenLabsClone.MicrophoneDenied" = "麥克風存取遭拒";
+"ElevenLabsClone.MicrophoneDeniedMessage" = "請在「設定」中啟用麥克風存取以進行錄音。";
+"ElevenLabsClone.RecordError" = "錄音錯誤";
+"ElevenLabsClone.RecordInitFailed" = "無法初始化錄音器。";
+"ElevenLabsClone.RecordPrepareFailed" = "無法準備錄音。";
+"ElevenLabsClone.RecordingFailed" = "錄音失敗";
+"ElevenLabsClone.RecordingFailedMessage" = "錄音中斷或失敗。";
+"ElevenLabsClone.PlaybackError" = "播放錯誤";
+"ElevenLabsClone.PlayerCreateFailed" = "無法建立播放器。";
+"ElevenLabsClone.NoRecording" = "沒有錄音";
+"ElevenLabsClone.NoRecordingMessage" = "請先錄音或匯入範例。";
+"ElevenLabsClone.ImportFailed" = "匯入失敗";
+"ElevenLabsClone.CopyFailed" = "無法複製檔案。";
+"ElevenLabsClone.SubscriptionRequired" = "需要訂閱";
+"ElevenLabsClone.SubscriptionRequiredMessage" = "語音複製需有有效的 EZComplete 訂閱才能使用。訂閱即可建立複製語音。";
+"ElevenLabsClone.NotNow" = "現在不要";
+"ElevenLabsClone.ViewPlans" = "查看方案";
+"ElevenLabsClone.MissingName" = "缺少名稱";
+"ElevenLabsClone.MissingNameMessage" = "請輸入語音名稱。";
+"ElevenLabsClone.NotSignedIn" = "尚未登入";
+"ElevenLabsClone.SignInCloneMessage" = "登入你的 EZComplete 帳戶以複製語音。";
+"ElevenLabsClone.SubscriptionCheckUnavailable" = "無法檢查訂閱狀態";
+"ElevenLabsClone.SubscriptionCheckUnavailableMessage" = "我們無法驗證你的訂閱。請在複製語音前再試一次。";
+"ElevenLabsClone.EmptyFile" = "檔案是空的";
+"ElevenLabsClone.EmptyFileMessage" = "錄音檔案是空的。";
+"ElevenLabsClone.NetworkError" = "網路錯誤";
+"ElevenLabsClone.NeedMoreCoins" = "需要更多金幣";
+"ElevenLabsClone.NeedMoreCoinsMessage" = "你有 %ld 金幣，但複製需要 %ld 金幣。";
+"ElevenLabsClone.AccessDenied" = "存取遭拒。";
+"ElevenLabsClone.VoiceSlotFull" = "語音名額已滿";
+"ElevenLabsClone.NotAvailable" = "無法使用";
+"ElevenLabsClone.UploadFailed" = "上傳失敗。";
+"ElevenLabsClone.CloneFailed" = "複製失敗";
+"ElevenLabsClone.NoVoiceID" = "回應中沒有語音 ID。";
+"ElevenLabsClone.SlotsUsedFormat" = "\\n已用名額：%ld / %ld";
+"ElevenLabsClone.VoiceCloned" = "語音已複製";
+"ElevenLabsClone.VoiceClonedMessage" = "語音 ID：%@%@";
+"ElevenLabsClone.CloneRetentionTitle" = "保留你的複製語音";
+"ElevenLabsClone.CloneRetentionMessage" = "你的複製語音是使用金幣建立的。若沒有有效的訂閱，複製語音可能會在 7 天後被刪除，以騰出名額給訂閱者。";
+"ElevenLabsClone.UnnamedVoice" = "未命名語音";
+"ElevenLabsClone.NoClonedVoices" = "找不到複製的語音。錄音並上傳即可建立一個。";
+"ElevenLabsClone.ShowingVoicesFormat" = "顯示 %lu 個，共 %lu 個語音";
+"ElevenLabsClone.ShowMoreVoices" = "顯示更多語音";
+"ElevenLabsClone.Delete" = "刪除";
+"ElevenLabsClone.ThisVoice" = "此語音";
+"ElevenLabsClone.DeleteVoice" = "刪除語音";
+"ElevenLabsClone.DeleteVoiceMessage" = "要從 ElevenLabs 永久刪除 \"%@\" 嗎？此操作無法復原。";
+"ElevenLabsClone.Cancel" = "取消";
+"ElevenLabsClone.SignInDeleteMessage" = "登入以刪除語音。";
+"ElevenLabsClone.DeleteFailedMessage" = "刪除失敗。";
+"ElevenLabsClone.DeleteFailed" = "刪除失敗";
+
+/* Annual subscription offer */
+"EZCoinStore.Upsell.Message" = "改為年繳，較月繳省 25%。";
+"EZCoinStore.Upsell.StandardTitle" = "改用 Standard 年繳方案";
+"EZCoinStore.Upsell.StandardMonthlyButton" = "$10.00/月";
+"EZCoinStore.Upsell.StandardAnnualButton" = "$89.99/年 — 省 $30";
+"EZCoinStore.Upsell.StandardAnnualButtonPromo" = "$89.99/年 — 再送 2 個月免費";
+"EZCoinStore.Upsell.ProTitle" = "改用 Pro 年繳方案";
+"EZCoinStore.Upsell.ProMonthlyButton" = "$15.00/月";
+"EZCoinStore.Upsell.ProAnnualButton" = "$134.99/年 — 省 $45";
+"EZCoinStore.Upsell.ProAnnualButtonPromo" = "$134.99/年 — 再送 2 個月免費";
+"EZCoinStore.Upsell.UltraTitle" = "改用 Ultra 年繳方案";
+"EZCoinStore.Upsell.UltraMonthlyButton" = "$20.00/月";
+"EZCoinStore.Upsell.UltraAnnualButton" = "$179.99/年 — 省 $60";
+"EZCoinStore.Upsell.UltraAnnualButtonPromo" = "$179.99/年 — 再送 2 個月免費";
+"EZCoinStore.Upsell.PowerTitle" = "改用 Power 年繳方案";
+"EZCoinStore.Upsell.PowerMonthlyButton" = "$49.99/月";
+"EZCoinStore.Upsell.PowerAnnualButton" = "$449.99/年 — 省 $150";
+"EZCoinStore.Upsell.PowerAnnualButtonPromo" = "$449.99/年 — 再送 2 個月免費";
+"EZCoinStore.Upsell.EnterpriseTitle" = "改用 Enterprise 年繳方案";
+"EZCoinStore.Upsell.EnterpriseMonthlyButton" = "$99.99/月";
+"EZCoinStore.Upsell.EnterpriseAnnualButton" = "$899.99/年 — 省 $300";
+"EZCoinStore.Upsell.EnterpriseAnnualButtonPromo" = "$899.99/年 — 再送 2 個月免費";
+"EZCoinStore.Upsell.AnnualTitleFormat" = "%@ 年繳";
+"EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/月";
+"EZCoinStore.Upsell.AnnualButtonFormat" = "%@/年 — 省 %@";
+"EZCoinStore.Upsell.AnnualButtonPromoFormat" = "%@/年 — 再送 2 個月免費";
+"EZCoinStore.Tier.BasicWeekly" = "Basic 每週方案";
+"EZCoinStore.Tier.BasicWeeklyPrice" = "$5/週 • 每週 400 金幣";
+"EZCoinStore.Tier.BasicWeeklySubtitle" = "很棒的入門方案";
+"EZCoinStore.Cancel" = "取消";
+
+/* Photo gallery */
+"EZGallery.AskQuestion" = "提問";
+"EZGallery.EditWithAI" = "用 AI 編輯";
+"EZGallery.UseInVideoGame" = "用於遊戲";
+"EZGallery.EditPromptPlaceholder" = "描述你的編輯…";
+/* Photo gallery export */
+"EZGallery.Export.Title" = "匯出圖片";
+"EZGallery.Export.Subtitle" = "選擇你想要的分享方式。";
+"EZGallery.Export.GIFReveal" = "GIF：原圖揭曉";
+"EZGallery.Export.GIFMotion" = "GIF：動態轉場";
+"EZGallery.Export.ShareOriginal" = "分享品牌版 + 原圖";
+"EZGallery.Export.ShareClean" = "分享品牌圖片";
+"EZGallery.Export.Download" = "下載圖片";
+"EZGallery.Export.Cancel" = "取消";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "新聊天";
+"EZNav.PhotoGallery" = "相簿";
+"EZNav.TextToSpeech" = "文字轉語音";
+"EZNav.Music" = "AI 音樂";
+"EZNav.VoiceCloning" = "語音複製";
+"EZNav.BrainRot" = "Brain Rot";
+"EZNav.Memories" = "回憶";
+"EZNav.CoinStore" = "金幣商店";
+"EZNav.Settings" = "設定";
+"EZNav.RecentChats" = "最近的聊天";
+/* First-run tutorial */
+"EZTutorial.Skip" = "跳過"; "EZTutorial.Back" = "返回"; "EZTutorial.Next" = "下一步"; "EZTutorial.GetStarted" = "開始使用";
+"EZTutorial.Welcome.Title" = "歡迎使用 EZCompleteUI"; "EZTutorial.Welcome.Body" = "快速導覽會告訴你各項功能的位置。你隨時可以跳過。";
+"EZTutorial.Chat.Title" = "聊天與創作"; "EZTutorial.Chat.Body" = "在頂部選擇模型。使用迴紋針附加檔案或照片、麥克風口述、地球圖示進行網路搜尋、閃電圖示取得助手直接回答。按下傳送即可開始你的請求。";
+"EZTutorial.Navigate.Title" = "你的選單與聊天"; "EZTutorial.Navigate.Body" = "點一下左上角的選單，可前往相簿、語音工具、Brain Rot、回憶、金幣商店、設定和你最近的聊天。在那裡使用搜尋來找對話。";
+"EZTutorial.Gallery.Title" = "相簿"; "EZTutorial.Gallery.Body" = "點一下左上角的 + 新增照片。雙指捏合可調整網格，從 2 欄到 5 欄。使用「選取」來分享或刪除多張照片。";
+"EZTutorial.Detail.Title" = "照片詳情"; "EZTutorial.Detail.Body" = "「提問」會將此圖片帶回聊天。在下方描述編輯內容，或使用 + 新增最多四張參考圖片，將它們合併成一個新創作。"; "EZTutorial.Detail.Prompt" = "描述你的編輯…"; "EZTutorial.Detail.Ask" = "提問"; "EZTutorial.Detail.Edit" = "用 AI 編輯";
+"EZTutorial.Tools.Title" = "回憶與金幣"; "EZTutorial.Tools.Body" = "回憶讓實用的結果隨手可得。金幣商店管理方案與金幣。你的餘額隨時可在主畫面查看。";
+"EZTutorial.Memories.Title" = "回憶"; "EZTutorial.Memories.Body" = "搜尋已儲存的回憶，然後點一下其文字進行編輯。再點一下即可結束編輯。藍色連結會開啟建立它的確切聊天回合，附加圖片則會開啟照片詳情。"; "EZTutorial.Memories.Search" = "搜尋回憶"; "EZTutorial.Memories.Source" = "開啟原始聊天回合"; "EZTutorial.Memories.Editable" = "點一下此已儲存回憶進行編輯。";
+"EZTutorial.CoinStore.Title" = "金幣商店"; "EZTutorial.CoinStore.Body" = "右上角的使用記錄列出每一筆入帳與扣款。每天領取四次免費金幣；允許通知，以便在準備好時收到提醒。部分進階模型與功能需要購買才能解鎖。PayPal 訂閱會自動入帳，也提供一次性加值。"; "EZTutorial.CoinStore.Usage" = "使用記錄"; "EZTutorial.CoinStore.Free" = "免費金幣每天可領四次 • 啟用提醒"; "EZTutorial.CoinStore.Offer" = "買一送一"; "EZTutorial.CoinStore.Select" = "準備開始了嗎？選擇符合你需求的等級。";
+"EZTutorial.CoinStore.Bonus" = "訂閱者每次領取 20 金幣 • 無方案者 10 金幣";
+"EZTutorial.CoinStore.Claim" = "領取免費金幣"; "EZTutorial.Memories.Intro" = "回憶讓實用的結果隨手可得。";
+"EZTutorial.CoinStore.Next" = "下一次：6小時 00分"; "EZCoinStore.UsageLog" = "使用記錄";
+"EZTutorial.CoinStore.BodyTop" = "• 透過使用記錄查看每一筆入帳與扣款。\n\n• 每天領取四次免費金幣，並啟用通知接收提醒。"; "EZTutorial.CoinStore.BodyBottom" = "• 部分進階模型與功能需要購買才能解鎖。";
+"EZGameMode.Title" = "選擇遊戲"; "EZGameMode.Maze" = "迷宮冒險"; "EZGameMode.Ricochet" = "彈跳爆破"; "EZGameMode.Cancel" = "取消";
+"EZGameMode.Subtitle" = "選擇你想要的玩法。"; "EZGameMode.MazeDescription" = "使用你的自訂遊戲素材探索生成的迷宮。"; "EZGameMode.RicochetDescription" = "在開放競技場中彈跳，伴隨音樂、道具與 MIDI。";
+"EZThread.NewConversation" = "新對話";
+"EZMemories.Title" = "回憶"; "EZMemories.Search" = "搜尋回憶"; "EZMemories.NoneSaved" = "尚未儲存任何回憶。"; "EZMemories.NoMatches" = "沒有符合該搜尋的回憶。"; "EZMemories.SavedFormat" = "已儲存 %lu 則回憶"; "EZMemories.MatchingFormat" = "%lu 則符合的回憶";
+"EZTutorial.Demo.ModelPicker" = "模型選擇器"; "EZTutorial.Demo.Model" = "模型：gpt-6-astra"; "EZTutorial.Demo.Controls" = "控制項"; "EZTutorial.Demo.Placeholder" = "輸入訊息…"; "EZTutorial.Demo.Send" = "傳送";
+"EZTutorial.Feedback" = "還有問題或想分享意見回饋？點一下這裡。";
+"EZTutorial.Menu.SampleChat" = "你最近的對話";
+"EZGallery.Title" = "相簿"; "EZGallery.Select" = "選取"; "EZGallery.Done" = "完成"; "EZGallery.SelectedCount" = "已選 %lu 張"; "EZGallery.DeleteTitle" = "刪除照片？"; "EZGallery.DeleteMessage" = "永久刪除所選的 %lu 張照片？"; "EZGallery.Delete" = "刪除"; "EZGallery.Cancel" = "取消";
+
+/* Image generation progress */
+"EZImageGen.Status.Working" = "正在處理你的請求…";
+"EZImageGen.Status.Stay" = "生成期間請勿離開此頁面";
+"EZImageGen.Status.StillWorking" = "仍在生成中 — 可能需要一點時間";
+"EZImageGen.Status.AlmostDone" = "即將完成…";
+
+/* Brainrot Slots */
+"BRSlot.Picker.Title" = "Brainrot Slots";
+"BRSlot.Picker.Header" = "老虎機遊戲";
+"BRSlot.Picker.Detail" = "選一台機器、探索你已儲存的世界，或建立新的老虎機房間。";
+"BRSlot.Picker.Back" = "‹  BRAINROT";
+"BRSlot.Picker.Classic.Title" = "Brainrot Slots";
+"BRSlot.Picker.Classic.Detail" = "原創三轉軸房間，五條賠付線與累進大獎。";
+"BRSlot.Picker.Penny.Title" = "EZCoin 便士老虎機";
+"BRSlot.Picker.Penny.Detail" = "五個轉軸、九條線、EZCoin 分散符號，以及雙倍賠付的免費旋轉。";
+"BRSlot.Picker.Create.Title" = "建立老虎機房間";
+"BRSlot.Picker.Create.Detail" = "打造自訂世界、背景與符號組。";
+"BRSlot.Picker.Community.Title" = "瀏覽社群";
+"BRSlot.Picker.Community.Detail" = "下載其他玩家的房間，並將它們用作老虎機。";
+"BRSlot.Picker.Saved.Title" = "已儲存的老虎機房間";
+"BRSlot.Picker.Saved.Detail" = "你已儲存的 Brainrot 遊戲已準備好作為老虎機遊玩。";
+"BRSlot.Picker.NewGame" = "新老虎機遊戲";
+"BRSlot.Lounge.DisplayName" = "顯示名稱";
+"BRSlot.Lounge.Connecting" = "● 正在連線到休息室…";
+"BRSlot.Lounge.Composer" = "說點好聽的…";
+"BRSlot.Lounge.Note" = "友善待人。長按訊息可檢舉。場內主持人是角色，不是玩家。";
+"BRSlot.Lounge.Wins" = "🏆 獲勝";
+"BRSlot.Classic.ThemeTitle" = "%@ 老虎機";
+"BRSlot.Classic.CommunityTitle" = "社群老虎機";
+"BRSlot.Classic.Title" = "Brainrot Slots";
+"BRSlot.Navigation.Back" = "‹  返回";
+"BRSlot.Navigation.Lounge" = "休息室";
+"BRSlot.Navigation.Odds" = "賠率";
+"BRSlot.Classic.Heading" = "🧠  BRAINROT SLOTS  🧠";
+"BRSlot.Balance.Loading" = "🪙 — EZ 金幣";
+"BRSlot.Classic.JackpotLoading" = "  累進大獎 • 僅限最大投注 • 最高可贏 — 金幣  ";
+"BRSlot.Classic.Description" = "五條賠付線 • 伺服器驗證結果";
+"BRSlot.Control.Lines" = "線數";
+"BRSlot.Control.BetPerLine" = "每線投注";
+"BRSlot.Classic.MaxBet" = "最大投注\n⚡ 25";
+"BRSlot.Customize" = "自訂符號";
+"BRSlot.Control.Spin" = "⚡  旋轉";
+"BRSlot.Penny.Title" = "便士老虎機";
+"BRSlot.Penny.Heading" = "🪙  便士老虎機  🪙";
+"BRSlot.Penny.ScatterReward" = "3 個 EZCoin = 5 次免費旋轉 • 4 = 15 • 5+ = 25";
+"BRSlot.Penny.Description" = "9 條賠付線 • 免費旋轉期間賠付 2 倍";
+"BRSlot.Odds.Title" = "賠付表";
+"BRSlot.Odds.Subtitle" = "三個相同符號，在任一啟用線上由左至右";
+"BRSlot.Odds.ClassicFooter" = "5 條固定賠付線：上、中、下與兩條對角線。加權轉軸目標約為 92% RTP。在 25 金幣最大投注下出現三個 🧠 也可奪得累進大獎。";
+"BRSlot.Customizer.ClassicTitle" = "自訂你的符號";
+"BRSlot.Customizer.ClassicSubtitle" = "選擇一個圖格，使用你的其中一張照片。你的作品只保留在此裝置上。";
+"BRSlot.Customizer.PennyTitle" = "自訂便士老虎機";
+"BRSlot.Customizer.PennySubtitle" = "點一下符號以選擇照片、檔案或生成的圖片。目前的圖案顯示於此。";
+"BRSlot.Customizer.ResetAll" = "↺  重設所有圖案";
+"BRSlot.Control.LinesValue" = "線數\n%ld";
+"BRSlot.Control.BetPerLineValue" = "每線投注\n🪙 %ld";
+"BRSlot.Balance.Value" = "🪙 %ld EZ 金幣";
+"BRSlot.Classic.LoungeTitle" = "Brainrot 休息室";
+"BRSlot.Penny.LoungeTitle" = "便士老虎機休息室";
+"BRSlot.Classic.FreeSpin" = "🎁  免費旋轉（剩 %ld 次）";
+"BRSlot.FreeSpin.NoWager" = "本店招待 — 無需投注金幣";
+"BRSlot.Classic.Jackpot" = "  累進大獎 • 僅限最大投注 (25) • 最高可贏 %ld 金幣 • 三個 🧠 即可奪得  ";
+"BRSlot.Error.SignInTitle" = "需要登入";
+"BRSlot.Error.SignInToSpin" = "登入以使用 EZ 金幣旋轉。";
+"BRSlot.Classic.SpinningFree" = "正在旋轉你的免費旋轉…";
+"BRSlot.CheckingBalance" = "正在檢查 EZ 金幣…";
+"BRSlot.Classic.NeedCoins" = "需要 %ld 金幣才能下此注 • 正在開啟金幣商店…";
+"BRSlot.Classic.StoreFeature" = "你的 %ld 金幣老虎機投注";
+"BRSlot.Spinning" = "旋轉中…";
+"BRSlot.Error.SessionExpired" = "你的登入工作階段已過期。";
+"BRSlot.Penny.MaxBet" = "最大投注\n⚡ 225";
+"BRSlot.Penny.FreeSpin" = "免費旋轉…";
+"BRSlot.Penny.NeedCoins" = "此次旋轉需要 %ld 金幣。";
+"BRSlot.Penny.FreeSpinsRemaining" = "⚡ 剩餘 %ld 次免費旋轉 • 所有獎金 2 倍";
+"BRSlot.Penny.SignIn" = "登入以遊玩便士老虎機。";
+"BRSlot.Penny.StoreFeature" = "便士老虎機 — 建議加值：400 金幣";
+"BRSlot.Error.InvalidSpin" = "旋轉結果無效。";
+"BRSlot.Pity.Title" = "😬 哎呀，剛才真不順";
+"BRSlot.Pity.Body" = "這一輪運氣不好。這裡送你 %ld 次免費旋轉，本店招待。";
+"BRSlot.Pity.Action" = "開始吧！🎰";
+"BRSlot.Win.Overlay" = "%@\n+%ld 金幣";
+"BRSlot.Win.Jackpot" = "大獎！";
+"BRSlot.Win.Winner" = "贏家！";
+"BRSlot.Lounge.SignIn" = "登入以加入休息室。";
+"BRSlot.Lounge.Delete" = "刪除";
+"BRSlot.OK" = "確定";
+"BRSlot.Customizer.CustomImage" = "目前使用你的自訂圖片。";
+"BRSlot.Customizer.BuiltInClassic" = "目前使用內建的老虎機圖片。";
+"BRSlot.Customizer.BuiltInPenny" = "目前使用內建的便士老虎機圖片。";
+"BRSlot.Generation.Cost" = "每次生成需 3 EZ 金幣。";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZMusic.A11y.Lyrics" = "歌曲歌詞";
+"EZMusic.A11y.Prompt" = "歌曲提示詞";
+"EZMusic.A11y.Remix" = "混音";
+"EZMusic.A11y.Rename" = "重新命名歌曲";
+"EZMusic.A11y.ViewLyrics" = "查看歌詞";
+"EZMusic.A11y.ViewPrompt" = "查看提示詞";
+"EZMusic.Action.Cancel" = "取消";
+"EZMusic.Action.Copied" = "已複製";
+"EZMusic.Action.Copy" = "複製";
+"EZMusic.Action.Save" = "儲存";
+"EZMusic.Menu.GenerateCover" = "生成";
+"EZMusic.Menu.Lyrics" = "歌詞";
+"EZMusic.Menu.Prompt" = "提示詞";
+"EZMusic.Menu.Remix" = "混音";
+"EZMusic.Menu.Rename" = "重新命名";
+"EZMusic.Paywall.CreateMessage" = "你已製作你的免費歌曲。任何購買即可解鎖無限歌曲創作。";
+"EZMusic.Paywall.CreateTitle" = "需要購買";
+"EZMusic.Paywall.ExportMessage" = "匯出歌曲是付費功能。任何購買即可解鎖。";
+"EZMusic.Paywall.ExportTitle" = "需要購買";
+"EZMusic.Paywall.ViewStore" = "查看商店";
+"EZMusic.Prompt.Title" = "提示詞";
+"EZMusic.Rename.Placeholder" = "歌曲標題";
+"EZMusic.Rename.Title" = "重新命名歌曲";
+"EZMusic.Toast.Remix" = "混音已載入 — 調整任何內容，然後點一下「生成」";
+"EZMusic.Toast.RenameFailed" = "無法重新命名。請再試一次。";
+"EZChat.Paywall.Title" = "需要購買";
+"EZChat.Paywall.PaidModelMessage" = "%@ 是付費模型。購買以解鎖它，然後回到此對話串。";
+"EZChat.SongPaywall.Message" = "你已製作你的免費歌曲。進行任何購買即可繼續創作歌曲，然後再問一次。";
+"EZChat.Paywall.ViewStore" = "查看商店";
+"EZChat.SongPaywall.NotNow" = "現在不要";
+"EZCoinStore.Feature.AIMusic" = "AI 音樂";
+"EZMemory.Player.Play" = "播放";
+"EZMemory.Player.Pause" = "暫停";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.OpenErrorTitle" = "無法開啟歌曲";
+"EZMemory.Player.OpenErrorMessage" = "無法下載歌曲。請檢查你的連線並再試一次。";
+"EZMemory.Player.OK" = "確定";
+"EZCoinStore.FreeSpins.Title" = "🎁 免費旋轉！";
+"EZCoinStore.FreeSpins.Message" = "你在 Brainrot Slots 獲得了 %ld 次免費旋轉 — 試試手氣吧！";
+"EZCoinStore.FreeSpins.PlayNow" = "立即遊玩";
+"EZCoinStore.FreeSpins.Later" = "稍後";
