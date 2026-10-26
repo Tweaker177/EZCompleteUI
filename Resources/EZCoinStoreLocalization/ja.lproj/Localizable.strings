@@ -67,3 +67,10 @@
 "EZCoinStore.Celebration.NewBalanceFormat" = "新しい残高: %ld コイン";
 "EZCoinStore.Celebration.Sweet" = "やった！";
 "EZCoinStore.OK" = "OK";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZCoinStore.Feature.AIMusic" = "AI音楽";
+"EZCoinStore.FreeSpins.Title" = "🎁 無料スピン！";
+"EZCoinStore.FreeSpins.Message" = "Brainrot Slotsで使える無料スピンが%ld回分もらえました — さっそく回そう！";
+"EZCoinStore.FreeSpins.PlayNow" = "今すぐプレイ";
+"EZCoinStore.FreeSpins.Later" = "後で";

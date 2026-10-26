@@ -37,8 +37,6 @@
 #import "EZMusicService.h"
 #import "EZMusicLibraryManager.h"
 #import "EZMusicArtworkService.h"
-#import "EZEntitlementManager.h"
-#import "EZCoinStoreViewController.h"
 
 @implementation EZMusicBubbleCell {
     UIImageView *_artworkView;
@@ -213,7 +211,7 @@
                    entryID:(NSString *)entryID
       presentingController:(UIViewController *)presentingController {
     _entryID = [entryID copy];
-    _songTitle = title.length > 0 ? [title copy] : @"AI song";
+    _songTitle = title.length > 0 ? [title copy] : @"🔊EZCompleteUI🔊";
     _baseSubtitle = [subtitle copy];
     _durationSeconds = MAX(durationSeconds, 0);
     _presentingController = presentingController;
@@ -333,24 +331,6 @@
 }
 
 - (void)shareTapped {
-    // Exporting is a paid feature: never-purchased users get the denial
-    // warning and the coin store instead of the share sheet. Refresh the
-    // purchase flag first so a just-completed purchase is never blocked.
-    if (![EZEntitlementManager shared].hasEverPurchased) {
-        __weak typeof(self) weakSelf = self;
-        [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:^(__unused BOOL refreshed, __unused NSInteger balance) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                __strong typeof(weakSelf) strongSelf = weakSelf;
-                if (!strongSelf) return;
-                if ([EZEntitlementManager shared].hasEverPurchased) {
-                    [strongSelf shareTapped];
-                    return;
-                }
-                [strongSelf presentSongExportPaywall];
-            });
-        }];
-        return;
-    }
     __weak typeof(self) weakSelf = self;
     [self withLocalFile:^(NSURL *fileURL) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
@@ -362,32 +342,6 @@
         shareController.popoverPresentationController.sourceRect = strongSelf->_shareButton.bounds;
         [[strongSelf topPresenter] presentViewController:shareController animated:YES completion:nil];
     }];
-}
-
-// Denial warning for the song export paywall, then the coin store — the
-// same warning-then-store flow the rest of the app uses.
-- (void)presentSongExportPaywall {
-    UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:@"Purchase Required"
-                         message:@"Exporting songs is a paid feature. Any purchase unlocks it."
-                  preferredStyle:UIAlertControllerStyleAlert];
-    __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:@"View Store"
-                                              style:UIAlertActionStyleDefault
-                                            handler:^(__unused UIAlertAction *action) {
-        __strong typeof(weakSelf) strongSelf = weakSelf;
-        if (!strongSelf) return;
-        EZCoinStoreViewController *store = [[EZCoinStoreViewController alloc] init];
-        store.showLowCoinsWarning = YES;
-        store.triggeringFeatureName = @"AI music";
-        UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:store];
-        navigation.modalPresentationStyle = UIModalPresentationFormSheet;
-        [[strongSelf topPresenter] presentViewController:navigation animated:YES completion:nil];
-    }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Not Now"
-                                              style:UIAlertActionStyleCancel
-                                            handler:nil]];
-    [[self topPresenter] presentViewController:alert animated:YES completion:nil];
 }
 
 /// The controller that should show a sheet: the presenting controller, or
@@ -418,7 +372,7 @@
         if (!strongSelf) return;
         if (!remoteURL) { [strongSelf finishFailedPrepareForEntryID:requestedEntryID error:linkError]; return; }
 
-        NSDictionary *entry = @{ @"id": requestedEntryID, @"title": strongSelf->_songTitle ?: @"AI song" };
+        NSDictionary *entry = @{ @"id": requestedEntryID, @"title": strongSelf->_songTitle ?: @"🔊EZCompleteUI🔊" };
         [[EZMusicLibraryManager sharedManager] retainSongFromRemoteURL:remoteURL entry:entry
                                                             completion:^(NSURL *savedURL, NSError *downloadError) {
             __strong typeof(weakSelf) innerSelf = weakSelf;
