@@ -95,6 +95,8 @@
 
 #import "EZCoinUsageViewController.h"
 
+#import "BRSlotMachineViewController.h"
+
 // ── Safe JSON value helpers ───────────────────────────────────────────────────
 
 // NSJSONSerialization maps JSON `null` to [NSNull null], a real Objective-C object
@@ -630,6 +632,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 @property (nonatomic, assign) BOOL       isDailyCoinsAvailable;  // Whether the server says coins can be claimed now
 
 @property (nonatomic, strong) NSDate    *nextDailyClaimDate;     // ISO date from server; drives the countdown label
+
+@property (nonatomic, assign) BOOL       openSlotAfterClaimCelebration; // Set only by a successful daily claim; dismissing that celebration opens the first Brainrot slot
 
 @property (nonatomic, assign) NSInteger  dailyCoinsPendingAmount; // 10 or 15 depending on membership; from server
 
@@ -1817,6 +1821,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
                     [[EZEntitlementManager shared] applyKnownBalance:newBalance];
 
+                    // After the celebration is dismissed, continue into the
+                    // first Brainrot slot (see dismissCelebration:).
+                    self.openSlotAfterClaimCelebration = YES;
+
                     [self showCoinCelebration:coinsAdded newBalance:newBalance];
 
                 }
@@ -2610,9 +2618,58 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 - (void)showFreeSpinsCelebration:(NSInteger)spinsAdded {
 
-    [self showAlert:@"🎁 Free Spins!"
+    UIAlertController *alert = [UIAlertController
 
-            message:[NSString stringWithFormat:@"You got %ld free spins on Brainrot Slots — head over and give them a pull!", (long)spinsAdded]];
+        alertControllerWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.Title", @"Free spins celebration title")
+
+                         message:[NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.Message", @"Free spins celebration message"), (long)spinsAdded]
+
+                  preferredStyle:UIAlertControllerStyleAlert];
+
+    __weak typeof(self) weakSelf = self;
+
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.PlayNow", @"Play now button")
+
+                                              style:UIAlertActionStyleDefault
+
+                                            handler:^(__unused UIAlertAction *action) {
+
+        [weakSelf openFirstBrainrotSlot];
+
+    }]];
+
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.Later", @"Later button")
+
+                                              style:UIAlertActionStyleCancel
+
+                                            handler:nil]];
+
+    [self presentViewController:alert animated:YES completion:nil];
+
+}
+
+// Opens the first Brainrot slot — the Classic machine, first card in
+// BRSlotGamePickerViewController — the same way the picker opens it: a plain
+// BRSlotMachineViewController pushed onto the current navigation stack.
+// The slot fetches free_spins_remaining when it appears, so the user's free
+// spins show on its spin button automatically.
+- (void)openFirstBrainrotSlot {
+
+    BRSlotMachineViewController *slot = [BRSlotMachineViewController new];
+
+    if (self.navigationController) {
+
+        [self.navigationController pushViewController:slot animated:YES];
+
+    } else {
+
+        UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:slot];
+
+        nav.modalPresentationStyle = UIModalPresentationPageSheet;
+
+        [self presentViewController:nav animated:YES completion:nil];
+
+    }
 
 }
 
@@ -2780,6 +2837,17 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         [overlay removeFromSuperview];
 
         self.storePotView = nil;
+
+        // A successful daily claim continues straight into the first
+        // Brainrot slot once its celebration is dismissed. Purchase and
+        // top-up celebrations never set the flag, so they are unchanged.
+        if (self.openSlotAfterClaimCelebration) {
+
+            self.openSlotAfterClaimCelebration = NO;
+
+            [self openFirstBrainrotSlot];
+
+        }
 
     }];
 

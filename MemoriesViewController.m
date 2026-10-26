@@ -20,6 +20,10 @@
 #import "MemoriesViewController.h"
 #import "helpers.h"
 #import "EZPhotoGalleryViewController.h"
+#import "EZMusicLibraryManager.h"
+#import "EZMusicService.h"
+#import "EZMusicArtworkService.h"
+#import "EZMediaPlayerManager.h"
 #import <QuickLook/QuickLook.h>
 #import <QuickLookThumbnailing/QuickLookThumbnailing.h>
 
@@ -40,6 +44,19 @@
 @property (nonatomic, strong) UIImageView *attachmentThumb;
 @property (nonatomic, strong) UILabel    *attachmentBadge;
 @property (nonatomic, strong) UIButton   *attachmentButton;
+// Compact song player row, shown in the attachment slot when the memory
+// recorded a song (songEntryIDs) and that song is still in the library.
+@property (nonatomic, strong) UIView     *playerView;
+@property (nonatomic, strong) UIImageView *playerArtworkView;
+@property (nonatomic, strong) UILabel    *playerTitleLabel;
+@property (nonatomic, strong) UILabel    *playerDetailLabel;
+@property (nonatomic, strong) UIButton   *playerPlayButton;
+@property (nonatomic, strong) UIActivityIndicatorView *playerSpinner;
+@property (nonatomic, strong) UIProgressView *playerProgressView;
+@property (nonatomic, copy)   NSString   *songEntryID;
+@property (nonatomic, copy)   NSString   *songTitle;
+@property (nonatomic, assign) NSInteger   songDurationSeconds;
+@property (nonatomic, assign) BOOL        songPreparing;
 @property (nonatomic, strong) UILabel    *editHintLabel;
 
 // Toggled on/off depending on whether attachment exists
@@ -47,6 +64,8 @@
 @property (nonatomic, strong) NSLayoutConstraint *summaryTopWithThumb;
 @property (nonatomic, strong) NSLayoutConstraint *summaryTopNoThumb;
 @property (nonatomic, strong) NSLayoutConstraint *badgeTopConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *playerHeightConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *summaryTopWithPlayer;
 
 @property (nonatomic, weak)   id<EZMemoryCellDelegate> memoryDelegate;
 @property (nonatomic, assign) NSUInteger memoryIndex;
@@ -136,6 +155,66 @@
     [_attachmentBadge addGestureRecognizer:badgeTap];
     [card addSubview:_attachmentBadge];
 
+    // ── Song player row (hidden unless the memory has a playable song) ────
+    _playerView = [[UIView alloc] init];
+    _playerView.translatesAutoresizingMaskIntoConstraints = NO;
+    _playerView.backgroundColor    = [UIColor tertiarySystemFillColor];
+    _playerView.layer.cornerRadius = 10;
+    _playerView.clipsToBounds      = YES;
+    _playerView.hidden             = YES;
+    [card addSubview:_playerView];
+
+    _playerArtworkView = [[UIImageView alloc] init];
+    _playerArtworkView.translatesAutoresizingMaskIntoConstraints = NO;
+    _playerArtworkView.contentMode        = UIViewContentModeScaleAspectFill;
+    _playerArtworkView.clipsToBounds      = YES;
+    _playerArtworkView.layer.cornerRadius = 6;
+    _playerArtworkView.backgroundColor    = [UIColor secondarySystemFillColor];
+    [_playerView addSubview:_playerArtworkView];
+
+    _playerTitleLabel = [[UILabel alloc] init];
+    _playerTitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    _playerTitleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
+    _playerTitleLabel.textColor = [UIColor labelColor];
+    _playerTitleLabel.numberOfLines = 1;
+    _playerTitleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    [_playerView addSubview:_playerTitleLabel];
+
+    _playerDetailLabel = [[UILabel alloc] init];
+    _playerDetailLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    _playerDetailLabel.font = [UIFont systemFontOfSize:12];
+    _playerDetailLabel.textColor = [UIColor secondaryLabelColor];
+    _playerDetailLabel.numberOfLines = 1;
+    [_playerView addSubview:_playerDetailLabel];
+
+    _playerPlayButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    _playerPlayButton.translatesAutoresizingMaskIntoConstraints = NO;
+    _playerPlayButton.tintColor = [UIColor labelColor];
+    _playerPlayButton.accessibilityLabel = NSLocalizedString(@"EZMemory.Player.Play", @"Play accessibility label");
+    [_playerPlayButton setImage:[UIImage systemImageNamed:@"play.fill"
+        withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22]]
+                       forState:UIControlStateNormal];
+    [_playerPlayButton addTarget:self action:@selector(playerPlayTapped)
+                forControlEvents:UIControlEventTouchUpInside];
+    [_playerView addSubview:_playerPlayButton];
+
+    _playerSpinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    _playerSpinner.translatesAutoresizingMaskIntoConstraints = NO;
+    _playerSpinner.hidesWhenStopped = YES;
+    [_playerView addSubview:_playerSpinner];
+
+    _playerProgressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
+    _playerProgressView.translatesAutoresizingMaskIntoConstraints = NO;
+    _playerProgressView.trackTintColor = [UIColor clearColor];
+    _playerProgressView.progressTintColor = [UIColor systemBlueColor];
+    _playerProgressView.hidden = YES;
+    [_playerView addSubview:_playerProgressView];
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(playerDidUpdate)
+                                                 name:EZMediaPlayerDidUpdateNotification
+                                               object:nil];
+
     // ── Summary text view ─────────────────────────────────────────────────────
     _summaryTextView = [[UITextView alloc] init];
     _summaryTextView.font             = [UIFont systemFontOfSize:15];
@@ -189,6 +268,37 @@
         [_attachmentBadge.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:14],
         [_attachmentBadge.heightAnchor  constraintEqualToConstant:34],
 
+        // Player row — same slot as the thumbnail, below the timestamp
+        [_playerView.topAnchor      constraintEqualToAnchor:_timestampLabel.bottomAnchor constant:10],
+        [_playerView.leadingAnchor  constraintEqualToAnchor:card.leadingAnchor  constant:14],
+        [_playerView.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-14],
+
+        [_playerArtworkView.leadingAnchor constraintEqualToAnchor:_playerView.leadingAnchor constant:8],
+        [_playerArtworkView.centerYAnchor constraintEqualToAnchor:_playerView.centerYAnchor],
+        [_playerArtworkView.widthAnchor   constraintEqualToConstant:48],
+        [_playerArtworkView.heightAnchor  constraintEqualToConstant:48],
+
+        [_playerPlayButton.trailingAnchor constraintEqualToAnchor:_playerView.trailingAnchor constant:-6],
+        [_playerPlayButton.centerYAnchor  constraintEqualToAnchor:_playerView.centerYAnchor],
+        [_playerPlayButton.widthAnchor    constraintEqualToConstant:44],
+        [_playerPlayButton.heightAnchor   constraintEqualToConstant:44],
+
+        [_playerSpinner.centerXAnchor constraintEqualToAnchor:_playerPlayButton.centerXAnchor],
+        [_playerSpinner.centerYAnchor constraintEqualToAnchor:_playerPlayButton.centerYAnchor],
+
+        [_playerTitleLabel.leadingAnchor constraintEqualToAnchor:_playerArtworkView.trailingAnchor constant:10],
+        [_playerTitleLabel.trailingAnchor constraintEqualToAnchor:_playerPlayButton.leadingAnchor constant:-6],
+        [_playerTitleLabel.topAnchor      constraintEqualToAnchor:_playerView.topAnchor constant:11],
+
+        [_playerDetailLabel.leadingAnchor constraintEqualToAnchor:_playerTitleLabel.leadingAnchor],
+        [_playerDetailLabel.trailingAnchor constraintEqualToAnchor:_playerTitleLabel.trailingAnchor],
+        [_playerDetailLabel.topAnchor     constraintEqualToAnchor:_playerTitleLabel.bottomAnchor constant:2],
+
+        [_playerProgressView.leadingAnchor constraintEqualToAnchor:_playerView.leadingAnchor],
+        [_playerProgressView.trailingAnchor constraintEqualToAnchor:_playerView.trailingAnchor],
+        [_playerProgressView.bottomAnchor  constraintEqualToAnchor:_playerView.bottomAnchor],
+        [_playerProgressView.heightAnchor  constraintEqualToConstant:2.5],
+
         // Summary trailing/leading fixed
         [_summaryTextView.leadingAnchor  constraintEqualToAnchor:card.leadingAnchor  constant:14],
         [_summaryTextView.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-14],
@@ -212,6 +322,14 @@
         constraintEqualToAnchor:_timestampLabel.bottomAnchor constant:10];
     _summaryTopNoThumb.active = YES;
 
+    // Player row height: 64 when shown, 0 when hidden
+    _playerHeightConstraint = [_playerView.heightAnchor constraintEqualToConstant:0];
+    _playerHeightConstraint.active = YES;
+
+    // Summary top variant for when the player row is showing
+    _summaryTopWithPlayer = [_summaryTextView.topAnchor
+        constraintEqualToAnchor:_playerView.bottomAnchor constant:10];
+
     return self;
 }
 
@@ -233,6 +351,52 @@
     self.attachmentThumb.hidden  = YES;
     self.attachmentButton.hidden = YES;
 
+    // Reset player row
+    self.songEntryID = nil;
+    self.songTitle = nil;
+    self.songDurationSeconds = 0;
+    self.songPreparing = NO;
+    self.playerView.hidden = YES;
+    self.playerHeightConstraint.constant = 0;
+    self.summaryTopWithPlayer.active = NO;
+
+    // A song recorded on this memory takes the attachment slot when it still
+    // resolves to a library entry; a deleted song simply shows no row.
+    NSString *songID = nil;
+    NSDictionary *songRecord = nil;
+    for (NSString *candidate in [self candidateSongIDsForMemory:memory]) {
+        NSDictionary *record = [[EZMusicLibraryManager sharedManager] localSongRecordForEntryID:candidate];
+        if (record) { songID = candidate; songRecord = record; break; }
+    }
+    if (songID) {
+        self.songEntryID = songID;
+        NSString *title = [songRecord[@"title"] isKindOfClass:[NSString class]] ? songRecord[@"title"] : @"";
+        self.songTitle = title.length > 0 ? title : NSLocalizedString(@"EZMemory.Player.SongFallback", @"AI song fallback title");
+        double durationMs = [songRecord[@"duration_ms"] respondsToSelector:@selector(doubleValue)]
+            ? [songRecord[@"duration_ms"] doubleValue] : 0;
+        self.songDurationSeconds = (NSInteger)llround(durationMs / 1000.0);
+        self.playerTitleLabel.text = self.songTitle;
+        UIImage *artwork = [[EZMusicArtworkService sharedService] cachedArtworkForEntryID:songID];
+        if (artwork) {
+            self.playerArtworkView.image = artwork;
+            self.playerArtworkView.contentMode = UIViewContentModeScaleAspectFill;
+            self.playerArtworkView.tintColor = nil;
+        } else {
+            self.playerArtworkView.image = [UIImage systemImageNamed:@"music.note"];
+            self.playerArtworkView.contentMode = UIViewContentModeScaleAspectFit;
+            self.playerArtworkView.tintColor = [UIColor secondaryLabelColor];
+        }
+        self.playerView.hidden = NO;
+        self.playerHeightConstraint.constant = 64;
+        self.summaryTopWithPlayer.active = YES;
+        self.summaryTopWithThumb.active  = NO;
+        self.summaryTopNoThumb.active    = NO;
+        self.attachmentBadge.hidden      = YES;
+        self.thumbHeightConstraint.constant = 0;
+        [self syncPlayerRow];
+        return;
+    }
+
     if (hasAttachment) {
         // Show badge while thumb generates; reserve 180pt for thumb area
         self.attachmentBadge.hidden       = NO;
@@ -245,6 +409,163 @@
         self.summaryTopWithThumb.active   = NO;
         self.summaryTopNoThumb.active     = YES;
     }
+}
+
+// Song IDs in priority order: the structured field first (recorded by the
+// code that finished the song), then any ID the summarizer kept in the
+// summary prose of an older memory, recovered by regex.
+- (NSArray<NSString *> *)candidateSongIDsForMemory:(NSDictionary *)memory {
+    NSMutableArray<NSString *> *candidates = [NSMutableArray array];
+    id stored = memory[@"songEntryIDs"];
+    if ([stored isKindOfClass:[NSArray class]]) {
+        for (id obj in (NSArray *)stored) {
+            if ([obj isKindOfClass:[NSString class]] && [(NSString *)obj length] > 0 &&
+                ![candidates containsObject:obj]) {
+                [candidates addObject:obj];
+            }
+        }
+    }
+    NSString *summary = [memory[@"summary"] isKindOfClass:[NSString class]] ? memory[@"summary"] : @"";
+    if (summary.length > 0) {
+        static NSRegularExpression *songIDRegex;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            songIDRegex = [NSRegularExpression regularExpressionWithPattern:
+                @"Song ID:\\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"
+                options:0 error:nil];
+        });
+        NSTextCheckingResult *match = [songIDRegex firstMatchInString:summary options:0
+                                                                range:NSMakeRange(0, summary.length)];
+        if (match && [match rangeAtIndex:1].location != NSNotFound) {
+            NSString *proseID = [summary substringWithRange:[match rangeAtIndex:1]];
+            if (![candidates containsObject:proseID]) [candidates addObject:proseID];
+        }
+    }
+    return candidates;
+}
+
+- (void)playerDidUpdate {
+    [self syncPlayerRow];
+}
+
+/// Mirrors the chat song card: play/pause state, spinner and progress all
+/// derive from the shared player, so this row never disagrees with it.
+- (void)syncPlayerRow {
+    if (!self.songEntryID.length || self.playerView.hidden) return;
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    BOOL isCurrent = [player isCurrentItemWithIdentifier:self.songEntryID];
+    EZMediaPlayerState state = isCurrent ? player.state : EZMediaPlayerStateIdle;
+
+    BOOL showSpinner = self.songPreparing || state == EZMediaPlayerStateLoading;
+    NSString *symbol = state == EZMediaPlayerStatePlaying ? @"pause.fill" : @"play.fill";
+    [self.playerPlayButton setImage:(showSpinner ? nil : [UIImage systemImageNamed:symbol
+        withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22]])
+                           forState:UIControlStateNormal];
+    self.playerPlayButton.accessibilityLabel = state == EZMediaPlayerStatePlaying ? NSLocalizedString(@"EZMemory.Player.Pause", @"Pause accessibility label") : NSLocalizedString(@"EZMemory.Player.Play", @"Play accessibility label");
+    if (showSpinner) [self.playerSpinner startAnimating]; else [self.playerSpinner stopAnimating];
+
+    if (state == EZMediaPlayerStateFailed && player.errorMessage.length > 0) {
+        self.playerDetailLabel.text = player.errorMessage;
+        self.playerProgressView.hidden = YES;
+    } else if (isCurrent && player.duration > 0) {
+        self.playerProgressView.hidden = NO;
+        self.playerProgressView.progress = (float)MIN(player.currentTime / player.duration, 1.0);
+        self.playerDetailLabel.text = [NSString stringWithFormat:@"%@ / %@",
+            [EZMediaPlayerManager formattedTime:player.currentTime],
+            [EZMediaPlayerManager formattedTime:player.duration]];
+    } else {
+        self.playerProgressView.hidden = YES;
+        self.playerProgressView.progress = 0;
+        self.playerDetailLabel.text = self.songDurationSeconds > 0
+            ? [NSString stringWithFormat:NSLocalizedString(@"EZMemory.Player.SongDetailFormat", @"Song detail with duration"),
+                [EZMediaPlayerManager formattedTime:(NSTimeInterval)self.songDurationSeconds]]
+            : NSLocalizedString(@"EZMemory.Player.SongFallback", @"AI song fallback title");
+    }
+}
+
+- (void)playerPlayTapped {
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    NSString *entryID = self.songEntryID;
+    if (!entryID.length) return;
+    if ([player isCurrentItemWithIdentifier:entryID] && player.state != EZMediaPlayerStateFailed) {
+        [player togglePlayPause];
+        return;
+    }
+    __weak typeof(self) weakSelf = self;
+    [self withLocalSongFile:^(NSURL *fileURL) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf || !fileURL) return;
+        if (![strongSelf.songEntryID isEqualToString:entryID]) return;
+        EZMediaPlayerItem *item = [EZMediaPlayerItem itemWithIdentifier:entryID
+                                                                  title:strongSelf.songTitle ?: NSLocalizedString(@"EZMemory.Player.SongFallback", @"AI song fallback title")
+                                                               subtitle:NSLocalizedString(@"EZMemory.Player.SongFallback", @"AI song fallback title")
+                                                                fileURL:fileURL
+                                                           durationHint:(NSTimeInterval)strongSelf.songDurationSeconds];
+        item.artwork = [[EZMusicArtworkService sharedService] cachedArtworkForEntryID:entryID];
+        [[EZMediaPlayerManager sharedManager] playItem:item];
+    }];
+}
+
+/// Calls `ready` on the main queue with the song's MP3 on this device,
+/// downloading and keeping it first when needed (same flow as the chat card).
+- (void)withLocalSongFile:(void (^)(NSURL * _Nullable fileURL))ready {
+    NSString *entryID = self.songEntryID;
+    NSURL *localURL = [[EZMusicLibraryManager sharedManager] localSongURLForEntryID:entryID];
+    if (localURL) { ready(localURL); return; }
+
+    self.songPreparing = YES;
+    [self syncPlayerRow];
+    __weak typeof(self) weakSelf = self;
+    [[EZMusicService sharedService] fetchPlaybackURLForEntryID:entryID forDownload:NO
+                                                    completion:^(NSURL *remoteURL, NSError *linkError) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        if (![strongSelf.songEntryID isEqualToString:entryID]) return;
+        if (!remoteURL) {
+            strongSelf.songPreparing = NO;
+            [strongSelf syncPlayerRow];
+            [strongSelf presentSongError:linkError];
+            ready(nil);
+            return;
+        }
+        NSDictionary *entry = @{ @"id": entryID, @"title": strongSelf.songTitle ?: NSLocalizedString(@"EZMemory.Player.SongFallback", @"AI song fallback title") };
+        [[EZMusicLibraryManager sharedManager] retainSongFromRemoteURL:remoteURL entry:entry
+                                                            completion:^(NSURL *savedURL, NSError *downloadError) {
+            __strong typeof(weakSelf) innerSelf = weakSelf;
+            if (!innerSelf) return;
+            if (![innerSelf.songEntryID isEqualToString:entryID]) return;
+            innerSelf.songPreparing = NO;
+            [innerSelf syncPlayerRow];
+            if (!savedURL) [innerSelf presentSongError:downloadError];
+            ready(savedURL);
+        }];
+    }];
+}
+
+- (void)presentSongError:(NSError *)error {
+    UIAlertController *alert = [UIAlertController
+        alertControllerWithTitle:NSLocalizedString(@"EZMemory.Player.OpenErrorTitle", @"Song open error title")
+                         message:error.localizedDescription ?: NSLocalizedString(@"EZMemory.Player.OpenErrorMessage", @"Song open error message")
+                  preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZMemory.Player.OK", @"OK button") style:UIAlertActionStyleDefault handler:nil]];
+    UIViewController *presenter = [self presentingViewController];
+    while (presenter.presentedViewController) presenter = presenter.presentedViewController;
+    [presenter presentViewController:alert animated:YES completion:nil];
+}
+
+- (UIViewController *)presentingViewController {
+    UIResponder *responder = self;
+    while (responder) {
+        if ([responder isKindOfClass:[UIViewController class]]) {
+            return (UIViewController *)responder;
+        }
+        responder = [responder nextResponder];
+    }
+    return nil;
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 - (void)setThumbnailImage:(UIImage *)image {
