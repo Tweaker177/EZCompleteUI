@@ -211,7 +211,7 @@
                    entryID:(NSString *)entryID
       presentingController:(UIViewController *)presentingController {
     _entryID = [entryID copy];
-    _songTitle = title.length > 0 ? [title copy] : @"AI song";
+    _songTitle = title.length > 0 ? [title copy] : @"🔊EZCompleteUI🔊";
     _baseSubtitle = [subtitle copy];
     _durationSeconds = MAX(durationSeconds, 0);
     _presentingController = presentingController;
@@ -372,7 +372,7 @@
         if (!strongSelf) return;
         if (!remoteURL) { [strongSelf finishFailedPrepareForEntryID:requestedEntryID error:linkError]; return; }
 
-        NSDictionary *entry = @{ @"id": requestedEntryID, @"title": strongSelf->_songTitle ?: @"AI song" };
+        NSDictionary *entry = @{ @"id": requestedEntryID, @"title": strongSelf->_songTitle ?: @"🔊EZCompleteUI🔊" };
         [[EZMusicLibraryManager sharedManager] retainSongFromRemoteURL:remoteURL entry:entry
                                                             completion:^(NSURL *savedURL, NSError *downloadError) {
             __strong typeof(weakSelf) innerSelf = weakSelf;
