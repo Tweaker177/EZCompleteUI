@@ -1331,8 +1331,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
     self.models = @[
            // ── Chat / Reasoning ──────────────────────────────────────────────
            @"gpt-6-astra", // newest flagship reasoning model
-           @"gpt-6.1-sol", @"gpt-6-luna",
-           @"gpt-5.6-terra",
+           @"gpt-6.1-sol", @"gpt-6.1-terra", @"gpt-6-luna",
            @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
            @"gpt-4o", @"gpt-4o-mini",
            // ── Image Generation & Edit ───────────────────────────────────────
@@ -1364,6 +1363,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
         self.selectedModel = @"gpt-6.1-sol";
     } else if ([self.selectedModel isEqualToString:@"gpt-5.6-luna"]) {
         self.selectedModel = @"gpt-6-luna";
+    } else if ([self.selectedModel isEqualToString:@"gpt-5.6-terra"]) {
+        self.selectedModel = @"gpt-6.1-terra";
     } else if ([self.selectedModel isEqualToString:@"gpt-image-1"] ||
                [self.selectedModel isEqualToString:@"gpt-image-1.5"] ||
                [self.selectedModel isEqualToString:@"chatgpt-image-latest"]) {
@@ -4215,11 +4216,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // "gpt-5-pro" is a ChatGPT subscription tier name, not an API model string —
     // sending it to the API returns a model-not-found error. Remove it from
     // any model picker. Real API strings: gpt-5, gpt-5-mini, gpt-5.4, gpt-5.4-mini,
-    // gpt-5.4-nano, gpt-5.5, gpt-5.6-sol, gpt-5.6-terra. All are
-    // correctly matched by hasPrefix:@"gpt-5".
+    // gpt-5.4-nano, gpt-5.5, gpt-5.6-sol. The gpt-5.x strings are
+    // matched by hasPrefix:@"gpt-5"; the GPT-6 family is matched by
+    // the explicit equality checks in isGPT5 below.
     BOOL isGPT5 = [self.selectedModel hasPrefix:@"gpt-5"] ||
                   [self.selectedModel isEqualToString:@"gpt-6-astra"] ||
                   [self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
+                  [self.selectedModel isEqualToString:@"gpt-6.1-terra"] ||
                   [self.selectedModel isEqualToString:@"gpt-6-luna"];
     // Web search works on gpt-5.x (via Responses API), gpt-4.1.x, and listed gpt-4o models.
     // Prefix checks cover all sub-variants without needing to enumerate each.
@@ -4314,7 +4317,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // featureTier is only used for logging context in ez-chat.
     // Actual coin cost is computed per exact model string server-side.
     NSString *featureTier;
-    if ([self.selectedModel isEqualToString:@"gpt-6.1-sol"]) {
+    if ([self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
+        [self.selectedModel isEqualToString:@"gpt-6.1-terra"]) {
         featureTier = @"chat_standard";
     } else if ([self.selectedModel hasPrefix:@"o1"] || [self.selectedModel hasPrefix:@"o3"]) {
         featureTier = @"chat_premium"; // reasoning models
@@ -5368,7 +5372,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // gpt-5.x and gpt-4.1.x all support vision via the Responses API.
     // Prefix checks cover all variants (gpt-5, gpt-5.1-mini, gpt-4.1, gpt-4.1-mini, etc.)
     if ([model hasPrefix:@"gpt-5"] || [model isEqualToString:@"gpt-6-astra"] ||
-        [model isEqualToString:@"gpt-6.1-sol"] || [model isEqualToString:@"gpt-6-luna"]) return YES;
+        [model isEqualToString:@"gpt-6.1-sol"] || [model isEqualToString:@"gpt-6.1-terra"] ||
+        [model isEqualToString:@"gpt-6-luna"]) return YES;
     if ([model hasPrefix:@"gpt-4.1"]) return YES;
     if ([model hasPrefix:@"o3"])      return YES;
     if ([model hasPrefix:@"o4"])      return YES;
