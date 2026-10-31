@@ -26,8 +26,8 @@ static NSDictionary<NSString *, NSString *> *EZModelLabels(void) {
     return @{
         @"gpt-6-astra":            EZLocalized(@"EZModelLabel.ChatVisionNewest"),
         @"gpt-6.1-sol":            EZLocalized(@"EZModelLabel.ChatVisionBalanced"),
+        @"gpt-6.1-terra":          EZLocalized(@"EZModelLabel.ChatVisionBalanced"),
         @"gpt-6-luna":             EZLocalized(@"EZModelLabel.ChatVisionFastCheap"),
-        @"gpt-5.6-terra":          EZLocalized(@"EZModelLabel.ChatVisionBalanced"),
      //   @"gpt-5-pro":              EZLocalized(@"EZModelLabel.ChatVision"),
         @"gpt-5":                  EZLocalized(@"EZModelLabel.ChatVision"),
         @"gpt-5-mini":             EZLocalized(@"EZModelLabel.ChatVision"),
@@ -52,7 +52,7 @@ static NSArray<NSString *> *EZModelSectionTitles(void) {
 
 static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
     return @[
-        @[@"gpt-6-astra", @"gpt-6.1-sol", @"gpt-6-luna", @"gpt-5.6-terra", //@"gpt-5-pro",
+        @[@"gpt-6-astra", @"gpt-6.1-sol", @"gpt-6.1-terra", @"gpt-6-luna", //@"gpt-5-pro",
           @"gpt-5-mini"],
         @[@"gpt-4o", @"gpt-4o-mini"],
         @[@"gpt-image-2.5-sunburst", @"gpt-image-2.5-flare", @"gpt-image-2", @"gpt-image-1-mini"],
@@ -61,8 +61,9 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
 }
 
 static BOOL EZModelRequiresSubscription(NSString *model) {
-    if ([model isEqualToString:@"gpt-6-astra"] || [model isEqualToString:@"gpt-6.1-sol"]) return YES;
-    return [model hasPrefix:@"gpt-5.6-"];
+    if ([model isEqualToString:@"gpt-6-astra"] || [model isEqualToString:@"gpt-6.1-sol"] ||
+        [model isEqualToString:@"gpt-6.1-terra"]) return YES;
+    return NO;
 }
 
 @implementation EZModelPickerViewController
