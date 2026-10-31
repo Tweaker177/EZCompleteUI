@@ -36,22 +36,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// or nil if it isn't saved here. The lyrics are only known to the app if they
 /// were saved with the song, which is why callers that need them ask here.
 - (nullable NSDictionary *)localSongRecordForEntryID:(NSString *)entryID;
-/// Remembers the lyrics submitted for a generation, keyed by generation_id,
-/// so they can be saved with the song when it is archived — even when the
-/// server's entry for the song doesn't carry them. Empty lyrics note nothing.
-- (void)noteLyrics:(NSString *)lyrics forGenerationID:(NSString *)generationID;
-/// The best lyrics known for an entry: the entry's own, then the saved
-/// record's, then any noted at generation time. @"" when none are known.
-- (NSString *)lyricsForEntry:(NSDictionary *)entry;
 /// Entry IDs in the on-device song manifest, in archive order. This is the
 /// offline playlist source; references are deliberately excluded.
 - (NSArray<NSString *> *)localSongEntryIDs;
-/// How many songs this user has ever ended up with on this device. Counted
-/// when a finished song is first archived, persisted across launches, and
-/// seeded from the on-device library so songs made before this counter
-/// existed still count. Backs the one-free-song paywall: song creation is
-/// free until this reaches 1 for a user who has never purchased.
-@property (nonatomic, readonly) NSInteger createdSongCount;
 /// Refreshes local metadata for an already archived song without copying audio again.
 - (void)updateSongMetadataForEntry:(NSDictionary *)entry;
 - (void)archiveSongAtTemporaryURL:(NSURL *)temporaryURL entry:(NSDictionary *)entry;

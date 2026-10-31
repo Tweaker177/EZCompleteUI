@@ -2678,14 +2678,13 @@ static BOOL _memoryEntryLooksDuplicate(NSDictionary *candidate, NSDictionary *ex
 //   GOOD/BAD EXAMPLES: The good example shows the verbatim input → output
 //   transformation. The bad example shows the most common failure (vague
 //   filename generalization) so the model knows exactly what to avoid.
-static void EZCreateMemoryEntryInternal(NSString *userPrompt,
-                                        NSString *assistantReply,
-                                        NSString *jwtToken,
-                                        NSString * _Nullable promptID,
-                                        NSString * _Nullable threadID,
-                                        NSArray<NSString *> * _Nullable attachmentPaths,
-                                        NSArray<NSString *> * _Nullable songEntryIDs,
-                                        void (^completion)(NSString * _Nullable entry)) {
+void EZCreateMemoryEntry(NSString *userPrompt,
+                         NSString *assistantReply,
+                         NSString *jwtToken,
+                         NSString * _Nullable promptID,
+                         NSString * _Nullable threadID,
+                         NSArray<NSString *> * _Nullable attachmentPaths,
+                         void (^completion)(NSString * _Nullable entry)) {
 
     NSCParameterAssert(userPrompt);
     NSCParameterAssert(assistantReply);
@@ -2710,16 +2709,6 @@ static void EZCreateMemoryEntryInternal(NSString *userPrompt,
             // The filename alone is enough for the search keyword scorer to
             // match a future query like "what did we do with helpers.m?".
             [attachmentContext appendFormat:@" [file: %@]", path.lastPathComponent];
-        }
-
-        // Song entry IDs arrive as structured data from the code that
-        // finished the song; keep only non-empty, de-duplicated strings.
-        NSMutableArray<NSString *> *validSongIDs = [NSMutableArray array];
-        for (id obj in songEntryIDs) {
-            NSString *songID = _safeString(obj);
-            if (songID.length > 0 && ![validSongIDs containsObject:songID]) {
-                [validSongIDs addObject:songID];
-            }
         }
 
         // ── SUMMARIZER SYSTEM PROMPT ─────────────────────────────────────────
@@ -2789,7 +2778,6 @@ static void EZCreateMemoryEntryInternal(NSString *userPrompt,
         }];
         if (promptID.length > 0)       newEntry[@"promptID"]        = promptID;
         if (validPaths.count > 0)      newEntry[@"attachmentPaths"] = [validPaths copy];
-        if (validSongIDs.count > 0)    newEntry[@"songEntryIDs"]    = [validSongIDs copy];
 
         // Duplicate check and write — both happen inside a dispatch_sync on the
         // file-write queue to prevent a race condition where two background threads
@@ -2860,28 +2848,6 @@ void createMemoryFromCompletion(NSString *userPrompt,
 // ═════════════════════════════════════════════════════════════════════════════
 
 // Returns the EZAttachments/ directory path, creating it if necessary.
-void EZCreateMemoryEntry(NSString *userPrompt,
-                         NSString *assistantReply,
-                         NSString *apiKey,
-                         NSString * _Nullable promptID,
-                         NSString * _Nullable threadID,
-                         NSArray<NSString *> * _Nullable attachmentPaths,
-                         void (^completion)(NSString * _Nullable entry)) {
-    EZCreateMemoryEntryInternal(userPrompt, assistantReply, apiKey, promptID,
-                                threadID, attachmentPaths, nil, completion);
-}
-
-void EZCreateSongMemory(NSString *userPrompt,
-                        NSString *assistantReply,
-                        NSString *apiKey,
-                        NSString * _Nullable threadID,
-                        NSString * _Nullable entryID,
-                        void (^completion)(NSString * _Nullable entry)) {
-    NSArray<NSString *> *songIDs = entryID.length > 0 ? @[entryID] : nil;
-    EZCreateMemoryEntryInternal(userPrompt, assistantReply, apiKey, nil,
-                                threadID, nil, songIDs, completion);
-}
-
 static NSString *_attachmentDirectory(void) {
     NSString *directory = [_documentsDirectory() stringByAppendingPathComponent:kAttachmentsDirName];
     [[NSFileManager defaultManager] createDirectoryAtPath:directory

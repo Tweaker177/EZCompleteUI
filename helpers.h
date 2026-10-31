@@ -101,16 +101,6 @@ void EZCreateMemoryEntry(NSString *userPrompt,
                          NSArray<NSString *> * _Nullable attachmentPaths,
                          void (^completion)(NSString * _Nullable entry));
 
-/// Song variant: the caller that finished a song passes its entry ID, which
-/// is stored on the memory as structured data (songEntryIDs) — guaranteed by
-/// code, never left for the summarizer to keep or drop in the prose summary.
-void EZCreateSongMemory(NSString *userPrompt,
-                        NSString *assistantReply,
-                        NSString *apiKey,
-                        NSString * _Nullable threadID,
-                        NSString * _Nullable entryID,
-                        void (^completion)(NSString * _Nullable entry));
-
 NSString *loadMemoryContext(NSInteger maxEntries);
 NSArray<NSDictionary *> *EZMemoryLoadAll(void);
 NSString *EZThreadSearchMemory(NSString *query, NSString *apiKey);

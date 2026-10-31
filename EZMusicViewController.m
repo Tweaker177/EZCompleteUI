@@ -34,7 +34,7 @@
 //       so variants created at the same instant are never skipped.
 //
 // Changes from v1.4:
-//   - Long-pressing a song's cover art in the Library and choosing Generate asks
+//   - Double-tapping a song's cover art in the Library asks
 //     EZMusicArtworkService for a new cover (works for songs that have no cover
 //     yet too). The cover shows a spinner while it is made; failures are
 //     explained in an alert. VoiceOver gets the same action in the row's
@@ -271,23 +271,17 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 }
 @end
 
-@interface EZMusicTrackCell : UITableViewCell <UIContextMenuInteractionDelegate>
+@interface EZMusicTrackCell : UITableViewCell
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UILabel *detailLabel;
+@property (nonatomic, strong) UIButton *playButton;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
-@property (nonatomic, strong) CAGradientLayer *generatingGradient;
 @property (nonatomic, strong) UIProgressView *progressView;
 @property (nonatomic, strong) UIImageView *favoriteView;
-@property (nonatomic, strong) UIButton *editButton;
 // Square cover art (or a music-note placeholder) between the play button and the title.
 @property (nonatomic, strong) UIImageView *artworkView;
 @property (nonatomic, strong) UIActivityIndicatorView *artworkSpinner;
-@property (nonatomic, copy, nullable) void (^artworkGenerateHandler)(void);
-@property (nonatomic, copy, nullable) void (^artworkLyricsHandler)(void);
-@property (nonatomic, copy, nullable) void (^artworkPromptHandler)(void);
-@property (nonatomic, copy, nullable) void (^artworkRemixHandler)(void);
-/// Set for finished songs only; also drives the edit button's visibility.
-@property (nonatomic, copy, nullable) void (^renameHandler)(void);
+@property (nonatomic, copy, nullable) void (^artworkDoubleTapHandler)(void);
 @property (nonatomic, strong) EZMusicWaveformView *waveformView;
 @property (nonatomic, strong) NSLayoutConstraint *waveformHeightConstraint;
 @property (nonatomic, copy, nullable) void (^playHandler)(void);
@@ -313,8 +307,12 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
     self.selectionStyle = UITableViewCellSelectionStyleNone;
 
-    _spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
-    _spinner.color = [UIColor whiteColor];
+    _playButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    _playButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [_playButton addTarget:self action:@selector(playButtonTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.contentView addSubview:_playButton];
+
+    _spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     _spinner.translatesAutoresizingMaskIntoConstraints = NO;
     _spinner.hidesWhenStopped = YES;
     [self.contentView addSubview:_spinner];
@@ -323,35 +321,17 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _artworkView.translatesAutoresizingMaskIntoConstraints = NO;
     _artworkView.tintColor = [UIColor secondaryLabelColor];
     _artworkView.backgroundColor = [UIColor secondarySystemFillColor];
-    _artworkView.layer.cornerRadius = 0;
-    _artworkView.layer.borderWidth = 1.0;
-    _artworkView.layer.borderColor = [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:0.60].CGColor;
+    _artworkView.layer.cornerRadius = 8;
     _artworkView.clipsToBounds = YES;
     _artworkView.isAccessibilityElement = NO;
-    // Long-press the cover for a context menu whose Generate action makes a
-    // new cover (the handler is set per row). Two deliberate steps on purpose:
-    // a stray double-tap used to spend coins on art nobody asked for.
+    // Double-tap the cover to make a new one (the handler is set per row).
     _artworkView.userInteractionEnabled = YES;
-    UIContextMenuInteraction *artworkMenu = [[UIContextMenuInteraction alloc] initWithDelegate:self];
-    [_artworkView addInteraction:artworkMenu];
+    UITapGestureRecognizer *artworkDoubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(artworkDoubleTapped)];
+    artworkDoubleTap.numberOfTapsRequired = 2;
+    [_artworkView addGestureRecognizer:artworkDoubleTap];
     [self.contentView addSubview:_artworkView];
 
-    // Animated wash shown over the artwork while a song is generating — big,
-    // saturated, and cycling, so a composing row is obvious at a glance.
-    _generatingGradient = [CAGradientLayer layer];
-    _generatingGradient.colors = @[
-        (id)[UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0].CGColor,
-        (id)[UIColor colorWithRed:1.00 green:0.25 blue:0.62 alpha:1.0].CGColor,
-        (id)[UIColor colorWithRed:0.00 green:0.88 blue:1.00 alpha:1.0].CGColor,
-        (id)[UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0].CGColor,
-    ];
-    _generatingGradient.startPoint = CGPointMake(0, 0);
-    _generatingGradient.endPoint = CGPointMake(1, 1);
-    _generatingGradient.hidden = YES;
-    [_artworkView.layer addSublayer:_generatingGradient];
-
-    _artworkSpinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
-    _artworkSpinner.color = [UIColor whiteColor];
+    _artworkSpinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     _artworkSpinner.translatesAutoresizingMaskIntoConstraints = NO;
     _artworkSpinner.hidesWhenStopped = YES;
     _artworkSpinner.userInteractionEnabled = NO;
@@ -373,8 +353,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _detailLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     _detailLabel.adjustsFontForContentSizeCategory = YES;
     _detailLabel.textColor = [UIColor secondaryLabelColor];
-    _detailLabel.numberOfLines = 1;
-    _detailLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+    _detailLabel.numberOfLines = 0;
     [self.contentView addSubview:_detailLabel];
 
     _waveformView = [[EZMusicWaveformView alloc] initWithFrame:CGRectZero];
@@ -388,15 +367,6 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _favoriteView.hidden = YES;
     [self.contentView addSubview:_favoriteView];
 
-    _editButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    _editButton.translatesAutoresizingMaskIntoConstraints = NO;
-    [_editButton setImage:[UIImage systemImageNamed:@"pencil"] forState:UIControlStateNormal];
-    _editButton.tintColor = [UIColor secondaryLabelColor];
-    _editButton.accessibilityLabel = EZMusicText(@"EZMusic.A11y.Rename", @"Rename song");
-    _editButton.hidden = YES;
-    [_editButton addTarget:self action:@selector(editButtonTapped) forControlEvents:UIControlEventTouchUpInside];
-    [self.contentView addSubview:_editButton];
-
     // Thin playback progress line along the bottom edge of the row.
     _progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
     _progressView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -404,26 +374,26 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [self.contentView addSubview:_progressView];
 
     [NSLayoutConstraint activateConstraints:@[
-        [_spinner.centerXAnchor constraintEqualToAnchor:_artworkView.centerXAnchor],
-        [_spinner.centerYAnchor constraintEqualToAnchor:_artworkView.centerYAnchor],
+        [_playButton.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:10],
+        [_playButton.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        [_playButton.widthAnchor constraintEqualToConstant:46],
+        [_playButton.heightAnchor constraintEqualToConstant:46],
+
+        [_spinner.centerXAnchor constraintEqualToAnchor:_playButton.centerXAnchor],
+        [_spinner.centerYAnchor constraintEqualToAnchor:_playButton.centerYAnchor],
 
         [_favoriteView.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-14],
         [_favoriteView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:12],
         [_favoriteView.widthAnchor constraintEqualToConstant:18],
         [_favoriteView.heightAnchor constraintEqualToConstant:18],
 
-        [_editButton.trailingAnchor constraintEqualToAnchor:_favoriteView.leadingAnchor constant:-10],
-        [_editButton.centerYAnchor constraintEqualToAnchor:_favoriteView.centerYAnchor],
-        [_editButton.widthAnchor constraintEqualToConstant:22],
-        [_editButton.heightAnchor constraintEqualToConstant:22],
-
-        [_artworkView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
-        [_artworkView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],
-        [_artworkView.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor],
-        [_artworkView.widthAnchor constraintEqualToAnchor:_artworkView.heightAnchor],
+        [_artworkView.leadingAnchor constraintEqualToAnchor:_playButton.trailingAnchor constant:8],
+        [_artworkView.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
+        [_artworkView.widthAnchor constraintEqualToConstant:52],
+        [_artworkView.heightAnchor constraintEqualToConstant:52],
 
         [_titleLabel.leadingAnchor constraintEqualToAnchor:_artworkView.trailingAnchor constant:10],
-        [_titleLabel.trailingAnchor constraintEqualToAnchor:_editButton.leadingAnchor constant:-6],
+        [_titleLabel.trailingAnchor constraintEqualToAnchor:_favoriteView.leadingAnchor constant:-8],
         [_titleLabel.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:10],
 
         [_detailLabel.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],
@@ -433,8 +403,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         [_waveformView.topAnchor constraintEqualToAnchor:_titleLabel.bottomAnchor constant:5],
         _waveformHeightConstraint,
         [_detailLabel.topAnchor constraintEqualToAnchor:_waveformView.bottomAnchor constant:3],
-        // No bottom pin on the detail label: rows are a fixed height (see
-        // the table setup), so the text column is anchored from the top only.
+        [_detailLabel.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-12],
 
         [_progressView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
         [_progressView.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor],
@@ -443,37 +412,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     return self;
 }
 
-- (void)layoutSubviews {
-    [super layoutSubviews];
-    self.generatingGradient.frame = self.artworkView.bounds;
-}
-
-/// Generating state: a saturated gradient wash cycling violet -> pink -> cyan
-/// over the whole (now full-height) cover, with a large white spinner on top.
-/// Deliberately loud — the old medium gray spinner over the play button was
-/// nearly invisible against the row background.
-- (void)setGenerating:(BOOL)generating {
-    self.generatingGradient.hidden = !generating;
-    if (generating) {
-        [self.spinner startAnimating];
-        CAKeyframeAnimation *cycle = [CAKeyframeAnimation animationWithKeyPath:@"colors"];
-        UIColor *violet = [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0];
-        UIColor *pink   = [UIColor colorWithRed:1.00 green:0.25 blue:0.62 alpha:1.0];
-        UIColor *cyan   = [UIColor colorWithRed:0.00 green:0.88 blue:1.00 alpha:1.0];
-        cycle.values = @[
-            @[(id)violet.CGColor, (id)pink.CGColor, (id)cyan.CGColor, (id)violet.CGColor],
-            @[(id)pink.CGColor, (id)cyan.CGColor, (id)violet.CGColor, (id)pink.CGColor],
-            @[(id)cyan.CGColor, (id)violet.CGColor, (id)pink.CGColor, (id)cyan.CGColor],
-            @[(id)violet.CGColor, (id)pink.CGColor, (id)cyan.CGColor, (id)violet.CGColor],
-        ];
-        cycle.duration = 1.8;
-        cycle.repeatCount = HUGE_VALF;
-        cycle.removedOnCompletion = NO;
-        [self.generatingGradient addAnimation:cycle forKey:@"ezGeneratingCycle"];
-    } else {
-        [self.spinner stopAnimating];
-        [self.generatingGradient removeAllAnimations];
-    }
+- (void)playButtonTapped {
+    if (self.playHandler) self.playHandler();
 }
 
 /// Shows `artwork`, or the music-note placeholder when the song has no cover.
@@ -488,67 +428,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     }
 }
 
-- (void)setRenameHandler:(void (^)(void))renameHandler {
-    _renameHandler = [renameHandler copy];
-    _editButton.hidden = (renameHandler == nil);
-}
-
-- (void)editButtonTapped {
-    if (self.renameHandler) self.renameHandler();
-}
-
-- (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
-                        configurationForMenuAtLocation:(CGPoint)location {
-    if (!self.artworkGenerateHandler && !self.artworkLyricsHandler &&
-        !self.artworkPromptHandler && !self.artworkRemixHandler &&
-        !self.renameHandler) return nil;
-    __weak typeof(self) weakSelf = self;
-    return [UIContextMenuConfiguration configurationWithIdentifier:nil
-                                                   previewProvider:nil
-                                                    actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
-        NSMutableArray<UIMenuElement *> *actions = [NSMutableArray array];
-        if (weakSelf.artworkLyricsHandler) {
-            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Lyrics", @"Lyrics")
-                                                     image:[UIImage systemImageNamed:@"text.quote"]
-                                                identifier:nil
-                                                   handler:^(__kindof UIAction *action) {
-                if (weakSelf.artworkLyricsHandler) weakSelf.artworkLyricsHandler();
-            }]];
-        }
-        if (weakSelf.artworkPromptHandler) {
-            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Prompt", @"Prompt")
-                                                     image:[UIImage systemImageNamed:@"text.alignleft"]
-                                                identifier:nil
-                                                   handler:^(__kindof UIAction *action) {
-                if (weakSelf.artworkPromptHandler) weakSelf.artworkPromptHandler();
-            }]];
-        }
-        if (weakSelf.renameHandler) {
-            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Rename", @"Rename")
-                                                     image:[UIImage systemImageNamed:@"pencil"]
-                                                identifier:nil
-                                                   handler:^(__kindof UIAction *action) {
-                if (weakSelf.renameHandler) weakSelf.renameHandler();
-            }]];
-        }
-        if (weakSelf.artworkRemixHandler) {
-            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Remix", @"Remix")
-                                                     image:[UIImage systemImageNamed:@"arrow.triangle.2.circlepath"]
-                                                identifier:nil
-                                                   handler:^(__kindof UIAction *action) {
-                if (weakSelf.artworkRemixHandler) weakSelf.artworkRemixHandler();
-            }]];
-        }
-        if (weakSelf.artworkGenerateHandler) {
-            [actions addObject:[UIAction actionWithTitle:EZMusicText(@"EZMusic.Menu.GenerateCover", @"Generate")
-                                                     image:[UIImage systemImageNamed:@"sparkles"]
-                                                identifier:nil
-                                                   handler:^(__kindof UIAction *action) {
-                if (weakSelf.artworkGenerateHandler) weakSelf.artworkGenerateHandler();
-            }]];
-        }
-        return [UIMenu menuWithTitle:@"" children:actions];
-    }];
+- (void)artworkDoubleTapped {
+    if (self.artworkDoubleTapHandler) self.artworkDoubleTapHandler();
 }
 
 /// Dims the cover and shows a spinner while a new one is being made.
@@ -560,14 +441,10 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 - (void)prepareForReuse {
     [super prepareForReuse];
     self.playHandler = nil;
-    self.artworkGenerateHandler = nil;
-    self.artworkLyricsHandler = nil;
-    self.artworkPromptHandler = nil;
-    self.artworkRemixHandler = nil;
-    self.renameHandler = nil;
+    self.artworkDoubleTapHandler = nil;
     self.accessibilityCustomActions = nil;
     [self setArtworkBusy:NO];
-    [self setGenerating:NO];
+    [self.spinner stopAnimating];
     self.progressView.progress = 0;
     self.progressView.hidden = YES;
 }
@@ -592,93 +469,30 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     if (showWaveform) [self.waveformView showWaveformForURL:waveformURL identifier:waveformIdentifier];
 
     BOOL showSpinner = [status isEqualToString:@"pending"] || isLoadingAudio;
-    [self setGenerating:showSpinner];
+    if (showSpinner) [self.spinner startAnimating]; else [self.spinner stopAnimating];
+    self.playButton.hidden = showSpinner;
 
-    // Playback lives on the artwork tap / row tap now that the play button is
-    // gone, so the Play/Pause affordance moves to a cell custom action.
+    UIImageSymbolConfiguration *symbolConfig =
+        [UIImageSymbolConfiguration configurationWithPointSize:34 weight:UIImageSymbolWeightRegular];
     if ([status isEqualToString:@"failed"]) {
-        self.accessibilityCustomActions = nil;
+        [self.playButton setImage:[UIImage systemImageNamed:@"exclamationmark.triangle.fill" withConfiguration:symbolConfig]
+                         forState:UIControlStateNormal];
+        self.playButton.tintColor = [UIColor systemOrangeColor];
+        self.playButton.enabled = NO;
+        self.playButton.accessibilityLabel = EZMusicText(@"EZMusic.A11y.Failed", @"Song failed");
     } else {
-        NSString *actionName = (isCurrent && isPlaying)
+        NSString *symbol = (isCurrent && isPlaying) ? @"pause.circle.fill" : @"play.circle.fill";
+        [self.playButton setImage:[UIImage systemImageNamed:symbol withConfiguration:symbolConfig]
+                         forState:UIControlStateNormal];
+        self.playButton.tintColor = [UIColor systemBlueColor];
+        self.playButton.enabled = YES;
+        self.playButton.accessibilityLabel = (isCurrent && isPlaying)
             ? EZMusicText(@"EZMusic.A11y.Pause", @"Pause")
             : EZMusicText(@"EZMusic.A11y.Play", @"Play");
-        UIAccessibilityCustomAction *playAction =
-            [[UIAccessibilityCustomAction alloc] initWithName:actionName
-                                                       target:self
-                                                     selector:@selector(performPlayAccessibilityAction:)];
-        self.accessibilityCustomActions = @[playAction];
     }
 
     self.progressView.hidden = !isCurrent;
     if (!isCurrent) self.progressView.progress = 0;
-}
-
-- (BOOL)performPlayAccessibilityAction:(UIAccessibilityCustomAction *)action {
-    if (self.playHandler) self.playHandler();
-    return YES;
-}
-
-@end
-
-#pragma mark - Text sheet (lyrics / prompt)
-
-/// Read-only text for one song — its lyrics, or the prompt that made it —
-/// presented as a sheet: pull it down to the half detent to leave it
-/// minimized over the library, swipe it away (or tap Done) to dismiss it.
-/// Copy puts the whole text on the clipboard.
-@interface EZMusicTextSheetViewController : UIViewController
-@property (nonatomic, copy) NSString *heading;
-@property (nonatomic, copy) NSString *bodyText;
-@property (nonatomic, copy) NSString *accessibilityName;
-@end
-
-@implementation EZMusicTextSheetViewController
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.title = self.heading;
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
-    self.navigationItem.rightBarButtonItem =
-        [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
-                                                      target:self
-                                                      action:@selector(doneTapped)];
-    self.navigationItem.leftBarButtonItem =
-        [[UIBarButtonItem alloc] initWithTitle:EZMusicText(@"EZMusic.Action.Copy", @"Copy")
-                                         style:UIBarButtonItemStylePlain
-                                        target:self
-                                        action:@selector(copyTapped)];
-
-    UITextView *textView = [[UITextView alloc] initWithFrame:self.view.bounds];
-    textView.translatesAutoresizingMaskIntoConstraints = NO;
-    textView.editable = NO;
-    textView.selectable = YES;
-    textView.backgroundColor = [UIColor clearColor];
-    textView.font = [UIFont systemFontOfSize:16];
-    textView.textColor = [UIColor labelColor];
-    textView.textContainerInset = UIEdgeInsetsMake(16, 16, 24, 16);
-    textView.text = self.bodyText;
-    textView.accessibilityLabel = self.accessibilityName;
-    [self.view addSubview:textView];
-    [NSLayoutConstraint activateConstraints:@[
-        [textView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [textView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [textView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
-        [textView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-    ]];
-}
-
-- (void)copyTapped {
-    [UIPasteboard generalPasteboard].string = self.bodyText ?: @"";
-    UIBarButtonItem *copyItem = self.navigationItem.leftBarButtonItem;
-    copyItem.title = EZMusicText(@"EZMusic.Action.Copied", @"Copied");
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.2 * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{
-        copyItem.title = EZMusicText(@"EZMusic.Action.Copy", @"Copy");
-    });
-}
-
-- (void)doneTapped {
-    [self dismissViewControllerAnimated:YES completion:nil];
 }
 
 @end
@@ -1145,13 +959,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.libraryTable.translatesAutoresizingMaskIntoConstraints = NO;
     self.libraryTable.dataSource = self;
     self.libraryTable.delegate = self;
-    // Fixed row height. The cover fills the row's full height, so when rows
-    // self-sized, wrapping text stretched the row and the cover with it —
-    // every cover a different size and text squeezed or clipped. At a fixed
-    // 108 every row, and every cover, is the same size, and long titles or
-    // details truncate instead of stretching anything.
-    self.libraryTable.rowHeight = 108;
-    self.libraryTable.estimatedRowHeight = 108;
+    self.libraryTable.rowHeight = UITableViewAutomaticDimension;
+    self.libraryTable.estimatedRowHeight = 76;
     self.libraryTable.separatorInset = UIEdgeInsetsMake(0, 64, 0, 0);
     self.libraryTable.tableFooterView = [[UIView alloc] init];
     [self.libraryTable registerClass:[EZMusicTrackCell class] forCellReuseIdentifier:@"EZMusicTrackCell"];
@@ -1779,27 +1588,6 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         return;
     }
 
-    // One free song: a never-purchased user who already has a finished song
-    // hits the paywall before another creation starts. Refresh the purchase
-    // flag before denying — a purchase may have landed since it was cached
-    // (same pattern as the model picker's purchase gate).
-    if (![EZEntitlementManager shared].hasEverPurchased &&
-        [EZMusicLibraryManager sharedManager].createdSongCount >= 1) {
-        __weak typeof(self) weakSelf = self;
-        [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:^(__unused BOOL refreshed, __unused NSInteger balance) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                __strong typeof(weakSelf) strongSelf = weakSelf;
-                if (!strongSelf) return;
-                if ([EZEntitlementManager shared].hasEverPurchased) {
-                    [strongSelf generateTapped];
-                    return;
-                }
-                [strongSelf presentSongCreationPaywall];
-            });
-        }];
-        return;
-    }
-
     NSInteger totalCoins = [self quotedTotalCoins];
     NSNumber *balance = [EZEntitlementManager shared].coinBalance;
     if (balance && balance.integerValue < totalCoins) {
@@ -1839,9 +1627,6 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         }
         // The song is queued and paid for. Jump to the Library, where the new
         // rows show a spinner, and start watching this generation.
-        // Remember the written lyrics under the generation id so they are
-        // saved with the song when it lands (see -noteLyrics:forGenerationID:).
-        [[EZMusicLibraryManager sharedManager] noteLyrics:lyrics forGenerationID:generationID];
         [strongSelf ensurePollingForGenerationID:generationID];
         [strongSelf showTab:EZMusicTabLibrary];
         [strongSelf loadLibraryResetting:YES];
@@ -1900,25 +1685,6 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:store];
     navigation.modalPresentationStyle = UIModalPresentationFormSheet;
     [self presentViewController:navigation animated:YES completion:nil];
-}
-
-// Denial warnings for the song paywall: explain, then offer the coin store —
-// the same warning-then-store flow the rest of the app uses for
-// purchase-gated features. The dialog's close button is the "not now" path.
-- (void)presentSongCreationPaywall {
-    __weak typeof(self) weakSelf = self;
-    [self presentMusicDialogWithTitle:EZMusicText(@"EZMusic.Paywall.CreateTitle", @"Purchase Required")
-                              message:EZMusicText(@"EZMusic.Paywall.CreateMessage", @"You've made your free song. Any purchase unlocks unlimited song creation.")
-                       primaryTitle:EZMusicText(@"EZMusic.Paywall.ViewStore", @"View Store")
-                     primaryHandler:^{ [weakSelf presentCoinStore]; }];
-}
-
-- (void)presentSongExportPaywall {
-    __weak typeof(self) weakSelf = self;
-    [self presentMusicDialogWithTitle:EZMusicText(@"EZMusic.Paywall.ExportTitle", @"Purchase Required")
-                              message:EZMusicText(@"EZMusic.Paywall.ExportMessage", @"Exporting songs is a paid feature. Any purchase unlocks it.")
-                       primaryTitle:EZMusicText(@"EZMusic.Paywall.ViewStore", @"View Store")
-                     primaryHandler:^{ [weakSelf presentCoinStore]; }];
 }
 
 #pragma mark - Prompt and text field delegates
@@ -2072,53 +1838,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     return row == NSNotFound ? nil : self.entries[(NSUInteger)row];
 }
 
-/// Shows one of a song's texts (its lyrics, or the prompt that made it) in
-/// a sheet the user can pull down to a half-height detent (minimized over
-/// the library) or dismiss entirely. The sheet has a Copy button.
-- (void)presentTextSheetWithHeading:(NSString *)heading
-                               text:(NSString *)text
-                  accessibilityName:(NSString *)accessibilityName {
-    EZMusicTextSheetViewController *sheet = [[EZMusicTextSheetViewController alloc] init];
-    sheet.heading = heading;
-    sheet.bodyText = text;
-    sheet.accessibilityName = accessibilityName;
-    UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:sheet];
-    navigation.modalPresentationStyle = UIModalPresentationPageSheet;
-    if (@available(iOS 15.0, *)) {
-        navigation.sheetPresentationController.detents = @[
-            UISheetPresentationControllerDetent.mediumDetent,
-            UISheetPresentationControllerDetent.largeDetent,
-        ];
-        navigation.sheetPresentationController.prefersGrabberVisible = YES;
-    }
-    [self presentViewController:navigation animated:YES completion:nil];
-}
-
-- (void)presentLyricsForTitle:(NSString *)title lyrics:(NSString *)lyrics {
-    [self presentTextSheetWithHeading:title
-                                 text:lyrics
-                    accessibilityName:EZMusicText(@"EZMusic.A11y.Lyrics", @"Song lyrics")];
-}
-
-- (void)presentPrompt:(NSString *)prompt {
-    [self presentTextSheetWithHeading:EZMusicText(@"EZMusic.Prompt.Title", @"Prompt")
-                                 text:prompt
-                    accessibilityName:EZMusicText(@"EZMusic.A11y.Prompt", @"Song prompt")];
-}
-
-/// Remix: seed the Create form with a finished song's prompt and lyrics.
-/// Nothing is generated — the form stays fully editable and the user hits
-/// Generate themselves when they're happy with it.
-- (void)remixSongWithPrompt:(NSString *)prompt lyrics:(NSString *)lyrics {
-    self.promptTextView.text = prompt ?: @"";
-    self.lyricsTextView.text = lyrics ?: @"";
-    [self updatePromptDecorations];
-    [self updateGenerateButtonState];
-    [self showTab:EZMusicTabCreate];
-    [self showToast:EZMusicText(@"EZMusic.Toast.Remix", @"Remix loaded — tweak anything, then tap Generate")];
-}
-
-/// Generate in a cover's long-press menu: make a new one. The server charges coins for it
+/// Double-tap on a cover: make a new one. The server charges coins for it
 /// (through ez-image), so the row shows a spinner and a second request for the
 /// same song is ignored until this one ends.
 - (void)regenerateArtworkForEntryID:(NSString *)entryID {
@@ -2385,70 +2105,17 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
     __weak typeof(self) weakSelf = self;
     cell.playHandler = ^{ [weakSelf togglePlaybackForEntryID:entryID]; };
-    // What this song was made from, resolved once for the menu actions below.
-    NSString *songLyrics = [[EZMusicLibraryManager sharedManager] lyricsForEntry:entry];
-    NSString *songPrompt = EZMusicString(entry[@"prompt"]);
-    if (songPrompt.length == 0) {
-        NSDictionary *songRecord = [[EZMusicLibraryManager sharedManager] localSongRecordForEntryID:entryID];
-        songPrompt = [songRecord[@"prompt"] isKindOfClass:[NSString class]] ? songRecord[@"prompt"] : @"";
-    }
     // Only finished songs can get a new cover.
     if ([EZMusicString(entry[@"status"]) isEqualToString:@"complete"]) {
-        cell.artworkGenerateHandler = ^{ [weakSelf regenerateArtworkForEntryID:entryID]; };
-        cell.artworkRemixHandler = ^{ [weakSelf remixSongWithPrompt:songPrompt lyrics:songLyrics]; };
-        cell.renameHandler = ^{ [weakSelf renameEntryID:entryID]; };
-        // Same action for VoiceOver users, who can't use the long-press menu.
-        // Appended, not assigned: -configureWithTitle:... already installed the
-        // cell's Play/Pause action, and the row keeps both.
-        UIAccessibilityCustomAction *newCoverAction =
+        cell.artworkDoubleTapHandler = ^{ [weakSelf regenerateArtworkForEntryID:entryID]; };
+        // Same action for VoiceOver users, who can't double-tap an image.
+        cell.accessibilityCustomActions = @[
             [[UIAccessibilityCustomAction alloc] initWithName:EZMusicText(@"EZMusic.A11y.NewCover", @"Make new cover art")
                                                         actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
                 [weakSelf regenerateArtworkForEntryID:entryID];
                 return YES;
-            }];
-        cell.accessibilityCustomActions =
-            [@[newCoverAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
-        UIAccessibilityCustomAction *remixAction =
-            [[UIAccessibilityCustomAction alloc] initWithName:EZMusicText(@"EZMusic.A11y.Remix", @"Remix")
-                                                        actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
-                [weakSelf remixSongWithPrompt:songPrompt lyrics:songLyrics];
-                return YES;
-            }];
-        cell.accessibilityCustomActions =
-            [@[remixAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
-        UIAccessibilityCustomAction *renameAction =
-            [[UIAccessibilityCustomAction alloc] initWithName:EZMusicText(@"EZMusic.A11y.Rename", @"Rename song")
-                                                        actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
-                [weakSelf renameEntryID:entryID];
-                return YES;
-            }];
-        cell.accessibilityCustomActions =
-            [@[renameAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
-    }
-    // Songs with saved lyrics get a Lyrics item in the same long-press menu.
-    if (songLyrics.length > 0) {
-        cell.artworkLyricsHandler = ^{ [weakSelf presentLyricsForTitle:title lyrics:songLyrics]; };
-        UIAccessibilityCustomAction *lyricsAction =
-            [[UIAccessibilityCustomAction alloc] initWithName:EZMusicText(@"EZMusic.A11y.ViewLyrics", @"View lyrics")
-                                                        actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
-                [weakSelf presentLyricsForTitle:title lyrics:songLyrics];
-                return YES;
-            }];
-        cell.accessibilityCustomActions =
-            [@[lyricsAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
-    }
-    // The prompt that made the song gets a Prompt item in the same menu,
-    // shown in the same sheet as the lyrics.
-    if (songPrompt.length > 0) {
-        cell.artworkPromptHandler = ^{ [weakSelf presentPrompt:songPrompt]; };
-        UIAccessibilityCustomAction *promptAction =
-            [[UIAccessibilityCustomAction alloc] initWithName:EZMusicText(@"EZMusic.A11y.ViewPrompt", @"View prompt")
-                                                        actionHandler:^BOOL(UIAccessibilityCustomAction *action) {
-                [weakSelf presentPrompt:songPrompt];
-                return YES;
-            }];
-        cell.accessibilityCustomActions =
-            [@[promptAction] arrayByAddingObjectsFromArray:cell.accessibilityCustomActions ?: @[]];
+            }],
+        ];
     }
     return cell;
 }
@@ -2553,65 +2220,6 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     }];
 }
 
-/// Rename prompt for a finished song. The new name is applied optimistically
-/// (like the favorite star) and reverted with a toast if ez-music refuses it.
-- (void)renameEntryID:(NSString *)entryID {
-    NSDictionary *entry = [self entryForID:entryID];
-    if (!entry) return;
-    NSString *currentTitle = EZMusicString(entry[@"title"]);
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:EZMusicText(@"EZMusic.Rename.Title", @"Rename Song")
-                                                                   message:nil
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
-        textField.text = currentTitle;
-        textField.placeholder = EZMusicText(@"EZMusic.Rename.Placeholder", @"Song title");
-        textField.clearButtonMode = UITextFieldViewModeWhileEditing;
-        textField.returnKeyType = UIReturnKeyDone;
-        textField.autocapitalizationType = UITextAutocapitalizationTypeSentences;
-    }];
-    __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Action.Save", @"Save")
-                                               style:UIAlertActionStyleDefault
-                                             handler:^(UIAlertAction *action) {
-        NSString *newTitle = [alert.textFields.firstObject.text
-            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        if (newTitle.length == 0 || [newTitle isEqualToString:currentTitle]) return;
-        [weakSelf applyRenameToTitle:newTitle forEntryID:entryID];
-    }]];
-    [alert addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Action.Cancel", @"Cancel")
-                                               style:UIAlertActionStyleCancel
-                                             handler:nil]];
-    [self presentViewController:alert animated:YES completion:^{
-        [alert.textFields.firstObject selectAll:nil];
-    }];
-}
-
-- (void)applyRenameToTitle:(NSString *)newTitle forEntryID:(NSString *)entryID {
-    NSInteger row = [self rowForEntryID:entryID];
-    if (row == NSNotFound) return;
-    NSDictionary *original = self.entries[(NSUInteger)row];
-    NSMutableDictionary *updated = [original mutableCopy];
-    updated[@"title"] = newTitle;
-    self.entries[(NSUInteger)row] = updated;
-    [self reloadRowForEntryID:entryID];
-    if ([entryID isEqualToString:self.playingEntryID]) [self updatePlaylistHeader];
-    [[EZMusicLibraryManager sharedManager] updateSongMetadataForEntry:updated];
-
-    __weak typeof(self) weakSelf = self;
-    [[EZMusicService sharedService] renameEntryID:entryID toTitle:newTitle completion:^(NSError *error) {
-        __strong typeof(weakSelf) strongSelf = weakSelf;
-        if (!strongSelf || !error) return;
-        NSInteger currentRow = [strongSelf rowForEntryID:entryID];
-        if (currentRow != NSNotFound) {
-            strongSelf.entries[(NSUInteger)currentRow] = original;
-            [strongSelf reloadRowForEntryID:entryID];
-            if ([entryID isEqualToString:strongSelf.playingEntryID]) [strongSelf updatePlaylistHeader];
-        }
-        [[EZMusicLibraryManager sharedManager] updateSongMetadataForEntry:original];
-        [strongSelf showToast:EZMusicText(@"EZMusic.Toast.RenameFailed", @"Couldn't rename. Try again.")];
-    }];
-}
-
 - (void)confirmDeleteEntryID:(NSString *)entryID {
     __weak typeof(self) weakSelf = self;
     [self presentMusicDialogWithTitle:EZMusicText(@"EZMusic.Delete.Title", @"Delete This Song?")
@@ -2648,24 +2256,6 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
 // Downloads the MP3 to a temporary file, then opens the system share sheet.
 - (void)shareEntryID:(NSString *)entryID {
-    // Exporting is a paid feature: never-purchased users get the denial
-    // warning and the coin store instead of the share sheet. Refresh the
-    // purchase flag first so a just-completed purchase is never blocked.
-    if (![EZEntitlementManager shared].hasEverPurchased) {
-        __weak typeof(self) weakSelf = self;
-        [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:^(__unused BOOL refreshed, __unused NSInteger balance) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                __strong typeof(weakSelf) strongSelf = weakSelf;
-                if (!strongSelf) return;
-                if ([EZEntitlementManager shared].hasEverPurchased) {
-                    [strongSelf shareEntryID:entryID];
-                    return;
-                }
-                [strongSelf presentSongExportPaywall];
-            });
-        }];
-        return;
-    }
     NSDictionary *entry = [self entryForID:entryID];
     if (!entry) return;
     NSString *songTitle = EZMusicString(entry[@"title"]);
