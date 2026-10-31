@@ -3590,6 +3590,24 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self presentViewController:alert animated:YES completion:nil];
 }
 
+// Denial warning for the one-free-song paywall in chat, then the coin store.
+- (void)showSongPurchaseRequiredAlert {
+    UIAlertController *alert = [UIAlertController
+        alertControllerWithTitle:@"Purchase required"
+                         message:@"You've made your free song. Make any purchase to keep creating songs, then ask again."
+                  preferredStyle:UIAlertControllerStyleAlert];
+    __weak typeof(self) weakSelf = self;
+    [alert addAction:[UIAlertAction actionWithTitle:@"View Store"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(__unused UIAlertAction *action) {
+        [weakSelf presentCoinStoreForFeature:@"AI music"];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Not Now"
+                                              style:UIAlertActionStyleCancel
+                                            handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
 - (void)handleSend {
     if (!self.sendButton.enabled || self.messageTextField.text.length == 0) return;
     if (![self selectedModelRequiresPurchase]) {
@@ -4233,9 +4251,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         || [self.selectedModel isEqualToString:@"gpt-4o"]
         || [self.selectedModel isEqualToString:@"gpt-4o-mini"];
     BOOL useWebSearch    = self.webSearchEnabled && modelSupportsWebSearch;
-    // gpt-4.1 family uses the Responses API natively; also required for web search.
+    // gpt-4.1 family uses the Responses API natively.
     BOOL isGPT41       = [self.selectedModel hasPrefix:@"gpt-4.1"];
-    BOOL useResponsesAPI = isGPT5 || isGPT41 || [self.selectedModel hasPrefix:@"o"] || useWebSearch;
+    // Web search must not flip the payload shape by itself: ez-chat serves
+    // gpt-4o / gpt-4o-mini through Chat Completions even with search on, and
+    // Responses-shaped blocks (input_image / input_text) are rejected there.
+    BOOL useResponsesAPI = isGPT5 || isGPT41 || [self.selectedModel hasPrefix:@"o"];
 
     if (self.webSearchEnabled && !modelSupportsWebSearch) {
         [self appendToChat:[NSString stringWithFormat:
@@ -7160,6 +7181,27 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 }
 
 - (void)performChatMusicRequest:(NSDictionary *)musicRequest {
+    // One free song, same rule as the AI Music screen: a never-purchased
+    // user who already has a finished song hits the paywall instead of
+    // starting another. Refresh the purchase flag before denying so a
+    // just-completed purchase is never blocked by a stale cached flag.
+    if (![EZEntitlementManager shared].hasEverPurchased &&
+        [EZMusicLibraryManager sharedManager].createdSongCount >= 1) {
+        __weak typeof(self) weakSelf = self;
+        [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:^(__unused BOOL refreshed, __unused NSInteger balance) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                __strong typeof(weakSelf) strongSelf = weakSelf;
+                if (!strongSelf) return;
+                if ([EZEntitlementManager shared].hasEverPurchased) {
+                    [strongSelf performChatMusicRequest:musicRequest];
+                    return;
+                }
+                [strongSelf appendToChat:@"[System: You've made your free song. Song creation needs a purchase — any purchase unlocks it.]"];
+                [strongSelf showSongPurchaseRequiredAlert];
+            });
+        }];
+        return;
+    }
     NSString *prompt = [musicRequest[@"prompt"] isKindOfClass:[NSString class]]
         ? [musicRequest[@"prompt"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
     NSString *title = [musicRequest[@"title"] isKindOfClass:[NSString class]]
@@ -7237,6 +7279,10 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
             if (!innerSelf) return;
             if (startError) { [innerSelf handleChatMusicStartError:startError]; return; }
 
+            // Remember the written lyrics under the generation id so they
+            // are saved with the song when it lands (see
+            // -[EZMusicLibraryManager noteLyrics:forGenerationID:]).
+            [[EZMusicLibraryManager sharedManager] noteLyrics:lyrics forGenerationID:generationID];
             [innerSelf updateCoinBalanceDisplay];
             NSString *shownTitle = title.length > 0 ? title : @"your song";
             [innerSelf appendToChat:[NSString stringWithFormat:
@@ -7396,7 +7442,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     NSString *assistantReply = [NSString stringWithFormat:
         @"Created the AI song \"%@\" and saved it in AI Music. Song ID: %@. The track is available in this chat with Play and Share controls.",
         title, entryID.length ? entryID : @"unavailable"];
-    createMemoryFromCompletion(prompt, assistantReply, token, threadID, @[], ^(NSString *entry) {
+    EZCreateSongMemory(prompt, assistantReply, token, threadID, entryID, ^(NSString *entry) {
         if (entry) {
             EZLogf(EZLogLevelInfo, @"MEMORY", @"Indexed completed chat song %@", entryID.length ? entryID : title);
         }
