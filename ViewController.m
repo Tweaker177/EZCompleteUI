@@ -3578,11 +3578,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)showPurchaseRequiredForSelectedModel {
     NSString *model = self.selectedModel;
     UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:@"Purchase required"
-                         message:[NSString stringWithFormat:@"%@ is a paid model. Make a purchase to unlock it, then return to this thread.", model]
+        alertControllerWithTitle:NSLocalizedString(@"EZChat.Paywall.Title", @"Paywall title")
+                         message:[NSString stringWithFormat:NSLocalizedString(@"EZChat.Paywall.PaidModelMessage", @"Paid model paywall message"), model]
                   preferredStyle:UIAlertControllerStyleAlert];
     __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:@"View Store"
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZChat.Paywall.ViewStore", @"View store button")
                                               style:UIAlertActionStyleDefault
                                             handler:^(__unused UIAlertAction *action) {
         [weakSelf presentCoinStoreForFeature:nil];
@@ -3593,16 +3593,16 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // Denial warning for the one-free-song paywall in chat, then the coin store.
 - (void)showSongPurchaseRequiredAlert {
     UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:@"Purchase required"
-                         message:@"You've made your free song. Make any purchase to keep creating songs, then ask again."
+        alertControllerWithTitle:NSLocalizedString(@"EZChat.Paywall.Title", @"Paywall title")
+                         message:NSLocalizedString(@"EZChat.SongPaywall.Message", @"Song paywall message")
                   preferredStyle:UIAlertControllerStyleAlert];
     __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:@"View Store"
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZChat.Paywall.ViewStore", @"View store button")
                                               style:UIAlertActionStyleDefault
                                             handler:^(__unused UIAlertAction *action) {
-        [weakSelf presentCoinStoreForFeature:@"AI music"];
+        [weakSelf presentCoinStoreForFeature:NSLocalizedString(@"EZCoinStore.Feature.AIMusic", @"AI music feature name")];
     }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Not Now"
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZChat.SongPaywall.NotNow", @"Not now button")
                                               style:UIAlertActionStyleCancel
                                             handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
@@ -7260,7 +7260,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
             [strongSelf appendToChat:[NSString stringWithFormat:
                 @"[System: This song needs about %ld coins and you have %ld.]",
                 (long)quotedCoins, (long)knownBalance.integerValue]];
-            [strongSelf presentCoinStoreForFeature:@"AI music"];
+            [strongSelf presentCoinStoreForFeature:NSLocalizedString(@"EZCoinStore.Feature.AIMusic", @"AI music feature name")];
             return;
         }
 
@@ -7301,7 +7301,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         ? error.userInfo[EZMusicServiceServerCodeKey] : @"";
     if ([serverCode isEqualToString:@"insufficient_coins"]) {
         [self appendToChat:@"[System: You don't have enough coins for this song.]"];
-        [self presentCoinStoreForFeature:@"AI music"];
+        [self presentCoinStoreForFeature:NSLocalizedString(@"EZCoinStore.Feature.AIMusic", @"AI music feature name")];
     } else if ([serverCode isEqualToString:@"too_many_active"]) {
         [self appendToChat:@"[System: You already have songs being created. Wait for them to finish, then ask again.]"];
     } else if (error.code == EZMusicServiceErrorNetwork || error.code == EZMusicServiceErrorBadResponse) {
