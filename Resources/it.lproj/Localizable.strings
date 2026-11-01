@@ -223,6 +223,8 @@
 "EZCoinStore.Tier.PowerSubtitle" = "6.250 monete / mese\nDisponibili quando ti servono.";
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12.500 monete / mese\nPer tutte le esigenze della tua attività";
+"EZCoinStore.Tier.UnlimitedChat" = "Chat illimitata";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "Chat illimitata sui modelli più recenti\nAstra 50/giorno · Sol 100/giorno · Luna e Terra illimitati · 400 monete / mese";
 "EZCoinStore.TopUp.Ultra" = "Pacchetto monete Ultra";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 monete, pagamento unico\nNon scade mai";
 "EZCoinStore.TopUp.Power" = "Pacchetto monete Power";

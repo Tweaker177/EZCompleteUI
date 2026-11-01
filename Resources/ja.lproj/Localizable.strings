@@ -223,6 +223,8 @@
 "EZCoinStore.Tier.PowerSubtitle" = "毎月6,250コイン\n必要なときにいつでも利用できます。";
 "EZCoinStore.Tier.Enterprise" = "エンタープライズ";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "毎月12,500コイン\nビジネスのあらゆるニーズに";
+"EZCoinStore.Tier.UnlimitedChat" = "無制限チャット";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "最新モデルで無制限チャット\nAstra 50/日 · Sol 100/日 · LunaとTerraは無制限 · 400 コイン/月";
 "EZCoinStore.TopUp.Ultra" = "ウルトラコインパック";
 "EZCoinStore.TopUp.UltraSubtitle" = "2,500コイン、1回払い\n有効期限なし";
 "EZCoinStore.TopUp.Power" = "パワーコインパック";
