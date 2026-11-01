@@ -243,6 +243,8 @@ static NSString *const kTierProAnnual      = @"pro_annual";
 
 static NSString *const kTierUltraAnnual    = @"ultra_annual";
 
+static NSString *const kTierUnlimitedChat = @"unlimited_chat";
+
 // ── Promo banner ───────────────────────────────────────────────────────────────
 
 // Height reserved at the top of the table header when a promo is running.
@@ -933,6 +935,27 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         enterprise.badgeText   = NSLocalizedString(@"EZCoinStore.Badge.Enterprise", @"Enterprise tier badge");
     [self applySubscriptionPromoBadgeToItem:enterprise];
     [items addObject:enterprise];
+
+    // Unlimited Chat — a chat-only plan, priced flat at $50/mo. It is NOT a
+    // coin plan: chat on the newest models is unlimited while the plan is
+    // active (enforced server-side in ez-chat; Astra capped at 50 msgs/day,
+    // Sol at 100/day, Luna and Terra uncapped), and the 400 coins are the
+    // same general-purpose grant Basic carries, usable for images, music,
+    // TTS, and everything else coins buy. No annual variant — the annual
+    // upsell list in the tap handler deliberately omits this tier.
+    EZStoreItem *unlimitedChat    = [EZStoreItem new];
+    unlimitedChat.title           = NSLocalizedString(@"EZCoinStore.Tier.UnlimitedChat", @"Unlimited Chat subscription tier name");
+    unlimitedChat.subtitle        = NSLocalizedString(@"EZCoinStore.Tier.UnlimitedChatSubtitle", @"Unlimited Chat subscription description");
+    unlimitedChat.priceString     = @"$50.00/mo";
+    unlimitedChat.planOrPackageID = kTierUnlimitedChat;
+    unlimitedChat.type            = EZStoreItemTypeSubscription;
+    unlimitedChat.coins           = 400;
+    unlimitedChat.accentColor     = [UIColor systemCyanColor];
+    unlimitedChat.isCurrentPlan   = isActive && [currentTier isEqualToString:@"unlimited_chat"];
+    if ([currentTier isEqualToString:@"unlimited_chat"] && !isActive && currentStatus)
+        unlimitedChat.badgeText   = currentStatus.uppercaseString;
+    [self applySubscriptionPromoBadgeToItem:unlimitedChat];
+    [items addObject:unlimitedChat];
 
     // ── One-time top-ups ──────────────────────────────────────────────────────
 

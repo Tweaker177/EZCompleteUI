@@ -223,6 +223,8 @@
 "EZCoinStore.Tier.PowerSubtitle" = "6.250 Münzen / Monat\nVerfügbar, wenn Sie sie brauchen.";
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12.500 Münzen / Monat\nFür alle geschäftlichen Anforderungen";
+"EZCoinStore.Tier.UnlimitedChat" = "Unbegrenzter Chat";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "Unbegrenzter Chat mit den neuesten Modellen\nAstra 50/Tag · Sol 100/Tag · Luna & Terra unbegrenzt · 400 Münzen / Monat";
 "EZCoinStore.TopUp.Ultra" = "Ultra-Münzpaket";
 "EZCoinStore.TopUp.UltraSubtitle" = "2.500 Münzen, einmalig\nLäuft nie ab";
 "EZCoinStore.TopUp.Power" = "Power-Münzpaket";

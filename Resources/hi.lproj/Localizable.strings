@@ -223,6 +223,8 @@
 "EZCoinStore.Tier.PowerSubtitle" = "6,250 कॉइन / माह\nजब ज़रूरत हो तब उपलब्ध।";
 "EZCoinStore.Tier.Enterprise" = "एंटरप्राइज़";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 कॉइन / माह\nआपकी सभी व्यावसायिक ज़रूरतों के लिए";
+"EZCoinStore.Tier.UnlimitedChat" = "अनलिमिटेड चैट";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "नवीनतम मॉडल पर अनलिमिटेड चैट\nAstra 50/दिन · Sol 100/दिन · Luna और Terra अनलिमिटेड · 400 कॉइन / माह";
 "EZCoinStore.TopUp.Ultra" = "अल्ट्रा कॉइन पैक";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 "EZCoinStore.TopUp.Power" = "पावर कॉइन पैक";

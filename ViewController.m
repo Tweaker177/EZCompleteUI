@@ -4517,6 +4517,38 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 });
                 return;
             }
+            // Daily limit on a capped frontier model — returned by ez-chat
+            // for Unlimited Chat subscribers BEFORE anything is spent, only
+            // for gpt-6-astra / gpt-6.1-sol. Continue the same send on the
+            // unlimited fallback model instead of surfacing an error: switch
+            // the selected model (same updates the picker performs), note it
+            // once in the transcript, and resend. The isEqualToString checks
+            // against the two capped models are the loop guard — a
+            // daily_limit_reached response about any other model falls
+            // through to normal error handling below.
+            if ([errMsg isEqualToString:@"daily_limit_reached"] ||
+                [json[@"reason"] isEqualToString:@"daily_limit_reached"]) {
+                NSString *cappedModel = [json[@"model"] isKindOfClass:[NSString class]]
+                    ? json[@"model"] : self.selectedModel;
+                NSString *fallbackModel = [json[@"fallback_model"] isKindOfClass:[NSString class]]
+                    ? json[@"fallback_model"] : @"gpt-6.1-terra";
+                if (([cappedModel isEqualToString:@"gpt-6-astra"] ||
+                     [cappedModel isEqualToString:@"gpt-6.1-sol"]) &&
+                    ![fallbackModel isEqualToString:cappedModel]) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        self.selectedModel = fallbackModel;
+                        [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", fallbackModel]
+                                          forState:UIControlStateNormal];
+                        [[NSUserDefaults standardUserDefaults] setObject:fallbackModel
+                                                                  forKey:@"selectedModel"];
+                        [self appendToChat:[NSString stringWithFormat:
+                            @"[System: %@ daily limit reached — continuing with %@, which is unlimited on your plan.]",
+                            cappedModel, fallbackModel]];
+                        [self callChatCompletionsWithRetryCount:retryCount + 1];
+                    });
+                    return;
+                }
+            }
             // Insufficient coins — show store
             if ([errMsg isEqualToString:@"Insufficient coins"] ||
                 [json[@"reason"] isEqualToString:@"Insufficient coins"]) {

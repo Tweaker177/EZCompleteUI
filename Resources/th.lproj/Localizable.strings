@@ -223,6 +223,8 @@
 "EZCoinStore.Tier.PowerSubtitle" = "6,250 เหรียญ / เดือน\nพร้อมใช้เมื่อคุณต้องการ";
 "EZCoinStore.Tier.Enterprise" = "องค์กร";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 เหรียญ / เดือน\nสำหรับทุกความต้องการทางธุรกิจของคุณ";
+"EZCoinStore.Tier.UnlimitedChat" = "แชทไม่จำกัด";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "แชทไม่จำกัดกับโมเดลล่าสุด\nAstra 50/วัน · Sol 100/วัน · Luna และ Terra ไม่จำกัด · 400 เหรียญ / เดือน";
 "EZCoinStore.TopUp.Ultra" = "แพ็กเหรียญอัลตร้า";
 "EZCoinStore.TopUp.UltraSubtitle" = "2,500 เหรียญ จ่ายครั้งเดียว\nไม่มีวันหมดอายุ";
 "EZCoinStore.TopUp.Power" = "แพ็กเหรียญพาวเวอร์";
