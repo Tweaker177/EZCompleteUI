@@ -7837,10 +7837,14 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 // appendToOldChat: implemented above as a wrapper around appendToChat:
 
 - (void)showGPT5StatusBanner {
+    // This banner also serves the GPT-6 family (isGPT5 includes it), so
+    // name the family the user actually picked instead of hard-coding
+    // GPT-5 into the wait messages.
+    NSString *family = [self.selectedModel hasPrefix:@"gpt-6"] ? @"GPT-6" : @"GPT-5";
     [self showStatusBannerWithMessages:@[
-        @"GPT-5 is thinking…", @"Processing your request…",
-        @"Still working — GPT-5 can take up to 3 min", @"Reasoning through your prompt…",
-        @"Almost there — complex requests take longer", @"Hang tight, GPT-5 is thorough",
+        [NSString stringWithFormat:@"%@ is thinking…", family], @"Processing your request…",
+        [NSString stringWithFormat:@"Still working — %@ can take up to 3 min", family], @"Reasoning through your prompt…",
+        @"Almost there — complex requests take longer", [NSString stringWithFormat:@"Hang tight, %@ is thorough", family],
         @"Working hard on your answer…",
     ]];
 }
