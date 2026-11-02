@@ -1006,6 +1006,10 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 // prompt must never land on a newer banner (or on the image banner).
 @property (nonatomic, assign) NSUInteger     statusStepsGeneration;
 @property (nonatomic, assign) BOOL           statusBannerIsChatWait;
+@property (nonatomic, assign) BOOL           thinkingRowVisible;
+@property (nonatomic, strong) UITableViewCell *thinkingCell;
+@property (nonatomic, weak)   UILabel       *thinkingStatusLabel;
+@property (nonatomic, copy)   NSString      *thinkingStatusText;
 // Remembers which real image model (gpt-image-1/-1-mini/-1.5/-2/
 // chatgpt-image-latest) was selected before switching into edit mode, since
 // self.selectedModel becomes the literal string "gpt-image-1-edit" (a UI
@@ -1052,8 +1056,12 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (NSArray<NSString *> *)heuristicStatusStepsForPrompt:(NSString *)prompt;
 - (void)fetchModelStatusStepsForPrompt:(NSString *)prompt familyName:(NSString *)family;
 - (NSArray<NSString *> *)statusStepsFromReplyText:(NSString *)text;
+- (NSDictionary *)statusStepsAndReactionFromReplyText:(NSString *)text;
 - (void)showStatusBannerWithMessages:(NSArray<NSString *> *)messages;
 - (void)hideStatusBanner;
+- (void)showThinkingPlaceholder;
+- (void)hideThinkingPlaceholder;
+- (void)showGenericThinkingStatus;
 - (void)showImageGenStatusBanner;
 - (void)handleImageGenerationStreamEvent:(NSDictionary *)event;
 - (void)startImageGenerationStreamWithToken:(NSString *)token
@@ -3689,6 +3697,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         && ![self.selectedModel hasPrefix:@"sora-"];
 
     if (isChatModel) {
+        // Instant assistant-side feedback: the thinking row appears in
+        // the same tap as the user bubble, before entitlement, memory
+        // retrieval, or any network wait. Its status text catches up
+        // when callChatCompletions starts the status machinery, and the
+        // row leaves with the reply (via hideStatusBanner).
+        [self showThinkingPlaceholder];
         // Chat models — defer entitlement check to callChatCompletions
         // so we can pass the actual assembled token count.
         [self handleSendAuthorized:text];
@@ -3795,6 +3809,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // (triage, memory search, memory creation) needs it to reach ez-helper.
     NSString *jwtToken = [EZAuthManager shared].accessToken;
     if (!jwtToken) {
+        [self hideThinkingPlaceholder];
         [self appendToChat:@"[Error: Not signed in]"];
         self.sendButton.enabled = YES;
         return;
@@ -4414,7 +4429,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSString *capturedImageSource = self.chatImageSourcePath;
     [self.pendingImagePaths removeAllObjects];
 
-    if (isGPT5) { dispatch_async(dispatch_get_main_queue(), ^{ [self showGPT5StatusBanner]; }); }
+    // Status for every model now lives in the in-chat thinking row (it
+    // has been visible since the send tap). GPT-5/6-family models get
+    // their prompt-shaped steps; everything else gets the generic set.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self showThinkingPlaceholder];
+        if (isGPT5) { [self showGPT5StatusBanner]; }
+        else        { [self showGenericThinkingStatus]; }
+    });
 
     // Build ez-chat request body
     NSMutableDictionary *ezBody = [NSMutableDictionary dictionary];
@@ -7624,10 +7646,13 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return (NSInteger)self.displayMessages.count;
+    return (NSInteger)self.displayMessages.count + (self.thinkingRowVisible ? 1 : 0);
 }
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (self.thinkingRowVisible && indexPath.row >= (NSInteger)self.displayMessages.count) {
+        return UITableViewAutomaticDimension;
+    }
     NSDictionary *msg = self.displayMessages[(NSUInteger)indexPath.row];
     NSString *role    = msg[@"role"] ?: @"system";
     if ([role isEqualToString:@"imagegrid"]) {
@@ -7644,6 +7669,9 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    if (self.thinkingRowVisible && indexPath.row >= (NSInteger)self.displayMessages.count) {
+        return [self thinkingPlaceholderCell];
+    }
     NSDictionary *msg = self.displayMessages[(NSUInteger)indexPath.row];
     NSString *role    = msg[@"role"] ?: @"system";
 
@@ -7696,6 +7724,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
                       timestamp:msg[@"timestamp"]
                         chatKey:msg[@"chatKey"]
                        threadID:msg[@"threadID"]];
+        [cell setReactionEmoji:msg[@"reaction"]];
         [self ez_attachCopyInteractionToCellIfNeeded:cell];
         [self configureThreadSelectionDotForCell:cell indexPath:indexPath];
         return cell;
@@ -7866,9 +7895,9 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 }
 
 - (void)scrollChatToBottom {
-    NSUInteger count = self.displayMessages.count;
-    if (count == 0) return;
-    NSIndexPath *last = [NSIndexPath indexPathForRow:(NSInteger)(count - 1) inSection:0];
+    NSInteger rows = (NSInteger)self.displayMessages.count + (self.thinkingRowVisible ? 1 : 0);
+    if (rows == 0) return;
+    NSIndexPath *last = [NSIndexPath indexPathForRow:rows - 1 inSection:0];
     [self.chatTableView scrollToRowAtIndexPath:last
                              atScrollPosition:UITableViewScrollPositionBottom
                                      animated:YES];
@@ -7961,6 +7990,19 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 - (void)fetchModelStatusStepsForPrompt:(NSString *)prompt familyName:(NSString *)family {
     NSString *token = [EZAuthManager shared].accessToken;
     if (!prompt.length || !token.length) return;
+    // The user message this call is reacting to. Pointer identity is the
+    // check: if the thread was rebuilt (copies) or the row moved on, the
+    // reaction is dropped silently rather than landing on a wrong bubble.
+    NSDictionary *capturedUserEntry = nil;
+    NSInteger capturedUserRow = -1;
+    for (NSInteger i = (NSInteger)self.displayMessages.count - 1; i >= 0; i--) {
+        NSDictionary *entry = self.displayMessages[(NSUInteger)i];
+        if ([entry[@"role"] isEqualToString:@"user"]) {
+            capturedUserEntry = entry;
+            capturedUserRow = i;
+            break;
+        }
+    }
     NSUInteger generation = ++self.statusStepsGeneration;
     NSString *trimmed = prompt.length > 1000 ? [prompt substringToIndex:1000] : prompt;
     NSDictionary *body = @{
@@ -7970,7 +8012,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         @"max_tokens": @300,
         @"messages": @[
             @{@"role": @"system", @"content":
-                @"You write progress status lines for a chat app. Given the user's request, reply with ONLY a JSON array of 4 or 5 short status strings to display while the request is being processed. Each string is a present-continuous phrase under 60 characters ending with …. Describe plausible steps for THIS specific request (for a coding request, steps like analyzing the existing code, checking the official documentation, writing the code, sanity-checking). Output the JSON array only — no markdown fences, no other text."},
+                @"You write progress status lines for a chat app. Given the user's request, reply with ONLY a JSON object of the form {\"reaction\": <emoji or null>, \"steps\": [<status strings>]}. The reaction is a single emoji you would tap in a chat app to react to the user's message itself, chosen ONLY when one clearly fits — never forced. Valid reactions and when they fit: 💡 an idea or suggestion, ❤️ something sweet, kind, or romantic, 👍 a simple request, a thank-you, or agreement, 😂 something genuinely funny, 🤔 a genuinely hard problem, 🎉 good news or a celebration, 🔥 impressive work, 💪 hard effort, 🙏 gratitude, ✨ something creative or delightful, 👀 something surprising. Most messages deserve NO reaction — when in doubt, use null. Never use an emoji outside that list. The steps are 4 or 5 short status strings to display while the request is being processed. Each string is a present-continuous phrase under 60 characters ending with …. Describe plausible steps for THIS specific request (for a coding request, steps like analyzing the existing code, checking the official documentation, writing the code, sanity-checking). Output the JSON object only — no markdown fences, no other text."},
             @{@"role": @"user", @"content": trimmed},
         ],
     };
@@ -7988,19 +8030,35 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
         if (![json isKindOfClass:[NSDictionary class]] || json[@"error"]) return;
         NSString *reply = [json[@"reply"] isKindOfClass:[NSString class]] ? json[@"reply"] : nil;
-        NSArray<NSString *> *steps = [weakSelf statusStepsFromReplyText:reply];
-        if (!steps.count) return;
+        NSDictionary *parsed = [weakSelf statusStepsAndReactionFromReplyText:reply];
+        NSArray<NSString *> *steps = parsed[@"steps"];
+        NSString *reaction = [parsed[@"reaction"] isKindOfClass:[NSString class]] ? parsed[@"reaction"] : nil;
+        if (!steps.count && !reaction.length) return;
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(weakSelf) self = weakSelf;
             if (!self || generation != self.statusStepsGeneration) return;
             if (!self.statusBannerTimer || !self.statusBannerIsChatWait) return;
-            NSMutableArray<NSString *> *messages = [NSMutableArray arrayWithObject:
-                [NSString stringWithFormat:@"%@ is thinking…", family]];
-            [messages addObjectsFromArray:steps];
-            [messages addObject:[NSString stringWithFormat:@"Still working — %@ can take up to 3 min", family]];
-            self.statusBannerMessages = messages;
-            self.statusBannerPhase = 0;
-            [self tickStatusBanner];
+            if (steps.count) {
+                NSMutableArray<NSString *> *messages = [NSMutableArray arrayWithObject:
+                    [NSString stringWithFormat:@"%@ is thinking…", family]];
+                [messages addObjectsFromArray:steps];
+                [messages addObject:[NSString stringWithFormat:@"Still working — %@ can take up to 3 min", family]];
+                self.statusBannerMessages = messages;
+                self.statusBannerPhase = 0;
+                [self tickStatusBanner];
+            }
+            // Reaction lands on the exact bubble this call was for, and
+            // only if that entry is still sitting untouched at its row.
+            if (reaction.length && capturedUserEntry && capturedUserRow >= 0 &&
+                capturedUserRow < (NSInteger)self.displayMessages.count &&
+                self.displayMessages[(NSUInteger)capturedUserRow] == capturedUserEntry) {
+                NSMutableDictionary *updated = [capturedUserEntry mutableCopy];
+                updated[@"reaction"] = reaction;
+                self.displayMessages[(NSUInteger)capturedUserRow] = updated;
+                [self.chatTableView reloadRowsAtIndexPaths:@[
+                    [NSIndexPath indexPathForRow:capturedUserRow inSection:0]]
+                    withRowAnimation:UITableViewRowAnimationFade];
+            }
         });
     }] resume];
 }
@@ -8029,6 +8087,58 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         if (steps.count >= 5) break;
     }
     return steps.count >= 3 ? steps : nil;
+}
+
+/// Parses the status helper's reply: {"reaction": <emoji|null>, "steps":
+/// [...]}. The reaction is accepted only from a fixed whitelist (the
+/// model can return anything; anything else is ignored), and the steps
+/// go through the same cleaning as the array format. A bare JSON array
+/// reply (the old format) still yields steps via the original parser,
+/// with no reaction. Returns nil when neither part is usable.
+- (NSDictionary *)statusStepsAndReactionFromReplyText:(NSString *)text {
+    if (!text.length) return nil;
+    NSString *reaction = nil;
+    NSArray<NSString *> *steps = nil;
+    NSRange open = [text rangeOfString:@"{"];
+    NSRange close = [text rangeOfString:@"}" options:NSBackwardsSearch];
+    if (open.location != NSNotFound && close.location != NSNotFound &&
+        close.location > open.location) {
+        NSString *jsonText = [text substringWithRange:NSMakeRange(open.location,
+                                                    close.location - open.location + 1)];
+        id parsed = [NSJSONSerialization JSONObjectWithData:
+            [jsonText dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+        if ([parsed isKindOfClass:[NSDictionary class]]) {
+            id rawReaction = parsed[@"reaction"];
+            if ([rawReaction isKindOfClass:[NSString class]]) {
+                NSString *candidate = [(NSString *)rawReaction
+                    stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                if ([candidate isEqualToString:@"❤"]) candidate = @"❤️";
+                static NSSet<NSString *> *allowedReactions;
+                static dispatch_once_t onceToken;
+                dispatch_once(&onceToken, ^{
+                    allowedReactions = [NSSet setWithArray:@[@"👍", @"❤️", @"💡", @"😂", @"🤔", @"✨", @"🎉", @"🔥", @"💪", @"🙏", @"👀"]];
+                });
+                if ([allowedReactions containsObject:candidate]) reaction = candidate;
+            }
+            id rawSteps = parsed[@"steps"];
+            if ([rawSteps isKindOfClass:[NSArray class]]) {
+                NSMutableArray<NSString *> *cleaned = [NSMutableArray array];
+                for (id item in (NSArray *)rawSteps) {
+                    if (![item isKindOfClass:[NSString class]]) continue;
+                    NSString *step = [(NSString *)item stringByTrimmingCharactersInSet:
+                        [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                    if (!step.length) continue;
+                    if (step.length > 70) step = [[step substringToIndex:67] stringByAppendingString:@"…"];
+                    [cleaned addObject:step];
+                    if (cleaned.count >= 5) break;
+                }
+                if (cleaned.count >= 3) steps = cleaned;
+            }
+        }
+    }
+    if (!steps) steps = [self statusStepsFromReplyText:text];
+    if (!steps && !reaction) return nil;
+    return @{ @"steps": steps ?: @[], @"reaction": reaction ?: (id)[NSNull null] };
 }
 - (void)hideGPT5StatusBanner {
     [self hideStatusBanner];
@@ -8128,11 +8238,20 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     self.statusBannerTimer = [NSTimer scheduledTimerWithTimeInterval:4.0 target:self
         selector:@selector(tickStatusBanner) userInfo:nil repeats:YES];
     [[NSRunLoop mainRunLoop] addTimer:self.statusBannerTimer forMode:NSRunLoopCommonModes];
-    [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionBeginFromCurrentState
-        animations:^{ self.statusBannerView.alpha = 1.0; } completion:nil];
+    // Chat waits present in the in-chat thinking row instead of the
+    // floating banner: roomier, word-wrapped, never tail-truncated.
+    // The floating banner remains the surface for image generation.
+    if (self.statusBannerIsChatWait) {
+        [self.chatTableView beginUpdates];
+        [self.chatTableView endUpdates];
+    } else {
+        [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionBeginFromCurrentState
+            animations:^{ self.statusBannerView.alpha = 1.0; } completion:nil];
+    }
 }
 - (void)hideStatusBanner {
     self.statusStepsGeneration++;
+    [self hideThinkingPlaceholder];
     self.statusBannerIsChatWait = NO;
     BOOL wasActive = self.statusBannerTimer != nil;
     [self.statusBannerTimer invalidate]; self.statusBannerTimer = nil;
@@ -8157,9 +8276,27 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 }
 - (void)tickStatusBanner {
     NSArray<NSString *> *m = self.statusBannerMessages.count ? self.statusBannerMessages : @[@"Working…"];
-    [UIView transitionWithView:self.statusBannerLabel duration:0.4
-        options:UIViewAnimationOptionTransitionCrossDissolve
-        animations:^{ self.statusBannerLabel.text = m[self.statusBannerPhase % m.count]; } completion:nil];
+    NSString *statusText = m[self.statusBannerPhase % m.count];
+    if (self.statusBannerIsChatWait) {
+        // Keep the current line on the view controller (the thinking
+        // cell may be off-screen or not created yet; it reads this when
+        // it appears) and cross-fade the live label when there is one.
+        // The begin/end updates pair re-measures the row so a longer
+        // wrapped line is never clipped.
+        self.thinkingStatusText = statusText;
+        UILabel *label = self.thinkingStatusLabel;
+        if (label) {
+            [UIView transitionWithView:label duration:0.4
+                options:UIViewAnimationOptionTransitionCrossDissolve
+                animations:^{ label.text = statusText; } completion:nil];
+            [self.chatTableView beginUpdates];
+            [self.chatTableView endUpdates];
+        }
+    } else {
+        [UIView transitionWithView:self.statusBannerLabel duration:0.4
+            options:UIViewAnimationOptionTransitionCrossDissolve
+            animations:^{ self.statusBannerLabel.text = statusText; } completion:nil];
+    }
     self.statusBannerPhase++;
     // The image API emits partial/completed events, not a numeric percentage.
     // Advance a monotonic estimate between those server-reported phases.
@@ -8167,6 +8304,132 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         CGFloat remaining = 0.90 - self.imageGenerationProgress;
         [self updateImageGenerationProgress:MIN(0.90, self.imageGenerationProgress + MAX(0.002, remaining * 0.08))];
     }
+}
+
+// ── In-chat thinking placeholder ───────────────────────────────────────────
+// An assistant-side bubble that appears the instant a chat send starts —
+// every model, in the same tap as the user bubble, before any entitlement,
+// memory, or network wait: a three-dot typing animation with the current
+// status line under it, word-wrapped at a readable size so a status
+// sentence is never tail-truncated the way the single-line floating
+// banner truncated it. It is NOT a displayMessages entry: it renders as
+// one extra table row while thinkingRowVisible is set, so it can never
+// leak into saved history or the API context. The status text still
+// comes from the banner machinery (statusBannerMessages/tickStatusBanner);
+// this is only its presentation surface for chat waits.
+- (void)showThinkingPlaceholder {
+    if (self.thinkingRowVisible) {
+        [self scrollChatToBottom];
+        return;
+    }
+    self.thinkingRowVisible = YES;
+    NSIndexPath *path = [NSIndexPath indexPathForRow:(NSInteger)self.displayMessages.count inSection:0];
+    [self.chatTableView insertRowsAtIndexPaths:@[path]
+                              withRowAnimation:UITableViewRowAnimationFade];
+    [self scrollChatToBottom];
+}
+
+- (void)hideThinkingPlaceholder {
+    if (!self.thinkingRowVisible) return;
+    self.thinkingRowVisible = NO;
+    self.thinkingCell = nil;
+    self.thinkingStatusLabel = nil;
+    NSIndexPath *path = [NSIndexPath indexPathForRow:(NSInteger)self.displayMessages.count inSection:0];
+    [self.chatTableView deleteRowsAtIndexPaths:@[path]
+                              withRowAnimation:UITableViewRowAnimationFade];
+}
+
+- (void)showGenericThinkingStatus {
+    self.statusBannerIsChatWait = YES;
+    NSString *family = [self chatStatusFamilyName];
+    [self showStatusBannerWithMessages:@[
+        [NSString stringWithFormat:@"%@ is thinking…", family],
+        @"Processing your request…",
+        [NSString stringWithFormat:@"Still working — %@ can take a moment", family],
+    ]];
+}
+
+- (UITableViewCell *)thinkingPlaceholderCell {
+    if (self.thinkingCell) {
+        self.thinkingStatusLabel.text = self.thinkingStatusText ?: @"Thinking…";
+        return self.thinkingCell;
+    }
+    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault
+                                                   reuseIdentifier:nil];
+    cell.selectionStyle = UITableViewCellSelectionStyleNone;
+    cell.backgroundColor = [UIColor clearColor];
+    cell.accessibilityLabel = @"Assistant is thinking";
+
+    // Same bubble shape and assistant coloring as EZBubbleCell.
+    UIView *bubble = [[UIView alloc] init];
+    bubble.translatesAutoresizingMaskIntoConstraints = NO;
+    bubble.layer.cornerRadius = 18.0;
+    bubble.clipsToBounds = YES;
+    bubble.backgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
+        return tc.userInterfaceStyle == UIUserInterfaceStyleDark
+            ? [UIColor colorWithRed:0.20 green:0.20 blue:0.22 alpha:1.0]
+            : [UIColor colorWithRed:0.90 green:0.90 blue:0.92 alpha:1.0];
+    }];
+    [cell.contentView addSubview:bubble];
+
+    // Three-dot typing indicator: staggered opacity pulses.
+    UIView *dotsRow = [[UIView alloc] init];
+    dotsRow.translatesAutoresizingMaskIntoConstraints = NO;
+    [bubble addSubview:dotsRow];
+    UILabel *previousDot = nil;
+    for (NSInteger i = 0; i < 3; i++) {
+        UILabel *dot = [[UILabel alloc] init];
+        dot.text = @"•";
+        dot.font = [UIFont systemFontOfSize:26 weight:UIFontWeightBold];
+        dot.textColor = [UIColor secondaryLabelColor];
+        dot.translatesAutoresizingMaskIntoConstraints = NO;
+        [dotsRow addSubview:dot];
+        [NSLayoutConstraint activateConstraints:@[
+            [dot.topAnchor constraintEqualToAnchor:dotsRow.topAnchor],
+            [dot.bottomAnchor constraintEqualToAnchor:dotsRow.bottomAnchor],
+            previousDot
+                ? [dot.leadingAnchor constraintEqualToAnchor:previousDot.trailingAnchor constant:2]
+                : [dot.leadingAnchor constraintEqualToAnchor:dotsRow.leadingAnchor],
+        ]];
+        if (i == 2) {
+            [dot.trailingAnchor constraintEqualToAnchor:dotsRow.trailingAnchor];
+        }
+        CAKeyframeAnimation *pulse = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
+        pulse.values   = @[@0.25, @1.0, @0.25];
+        pulse.keyTimes = @[@0, @0.4, @1.0];
+        pulse.duration = 1.2;
+        pulse.beginTime = CACurrentMediaTime() + (double)i * 0.18;
+        pulse.repeatCount = HUGE_VALF;
+        [dot.layer addAnimation:pulse forKey:@"ezThinkingPulse"];
+        previousDot = dot;
+    }
+
+    // Status line: multi-line, word-wrapped — a status sentence always
+    // shows in full, however long it runs.
+    UILabel *status = [[UILabel alloc] init];
+    status.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+    status.textColor = [UIColor secondaryLabelColor];
+    status.numberOfLines = 0;
+    status.lineBreakMode = NSLineBreakByWordWrapping;
+    status.text = self.thinkingStatusText ?: @"Thinking…";
+    status.translatesAutoresizingMaskIntoConstraints = NO;
+    [bubble addSubview:status];
+    self.thinkingStatusLabel = status;
+
+    [NSLayoutConstraint activateConstraints:@[
+        [bubble.topAnchor constraintEqualToAnchor:cell.contentView.topAnchor constant:4],
+        [bubble.bottomAnchor constraintEqualToAnchor:cell.contentView.bottomAnchor constant:-4],
+        [bubble.leadingAnchor constraintEqualToAnchor:cell.contentView.leadingAnchor constant:12],
+        [bubble.widthAnchor constraintLessThanOrEqualToConstant:290],
+        [dotsRow.topAnchor constraintEqualToAnchor:bubble.topAnchor constant:6],
+        [dotsRow.leadingAnchor constraintEqualToAnchor:bubble.leadingAnchor constant:14],
+        [status.topAnchor constraintEqualToAnchor:dotsRow.bottomAnchor constant:1],
+        [status.leadingAnchor constraintEqualToAnchor:bubble.leadingAnchor constant:14],
+        [status.trailingAnchor constraintEqualToAnchor:bubble.trailingAnchor constant:-14],
+        [status.bottomAnchor constraintEqualToAnchor:bubble.bottomAnchor constant:-12],
+    ]];
+    self.thinkingCell = cell;
+    return cell;
 }
 - (void)openSettings {
     UINavigationController *nav = [[UINavigationController alloc]
