@@ -3583,6 +3583,24 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self presentViewController:alert animated:YES completion:nil];
 }
 
+// Denial warning for the one-free-song paywall in chat, then the coin store.
+- (void)showSongPurchaseRequiredAlert {
+    UIAlertController *alert = [UIAlertController
+        alertControllerWithTitle:@"Purchase required"
+                         message:@"You've made your free song. Make any purchase to keep creating songs, then ask again."
+                  preferredStyle:UIAlertControllerStyleAlert];
+    __weak typeof(self) weakSelf = self;
+    [alert addAction:[UIAlertAction actionWithTitle:@"View Store"
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(__unused UIAlertAction *action) {
+        [weakSelf presentCoinStoreForFeature:@"AI music"];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Not Now"
+                                              style:UIAlertActionStyleCancel
+                                            handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
 - (void)handleSend {
     if (!self.sendButton.enabled || self.messageTextField.text.length == 0) return;
     if (![self selectedModelRequiresPurchase]) {
@@ -7151,6 +7169,27 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 }
 
 - (void)performChatMusicRequest:(NSDictionary *)musicRequest {
+    // One free song, same rule as the AI Music screen: a never-purchased
+    // user who already has a finished song hits the paywall instead of
+    // starting another. Refresh the purchase flag before denying so a
+    // just-completed purchase is never blocked by a stale cached flag.
+    if (![EZEntitlementManager shared].hasEverPurchased &&
+        [EZMusicLibraryManager sharedManager].createdSongCount >= 1) {
+        __weak typeof(self) weakSelf = self;
+        [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:^(__unused BOOL refreshed, __unused NSInteger balance) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                __strong typeof(weakSelf) strongSelf = weakSelf;
+                if (!strongSelf) return;
+                if ([EZEntitlementManager shared].hasEverPurchased) {
+                    [strongSelf performChatMusicRequest:musicRequest];
+                    return;
+                }
+                [strongSelf appendToChat:@"[System: You've made your free song. Song creation needs a purchase — any purchase unlocks it.]"];
+                [strongSelf showSongPurchaseRequiredAlert];
+            });
+        }];
+        return;
+    }
     NSString *prompt = [musicRequest[@"prompt"] isKindOfClass:[NSString class]]
         ? [musicRequest[@"prompt"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
     NSString *title = [musicRequest[@"title"] isKindOfClass:[NSString class]]

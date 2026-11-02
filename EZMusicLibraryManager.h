@@ -39,6 +39,12 @@ NS_ASSUME_NONNULL_BEGIN
 /// Entry IDs in the on-device song manifest, in archive order. This is the
 /// offline playlist source; references are deliberately excluded.
 - (NSArray<NSString *> *)localSongEntryIDs;
+/// How many songs this user has ever ended up with on this device. Counted
+/// when a finished song is first archived, persisted across launches, and
+/// seeded from the on-device library so songs made before this counter
+/// existed still count. Backs the one-free-song paywall: song creation is
+/// free until this reaches 1 for a user who has never purchased.
+@property (nonatomic, readonly) NSInteger createdSongCount;
 /// Refreshes local metadata for an already archived song without copying audio again.
 - (void)updateSongMetadataForEntry:(NSDictionary *)entry;
 - (void)archiveSongAtTemporaryURL:(NSURL *)temporaryURL entry:(NSDictionary *)entry;

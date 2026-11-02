@@ -97,6 +97,13 @@ static NSString *EZMusicStyleLabel(NSString *prompt) {
     return nil;
 }
 
+static NSString * const kEZMusicCreatedSongCountKey = @"EZMusicCreatedSongCount";
+
+- (NSInteger)createdSongCount {
+    NSInteger stored = [[NSUserDefaults standardUserDefaults] integerForKey:kEZMusicCreatedSongCountKey];
+    return MAX(stored, (NSInteger)[self localSongEntryIDs].count);
+}
+
 - (NSArray<NSString *> *)localSongEntryIDs {
     __block NSArray<NSString *> *identifiers;
     dispatch_sync(self.queue, ^{
@@ -193,8 +200,17 @@ static NSString *EZMusicStyleLabel(NSString *prompt) {
         NSUInteger index = [self.items indexOfObjectPassingTest:^BOOL(NSDictionary *item, NSUInteger idx, BOOL *stop) {
             return [item[@"kind"] isEqual:@"song"] && [item[@"entry_id"] isEqual:entryID];
         }];
-        if (index == NSNotFound) [self.items addObject:record]; else self.items[index] = record;
+        BOOL isNewSong = (index == NSNotFound);
+        if (isNewSong) [self.items addObject:record]; else self.items[index] = record;
         [self persist];
+        if (isNewSong) {
+            // Count every song the user actually ends up with — this drives
+            // the one-free-song paywall (see createdSongCount). Deleting the
+            // song later does not refund the free creation.
+            NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+            [defaults setInteger:[defaults integerForKey:kEZMusicCreatedSongCountKey] + 1
+                          forKey:kEZMusicCreatedSongCountKey];
+        }
         // The song is safely on the device; now start its cover art. The service
         // skips songs that already have a cover, so re-saving is harmless.
         NSMutableDictionary *artworkEntry = [entryCopy mutableCopy];
