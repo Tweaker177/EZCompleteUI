@@ -129,6 +129,8 @@
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 koin / bulan\nUntuk semua kebutuhan bisnis Anda";
+"EZCoinStore.Tier.UnlimitedChat" = "Chat Tanpa Batas";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "Chat tanpa batas di model terbaru\nAstra 50/hari · Sol 100/hari · Luna & Terra tanpa batas · 400 koin / bulan";
 
 "EZCoinStore.TopUp.Starter" = "Paket Koin Pemula";
 

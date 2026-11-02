@@ -129,6 +129,8 @@
 "EZCoinStore.Tier.Enterprise" = "Kurumsal";
 
 "EZCoinStore.Tier.EnterpriseSubtitle" = "Ayda 12.500 coin\nTüm iş ihtiyaçlarınız için";
+"EZCoinStore.Tier.UnlimitedChat" = "Sınırsız Sohbet";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "En yeni modellerde sınırsız sohbet\nAstra 50/gün · Sol 100/gün · Luna ve Terra sınırsız · Ayda 400 coin";
 
 "EZCoinStore.TopUp.Starter" = "Coin Başlangıç Paketi";
 

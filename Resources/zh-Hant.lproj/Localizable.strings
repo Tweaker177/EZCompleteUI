@@ -129,6 +129,8 @@
 "EZCoinStore.Tier.Enterprise" = "企業版";
 
 "EZCoinStore.Tier.EnterpriseSubtitle" = "每月 12,500 金幣\n滿足你所有的商務需求";
+"EZCoinStore.Tier.UnlimitedChat" = "無限聊天";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "最新模型無限聊天\nAstra 50/日 · Sol 100/日 · Luna 與 Terra 無限 · 每月 400 金幣";
 
 "EZCoinStore.TopUp.Starter" = "金幣入門包";
 
