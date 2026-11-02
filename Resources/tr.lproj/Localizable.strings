@@ -1,0 +1,529 @@
+/* EZModelPickerViewController localization */
+
+"EZModelPicker.Title" = "Model Seç";
+
+"EZModelSection.FrontierReasoning" = "Gelişmiş Akıl Yürütme";
+"EZModelSection.GPT4Chat" = "GPT-4 Sohbet";
+"EZModelSection.ImageGeneration" = "Görüntü Oluşturma";
+"EZModelSection.AudioTranscription" = "Ses Transkripsiyonu";
+
+"EZModelLabel.ChatVisionNewest" = "💬 Sohbet + 👁 Görüntü ⭐ En Yeni";
+"EZModelLabel.ChatVision" = "💬 Sohbet + 👁 Görüntü";
+"EZModelLabel.ChatVisionBalanced" = "💬 Sohbet + 👁 Görüntü (Dengeli)";
+"EZModelLabel.ChatVisionFastCheap" = "💬 Sohbet + 👁 Görüntü (Hızlı/Uygun Fiyatlı)";
+"EZModelLabel.ChatOnly" = "💬 Yalnızca Sohbet";
+"EZModelLabel.ImageGenNewestFast" = "🖼 Görüntü Oluşturma (En Yeni, Hızlı) — Düşük/Orta/Yüksek/Çok Yüksek/Maksimum";
+"EZModelLabel.ImageGenEditPrecision" = "🖼 Görüntü Oluşturma + ✏️ Düzenleme (Hassas) — Düşük/Orta/Yüksek/Çok Yüksek/Maksimum";
+"EZModelLabel.ImageGenEdit" = "🖼 Görüntü Oluşturma + ✏️ Düzenleme — Düşük/Orta/Yüksek";
+"EZModelLabel.ImageGen" = "🖼 Görüntü Oluşturma";
+"EZModelLabel.ImageGenFastCheap" = "🖼 Görüntü Oluşturma (Hızlı/Uygun Fiyatlı)";
+"EZModelLabel.ChatGPTImageLatest" = "🖼 ChatGPT Görüntüsü (En Yeni)";
+"EZModelLabel.AudioTranscriptionOnly" = "🎙 Yalnızca Ses Transkripsiyonu";
+
+
+/* TextToSpeechViewController localization */
+
+"EZTTS.Title" = "Metinden Konuşmaya";
+
+"EZTTS.PromptHeader" = "NE SÖYLEMELİ?";
+
+"EZTTS.VoiceHeader" = "SES";
+
+"EZTTS.SpeedFormat" = "Hız: %.2f×";
+
+"EZTTS.Generate" = "Oluştur";
+
+"EZTTS.ChooseVoice" = "Bir ses seç…";
+
+"EZTTS.CharactersRemaining" = "%lu karakter kaldı";
+
+"EZTTS.MissingTextTitle" = "Metin eksik";
+
+"EZTTS.MissingTextMessage" = "Lütfen sentezlenecek metni girin.";
+
+"EZTTS.ErrorTitle" = "TTS Hatası";
+
+"EZTTS.FailedToSynthesize" = "Sentezlenemedi.";
+
+"EZTTS.NoAudioReturned" = "Ses döndürülmedi.";
+
+"EZTTS.PlaybackError" = "Oynatma hatası";
+
+"EZTTS.UnableToPlay" = "Ses oynatılamıyor.";
+
+"EZTTS.NotLoggedIn" = "Oturum açılmadı.";
+
+"EZTTS.NotAuthorized" = "Yetkili değil. Lütfen tekrar oturum açın.";
+
+"EZTTS.InvalidServerResponse" = "Sunucudan geçersiz yanıt.";
+
+"EZTTS.EmptyAudio" = "Boş ses döndürüldü.";
+
+"EZTTS.FailedWavWrap" = "PCM, WAV formatına dönüştürülemedi.";
+
+"EZTTS.InsufficientCoins" = "Bu sentez için yeterli coininiz yok.";
+
+"EZTTS.NeedCoins" = "%@ coin gerekli, sizde %@ var.";
+
+"EZTTS.ServerError" = "Sunucu hatası";
+
+"EZTTS.OK" = "Tamam";
+
+/* Subscription paywall */
+"EZSubscription.RequiredTitle" = "Abonelik Gerekli";
+"EZSubscription.NotNow" = "Şimdi Değil";
+"EZSubscription.ViewPlans" = "Planları Görüntüle";
+"EZSubscription.ModelRequiredFormat" = "%@, aktif bir EZComplete aboneliğiyle kullanılabilir. Bu modeli kullanmak için abone olun.";
+"EZSubscription.ImageSettingsRequired" = "Yüksek kaliteli görüntüler, aktif bir EZComplete aboneliği gerektirir.";
+
+/* EZCoinStoreViewController localization */
+
+"EZCoinStore.Title" = "🪙 EZ Coin Mağazası";
+
+"EZCoinStore.CancelPlan" = "Planı İptal Et";
+
+"EZCoinStore.Subscribe" = "Abone Ol";
+
+"EZCoinStore.BuyNow" = "Şimdi Satın Al";
+
+"EZCoinStore.Badge.Buy1Get1" = "🔥 1 ALANA 1 BEDAVA";
+
+"EZCoinStore.Promo.SubscriptionBadgeFormat" = "+%ld ÜCRETSİZ Coin*";
+
+"EZCoinStore.Promo.SubscriptionFootnote" = "*Ekstra coinler tek seferlik bir bonustur, aylık bir artış değildir.";
+
+"EZCoinStore.Tier.Basic" = "Temel";
+
+"EZCoinStore.Tier.BasicSubtitle" = "Ayda 400 coin\nGündelik kullanım için ideal";
+
+"EZCoinStore.Tier.BasicPrice" = "$5 / ay";
+
+"EZCoinStore.Tier.Standard" = "Standart";
+
+"EZCoinStore.Tier.StandardSubtitle" = "Ayda 900 coin\nNormal kullanıcılar için harika";
+
+"EZCoinStore.Tier.StandardPrice" = "$10 / ay";
+
+"EZCoinStore.Badge.Popular" = "POPÜLER";
+
+"EZCoinStore.Tier.Pro" = "Pro";
+
+"EZCoinStore.Tier.ProSubtitle" = "Ayda 1.600 coin\nGünlük kullanıcılar için harika";
+
+"EZCoinStore.Tier.ProPrice" = "$15 / ay";
+
+"EZCoinStore.Badge.BestValue" = "EN İYİ DEĞER";
+
+"EZCoinStore.Tier.Ultra" = "Ultra";
+
+"EZCoinStore.Tier.UltraSubtitle" = "Ayda 2.500 coin\nYoğun kullanıcılara uygun";
+
+"EZCoinStore.Tier.UltraPrice" = "$20 / ay";
+
+"EZCoinStore.Badge.Ultra" = "ULTRA";
+
+"EZCoinStore.Tier.Power" = "Yoğun Kullanıcılar";
+
+"EZCoinStore.Tier.PowerSubtitle" = "Ayda 6.250 coin\nİhtiyacınız olduğunda hazır.";
+
+"EZCoinStore.Tier.Enterprise" = "Kurumsal";
+
+"EZCoinStore.Tier.EnterpriseSubtitle" = "Ayda 12.500 coin\nTüm iş ihtiyaçlarınız için";
+
+"EZCoinStore.TopUp.Starter" = "Coin Başlangıç Paketi";
+
+"EZCoinStore.TopUp.StarterSubtitle" = "400 coin, tek seferlik\nSüresi asla dolmaz";
+
+"EZCoinStore.TopUp.Ultra" = "Ultra Yükleme Paketi";
+
+"EZCoinStore.TopUp.UltraSubtitle" = "2500 coin, tek seferlik\nSüresi asla dolmaz";
+
+"EZCoinStore.TopUp.Power" = "Power Yükleme Paketi";
+
+"EZCoinStore.TopUp.PowerSubtitle" = "6250 coin, tek seferlik\nSüresi asla dolmaz";
+
+"EZCoinStore.TopUp.Enterprise" = "Kurumsal Yükleme Paketi";
+
+"EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 coin, tek seferlik\nSüresi asla dolmaz";
+
+
+
+"EZCoinStore.TopUp.Value" = "Coin Değer Paketi";
+
+"EZCoinStore.TopUp.ValueSubtitle" = "900 coin, tek seferlik\nSüresi asla dolmaz";
+
+"EZCoinStore.Badge.Save10" = "%10 TASARRUF";
+
+"EZCoinStore.Promo.Headline" = "🔥 1 ALANA 1 BEDAVA 🔥";
+
+"EZCoinStore.Promo.Subtitle" = "Tüm coinler ve abonelikler — sınırlı süre!";
+
+"EZCoinStore.LoadingBalance" = "Bakiye yükleniyor...";
+
+"EZCoinStore.ThisFeature" = "bu özellik";
+
+"EZCoinStore.NotEnoughCoins" = "⚠️ %@ için yeterli coin yok. Aşağıdan yükleme yapın.";
+
+"EZCoinStore.NoActiveSubscription" = "Aktif abonelik yok";
+
+"EZCoinStore.BalanceFormat" = "🪙 %ld coin   •   %@";
+
+"EZCoinStore.Section.Subscriptions" = "ABONELİKLER";
+
+"EZCoinStore.Section.OneTimeTopUps" = "TEK SEFERLİK YÜKLEMELER";
+
+"EZCoinStore.DailyCoins" = "🎁 Günlük Coinler";
+
+"EZCoinStore.DailyCoins.FreeFormat" = "🎁 +%ld Ücretsiz!";
+
+"EZCoinStore.DailyCoins.Free" = "🎁 Ücretsiz Coinler!";
+"EZCoinStore.DailyReminder.Title" = "Ücretsiz coinleriniz hazır";
+"EZCoinStore.DailyReminder.Body" = "Coinlerinizi ne zaman isterseniz alın.";
+
+"EZCoinStore.DailyCoins.NextHours" = "🎁 Sonraki: %ld sa %ld dk";
+
+"EZCoinStore.DailyCoins.NextMinutes" = "🎁 Sonraki: %ld dk %ld sn";
+
+"EZCoinStore.DailyCoins.NextSeconds" = "🎁 Sonraki: %ld sn";
+
+"EZCoinStore.DailyCoins.Claiming" = "⏳ Alınıyor...";
+
+"EZCoinStore.Alert.NotSignedIn" = "Oturum Açılmadı";
+
+"EZCoinStore.Alert.SignInDailyCoins" = "Günlük coinlerinizi almak için lütfen oturum açın.";
+
+"EZCoinStore.Alert.NetworkError" = "Ağ Hatası";
+
+"EZCoinStore.Alert.ServerUnreachable" = "Sunucuya ulaşılamadı. Lütfen tekrar deneyin.";
+
+"EZCoinStore.Alert.AlreadyClaimed" = "Zaten Alındı";
+
+"EZCoinStore.Alert.AlreadyClaimedMessage" = "Ücretsiz coinlerinizi zaten aldınız. 6 saat sonra tekrar bakın!";
+
+"EZCoinStore.Alert.GenericRetry" = "Bir şeyler ters gitti. Lütfen tekrar deneyin.";
+
+"EZCoinStore.Alert.Error" = "Hata";
+
+"EZCoinStore.Ledger" = "Hesap Defteri";
+
+"EZCoinStore.Alert.NotLoggedIn" = "Oturum açılmadı";
+
+"EZCoinStore.Alert.SignInFirst" = "Lütfen önce oturum açın.";
+
+"EZCoinStore.Alert.CancelSubscription" = "Abonelik İptal Edilsin mi?";
+
+"EZCoinStore.Alert.CancelSubscriptionMessage" = "Kalan coinleriniz hesabınızda kalacak. Bu işlem geri alınamaz.";
+
+"EZCoinStore.KeepPlan" = "Planı Koru";
+
+"EZCoinStore.Alert.Cancelled" = "İptal Edildi";
+
+"EZCoinStore.Alert.CancelledMessage" = "Aboneliğiniz iptal edildi. Coinleriniz kullanılabilir durumda kalır.";
+
+"EZCoinStore.Alert.CancelFailed" = "Abonelik iptal edilemedi. Lütfen tekrar deneyin.";
+
+"EZCoinStore.Alert.CheckoutStartFailed" = "Ödeme başlatılamadı. Tekrar deneyin.";
+
+"EZCoinStore.Alert.PurchaseConfirmFailed" = "Satın alma onaylanamadı. Bakiyenizi kontrol edin — coinler yine de eklenmiş olabilir.";
+
+"EZCoinStore.Alert.PurchaseNotConfirmed" = "Satın alma onaylanamadı.";
+
+"EZCoinStore.Alert.PurchaseIssue" = "Satın Alma Sorunu";
+
+"EZCoinStore.Celebration.CoinsAdded" = "🪙 Coinler Eklendi!";
+
+"EZCoinStore.Celebration.AmountFormat" = "+%ld coin";
+
+"EZCoinStore.Celebration.NewBalanceFormat" = "Yeni bakiye: %ld coin";
+
+"EZCoinStore.Celebration.Sweet" = "Harika!";
+
+"EZCoinStore.OK" = "Tamam";
+
+/* ElevenLabs voice cloning */
+"ElevenLabsClone.Title" = "Ses Klonlayıcı";
+"ElevenLabsClone.VoiceName" = "SES ADI";
+"ElevenLabsClone.VoiceNamePlaceholder" = "örn. MyProVoice";
+"ElevenLabsClone.LanguageCode" = "DİL KODU";
+"ElevenLabsClone.LanguageCodePlaceholder" = "örn. en";
+"ElevenLabsClone.Instant" = "Anında (IVC)";
+"ElevenLabsClone.Professional" = "Profesyonel (PVC)";
+"ElevenLabsClone.ProfessionalNote" = "⚠️ Profesyonel Ses Klonu — Creator planı gerekli (yakında)";
+"ElevenLabsClone.RemoveNoise" = "Arka plan gürültüsünü kaldır";
+"ElevenLabsClone.StartRecording" = "⏺  Kaydı Başlat";
+"ElevenLabsClone.StopRecording" = "⏹  Kaydı Durdur";
+"ElevenLabsClone.Play" = "▶︎ Oynat";
+"ElevenLabsClone.Stop" = "⏹ Durdur";
+"ElevenLabsClone.ImportFile" = "📂  Dosya İçe Aktar";
+"ElevenLabsClone.QuickLook" = "🔍  Hızlı Bakış";
+"ElevenLabsClone.UploadClone" = "Yükle ve Sesi Klonla";
+"ElevenLabsClone.MyVoices" = "Klonlanmış Seslerim";
+"ElevenLabsClone.Refresh" = "↻ Yenile";
+"ElevenLabsClone.Notice" = "Bildirim";
+"ElevenLabsClone.OK" = "Tamam";
+"ElevenLabsClone.MicrophoneDenied" = "Mikrofon Erişimi Reddedildi";
+"ElevenLabsClone.MicrophoneDeniedMessage" = "Kayıt yapmak için Ayarlar'da mikrofon erişimini etkinleştirin.";
+"ElevenLabsClone.RecordError" = "Kayıt Hatası";
+"ElevenLabsClone.RecordInitFailed" = "Kaydedici başlatılamadı.";
+"ElevenLabsClone.RecordPrepareFailed" = "Kayda hazırlanılamadı.";
+"ElevenLabsClone.RecordingFailed" = "Kayıt Başarısız";
+"ElevenLabsClone.RecordingFailedMessage" = "Kayıt kesintiye uğradı veya başarısız oldu.";
+"ElevenLabsClone.PlaybackError" = "Oynatma Hatası";
+"ElevenLabsClone.PlayerCreateFailed" = "Oynatıcı oluşturulamadı.";
+"ElevenLabsClone.NoRecording" = "Kayıt Yok";
+"ElevenLabsClone.NoRecordingMessage" = "Lütfen önce bir örnek kaydedin veya içe aktarın.";
+"ElevenLabsClone.ImportFailed" = "İçe Aktarma Başarısız";
+"ElevenLabsClone.CopyFailed" = "Dosya kopyalanamadı.";
+"ElevenLabsClone.SubscriptionRequired" = "Abonelik Gerekli";
+"ElevenLabsClone.SubscriptionRequiredMessage" = "Ses klonlama, aktif bir EZComplete aboneliğiyle kullanılabilir. Klonlanmış bir ses oluşturmak için abone olun.";
+"ElevenLabsClone.NotNow" = "Şimdi Değil";
+"ElevenLabsClone.ViewPlans" = "Planları Görüntüle";
+"ElevenLabsClone.MissingName" = "Ad Eksik";
+"ElevenLabsClone.MissingNameMessage" = "Bir ses adı girin.";
+"ElevenLabsClone.NotSignedIn" = "Oturum Açılmadı";
+"ElevenLabsClone.SignInCloneMessage" = "Sesleri klonlamak için EZComplete hesabınızda oturum açın.";
+"ElevenLabsClone.SubscriptionCheckUnavailable" = "Abonelik Kontrolü Kullanılamıyor";
+"ElevenLabsClone.SubscriptionCheckUnavailableMessage" = "Aboneliğinizi doğrulayamadık. Bir sesi klonlamadan önce lütfen tekrar deneyin.";
+"ElevenLabsClone.EmptyFile" = "Boş Dosya";
+"ElevenLabsClone.EmptyFileMessage" = "Kayıt dosyası boş.";
+"ElevenLabsClone.NetworkError" = "Ağ Hatası";
+"ElevenLabsClone.NeedMoreCoins" = "Daha Fazla Coin Gerekli";
+"ElevenLabsClone.NeedMoreCoinsMessage" = "%ld coininiz var ancak klonlama %ld coin tutuyor.";
+"ElevenLabsClone.AccessDenied" = "Erişim reddedildi.";
+"ElevenLabsClone.VoiceSlotFull" = "Ses Yuvası Dolu";
+"ElevenLabsClone.NotAvailable" = "Kullanılamıyor";
+"ElevenLabsClone.UploadFailed" = "Yükleme başarısız oldu.";
+"ElevenLabsClone.CloneFailed" = "Klonlama Başarısız";
+"ElevenLabsClone.NoVoiceID" = "Yanıtta ses kimliği yok.";
+"ElevenLabsClone.SlotsUsedFormat" = "\\nKullanılan yuvalar: %ld / %ld";
+"ElevenLabsClone.VoiceCloned" = "Ses Klonlandı";
+"ElevenLabsClone.VoiceClonedMessage" = "Ses Kimliği: %@%@";
+"ElevenLabsClone.CloneRetentionTitle" = "Klonunuzu Koruyun";
+"ElevenLabsClone.CloneRetentionMessage" = "Klonunuz coinlerle oluşturuldu. Aktif bir abonelik olmadan, abonelere ek yuvalar açmak için klonlar 7 gün sonra silinebilir.";
+"ElevenLabsClone.UnnamedVoice" = "Adsız Ses";
+"ElevenLabsClone.NoClonedVoices" = "Klonlanmış ses bulunamadı. Bir tane oluşturmak için kaydedip yükleyin.";
+"ElevenLabsClone.ShowingVoicesFormat" = "%lu / %lu ses gösteriliyor";
+"ElevenLabsClone.ShowMoreVoices" = "Daha Fazla Ses Göster";
+"ElevenLabsClone.Delete" = "Sil";
+"ElevenLabsClone.ThisVoice" = "bu ses";
+"ElevenLabsClone.DeleteVoice" = "Sesi Sil";
+"ElevenLabsClone.DeleteVoiceMessage" = "\"%@\" ElevenLabs'ten kalıcı olarak silinsin mi? Bu işlem geri alınamaz.";
+"ElevenLabsClone.Cancel" = "İptal";
+"ElevenLabsClone.SignInDeleteMessage" = "Sesleri silmek için oturum açın.";
+"ElevenLabsClone.DeleteFailedMessage" = "Silme başarısız oldu.";
+"ElevenLabsClone.DeleteFailed" = "Silme Başarısız";
+
+/* Annual subscription offer */
+"EZCoinStore.Upsell.Message" = "Yıllık ödeyin ve aylık faturalamaya kıyasla %25 tasarruf edin.";
+"EZCoinStore.Upsell.StandardTitle" = "Standard ile Yıllığa Geçin";
+"EZCoinStore.Upsell.StandardMonthlyButton" = "$10.00/ay";
+"EZCoinStore.Upsell.StandardAnnualButton" = "$89.99/yıl — $30 Tasarruf Edin";
+"EZCoinStore.Upsell.StandardAnnualButtonPromo" = "$89.99/yıl — 2 Ay Daha Ücretsiz";
+"EZCoinStore.Upsell.ProTitle" = "Pro ile Yıllığa Geçin";
+"EZCoinStore.Upsell.ProMonthlyButton" = "$15.00/ay";
+"EZCoinStore.Upsell.ProAnnualButton" = "$134.99/yıl — $45 Tasarruf Edin";
+"EZCoinStore.Upsell.ProAnnualButtonPromo" = "$134.99/yıl — 2 Ay Daha Ücretsiz";
+"EZCoinStore.Upsell.UltraTitle" = "Ultra ile Yıllığa Geçin";
+"EZCoinStore.Upsell.UltraMonthlyButton" = "$20.00/ay";
+"EZCoinStore.Upsell.UltraAnnualButton" = "$179.99/yıl — $60 Tasarruf Edin";
+"EZCoinStore.Upsell.UltraAnnualButtonPromo" = "$179.99/yıl — 2 Ay Daha Ücretsiz";
+"EZCoinStore.Upsell.PowerTitle" = "Power ile Yıllığa Geçin";
+"EZCoinStore.Upsell.PowerMonthlyButton" = "$49.99/ay";
+"EZCoinStore.Upsell.PowerAnnualButton" = "$449.99/yıl — $150 Tasarruf Edin";
+"EZCoinStore.Upsell.PowerAnnualButtonPromo" = "$449.99/yıl — 2 Ay Daha Ücretsiz";
+"EZCoinStore.Upsell.EnterpriseTitle" = "Enterprise ile Yıllığa Geçin";
+"EZCoinStore.Upsell.EnterpriseMonthlyButton" = "$99.99/ay";
+"EZCoinStore.Upsell.EnterpriseAnnualButton" = "$899.99/yıl — $300 Tasarruf Edin";
+"EZCoinStore.Upsell.EnterpriseAnnualButtonPromo" = "$899.99/yıl — 2 Ay Daha Ücretsiz";
+"EZCoinStore.Upsell.AnnualTitleFormat" = "%@ Yıllık";
+"EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/ay";
+"EZCoinStore.Upsell.AnnualButtonFormat" = "%@/yıl — %@ Tasarruf Edin";
+"EZCoinStore.Upsell.AnnualButtonPromoFormat" = "%@/yıl — 2 Ay Daha Ücretsiz";
+"EZCoinStore.Tier.BasicWeekly" = "Temel Haftalık";
+"EZCoinStore.Tier.BasicWeeklyPrice" = "$5/hafta • Haftada 400 coin";
+"EZCoinStore.Tier.BasicWeeklySubtitle" = "Harika Bir Başlangıç Paketi";
+"EZCoinStore.Cancel" = "İptal";
+
+/* Photo gallery */
+"EZGallery.AskQuestion" = "Soru Sor";
+"EZGallery.EditWithAI" = "Yapay Zekâ ile Düzenle";
+"EZGallery.UseInVideoGame" = "Video Oyununda Kullan";
+"EZGallery.EditPromptPlaceholder" = "Düzenlemelerinizi anlatın…";
+/* Photo gallery export */
+"EZGallery.Export.Title" = "Görüntüyü Dışa Aktar";
+"EZGallery.Export.Subtitle" = "Nasıl paylaşmak istediğinizi seçin.";
+"EZGallery.Export.GIFReveal" = "GIF: Orijinali Göster";
+"EZGallery.Export.GIFMotion" = "GIF: Hareket Geçişi";
+"EZGallery.Export.ShareOriginal" = "Markalı + Orijinali Paylaş";
+"EZGallery.Export.ShareClean" = "Markalı Görüntüyü Paylaş";
+"EZGallery.Export.Download" = "Görüntüyü İndir";
+"EZGallery.Export.Cancel" = "İptal";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "Yeni Sohbet";
+"EZNav.PhotoGallery" = "Fotoğraf Galerisi";
+"EZNav.TextToSpeech" = "Metinden Konuşmaya";
+"EZNav.Music" = "Yapay Zekâ Müziği";
+"EZNav.VoiceCloning" = "Ses Klonlama";
+"EZNav.BrainRot" = "Brain Rot";
+"EZNav.Memories" = "Anılar";
+"EZNav.CoinStore" = "Coin Mağazası";
+"EZNav.Settings" = "Ayarlar";
+"EZNav.RecentChats" = "Son Sohbetler";
+/* First-run tutorial */
+"EZTutorial.Skip" = "Atla"; "EZTutorial.Back" = "Geri"; "EZTutorial.Next" = "İleri"; "EZTutorial.GetStarted" = "Başlayın";
+"EZTutorial.Welcome.Title" = "EZCompleteUI'ya Hoş Geldiniz"; "EZTutorial.Welcome.Body" = "Hızlı bir tur, her şeyin nerede olduğunu gösterecek. İstediğiniz zaman atlayabilirsiniz.";
+"EZTutorial.Chat.Title" = "Sohbet edin ve oluşturun"; "EZTutorial.Chat.Body" = "Üstten bir model seçin. Dosya veya fotoğraf eklemek için ataşı, dikte etmek için mikrofonu, web araması için küreyi ve doğrudan yardımcı yanıtlar için şimşeği kullanın. Gönder, isteğinizi başlatır.";
+"EZTutorial.Navigate.Title" = "Menünüz ve sohbetleriniz"; "EZTutorial.Navigate.Body" = "Galeri, ses araçları, Brain Rot, Anılar, Coin Mağazası, Ayarlar ve son sohbetleriniz için sol üstteki menüye dokunun. Bir konuşmayı bulmak için oradaki aramayı kullanın.";
+"EZTutorial.Gallery.Title" = "Fotoğraf Galerisi"; "EZTutorial.Gallery.Body" = "Fotoğraf eklemek için sol üstteki + simgesine dokunun. Izgarayı 2 ila 5 sütun arasında yeniden boyutlandırmak için kıstırma hareketi yapın. Birden fazla fotoğrafı paylaşmak veya silmek için Seç'i kullanın.";
+"EZTutorial.Detail.Title" = "Fotoğraf Ayrıntısı"; "EZTutorial.Detail.Body" = "Soru sor, bu görüntüyü sohbete döndürür. Aşağıda bir düzenleme anlatın veya en fazla dört referans görüntüsü ekleyip bunları tek bir yeni eserde birleştirmek için + simgesini kullanın."; "EZTutorial.Detail.Prompt" = "Düzenlemenizi anlatın…"; "EZTutorial.Detail.Ask" = "Soru Sor"; "EZTutorial.Detail.Edit" = "Yapay Zekâ ile Düzenle";
+"EZTutorial.Tools.Title" = "Anılar ve coinler"; "EZTutorial.Tools.Body" = "Anılar, yararlı sonuçları elinizin altında tutar. Coin Mağazası, planları ve coinleri yönetir. Bakiyeniz her zaman ana ekrandan görülebilir.";
+"EZTutorial.Memories.Title" = "Anılar"; "EZTutorial.Memories.Body" = "Kaydedilmiş anılarda arayın, ardından düzenlemek için metinlerine dokunun. Düzenlemeyi kapatmak için tekrar dokunun. Mavi bağlantı, oluşturulduğu tam sohbet dönüşünü açar ve ekli bir görüntü Fotoğraf Ayrıntısı'nı açar."; "EZTutorial.Memories.Search" = "Anılarda ara"; "EZTutorial.Memories.Source" = "Orijinal sohbet dönüşünü aç"; "EZTutorial.Memories.Editable" = "Düzenlemek için bu kaydedilmiş anıya dokunun.";
+"EZTutorial.CoinStore.Title" = "Coin Mağazası"; "EZTutorial.CoinStore.Body" = "Sağ üstteki kullanım günlüğü, her krediyi ve kesintiyi listeler. Ücretsiz coinleri günde dört kez toplayın; hazır olduklarında hatırlatma almak için bildirimlere izin verin. Bazı premium modeller ve özellikler, kilidi açmak için satın alma gerektirir. PayPal abonelikleri otomatik olarak kredilendirilir ve tek seferlik yüklemeler mevcuttur."; "EZTutorial.CoinStore.Usage" = "Kullanım Günlüğü"; "EZTutorial.CoinStore.Free" = "Ücretsiz coinler günde dört kez hazır • Hatırlatmaları etkinleştirin"; "EZTutorial.CoinStore.Offer" = "1 ALANA 1 BEDAVA"; "EZTutorial.CoinStore.Select" = "Başlamaya hazır mısınız? İhtiyaçlarınıza uyan seviyeyi seçin.";
+"EZTutorial.CoinStore.Bonus" = "Aboneler talep başına 20 coin alır • Plansız 10";
+"EZTutorial.CoinStore.Claim" = "Ücretsiz coinleri al"; "EZTutorial.Memories.Intro" = "Anılar, yararlı sonuçları elinizin altında tutar.";
+"EZTutorial.CoinStore.Next" = "Sonraki: 6 sa 00 dk"; "EZCoinStore.UsageLog" = "Kullanım Günlüğü";
+"EZTutorial.CoinStore.BodyTop" = "• Her krediyi ve kesintiyi incelemek için Kullanım Günlüğü'nü kullanın.\n\n• Ücretsiz coinleri günde dört kez alın ve hatırlatmalar için bildirimleri etkinleştirin."; "EZTutorial.CoinStore.BodyBottom" = "• Bazı premium modeller ve özellikler, kilidi açmak için satın alma gerektirir.";
+"EZGameMode.Title" = "Bir oyun seçin"; "EZGameMode.Maze" = "Labirent Macerası"; "EZGameMode.Ricochet" = "Sekme Patlaması"; "EZGameMode.Cancel" = "İptal";
+"EZGameMode.Subtitle" = "Nasıl oynamak istediğinizi seçin."; "EZGameMode.MazeDescription" = "Özel oyun varlıklarınızla oluşturulmuş bir labirenti keşfedin."; "EZGameMode.RicochetDescription" = "Müzik, güçlendirmeler ve MIDI ile açık bir arenada sekin.";
+"EZThread.NewConversation" = "Yeni Konuşma";
+"EZMemories.Title" = "Anılar"; "EZMemories.Search" = "Anılarda ara"; "EZMemories.NoneSaved" = "Henüz kaydedilmiş anı yok."; "EZMemories.NoMatches" = "Bu aramayla eşleşen anı yok."; "EZMemories.SavedFormat" = "%lu kaydedilmiş anı"; "EZMemories.MatchingFormat" = "%lu eşleşen anı";
+"EZTutorial.Demo.ModelPicker" = "Model seçici"; "EZTutorial.Demo.Model" = "Model: gpt-6-astra"; "EZTutorial.Demo.Controls" = "Kontroller"; "EZTutorial.Demo.Placeholder" = "Bir mesaj yazın…"; "EZTutorial.Demo.Send" = "Gönder";
+"EZTutorial.Feedback" = "Hâlâ sorularınız var mı veya geri bildirim paylaşmak mı istiyorsunuz? Buraya dokunun.";
+"EZTutorial.Menu.SampleChat" = "Son konuşmanız";
+"EZGallery.Title" = "Fotoğraf Galerisi"; "EZGallery.Select" = "Seç"; "EZGallery.Done" = "Bitti"; "EZGallery.SelectedCount" = "%lu seçildi"; "EZGallery.DeleteTitle" = "Fotoğraflar Silinsin mi?"; "EZGallery.DeleteMessage" = "Seçili %lu fotoğraf kalıcı olarak silinsin mi?"; "EZGallery.Delete" = "Sil"; "EZGallery.Cancel" = "İptal";
+
+/* Image generation progress */
+"EZImageGen.Status.Working" = "İsteğiniz üzerinde çalışılıyor…";
+"EZImageGen.Status.Stay" = "Oluşturulurken sayfadan ayrılmayın";
+"EZImageGen.Status.StillWorking" = "Hâlâ oluşturuluyor — bu biraz sürebilir";
+"EZImageGen.Status.AlmostDone" = "Neredeyse bitti…";
+
+/* Brainrot Slots */
+"BRSlot.Picker.Title" = "Brainrot Slots";
+"BRSlot.Picker.Header" = "SLOT OYUNLARI";
+"BRSlot.Picker.Detail" = "Bir makine seçin, kaydedilmiş dünyalarınızı keşfedin veya yeni bir slot odası oluşturun.";
+"BRSlot.Picker.Back" = "‹  BRAINROT";
+"BRSlot.Picker.Classic.Title" = "Brainrot Slots";
+"BRSlot.Picker.Classic.Detail" = "Beş ödeme çizgisi ve aşamalı ikramiyesi olan orijinal üç makaralı oda.";
+"BRSlot.Picker.Penny.Title" = "EZCoin Penny Slots";
+"BRSlot.Picker.Penny.Detail" = "Beş makara, dokuz çizgi, EZCoin scatter sembolleri ve çift ödemeli ücretsiz dönüşler.";
+"BRSlot.Picker.Create.Title" = "Bir Slot Odası Oluştur";
+"BRSlot.Picker.Create.Detail" = "Özel bir dünya, arka plan ve sembol seti oluşturun.";
+"BRSlot.Picker.Community.Title" = "Topluluğa Göz At";
+"BRSlot.Picker.Community.Detail" = "Diğer oyuncuların odalarını indirin ve bunları slot makineleri olarak kullanın.";
+"BRSlot.Picker.Saved.Title" = "Kaydedilmiş Slot Odası";
+"BRSlot.Picker.Saved.Detail" = "Kaydedilmiş Brainrot oyununuz, bir slot makinesi olarak oynamaya hazır.";
+"BRSlot.Picker.NewGame" = "Yeni Slot Oyunu";
+"BRSlot.Lounge.DisplayName" = "Görünen ad";
+"BRSlot.Lounge.Connecting" = "● Salona bağlanılıyor…";
+"BRSlot.Lounge.Composer" = "Güzel bir şeyler söyleyin…";
+"BRSlot.Lounge.Note" = "Nazik olun. Bir mesaja basılı tutarak bildirin. Salon sahipleri karakterlerdir, oyuncu değil.";
+"BRSlot.Lounge.Wins" = "🏆 KAZANÇLAR";
+"BRSlot.Classic.ThemeTitle" = "%@ Slots";
+"BRSlot.Classic.CommunityTitle" = "Topluluk Slotları";
+"BRSlot.Classic.Title" = "Brainrot Slots";
+"BRSlot.Navigation.Back" = "‹  GERİ";
+"BRSlot.Navigation.Lounge" = "SALON";
+"BRSlot.Navigation.Odds" = "ORANLAR";
+"BRSlot.Classic.Heading" = "🧠  BRAINROT SLOTS  🧠";
+"BRSlot.Balance.Loading" = "🪙 — EZ Coin";
+"BRSlot.Classic.JackpotLoading" = "  AŞAMALI İKRAMİYE • YALNIZCA MAKSİMUM BAHİS • — COINE KADAR KAZANIN  ";
+"BRSlot.Classic.Description" = "Beş ödeme çizgisi • sunucu tarafından doğrulanan sonuçlar";
+"BRSlot.Control.Lines" = "ÇİZGİLER";
+"BRSlot.Control.BetPerLine" = "BAHİS / ÇİZGİ";
+"BRSlot.Classic.MaxBet" = "MAKSİMUM BAHİS\n⚡ 25";
+"BRSlot.Customize" = "Sembolleri özelleştir";
+"BRSlot.Control.Spin" = "⚡  DÖNDÜR";
+"BRSlot.Penny.Title" = "Penny Slots";
+"BRSlot.Penny.Heading" = "🪙  PENNY SLOTS  🪙";
+"BRSlot.Penny.ScatterReward" = "3 EZCoin = 5 ÜCRETSİZ DÖNÜŞ • 4 = 15 • 5+ = 25";
+"BRSlot.Penny.Description" = "9 ödeme çizgisi • ücretsiz dönüşlerde 2× ödeme";
+"BRSlot.Odds.Title" = "Ödeme Tablosu";
+"BRSlot.Odds.Subtitle" = "Aktif herhangi bir çizgide soldan sağa üç eşleşen sembol";
+"BRSlot.Odds.ClassicFooter" = "5 sabit ödeme çizgisi: üst, orta, alt ve her iki köşegen. Ağırlıklı makaralar yaklaşık %92 RTP hedefler. 25 coinlik maksimum bahiste üçlü 🧠 ayrıca aşamalı ikramiyeyi kazandırır.";
+"BRSlot.Customizer.ClassicTitle" = "Sembollerinizi özelleştirin";
+"BRSlot.Customizer.ClassicSubtitle" = "Fotoğraflarınızdan birini kullanmak için bir kutucuk seçin. Çalışmanız bu cihazda kalır.";
+"BRSlot.Customizer.PennyTitle" = "Penny Slots'u Özelleştirin";
+"BRSlot.Customizer.PennySubtitle" = "Bir fotoğraf, dosya veya oluşturulmuş görüntü seçmek için bir sembole dokunun. Mevcut çalışma burada gösterilir.";
+"BRSlot.Customizer.ResetAll" = "↺  Tüm çalışmaları sıfırla";
+"BRSlot.Control.LinesValue" = "ÇİZGİLER\n%ld";
+"BRSlot.Control.BetPerLineValue" = "BAHİS / ÇİZGİ\n🪙 %ld";
+"BRSlot.Balance.Value" = "🪙 %ld EZ Coin";
+"BRSlot.Classic.LoungeTitle" = "Brainrot Salonu";
+"BRSlot.Penny.LoungeTitle" = "Penny Slots Salonu";
+"BRSlot.Classic.FreeSpin" = "🎁  ÜCRETSİZ DÖNÜŞ (%ld KALDI)";
+"BRSlot.FreeSpin.NoWager" = "İkramımız — bahis için coin kullanılmadı";
+"BRSlot.Classic.Jackpot" = "  AŞAMALI İKRAMİYE • YALNIZCA MAKSİMUM BAHİS (25) • %ld COINE KADAR KAZANIN • KAZANMAK İÇİN ÜÇLÜ 🧠  ";
+"BRSlot.Error.SignInTitle" = "Oturum açma gerekli";
+"BRSlot.Error.SignInToSpin" = "EZ Coinlerle döndürmek için oturum açın.";
+"BRSlot.Classic.SpinningFree" = "Ücretsiz dönüşünüz döndürülüyor…";
+"BRSlot.CheckingBalance" = "EZ Coinler kontrol ediliyor…";
+"BRSlot.Classic.NeedCoins" = "Bu bahsi koymak için %ld coin gerekli • Coin Mağazası açılıyor…";
+"BRSlot.Classic.StoreFeature" = "%ld coinlik Slots bahsiniz";
+"BRSlot.Spinning" = "Döndürülüyor…";
+"BRSlot.Error.SessionExpired" = "Oturum açma süreniz doldu.";
+"BRSlot.Penny.MaxBet" = "MAKSİMUM BAHİS\n⚡ 225";
+"BRSlot.Penny.FreeSpin" = "Ücretsiz dönüş…";
+"BRSlot.Penny.NeedCoins" = "Bu dönüş için %ld coin gerekli.";
+"BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld ÜCRETSİZ DÖNÜŞ KALDI • TÜM KAZANÇLAR 2×";
+"BRSlot.Penny.SignIn" = "Penny Slots oynamak için oturum açın.";
+"BRSlot.Penny.StoreFeature" = "Penny Slots — önerilen yükleme: 400 coin";
+"BRSlot.Error.InvalidSpin" = "Geçersiz dönüş sonucu.";
+"BRSlot.Pity.Title" = "😬 Eh, Bu Zor Geçti";
+"BRSlot.Pity.Body" = "Bu tur istediğiniz gibi gitmedi. İşte ikramımız olan %ld dönüş daha.";
+"BRSlot.Pity.Action" = "Hadi başlayalım! 🎰";
+"BRSlot.Win.Overlay" = "%@\n+%ld COIN";
+"BRSlot.Win.Jackpot" = "İKRAMİYE!";
+"BRSlot.Win.Winner" = "KAZANAN!";
+"BRSlot.Lounge.SignIn" = "Salona katılmak için oturum açın.";
+"BRSlot.Lounge.Delete" = "Sil";
+"BRSlot.OK" = "Tamam";
+"BRSlot.Customizer.CustomImage" = "Şu anda özel görüntünüz kullanılıyor.";
+"BRSlot.Customizer.BuiltInClassic" = "Şu anda yerleşik slot görüntüsü kullanılıyor.";
+"BRSlot.Customizer.BuiltInPenny" = "Şu anda yerleşik Penny Slots görüntüsü kullanılıyor.";
+"BRSlot.Generation.Cost" = "Her oluşturma 3 EZ Coin tutar.";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZMusic.A11y.Lyrics" = "Şarkı sözleri";
+"EZMusic.A11y.Prompt" = "Şarkı istemi";
+"EZMusic.A11y.Remix" = "Remix";
+"EZMusic.A11y.Rename" = "Şarkıyı yeniden adlandır";
+"EZMusic.A11y.ViewLyrics" = "Sözleri görüntüle";
+"EZMusic.A11y.ViewPrompt" = "İstemi görüntüle";
+"EZMusic.Action.Cancel" = "İptal";
+"EZMusic.Action.Copied" = "Kopyalandı";
+"EZMusic.Action.Copy" = "Kopyala";
+"EZMusic.Action.Save" = "Kaydet";
+"EZMusic.Menu.GenerateCover" = "Oluştur";
+"EZMusic.Menu.Lyrics" = "Sözler";
+"EZMusic.Menu.Prompt" = "İstem";
+"EZMusic.Menu.Remix" = "Remix";
+"EZMusic.Menu.Rename" = "Yeniden Adlandır";
+"EZMusic.Paywall.CreateMessage" = "Ücretsiz şarkınızı yaptınız. Herhangi bir satın alma, sınırsız şarkı oluşturmanın kilidini açar.";
+"EZMusic.Paywall.CreateTitle" = "Satın Alma Gerekli";
+"EZMusic.Paywall.ExportMessage" = "Şarkıları dışa aktarmak ücretli bir özelliktir. Herhangi bir satın alma, kilidini açar.";
+"EZMusic.Paywall.ExportTitle" = "Satın Alma Gerekli";
+"EZMusic.Paywall.ViewStore" = "Mağazayı Görüntüle";
+"EZMusic.Prompt.Title" = "İstem";
+"EZMusic.Rename.Placeholder" = "Şarkı başlığı";
+"EZMusic.Rename.Title" = "Şarkıyı Yeniden Adlandır";
+"EZMusic.Toast.Remix" = "Remix yüklendi — istediğiniz her şeyi düzenleyin, ardından Oluştur'a dokunun";
+"EZMusic.Toast.RenameFailed" = "Yeniden adlandırılamadı. Tekrar deneyin.";
+"EZChat.Paywall.Title" = "Satın alma gerekli";
+"EZChat.Paywall.PaidModelMessage" = "%@ ücretli bir modeldir. Kilidini açmak için satın alma yapın, ardından bu konuşmaya dönün.";
+"EZChat.SongPaywall.Message" = "Ücretsiz şarkınızı yaptınız. Şarkı oluşturmaya devam etmek için herhangi bir satın alma yapın, ardından tekrar isteyin.";
+"EZChat.Paywall.ViewStore" = "Mağazayı Görüntüle";
+"EZChat.SongPaywall.NotNow" = "Şimdi Değil";
+"EZCoinStore.Feature.AIMusic" = "Yapay zekâ müziği";
+"EZMemory.Player.Play" = "Oynat";
+"EZMemory.Player.Pause" = "Duraklat";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.OpenErrorTitle" = "Şarkı Açılamadı";
+"EZMemory.Player.OpenErrorMessage" = "Şarkı indirilemedi. Bağlantınızı kontrol edip tekrar deneyin.";
+"EZMemory.Player.OK" = "Tamam";
+"EZCoinStore.FreeSpins.Title" = "🎁 Ücretsiz Dönüşler!";
+"EZCoinStore.FreeSpins.Message" = "Brainrot Slots'ta %ld ücretsiz dönüş kazandınız — bir deneyin!";
+"EZCoinStore.FreeSpins.PlayNow" = "Şimdi Oyna";
+"EZCoinStore.FreeSpins.Later" = "Sonra";

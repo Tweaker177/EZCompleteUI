@@ -1,0 +1,529 @@
+/* EZModelPickerViewController localization */
+
+"EZModelPicker.Title" = "Pilih Model";
+
+"EZModelSection.FrontierReasoning" = "Penalaran Lanjutan";
+"EZModelSection.GPT4Chat" = "Chat GPT-4";
+"EZModelSection.ImageGeneration" = "Pembuatan Gambar";
+"EZModelSection.AudioTranscription" = "Transkripsi Audio";
+
+"EZModelLabel.ChatVisionNewest" = "💬 Chat + 👁 Visi ⭐ Terbaru";
+"EZModelLabel.ChatVision" = "💬 Chat + 👁 Visi";
+"EZModelLabel.ChatVisionBalanced" = "💬 Chat + 👁 Visi (Seimbang)";
+"EZModelLabel.ChatVisionFastCheap" = "💬 Chat + 👁 Visi (Cepat/Terjangkau)";
+"EZModelLabel.ChatOnly" = "💬 Chat Saja";
+"EZModelLabel.ImageGenNewestFast" = "🖼 Pembuatan Gambar (Terbaru, Cepat) — Rendah/Sedang/Tinggi/Sangat Tinggi/Maksimum";
+"EZModelLabel.ImageGenEditPrecision" = "🖼 Pembuatan Gambar + ✏️ Pengeditan (Presisi) — Rendah/Sedang/Tinggi/Sangat Tinggi/Maksimum";
+"EZModelLabel.ImageGenEdit" = "🖼 Pembuatan Gambar + ✏️ Pengeditan — Rendah/Sedang/Tinggi";
+"EZModelLabel.ImageGen" = "🖼 Pembuatan Gambar";
+"EZModelLabel.ImageGenFastCheap" = "🖼 Pembuatan Gambar (Cepat/Terjangkau)";
+"EZModelLabel.ChatGPTImageLatest" = "🖼 Gambar ChatGPT (Terbaru)";
+"EZModelLabel.AudioTranscriptionOnly" = "🎙 Transkripsi Audio Saja";
+
+
+/* TextToSpeechViewController localization */
+
+"EZTTS.Title" = "Teks ke Suara";
+
+"EZTTS.PromptHeader" = "APA YANG HARUS DIUCAPKAN?";
+
+"EZTTS.VoiceHeader" = "SUARA";
+
+"EZTTS.SpeedFormat" = "Kecepatan: %.2f×";
+
+"EZTTS.Generate" = "Buat";
+
+"EZTTS.ChooseVoice" = "Pilih suara…";
+
+"EZTTS.CharactersRemaining" = "Sisa %lu karakter";
+
+"EZTTS.MissingTextTitle" = "Teks Belum Diisi";
+
+"EZTTS.MissingTextMessage" = "Masukkan teks untuk disintesis.";
+
+"EZTTS.ErrorTitle" = "Kesalahan TTS";
+
+"EZTTS.FailedToSynthesize" = "Gagal menyintesis.";
+
+"EZTTS.NoAudioReturned" = "Tidak ada audio yang dikembalikan.";
+
+"EZTTS.PlaybackError" = "Kesalahan pemutaran";
+
+"EZTTS.UnableToPlay" = "Tidak dapat memutar audio.";
+
+"EZTTS.NotLoggedIn" = "Belum masuk.";
+
+"EZTTS.NotAuthorized" = "Tidak terotorisasi. Silakan masuk lagi.";
+
+"EZTTS.InvalidServerResponse" = "Respons tidak valid dari server.";
+
+"EZTTS.EmptyAudio" = "Audio kosong dikembalikan.";
+
+"EZTTS.FailedWavWrap" = "Gagal membungkus PCM ke WAV.";
+
+"EZTTS.InsufficientCoins" = "Koin Anda tidak cukup untuk sintesis ini.";
+
+"EZTTS.NeedCoins" = "Butuh %@ koin, Anda punya %@.";
+
+"EZTTS.ServerError" = "Kesalahan server";
+
+"EZTTS.OK" = "OK";
+
+/* Subscription paywall */
+"EZSubscription.RequiredTitle" = "Langganan Diperlukan";
+"EZSubscription.NotNow" = "Nanti Saja";
+"EZSubscription.ViewPlans" = "Lihat Paket";
+"EZSubscription.ModelRequiredFormat" = "%@ tersedia dengan langganan EZComplete aktif. Berlanggananlah untuk menggunakan model ini.";
+"EZSubscription.ImageSettingsRequired" = "Gambar berkualitas tinggi memerlukan langganan EZComplete aktif.";
+
+/* EZCoinStoreViewController localization */
+
+"EZCoinStore.Title" = "🪙 Toko Koin EZ";
+
+"EZCoinStore.CancelPlan" = "Batalkan Paket";
+
+"EZCoinStore.Subscribe" = "Berlangganan";
+
+"EZCoinStore.BuyNow" = "Beli Sekarang";
+
+"EZCoinStore.Badge.Buy1Get1" = "🔥 BELI 1 DAPAT 1";
+
+"EZCoinStore.Promo.SubscriptionBadgeFormat" = "+%ld Koin GRATIS*";
+
+"EZCoinStore.Promo.SubscriptionFootnote" = "*Koin tambahan adalah bonus satu kali, bukan penambahan bulanan.";
+
+"EZCoinStore.Tier.Basic" = "Basic";
+
+"EZCoinStore.Tier.BasicSubtitle" = "400 koin / bulan\nCocok untuk penggunaan santai";
+
+"EZCoinStore.Tier.BasicPrice" = "$5 / bln";
+
+"EZCoinStore.Tier.Standard" = "Standard";
+
+"EZCoinStore.Tier.StandardSubtitle" = "900 koin / bulan\nBagus untuk pengguna reguler";
+
+"EZCoinStore.Tier.StandardPrice" = "$10 / bln";
+
+"EZCoinStore.Badge.Popular" = "POPULER";
+
+"EZCoinStore.Tier.Pro" = "Pro";
+
+"EZCoinStore.Tier.ProSubtitle" = "1,600 koin / bulan\nBagus untuk pengguna harian";
+
+"EZCoinStore.Tier.ProPrice" = "$15 / bln";
+
+"EZCoinStore.Badge.BestValue" = "NILAI TERBAIK";
+
+"EZCoinStore.Tier.Ultra" = "Ultra";
+
+"EZCoinStore.Tier.UltraSubtitle" = "2,500 koin / bulan\nCocok untuk pengguna berat";
+
+"EZCoinStore.Tier.UltraPrice" = "$20 / bln";
+
+"EZCoinStore.Badge.Ultra" = "ULTRA";
+
+"EZCoinStore.Tier.Power" = "Pengguna Power";
+
+"EZCoinStore.Tier.PowerSubtitle" = "6,250 koin / bulan\nTersedia saat Anda membutuhkannya.";
+
+"EZCoinStore.Tier.Enterprise" = "Enterprise";
+
+"EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 koin / bulan\nUntuk semua kebutuhan bisnis Anda";
+
+"EZCoinStore.TopUp.Starter" = "Paket Koin Pemula";
+
+"EZCoinStore.TopUp.StarterSubtitle" = "400 koin, satu kali\nTidak pernah kedaluwarsa";
+
+"EZCoinStore.TopUp.Ultra" = "Paket Top Up Ultra";
+
+"EZCoinStore.TopUp.UltraSubtitle" = "2500 koin, satu kali\nTidak pernah kedaluwarsa";
+
+"EZCoinStore.TopUp.Power" = "Paket Top Up Power";
+
+"EZCoinStore.TopUp.PowerSubtitle" = "6250 koin, satu kali\nTidak pernah kedaluwarsa";
+
+"EZCoinStore.TopUp.Enterprise" = "Paket Top Up Enterprise";
+
+"EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 koin, satu kali\nTidak pernah kedaluwarsa";
+
+
+
+"EZCoinStore.TopUp.Value" = "Paket Koin Hemat";
+
+"EZCoinStore.TopUp.ValueSubtitle" = "900 koin, satu kali\nTidak pernah kedaluwarsa";
+
+"EZCoinStore.Badge.Save10" = "HEMAT 10%";
+
+"EZCoinStore.Promo.Headline" = "🔥 BELI 1 DAPAT 1 GRATIS 🔥";
+
+"EZCoinStore.Promo.Subtitle" = "Semua koin & langganan — waktu terbatas!";
+
+"EZCoinStore.LoadingBalance" = "Memuat saldo...";
+
+"EZCoinStore.ThisFeature" = "fitur ini";
+
+"EZCoinStore.NotEnoughCoins" = "⚠️ Koin tidak cukup untuk %@. Isi ulang di bawah.";
+
+"EZCoinStore.NoActiveSubscription" = "Tidak ada langganan aktif";
+
+"EZCoinStore.BalanceFormat" = "🪙 %ld koin   •   %@";
+
+"EZCoinStore.Section.Subscriptions" = "LANGGANAN";
+
+"EZCoinStore.Section.OneTimeTopUps" = "TOP UP SATU KALI";
+
+"EZCoinStore.DailyCoins" = "🎁 Koin Harian";
+
+"EZCoinStore.DailyCoins.FreeFormat" = "🎁 +%ld Gratis!";
+
+"EZCoinStore.DailyCoins.Free" = "🎁 Koin Gratis!";
+"EZCoinStore.DailyReminder.Title" = "Koin gratis Anda sudah siap";
+"EZCoinStore.DailyReminder.Body" = "Klaim koin Anda kapan pun Anda siap.";
+
+"EZCoinStore.DailyCoins.NextHours" = "🎁 Berikutnya: %ldh %ldm";
+
+"EZCoinStore.DailyCoins.NextMinutes" = "🎁 Berikutnya: %ldm %lds";
+
+"EZCoinStore.DailyCoins.NextSeconds" = "🎁 Berikutnya: %lds";
+
+"EZCoinStore.DailyCoins.Claiming" = "⏳ Mengklaim...";
+
+"EZCoinStore.Alert.NotSignedIn" = "Belum Masuk";
+
+"EZCoinStore.Alert.SignInDailyCoins" = "Silakan masuk untuk mengklaim koin harian Anda.";
+
+"EZCoinStore.Alert.NetworkError" = "Kesalahan Jaringan";
+
+"EZCoinStore.Alert.ServerUnreachable" = "Tidak dapat menjangkau server. Silakan coba lagi.";
+
+"EZCoinStore.Alert.AlreadyClaimed" = "Sudah Diklaim";
+
+"EZCoinStore.Alert.AlreadyClaimedMessage" = "Anda sudah mengklaim koin gratis Anda. Periksa lagi dalam 6 jam!";
+
+"EZCoinStore.Alert.GenericRetry" = "Terjadi kesalahan. Silakan coba lagi.";
+
+"EZCoinStore.Alert.Error" = "Kesalahan";
+
+"EZCoinStore.Ledger" = "Riwayat Transaksi";
+
+"EZCoinStore.Alert.NotLoggedIn" = "Belum masuk";
+
+"EZCoinStore.Alert.SignInFirst" = "Silakan masuk terlebih dahulu.";
+
+"EZCoinStore.Alert.CancelSubscription" = "Batalkan Langganan?";
+
+"EZCoinStore.Alert.CancelSubscriptionMessage" = "Sisa koin Anda akan tetap ada di akun Anda. Tindakan ini tidak dapat dibatalkan.";
+
+"EZCoinStore.KeepPlan" = "Pertahankan Paket";
+
+"EZCoinStore.Alert.Cancelled" = "Dibatalkan";
+
+"EZCoinStore.Alert.CancelledMessage" = "Langganan Anda telah dibatalkan. Koin Anda tetap tersedia.";
+
+"EZCoinStore.Alert.CancelFailed" = "Tidak dapat membatalkan langganan. Silakan coba lagi.";
+
+"EZCoinStore.Alert.CheckoutStartFailed" = "Tidak dapat memulai pembayaran. Coba lagi.";
+
+"EZCoinStore.Alert.PurchaseConfirmFailed" = "Tidak dapat mengonfirmasi pembelian. Periksa saldo Anda — koin mungkin tetap telah ditambahkan.";
+
+"EZCoinStore.Alert.PurchaseNotConfirmed" = "Pembelian tidak dapat dikonfirmasi.";
+
+"EZCoinStore.Alert.PurchaseIssue" = "Masalah Pembelian";
+
+"EZCoinStore.Celebration.CoinsAdded" = "🪙 Koin Ditambahkan!";
+
+"EZCoinStore.Celebration.AmountFormat" = "+%ld koin";
+
+"EZCoinStore.Celebration.NewBalanceFormat" = "Saldo baru: %ld koin";
+
+"EZCoinStore.Celebration.Sweet" = "Mantap!";
+
+"EZCoinStore.OK" = "OK";
+
+/* ElevenLabs voice cloning */
+"ElevenLabsClone.Title" = "Pengklon Suara";
+"ElevenLabsClone.VoiceName" = "NAMA SUARA";
+"ElevenLabsClone.VoiceNamePlaceholder" = "mis. MyProVoice";
+"ElevenLabsClone.LanguageCode" = "KODE BAHASA";
+"ElevenLabsClone.LanguageCodePlaceholder" = "mis. id";
+"ElevenLabsClone.Instant" = "Instan (IVC)";
+"ElevenLabsClone.Professional" = "Profesional (PVC)";
+"ElevenLabsClone.ProfessionalNote" = "⚠️ Klon Suara Profesional — Memerlukan paket Creator (segera hadir)";
+"ElevenLabsClone.RemoveNoise" = "Hapus kebisingan latar";
+"ElevenLabsClone.StartRecording" = "⏺  Mulai Merekam";
+"ElevenLabsClone.StopRecording" = "⏹  Berhenti Merekam";
+"ElevenLabsClone.Play" = "▶︎ Putar";
+"ElevenLabsClone.Stop" = "⏹ Berhenti";
+"ElevenLabsClone.ImportFile" = "📂  Impor File";
+"ElevenLabsClone.QuickLook" = "🔍  Lihat Cepat";
+"ElevenLabsClone.UploadClone" = "Unggah & Klon Suara";
+"ElevenLabsClone.MyVoices" = "Suara Kloningan Saya";
+"ElevenLabsClone.Refresh" = "↻ Segarkan";
+"ElevenLabsClone.Notice" = "Pemberitahuan";
+"ElevenLabsClone.OK" = "OK";
+"ElevenLabsClone.MicrophoneDenied" = "Akses Mikrofon Ditolak";
+"ElevenLabsClone.MicrophoneDeniedMessage" = "Aktifkan akses mikrofon di Pengaturan untuk merekam.";
+"ElevenLabsClone.RecordError" = "Kesalahan Perekaman";
+"ElevenLabsClone.RecordInitFailed" = "Tidak dapat menginisialisasi perekam.";
+"ElevenLabsClone.RecordPrepareFailed" = "Tidak dapat bersiap untuk merekam.";
+"ElevenLabsClone.RecordingFailed" = "Perekaman Gagal";
+"ElevenLabsClone.RecordingFailedMessage" = "Perekaman terputus atau gagal.";
+"ElevenLabsClone.PlaybackError" = "Kesalahan Pemutaran";
+"ElevenLabsClone.PlayerCreateFailed" = "Tidak dapat membuat pemutar.";
+"ElevenLabsClone.NoRecording" = "Tidak Ada Rekaman";
+"ElevenLabsClone.NoRecordingMessage" = "Silakan rekam atau impor sampel terlebih dahulu.";
+"ElevenLabsClone.ImportFailed" = "Impor Gagal";
+"ElevenLabsClone.CopyFailed" = "Tidak dapat menyalin file.";
+"ElevenLabsClone.SubscriptionRequired" = "Langganan Diperlukan";
+"ElevenLabsClone.SubscriptionRequiredMessage" = "Kloning suara tersedia dengan langganan EZComplete aktif. Berlanggananlah untuk membuat suara kloningan.";
+"ElevenLabsClone.NotNow" = "Nanti Saja";
+"ElevenLabsClone.ViewPlans" = "Lihat Paket";
+"ElevenLabsClone.MissingName" = "Nama Kosong";
+"ElevenLabsClone.MissingNameMessage" = "Masukkan nama suara.";
+"ElevenLabsClone.NotSignedIn" = "Belum Masuk";
+"ElevenLabsClone.SignInCloneMessage" = "Masuk ke akun EZComplete Anda untuk mengklon suara.";
+"ElevenLabsClone.SubscriptionCheckUnavailable" = "Pemeriksaan Langganan Tidak Tersedia";
+"ElevenLabsClone.SubscriptionCheckUnavailableMessage" = "Kami tidak dapat memverifikasi langganan Anda. Silakan coba lagi sebelum mengklon suara.";
+"ElevenLabsClone.EmptyFile" = "File Kosong";
+"ElevenLabsClone.EmptyFileMessage" = "File rekaman kosong.";
+"ElevenLabsClone.NetworkError" = "Kesalahan Jaringan";
+"ElevenLabsClone.NeedMoreCoins" = "Butuh Lebih Banyak Koin";
+"ElevenLabsClone.NeedMoreCoinsMessage" = "Anda punya %ld koin, tetapi kloning membutuhkan %ld koin.";
+"ElevenLabsClone.AccessDenied" = "Akses ditolak.";
+"ElevenLabsClone.VoiceSlotFull" = "Slot Suara Penuh";
+"ElevenLabsClone.NotAvailable" = "Tidak Tersedia";
+"ElevenLabsClone.UploadFailed" = "Pengunggahan gagal.";
+"ElevenLabsClone.CloneFailed" = "Kloning Gagal";
+"ElevenLabsClone.NoVoiceID" = "Tidak ada ID suara dalam respons.";
+"ElevenLabsClone.SlotsUsedFormat" = "\\nSlot terpakai: %ld / %ld";
+"ElevenLabsClone.VoiceCloned" = "Suara Berhasil Diklon";
+"ElevenLabsClone.VoiceClonedMessage" = "ID Suara: %@%@";
+"ElevenLabsClone.CloneRetentionTitle" = "Pertahankan Klon Anda";
+"ElevenLabsClone.CloneRetentionMessage" = "Klon Anda dibuat dengan koin. Tanpa langganan aktif, klon dapat dihapus setelah 7 hari untuk memberi ruang slot tambahan bagi pelanggan.";
+"ElevenLabsClone.UnnamedVoice" = "Suara Tanpa Nama";
+"ElevenLabsClone.NoClonedVoices" = "Tidak ada suara kloningan ditemukan. Rekam dan unggah untuk membuat satu.";
+"ElevenLabsClone.ShowingVoicesFormat" = "Menampilkan %lu dari %lu suara";
+"ElevenLabsClone.ShowMoreVoices" = "Tampilkan Lebih Banyak Suara";
+"ElevenLabsClone.Delete" = "Hapus";
+"ElevenLabsClone.ThisVoice" = "suara ini";
+"ElevenLabsClone.DeleteVoice" = "Hapus Suara";
+"ElevenLabsClone.DeleteVoiceMessage" = "Hapus permanen \"%@\" dari ElevenLabs? Tindakan ini tidak dapat dibatalkan.";
+"ElevenLabsClone.Cancel" = "Batal";
+"ElevenLabsClone.SignInDeleteMessage" = "Masuk untuk menghapus suara.";
+"ElevenLabsClone.DeleteFailedMessage" = "Penghapusan gagal.";
+"ElevenLabsClone.DeleteFailed" = "Penghapusan Gagal";
+
+/* Annual subscription offer */
+"EZCoinStore.Upsell.Message" = "Bayar tahunan dan hemat 25% dibandingkan tagihan bulanan.";
+"EZCoinStore.Upsell.StandardTitle" = "Beralih ke Tahunan dengan Standard";
+"EZCoinStore.Upsell.StandardMonthlyButton" = "$10.00/bln";
+"EZCoinStore.Upsell.StandardAnnualButton" = "$89.99/thn — Hemat $30";
+"EZCoinStore.Upsell.StandardAnnualButtonPromo" = "$89.99/thn — Gratis 2 Bulan Lagi";
+"EZCoinStore.Upsell.ProTitle" = "Beralih ke Tahunan dengan Pro";
+"EZCoinStore.Upsell.ProMonthlyButton" = "$15.00/bln";
+"EZCoinStore.Upsell.ProAnnualButton" = "$134.99/thn — Hemat $45";
+"EZCoinStore.Upsell.ProAnnualButtonPromo" = "$134.99/thn — Gratis 2 Bulan Lagi";
+"EZCoinStore.Upsell.UltraTitle" = "Beralih ke Tahunan dengan Ultra";
+"EZCoinStore.Upsell.UltraMonthlyButton" = "$20.00/bln";
+"EZCoinStore.Upsell.UltraAnnualButton" = "$179.99/thn — Hemat $60";
+"EZCoinStore.Upsell.UltraAnnualButtonPromo" = "$179.99/thn — Gratis 2 Bulan Lagi";
+"EZCoinStore.Upsell.PowerTitle" = "Beralih ke Tahunan dengan Power";
+"EZCoinStore.Upsell.PowerMonthlyButton" = "$49.99/bln";
+"EZCoinStore.Upsell.PowerAnnualButton" = "$449.99/thn — Hemat $150";
+"EZCoinStore.Upsell.PowerAnnualButtonPromo" = "$449.99/thn — Gratis 2 Bulan Lagi";
+"EZCoinStore.Upsell.EnterpriseTitle" = "Beralih ke Tahunan dengan Enterprise";
+"EZCoinStore.Upsell.EnterpriseMonthlyButton" = "$99.99/bln";
+"EZCoinStore.Upsell.EnterpriseAnnualButton" = "$899.99/thn — Hemat $300";
+"EZCoinStore.Upsell.EnterpriseAnnualButtonPromo" = "$899.99/thn — Gratis 2 Bulan Lagi";
+"EZCoinStore.Upsell.AnnualTitleFormat" = "%@ Tahunan";
+"EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/bln";
+"EZCoinStore.Upsell.AnnualButtonFormat" = "%@/thn — Hemat %@";
+"EZCoinStore.Upsell.AnnualButtonPromoFormat" = "%@/thn — Gratis 2 Bulan Lagi";
+"EZCoinStore.Tier.BasicWeekly" = "Basic Mingguan";
+"EZCoinStore.Tier.BasicWeeklyPrice" = "$5/mgg • 400 koin/minggu";
+"EZCoinStore.Tier.BasicWeeklySubtitle" = "Paket Pemula yang Bagus";
+"EZCoinStore.Cancel" = "Batal";
+
+/* Photo gallery */
+"EZGallery.AskQuestion" = "Ajukan Pertanyaan";
+"EZGallery.EditWithAI" = "Edit dengan AI";
+"EZGallery.UseInVideoGame" = "Gunakan di Video Game";
+"EZGallery.EditPromptPlaceholder" = "Jelaskan edit Anda…";
+/* Photo gallery export */
+"EZGallery.Export.Title" = "Ekspor Gambar";
+"EZGallery.Export.Subtitle" = "Pilih cara Anda ingin membagikannya.";
+"EZGallery.Export.GIFReveal" = "GIF: Tampilan Asli";
+"EZGallery.Export.GIFMotion" = "GIF: Transisi Gerakan";
+"EZGallery.Export.ShareOriginal" = "Bagikan Bermerek + Asli";
+"EZGallery.Export.ShareClean" = "Bagikan Gambar Bermerek";
+"EZGallery.Export.Download" = "Unduh Gambar";
+"EZGallery.Export.Cancel" = "Batal";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "Chat Baru";
+"EZNav.PhotoGallery" = "Galeri Foto";
+"EZNav.TextToSpeech" = "Teks ke Suara";
+"EZNav.Music" = "Musik AI";
+"EZNav.VoiceCloning" = "Kloning Suara";
+"EZNav.BrainRot" = "Brain Rot";
+"EZNav.Memories" = "Memori";
+"EZNav.CoinStore" = "Toko Koin";
+"EZNav.Settings" = "Pengaturan";
+"EZNav.RecentChats" = "Chat Terbaru";
+/* First-run tutorial */
+"EZTutorial.Skip" = "Lewati"; "EZTutorial.Back" = "Kembali"; "EZTutorial.Next" = "Berikutnya"; "EZTutorial.GetStarted" = "Mulai";
+"EZTutorial.Welcome.Title" = "Selamat Datang di EZCompleteUI"; "EZTutorial.Welcome.Body" = "Tur singkat akan menunjukkan lokasi semuanya. Anda dapat melewatinya kapan saja.";
+"EZTutorial.Chat.Title" = "Chat dan buat"; "EZTutorial.Chat.Body" = "Pilih model di bagian atas. Gunakan klip kertas untuk melampirkan file atau foto, mikrofon untuk mendikte, globe untuk pencarian web, dan petir untuk jawaban pembantu langsung. Kirim memulai permintaan Anda.";
+"EZTutorial.Navigate.Title" = "Menu dan chat Anda"; "EZTutorial.Navigate.Body" = "Ketuk menu di kiri atas untuk Galeri, alat suara, Brain Rot, Memori, Toko Koin, Pengaturan, dan chat terbaru Anda. Gunakan pencarian di sana untuk menemukan percakapan.";
+"EZTutorial.Gallery.Title" = "Galeri Foto"; "EZTutorial.Gallery.Body" = "Ketuk + di kiri atas untuk menambahkan foto. Cubit untuk mengubah ukuran kisi dari 2 menjadi 5 kolom. Gunakan Pilih untuk membagikan atau menghapus beberapa foto.";
+"EZTutorial.Detail.Title" = "Detail Foto"; "EZTutorial.Detail.Body" = "Ajukan pertanyaan akan mengembalikan gambar ini ke chat. Jelaskan edit di bawah, atau gunakan + untuk menambahkan hingga empat gambar referensi dan menggabungkannya menjadi satu kreasi baru."; "EZTutorial.Detail.Prompt" = "Jelaskan edit Anda…"; "EZTutorial.Detail.Ask" = "Ajukan Pertanyaan"; "EZTutorial.Detail.Edit" = "Edit dengan AI";
+"EZTutorial.Tools.Title" = "Memori dan koin"; "EZTutorial.Tools.Body" = "Memori menyimpan hasil yang berguna tetap dekat. Toko Koin mengelola paket dan koin. Saldo Anda selalu tersedia dari layar utama.";
+"EZTutorial.Memories.Title" = "Memori"; "EZTutorial.Memories.Body" = "Cari memori tersimpan, lalu ketuk teksnya untuk mengedit. Ketuk lagi untuk menutup pengeditan. Tautan biru membuka giliran chat persis tempat memori itu dibuat, dan gambar terlampir membuka Detail Foto."; "EZTutorial.Memories.Search" = "Cari memori"; "EZTutorial.Memories.Source" = "Buka giliran chat asli"; "EZTutorial.Memories.Editable" = "Ketuk memori tersimpan ini untuk mengeditnya.";
+"EZTutorial.CoinStore.Title" = "Toko Koin"; "EZTutorial.CoinStore.Body" = "Log penggunaan di kanan atas mencantumkan setiap kredit dan pengurangan. Kumpulkan koin gratis empat kali sehari; izinkan notifikasi untuk pengingat saat koin siap. Beberapa model dan fitur premium memerlukan pembelian untuk dibuka. Langganan PayPal dikreditkan secara otomatis, dan top up satu kali tersedia."; "EZTutorial.CoinStore.Usage" = "Log Penggunaan"; "EZTutorial.CoinStore.Free" = "Koin gratis siap empat kali sehari • Aktifkan pengingat"; "EZTutorial.CoinStore.Offer" = "BELI 1, DAPAT 1 GRATIS"; "EZTutorial.CoinStore.Select" = "Siap untuk memulai? Pilih tingkat yang sesuai dengan kebutuhan Anda.";
+"EZTutorial.CoinStore.Bonus" = "Pelanggan menerima 20 koin per klaim • 10 tanpa paket";
+"EZTutorial.CoinStore.Claim" = "Klaim koin gratis"; "EZTutorial.Memories.Intro" = "Memori menyimpan hasil yang berguna tetap dekat.";
+"EZTutorial.CoinStore.Next" = "Berikutnya: 6j 00m"; "EZCoinStore.UsageLog" = "Log Penggunaan";
+"EZTutorial.CoinStore.BodyTop" = "• Gunakan Log Penggunaan untuk meninjau setiap kredit dan pengurangan.\n\n• Klaim koin gratis empat kali sehari, dan aktifkan notifikasi untuk pengingat."; "EZTutorial.CoinStore.BodyBottom" = "• Beberapa model dan fitur premium memerlukan pembelian untuk dibuka.";
+"EZGameMode.Title" = "Pilih game"; "EZGameMode.Maze" = "Petualangan Labirin"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "Batal";
+"EZGameMode.Subtitle" = "Pilih cara Anda ingin bermain."; "EZGameMode.MazeDescription" = "Jelajahi labirin yang dihasilkan dengan aset game kustom Anda."; "EZGameMode.RicochetDescription" = "Memantul melalui arena terbuka dengan musik, pickup, dan MIDI.";
+"EZThread.NewConversation" = "Percakapan Baru";
+"EZMemories.Title" = "Memori"; "EZMemories.Search" = "Cari memori"; "EZMemories.NoneSaved" = "Belum ada memori tersimpan."; "EZMemories.NoMatches" = "Tidak ada memori yang cocok dengan pencarian itu."; "EZMemories.SavedFormat" = "%lu memori tersimpan"; "EZMemories.MatchingFormat" = "%lu memori yang cocok";
+"EZTutorial.Demo.ModelPicker" = "Pemilih model"; "EZTutorial.Demo.Model" = "Model: gpt-6-astra"; "EZTutorial.Demo.Controls" = "Kontrol"; "EZTutorial.Demo.Placeholder" = "Ketik pesan…"; "EZTutorial.Demo.Send" = "Kirim";
+"EZTutorial.Feedback" = "Masih punya pertanyaan atau ingin berbagi masukan? Ketuk di sini.";
+"EZTutorial.Menu.SampleChat" = "Percakapan terbaru Anda";
+"EZGallery.Title" = "Galeri Foto"; "EZGallery.Select" = "Pilih"; "EZGallery.Done" = "Selesai"; "EZGallery.SelectedCount" = "%lu dipilih"; "EZGallery.DeleteTitle" = "Hapus Foto?"; "EZGallery.DeleteMessage" = "Hapus permanen %lu foto yang dipilih?"; "EZGallery.Delete" = "Hapus"; "EZGallery.Cancel" = "Batal";
+
+/* Image generation progress */
+"EZImageGen.Status.Working" = "Mengerjakan permintaan Anda…";
+"EZImageGen.Status.Stay" = "Jangan tinggalkan halaman saat membuat";
+"EZImageGen.Status.StillWorking" = "Masih membuat — ini bisa memakan waktu sebentar";
+"EZImageGen.Status.AlmostDone" = "Hampir selesai…";
+
+/* Brainrot Slots */
+"BRSlot.Picker.Title" = "Brainrot Slots";
+"BRSlot.Picker.Header" = "GAME SLOT";
+"BRSlot.Picker.Detail" = "Pilih mesin, jelajahi dunia tersimpan Anda, atau buat ruang slot baru.";
+"BRSlot.Picker.Back" = "‹  BRAINROT";
+"BRSlot.Picker.Classic.Title" = "Brainrot Slots";
+"BRSlot.Picker.Classic.Detail" = "Ruang tiga gulungan asli dengan lima garis pembayaran dan jackpot progresif.";
+"BRSlot.Picker.Penny.Title" = "EZCoin Penny Slots";
+"BRSlot.Picker.Penny.Detail" = "Lima gulungan, sembilan garis, scatter EZCoin, dan putaran gratis bayar ganda.";
+"BRSlot.Picker.Create.Title" = "Buat Ruang Slot";
+"BRSlot.Picker.Create.Detail" = "Buat dunia, latar, dan set simbol kustom.";
+"BRSlot.Picker.Community.Title" = "Jelajahi Komunitas";
+"BRSlot.Picker.Community.Detail" = "Unduh ruang pemain lain dan gunakan sebagai mesin slot.";
+"BRSlot.Picker.Saved.Title" = "Ruang Slot Tersimpan";
+"BRSlot.Picker.Saved.Detail" = "Game Brainrot tersimpan Anda siap dimainkan sebagai mesin slot.";
+"BRSlot.Picker.NewGame" = "Game Slot Baru";
+"BRSlot.Lounge.DisplayName" = "Nama tampilan";
+"BRSlot.Lounge.Connecting" = "● Menghubungkan ke lounge…";
+"BRSlot.Lounge.Composer" = "Katakan sesuatu yang baik…";
+"BRSlot.Lounge.Note" = "Bersikaplah baik. Laporkan pesan dengan menahannya. Host rumah adalah karakter, bukan pemain.";
+"BRSlot.Lounge.Wins" = "🏆 KEMENANGAN";
+"BRSlot.Classic.ThemeTitle" = "Slot %@";
+"BRSlot.Classic.CommunityTitle" = "Slot Komunitas";
+"BRSlot.Classic.Title" = "Brainrot Slots";
+"BRSlot.Navigation.Back" = "‹  KEMBALI";
+"BRSlot.Navigation.Lounge" = "LOUNGE";
+"BRSlot.Navigation.Odds" = "PELUANG";
+"BRSlot.Classic.Heading" = "🧠  BRAINROT SLOTS  🧠";
+"BRSlot.Balance.Loading" = "🪙 — Koin EZ";
+"BRSlot.Classic.JackpotLoading" = "  JACKPOT PROGRESIF • HANYA TARUHAN MAKS • MENANGKAN HINGGA — KOIN  ";
+"BRSlot.Classic.Description" = "Lima garis pembayaran • hasil terverifikasi server";
+"BRSlot.Control.Lines" = "GARIS";
+"BRSlot.Control.BetPerLine" = "TARUHAN / GARIS";
+"BRSlot.Classic.MaxBet" = "TARUHAN MAKS\n⚡ 25";
+"BRSlot.Customize" = "Sesuaikan simbol";
+"BRSlot.Control.Spin" = "⚡  PUTAR";
+"BRSlot.Penny.Title" = "Penny Slots";
+"BRSlot.Penny.Heading" = "🪙  PENNY SLOTS  🪙";
+"BRSlot.Penny.ScatterReward" = "3 EZCoin = 5 PUTARAN GRATIS • 4 = 15 • 5+ = 25";
+"BRSlot.Penny.Description" = "9 garis pembayaran • pembayaran 2× selama putaran gratis";
+"BRSlot.Odds.Title" = "Tabel Pembayaran";
+"BRSlot.Odds.Subtitle" = "Tiga simbol cocok, kiri-ke-kanan di garis aktif mana pun";
+"BRSlot.Odds.ClassicFooter" = "5 garis pembayaran tetap: atas, tengah, bawah, dan kedua diagonal. Gulungan berbobot menargetkan RTP sekitar 92%. 🧠 tiga kali pada taruhan maks 25 koin juga mengklaim jackpot progresif.";
+"BRSlot.Customizer.ClassicTitle" = "Sesuaikan simbol Anda";
+"BRSlot.Customizer.ClassicSubtitle" = "Pilih ubin untuk menggunakan salah satu foto Anda. Karya Anda tetap di perangkat ini.";
+"BRSlot.Customizer.PennyTitle" = "Sesuaikan Penny Slots";
+"BRSlot.Customizer.PennySubtitle" = "Ketuk simbol untuk memilih foto, file, atau gambar yang dihasilkan. Karya saat ini ditampilkan di sini.";
+"BRSlot.Customizer.ResetAll" = "↺  Atur ulang semua karya";
+"BRSlot.Control.LinesValue" = "GARIS\n%ld";
+"BRSlot.Control.BetPerLineValue" = "TARUHAN / GARIS\n🪙 %ld";
+"BRSlot.Balance.Value" = "🪙 %ld Koin EZ";
+"BRSlot.Classic.LoungeTitle" = "Brainrot Lounge";
+"BRSlot.Penny.LoungeTitle" = "Penny Slots Lounge";
+"BRSlot.Classic.FreeSpin" = "🎁  PUTARAN GRATIS (SISA %ld)";
+"BRSlot.FreeSpin.NoWager" = "Ditanggung rumah — tidak ada koin yang dipertaruhkan";
+"BRSlot.Classic.Jackpot" = "  JACKPOT PROGRESIF • HANYA TARUHAN MAKS (25) • MENANGKAN HINGGA %ld KOIN • 🧠 TIGA KALI UNTUK MENGKLAIM  ";
+"BRSlot.Error.SignInTitle" = "Masuk diperlukan";
+"BRSlot.Error.SignInToSpin" = "Masuk untuk berputar dengan Koin EZ.";
+"BRSlot.Classic.SpinningFree" = "Memutar putaran gratis Anda…";
+"BRSlot.CheckingBalance" = "Memeriksa Koin EZ…";
+"BRSlot.Classic.NeedCoins" = "Butuh %ld koin untuk memasang taruhan ini • Membuka Toko Koin…";
+"BRSlot.Classic.StoreFeature" = "taruhan Slot %ld koin Anda";
+"BRSlot.Spinning" = "Berputar…";
+"BRSlot.Error.SessionExpired" = "Sesi masuk Anda telah berakhir.";
+"BRSlot.Penny.MaxBet" = "TARUHAN MAKS\n⚡ 225";
+"BRSlot.Penny.FreeSpin" = "Putaran gratis…";
+"BRSlot.Penny.NeedCoins" = "Butuh %ld koin untuk putaran ini.";
+"BRSlot.Penny.FreeSpinsRemaining" = "⚡ SISA %ld PUTARAN GRATIS • SEMUA KEMENANGAN 2×";
+"BRSlot.Penny.SignIn" = "Masuk untuk bermain Penny Slots.";
+"BRSlot.Penny.StoreFeature" = "Penny Slots — isi ulang yang disarankan: 400 koin";
+"BRSlot.Error.InvalidSpin" = "Hasil putaran tidak valid.";
+"BRSlot.Pity.Title" = "😬 Yah, Itu Berat";
+"BRSlot.Pity.Body" = "Putaran itu tidak berjalan sesuai harapan Anda. Ini %ld putaran lagi ditanggung rumah.";
+"BRSlot.Pity.Action" = "Ayo mulai! 🎰";
+"BRSlot.Win.Overlay" = "%@\n+%ld KOIN";
+"BRSlot.Win.Jackpot" = "JACKPOT!";
+"BRSlot.Win.Winner" = "PEMENANG!";
+"BRSlot.Lounge.SignIn" = "Masuk untuk bergabung ke lounge.";
+"BRSlot.Lounge.Delete" = "Hapus";
+"BRSlot.OK" = "OK";
+"BRSlot.Customizer.CustomImage" = "Saat ini menggunakan gambar kustom Anda.";
+"BRSlot.Customizer.BuiltInClassic" = "Saat ini menggunakan gambar slot bawaan.";
+"BRSlot.Customizer.BuiltInPenny" = "Saat ini menggunakan gambar Penny Slots bawaan.";
+"BRSlot.Generation.Cost" = "Setiap pembuatan membutuhkan 3 Koin EZ.";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZMusic.A11y.Lyrics" = "Lirik lagu";
+"EZMusic.A11y.Prompt" = "Prompt lagu";
+"EZMusic.A11y.Remix" = "Remix";
+"EZMusic.A11y.Rename" = "Ganti nama lagu";
+"EZMusic.A11y.ViewLyrics" = "Lihat lirik";
+"EZMusic.A11y.ViewPrompt" = "Lihat prompt";
+"EZMusic.Action.Cancel" = "Batal";
+"EZMusic.Action.Copied" = "Disalin";
+"EZMusic.Action.Copy" = "Salin";
+"EZMusic.Action.Save" = "Simpan";
+"EZMusic.Menu.GenerateCover" = "Buat";
+"EZMusic.Menu.Lyrics" = "Lirik";
+"EZMusic.Menu.Prompt" = "Prompt";
+"EZMusic.Menu.Remix" = "Remix";
+"EZMusic.Menu.Rename" = "Ganti Nama";
+"EZMusic.Paywall.CreateMessage" = "Anda sudah membuat lagu gratis Anda. Pembelian apa pun membuka pembuatan lagu tanpa batas.";
+"EZMusic.Paywall.CreateTitle" = "Pembelian Diperlukan";
+"EZMusic.Paywall.ExportMessage" = "Mengekspor lagu adalah fitur berbayar. Pembelian apa pun membukanya.";
+"EZMusic.Paywall.ExportTitle" = "Pembelian Diperlukan";
+"EZMusic.Paywall.ViewStore" = "Lihat Toko";
+"EZMusic.Prompt.Title" = "Prompt";
+"EZMusic.Rename.Placeholder" = "Judul lagu";
+"EZMusic.Rename.Title" = "Ganti Nama Lagu";
+"EZMusic.Toast.Remix" = "Remix dimuat — ubah apa saja, lalu ketuk Buat";
+"EZMusic.Toast.RenameFailed" = "Tidak dapat mengganti nama. Coba lagi.";
+"EZChat.Paywall.Title" = "Pembelian diperlukan";
+"EZChat.Paywall.PaidModelMessage" = "%@ adalah model berbayar. Lakukan pembelian untuk membukanya, lalu kembali ke utas ini.";
+"EZChat.SongPaywall.Message" = "Anda sudah membuat lagu gratis Anda. Lakukan pembelian apa pun untuk terus membuat lagu, lalu minta lagi.";
+"EZChat.Paywall.ViewStore" = "Lihat Toko";
+"EZChat.SongPaywall.NotNow" = "Nanti Saja";
+"EZCoinStore.Feature.AIMusic" = "Musik AI";
+"EZMemory.Player.Play" = "Putar";
+"EZMemory.Player.Pause" = "Jeda";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.OpenErrorTitle" = "Tidak Dapat Membuka Lagu";
+"EZMemory.Player.OpenErrorMessage" = "Lagu tidak dapat diunduh. Periksa koneksi Anda dan coba lagi.";
+"EZMemory.Player.OK" = "OK";
+"EZCoinStore.FreeSpins.Title" = "🎁 Putaran Gratis!";
+"EZCoinStore.FreeSpins.Message" = "Anda mendapat %ld putaran gratis di Brainrot Slots — ayo putar!";
+"EZCoinStore.FreeSpins.PlayNow" = "Main Sekarang";
+"EZCoinStore.FreeSpins.Later" = "Nanti";

@@ -1,0 +1,529 @@
+/* EZModelPickerViewController localization */
+
+"EZModelPicker.Title" = "모델 선택";
+
+"EZModelSection.FrontierReasoning" = "고급 추론";
+"EZModelSection.GPT4Chat" = "GPT-4 채팅";
+"EZModelSection.ImageGeneration" = "이미지 생성";
+"EZModelSection.AudioTranscription" = "오디오 전사";
+
+"EZModelLabel.ChatVisionNewest" = "💬 채팅 + 👁 비전 ⭐ 최신";
+"EZModelLabel.ChatVision" = "💬 채팅 + 👁 비전";
+"EZModelLabel.ChatVisionBalanced" = "💬 채팅 + 👁 비전 (균형)";
+"EZModelLabel.ChatVisionFastCheap" = "💬 채팅 + 👁 비전 (빠름/저렴)";
+"EZModelLabel.ChatOnly" = "💬 채팅 전용";
+"EZModelLabel.ImageGenNewestFast" = "🖼 이미지 생성 (최신, 빠름) — 낮음/보통/높음/매우 높음/최대";
+"EZModelLabel.ImageGenEditPrecision" = "🖼 이미지 생성 + ✏️ 편집 (정밀) — 낮음/보통/높음/매우 높음/최대";
+"EZModelLabel.ImageGenEdit" = "🖼 이미지 생성 + ✏️ 편집 — 낮음/보통/높음";
+"EZModelLabel.ImageGen" = "🖼 이미지 생성";
+"EZModelLabel.ImageGenFastCheap" = "🖼 이미지 생성 (빠름/저렴)";
+"EZModelLabel.ChatGPTImageLatest" = "🖼 ChatGPT 이미지 (최신)";
+"EZModelLabel.AudioTranscriptionOnly" = "🎙 오디오 전사 전용";
+
+
+/* TextToSpeechViewController localization */
+
+"EZTTS.Title" = "텍스트 음성 변환";
+
+"EZTTS.PromptHeader" = "어떤 내용을 말할까요?";
+
+"EZTTS.VoiceHeader" = "음성";
+
+"EZTTS.SpeedFormat" = "속도: %.2f×";
+
+"EZTTS.Generate" = "생성";
+
+"EZTTS.ChooseVoice" = "음성 선택…";
+
+"EZTTS.CharactersRemaining" = "%lu자 남음";
+
+"EZTTS.MissingTextTitle" = "텍스트 없음";
+
+"EZTTS.MissingTextMessage" = "합성할 텍스트를 입력하세요.";
+
+"EZTTS.ErrorTitle" = "TTS 오류";
+
+"EZTTS.FailedToSynthesize" = "합성에 실패했습니다.";
+
+"EZTTS.NoAudioReturned" = "반환된 오디오가 없습니다.";
+
+"EZTTS.PlaybackError" = "재생 오류";
+
+"EZTTS.UnableToPlay" = "오디오를 재생할 수 없습니다.";
+
+"EZTTS.NotLoggedIn" = "로그인되어 있지 않습니다.";
+
+"EZTTS.NotAuthorized" = "권한이 없습니다. 다시 로그인하세요.";
+
+"EZTTS.InvalidServerResponse" = "서버의 응답이 올바르지 않습니다.";
+
+"EZTTS.EmptyAudio" = "빈 오디오가 반환되었습니다.";
+
+"EZTTS.FailedWavWrap" = "PCM을 WAV로 변환하지 못했습니다.";
+
+"EZTTS.InsufficientCoins" = "이 합성에 필요한 코인이 부족합니다.";
+
+"EZTTS.NeedCoins" = "%@ 코인이 필요합니다. 보유: %@";
+
+"EZTTS.ServerError" = "서버 오류";
+
+"EZTTS.OK" = "확인";
+
+/* Subscription paywall */
+"EZSubscription.RequiredTitle" = "구독 필요";
+"EZSubscription.NotNow" = "나중에";
+"EZSubscription.ViewPlans" = "요금제 보기";
+"EZSubscription.ModelRequiredFormat" = "%@은 활성 EZComplete 구독으로 이용할 수 있습니다. 이 모델을 사용하려면 구독하세요.";
+"EZSubscription.ImageSettingsRequired" = "고품질 이미지에는 활성 EZComplete 구독이 필요합니다.";
+
+/* EZCoinStoreViewController localization */
+
+"EZCoinStore.Title" = "🪙 EZ 코인 스토어";
+
+"EZCoinStore.CancelPlan" = "요금제 취소";
+
+"EZCoinStore.Subscribe" = "구독하기";
+
+"EZCoinStore.BuyNow" = "지금 구매";
+
+"EZCoinStore.Badge.Buy1Get1" = "🔥 1개 사면 1개 무료";
+
+"EZCoinStore.Promo.SubscriptionBadgeFormat" = "+%ld 코인 무료*";
+
+"EZCoinStore.Promo.SubscriptionFootnote" = "*추가 코인은 일회성 보너스이며, 매월 지급액이 늘어나는 것은 아닙니다.";
+
+"EZCoinStore.Tier.Basic" = "베이직";
+
+"EZCoinStore.Tier.BasicSubtitle" = "400 코인 / 월\n가벼운 사용에 적합";
+
+"EZCoinStore.Tier.BasicPrice" = "$5 / 월";
+
+"EZCoinStore.Tier.Standard" = "스탠다드";
+
+"EZCoinStore.Tier.StandardSubtitle" = "900 코인 / 월\n일반 사용자에게 적합";
+
+"EZCoinStore.Tier.StandardPrice" = "$10 / 월";
+
+"EZCoinStore.Badge.Popular" = "인기";
+
+"EZCoinStore.Tier.Pro" = "프로";
+
+"EZCoinStore.Tier.ProSubtitle" = "1,600 코인 / 월\n매일 사용하는 사용자에게 적합";
+
+"EZCoinStore.Tier.ProPrice" = "$15 / 월";
+
+"EZCoinStore.Badge.BestValue" = "최고의 가성비";
+
+"EZCoinStore.Tier.Ultra" = "울트라";
+
+"EZCoinStore.Tier.UltraSubtitle" = "2,500 코인 / 월\n파워 유저 환영";
+
+"EZCoinStore.Tier.UltraPrice" = "$20 / 월";
+
+"EZCoinStore.Badge.Ultra" = "울트라";
+
+"EZCoinStore.Tier.Power" = "파워 유저";
+
+"EZCoinStore.Tier.PowerSubtitle" = "6,250 코인 / 월\n필요할 때 언제든 사용할 수 있습니다.";
+
+"EZCoinStore.Tier.Enterprise" = "엔터프라이즈";
+
+"EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 코인 / 월\n모든 비즈니스 요구에 적합";
+
+"EZCoinStore.TopUp.Starter" = "코인 스타터 팩";
+
+"EZCoinStore.TopUp.StarterSubtitle" = "400 코인, 일회성\n만료되지 않음";
+
+"EZCoinStore.TopUp.Ultra" = "울트라 충전 팩";
+
+"EZCoinStore.TopUp.UltraSubtitle" = "2500 코인, 일회성\n만료되지 않음";
+
+"EZCoinStore.TopUp.Power" = "파워 충전 팩";
+
+"EZCoinStore.TopUp.PowerSubtitle" = "6250 코인, 일회성\n만료되지 않음";
+
+"EZCoinStore.TopUp.Enterprise" = "엔터프라이즈 충전 팩";
+
+"EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 코인, 일회성\n만료되지 않음";
+
+
+
+"EZCoinStore.TopUp.Value" = "코인 밸류 팩";
+
+"EZCoinStore.TopUp.ValueSubtitle" = "900 코인, 일회성\n만료되지 않음";
+
+"EZCoinStore.Badge.Save10" = "10% 할인";
+
+"EZCoinStore.Promo.Headline" = "🔥 1개 사면 1개 무료 🔥";
+
+"EZCoinStore.Promo.Subtitle" = "모든 코인 및 구독 — 기간 한정!";
+
+"EZCoinStore.LoadingBalance" = "잔액 불러오는 중...";
+
+"EZCoinStore.ThisFeature" = "이 기능";
+
+"EZCoinStore.NotEnoughCoins" = "⚠️ %@에 필요한 코인이 부족합니다. 아래에서 충전하세요.";
+
+"EZCoinStore.NoActiveSubscription" = "활성 구독 없음";
+
+"EZCoinStore.BalanceFormat" = "🪙 %ld 코인   •   %@";
+
+"EZCoinStore.Section.Subscriptions" = "구독";
+
+"EZCoinStore.Section.OneTimeTopUps" = "일회성 충전";
+
+"EZCoinStore.DailyCoins" = "🎁 데일리 코인";
+
+"EZCoinStore.DailyCoins.FreeFormat" = "🎁 +%ld 무료!";
+
+"EZCoinStore.DailyCoins.Free" = "🎁 무료 코인!";
+"EZCoinStore.DailyReminder.Title" = "무료 코인이 준비되었습니다";
+"EZCoinStore.DailyReminder.Body" = "준비되면 언제든 코인을 받으세요.";
+
+"EZCoinStore.DailyCoins.NextHours" = "🎁 다음: %ld시간 %ld분";
+
+"EZCoinStore.DailyCoins.NextMinutes" = "🎁 다음: %ld분 %ld초";
+
+"EZCoinStore.DailyCoins.NextSeconds" = "🎁 다음: %ld초";
+
+"EZCoinStore.DailyCoins.Claiming" = "⏳ 받는 중...";
+
+"EZCoinStore.Alert.NotSignedIn" = "로그인되어 있지 않음";
+
+"EZCoinStore.Alert.SignInDailyCoins" = "데일리 코인을 받으려면 로그인하세요.";
+
+"EZCoinStore.Alert.NetworkError" = "네트워크 오류";
+
+"EZCoinStore.Alert.ServerUnreachable" = "서버에 연결할 수 없습니다. 다시 시도하세요.";
+
+"EZCoinStore.Alert.AlreadyClaimed" = "이미 받음";
+
+"EZCoinStore.Alert.AlreadyClaimedMessage" = "이미 무료 코인을 받으셨습니다. 6시간 후에 다시 확인하세요!";
+
+"EZCoinStore.Alert.GenericRetry" = "문제가 발생했습니다. 다시 시도하세요.";
+
+"EZCoinStore.Alert.Error" = "오류";
+
+"EZCoinStore.Ledger" = "거래 내역";
+
+"EZCoinStore.Alert.NotLoggedIn" = "로그인되어 있지 않음";
+
+"EZCoinStore.Alert.SignInFirst" = "먼저 로그인하세요.";
+
+"EZCoinStore.Alert.CancelSubscription" = "구독을 취소할까요?";
+
+"EZCoinStore.Alert.CancelSubscriptionMessage" = "남은 코인은 계정에 그대로 유지됩니다. 이 작업은 되돌릴 수 없습니다.";
+
+"EZCoinStore.KeepPlan" = "요금제 유지";
+
+"EZCoinStore.Alert.Cancelled" = "취소됨";
+
+"EZCoinStore.Alert.CancelledMessage" = "구독이 취소되었습니다. 코인은 계속 사용할 수 있습니다.";
+
+"EZCoinStore.Alert.CancelFailed" = "구독을 취소할 수 없습니다. 다시 시도하세요.";
+
+"EZCoinStore.Alert.CheckoutStartFailed" = "결제를 시작할 수 없습니다. 다시 시도하세요.";
+
+"EZCoinStore.Alert.PurchaseConfirmFailed" = "구매를 확인할 수 없습니다. 잔액을 확인하세요 — 코인이 추가되었을 수 있습니다.";
+
+"EZCoinStore.Alert.PurchaseNotConfirmed" = "구매를 확인할 수 없습니다.";
+
+"EZCoinStore.Alert.PurchaseIssue" = "구매 문제";
+
+"EZCoinStore.Celebration.CoinsAdded" = "🪙 코인이 추가되었습니다!";
+
+"EZCoinStore.Celebration.AmountFormat" = "+%ld 코인";
+
+"EZCoinStore.Celebration.NewBalanceFormat" = "새 잔액: %ld 코인";
+
+"EZCoinStore.Celebration.Sweet" = "좋아요!";
+
+"EZCoinStore.OK" = "확인";
+
+/* ElevenLabs voice cloning */
+"ElevenLabsClone.Title" = "음성 복제";
+"ElevenLabsClone.VoiceName" = "음성 이름";
+"ElevenLabsClone.VoiceNamePlaceholder" = "예: MyProVoice";
+"ElevenLabsClone.LanguageCode" = "언어 코드";
+"ElevenLabsClone.LanguageCodePlaceholder" = "예: ko";
+"ElevenLabsClone.Instant" = "즉시 (IVC)";
+"ElevenLabsClone.Professional" = "프로페셔널 (PVC)";
+"ElevenLabsClone.ProfessionalNote" = "⚠️ 프로페셔널 음성 복제 — Creator 요금제 필요 (곧 출시)";
+"ElevenLabsClone.RemoveNoise" = "배경 소음 제거";
+"ElevenLabsClone.StartRecording" = "⏺  녹음 시작";
+"ElevenLabsClone.StopRecording" = "⏹  녹음 중지";
+"ElevenLabsClone.Play" = "▶︎ 재생";
+"ElevenLabsClone.Stop" = "⏹ 중지";
+"ElevenLabsClone.ImportFile" = "📂  파일 가져오기";
+"ElevenLabsClone.QuickLook" = "🔍  빠른 보기";
+"ElevenLabsClone.UploadClone" = "음성 업로드 및 복제";
+"ElevenLabsClone.MyVoices" = "내 복제 음성";
+"ElevenLabsClone.Refresh" = "↻ 새로고침";
+"ElevenLabsClone.Notice" = "알림";
+"ElevenLabsClone.OK" = "확인";
+"ElevenLabsClone.MicrophoneDenied" = "마이크 접근 거부됨";
+"ElevenLabsClone.MicrophoneDeniedMessage" = "녹음하려면 설정에서 마이크 접근을 허용하세요.";
+"ElevenLabsClone.RecordError" = "녹음 오류";
+"ElevenLabsClone.RecordInitFailed" = "녹음기를 초기화할 수 없습니다.";
+"ElevenLabsClone.RecordPrepareFailed" = "녹음을 준비할 수 없습니다.";
+"ElevenLabsClone.RecordingFailed" = "녹음 실패";
+"ElevenLabsClone.RecordingFailedMessage" = "녹음이 중단되었거나 실패했습니다.";
+"ElevenLabsClone.PlaybackError" = "재생 오류";
+"ElevenLabsClone.PlayerCreateFailed" = "플레이어를 만들 수 없습니다.";
+"ElevenLabsClone.NoRecording" = "녹음 없음";
+"ElevenLabsClone.NoRecordingMessage" = "먼저 샘플을 녹음하거나 가져오세요.";
+"ElevenLabsClone.ImportFailed" = "가져오기 실패";
+"ElevenLabsClone.CopyFailed" = "파일을 복사할 수 없습니다.";
+"ElevenLabsClone.SubscriptionRequired" = "구독 필요";
+"ElevenLabsClone.SubscriptionRequiredMessage" = "음성 복제는 활성 EZComplete 구독으로 이용할 수 있습니다. 복제 음성을 만들려면 구독하세요.";
+"ElevenLabsClone.NotNow" = "나중에";
+"ElevenLabsClone.ViewPlans" = "요금제 보기";
+"ElevenLabsClone.MissingName" = "이름 없음";
+"ElevenLabsClone.MissingNameMessage" = "음성 이름을 입력하세요.";
+"ElevenLabsClone.NotSignedIn" = "로그인되어 있지 않음";
+"ElevenLabsClone.SignInCloneMessage" = "음성을 복제하려면 EZComplete 계정에 로그인하세요.";
+"ElevenLabsClone.SubscriptionCheckUnavailable" = "구독을 확인할 수 없음";
+"ElevenLabsClone.SubscriptionCheckUnavailableMessage" = "구독을 확인할 수 없습니다. 음성을 복제하기 전에 다시 시도하세요.";
+"ElevenLabsClone.EmptyFile" = "빈 파일";
+"ElevenLabsClone.EmptyFileMessage" = "녹음 파일이 비어 있습니다.";
+"ElevenLabsClone.NetworkError" = "네트워크 오류";
+"ElevenLabsClone.NeedMoreCoins" = "코인이 더 필요합니다";
+"ElevenLabsClone.NeedMoreCoinsMessage" = "보유 코인은 %ld개이지만 복제에는 %ld 코인이 필요합니다.";
+"ElevenLabsClone.AccessDenied" = "접근이 거부되었습니다.";
+"ElevenLabsClone.VoiceSlotFull" = "음성 슬롯이 가득 참";
+"ElevenLabsClone.NotAvailable" = "사용할 수 없음";
+"ElevenLabsClone.UploadFailed" = "업로드에 실패했습니다.";
+"ElevenLabsClone.CloneFailed" = "복제 실패";
+"ElevenLabsClone.NoVoiceID" = "응답에 음성 ID가 없습니다.";
+"ElevenLabsClone.SlotsUsedFormat" = "\\n사용된 슬롯: %ld / %ld";
+"ElevenLabsClone.VoiceCloned" = "음성 복제 완료";
+"ElevenLabsClone.VoiceClonedMessage" = "음성 ID: %@%@";
+"ElevenLabsClone.CloneRetentionTitle" = "복제 음성 유지하기";
+"ElevenLabsClone.CloneRetentionMessage" = "복제 음성은 코인으로 만들었습니다. 활성 구독이 없으면 구독자를 위한 추가 슬롯을 확보하기 위해 7일 후 복제 음성이 삭제될 수 있습니다.";
+"ElevenLabsClone.UnnamedVoice" = "이름 없는 음성";
+"ElevenLabsClone.NoClonedVoices" = "복제된 음성을 찾을 수 없습니다. 녹음하고 업로드하여 만들어 보세요.";
+"ElevenLabsClone.ShowingVoicesFormat" = "%lu / %lu 음성 표시 중";
+"ElevenLabsClone.ShowMoreVoices" = "음성 더 보기";
+"ElevenLabsClone.Delete" = "삭제";
+"ElevenLabsClone.ThisVoice" = "이 음성";
+"ElevenLabsClone.DeleteVoice" = "음성 삭제";
+"ElevenLabsClone.DeleteVoiceMessage" = "ElevenLabs에서 \"%@\"을 영구 삭제할까요? 이 작업은 되돌릴 수 없습니다.";
+"ElevenLabsClone.Cancel" = "취소";
+"ElevenLabsClone.SignInDeleteMessage" = "음성을 삭제하려면 로그인하세요.";
+"ElevenLabsClone.DeleteFailedMessage" = "삭제에 실패했습니다.";
+"ElevenLabsClone.DeleteFailed" = "삭제 실패";
+
+/* Annual subscription offer */
+"EZCoinStore.Upsell.Message" = "연간으로 결제하면 월간 결제에 비해 25% 절약할 수 있습니다.";
+"EZCoinStore.Upsell.StandardTitle" = "스탠다드로 연간 결제";
+"EZCoinStore.Upsell.StandardMonthlyButton" = "$10.00/월";
+"EZCoinStore.Upsell.StandardAnnualButton" = "$89.99/년 — $30 절약";
+"EZCoinStore.Upsell.StandardAnnualButtonPromo" = "$89.99/년 — 2개월 추가 무료";
+"EZCoinStore.Upsell.ProTitle" = "프로로 연간 결제";
+"EZCoinStore.Upsell.ProMonthlyButton" = "$15.00/월";
+"EZCoinStore.Upsell.ProAnnualButton" = "$134.99/년 — $45 절약";
+"EZCoinStore.Upsell.ProAnnualButtonPromo" = "$134.99/년 — 2개월 추가 무료";
+"EZCoinStore.Upsell.UltraTitle" = "울트라로 연간 결제";
+"EZCoinStore.Upsell.UltraMonthlyButton" = "$20.00/월";
+"EZCoinStore.Upsell.UltraAnnualButton" = "$179.99/년 — $60 절약";
+"EZCoinStore.Upsell.UltraAnnualButtonPromo" = "$179.99/년 — 2개월 추가 무료";
+"EZCoinStore.Upsell.PowerTitle" = "파워로 연간 결제";
+"EZCoinStore.Upsell.PowerMonthlyButton" = "$49.99/월";
+"EZCoinStore.Upsell.PowerAnnualButton" = "$449.99/년 — $150 절약";
+"EZCoinStore.Upsell.PowerAnnualButtonPromo" = "$449.99/년 — 2개월 추가 무료";
+"EZCoinStore.Upsell.EnterpriseTitle" = "엔터프라이즈로 연간 결제";
+"EZCoinStore.Upsell.EnterpriseMonthlyButton" = "$99.99/월";
+"EZCoinStore.Upsell.EnterpriseAnnualButton" = "$899.99/년 — $300 절약";
+"EZCoinStore.Upsell.EnterpriseAnnualButtonPromo" = "$899.99/년 — 2개월 추가 무료";
+"EZCoinStore.Upsell.AnnualTitleFormat" = "%@ 연간";
+"EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/월";
+"EZCoinStore.Upsell.AnnualButtonFormat" = "%@/년 — %@ 절약";
+"EZCoinStore.Upsell.AnnualButtonPromoFormat" = "%@/년 — 2개월 추가 무료";
+"EZCoinStore.Tier.BasicWeekly" = "베이직 주간";
+"EZCoinStore.Tier.BasicWeeklyPrice" = "$5/주 • 주당 400 코인";
+"EZCoinStore.Tier.BasicWeeklySubtitle" = "훌륭한 스타터 패키지";
+"EZCoinStore.Cancel" = "취소";
+
+/* Photo gallery */
+"EZGallery.AskQuestion" = "질문하기";
+"EZGallery.EditWithAI" = "AI로 편집";
+"EZGallery.UseInVideoGame" = "비디오 게임에 사용";
+"EZGallery.EditPromptPlaceholder" = "편집 내용을 설명하세요…";
+/* Photo gallery export */
+"EZGallery.Export.Title" = "이미지 내보내기";
+"EZGallery.Export.Subtitle" = "공유 방식을 선택하세요.";
+"EZGallery.Export.GIFReveal" = "GIF: 원본 공개";
+"EZGallery.Export.GIFMotion" = "GIF: 모션 전환";
+"EZGallery.Export.ShareOriginal" = "브랜드 이미지 + 원본 공유";
+"EZGallery.Export.ShareClean" = "브랜드 이미지 공유";
+"EZGallery.Export.Download" = "이미지 다운로드";
+"EZGallery.Export.Cancel" = "취소";
+/* Main navigation drawer */
+"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.NewChat" = "새 채팅";
+"EZNav.PhotoGallery" = "사진 갤러리";
+"EZNav.TextToSpeech" = "텍스트 음성 변환";
+"EZNav.Music" = "AI 음악";
+"EZNav.VoiceCloning" = "음성 복제";
+"EZNav.BrainRot" = "Brain Rot";
+"EZNav.Memories" = "메모리";
+"EZNav.CoinStore" = "코인 스토어";
+"EZNav.Settings" = "설정";
+"EZNav.RecentChats" = "최근 채팅";
+/* First-run tutorial */
+"EZTutorial.Skip" = "건너뛰기"; "EZTutorial.Back" = "뒤로"; "EZTutorial.Next" = "다음"; "EZTutorial.GetStarted" = "시작하기";
+"EZTutorial.Welcome.Title" = "EZCompleteUI에 오신 것을 환영합니다"; "EZTutorial.Welcome.Body" = "간단한 둘러보기를 통해 각 기능의 위치를 안내해 드립니다. 언제든 건너뛸 수 있습니다.";
+"EZTutorial.Chat.Title" = "채팅하고 만들기"; "EZTutorial.Chat.Body" = "상단에서 모델을 선택하세요. 클립으로 파일이나 사진을 첨부하고, 마이크로 받아쓰기하고, 지구본으로 웹 검색을 하고, 번개로 도우미의 직접 답변을 받을 수 있습니다. 전송을 누르면 요청이 시작됩니다.";
+"EZTutorial.Navigate.Title" = "메뉴와 채팅"; "EZTutorial.Navigate.Body" = "왼쪽 상단의 메뉴를 탭하면 갤러리, 음성 도구, Brain Rot, 메모리, 코인 스토어, 설정 및 최근 채팅에 접근할 수 있습니다. 거기서 검색하여 대화를 찾으세요.";
+"EZTutorial.Gallery.Title" = "사진 갤러리"; "EZTutorial.Gallery.Body" = "왼쪽 상단의 +를 탭하여 사진을 추가하세요. 핀치하여 그리드를 2열에서 5열로 조정할 수 있습니다. 선택을 사용하여 여러 사진을 공유하거나 삭제하세요.";
+"EZTutorial.Detail.Title" = "사진 세부 정보"; "EZTutorial.Detail.Body" = "질문하기를 누르면 이 이미지가 채팅으로 돌아갑니다. 아래에 편집 내용을 설명하거나, +를 사용하여 참조 이미지를 최대 4장까지 추가하고 하나의 새 창작물로 결합하세요."; "EZTutorial.Detail.Prompt" = "편집 내용을 설명하세요…"; "EZTutorial.Detail.Ask" = "질문하기"; "EZTutorial.Detail.Edit" = "AI로 편집";
+"EZTutorial.Tools.Title" = "메모리와 코인"; "EZTutorial.Tools.Body" = "메모리는 유용한 결과를 가까이에 보관합니다. 코인 스토어에서 요금제와 코인을 관리합니다. 잔액은 메인 화면에서 언제든 확인할 수 있습니다.";
+"EZTutorial.Memories.Title" = "메모리"; "EZTutorial.Memories.Body" = "저장된 메모리를 검색한 뒤 텍스트를 탭하여 편집하세요. 다시 탭하면 편집이 종료됩니다. 파란색 링크는 메모리가 만들어진 정확한 채팅을 열고, 첨부된 이미지는 사진 세부 정보를 엽니다."; "EZTutorial.Memories.Search" = "메모리 검색"; "EZTutorial.Memories.Source" = "원본 채팅 열기"; "EZTutorial.Memories.Editable" = "이 저장된 메모리를 탭하여 편집하세요.";
+"EZTutorial.CoinStore.Title" = "코인 스토어"; "EZTutorial.CoinStore.Body" = "오른쪽 상단의 사용 내역에는 모든 적립과 차감이 나열됩니다. 무료 코인은 하루에 네 번 받을 수 있으며, 준비되면 알림을 받을 수 있도록 알림을 허용하세요. 일부 프리미엄 모델과 기능은 구매해야 잠금 해제됩니다. PayPal 구독은 자동으로 적립되며, 일회성 충전도 이용할 수 있습니다."; "EZTutorial.CoinStore.Usage" = "사용 내역"; "EZTutorial.CoinStore.Free" = "무료 코인은 하루에 네 번 준비됩니다 • 알림 활성화"; "EZTutorial.CoinStore.Offer" = "1개 사면 1개 무료"; "EZTutorial.CoinStore.Select" = "시작할 준비가 되셨나요? 필요에 맞는 등급을 선택하세요.";
+"EZTutorial.CoinStore.Bonus" = "구독자는 받을 때마다 20 코인 • 요금제가 없으면 10 코인";
+"EZTutorial.CoinStore.Claim" = "무료 코인 받기"; "EZTutorial.Memories.Intro" = "메모리는 유용한 결과를 가까이에 보관합니다.";
+"EZTutorial.CoinStore.Next" = "다음: 6시간 00분"; "EZCoinStore.UsageLog" = "사용 내역";
+"EZTutorial.CoinStore.BodyTop" = "• 사용 내역을 사용하여 모든 적립과 차감을 확인하세요.\n\n• 무료 코인은 하루에 네 번 받을 수 있으며, 알림을 활성화하면 리마인더를 받을 수 있습니다."; "EZTutorial.CoinStore.BodyBottom" = "• 일부 프리미엄 모델과 기능은 구매해야 잠금 해제됩니다.";
+"EZGameMode.Title" = "게임 선택"; "EZGameMode.Maze" = "미로 모험"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "취소";
+"EZGameMode.Subtitle" = "플레이 방식을 선택하세요."; "EZGameMode.MazeDescription" = "맞춤 게임 에셋으로 생성된 미로를 탐험하세요."; "EZGameMode.RicochetDescription" = "음악, 픽업 아이템, MIDI와 함께 열린 아레나를 튀어 다니세요.";
+"EZThread.NewConversation" = "새 대화";
+"EZMemories.Title" = "메모리"; "EZMemories.Search" = "메모리 검색"; "EZMemories.NoneSaved" = "아직 저장된 메모리가 없습니다."; "EZMemories.NoMatches" = "그 검색과 일치하는 메모리가 없습니다."; "EZMemories.SavedFormat" = "%lu개의 저장된 메모리"; "EZMemories.MatchingFormat" = "%lu개의 일치하는 메모리";
+"EZTutorial.Demo.ModelPicker" = "모델 선택기"; "EZTutorial.Demo.Model" = "모델: gpt-6-astra"; "EZTutorial.Demo.Controls" = "컨트롤"; "EZTutorial.Demo.Placeholder" = "메시지를 입력하세요…"; "EZTutorial.Demo.Send" = "전송";
+"EZTutorial.Feedback" = "아직 질문이 있거나 의견을 공유하고 싶으신가요? 여기를 탭하세요.";
+"EZTutorial.Menu.SampleChat" = "최근 대화";
+"EZGallery.Title" = "사진 갤러리"; "EZGallery.Select" = "선택"; "EZGallery.Done" = "완료"; "EZGallery.SelectedCount" = "%lu개 선택됨"; "EZGallery.DeleteTitle" = "사진을 삭제할까요?"; "EZGallery.DeleteMessage" = "선택한 사진 %lu장을 영구 삭제할까요?"; "EZGallery.Delete" = "삭제"; "EZGallery.Cancel" = "취소";
+
+/* Image generation progress */
+"EZImageGen.Status.Working" = "요청을 처리하는 중…";
+"EZImageGen.Status.Stay" = "생성 중에는 페이지를 떠나지 마세요";
+"EZImageGen.Status.StillWorking" = "아직 생성 중입니다 — 잠시 걸릴 수 있습니다";
+"EZImageGen.Status.AlmostDone" = "거의 완료되었습니다…";
+
+/* Brainrot Slots */
+"BRSlot.Picker.Title" = "Brainrot Slots";
+"BRSlot.Picker.Header" = "슬롯 게임";
+"BRSlot.Picker.Detail" = "머신을 선택하거나, 저장된 월드를 탐험하거나, 새 슬롯 룸을 만드세요.";
+"BRSlot.Picker.Back" = "‹  BRAINROT";
+"BRSlot.Picker.Classic.Title" = "Brainrot Slots";
+"BRSlot.Picker.Classic.Detail" = "5개의 페이라인과 프로그레시브 잭팟을 갖춘 오리지널 3릴 룸입니다.";
+"BRSlot.Picker.Penny.Title" = "EZCoin 페니 슬롯";
+"BRSlot.Picker.Penny.Detail" = "5개의 릴, 9개의 라인, EZCoin 스캐터, 배당 2배 무료 스핀.";
+"BRSlot.Picker.Create.Title" = "슬롯 룸 만들기";
+"BRSlot.Picker.Create.Detail" = "맞춤 월드, 배경, 심볼 세트를 만드세요.";
+"BRSlot.Picker.Community.Title" = "커뮤니티 둘러보기";
+"BRSlot.Picker.Community.Detail" = "다른 플레이어의 룸을 다운로드하여 슬롯 머신으로 사용하세요.";
+"BRSlot.Picker.Saved.Title" = "저장된 슬롯 룸";
+"BRSlot.Picker.Saved.Detail" = "저장된 Brainrot 게임을 슬롯 머신으로 플레이할 준비가 되었습니다.";
+"BRSlot.Picker.NewGame" = "새 슬롯 게임";
+"BRSlot.Lounge.DisplayName" = "표시 이름";
+"BRSlot.Lounge.Connecting" = "● 라운지에 연결 중…";
+"BRSlot.Lounge.Composer" = "좋은 말을 해보세요…";
+"BRSlot.Lounge.Note" = "친절하게 대하세요. 메시지를 길게 눌러 신고할 수 있습니다. 하우스 호스트는 플레이어가 아닌 캐릭터입니다.";
+"BRSlot.Lounge.Wins" = "🏆 승리";
+"BRSlot.Classic.ThemeTitle" = "%@ 슬롯";
+"BRSlot.Classic.CommunityTitle" = "커뮤니티 슬롯";
+"BRSlot.Classic.Title" = "Brainrot Slots";
+"BRSlot.Navigation.Back" = "‹  뒤로";
+"BRSlot.Navigation.Lounge" = "라운지";
+"BRSlot.Navigation.Odds" = "배당";
+"BRSlot.Classic.Heading" = "🧠  BRAINROT SLOTS  🧠";
+"BRSlot.Balance.Loading" = "🪙 — EZ 코인";
+"BRSlot.Classic.JackpotLoading" = "  프로그레시브 잭팟 • 최대 베팅만 • 최대 — 코인까지 획득  ";
+"BRSlot.Classic.Description" = "5개의 페이라인 • 서버에서 검증된 결과";
+"BRSlot.Control.Lines" = "라인";
+"BRSlot.Control.BetPerLine" = "라인당 베팅";
+"BRSlot.Classic.MaxBet" = "최대 베팅\n⚡ 25";
+"BRSlot.Customize" = "심볼 맞춤 설정";
+"BRSlot.Control.Spin" = "⚡  스핀";
+"BRSlot.Penny.Title" = "페니 슬롯";
+"BRSlot.Penny.Heading" = "🪙  페니 슬롯  🪙";
+"BRSlot.Penny.ScatterReward" = "EZCoin 3개 = 무료 스핀 5회 • 4개 = 15회 • 5개 이상 = 25회";
+"BRSlot.Penny.Description" = "9개의 페이라인 • 무료 스핀 중 배당 2배";
+"BRSlot.Odds.Title" = "배당표";
+"BRSlot.Odds.Subtitle" = "활성 라인의 왼쪽에서 오른쪽으로 일치하는 심볼 3개";
+"BRSlot.Odds.ClassicFooter" = "5개의 고정 페이라인: 상단, 중간, 하단, 양쪽 대각선. 가중 릴은 약 92% RTP를 목표로 합니다. 25 코인 최대 베팅에서 🧠 3개가 나오면 프로그레시브 잭팟도 획득합니다.";
+"BRSlot.Customizer.ClassicTitle" = "심볼 맞춤 설정";
+"BRSlot.Customizer.ClassicSubtitle" = "타일을 선택하여 사진 중 하나를 사용하세요. 아트워크는 이 기기에 그대로 유지됩니다.";
+"BRSlot.Customizer.PennyTitle" = "페니 슬롯 맞춤 설정";
+"BRSlot.Customizer.PennySubtitle" = "심볼을 탭하여 사진, 파일 또는 생성된 이미지를 선택하세요. 현재 아트가 여기에 표시됩니다.";
+"BRSlot.Customizer.ResetAll" = "↺  모든 아트워크 재설정";
+"BRSlot.Control.LinesValue" = "라인\n%ld";
+"BRSlot.Control.BetPerLineValue" = "라인당 베팅\n🪙 %ld";
+"BRSlot.Balance.Value" = "🪙 %ld EZ 코인";
+"BRSlot.Classic.LoungeTitle" = "Brainrot 라운지";
+"BRSlot.Penny.LoungeTitle" = "페니 슬롯 라운지";
+"BRSlot.Classic.FreeSpin" = "🎁  무료 스핀 (%ld회 남음)";
+"BRSlot.FreeSpin.NoWager" = "무료 제공 — 코인을 걸지 않습니다";
+"BRSlot.Classic.Jackpot" = "  프로그레시브 잭팟 • 최대 베팅(25)만 • 최대 %ld 코인까지 획득 • 🧠 3개를 맞춰 획득  ";
+"BRSlot.Error.SignInTitle" = "로그인 필요";
+"BRSlot.Error.SignInToSpin" = "EZ 코인으로 스핀하려면 로그인하세요.";
+"BRSlot.Classic.SpinningFree" = "무료 스핀을 돌리는 중…";
+"BRSlot.CheckingBalance" = "EZ 코인을 확인하는 중…";
+"BRSlot.Classic.NeedCoins" = "이 베팅에는 %ld 코인이 필요합니다 • 코인 스토어를 여는 중…";
+"BRSlot.Classic.StoreFeature" = "%ld 코인 슬롯 베팅";
+"BRSlot.Spinning" = "스핀 중…";
+"BRSlot.Error.SessionExpired" = "로그인 세션이 만료되었습니다.";
+"BRSlot.Penny.MaxBet" = "최대 베팅\n⚡ 225";
+"BRSlot.Penny.FreeSpin" = "무료 스핀…";
+"BRSlot.Penny.NeedCoins" = "이 스핀에는 %ld 코인이 필요합니다.";
+"BRSlot.Penny.FreeSpinsRemaining" = "⚡ 무료 스핀 %ld회 남음 • 모든 당첨 2배";
+"BRSlot.Penny.SignIn" = "페니 슬롯을 플레이하려면 로그인하세요.";
+"BRSlot.Penny.StoreFeature" = "페니 슬롯 — 추천 충전: 400 코인";
+"BRSlot.Error.InvalidSpin" = "잘못된 스핀 결과입니다.";
+"BRSlot.Pity.Title" = "😬 아, 힘든 판이었네요";
+"BRSlot.Pity.Body" = "이번 판은 잘 풀리지 않았네요. 무료로 %ld회 스핀을 더 드립니다.";
+"BRSlot.Pity.Action" = "가보죠! 🎰";
+"BRSlot.Win.Overlay" = "%@\n+%ld 코인";
+"BRSlot.Win.Jackpot" = "잭팟!";
+"BRSlot.Win.Winner" = "당첨!";
+"BRSlot.Lounge.SignIn" = "라운지에 참여하려면 로그인하세요.";
+"BRSlot.Lounge.Delete" = "삭제";
+"BRSlot.OK" = "확인";
+"BRSlot.Customizer.CustomImage" = "현재 맞춤 이미지를 사용 중입니다.";
+"BRSlot.Customizer.BuiltInClassic" = "현재 기본 제공 슬롯 이미지를 사용 중입니다.";
+"BRSlot.Customizer.BuiltInPenny" = "현재 기본 제공 페니 슬롯 이미지를 사용 중입니다.";
+"BRSlot.Generation.Cost" = "생성할 때마다 EZ 코인 3개가 필요합니다.";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZMusic.A11y.Lyrics" = "노래 가사";
+"EZMusic.A11y.Prompt" = "노래 프롬프트";
+"EZMusic.A11y.Remix" = "리믹스";
+"EZMusic.A11y.Rename" = "노래 이름 바꾸기";
+"EZMusic.A11y.ViewLyrics" = "가사 보기";
+"EZMusic.A11y.ViewPrompt" = "프롬프트 보기";
+"EZMusic.Action.Cancel" = "취소";
+"EZMusic.Action.Copied" = "복사됨";
+"EZMusic.Action.Copy" = "복사";
+"EZMusic.Action.Save" = "저장";
+"EZMusic.Menu.GenerateCover" = "생성";
+"EZMusic.Menu.Lyrics" = "가사";
+"EZMusic.Menu.Prompt" = "프롬프트";
+"EZMusic.Menu.Remix" = "리믹스";
+"EZMusic.Menu.Rename" = "이름 바꾸기";
+"EZMusic.Paywall.CreateMessage" = "무료 노래를 이미 만드셨습니다. 어떤 구매든 하면 노래를 무제한으로 만들 수 있습니다.";
+"EZMusic.Paywall.CreateTitle" = "구매 필요";
+"EZMusic.Paywall.ExportMessage" = "노래 내보내기는 유료 기능입니다. 어떤 구매든 하면 잠금 해제됩니다.";
+"EZMusic.Paywall.ExportTitle" = "구매 필요";
+"EZMusic.Paywall.ViewStore" = "스토어 보기";
+"EZMusic.Prompt.Title" = "프롬프트";
+"EZMusic.Rename.Placeholder" = "노래 제목";
+"EZMusic.Rename.Title" = "노래 이름 바꾸기";
+"EZMusic.Toast.Remix" = "리믹스를 불러왔습니다 — 원하는 대로 조정하고 생성을 탭하세요";
+"EZMusic.Toast.RenameFailed" = "이름을 바꿀 수 없습니다. 다시 시도하세요.";
+"EZChat.Paywall.Title" = "구매 필요";
+"EZChat.Paywall.PaidModelMessage" = "%@ 모델은 유료입니다. 구매하여 잠금 해제한 뒤 이 스레드로 돌아오세요.";
+"EZChat.SongPaywall.Message" = "무료 노래를 이미 만드셨습니다. 계속 노래를 만들려면 구매한 뒤 다시 요청하세요.";
+"EZChat.Paywall.ViewStore" = "스토어 보기";
+"EZChat.SongPaywall.NotNow" = "나중에";
+"EZCoinStore.Feature.AIMusic" = "AI 음악";
+"EZMemory.Player.Play" = "재생";
+"EZMemory.Player.Pause" = "일시 정지";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.OpenErrorTitle" = "노래를 열 수 없음";
+"EZMemory.Player.OpenErrorMessage" = "노래를 다운로드할 수 없습니다. 연결을 확인하고 다시 시도하세요.";
+"EZMemory.Player.OK" = "확인";
+"EZCoinStore.FreeSpins.Title" = "🎁 무료 스핀!";
+"EZCoinStore.FreeSpins.Message" = "Brainrot Slots에서 무료 스핀 %ld회를 받았습니다 — 한번 돌려보세요!";
+"EZCoinStore.FreeSpins.PlayNow" = "지금 플레이";
+"EZCoinStore.FreeSpins.Later" = "나중에";

@@ -1,0 +1,146 @@
+/* EZCoinStoreViewController localization */
+
+"EZCoinStore.Title" = "🪙 EZ 코인 스토어";
+
+"EZCoinStore.CancelPlan" = "요금제 취소";
+
+"EZCoinStore.Subscribe" = "구독하기";
+
+"EZCoinStore.BuyNow" = "지금 구매";
+
+"EZCoinStore.Badge.Buy1Get1" = "🔥 1개 사면 1개 무료";
+
+"EZCoinStore.Promo.SubscriptionBadgeFormat" = "+%ld 코인 무료*";
+
+"EZCoinStore.Promo.SubscriptionFootnote" = "*추가 코인은 일회성 보너스이며, 매월 지급액이 늘어나는 것은 아닙니다.";
+
+"EZCoinStore.Tier.Basic" = "베이직";
+
+"EZCoinStore.Tier.BasicSubtitle" = "400 코인 / 월\n가벼운 사용에 적합";
+
+"EZCoinStore.Tier.BasicPrice" = "$5 / 월";
+
+"EZCoinStore.Tier.Standard" = "스탠다드";
+
+"EZCoinStore.Tier.StandardSubtitle" = "900 코인 / 월\n일반 사용자에게 적합";
+
+"EZCoinStore.Tier.StandardPrice" = "$10 / 월";
+
+"EZCoinStore.Badge.Popular" = "인기";
+
+"EZCoinStore.Tier.Pro" = "프로";
+
+"EZCoinStore.Tier.ProSubtitle" = "1,600 코인 / 월\n매일 사용하는 사용자에게 적합";
+
+"EZCoinStore.Tier.ProPrice" = "$15 / 월";
+
+"EZCoinStore.Badge.BestValue" = "최고의 가성비";
+
+"EZCoinStore.Tier.Ultra" = "울트라";
+
+"EZCoinStore.Tier.UltraSubtitle" = "2,500 코인 / 월\n파워 유저 환영";
+
+"EZCoinStore.Tier.UltraPrice" = "$20 / 월";
+
+"EZCoinStore.Badge.Ultra" = "울트라";
+
+"EZCoinStore.TopUp.Starter" = "코인 스타터 팩";
+
+"EZCoinStore.TopUp.StarterSubtitle" = "400 코인, 일회성\n만료되지 않음";
+
+"EZCoinStore.TopUp.Value" = "코인 밸류 팩";
+
+"EZCoinStore.TopUp.ValueSubtitle" = "900 코인, 일회성\n만료되지 않음";
+
+"EZCoinStore.Badge.Save10" = "10% 할인";
+
+"EZCoinStore.Promo.Headline" = "🔥 1개 사면 1개 무료 🔥";
+
+"EZCoinStore.Promo.Subtitle" = "모든 코인 및 구독 — 기간 한정!";
+
+"EZCoinStore.LoadingBalance" = "잔액 불러오는 중...";
+
+"EZCoinStore.ThisFeature" = "이 기능";
+
+"EZCoinStore.NotEnoughCoins" = "⚠️ %@에 필요한 코인이 부족합니다. 아래에서 충전하세요.";
+
+"EZCoinStore.NoActiveSubscription" = "활성 구독 없음";
+
+"EZCoinStore.BalanceFormat" = "🪙 %ld 코인   •   %@";
+
+"EZCoinStore.Section.Subscriptions" = "구독";
+
+"EZCoinStore.Section.OneTimeTopUps" = "일회성 충전";
+
+"EZCoinStore.DailyCoins" = "🎁 데일리 코인";
+
+"EZCoinStore.DailyCoins.FreeFormat" = "🎁 +%ld 무료!";
+
+"EZCoinStore.DailyCoins.Free" = "🎁 무료 코인!";
+
+"EZCoinStore.DailyCoins.NextHours" = "🎁 다음: %ld시간 %ld분";
+
+"EZCoinStore.DailyCoins.NextMinutes" = "🎁 다음: %ld분 %ld초";
+
+"EZCoinStore.DailyCoins.NextSeconds" = "🎁 다음: %ld초";
+
+"EZCoinStore.DailyCoins.Claiming" = "⏳ 받는 중...";
+
+"EZCoinStore.Alert.NotSignedIn" = "로그인되어 있지 않음";
+
+"EZCoinStore.Alert.SignInDailyCoins" = "데일리 코인을 받으려면 로그인하세요.";
+
+"EZCoinStore.Alert.NetworkError" = "네트워크 오류";
+
+"EZCoinStore.Alert.ServerUnreachable" = "서버에 연결할 수 없습니다. 다시 시도하세요.";
+
+"EZCoinStore.Alert.AlreadyClaimed" = "이미 받음";
+
+"EZCoinStore.Alert.AlreadyClaimedMessage" = "이미 무료 코인을 받으셨습니다. 6시간 후에 다시 확인하세요!";
+
+"EZCoinStore.Alert.GenericRetry" = "문제가 발생했습니다. 다시 시도하세요.";
+
+"EZCoinStore.Alert.Error" = "오류";
+
+"EZCoinStore.Ledger" = "거래 내역";
+
+"EZCoinStore.Alert.NotLoggedIn" = "로그인되어 있지 않음";
+
+"EZCoinStore.Alert.SignInFirst" = "먼저 로그인하세요.";
+
+"EZCoinStore.Alert.CancelSubscription" = "구독을 취소할까요?";
+
+"EZCoinStore.Alert.CancelSubscriptionMessage" = "남은 코인은 계정에 그대로 유지됩니다. 이 작업은 되돌릴 수 없습니다.";
+
+"EZCoinStore.KeepPlan" = "요금제 유지";
+
+"EZCoinStore.Alert.Cancelled" = "취소됨";
+
+"EZCoinStore.Alert.CancelledMessage" = "구독이 취소되었습니다. 코인은 계속 사용할 수 있습니다.";
+
+"EZCoinStore.Alert.CancelFailed" = "구독을 취소할 수 없습니다. 다시 시도하세요.";
+
+"EZCoinStore.Alert.CheckoutStartFailed" = "결제를 시작할 수 없습니다. 다시 시도하세요.";
+
+"EZCoinStore.Alert.PurchaseConfirmFailed" = "구매를 확인할 수 없습니다. 잔액을 확인하세요 — 코인이 추가되었을 수 있습니다.";
+
+"EZCoinStore.Alert.PurchaseNotConfirmed" = "구매를 확인할 수 없습니다.";
+
+"EZCoinStore.Alert.PurchaseIssue" = "구매 문제";
+
+"EZCoinStore.Celebration.CoinsAdded" = "🪙 코인이 추가되었습니다!";
+
+"EZCoinStore.Celebration.AmountFormat" = "+%ld 코인";
+
+"EZCoinStore.Celebration.NewBalanceFormat" = "새 잔액: %ld 코인";
+
+"EZCoinStore.Celebration.Sweet" = "좋아요!";
+
+"EZCoinStore.OK" = "확인";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZCoinStore.Feature.AIMusic" = "AI 음악";
+"EZCoinStore.FreeSpins.Title" = "🎁 무료 스핀!";
+"EZCoinStore.FreeSpins.Message" = "Brainrot Slots에서 무료 스핀 %ld회를 받았습니다 — 한번 돌려보세요!";
+"EZCoinStore.FreeSpins.PlayNow" = "지금 플레이";
+"EZCoinStore.FreeSpins.Later" = "나중에";
