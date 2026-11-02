@@ -526,6 +526,6 @@
 "EZMemory.Player.OpenErrorMessage" = "Lagu tidak dapat diunduh. Periksa koneksi Anda dan coba lagi.";
 "EZMemory.Player.OK" = "OK";
 "EZCoinStore.FreeSpins.Title" = "🎁 Putaran Gratis!";
-"EZCoinStore.FreeSpins.Message" = "Anda mendapat %ld putaran gratis di Brainrot Slots — ayo putar!";
+"EZCoinStore.FreeSpins.Message" = "Kamu memenangkan %ld putaran gratis!";
 "EZCoinStore.FreeSpins.PlayNow" = "Main Sekarang";
 "EZCoinStore.FreeSpins.Later" = "Nanti";

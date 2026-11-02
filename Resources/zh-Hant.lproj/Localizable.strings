@@ -526,6 +526,6 @@
 "EZMemory.Player.OpenErrorMessage" = "無法下載歌曲。請檢查你的連線並再試一次。";
 "EZMemory.Player.OK" = "確定";
 "EZCoinStore.FreeSpins.Title" = "🎁 免費旋轉！";
-"EZCoinStore.FreeSpins.Message" = "你在 Brainrot Slots 獲得了 %ld 次免費旋轉 — 試試手氣吧！";
+"EZCoinStore.FreeSpins.Message" = "你贏得了 %ld 次免費旋轉！";
 "EZCoinStore.FreeSpins.PlayNow" = "立即遊玩";
 "EZCoinStore.FreeSpins.Later" = "稍後";

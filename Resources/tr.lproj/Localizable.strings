@@ -526,6 +526,6 @@
 "EZMemory.Player.OpenErrorMessage" = "Şarkı indirilemedi. Bağlantınızı kontrol edip tekrar deneyin.";
 "EZMemory.Player.OK" = "Tamam";
 "EZCoinStore.FreeSpins.Title" = "🎁 Ücretsiz Dönüşler!";
-"EZCoinStore.FreeSpins.Message" = "Brainrot Slots'ta %ld ücretsiz dönüş kazandınız — bir deneyin!";
+"EZCoinStore.FreeSpins.Message" = "%ld ücretsiz dönüş kazandınız!";
 "EZCoinStore.FreeSpins.PlayNow" = "Şimdi Oyna";
 "EZCoinStore.FreeSpins.Later" = "Sonra";

@@ -485,6 +485,6 @@
 "EZMemory.Player.OpenErrorMessage" = "ดาวน์โหลดเพลงไม่ได้ โปรดตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง";
 "EZMemory.Player.OK" = "ตกลง";
 "EZCoinStore.FreeSpins.Title" = "🎁 ฟรีสปิน!";
-"EZCoinStore.FreeSpins.Message" = "คุณได้รับฟรีสปิน %ld ครั้งใน Brainrot Slots — มาลองเลย!";
+"EZCoinStore.FreeSpins.Message" = "คุณชนะ %ld ฟรีสปิน!";
 "EZCoinStore.FreeSpins.PlayNow" = "เล่นเลย";
 "EZCoinStore.FreeSpins.Later" = "ไว้ทีหลัง";

@@ -485,6 +485,6 @@
 "EZMemory.Player.OpenErrorMessage" = "Không tải được bài hát. Kiểm tra kết nối và thử lại.";
 "EZMemory.Player.OK" = "OK";
 "EZCoinStore.FreeSpins.Title" = "🎁 Vòng quay miễn phí!";
-"EZCoinStore.FreeSpins.Message" = "Bạn nhận được %ld vòng quay miễn phí tại Brainrot Slots — chơi ngay!";
+"EZCoinStore.FreeSpins.Message" = "Bạn đã thắng %ld lượt quay miễn phí!";
 "EZCoinStore.FreeSpins.PlayNow" = "Chơi ngay";
 "EZCoinStore.FreeSpins.Later" = "Để sau";

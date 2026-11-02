@@ -507,6 +507,6 @@
 "EZMemory.Player.OpenErrorMessage" = "Não foi possível baixar a música. Verifique sua conexão e tente novamente.";
 "EZMemory.Player.OK" = "OK";
 "EZCoinStore.FreeSpins.Title" = "🎁 Giros grátis!";
-"EZCoinStore.FreeSpins.Message" = "Você ganhou %ld giros grátis no Brainrot Slots — tente a sorte!";
+"EZCoinStore.FreeSpins.Message" = "Você ganhou %ld giros grátis!";
 "EZCoinStore.FreeSpins.PlayNow" = "Jogar agora";
 "EZCoinStore.FreeSpins.Later" = "Depois";

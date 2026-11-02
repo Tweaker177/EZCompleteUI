@@ -485,6 +485,6 @@
 "EZMemory.Player.OpenErrorMessage" = "गाना डाउनलोड नहीं हो सका। अपना कनेक्शन जांचें और फिर से प्रयास करें।";
 "EZMemory.Player.OK" = "ठीक है";
 "EZCoinStore.FreeSpins.Title" = "🎁 मुफ़्त स्पिन!";
-"EZCoinStore.FreeSpins.Message" = "आपको Brainrot Slots पर %ld मुफ़्त स्पिन मिले — खेलकर देखें!";
+"EZCoinStore.FreeSpins.Message" = "आपने %ld मुफ़्त स्पिन जीते!";
 "EZCoinStore.FreeSpins.PlayNow" = "अभी खेलें";
 "EZCoinStore.FreeSpins.Later" = "बाद में";
