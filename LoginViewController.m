@@ -38,6 +38,7 @@
 
 #import "LoginViewController.h"
 #import "EZAuthManager.h"
+#import "EZReferralManager.h"
 #import "ViewController.h"
 
 // Defined in EZAuthManager.m, declared extern in EZAuthManager.h.
@@ -69,6 +70,9 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 @property (nonatomic, strong) UILabel                   *savedAccountLabel;
 @property (nonatomic, strong) UILabel                   *buildLabel;
 @property (nonatomic, assign) BOOL                       isSignUpMode;
+@property (nonatomic, strong) UITextField                *referralField;
+@property (nonatomic, strong) NSLayoutConstraint         *referralTopConstraint;
+@property (nonatomic, strong) NSLayoutConstraint         *referralHeightConstraint;
 
 // ── Password reset overlay ────────────────────────────────────────────────────
 // Shown when a password reset deep link is received. Covers the full screen.
@@ -214,6 +218,15 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     self.passwordField.rightView = self.passwordVisibilityButton;
     self.passwordField.rightViewMode = UITextFieldViewModeAlways;
 
+    // Referral code — optional, sign-up mode only. Collapsed to zero
+    // height in sign-in mode (see toggleMode).
+    self.referralField = [self makeTextField:@"Referral code (optional)" secure:NO];
+    self.referralField.autocapitalizationType = UITextAutocapitalizationTypeAllCharacters;
+    self.referralField.autocorrectionType = UITextAutocorrectionTypeNo;
+    self.referralField.returnKeyType = UIReturnKeyGo;
+    self.referralField.delegate = self;
+    self.referralField.hidden = YES;
+
     // Message label — red for errors, green for info (password reset sent, etc.)
     self.messageLabel = [[UILabel alloc] init];
     self.messageLabel.textColor = [UIColor systemRedColor];
@@ -261,15 +274,24 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
     for (UIView *subview in @[
         self.titleLabel, self.subtitleLabel, self.savedAccountLabel,
-        self.emailField, self.passwordField, self.messageLabel,
+        self.emailField, self.passwordField, self.referralField, self.messageLabel,
         self.forgotPasswordButton, self.loginButton,
         self.toggleModeButton, self.spinner, self.buildLabel
     ]) {
         [self.containerView addSubview:subview];
     }
 
+    self.referralTopConstraint = [self.referralField.topAnchor
+        constraintEqualToAnchor:self.passwordField.bottomAnchor constant:0];
+    self.referralHeightConstraint = [self.referralField.heightAnchor
+        constraintEqualToConstant:0];
+
     UILayoutGuide *safeArea = self.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
+        self.referralTopConstraint,
+        self.referralHeightConstraint,
+        [self.referralField.leadingAnchor  constraintEqualToAnchor:self.containerView.leadingAnchor constant:24],
+        [self.referralField.trailingAnchor constraintEqualToAnchor:self.containerView.trailingAnchor constant:-24],
         [self.scrollView.topAnchor      constraintEqualToAnchor:safeArea.topAnchor],
         [self.scrollView.leadingAnchor  constraintEqualToAnchor:self.view.leadingAnchor],
         [self.scrollView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
@@ -303,7 +325,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
         [self.passwordField.trailingAnchor constraintEqualToAnchor:self.containerView.trailingAnchor constant:-24],
         [self.passwordField.heightAnchor   constraintEqualToConstant:52],
 
-        [self.forgotPasswordButton.topAnchor      constraintEqualToAnchor:self.passwordField.bottomAnchor constant:6],
+        [self.forgotPasswordButton.topAnchor      constraintEqualToAnchor:self.referralField.bottomAnchor constant:6],
         [self.forgotPasswordButton.trailingAnchor constraintEqualToAnchor:self.containerView.trailingAnchor constant:-24],
 
         [self.messageLabel.topAnchor      constraintEqualToAnchor:self.forgotPasswordButton.bottomAnchor constant:8],
@@ -622,6 +644,9 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     } else if (textField == self.passwordField) {
         [self.passwordField resignFirstResponder];
         [self handleLogin];
+    } else if (textField == self.referralField) {
+        [self.referralField resignFirstResponder];
+        [self handleLogin];
     } else if (textField == self.resetPasswordField) {
         // Move to confirm field when user taps Next in the reset overlay
         [self.confirmPasswordField becomeFirstResponder];
@@ -658,6 +683,9 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
                                forState:UIControlStateNormal];
         self.savedAccountLabel.hidden = YES;
         self.forgotPasswordButton.hidden = YES;
+        self.referralField.hidden = NO;
+        self.referralTopConstraint.constant = 12;
+        self.referralHeightConstraint.constant = 52;
     } else {
         self.subtitleLabel.text = @"Sign in to continue";
         self.subtitleLabel.textColor = [UIColor secondaryLabelColor];
@@ -665,6 +693,9 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
         [self.toggleModeButton setTitle:@"Don't have an account? Sign Up"
                                forState:UIControlStateNormal];
         self.forgotPasswordButton.hidden = NO;
+        self.referralField.hidden = YES;
+        self.referralTopConstraint.constant = 0;
+        self.referralHeightConstraint.constant = 0;
         [self prefillSavedEmail];
     }
 
@@ -706,6 +737,13 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
         return;
     }
 
+    // Stash a referral code before the auth call: if sign-up requires
+    // email confirmation, no session exists yet, and the code is redeemed
+    // on the first signed-in launch instead.
+    if (self.isSignUpMode && self.referralField.text.length) {
+        [EZReferralManager stashPendingReferralCode:self.referralField.text];
+    }
+
     [self setLoading:YES];
     self.messageLabel.hidden = YES;
 
@@ -722,6 +760,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
                 // Full authentication — save email for prefill and go to app
                 [[NSUserDefaults standardUserDefaults] setObject:email forKey:kLastEmailKey];
                 [[NSUserDefaults standardUserDefaults] synchronize];
+                [EZReferralManager applyPendingReferralCode];
                 [self proceedToApp];
             } else {
                 // Sign-up succeeded but email confirmation is required.
