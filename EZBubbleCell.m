@@ -11,6 +11,11 @@
     NSLayoutConstraint *_metaLeading;     // pins meta label to left of content view
     BOOL _isUser;
     CGFloat _swipeOffset;                 // current horizontal offset of bubbleView
+    UIView     *_reactionBadge;           // tapback-style pill, hidden unless set
+    UILabel    *_reactionLabel;
+    NSLayoutConstraint *_reactionBadgeLeading;   // user bubbles: badge at leading edge
+    NSLayoutConstraint *_reactionBadgeTrailing;  // assistant bubbles: badge at trailing edge
+    NSLayoutConstraint *_bubbleBottomConstraint; // deepens when a badge needs room
 }
 
 // ─── init ──────────────────────────────────────────────────────────────────
@@ -52,9 +57,10 @@
     [self.contentView addSubview:_bubbleView];
 
     // Text view fills bubble
+    _bubbleBottomConstraint = [_bubbleView.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-4];
     [NSLayoutConstraint activateConstraints:@[
         [_bubbleView.topAnchor    constraintEqualToAnchor:self.contentView.topAnchor    constant:4],
-        [_bubbleView.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-4],
+        _bubbleBottomConstraint,
         [_messageTextView.topAnchor     constraintEqualToAnchor:_bubbleView.topAnchor],
         [_messageTextView.bottomAnchor  constraintEqualToAnchor:_bubbleView.bottomAnchor],
         [_messageTextView.leadingAnchor  constraintEqualToAnchor:_bubbleView.leadingAnchor],
@@ -73,6 +79,39 @@
     ]];
     // Horizontal pin constraints are created lazily in configure because
     // they depend on whether this is a user or assistant bubble.
+
+    // ── Reaction badge (tapback-style) ──────────────────────────────────────
+    // Overlaps the bubble's bottom corner, on the side toward the middle
+    // of the screen. Hidden until setReactionEmoji: gives it an emoji;
+    // the bubble's bottom inset deepens then so the badge stays inside
+    // the (clipping) cell bounds.
+    _reactionBadge = [[UIView alloc] init];
+    _reactionBadge.translatesAutoresizingMaskIntoConstraints = NO;
+    _reactionBadge.layer.cornerRadius = 10.0;
+    _reactionBadge.clipsToBounds = YES;
+    _reactionBadge.backgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
+        return tc.userInterfaceStyle == UIUserInterfaceStyleDark
+            ? [UIColor colorWithRed:0.28 green:0.28 blue:0.30 alpha:1.0]
+            : [UIColor colorWithRed:0.95 green:0.95 blue:0.97 alpha:1.0];
+    }];
+    _reactionBadge.layer.borderWidth = 1.0;
+    _reactionBadge.layer.borderColor = [UIColor colorWithWhite:0.5 alpha:0.25].CGColor;
+    _reactionBadge.hidden = YES;
+    _reactionLabel = [[UILabel alloc] init];
+    _reactionLabel.font = [UIFont systemFontOfSize:12];
+    _reactionLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    [_reactionBadge addSubview:_reactionLabel];
+    [self.contentView addSubview:_reactionBadge];
+    _reactionBadgeLeading  = [_reactionBadge.leadingAnchor  constraintEqualToAnchor:_bubbleView.leadingAnchor  constant:8];
+    _reactionBadgeTrailing = [_reactionBadge.trailingAnchor constraintEqualToAnchor:_bubbleView.trailingAnchor constant:-8];
+    [NSLayoutConstraint activateConstraints:@[
+        [_reactionBadge.centerYAnchor constraintEqualToAnchor:_bubbleView.bottomAnchor],
+        [_reactionBadge.heightAnchor constraintEqualToConstant:20],
+        [_reactionLabel.centerXAnchor constraintEqualToAnchor:_reactionBadge.centerXAnchor],
+        [_reactionLabel.centerYAnchor constraintEqualToAnchor:_reactionBadge.centerYAnchor],
+        [_reactionLabel.leadingAnchor constraintEqualToAnchor:_reactionBadge.leadingAnchor constant:5],
+        [_reactionLabel.trailingAnchor constraintEqualToAnchor:_reactionBadge.trailingAnchor constant:-5],
+    ]];
 
     // ── Pan gesture for swipe-to-reveal ─────────────────────────────────────
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc]
@@ -194,6 +233,22 @@
 //   • Release    → springs back to origin, meta label fades out
 //
 // For assistant (left-aligned) bubbles we mirror: drag right reveals meta on left.
+
+- (void)setReactionEmoji:(NSString *)emoji {
+    if (emoji.length) {
+        _reactionLabel.text = emoji;
+        _reactionBadge.hidden = NO;
+        _reactionBadgeLeading.active = _isUser;
+        _reactionBadgeTrailing.active = !_isUser;
+        _bubbleBottomConstraint.constant = -14;
+    } else {
+        _reactionLabel.text = nil;
+        _reactionBadge.hidden = YES;
+        _reactionBadgeLeading.active = NO;
+        _reactionBadgeTrailing.active = NO;
+        _bubbleBottomConstraint.constant = -4;
+    }
+}
 
 - (void)_handleSwipePan:(UIPanGestureRecognizer *)pan {
     static const CGFloat kMaxReveal = 140.0;

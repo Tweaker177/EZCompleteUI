@@ -1056,6 +1056,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (NSArray<NSString *> *)heuristicStatusStepsForPrompt:(NSString *)prompt;
 - (void)fetchModelStatusStepsForPrompt:(NSString *)prompt familyName:(NSString *)family;
 - (NSArray<NSString *> *)statusStepsFromReplyText:(NSString *)text;
+- (NSDictionary *)statusStepsAndReactionFromReplyText:(NSString *)text;
 - (void)showStatusBannerWithMessages:(NSArray<NSString *> *)messages;
 - (void)hideStatusBanner;
 - (void)showThinkingPlaceholder;
@@ -7723,6 +7724,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
                       timestamp:msg[@"timestamp"]
                         chatKey:msg[@"chatKey"]
                        threadID:msg[@"threadID"]];
+        [cell setReactionEmoji:msg[@"reaction"]];
         [self ez_attachCopyInteractionToCellIfNeeded:cell];
         [self configureThreadSelectionDotForCell:cell indexPath:indexPath];
         return cell;
@@ -7988,6 +7990,19 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 - (void)fetchModelStatusStepsForPrompt:(NSString *)prompt familyName:(NSString *)family {
     NSString *token = [EZAuthManager shared].accessToken;
     if (!prompt.length || !token.length) return;
+    // The user message this call is reacting to. Pointer identity is the
+    // check: if the thread was rebuilt (copies) or the row moved on, the
+    // reaction is dropped silently rather than landing on a wrong bubble.
+    NSDictionary *capturedUserEntry = nil;
+    NSInteger capturedUserRow = -1;
+    for (NSInteger i = (NSInteger)self.displayMessages.count - 1; i >= 0; i--) {
+        NSDictionary *entry = self.displayMessages[(NSUInteger)i];
+        if ([entry[@"role"] isEqualToString:@"user"]) {
+            capturedUserEntry = entry;
+            capturedUserRow = i;
+            break;
+        }
+    }
     NSUInteger generation = ++self.statusStepsGeneration;
     NSString *trimmed = prompt.length > 1000 ? [prompt substringToIndex:1000] : prompt;
     NSDictionary *body = @{
@@ -7997,7 +8012,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         @"max_tokens": @300,
         @"messages": @[
             @{@"role": @"system", @"content":
-                @"You write progress status lines for a chat app. Given the user's request, reply with ONLY a JSON array of 4 or 5 short status strings to display while the request is being processed. Each string is a present-continuous phrase under 60 characters ending with …. Describe plausible steps for THIS specific request (for a coding request, steps like analyzing the existing code, checking the official documentation, writing the code, sanity-checking). Output the JSON array only — no markdown fences, no other text."},
+                @"You write progress status lines for a chat app. Given the user's request, reply with ONLY a JSON object of the form {\"reaction\": <emoji or null>, \"steps\": [<status strings>]}. The reaction is a single emoji you would tap in a chat app to react to the user's message itself, chosen ONLY when one clearly fits — never forced. Valid reactions and when they fit: 💡 an idea or suggestion, ❤️ something sweet, kind, or romantic, 👍 a simple request, a thank-you, or agreement, 😂 something genuinely funny, 🤔 a genuinely hard problem, 🎉 good news or a celebration, 🔥 impressive work, 💪 hard effort, 🙏 gratitude, ✨ something creative or delightful, 👀 something surprising. Most messages deserve NO reaction — when in doubt, use null. Never use an emoji outside that list. The steps are 4 or 5 short status strings to display while the request is being processed. Each string is a present-continuous phrase under 60 characters ending with …. Describe plausible steps for THIS specific request (for a coding request, steps like analyzing the existing code, checking the official documentation, writing the code, sanity-checking). Output the JSON object only — no markdown fences, no other text."},
             @{@"role": @"user", @"content": trimmed},
         ],
     };
@@ -8015,19 +8030,35 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
         if (![json isKindOfClass:[NSDictionary class]] || json[@"error"]) return;
         NSString *reply = [json[@"reply"] isKindOfClass:[NSString class]] ? json[@"reply"] : nil;
-        NSArray<NSString *> *steps = [weakSelf statusStepsFromReplyText:reply];
-        if (!steps.count) return;
+        NSDictionary *parsed = [weakSelf statusStepsAndReactionFromReplyText:reply];
+        NSArray<NSString *> *steps = parsed[@"steps"];
+        NSString *reaction = [parsed[@"reaction"] isKindOfClass:[NSString class]] ? parsed[@"reaction"] : nil;
+        if (!steps.count && !reaction.length) return;
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(weakSelf) self = weakSelf;
             if (!self || generation != self.statusStepsGeneration) return;
             if (!self.statusBannerTimer || !self.statusBannerIsChatWait) return;
-            NSMutableArray<NSString *> *messages = [NSMutableArray arrayWithObject:
-                [NSString stringWithFormat:@"%@ is thinking…", family]];
-            [messages addObjectsFromArray:steps];
-            [messages addObject:[NSString stringWithFormat:@"Still working — %@ can take up to 3 min", family]];
-            self.statusBannerMessages = messages;
-            self.statusBannerPhase = 0;
-            [self tickStatusBanner];
+            if (steps.count) {
+                NSMutableArray<NSString *> *messages = [NSMutableArray arrayWithObject:
+                    [NSString stringWithFormat:@"%@ is thinking…", family]];
+                [messages addObjectsFromArray:steps];
+                [messages addObject:[NSString stringWithFormat:@"Still working — %@ can take up to 3 min", family]];
+                self.statusBannerMessages = messages;
+                self.statusBannerPhase = 0;
+                [self tickStatusBanner];
+            }
+            // Reaction lands on the exact bubble this call was for, and
+            // only if that entry is still sitting untouched at its row.
+            if (reaction.length && capturedUserEntry && capturedUserRow >= 0 &&
+                capturedUserRow < (NSInteger)self.displayMessages.count &&
+                self.displayMessages[(NSUInteger)capturedUserRow] == capturedUserEntry) {
+                NSMutableDictionary *updated = [capturedUserEntry mutableCopy];
+                updated[@"reaction"] = reaction;
+                self.displayMessages[(NSUInteger)capturedUserRow] = updated;
+                [self.chatTableView reloadRowsAtIndexPaths:@[
+                    [NSIndexPath indexPathForRow:capturedUserRow inSection:0]]
+                    withRowAnimation:UITableViewRowAnimationFade];
+            }
         });
     }] resume];
 }
@@ -8056,6 +8087,58 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         if (steps.count >= 5) break;
     }
     return steps.count >= 3 ? steps : nil;
+}
+
+/// Parses the status helper's reply: {"reaction": <emoji|null>, "steps":
+/// [...]}. The reaction is accepted only from a fixed whitelist (the
+/// model can return anything; anything else is ignored), and the steps
+/// go through the same cleaning as the array format. A bare JSON array
+/// reply (the old format) still yields steps via the original parser,
+/// with no reaction. Returns nil when neither part is usable.
+- (NSDictionary *)statusStepsAndReactionFromReplyText:(NSString *)text {
+    if (!text.length) return nil;
+    NSString *reaction = nil;
+    NSArray<NSString *> *steps = nil;
+    NSRange open = [text rangeOfString:@"{"];
+    NSRange close = [text rangeOfString:@"}" options:NSBackwardsSearch];
+    if (open.location != NSNotFound && close.location != NSNotFound &&
+        close.location > open.location) {
+        NSString *jsonText = [text substringWithRange:NSMakeRange(open.location,
+                                                    close.location - open.location + 1)];
+        id parsed = [NSJSONSerialization JSONObjectWithData:
+            [jsonText dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+        if ([parsed isKindOfClass:[NSDictionary class]]) {
+            id rawReaction = parsed[@"reaction"];
+            if ([rawReaction isKindOfClass:[NSString class]]) {
+                NSString *candidate = [(NSString *)rawReaction
+                    stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                if ([candidate isEqualToString:@"❤"]) candidate = @"❤️";
+                static NSSet<NSString *> *allowedReactions;
+                static dispatch_once_t onceToken;
+                dispatch_once(&onceToken, ^{
+                    allowedReactions = [NSSet setWithArray:@[@"👍", @"❤️", @"💡", @"😂", @"🤔", @"✨", @"🎉", @"🔥", @"💪", @"🙏", @"👀"]];
+                });
+                if ([allowedReactions containsObject:candidate]) reaction = candidate;
+            }
+            id rawSteps = parsed[@"steps"];
+            if ([rawSteps isKindOfClass:[NSArray class]]) {
+                NSMutableArray<NSString *> *cleaned = [NSMutableArray array];
+                for (id item in (NSArray *)rawSteps) {
+                    if (![item isKindOfClass:[NSString class]]) continue;
+                    NSString *step = [(NSString *)item stringByTrimmingCharactersInSet:
+                        [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                    if (!step.length) continue;
+                    if (step.length > 70) step = [[step substringToIndex:67] stringByAppendingString:@"…"];
+                    [cleaned addObject:step];
+                    if (cleaned.count >= 5) break;
+                }
+                if (cleaned.count >= 3) steps = cleaned;
+            }
+        }
+    }
+    if (!steps) steps = [self statusStepsFromReplyText:text];
+    if (!steps && !reaction) return nil;
+    return @{ @"steps": steps ?: @[], @"reaction": reaction ?: (id)[NSNull null] };
 }
 - (void)hideGPT5StatusBanner {
     [self hideStatusBanner];
