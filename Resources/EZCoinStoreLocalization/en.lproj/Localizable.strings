@@ -137,3 +137,10 @@
 "EZCoinStore.Celebration.Sweet" = "Sweet!";
 
 "EZCoinStore.OK" = "OK";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZCoinStore.Feature.AIMusic" = "AI music";
+"EZCoinStore.FreeSpins.Title" = "🎁 Free Spins!";
+"EZCoinStore.FreeSpins.Message" = "You got %ld free spins on Brainrot Slots — give them a pull!";
+"EZCoinStore.FreeSpins.PlayNow" = "Play Now";
+"EZCoinStore.FreeSpins.Later" = "Later";

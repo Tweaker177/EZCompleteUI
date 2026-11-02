@@ -129,6 +129,8 @@
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12 500 монет в месяц\nДля всех нужд вашего бизнеса";
+"EZCoinStore.Tier.UnlimitedChat" = "Безлимитный чат";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "Безлимитный чат на новейших моделях\nAstra 50/день · Sol 100/день · Luna и Terra без лимита · 400 монет в месяц";
 
 "EZCoinStore.TopUp.Starter" = "Стартовый пакет монет";
 
@@ -440,7 +442,7 @@
 "BRSlot.Penny.Description" = "9 линий выплат • 2 × выплаты во время бесплатных вращений";
 "BRSlot.Odds.Title" = "Таблица выплат";
 "BRSlot.Odds.Subtitle" = "Три одинаковых символа слева направо на любой активной линии.";
-"BRSlot.Odds.ClassicFooter" = "5 фиксированных линий выплат: верхняя, средняя, нижняя и обе диагонали. Взвешенные барабаны нацелены на показатель RTP примерно 92%. Тройной 🧠 при максимальной ставке в 25 монет также дает прогрессивный джекпот.";
+"BRSlot.Odds.ClassicFooter" = "5 фиксированных линий выплат: верхняя, средняя, нижняя и обе диагонали. Взвешенные барабаны нацелены на показатель RTP примерно 93%. Тройной 🧠 при максимальной ставке в 25 монет также дает прогрессивный джекпот.";
 "BRSlot.Customizer.ClassicTitle" = "Настройте свои символы";
 "BRSlot.Customizer.ClassicSubtitle" = "Выберите плитку, чтобы использовать одну из ваших фотографий. Ваши работы останутся на этом устройстве.";
 "BRSlot.Customizer.PennyTitle" = "Настройте пенни-слоты";
@@ -482,3 +484,47 @@
 "BRSlot.Customizer.BuiltInClassic" = "В настоящее время используется встроенный образ слота.";
 "BRSlot.Customizer.BuiltInPenny" = "В настоящее время используется встроенный образ Penny Slots.";
 "BRSlot.Generation.Cost" = "Каждое поколение стоит 3 монеты EZ.";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZMusic.A11y.Lyrics" = "Текст песни";
+"EZMusic.A11y.Prompt" = "Промпт песни";
+"EZMusic.A11y.Remix" = "Ремикс";
+"EZMusic.A11y.Rename" = "Переименовать песню";
+"EZMusic.A11y.ViewLyrics" = "Показать текст";
+"EZMusic.A11y.ViewPrompt" = "Показать промпт";
+"EZMusic.Action.Cancel" = "Отмена";
+"EZMusic.Action.Copied" = "Скопировано";
+"EZMusic.Action.Copy" = "Копировать";
+"EZMusic.Action.Save" = "Сохранить";
+"EZMusic.Menu.GenerateCover" = "Создать";
+"EZMusic.Menu.Lyrics" = "Текст";
+"EZMusic.Menu.Prompt" = "Промпт";
+"EZMusic.Menu.Remix" = "Ремикс";
+"EZMusic.Menu.Rename" = "Переименовать";
+"EZMusic.Paywall.CreateMessage" = "Вы уже создали свою бесплатную песню. Любая покупка открывает безлимитное создание песен.";
+"EZMusic.Paywall.CreateTitle" = "Требуется покупка";
+"EZMusic.Paywall.ExportMessage" = "Экспорт песен — платная функция. Любая покупка её открывает.";
+"EZMusic.Paywall.ExportTitle" = "Требуется покупка";
+"EZMusic.Paywall.ViewStore" = "Открыть магазин";
+"EZMusic.Prompt.Title" = "Промпт";
+"EZMusic.Rename.Placeholder" = "Название песни";
+"EZMusic.Rename.Title" = "Переименовать песню";
+"EZMusic.Toast.Remix" = "Ремикс загружен — измените что угодно и нажмите «Создать»";
+"EZMusic.Toast.RenameFailed" = "Не удалось переименовать. Попробуйте ещё раз.";
+"EZChat.Paywall.Title" = "Требуется покупка";
+"EZChat.Paywall.PaidModelMessage" = "%@ — платная модель. Сделайте покупку, чтобы открыть её, и вернитесь к этой беседе.";
+"EZChat.SongPaywall.Message" = "Вы уже создали свою бесплатную песню. Сделайте любую покупку, чтобы продолжить создавать песни, и попросите снова.";
+"EZChat.Paywall.ViewStore" = "Открыть магазин";
+"EZChat.SongPaywall.NotNow" = "Не сейчас";
+"EZCoinStore.Feature.AIMusic" = "Музыка ИИ";
+"EZMemory.Player.Play" = "Воспроизвести";
+"EZMemory.Player.Pause" = "Пауза";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.OpenErrorTitle" = "Не удалось открыть песню";
+"EZMemory.Player.OpenErrorMessage" = "Не удалось загрузить песню. Проверьте соединение и попробуйте снова.";
+"EZMemory.Player.OK" = "OK";
+"EZCoinStore.FreeSpins.Title" = "🎁 Бесплатные спины!";
+"EZCoinStore.FreeSpins.Message" = "Вы выиграли %ld бесплатных вращений!";
+"EZCoinStore.FreeSpins.PlayNow" = "Играть";
+"EZCoinStore.FreeSpins.Later" = "Позже";

@@ -243,6 +243,8 @@ static NSString *const kTierProAnnual      = @"pro_annual";
 
 static NSString *const kTierUltraAnnual    = @"ultra_annual";
 
+static NSString *const kTierUnlimitedChat = @"unlimited_chat";
+
 // ── Promo banner ───────────────────────────────────────────────────────────────
 
 // Height reserved at the top of the table header when a promo is running.
@@ -635,6 +637,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, assign) BOOL       openSlotAfterClaimCelebration; // Set only by a successful daily claim; dismissing that celebration opens the first Brainrot slot
 
+@property (nonatomic, assign) NSInteger  pendingClaimSpins; // Free spins awarded alongside a coins claim (spins_added in the claim response); celebrated once the coin celebration is dismissed
+
 @property (nonatomic, assign) NSInteger  dailyCoinsPendingAmount; // 10 or 15 depending on membership; from server
 
 //@property (nonatomic, strong) NSTimer   *countdownTimer;         // Fires every second to tick the "Next: Xh Ym Xs" label
@@ -933,6 +937,27 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         enterprise.badgeText   = NSLocalizedString(@"EZCoinStore.Badge.Enterprise", @"Enterprise tier badge");
     [self applySubscriptionPromoBadgeToItem:enterprise];
     [items addObject:enterprise];
+
+    // Unlimited Chat — a chat-only plan, priced flat at $50/mo. It is NOT a
+    // coin plan: chat on the newest models is unlimited while the plan is
+    // active (enforced server-side in ez-chat; Astra capped at 50 msgs/day,
+    // Sol at 100/day, Luna and Terra uncapped), and the 400 coins are the
+    // same general-purpose grant Basic carries, usable for images, music,
+    // TTS, and everything else coins buy. No annual variant — the annual
+    // upsell list in the tap handler deliberately omits this tier.
+    EZStoreItem *unlimitedChat    = [EZStoreItem new];
+    unlimitedChat.title           = NSLocalizedString(@"EZCoinStore.Tier.UnlimitedChat", @"Unlimited Chat subscription tier name");
+    unlimitedChat.subtitle        = NSLocalizedString(@"EZCoinStore.Tier.UnlimitedChatSubtitle", @"Unlimited Chat subscription description");
+    unlimitedChat.priceString     = @"$50.00/mo";
+    unlimitedChat.planOrPackageID = kTierUnlimitedChat;
+    unlimitedChat.type            = EZStoreItemTypeSubscription;
+    unlimitedChat.coins           = 400;
+    unlimitedChat.accentColor     = [UIColor systemCyanColor];
+    unlimitedChat.isCurrentPlan   = isActive && [currentTier isEqualToString:@"unlimited_chat"];
+    if ([currentTier isEqualToString:@"unlimited_chat"] && !isActive && currentStatus)
+        unlimitedChat.badgeText   = currentStatus.uppercaseString;
+    [self applySubscriptionPromoBadgeToItem:unlimitedChat];
+    [items addObject:unlimitedChat];
 
     // ── One-time top-ups ──────────────────────────────────────────────────────
 
@@ -1825,6 +1850,13 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
                     // first Brainrot slot (see dismissCelebration:).
                     self.openSlotAfterClaimCelebration = YES;
 
+                    // The claim may also award free spins alongside the
+                    // coins (spins_added, rolled server-side). They get
+                    // their own celebration once this one is dismissed
+                    // (see dismissCelebration:). Absent the field this
+                    // stays 0 and the claim behaves exactly as before.
+                    self.pendingClaimSpins = jsonInteger(json, @"spins_added");
+
                     [self showCoinCelebration:coinsAdded newBalance:newBalance];
 
                 }
@@ -2620,15 +2652,15 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     UIAlertController *alert = [UIAlertController
 
-        alertControllerWithTitle:@"🎁 Free Spins!"
+        alertControllerWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.Title", @"Free spins celebration title")
 
-                         message:[NSString stringWithFormat:@"You got %ld free spins on Brainrot Slots — give them a pull!", (long)spinsAdded]
+                         message:[NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.Message", @"Free spins celebration message"), (long)spinsAdded]
 
                   preferredStyle:UIAlertControllerStyleAlert];
 
     __weak typeof(self) weakSelf = self;
 
-    [alert addAction:[UIAlertAction actionWithTitle:@"Play Now"
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.PlayNow", @"Play now button")
 
                                               style:UIAlertActionStyleDefault
 
@@ -2638,7 +2670,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     }]];
 
-    [alert addAction:[UIAlertAction actionWithTitle:@"Later"
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.Later", @"Later button")
 
                                               style:UIAlertActionStyleCancel
 
@@ -2837,6 +2869,22 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         [overlay removeFromSuperview];
 
         self.storePotView = nil;
+
+        // Spins awarded alongside the coins get their own celebration
+        // first — its Play Now button opens the same first slot.
+        if (self.pendingClaimSpins > 0) {
+
+            NSInteger spins = self.pendingClaimSpins;
+
+            self.pendingClaimSpins = 0;
+
+            self.openSlotAfterClaimCelebration = NO;
+
+            [self showFreeSpinsCelebration:spins];
+
+            return;
+
+        }
 
         // A successful daily claim continues straight into the first
         // Brainrot slot once its celebration is dismissed. Purchase and

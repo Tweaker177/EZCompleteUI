@@ -76,6 +76,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
 @property (nonatomic, copy) NSString *pendingImageSymbol;
 @property (nonatomic, copy) NSDictionary<NSString *, UIImage *> *customImages;
 @property (nonatomic) NSInteger lines, betIndex, freeSpinsRemaining;
+@property (nonatomic) NSInteger freeSpinSessionTotal; // Coins won across the current free-spin run; celebrated when the run ends, mirroring the Classic machine
 @property (nonatomic) BOOL spinning, celebrating;
 @property (nonatomic) NSUInteger animationID;
 @end
@@ -273,6 +274,8 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.56*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
         NSInteger payout=[result[@"payout"] integerValue],balance=[result[@"balance"] integerValue],awarded=[result[@"free_spins_awarded"] integerValue];
         self.freeSpinsRemaining=[result[@"free_spins_remaining"] integerValue]; [self updateBonusLabel];
+        BOOL wasFreeSpin=[result[@"was_free_spin"] boolValue];
+        if (wasFreeSpin) self.freeSpinSessionTotal+=payout;
         [EZEntitlementManager.shared applyKnownBalance:balance]; self.balanceLabel.text=[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
         for (NSArray *col in self.reels) for (UIImageView *tile in col) tile.layer.borderWidth=0;
         for (NSDictionary *line in result[@"winning_lines"]) for (NSInteger col=0;col<[line[@"matches"] integerValue] && col<5;col++) { NSInteger row=[line[@"rows"][col] integerValue]; if (row>=0 && row<3) { UIImageView *tile=self.reels[col][row]; tile.layer.borderWidth=3; tile.layer.borderColor=UIColor.systemYellowColor.CGColor; } }
@@ -281,6 +284,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
         if (payout || awarded) { [self playTheme:@"brainrot-theme2"]; [self showWin:payout awarded:awarded]; } else { [self.lossPlayer stop]; self.lossPlayer.currentTime=0; [self.lossPlayer play]; [self playTheme:@"brainrot-theme1"]; }
         self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=self.customizeButton.enabled=YES; [self updateBonusLabel];
         if (balance==0 && self.freeSpinsRemaining==0) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.5*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self showCoinStore]; });
+        if (wasFreeSpin && self.freeSpinsRemaining==0 && self.freeSpinSessionTotal>0) { NSInteger total=self.freeSpinSessionTotal; self.freeSpinSessionTotal=0; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.75*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self showFreeSpinsComplete:total]; }); }
     });
 }
 - (void)finishWithError:(NSString *)message { ++self.animationID; if (self.preSpinBoard.count == 5) { for (NSInteger col=0;col<5;col++) for (NSInteger row=0;row<3;row++) [self setSymbol:self.preSpinBoard[col][row] onTile:self.reels[col][row]]; self.preSpinBoard=nil; } self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=self.customizeButton.enabled=YES; [self updateBonusLabel]; self.messageLabel.text=message; self.messageLabel.textColor=UIColor.systemOrangeColor; }
@@ -298,12 +302,19 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     UILabel *text=[UILabel new]; text.text=awarded ? [NSString stringWithFormat:@"⚡ %ld FREE SPINS%@",(long)awarded,payout?[NSString stringWithFormat:@"  +%ld COINS",(long)payout]:@""] : [NSString stringWithFormat:@"WINNER!  +%ld COINS",(long)payout]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
     [self coinWave:overlay];
 }
+- (void)showFreeSpinsComplete:(NSInteger)total {
+    [self playTheme:@"brainrot-theme2"];
+    UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
+    UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.12 green:.025 blue:.23 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
+    UILabel *text=[UILabel new]; text.text=[NSString stringWithFormat:@"🎁 FREE SPINS COMPLETE!\nTOTAL WON  +%ld COINS",(long)total]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
+    [self coinWave:overlay];
+}
 - (void)coinWave:(UIView *)overlay { if (!self.celebrating || overlay!=self.winOverlay) return; UIImage *coin=[UIImage imageNamed:@"EZCoin"]; CGFloat baseX=CGRectGetMidX(overlay.bounds),bottom=CGRectGetMaxY(overlay.bounds)-40; for (NSInteger i=0;i<24;i++) { UIImageView *particle=[[UIImageView alloc] initWithImage:coin]; particle.frame=CGRectMake(baseX,bottom,20,20); [overlay insertSubview:particle atIndex:0]; CGFloat x=baseX+(NSInteger)arc4random_uniform(300)-150,y=100+arc4random_uniform(250); [UIView animateWithDuration:1.1 delay:arc4random_uniform(12)/100.0 options:0 animations:^{ particle.center=CGPointMake(x,y); particle.alpha=0; } completion:^(__unused BOOL done){ [particle removeFromSuperview]; }]; } dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.05*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self coinWave:overlay]; }); }
 - (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag { if (player!=self.musicPlayer || !self.celebrating) return; self.celebrating=NO; [self.winOverlay removeFromSuperview]; self.winOverlay=nil; [self playTheme:@"brainrot-theme1"]; }
 - (void)showOdds {
     UIViewController *sheet=[UIViewController new]; sheet.view.backgroundColor=[UIColor colorWithRed:.07 green:.03 blue:.16 alpha:1]; sheet.modalPresentationStyle=UIModalPresentationPageSheet; sheet.sheetPresentationController.prefersGrabberVisible=YES; sheet.sheetPresentationController.detents=@[[UISheetPresentationControllerDetent mediumDetent],[UISheetPresentationControllerDetent largeDetent]];
     UITextView *text=[UITextView new]; text.editable=NO; text.selectable=NO; text.backgroundColor=UIColor.clearColor; text.textColor=UIColor.whiteColor; text.font=[UIFont monospacedSystemFontOfSize:14 weight:UIFontWeightMedium]; text.textContainerInset=UIEdgeInsetsMake(24,18,28,18); text.translatesAutoresizingMaskIntoConstraints=NO; [sheet.view addSubview:text];
-    text.text=@"PENNY SLOTS PAYOUTS\n\n3, 4, or 5 consecutive symbols from the left on an active line pay per coin bet on that line:\n\n🍒 Cherry       8× / 19× / 55×\n▰ Bar          12× / 34× / 110×\n▰▰ Double Bar  19× / 55× / 172×\n▰▰▰ Triple Bar 27× / 80× / 258×\n🔔 Bell        43× / 123× / 430×\n♦ Diamond     74× / 221× / 738×\n7 Seven      154× / 492× / 1476×\n🧠 Brain      308× / 923× / 3075×\n\n🪙 EZCoin is a scatter anywhere on the board: exactly 3 = 5 free spins, exactly 4 = 15, 5 or more = 25. Free spins keep your active lines and bet; every line win pays 2×. Scatters during free spins add more. Theoretical long-run RTP is about 92%; results vary.";
+    text.text=@"PENNY SLOTS PAYOUTS\n\n3, 4, or 5 consecutive symbols from the left on an active line pay per coin bet on that line:\n\n🍒 Cherry       8× / 19× / 55×\n▰ Bar          12× / 34× / 110×\n▰▰ Double Bar  19× / 55× / 172×\n▰▰▰ Triple Bar 27× / 80× / 258×\n🔔 Bell        43× / 123× / 430×\n♦ Diamond     74× / 221× / 738×\n7 Seven      154× / 492× / 1476×\n🧠 Brain      308× / 923× / 3075×\n\n🪙 EZCoin is a scatter anywhere on the board: exactly 3 = 5 free spins, exactly 4 = 15, 5 or more = 25. Free spins keep your active lines and bet; every line win pays 2×. Scatters during free spins add more. Theoretical long-run RTP is about 93%; results vary.";
     [NSLayoutConstraint activateConstraints:@[[text.topAnchor constraintEqualToAnchor:sheet.view.safeAreaLayoutGuide.topAnchor],[text.leadingAnchor constraintEqualToAnchor:sheet.view.leadingAnchor],[text.trailingAnchor constraintEqualToAnchor:sheet.view.trailingAnchor],[text.bottomAnchor constraintEqualToAnchor:sheet.view.safeAreaLayoutGuide.bottomAnchor]]];
     [self presentViewController:sheet animated:YES completion:nil];
 }

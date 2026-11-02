@@ -1002,6 +1002,10 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) NSTimer       *statusBannerTimer;
 @property (nonatomic, assign) NSInteger      statusBannerPhase;
 @property (nonatomic, strong) NSArray<NSString *> *statusBannerMessages;
+// Guards the model-written status steps: a late reply from an earlier
+// prompt must never land on a newer banner (or on the image banner).
+@property (nonatomic, assign) NSUInteger     statusStepsGeneration;
+@property (nonatomic, assign) BOOL           statusBannerIsChatWait;
 // Remembers which real image model (gpt-image-1/-1-mini/-1.5/-2/
 // chatgpt-image-latest) was selected before switching into edit mode, since
 // self.selectedModel becomes the literal string "gpt-image-1-edit" (a UI
@@ -1044,6 +1048,10 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (NSArray<NSString *> *)ez_recoverImagePathsFromVisionContent:(NSArray *)contentBlocks;
 - (void)showGPT5StatusBanner;
 - (void)hideGPT5StatusBanner;
+- (NSString *)chatStatusFamilyName;
+- (NSArray<NSString *> *)heuristicStatusStepsForPrompt:(NSString *)prompt;
+- (void)fetchModelStatusStepsForPrompt:(NSString *)prompt familyName:(NSString *)family;
+- (NSArray<NSString *> *)statusStepsFromReplyText:(NSString *)text;
 - (void)showStatusBannerWithMessages:(NSArray<NSString *> *)messages;
 - (void)hideStatusBanner;
 - (void)showImageGenStatusBanner;
@@ -3578,11 +3586,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)showPurchaseRequiredForSelectedModel {
     NSString *model = self.selectedModel;
     UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:@"Purchase required"
-                         message:[NSString stringWithFormat:@"%@ is a paid model. Make a purchase to unlock it, then return to this thread.", model]
+        alertControllerWithTitle:NSLocalizedString(@"EZChat.Paywall.Title", @"Paywall title")
+                         message:[NSString stringWithFormat:NSLocalizedString(@"EZChat.Paywall.PaidModelMessage", @"Paid model paywall message"), model]
                   preferredStyle:UIAlertControllerStyleAlert];
     __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:@"View Store"
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZChat.Paywall.ViewStore", @"View store button")
                                               style:UIAlertActionStyleDefault
                                             handler:^(__unused UIAlertAction *action) {
         [weakSelf presentCoinStoreForFeature:nil];
@@ -3593,16 +3601,16 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // Denial warning for the one-free-song paywall in chat, then the coin store.
 - (void)showSongPurchaseRequiredAlert {
     UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:@"Purchase required"
-                         message:@"You've made your free song. Make any purchase to keep creating songs, then ask again."
+        alertControllerWithTitle:NSLocalizedString(@"EZChat.Paywall.Title", @"Paywall title")
+                         message:NSLocalizedString(@"EZChat.SongPaywall.Message", @"Song paywall message")
                   preferredStyle:UIAlertControllerStyleAlert];
     __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:@"View Store"
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZChat.Paywall.ViewStore", @"View store button")
                                               style:UIAlertActionStyleDefault
                                             handler:^(__unused UIAlertAction *action) {
-        [weakSelf presentCoinStoreForFeature:@"AI music"];
+        [weakSelf presentCoinStoreForFeature:NSLocalizedString(@"EZCoinStore.Feature.AIMusic", @"AI music feature name")];
     }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Not Now"
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZChat.SongPaywall.NotNow", @"Not now button")
                                               style:UIAlertActionStyleCancel
                                             handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
@@ -4516,6 +4524,38 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                     });
                 });
                 return;
+            }
+            // Daily limit on a capped frontier model — returned by ez-chat
+            // for Unlimited Chat subscribers BEFORE anything is spent, only
+            // for gpt-6-astra / gpt-6.1-sol. Continue the same send on the
+            // unlimited fallback model instead of surfacing an error: switch
+            // the selected model (same updates the picker performs), note it
+            // once in the transcript, and resend. The isEqualToString checks
+            // against the two capped models are the loop guard — a
+            // daily_limit_reached response about any other model falls
+            // through to normal error handling below.
+            if ([errMsg isEqualToString:@"daily_limit_reached"] ||
+                [json[@"reason"] isEqualToString:@"daily_limit_reached"]) {
+                NSString *cappedModel = [json[@"model"] isKindOfClass:[NSString class]]
+                    ? json[@"model"] : self.selectedModel;
+                NSString *fallbackModel = [json[@"fallback_model"] isKindOfClass:[NSString class]]
+                    ? json[@"fallback_model"] : @"gpt-6.1-terra";
+                if (([cappedModel isEqualToString:@"gpt-6-astra"] ||
+                     [cappedModel isEqualToString:@"gpt-6.1-sol"]) &&
+                    ![fallbackModel isEqualToString:cappedModel]) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        self.selectedModel = fallbackModel;
+                        [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", fallbackModel]
+                                          forState:UIControlStateNormal];
+                        [[NSUserDefaults standardUserDefaults] setObject:fallbackModel
+                                                                  forKey:@"selectedModel"];
+                        [self appendToChat:[NSString stringWithFormat:
+                            @"[System: %@ daily limit reached — continuing with %@, which is unlimited on your plan.]",
+                            cappedModel, fallbackModel]];
+                        [self callChatCompletionsWithRetryCount:retryCount + 1];
+                    });
+                    return;
+                }
             }
             // Insufficient coins — show store
             if ([errMsg isEqualToString:@"Insufficient coins"] ||
@@ -7172,8 +7212,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     return @{
         @"role": @"music",
         @"entryID": event[@"entryID"] ?: @"",
-        @"title": event[@"title"] ?: @"AI song",
-        @"subtitle": @"AI song",
+        @"title": event[@"title"] ?: @"🔊EZCompleteUI🔊",
+        @"subtitle": @"🔊EZCompleteUI🔊",
         // The card shows the length (and plays it) itself; see EZMusicBubbleCell.
         @"durationSeconds": @(MAX(seconds, 0)),
         @"timestamp": event[@"timestamp"] ?: @"time unavailable",
@@ -7260,7 +7300,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
             [strongSelf appendToChat:[NSString stringWithFormat:
                 @"[System: This song needs about %ld coins and you have %ld.]",
                 (long)quotedCoins, (long)knownBalance.integerValue]];
-            [strongSelf presentCoinStoreForFeature:@"AI music"];
+            [strongSelf presentCoinStoreForFeature:NSLocalizedString(@"EZCoinStore.Feature.AIMusic", @"AI music feature name")];
             return;
         }
 
@@ -7301,7 +7341,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         ? error.userInfo[EZMusicServiceServerCodeKey] : @"";
     if ([serverCode isEqualToString:@"insufficient_coins"]) {
         [self appendToChat:@"[System: You don't have enough coins for this song.]"];
-        [self presentCoinStoreForFeature:@"AI music"];
+        [self presentCoinStoreForFeature:NSLocalizedString(@"EZCoinStore.Feature.AIMusic", @"AI music feature name")];
     } else if ([serverCode isEqualToString:@"too_many_active"]) {
         [self appendToChat:@"[System: You already have songs being created. Wait for them to finish, then ask again.]"];
     } else if (error.code == EZMusicServiceErrorNetwork || error.code == EZMusicServiceErrorBadResponse) {
@@ -7359,7 +7399,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 
         NSString *entryID = [finishedEntry[@"id"] isKindOfClass:[NSString class]] ? finishedEntry[@"id"] : @"";
         NSString *finalTitle = [finishedEntry[@"title"] isKindOfClass:[NSString class]] && [finishedEntry[@"title"] length] > 0
-            ? finishedEntry[@"title"] : (requestedTitle.length > 0 ? requestedTitle : @"AI song");
+            ? finishedEntry[@"title"] : (requestedTitle.length > 0 ? requestedTitle : @"🔊EZCompleteUI🔊");
         NSInteger actualSeconds = [finishedEntry[@"duration_actual_ms"] respondsToSelector:@selector(integerValue)]
             ? (NSInteger)llround([finishedEntry[@"duration_actual_ms"] doubleValue] / 1000.0) : 0;
         NSInteger shownSeconds = actualSeconds > 0 ? actualSeconds : requestedSeconds;
@@ -7433,7 +7473,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     if ([event[@"isError"] boolValue]) return;
     NSString *token = [EZAuthManager shared].accessToken;
     NSString *prompt = [event[@"prompt"] isKindOfClass:NSString.class] ? event[@"prompt"] : @"";
-    NSString *title = [event[@"title"] isKindOfClass:NSString.class] ? event[@"title"] : @"AI song";
+    NSString *title = [event[@"title"] isKindOfClass:NSString.class] ? event[@"title"] : @"🔊EZCompleteUI🔊";
     NSString *entryID = [event[@"entryID"] isKindOfClass:NSString.class] ? event[@"entryID"] : @"";
     if (!token.length || !prompt.length) {
         EZLog(EZLogLevelWarning, @"MEMORY", @"Skipped chat music memory: missing session token or song prompt");
@@ -7458,7 +7498,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     }
     return [NSString stringWithFormat:
         @"Song \"%@\" completed; it is shown in chat with Play and Share buttons and saved in AI Music. Request: %@",
-        event[@"title"] ?: @"AI song", event[@"prompt"] ?: @""];
+        event[@"title"] ?: @"🔊EZCompleteUI🔊", event[@"prompt"] ?: @""];
 }
 
 // ── Inline image grid insertion ───────────────────────────────────────────────
@@ -7622,8 +7662,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     if ([role isEqualToString:@"music"]) {
         EZMusicBubbleCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZMusic"
                                                                   forIndexPath:indexPath];
-        [cell configureWithTitle:msg[@"title"] ?: @"AI song"
-                        subtitle:msg[@"subtitle"] ?: @"AI song"
+        [cell configureWithTitle:msg[@"title"] ?: @"🔊EZCompleteUI🔊"
+                        subtitle:msg[@"subtitle"] ?: @"🔊EZCompleteUI🔊"
                  durationSeconds:[msg[@"durationSeconds"] integerValue]
                          entryID:msg[@"entryID"] ?: @""
             presentingController:self];
@@ -7836,19 +7876,166 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 
 // appendToOldChat: implemented above as a wrapper around appendToChat:
 
+/// The banner names the family actually doing the work: GPT-6 models were
+/// previously announced as "GPT-5" because the text was hardcoded. For GPT-5
+/// models the strings below are byte-identical to the originals.
+- (NSString *)chatStatusFamilyName {
+    if ([self.selectedModel hasPrefix:@"gpt-6"]) return @"GPT-6";
+    if ([self.selectedModel hasPrefix:@"gpt-5"]) return @"GPT-5";
+    return @"AI";
+}
+
 - (void)showGPT5StatusBanner {
-    [self showStatusBannerWithMessages:@[
-        @"GPT-5 is thinking…", @"Processing your request…",
-        @"Still working — GPT-5 can take up to 3 min", @"Reasoning through your prompt…",
-        @"Almost there — complex requests take longer", @"Hang tight, GPT-5 is thorough",
+    NSString *family = [self chatStatusFamilyName];
+    NSArray<NSString *> *generic = @[
+        [NSString stringWithFormat:@"%@ is thinking…", family],
+        @"Processing your request…",
+        [NSString stringWithFormat:@"Still working — %@ can take up to 3 min", family],
+        @"Reasoning through your prompt…",
+        @"Almost there — complex requests take longer",
+        [NSString stringWithFormat:@"Hang tight, %@ is thorough", family],
         @"Working hard on your answer…",
-    ]];
+    ];
+    // Prompt-shaped steps go in instantly (keyword templates — no network),
+    // so the banner looks like it starts working right away; a tiny model
+    // call then swaps in steps written for this exact prompt. The generic
+    // set stays underneath both as the long-wait tail and the fallback if
+    // anything about the refinement fails.
+    NSArray<NSString *> *shaped = [self heuristicStatusStepsForPrompt:self.lastUserPrompt];
+    NSMutableArray<NSString *> *messages = [NSMutableArray arrayWithObject:generic.firstObject];
+    if (shaped.count) [messages addObjectsFromArray:shaped];
+    [messages addObjectsFromArray:[generic subarrayWithRange:NSMakeRange(1, generic.count - 1)]];
+    self.statusBannerIsChatWait = YES;
+    [self showStatusBannerWithMessages:messages];
+    [self fetchModelStatusStepsForPrompt:self.lastUserPrompt familyName:family];
+}
+
+/// Instant, offline step templates keyed off what the prompt is about.
+/// These are placeholders with the right shape — the model-written steps
+/// replace them within a few seconds when that call succeeds.
+- (NSArray<NSString *> *)heuristicStatusStepsForPrompt:(NSString *)prompt {
+    if (!prompt.length) return @[];
+    NSString *p = prompt.lowercaseString;
+    NSArray<NSString *> *codeWords = @[@"code", @"function", @"bug", @"error", @"script",
+        @"python", @"javascript", @"typescript", @"swift", @"objective-c", @"objc",
+        @"compile", @"refactor", @"debug", @" api", @"parameter", @"class ", @"regex", @"crash"];
+    for (NSString *w in codeWords) if ([p containsString:w]) {
+        return @[@"Analyzing your existing code…",
+                 @"Checking the official documentation for the correct input parameters…",
+                 @"Writing the new function…",
+                 @"Sanity-checking the result…"];
+    }
+    NSArray<NSString *> *writeWords = @[@"write", @"essay", @"email", @"letter", @"story",
+        @"poem", @"draft", @"rewrite", @"blog", @"cover letter", @"resume", @"song", @"lyrics"];
+    for (NSString *w in writeWords) if ([p containsString:w]) {
+        return @[@"Reading your request closely…",
+                 @"Planning the structure…",
+                 @"Drafting the text…",
+                 @"Polishing the wording…"];
+    }
+    NSArray<NSString *> *mathWords = @[@"calculate", @"compute", @"how many", @"how much",
+        @"percent", @"budget", @"spreadsheet", @"chart", @"graph", @" data", @"numbers"];
+    for (NSString *w in mathWords) if ([p containsString:w]) {
+        return @[@"Crunching the numbers…",
+                 @"Double-checking the math…",
+                 @"Organizing the results…"];
+    }
+    if ([p hasPrefix:@"what"] || [p hasPrefix:@"why"] || [p hasPrefix:@"how"] ||
+        [p containsString:@"explain"] || [p containsString:@"compare"] ||
+        [p containsString:@"research"] || [p containsString:@"find out"]) {
+        return @[@"Breaking your question down…",
+                 @"Gathering the relevant facts…",
+                 @"Checking the details…",
+                 @"Putting the answer together…"];
+    }
+    return @[];
+}
+
+/// Asks the cheapest chat model to break the prompt into 4–5 status steps,
+/// then swaps them into the live banner. Fires in parallel with the real
+/// request and is best-effort in every dimension: short timeout, defensive
+/// parsing, generation + banner-ownership guards, and total silence on any
+/// failure (the heuristic/generic steps simply keep cycling). The body is
+/// tagged purpose=@"status_steps" so ez-chat can exempt it from coin
+/// deduction server-side; until then it costs one nano chat_mini call.
+- (void)fetchModelStatusStepsForPrompt:(NSString *)prompt familyName:(NSString *)family {
+    NSString *token = [EZAuthManager shared].accessToken;
+    if (!prompt.length || !token.length) return;
+    NSUInteger generation = ++self.statusStepsGeneration;
+    NSString *trimmed = prompt.length > 1000 ? [prompt substringToIndex:1000] : prompt;
+    NSDictionary *body = @{
+        @"model": @"gpt-5.4-nano",
+        @"feature_tier": @"chat_mini",
+        @"purpose": @"status_steps",
+        @"max_tokens": @300,
+        @"messages": @[
+            @{@"role": @"system", @"content":
+                @"You write progress status lines for a chat app. Given the user's request, reply with ONLY a JSON array of 4 or 5 short status strings to display while the request is being processed. Each string is a present-continuous phrase under 60 characters ending with …. Describe plausible steps for THIS specific request (for a coding request, steps like analyzing the existing code, checking the official documentation, writing the code, sanity-checking). Output the JSON array only — no markdown fences, no other text."},
+            @{@"role": @"user", @"content": trimmed},
+        ],
+    };
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:
+        [NSURL URLWithString:@"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-chat"]];
+    request.HTTPMethod = @"POST";
+    request.timeoutInterval = 8;
+    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
+    request.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
+    __weak typeof(self) weakSelf = self;
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request
+        completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (error || !data) return;
+        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        if (![json isKindOfClass:[NSDictionary class]] || json[@"error"]) return;
+        NSString *reply = [json[@"reply"] isKindOfClass:[NSString class]] ? json[@"reply"] : nil;
+        NSArray<NSString *> *steps = [weakSelf statusStepsFromReplyText:reply];
+        if (!steps.count) return;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self || generation != self.statusStepsGeneration) return;
+            if (!self.statusBannerTimer || !self.statusBannerIsChatWait) return;
+            NSMutableArray<NSString *> *messages = [NSMutableArray arrayWithObject:
+                [NSString stringWithFormat:@"%@ is thinking…", family]];
+            [messages addObjectsFromArray:steps];
+            [messages addObject:[NSString stringWithFormat:@"Still working — %@ can take up to 3 min", family]];
+            self.statusBannerMessages = messages;
+            self.statusBannerPhase = 0;
+            [self tickStatusBanner];
+        });
+    }] resume];
+}
+
+/// Extracts the step array from the model's reply. Tolerates prose or code
+/// fences around the JSON; requires 3–5 usable strings or returns nil.
+- (NSArray<NSString *> *)statusStepsFromReplyText:(NSString *)text {
+    if (!text.length) return nil;
+    NSRange open = [text rangeOfString:@"["];
+    NSRange close = [text rangeOfString:@"]" options:NSBackwardsSearch];
+    if (open.location == NSNotFound || close.location == NSNotFound ||
+        close.location <= open.location) return nil;
+    NSString *jsonText = [text substringWithRange:NSMakeRange(open.location,
+                                                close.location - open.location + 1)];
+    id parsed = [NSJSONSerialization JSONObjectWithData:
+        [jsonText dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+    if (![parsed isKindOfClass:[NSArray class]]) return nil;
+    NSMutableArray<NSString *> *steps = [NSMutableArray array];
+    for (id item in (NSArray *)parsed) {
+        if (![item isKindOfClass:[NSString class]]) continue;
+        NSString *step = [(NSString *)item stringByTrimmingCharactersInSet:
+            [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (!step.length) continue;
+        if (step.length > 70) step = [[step substringToIndex:67] stringByAppendingString:@"…"];
+        [steps addObject:step];
+        if (steps.count >= 5) break;
+    }
+    return steps.count >= 3 ? steps : nil;
 }
 - (void)hideGPT5StatusBanner {
     [self hideStatusBanner];
 }
 
 - (void)showImageGenStatusBanner {
+    self.statusBannerIsChatWait = NO;
     self.imageGenerationProgress = 0.08;
     self.imagePreviewImageView.image = nil;
     self.imageProgressWidthConstraint.constant = 88;
@@ -7945,6 +8132,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         animations:^{ self.statusBannerView.alpha = 1.0; } completion:nil];
 }
 - (void)hideStatusBanner {
+    self.statusStepsGeneration++;
+    self.statusBannerIsChatWait = NO;
     BOOL wasActive = self.statusBannerTimer != nil;
     [self.statusBannerTimer invalidate]; self.statusBannerTimer = nil;
     [self.statusBannerSpinner stopAnimating];

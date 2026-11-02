@@ -67,3 +67,10 @@
 "EZCoinStore.Celebration.NewBalanceFormat" = "Novo saldo: %ld moedas";
 "EZCoinStore.Celebration.Sweet" = "Legal!";
 "EZCoinStore.OK" = "OK";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZCoinStore.Feature.AIMusic" = "Música de IA";
+"EZCoinStore.FreeSpins.Title" = "🎁 Giros grátis!";
+"EZCoinStore.FreeSpins.Message" = "Você ganhou %ld giros grátis no Brainrot Slots — tente a sorte!";
+"EZCoinStore.FreeSpins.PlayNow" = "Jogar agora";
+"EZCoinStore.FreeSpins.Later" = "Depois";

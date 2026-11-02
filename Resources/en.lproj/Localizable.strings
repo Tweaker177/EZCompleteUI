@@ -129,6 +129,8 @@
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 coins / month\nFor all your business needs";
+"EZCoinStore.Tier.UnlimitedChat" = "Unlimited Chat";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "Unlimited chat on the latest models\nAstra 50/day · Sol 100/day · Luna & Terra unlimited · 400 coins / month";
 
 "EZCoinStore.TopUp.Starter" = "Coin Starter Pack";
 
@@ -441,7 +443,7 @@
 "BRSlot.Penny.Description" = "9 paylines • 2× payouts during free spins";
 "BRSlot.Odds.Title" = "Payout Table";
 "BRSlot.Odds.Subtitle" = "Three matching symbols, left-to-right on any active line";
-"BRSlot.Odds.ClassicFooter" = "5 fixed paylines: top, middle, bottom, and both diagonals. Weighted reels target approximately 92% RTP. Triple 🧠 on a 25-coin max bet also claims the progressive jackpot.";
+"BRSlot.Odds.ClassicFooter" = "5 fixed paylines: top, middle, bottom, and both diagonals. Weighted reels target approximately 93% RTP. Triple 🧠 on a 25-coin max bet also claims the progressive jackpot.";
 "BRSlot.Customizer.ClassicTitle" = "Customize your symbols";
 "BRSlot.Customizer.ClassicSubtitle" = "Choose a tile to use one of your photos. Your artwork stays on this device.";
 "BRSlot.Customizer.PennyTitle" = "Customize Penny Slots";
@@ -483,3 +485,47 @@
 "BRSlot.Customizer.BuiltInClassic" = "Currently using the built-in slot image.";
 "BRSlot.Customizer.BuiltInPenny" = "Currently using the built-in Penny Slots image.";
 "BRSlot.Generation.Cost" = "Each generation costs 3 EZ Coins.";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZMusic.A11y.Lyrics" = "Song lyrics";
+"EZMusic.A11y.Prompt" = "Song prompt";
+"EZMusic.A11y.Remix" = "Remix";
+"EZMusic.A11y.Rename" = "Rename song";
+"EZMusic.A11y.ViewLyrics" = "View lyrics";
+"EZMusic.A11y.ViewPrompt" = "View prompt";
+"EZMusic.Action.Cancel" = "Cancel";
+"EZMusic.Action.Copied" = "Copied";
+"EZMusic.Action.Copy" = "Copy";
+"EZMusic.Action.Save" = "Save";
+"EZMusic.Menu.GenerateCover" = "Generate";
+"EZMusic.Menu.Lyrics" = "Lyrics";
+"EZMusic.Menu.Prompt" = "Prompt";
+"EZMusic.Menu.Remix" = "Remix";
+"EZMusic.Menu.Rename" = "Rename";
+"EZMusic.Paywall.CreateMessage" = "You've made your free song. Any purchase unlocks unlimited song creation.";
+"EZMusic.Paywall.CreateTitle" = "Purchase Required";
+"EZMusic.Paywall.ExportMessage" = "Exporting songs is a paid feature. Any purchase unlocks it.";
+"EZMusic.Paywall.ExportTitle" = "Purchase Required";
+"EZMusic.Paywall.ViewStore" = "View Store";
+"EZMusic.Prompt.Title" = "Prompt";
+"EZMusic.Rename.Placeholder" = "Song title";
+"EZMusic.Rename.Title" = "Rename Song";
+"EZMusic.Toast.Remix" = "Remix loaded — tweak anything, then tap Generate";
+"EZMusic.Toast.RenameFailed" = "Couldn't rename. Try again.";
+"EZChat.Paywall.Title" = "Purchase required";
+"EZChat.Paywall.PaidModelMessage" = "%@ is a paid model. Make a purchase to unlock it, then return to this thread.";
+"EZChat.SongPaywall.Message" = "You've made your free song. Make any purchase to keep creating songs, then ask again.";
+"EZChat.Paywall.ViewStore" = "View Store";
+"EZChat.SongPaywall.NotNow" = "Not Now";
+"EZCoinStore.Feature.AIMusic" = "AI music";
+"EZMemory.Player.Play" = "Play";
+"EZMemory.Player.Pause" = "Pause";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.OpenErrorTitle" = "Couldn't Open Song";
+"EZMemory.Player.OpenErrorMessage" = "The song couldn't be downloaded. Check your connection and try again.";
+"EZMemory.Player.OK" = "OK";
+"EZCoinStore.FreeSpins.Title" = "🎁 Free Spins!";
+"EZCoinStore.FreeSpins.Message" = "You won %ld free spins!";
+"EZCoinStore.FreeSpins.PlayNow" = "Play Now";
+"EZCoinStore.FreeSpins.Later" = "Later";

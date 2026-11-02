@@ -1,0 +1,146 @@
+/* EZCoinStoreViewController localization */
+
+"EZCoinStore.Title" = "🪙 EZ Coin Mağazası";
+
+"EZCoinStore.CancelPlan" = "Planı İptal Et";
+
+"EZCoinStore.Subscribe" = "Abone Ol";
+
+"EZCoinStore.BuyNow" = "Şimdi Satın Al";
+
+"EZCoinStore.Badge.Buy1Get1" = "🔥 1 ALANA 1 BEDAVA";
+
+"EZCoinStore.Promo.SubscriptionBadgeFormat" = "+%ld ÜCRETSİZ Coin*";
+
+"EZCoinStore.Promo.SubscriptionFootnote" = "*Ekstra coinler tek seferlik bir bonustur, aylık bir artış değildir.";
+
+"EZCoinStore.Tier.Basic" = "Temel";
+
+"EZCoinStore.Tier.BasicSubtitle" = "Ayda 400 coin\nGündelik kullanım için ideal";
+
+"EZCoinStore.Tier.BasicPrice" = "$5 / ay";
+
+"EZCoinStore.Tier.Standard" = "Standart";
+
+"EZCoinStore.Tier.StandardSubtitle" = "Ayda 900 coin\nNormal kullanıcılar için harika";
+
+"EZCoinStore.Tier.StandardPrice" = "$10 / ay";
+
+"EZCoinStore.Badge.Popular" = "POPÜLER";
+
+"EZCoinStore.Tier.Pro" = "Pro";
+
+"EZCoinStore.Tier.ProSubtitle" = "Ayda 1.600 coin\nGünlük kullanıcılar için harika";
+
+"EZCoinStore.Tier.ProPrice" = "$15 / ay";
+
+"EZCoinStore.Badge.BestValue" = "EN İYİ DEĞER";
+
+"EZCoinStore.Tier.Ultra" = "Ultra";
+
+"EZCoinStore.Tier.UltraSubtitle" = "Ayda 2.500 coin\nYoğun kullanıcılara uygun";
+
+"EZCoinStore.Tier.UltraPrice" = "$20 / ay";
+
+"EZCoinStore.Badge.Ultra" = "ULTRA";
+
+"EZCoinStore.TopUp.Starter" = "Coin Başlangıç Paketi";
+
+"EZCoinStore.TopUp.StarterSubtitle" = "400 coin, tek seferlik\nSüresi asla dolmaz";
+
+"EZCoinStore.TopUp.Value" = "Coin Değer Paketi";
+
+"EZCoinStore.TopUp.ValueSubtitle" = "900 coin, tek seferlik\nSüresi asla dolmaz";
+
+"EZCoinStore.Badge.Save10" = "%10 TASARRUF";
+
+"EZCoinStore.Promo.Headline" = "🔥 1 ALANA 1 BEDAVA 🔥";
+
+"EZCoinStore.Promo.Subtitle" = "Tüm coinler ve abonelikler — sınırlı süre!";
+
+"EZCoinStore.LoadingBalance" = "Bakiye yükleniyor...";
+
+"EZCoinStore.ThisFeature" = "bu özellik";
+
+"EZCoinStore.NotEnoughCoins" = "⚠️ %@ için yeterli coin yok. Aşağıdan yükleme yapın.";
+
+"EZCoinStore.NoActiveSubscription" = "Aktif abonelik yok";
+
+"EZCoinStore.BalanceFormat" = "🪙 %ld coin   •   %@";
+
+"EZCoinStore.Section.Subscriptions" = "ABONELİKLER";
+
+"EZCoinStore.Section.OneTimeTopUps" = "TEK SEFERLİK YÜKLEMELER";
+
+"EZCoinStore.DailyCoins" = "🎁 Günlük Coinler";
+
+"EZCoinStore.DailyCoins.FreeFormat" = "🎁 +%ld Ücretsiz!";
+
+"EZCoinStore.DailyCoins.Free" = "🎁 Ücretsiz Coinler!";
+
+"EZCoinStore.DailyCoins.NextHours" = "🎁 Sonraki: %ld sa %ld dk";
+
+"EZCoinStore.DailyCoins.NextMinutes" = "🎁 Sonraki: %ld dk %ld sn";
+
+"EZCoinStore.DailyCoins.NextSeconds" = "🎁 Sonraki: %ld sn";
+
+"EZCoinStore.DailyCoins.Claiming" = "⏳ Alınıyor...";
+
+"EZCoinStore.Alert.NotSignedIn" = "Oturum Açılmadı";
+
+"EZCoinStore.Alert.SignInDailyCoins" = "Günlük coinlerinizi almak için lütfen oturum açın.";
+
+"EZCoinStore.Alert.NetworkError" = "Ağ Hatası";
+
+"EZCoinStore.Alert.ServerUnreachable" = "Sunucuya ulaşılamadı. Lütfen tekrar deneyin.";
+
+"EZCoinStore.Alert.AlreadyClaimed" = "Zaten Alındı";
+
+"EZCoinStore.Alert.AlreadyClaimedMessage" = "Ücretsiz coinlerinizi zaten aldınız. 6 saat sonra tekrar bakın!";
+
+"EZCoinStore.Alert.GenericRetry" = "Bir şeyler ters gitti. Lütfen tekrar deneyin.";
+
+"EZCoinStore.Alert.Error" = "Hata";
+
+"EZCoinStore.Ledger" = "Hesap Defteri";
+
+"EZCoinStore.Alert.NotLoggedIn" = "Oturum açılmadı";
+
+"EZCoinStore.Alert.SignInFirst" = "Lütfen önce oturum açın.";
+
+"EZCoinStore.Alert.CancelSubscription" = "Abonelik İptal Edilsin mi?";
+
+"EZCoinStore.Alert.CancelSubscriptionMessage" = "Kalan coinleriniz hesabınızda kalacak. Bu işlem geri alınamaz.";
+
+"EZCoinStore.KeepPlan" = "Planı Koru";
+
+"EZCoinStore.Alert.Cancelled" = "İptal Edildi";
+
+"EZCoinStore.Alert.CancelledMessage" = "Aboneliğiniz iptal edildi. Coinleriniz kullanılabilir durumda kalır.";
+
+"EZCoinStore.Alert.CancelFailed" = "Abonelik iptal edilemedi. Lütfen tekrar deneyin.";
+
+"EZCoinStore.Alert.CheckoutStartFailed" = "Ödeme başlatılamadı. Tekrar deneyin.";
+
+"EZCoinStore.Alert.PurchaseConfirmFailed" = "Satın alma onaylanamadı. Bakiyenizi kontrol edin — coinler yine de eklenmiş olabilir.";
+
+"EZCoinStore.Alert.PurchaseNotConfirmed" = "Satın alma onaylanamadı.";
+
+"EZCoinStore.Alert.PurchaseIssue" = "Satın Alma Sorunu";
+
+"EZCoinStore.Celebration.CoinsAdded" = "🪙 Coinler Eklendi!";
+
+"EZCoinStore.Celebration.AmountFormat" = "+%ld coin";
+
+"EZCoinStore.Celebration.NewBalanceFormat" = "Yeni bakiye: %ld coin";
+
+"EZCoinStore.Celebration.Sweet" = "Harika!";
+
+"EZCoinStore.OK" = "Tamam";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZCoinStore.Feature.AIMusic" = "Yapay zekâ müziği";
+"EZCoinStore.FreeSpins.Title" = "🎁 Ücretsiz Dönüşler!";
+"EZCoinStore.FreeSpins.Message" = "Brainrot Slots'ta %ld ücretsiz dönüş kazandınız — bir deneyin!";
+"EZCoinStore.FreeSpins.PlayNow" = "Şimdi Oyna";
+"EZCoinStore.FreeSpins.Later" = "Sonra";

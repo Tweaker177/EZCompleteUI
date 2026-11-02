@@ -67,3 +67,10 @@
 "EZCoinStore.Celebration.NewBalanceFormat" = "ยอดใหม่: %ld เหรียญ";
 "EZCoinStore.Celebration.Sweet" = "เยี่ยม!";
 "EZCoinStore.OK" = "ตกลง";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZCoinStore.Feature.AIMusic" = "เพลง AI";
+"EZCoinStore.FreeSpins.Title" = "🎁 ฟรีสปิน!";
+"EZCoinStore.FreeSpins.Message" = "คุณได้รับฟรีสปิน %ld ครั้งใน Brainrot Slots — มาลองเลย!";
+"EZCoinStore.FreeSpins.PlayNow" = "เล่นเลย";
+"EZCoinStore.FreeSpins.Later" = "ไว้ทีหลัง";

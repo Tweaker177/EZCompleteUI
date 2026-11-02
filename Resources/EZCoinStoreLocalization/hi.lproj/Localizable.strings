@@ -67,3 +67,10 @@
 "EZCoinStore.Celebration.NewBalanceFormat" = "नया बैलेंस: %ld कॉइन";
 "EZCoinStore.Celebration.Sweet" = "बढ़िया!";
 "EZCoinStore.OK" = "ठीक है";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZCoinStore.Feature.AIMusic" = "AI संगीत";
+"EZCoinStore.FreeSpins.Title" = "🎁 मुफ़्त स्पिन!";
+"EZCoinStore.FreeSpins.Message" = "आपको Brainrot Slots पर %ld मुफ़्त स्पिन मिले — खेलकर देखें!";
+"EZCoinStore.FreeSpins.PlayNow" = "अभी खेलें";
+"EZCoinStore.FreeSpins.Later" = "बाद में";
