@@ -7172,8 +7172,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     return @{
         @"role": @"music",
         @"entryID": event[@"entryID"] ?: @"",
-        @"title": event[@"title"] ?: @"AI song",
-        @"subtitle": @"AI song",
+        @"title": event[@"title"] ?: @"🔊EZCompleteUI🔊",
+        @"subtitle": @"🔊EZCompleteUI🔊",
         // The card shows the length (and plays it) itself; see EZMusicBubbleCell.
         @"durationSeconds": @(MAX(seconds, 0)),
         @"timestamp": event[@"timestamp"] ?: @"time unavailable",
@@ -7359,7 +7359,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 
         NSString *entryID = [finishedEntry[@"id"] isKindOfClass:[NSString class]] ? finishedEntry[@"id"] : @"";
         NSString *finalTitle = [finishedEntry[@"title"] isKindOfClass:[NSString class]] && [finishedEntry[@"title"] length] > 0
-            ? finishedEntry[@"title"] : (requestedTitle.length > 0 ? requestedTitle : @"AI song");
+            ? finishedEntry[@"title"] : (requestedTitle.length > 0 ? requestedTitle : @"🔊EZCompleteUI🔊");
         NSInteger actualSeconds = [finishedEntry[@"duration_actual_ms"] respondsToSelector:@selector(integerValue)]
             ? (NSInteger)llround([finishedEntry[@"duration_actual_ms"] doubleValue] / 1000.0) : 0;
         NSInteger shownSeconds = actualSeconds > 0 ? actualSeconds : requestedSeconds;
@@ -7433,7 +7433,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     if ([event[@"isError"] boolValue]) return;
     NSString *token = [EZAuthManager shared].accessToken;
     NSString *prompt = [event[@"prompt"] isKindOfClass:NSString.class] ? event[@"prompt"] : @"";
-    NSString *title = [event[@"title"] isKindOfClass:NSString.class] ? event[@"title"] : @"AI song";
+    NSString *title = [event[@"title"] isKindOfClass:NSString.class] ? event[@"title"] : @"🔊EZCompleteUI🔊";
     NSString *entryID = [event[@"entryID"] isKindOfClass:NSString.class] ? event[@"entryID"] : @"";
     if (!token.length || !prompt.length) {
         EZLog(EZLogLevelWarning, @"MEMORY", @"Skipped chat music memory: missing session token or song prompt");
@@ -7458,7 +7458,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     }
     return [NSString stringWithFormat:
         @"Song \"%@\" completed; it is shown in chat with Play and Share buttons and saved in AI Music. Request: %@",
-        event[@"title"] ?: @"AI song", event[@"prompt"] ?: @""];
+        event[@"title"] ?: @"🔊EZCompleteUI🔊", event[@"prompt"] ?: @""];
 }
 
 // ── Inline image grid insertion ───────────────────────────────────────────────
@@ -7622,8 +7622,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     if ([role isEqualToString:@"music"]) {
         EZMusicBubbleCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZMusic"
                                                                   forIndexPath:indexPath];
-        [cell configureWithTitle:msg[@"title"] ?: @"AI song"
-                        subtitle:msg[@"subtitle"] ?: @"AI song"
+        [cell configureWithTitle:msg[@"title"] ?: @"🔊EZCompleteUI🔊"
+                        subtitle:msg[@"subtitle"] ?: @"🔊EZCompleteUI🔊"
                  durationSeconds:[msg[@"durationSeconds"] integerValue]
                          entryID:msg[@"entryID"] ?: @""
             presentingController:self];

@@ -477,8 +477,8 @@
 "EZCoinStore.Feature.AIMusic" = "เพลง AI";
 "EZMemory.Player.Play" = "เล่น";
 "EZMemory.Player.Pause" = "หยุดชั่วคราว";
-"EZMemory.Player.SongFallback" = "เพลง AI";
-"EZMemory.Player.SongDetailFormat" = "เพลง AI • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "เปิดเพลงไม่ได้";
 "EZMemory.Player.OpenErrorMessage" = "ดาวน์โหลดเพลงไม่ได้ โปรดตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง";
 "EZMemory.Player.OK" = "ตกลง";

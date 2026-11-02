@@ -477,8 +477,8 @@
 "EZCoinStore.Feature.AIMusic" = "Nhạc AI";
 "EZMemory.Player.Play" = "Phát";
 "EZMemory.Player.Pause" = "Tạm dừng";
-"EZMemory.Player.SongFallback" = "Bài hát AI";
-"EZMemory.Player.SongDetailFormat" = "Bài hát AI • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "Không mở được bài hát";
 "EZMemory.Player.OpenErrorMessage" = "Không tải được bài hát. Kiểm tra kết nối và thử lại.";
 "EZMemory.Player.OK" = "OK";

@@ -36,7 +36,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface EZMusicBubbleCell : UITableViewCell
 
-/// `subtitle` is the line under the title (for example "AI song"). It is
+/// `subtitle` is the line under the title (for example "🔊EZCompleteUI🔊"). It is
 /// temporarily replaced by a message if playback fails.
 /// `durationSeconds` is the song length if known, otherwise 0.
 /// `presentingController` is used for the share sheet and error alerts.

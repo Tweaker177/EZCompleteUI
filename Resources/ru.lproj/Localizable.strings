@@ -517,8 +517,8 @@
 "EZCoinStore.Feature.AIMusic" = "Музыка ИИ";
 "EZMemory.Player.Play" = "Воспроизвести";
 "EZMemory.Player.Pause" = "Пауза";
-"EZMemory.Player.SongFallback" = "Песня ИИ";
-"EZMemory.Player.SongDetailFormat" = "Песня ИИ • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "Не удалось открыть песню";
 "EZMemory.Player.OpenErrorMessage" = "Не удалось загрузить песню. Проверьте соединение и попробуйте снова.";
 "EZMemory.Player.OK" = "OK";

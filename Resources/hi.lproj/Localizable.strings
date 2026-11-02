@@ -477,8 +477,8 @@
 "EZCoinStore.Feature.AIMusic" = "AI संगीत";
 "EZMemory.Player.Play" = "चलाएं";
 "EZMemory.Player.Pause" = "रोकें";
-"EZMemory.Player.SongFallback" = "AI गाना";
-"EZMemory.Player.SongDetailFormat" = "AI गाना • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "गाना नहीं खुल सका";
 "EZMemory.Player.OpenErrorMessage" = "गाना डाउनलोड नहीं हो सका। अपना कनेक्शन जांचें और फिर से प्रयास करें।";
 "EZMemory.Player.OK" = "ठीक है";

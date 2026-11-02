@@ -477,8 +477,8 @@
 "EZCoinStore.Feature.AIMusic" = "KI-Musik";
 "EZMemory.Player.Play" = "Abspielen";
 "EZMemory.Player.Pause" = "Pause";
-"EZMemory.Player.SongFallback" = "KI-Song";
-"EZMemory.Player.SongDetailFormat" = "KI-Song • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "Song konnte nicht geöffnet werden";
 "EZMemory.Player.OpenErrorMessage" = "Der Song konnte nicht heruntergeladen werden. Überprüfe deine Verbindung und versuche es erneut.";
 "EZMemory.Player.OK" = "OK";

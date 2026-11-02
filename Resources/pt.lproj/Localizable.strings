@@ -499,8 +499,8 @@
 "EZCoinStore.Feature.AIMusic" = "Música de IA";
 "EZMemory.Player.Play" = "Reproduzir";
 "EZMemory.Player.Pause" = "Pausar";
-"EZMemory.Player.SongFallback" = "Música de IA";
-"EZMemory.Player.SongDetailFormat" = "Música de IA • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "Não foi possível abrir a música";
 "EZMemory.Player.OpenErrorMessage" = "Não foi possível baixar a música. Verifique sua conexão e tente novamente.";
 "EZMemory.Player.OK" = "OK";

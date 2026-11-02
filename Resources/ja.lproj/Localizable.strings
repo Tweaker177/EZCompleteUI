@@ -477,8 +477,8 @@
 "EZCoinStore.Feature.AIMusic" = "AI音楽";
 "EZMemory.Player.Play" = "再生";
 "EZMemory.Player.Pause" = "一時停止";
-"EZMemory.Player.SongFallback" = "AIソング";
-"EZMemory.Player.SongDetailFormat" = "AIソング • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "曲を開けませんでした";
 "EZMemory.Player.OpenErrorMessage" = "曲をダウンロードできませんでした。接続を確認してもう一度お試しください。";
 "EZMemory.Player.OK" = "確認";

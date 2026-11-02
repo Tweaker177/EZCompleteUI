@@ -477,8 +477,8 @@
 "EZCoinStore.Feature.AIMusic" = "موسيقى بالذكاء الاصطناعي";
 "EZMemory.Player.Play" = "تشغيل";
 "EZMemory.Player.Pause" = "إيقاف مؤقت";
-"EZMemory.Player.SongFallback" = "أغنية بالذكاء الاصطناعي";
-"EZMemory.Player.SongDetailFormat" = "أغنية بالذكاء الاصطناعي • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "تعذر فتح الأغنية";
 "EZMemory.Player.OpenErrorMessage" = "تعذر تنزيل الأغنية. تحقق من اتصالك وحاول مرة أخرى.";
 "EZMemory.Player.OK" = "موافق";

@@ -72,7 +72,7 @@ typedef NS_ENUM(NSInteger, EZMediaPlayerState) {
 /// every view can tell whether it is the item that is playing.
 @property (nonatomic, copy, readonly) NSString *identifier;
 @property (nonatomic, copy, readonly) NSString *title;
-/// Second line on the lock screen, for example "AI song". Optional.
+/// Second line on the lock screen, for example "🔊EZCompleteUI🔊". Optional.
 @property (nonatomic, copy, readonly, nullable) NSString *subtitle;
 /// A file on this device or a remote URL AVPlayer can stream.
 @property (nonatomic, strong, readonly) NSURL *fileURL;

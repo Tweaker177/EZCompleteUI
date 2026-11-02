@@ -477,8 +477,8 @@
 "EZCoinStore.Feature.AIMusic" = "AI音乐";
 "EZMemory.Player.Play" = "播放";
 "EZMemory.Player.Pause" = "暂停";
-"EZMemory.Player.SongFallback" = "AI歌曲";
-"EZMemory.Player.SongDetailFormat" = "AI歌曲 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "无法打开歌曲";
 "EZMemory.Player.OpenErrorMessage" = "无法下载歌曲。请检查网络连接后重试。";
 "EZMemory.Player.OK" = "确定";

@@ -518,8 +518,8 @@
 "EZCoinStore.Feature.AIMusic" = "AI music";
 "EZMemory.Player.Play" = "Play";
 "EZMemory.Player.Pause" = "Pause";
-"EZMemory.Player.SongFallback" = "AI song";
-"EZMemory.Player.SongDetailFormat" = "AI song • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "Couldn't Open Song";
 "EZMemory.Player.OpenErrorMessage" = "The song couldn't be downloaded. Check your connection and try again.";
 "EZMemory.Player.OK" = "OK";
