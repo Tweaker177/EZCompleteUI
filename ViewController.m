@@ -7228,6 +7228,10 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
             if (!innerSelf) return;
             if (startError) { [innerSelf handleChatMusicStartError:startError]; return; }
 
+            // Remember the written lyrics under the generation id so they
+            // are saved with the song when it lands (see
+            // -[EZMusicLibraryManager noteLyrics:forGenerationID:]).
+            [[EZMusicLibraryManager sharedManager] noteLyrics:lyrics forGenerationID:generationID];
             [innerSelf updateCoinBalanceDisplay];
             NSString *shownTitle = title.length > 0 ? title : @"your song";
             [innerSelf appendToChat:[NSString stringWithFormat:
@@ -7387,7 +7391,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     NSString *assistantReply = [NSString stringWithFormat:
         @"Created the AI song \"%@\" and saved it in AI Music. Song ID: %@. The track is available in this chat with Play and Share controls.",
         title, entryID.length ? entryID : @"unavailable"];
-    createMemoryFromCompletion(prompt, assistantReply, token, threadID, @[], ^(NSString *entry) {
+    EZCreateSongMemory(prompt, assistantReply, token, threadID, entryID, ^(NSString *entry) {
         if (entry) {
             EZLogf(EZLogLevelInfo, @"MEMORY", @"Indexed completed chat song %@", entryID.length ? entryID : title);
         }
