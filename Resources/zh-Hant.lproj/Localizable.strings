@@ -441,7 +441,7 @@
 "BRSlot.Penny.Description" = "9 條賠付線 • 免費旋轉期間賠付 2 倍";
 "BRSlot.Odds.Title" = "賠付表";
 "BRSlot.Odds.Subtitle" = "三個相同符號，在任一啟用線上由左至右";
-"BRSlot.Odds.ClassicFooter" = "5 條固定賠付線：上、中、下與兩條對角線。加權轉軸目標約為 92% RTP。在 25 金幣最大投注下出現三個 🧠 也可奪得累進大獎。";
+"BRSlot.Odds.ClassicFooter" = "5 條固定賠付線：上、中、下與兩條對角線。加權轉軸目標約為 93% RTP。在 25 金幣最大投注下出現三個 🧠 也可奪得累進大獎。";
 "BRSlot.Customizer.ClassicTitle" = "自訂你的符號";
 "BRSlot.Customizer.ClassicSubtitle" = "選擇一個圖格，使用你的其中一張照片。你的作品只保留在此裝置上。";
 "BRSlot.Customizer.PennyTitle" = "自訂便士老虎機";

@@ -635,6 +635,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, assign) BOOL       openSlotAfterClaimCelebration; // Set only by a successful daily claim; dismissing that celebration opens the first Brainrot slot
 
+@property (nonatomic, assign) NSInteger  pendingClaimSpins; // Free spins awarded alongside a coins claim (spins_added in the claim response); celebrated once the coin celebration is dismissed
+
 @property (nonatomic, assign) NSInteger  dailyCoinsPendingAmount; // 10 or 15 depending on membership; from server
 
 //@property (nonatomic, strong) NSTimer   *countdownTimer;         // Fires every second to tick the "Next: Xh Ym Xs" label
@@ -1825,6 +1827,13 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
                     // first Brainrot slot (see dismissCelebration:).
                     self.openSlotAfterClaimCelebration = YES;
 
+                    // The claim may also award free spins alongside the
+                    // coins (spins_added, rolled server-side). They get
+                    // their own celebration once this one is dismissed
+                    // (see dismissCelebration:). Absent the field this
+                    // stays 0 and the claim behaves exactly as before.
+                    self.pendingClaimSpins = jsonInteger(json, @"spins_added");
+
                     [self showCoinCelebration:coinsAdded newBalance:newBalance];
 
                 }
@@ -2837,6 +2846,22 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         [overlay removeFromSuperview];
 
         self.storePotView = nil;
+
+        // Spins awarded alongside the coins get their own celebration
+        // first — its Play Now button opens the same first slot.
+        if (self.pendingClaimSpins > 0) {
+
+            NSInteger spins = self.pendingClaimSpins;
+
+            self.pendingClaimSpins = 0;
+
+            self.openSlotAfterClaimCelebration = NO;
+
+            [self showFreeSpinsCelebration:spins];
+
+            return;
+
+        }
 
         // A successful daily claim continues straight into the first
         // Brainrot slot once its celebration is dismissed. Purchase and

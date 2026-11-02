@@ -441,7 +441,7 @@
 "BRSlot.Penny.Description" = "9개의 페이라인 • 무료 스핀 중 배당 2배";
 "BRSlot.Odds.Title" = "배당표";
 "BRSlot.Odds.Subtitle" = "활성 라인의 왼쪽에서 오른쪽으로 일치하는 심볼 3개";
-"BRSlot.Odds.ClassicFooter" = "5개의 고정 페이라인: 상단, 중간, 하단, 양쪽 대각선. 가중 릴은 약 92% RTP를 목표로 합니다. 25 코인 최대 베팅에서 🧠 3개가 나오면 프로그레시브 잭팟도 획득합니다.";
+"BRSlot.Odds.ClassicFooter" = "5개의 고정 페이라인: 상단, 중간, 하단, 양쪽 대각선. 가중 릴은 약 93% RTP를 목표로 합니다. 25 코인 최대 베팅에서 🧠 3개가 나오면 프로그레시브 잭팟도 획득합니다.";
 "BRSlot.Customizer.ClassicTitle" = "심볼 맞춤 설정";
 "BRSlot.Customizer.ClassicSubtitle" = "타일을 선택하여 사진 중 하나를 사용하세요. 아트워크는 이 기기에 그대로 유지됩니다.";
 "BRSlot.Customizer.PennyTitle" = "페니 슬롯 맞춤 설정";
