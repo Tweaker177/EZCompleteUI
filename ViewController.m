@@ -1002,6 +1002,10 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) NSTimer       *statusBannerTimer;
 @property (nonatomic, assign) NSInteger      statusBannerPhase;
 @property (nonatomic, strong) NSArray<NSString *> *statusBannerMessages;
+// Guards the model-written status steps: a late reply from an earlier
+// prompt must never land on a newer banner (or on the image banner).
+@property (nonatomic, assign) NSUInteger     statusStepsGeneration;
+@property (nonatomic, assign) BOOL           statusBannerIsChatWait;
 // Remembers which real image model (gpt-image-1/-1-mini/-1.5/-2/
 // chatgpt-image-latest) was selected before switching into edit mode, since
 // self.selectedModel becomes the literal string "gpt-image-1-edit" (a UI
@@ -1044,6 +1048,10 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (NSArray<NSString *> *)ez_recoverImagePathsFromVisionContent:(NSArray *)contentBlocks;
 - (void)showGPT5StatusBanner;
 - (void)hideGPT5StatusBanner;
+- (NSString *)chatStatusFamilyName;
+- (NSArray<NSString *> *)heuristicStatusStepsForPrompt:(NSString *)prompt;
+- (void)fetchModelStatusStepsForPrompt:(NSString *)prompt familyName:(NSString *)family;
+- (NSArray<NSString *> *)statusStepsFromReplyText:(NSString *)text;
 - (void)showStatusBannerWithMessages:(NSArray<NSString *> *)messages;
 - (void)hideStatusBanner;
 - (void)showImageGenStatusBanner;
@@ -7836,19 +7844,166 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 
 // appendToOldChat: implemented above as a wrapper around appendToChat:
 
+/// The banner names the family actually doing the work: GPT-6 models were
+/// previously announced as "GPT-5" because the text was hardcoded. For GPT-5
+/// models the strings below are byte-identical to the originals.
+- (NSString *)chatStatusFamilyName {
+    if ([self.selectedModel hasPrefix:@"gpt-6"]) return @"GPT-6";
+    if ([self.selectedModel hasPrefix:@"gpt-5"]) return @"GPT-5";
+    return @"AI";
+}
+
 - (void)showGPT5StatusBanner {
-    [self showStatusBannerWithMessages:@[
-        @"GPT-5 is thinking…", @"Processing your request…",
-        @"Still working — GPT-5 can take up to 3 min", @"Reasoning through your prompt…",
-        @"Almost there — complex requests take longer", @"Hang tight, GPT-5 is thorough",
+    NSString *family = [self chatStatusFamilyName];
+    NSArray<NSString *> *generic = @[
+        [NSString stringWithFormat:@"%@ is thinking…", family],
+        @"Processing your request…",
+        [NSString stringWithFormat:@"Still working — %@ can take up to 3 min", family],
+        @"Reasoning through your prompt…",
+        @"Almost there — complex requests take longer",
+        [NSString stringWithFormat:@"Hang tight, %@ is thorough", family],
         @"Working hard on your answer…",
-    ]];
+    ];
+    // Prompt-shaped steps go in instantly (keyword templates — no network),
+    // so the banner looks like it starts working right away; a tiny model
+    // call then swaps in steps written for this exact prompt. The generic
+    // set stays underneath both as the long-wait tail and the fallback if
+    // anything about the refinement fails.
+    NSArray<NSString *> *shaped = [self heuristicStatusStepsForPrompt:self.lastUserPrompt];
+    NSMutableArray<NSString *> *messages = [NSMutableArray arrayWithObject:generic.firstObject];
+    if (shaped.count) [messages addObjectsFromArray:shaped];
+    [messages addObjectsFromArray:[generic subarrayWithRange:NSMakeRange(1, generic.count - 1)]];
+    self.statusBannerIsChatWait = YES;
+    [self showStatusBannerWithMessages:messages];
+    [self fetchModelStatusStepsForPrompt:self.lastUserPrompt familyName:family];
+}
+
+/// Instant, offline step templates keyed off what the prompt is about.
+/// These are placeholders with the right shape — the model-written steps
+/// replace them within a few seconds when that call succeeds.
+- (NSArray<NSString *> *)heuristicStatusStepsForPrompt:(NSString *)prompt {
+    if (!prompt.length) return @[];
+    NSString *p = prompt.lowercaseString;
+    NSArray<NSString *> *codeWords = @[@"code", @"function", @"bug", @"error", @"script",
+        @"python", @"javascript", @"typescript", @"swift", @"objective-c", @"objc",
+        @"compile", @"refactor", @"debug", @" api", @"parameter", @"class ", @"regex", @"crash"];
+    for (NSString *w in codeWords) if ([p containsString:w]) {
+        return @[@"Analyzing your existing code…",
+                 @"Checking the official documentation for the correct input parameters…",
+                 @"Writing the new function…",
+                 @"Sanity-checking the result…"];
+    }
+    NSArray<NSString *> *writeWords = @[@"write", @"essay", @"email", @"letter", @"story",
+        @"poem", @"draft", @"rewrite", @"blog", @"cover letter", @"resume", @"song", @"lyrics"];
+    for (NSString *w in writeWords) if ([p containsString:w]) {
+        return @[@"Reading your request closely…",
+                 @"Planning the structure…",
+                 @"Drafting the text…",
+                 @"Polishing the wording…"];
+    }
+    NSArray<NSString *> *mathWords = @[@"calculate", @"compute", @"how many", @"how much",
+        @"percent", @"budget", @"spreadsheet", @"chart", @"graph", @" data", @"numbers"];
+    for (NSString *w in mathWords) if ([p containsString:w]) {
+        return @[@"Crunching the numbers…",
+                 @"Double-checking the math…",
+                 @"Organizing the results…"];
+    }
+    if ([p hasPrefix:@"what"] || [p hasPrefix:@"why"] || [p hasPrefix:@"how"] ||
+        [p containsString:@"explain"] || [p containsString:@"compare"] ||
+        [p containsString:@"research"] || [p containsString:@"find out"]) {
+        return @[@"Breaking your question down…",
+                 @"Gathering the relevant facts…",
+                 @"Checking the details…",
+                 @"Putting the answer together…"];
+    }
+    return @[];
+}
+
+/// Asks the cheapest chat model to break the prompt into 4–5 status steps,
+/// then swaps them into the live banner. Fires in parallel with the real
+/// request and is best-effort in every dimension: short timeout, defensive
+/// parsing, generation + banner-ownership guards, and total silence on any
+/// failure (the heuristic/generic steps simply keep cycling). The body is
+/// tagged purpose=@"status_steps" so ez-chat can exempt it from coin
+/// deduction server-side; until then it costs one nano chat_mini call.
+- (void)fetchModelStatusStepsForPrompt:(NSString *)prompt familyName:(NSString *)family {
+    NSString *token = [EZAuthManager shared].accessToken;
+    if (!prompt.length || !token.length) return;
+    NSUInteger generation = ++self.statusStepsGeneration;
+    NSString *trimmed = prompt.length > 1000 ? [prompt substringToIndex:1000] : prompt;
+    NSDictionary *body = @{
+        @"model": @"gpt-5.4-nano",
+        @"feature_tier": @"chat_mini",
+        @"purpose": @"status_steps",
+        @"max_tokens": @300,
+        @"messages": @[
+            @{@"role": @"system", @"content":
+                @"You write progress status lines for a chat app. Given the user's request, reply with ONLY a JSON array of 4 or 5 short status strings to display while the request is being processed. Each string is a present-continuous phrase under 60 characters ending with …. Describe plausible steps for THIS specific request (for a coding request, steps like analyzing the existing code, checking the official documentation, writing the code, sanity-checking). Output the JSON array only — no markdown fences, no other text."},
+            @{@"role": @"user", @"content": trimmed},
+        ],
+    };
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:
+        [NSURL URLWithString:@"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-chat"]];
+    request.HTTPMethod = @"POST";
+    request.timeoutInterval = 8;
+    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
+    request.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
+    __weak typeof(self) weakSelf = self;
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request
+        completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (error || !data) return;
+        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+        if (![json isKindOfClass:[NSDictionary class]] || json[@"error"]) return;
+        NSString *reply = [json[@"reply"] isKindOfClass:[NSString class]] ? json[@"reply"] : nil;
+        NSArray<NSString *> *steps = [weakSelf statusStepsFromReplyText:reply];
+        if (!steps.count) return;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self || generation != self.statusStepsGeneration) return;
+            if (!self.statusBannerTimer || !self.statusBannerIsChatWait) return;
+            NSMutableArray<NSString *> *messages = [NSMutableArray arrayWithObject:
+                [NSString stringWithFormat:@"%@ is thinking…", family]];
+            [messages addObjectsFromArray:steps];
+            [messages addObject:[NSString stringWithFormat:@"Still working — %@ can take up to 3 min", family]];
+            self.statusBannerMessages = messages;
+            self.statusBannerPhase = 0;
+            [self tickStatusBanner];
+        });
+    }] resume];
+}
+
+/// Extracts the step array from the model's reply. Tolerates prose or code
+/// fences around the JSON; requires 3–5 usable strings or returns nil.
+- (NSArray<NSString *> *)statusStepsFromReplyText:(NSString *)text {
+    if (!text.length) return nil;
+    NSRange open = [text rangeOfString:@"["];
+    NSRange close = [text rangeOfString:@"]" options:NSBackwardsSearch];
+    if (open.location == NSNotFound || close.location == NSNotFound ||
+        close.location <= open.location) return nil;
+    NSString *jsonText = [text substringWithRange:NSMakeRange(open.location,
+                                                close.location - open.location + 1)];
+    id parsed = [NSJSONSerialization JSONObjectWithData:
+        [jsonText dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+    if (![parsed isKindOfClass:[NSArray class]]) return nil;
+    NSMutableArray<NSString *> *steps = [NSMutableArray array];
+    for (id item in (NSArray *)parsed) {
+        if (![item isKindOfClass:[NSString class]]) continue;
+        NSString *step = [(NSString *)item stringByTrimmingCharactersInSet:
+            [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (!step.length) continue;
+        if (step.length > 70) step = [[step substringToIndex:67] stringByAppendingString:@"…"];
+        [steps addObject:step];
+        if (steps.count >= 5) break;
+    }
+    return steps.count >= 3 ? steps : nil;
 }
 - (void)hideGPT5StatusBanner {
     [self hideStatusBanner];
 }
 
 - (void)showImageGenStatusBanner {
+    self.statusBannerIsChatWait = NO;
     self.imageGenerationProgress = 0.08;
     self.imagePreviewImageView.image = nil;
     self.imageProgressWidthConstraint.constant = 88;
@@ -7945,6 +8100,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         animations:^{ self.statusBannerView.alpha = 1.0; } completion:nil];
 }
 - (void)hideStatusBanner {
+    self.statusStepsGeneration++;
+    self.statusBannerIsChatWait = NO;
     BOOL wasActive = self.statusBannerTimer != nil;
     [self.statusBannerTimer invalidate]; self.statusBannerTimer = nil;
     [self.statusBannerSpinner stopAnimating];
