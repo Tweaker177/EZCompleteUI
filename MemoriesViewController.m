@@ -190,7 +190,7 @@
     _playerPlayButton = [UIButton buttonWithType:UIButtonTypeSystem];
     _playerPlayButton.translatesAutoresizingMaskIntoConstraints = NO;
     _playerPlayButton.tintColor = [UIColor labelColor];
-    _playerPlayButton.accessibilityLabel = @"Play";
+    _playerPlayButton.accessibilityLabel = NSLocalizedString(@"EZMemory.Player.Play", @"Play accessibility label");
     [_playerPlayButton setImage:[UIImage systemImageNamed:@"play.fill"
         withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22]]
                        forState:UIControlStateNormal];
@@ -371,7 +371,7 @@
     if (songID) {
         self.songEntryID = songID;
         NSString *title = [songRecord[@"title"] isKindOfClass:[NSString class]] ? songRecord[@"title"] : @"";
-        self.songTitle = title.length > 0 ? title : @"AI song";
+        self.songTitle = title.length > 0 ? title : NSLocalizedString(@"EZMemory.Player.SongFallback", @"AI song fallback title");
         double durationMs = [songRecord[@"duration_ms"] respondsToSelector:@selector(doubleValue)]
             ? [songRecord[@"duration_ms"] doubleValue] : 0;
         self.songDurationSeconds = (NSInteger)llround(durationMs / 1000.0);
@@ -461,7 +461,7 @@
     [self.playerPlayButton setImage:(showSpinner ? nil : [UIImage systemImageNamed:symbol
         withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22]])
                            forState:UIControlStateNormal];
-    self.playerPlayButton.accessibilityLabel = state == EZMediaPlayerStatePlaying ? @"Pause" : @"Play";
+    self.playerPlayButton.accessibilityLabel = state == EZMediaPlayerStatePlaying ? NSLocalizedString(@"EZMemory.Player.Pause", @"Pause accessibility label") : NSLocalizedString(@"EZMemory.Player.Play", @"Play accessibility label");
     if (showSpinner) [self.playerSpinner startAnimating]; else [self.playerSpinner stopAnimating];
 
     if (state == EZMediaPlayerStateFailed && player.errorMessage.length > 0) {
@@ -477,9 +477,9 @@
         self.playerProgressView.hidden = YES;
         self.playerProgressView.progress = 0;
         self.playerDetailLabel.text = self.songDurationSeconds > 0
-            ? [NSString stringWithFormat:@"AI song • %@",
+            ? [NSString stringWithFormat:NSLocalizedString(@"EZMemory.Player.SongDetailFormat", @"Song detail with duration"),
                 [EZMediaPlayerManager formattedTime:(NSTimeInterval)self.songDurationSeconds]]
-            : @"AI song";
+            : NSLocalizedString(@"EZMemory.Player.SongFallback", @"AI song fallback title");
     }
 }
 
@@ -497,8 +497,8 @@
         if (!strongSelf || !fileURL) return;
         if (![strongSelf.songEntryID isEqualToString:entryID]) return;
         EZMediaPlayerItem *item = [EZMediaPlayerItem itemWithIdentifier:entryID
-                                                                  title:strongSelf.songTitle ?: @"AI song"
-                                                               subtitle:@"AI song"
+                                                                  title:strongSelf.songTitle ?: NSLocalizedString(@"EZMemory.Player.SongFallback", @"AI song fallback title")
+                                                               subtitle:NSLocalizedString(@"EZMemory.Player.SongFallback", @"AI song fallback title")
                                                                 fileURL:fileURL
                                                            durationHint:(NSTimeInterval)strongSelf.songDurationSeconds];
         item.artwork = [[EZMusicArtworkService sharedService] cachedArtworkForEntryID:entryID];
@@ -528,7 +528,7 @@
             ready(nil);
             return;
         }
-        NSDictionary *entry = @{ @"id": entryID, @"title": strongSelf.songTitle ?: @"AI song" };
+        NSDictionary *entry = @{ @"id": entryID, @"title": strongSelf.songTitle ?: NSLocalizedString(@"EZMemory.Player.SongFallback", @"AI song fallback title") };
         [[EZMusicLibraryManager sharedManager] retainSongFromRemoteURL:remoteURL entry:entry
                                                             completion:^(NSURL *savedURL, NSError *downloadError) {
             __strong typeof(weakSelf) innerSelf = weakSelf;
@@ -544,10 +544,10 @@
 
 - (void)presentSongError:(NSError *)error {
     UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:@"Couldn't Open Song"
-                         message:error.localizedDescription ?: @"The song couldn't be downloaded. Check your connection and try again."
+        alertControllerWithTitle:NSLocalizedString(@"EZMemory.Player.OpenErrorTitle", @"Song open error title")
+                         message:error.localizedDescription ?: NSLocalizedString(@"EZMemory.Player.OpenErrorMessage", @"Song open error message")
                   preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZMemory.Player.OK", @"OK button") style:UIAlertActionStyleDefault handler:nil]];
     UIViewController *presenter = [self presentingViewController];
     while (presenter.presentedViewController) presenter = presenter.presentedViewController;
     [presenter presentViewController:alert animated:YES completion:nil];

@@ -2620,15 +2620,15 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     UIAlertController *alert = [UIAlertController
 
-        alertControllerWithTitle:@"🎁 Free Spins!"
+        alertControllerWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.Title", @"Free spins celebration title")
 
-                         message:[NSString stringWithFormat:@"You got %ld free spins on Brainrot Slots — give them a pull!", (long)spinsAdded]
+                         message:[NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.Message", @"Free spins celebration message"), (long)spinsAdded]
 
                   preferredStyle:UIAlertControllerStyleAlert];
 
     __weak typeof(self) weakSelf = self;
 
-    [alert addAction:[UIAlertAction actionWithTitle:@"Play Now"
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.PlayNow", @"Play now button")
 
                                               style:UIAlertActionStyleDefault
 
@@ -2638,7 +2638,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     }]];
 
-    [alert addAction:[UIAlertAction actionWithTitle:@"Later"
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.Later", @"Later button")
 
                                               style:UIAlertActionStyleCancel
 

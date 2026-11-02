@@ -137,3 +137,10 @@
 "EZCoinStore.Celebration.Sweet" = "Tuyệt!";
 
 "EZCoinStore.OK" = "OK";
+
+/* Added 2026-10-25: music, chat paywall, memory player, free spins */
+"EZCoinStore.Feature.AIMusic" = "Nhạc AI";
+"EZCoinStore.FreeSpins.Title" = "🎁 Vòng quay miễn phí!";
+"EZCoinStore.FreeSpins.Message" = "Bạn nhận được %ld vòng quay miễn phí tại Brainrot Slots — chơi ngay!";
+"EZCoinStore.FreeSpins.PlayNow" = "Chơi ngay";
+"EZCoinStore.FreeSpins.Later" = "Để sau";
