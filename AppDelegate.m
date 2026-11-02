@@ -27,6 +27,7 @@
 #import "EZKeyVault.h"
 #import "LoginViewController.h"
 #import "EZAuthManager.h"
+#import "EZReferralManager.h"
 #import "EZPhotoGalleryViewController.h"
 #import "helpers.h"
 
@@ -57,6 +58,10 @@ static NSString *const kEZShareManifestName = @"pending-image-import.plist";
     // transition away from the reset UI that LoginViewController just set up.
     [[EZAuthManager shared] restoreSessionWithCompletion:^(BOOL loggedIn) {
         if (loggedIn && ![[EZAuthManager shared] isInPasswordRecoveryMode]) {
+            // Redeem a referral code stashed at sign-up (e.g. sign-up
+            // needed email confirmation, so no session existed then).
+            // Silent and idempotent — no-op when nothing is stashed.
+            [EZReferralManager applyPendingReferralCode];
             ViewController *vc = [[ViewController alloc] init];
             [UIView transitionWithView:self.window
                               duration:0.3

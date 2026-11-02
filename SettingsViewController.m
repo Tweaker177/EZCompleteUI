@@ -17,6 +17,7 @@
     #import "EZPoliciesViewController.h"
     #import "EZAuthManager.h"
     #import "EZEntitlementManager.h"
+    #import "EZReferralManager.h"
     #import "helpers.h"
     #import <SafariServices/SafariServices.h>
 
@@ -45,6 +46,7 @@
     // ── Subscription ──────────────────────────────────────────────────────────────
     @property (nonatomic, strong) UILabel  *subscriptionStatusLabel;
     @property (nonatomic, strong) UILabel  *coinBalanceLabel;
+    @property (nonatomic, strong) UILabel  *referralCodeLabel;
 
     // ── System prompt ─────────────────────────────────────────────────────────────
     @property (nonatomic, strong) UITextView   *systemMsgView;
@@ -119,6 +121,8 @@
     - (void)viewWillAppear:(BOOL)animated {
         [super viewWillAppear:animated];
         [self refreshSubscriptionDisplay];
+        [EZReferralManager applyPendingReferralCode];
+        [self refreshReferralCodeLabel];
     }
 
     - (void)dealloc {
@@ -214,6 +218,19 @@
                  action:@selector(signOut)
                       y:&y w:w];
 
+        // ── Invite Friends ───────────────────────────────────────────────────────
+        [self addSection:@"🎁 Invite Friends" y:&y];
+        self.referralCodeLabel = [self addLabel:@"Your referral code: …" y:&y];
+        [self addLabel:@"Friends who sign up with your code get 200 free coins — and so do you." y:&y];
+        [self addButton:@"📋 Copy My Referral Code"
+                  color:[UIColor systemTealColor]
+                 action:@selector(copyReferralCode)
+                      y:&y w:w];
+        [self addButton:@"📤 Share EZCompleteUI"
+                  color:[UIColor systemIndigoColor]
+                 action:@selector(shareApp)
+                      y:&y w:w];
+
         // ── OpenAI ───────────────────────────────────────────────────────────────
         // ── Model Preferences ─────────────────────────────────────────────────────
         [self addLabel:@"Model Preferences (Optional):" y:&y];
@@ -274,6 +291,15 @@
                   color:[UIColor systemPurpleColor]
                  action:@selector(openElevenLabsCloneVC)
                       y:&y w:w];
+
+        // The app's voice features run on ElevenLabs; users who want their
+        // own account go through the affiliate link (disclosed, as the
+        // affiliate program's terms require).
+        [self addButton:@"🎧 Get ElevenLabs"
+                  color:[UIColor systemOrangeColor]
+                 action:@selector(openElevenLabsAffiliate)
+                      y:&y w:w];
+        [self addLabel:@"Affiliate link — I may earn a commission at no extra cost to you." y:&y];
 
         y += 35;
 /*
@@ -365,6 +391,45 @@
             });
         }];
     }
+
+- (void)refreshReferralCodeLabel {
+    NSString *cached = [EZReferralManager cachedReferralCode];
+    if (cached.length) {
+        self.referralCodeLabel.text = [NSString stringWithFormat:@"Your referral code: %@", cached];
+    }
+    [EZReferralManager fetchReferralCodeWithCompletion:^(NSString *code) {
+        if (code.length) {
+            self.referralCodeLabel.text = [NSString stringWithFormat:@"Your referral code: %@", code];
+        }
+    }];
+}
+
+- (void)copyReferralCode {
+    [EZReferralManager fetchReferralCodeWithCompletion:^(NSString *code) {
+        if (!code.length) return;
+        [UIPasteboard generalPasteboard].string = code;
+        self.referralCodeLabel.text = [NSString stringWithFormat:@"Your referral code: %@ (copied)", code];
+    }];
+}
+
+- (void)shareApp {
+    [EZReferralManager fetchReferralCodeWithCompletion:^(NSString *code) {
+        NSString *message = [EZReferralManager shareMessageWithReferralCode:code];
+        UIActivityViewController *share = [[UIActivityViewController alloc]
+            initWithActivityItems:@[message] applicationActivities:nil];
+        share.popoverPresentationController.sourceView = self.view;
+        share.popoverPresentationController.sourceRect =
+            CGRectMake(self.view.bounds.size.width / 2, self.view.bounds.size.height / 2, 1, 1);
+        [self presentViewController:share animated:YES completion:nil];
+    }];
+}
+
+- (void)openElevenLabsAffiliate {
+    NSURL *url = [NSURL URLWithString:[EZReferralManager elevenLabsAffiliateURL]];
+    if (url) {
+        [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+    }
+}
 
 - (void)openSubscribePage {
     [self openCoinStore:NO featureName:nil];
