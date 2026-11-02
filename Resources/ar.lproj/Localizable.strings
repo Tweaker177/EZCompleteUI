@@ -223,6 +223,8 @@
 "EZCoinStore.Tier.PowerSubtitle" = "6,250 عملة / شهر\nمتاحة عند الحاجة إليها.";
 "EZCoinStore.Tier.Enterprise" = "المؤسسات";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 عملة / شهر\nلكل احتياجات عملك";
+"EZCoinStore.Tier.UnlimitedChat" = "دردشة غير محدودة";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "دردشة غير محدودة على أحدث النماذج\nAstra 50/يوم · Sol 100/يوم · Luna وTerra غير محدود · 400 عملة / شهر";
 "EZCoinStore.TopUp.Ultra" = "حزمة شحن ألترا";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 "EZCoinStore.TopUp.Power" = "حزمة شحن باور";

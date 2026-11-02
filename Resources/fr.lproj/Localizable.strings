@@ -223,6 +223,8 @@
 "EZCoinStore.Tier.PowerSubtitle" = "6 250 pièces / mois\nDisponibles lorsque vous en avez besoin.";
 "EZCoinStore.Tier.Enterprise" = "Entreprise";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12 500 pièces / mois\nPour tous vos besoins professionnels";
+"EZCoinStore.Tier.UnlimitedChat" = "Chat illimité";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "Chat illimité sur les derniers modèles\nAstra 50/jour · Sol 100/jour · Luna et Terra illimités · 400 pièces / mois";
 "EZCoinStore.TopUp.Ultra" = "Pack de pièces Ultra";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 pièces, paiement unique\nN'expire jamais";
 "EZCoinStore.TopUp.Power" = "Pack de pièces Power";

@@ -223,6 +223,8 @@
 "EZCoinStore.Tier.PowerSubtitle" = "6.250 xu / tháng\nSẵn sàng khi bạn cần.";
 "EZCoinStore.Tier.Enterprise" = "Doanh nghiệp";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12.500 xu / tháng\nCho mọi nhu cầu kinh doanh của bạn";
+"EZCoinStore.Tier.UnlimitedChat" = "Trò chuyện không giới hạn";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "Trò chuyện không giới hạn với các mô hình mới nhất\nAstra 50/ngày · Sol 100/ngày · Luna & Terra không giới hạn · 400 xu / tháng";
 "EZCoinStore.TopUp.Ultra" = "Gói xu Ultra";
 "EZCoinStore.TopUp.UltraSubtitle" = "2.500 xu, thanh toán một lần\nKhông bao giờ hết hạn";
 "EZCoinStore.TopUp.Power" = "Gói xu Power";

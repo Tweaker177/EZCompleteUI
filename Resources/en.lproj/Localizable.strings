@@ -129,6 +129,8 @@
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 coins / month\nFor all your business needs";
+"EZCoinStore.Tier.UnlimitedChat" = "Unlimited Chat";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "Unlimited chat on the latest models\nAstra 50/day · Sol 100/day · Luna & Terra unlimited · 400 coins / month";
 
 "EZCoinStore.TopUp.Starter" = "Coin Starter Pack";
 

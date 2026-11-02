@@ -223,6 +223,8 @@
 "EZCoinStore.Tier.PowerSubtitle" = "每月 6,250 枚金币\n需要时随时可用。";
 "EZCoinStore.Tier.Enterprise" = "企业版";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "每月 12,500 枚金币\n满足您的所有业务需求";
+"EZCoinStore.Tier.UnlimitedChat" = "无限聊天";
+"EZCoinStore.Tier.UnlimitedChatSubtitle" = "最新模型无限聊天\nAstra 50/天 · Sol 100/天 · Luna 和 Terra 不限量 · 每月 400 金币";
 "EZCoinStore.TopUp.Ultra" = "超级金币包";
 "EZCoinStore.TopUp.UltraSubtitle" = "2,500 枚金币，一次性付款\n永不过期";
 "EZCoinStore.TopUp.Power" = "高级金币包";
