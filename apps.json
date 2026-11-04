@@ -31,6 +31,16 @@
       ],
       "versions": [
         {
+          "version": "7.1.17",
+          "buildVersion": "7.1.17",
+          "date": "2026-11-03",
+          "localizedDescription": "## What's new since 7.1.12\n\n### AI Music\n\n- Create songs and instrumentals from a description, with optional lyrics, titles, and a Surprise Me option. Track generations in the AI Music library, play, favorite, and share your songs.\n- Ask a chat model to create music directly in a conversation. Finished songs appear as playable chat cards and are saved in the music library.\n- Generate cover artwork for songs and create replacement covers from the library. Music and speech use a shared player with background playback and lock-screen controls.\n- Create soundtracks guided by video visuals and explore improved music, photo, and video workflows.\n\n### Text to Speech and voice cloning\n\n- Add generated background audio to speech by describing a scene or choosing Surprise Me. Mixed clips appear in history; adjust the background level later in the clip editor.\n- Refreshed the speech creation, history, and clip editing screens with neon styling, clearer controls, expandable prompts, and copy actions.\n- Simplified instant voice cloning and introduced account-based voice slots and retention messaging.\n\n### Chat, memories, and models\n\n- Improved memory search and helper routing, including direct answers and context handoff. Song-producing chat turns can also be indexed as memories.\n- Added Flex, Normal, Fast, and Ultrafast response-speed choices in Settings, alongside updates to the available model lineup.\n- Added an in-chat thinking indicator and helper-selected reactions, plus improvements to chat playback and response status.\n- Select individual messages, code, and images to translate, delete, or export. Export formats include PDF, rich text, and text with original images; selection and export controls have been refined.\n\n### Images, sharing, and more\n\n- Expanded photo editing and Surprise Me recipes, with streaming previews and improved recovery from connection interruptions.\n- Added the share extension for bringing supported content into EZCompleteUI, including photo workflow…",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.1.17/EZCompleteUI-7.1.17-release.ipa",
+          "size": 11753664,
+          "sha256": "8d26bdcad25cf35a7227f588bd55175926908f3f123f20a1389992bd3d373c6d",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.1.12",
           "buildVersion": "7.1.12",
           "date": "2026-10-07",
