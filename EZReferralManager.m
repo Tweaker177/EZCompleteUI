@@ -25,7 +25,7 @@ static NSString *const kEZJailbreakRepoURL = @"https://i0s-tweak3r-betas.yourepo
 // from the PartnerStack dashboard. The plain site URL below works as a link
 // but attributes no commission. Program rules: no self-referrals, and the
 // affiliate relationship must be disclosed next to the link (Settings does).
-static NSString *const kEZElevenLabsAffiliateURL = @"https://elevenlabs.io/";
+static NSString *const kEZElevenLabsAffiliateURL = @"https://try.elevenlabs.io/CreatorTier";
 
 // ── Local storage keys ───────────────────────────────────────────────────────
 static NSString *const kEZReferralCodeCacheKey   = @"EZReferralCode";
