@@ -132,7 +132,7 @@
 
 - (BOOL)isZipArchive {
     if (self.isDirectory) return NO;
-    if ([self.contentType conformsToType:UTTypeZip]) return YES;
+    if ([self.contentType conformsToType:UTTypeZIP]) return YES;
     // ipa/cbz/jar are plain ZIP files wearing a different extension —
     // they extract exactly like one.
     static NSSet<NSString *> *zipExtensions;

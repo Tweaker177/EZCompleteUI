@@ -505,7 +505,7 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
     return 1;
 }
 
-- (NSString *)tableView:(UITableView *)tableView
+- (nullable NSString *)tableView:(UITableView *)tableView
     titleForHeaderInSection:(NSInteger)section {
     if (self.mode != EZFileExplorerModeHome) return nil;
     if ([self ez_homeRootsForSection:section].count == 0) return nil;
@@ -768,7 +768,7 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
     return ![item.url.path hasPrefix:[[self class] ez_trashURL].path];
 }
 
-- (UISwipeActionsConfiguration *)tableView:(UITableView *)tableView
+- (nullable UISwipeActionsConfiguration *)tableView:(UITableView *)tableView
     trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath {
     if (self.mode == EZFileExplorerModeHome) return nil;
     EZFileItem *item = [self ez_itemAtIndexPath:indexPath];
@@ -833,7 +833,7 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
     return [UISwipeActionsConfiguration configurationWithActions:actions];
 }
 
-- (UISwipeActionsConfiguration *)tableView:(UITableView *)tableView
+- (nullable UISwipeActionsConfiguration *)tableView:(UITableView *)tableView
     leadingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath {
     if (self.mode == EZFileExplorerModeHome) return nil;
     EZFileItem *item = [self ez_itemAtIndexPath:indexPath];
@@ -851,7 +851,7 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
     return [UISwipeActionsConfiguration configurationWithActions:@[info]];
 }
 
-- (UIContextMenuConfiguration *)tableView:(UITableView *)tableView
+- (nullable UIContextMenuConfiguration *)tableView:(UITableView *)tableView
     contextMenuConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath
                                         point:(CGPoint)point {
     if (self.mode == EZFileExplorerModeHome) return nil;
@@ -897,9 +897,9 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
                 actionWithTitle:NSLocalizedString(@"EZFileExplorer.Rename", @"Rename action")
                           image:[UIImage systemImageNamed:@"pencil"]
                      identifier:nil
-                        handler:^(__kindof UIAction *a) {
+handler:^(__kindof UIAction *a) {
                 [self ez_renameItem:item];
-            }]];
+            }                        ]];
             [menuActions addObject:[UIAction
                 actionWithTitle:NSLocalizedString(@"EZFileExplorer.Duplicate", @"Duplicate action")
                           image:[UIImage systemImageNamed:@"plus.square.on.square"]
