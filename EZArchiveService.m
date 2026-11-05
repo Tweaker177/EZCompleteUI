@@ -84,7 +84,7 @@ NS_ASSUME_NONNULL_BEGIN
     uint8_t inChunk[32 * 1024];
     uint8_t outChunk[64 * 1024];
     while (self.carry.length == 0) {
-        if (self.stream.avail_in == 0) {
+        if (_stream.avail_in == 0) {
             if (self.compressedRemaining == 0) { self.inputEOF = YES; return NO; }
             NSUInteger toRead = (NSUInteger)MIN((uint64_t)sizeof(inChunk),
                                                 self.compressedRemaining);
@@ -92,22 +92,22 @@ NS_ASSUME_NONNULL_BEGIN
             if (!data.length) { self.inputEOF = YES; return NO; }
             self.compressedRemaining -= data.length;
             memcpy(inChunk, data.bytes, data.length);
-            self.stream.next_in = inChunk;
-            self.stream.avail_in = (uInt)data.length;
+            _stream.next_in = inChunk;
+            _stream.avail_in = (uInt)data.length;
         }
-        self.stream.next_out = outChunk;
-        self.stream.avail_out = sizeof(outChunk);
-        uInt availInBefore = self.stream.avail_in;
-        int result = inflate(&self.stream, Z_NO_FLUSH);
-        NSUInteger produced = sizeof(outChunk) - self.stream.avail_out;
+        _stream.next_out = outChunk;
+        _stream.avail_out = sizeof(outChunk);
+        uInt availInBefore = _stream.avail_in;
+        int result = inflate(&_stream, Z_NO_FLUSH);
+        NSUInteger produced = sizeof(outChunk) - _stream.avail_out;
         if (produced) [self.carry appendBytes:outChunk length:produced];
         if (result == Z_BUF_ERROR && produced == 0 &&
-            self.stream.avail_in == availInBefore) {
+            _stream.avail_in == availInBefore) {
             return NO; // no progress possible — corrupt stream
         }
         if (result == Z_STREAM_END) { self.inputEOF = YES; break; }
         if (result != Z_OK && result != Z_BUF_ERROR) return NO;
-        if (result == Z_BUF_ERROR && self.stream.avail_in == 0 &&
+        if (result == Z_BUF_ERROR && _stream.avail_in == 0 &&
             self.compressedRemaining == 0) {
             self.inputEOF = YES;
             return self.carry.length > 0;
@@ -618,7 +618,7 @@ static NSString *EZTarParseString(const uint8_t *field, NSUInteger length) {
                                toDirectory:(NSURL *)destination
                                    skipped:(NSMutableArray<NSString *> *)skipped
                                   progress:(nullable EZArchiveProgressBlock)progress {
-    NSFileHandle *handle = [NSFileHandle fileHandleForReadingAtURL:archiveURL error:nil];
+    NSFileHandle *handle = [NSFileHandle fileHandleForReadingAtPath:archiveURL.path];
     if (!handle) return [self ez_error:EZArchiveServiceErrorCorruptArchive];
     uint64_t fileSize = 0;
     if (![handle seekToEndReturningOffset:&fileSize error:nil]) {
@@ -908,7 +908,7 @@ static NSString *EZTarParseString(const uint8_t *field, NSUInteger length) {
                                toDirectory:(NSURL *)destination
                                    skipped:(NSMutableArray<NSString *> *)skipped
                                   progress:(nullable EZArchiveProgressBlock)progress {
-    NSFileHandle *handle = [NSFileHandle fileHandleForReadingAtURL:archiveURL error:nil];
+    NSFileHandle *handle = [NSFileHandle fileHandleForReadingAtPath:archiveURL.path];
     if (!handle) return [self ez_error:EZArchiveServiceErrorCorruptArchive];
     uint64_t fileSize = 0;
     [handle seekToEndReturningOffset:&fileSize error:nil];
@@ -1012,7 +1012,7 @@ static NSString *EZTarParseString(const uint8_t *field, NSUInteger length) {
                 ? [destination URLByAppendingPathComponent:@"DEBIAN"]
                 : destination;
             NSFileHandle *memberHandle =
-                [NSFileHandle fileHandleForReadingAtURL:archiveURL error:nil];
+                [NSFileHandle fileHandleForReadingAtPath:archiveURL.path];
             if (!memberHandle) {
                 return [self ez_error:EZArchiveServiceErrorCorruptArchive];
             }
