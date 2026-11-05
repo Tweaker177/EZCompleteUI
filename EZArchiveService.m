@@ -29,6 +29,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) NSMutableData *carry;   // inflated bytes awaiting consumption
 @property (nonatomic, assign) NSUInteger carryOffset;
 @property (nonatomic, assign) BOOL inputEOF;
+@property (nonatomic, strong, nullable) NSData *inChunkData; // current gzip input chunk — retained so _stream.next_in stays valid across fills
 - (nullable instancetype)initWithFileHandle:(NSFileHandle *)handle
                                      offset:(uint64_t)offset
                                      length:(uint64_t)length
@@ -81,18 +82,21 @@ NS_ASSUME_NONNULL_BEGIN
     [self.carry setLength:0];
     self.carryOffset = 0;
     if (self.inputEOF) return NO;
-    uint8_t inChunk[32 * 1024];
     uint8_t outChunk[64 * 1024];
     while (self.carry.length == 0) {
         if (_stream.avail_in == 0) {
             if (self.compressedRemaining == 0) { self.inputEOF = YES; return NO; }
-            NSUInteger toRead = (NSUInteger)MIN((uint64_t)sizeof(inChunk),
+            NSUInteger toRead = (NSUInteger)MIN((uint64_t)(32 * 1024),
                                                 self.compressedRemaining);
             NSData *data = [self.handle readDataUpToLength:toRead error:nil];
             if (!data.length) { self.inputEOF = YES; return NO; }
             self.compressedRemaining -= data.length;
-            memcpy(inChunk, data.bytes, data.length);
-            _stream.next_in = inChunk;
+            // Retained, not a stack buffer: inflate keeps _stream.next_in
+            // across calls whenever it stops with input unconsumed
+            // (a 32 KB chunk inflating past the 64 KB output buffer),
+            // so the chunk must outlive this stack frame.
+            self.inChunkData = data;
+            _stream.next_in = (Bytef *)self.inChunkData.bytes;
             _stream.avail_in = (uInt)data.length;
         }
         _stream.next_out = outChunk;
@@ -281,7 +285,7 @@ NS_ASSUME_NONNULL_BEGIN
 
     NSError *failure = nil;
     unz_global_info64 gi;
-    if (unzGetGlobalInfo64(uf, &gi) != UNZ_OK || gi.number_entry == 0) {
+    if (unzGetGlobalInfo64(uf, &gi) != UNZ_OK) {
         unzClose(uf);
         return [self ez_error:EZArchiveServiceErrorCorruptArchive];
     }
