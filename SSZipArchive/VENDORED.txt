@@ -1,0 +1,7 @@
+Vendored library: SSZipArchive 2.6.0 (tag 2.6.0, commit df35718)
+Source: https://github.com/ZipArchive/ZipArchive
+Contents: SSZipArchive.h/.m, SSZipCommon.h, minizip/ (minizip-ng), LICENSE.txt
+Local modifications: none.
+Build: compiled directly into the app target via the Theos Makefile
+(EZCompleteUI_FILES + -lz + the HAVE_* / ZLIB_COMPAT defines from the
+upstream podspec).

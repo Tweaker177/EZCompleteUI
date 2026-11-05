@@ -593,6 +593,7 @@
 #import "EZCoinPotView.h"
 #import "TextToSpeechViewController.h"
 #import "EZMusicViewController.h"
+#import "EZFileExplorerViewController.h"
 #import "EZMusicService.h"
 #import "EZMusicLibraryManager.h"
 #import "EZMusicBubbleCell.h"
@@ -911,6 +912,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UIButton      *cloningButton;
 @property (nonatomic, strong) UIButton      *galleryButton;
 @property (nonatomic, strong) UIButton      *brainRotButton;
+@property (nonatomic, strong) UIButton      *filesButton;
 /// The cell currently editing a code/document block, if any. The composer
 /// remains visible but is deliberately inactive during that focused edit.
 @property (nonatomic, weak) EZCodeBlockCell *activeDocumentEditingCell;
@@ -1900,6 +1902,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
     
     self.galleryButton = [self _iconButton:@"photo.on.rectangle.angled" tint:nil action:@selector(openGallery)];
     self.brainRotButton = [self _iconButton:@"brain.head.profile" tint:nil action:@selector(openBrainRot)];
+    self.filesButton = [self _iconButton:@"folder.fill" tint:nil action:@selector(openFiles)];
 
     self.textToSpeechButton = [self _iconButton:@"play.circle.fill" tint:nil action:@selector(openTTS)];
 
@@ -2771,6 +2774,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
                 else if ([action isEqualToString:@"gallery"]) [weakSelf openGallery];
                 else if ([action isEqualToString:@"tts"]) [weakSelf openTTS];
                 else if ([action isEqualToString:@"music"]) [weakSelf openMusic];
+                else if ([action isEqualToString:@"files"]) [weakSelf openFiles];
                 else if ([action isEqualToString:@"cloning"]) [weakSelf openCloning];
                 else if ([action isEqualToString:@"brainRot"]) [weakSelf openBrainRot];
                 else if ([action isEqualToString:@"memories"]) [weakSelf openMemories];
@@ -8621,6 +8625,12 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 - (void)openMusic {
     UINavigationController *nav = [[UINavigationController alloc]
         initWithRootViewController:[[EZMusicViewController alloc] init]];
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)openFiles {
+    UINavigationController *nav = [[UINavigationController alloc]
+        initWithRootViewController:[[EZFileExplorerViewController alloc] init]];
     [self presentViewController:nav animated:YES completion:nil];
 }
 

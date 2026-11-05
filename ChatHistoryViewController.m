@@ -137,7 +137,7 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    if (section == 0) return 9;
+    if (section == 0) return 10;
     return self.threads.count == 0 ? 1 : (NSInteger)self.threads.count;
 }
 
@@ -158,13 +158,14 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
                 NSLocalizedString(@"EZNav.PhotoGallery", nil),
                 NSLocalizedString(@"EZNav.TextToSpeech", nil),
                 NSLocalizedStringWithDefaultValue(@"EZNav.Music", nil, [NSBundle mainBundle], @"AI Music", nil),
+                NSLocalizedString(@"EZNav.Files", nil),
                 NSLocalizedString(@"EZNav.VoiceCloning", nil),
                 NSLocalizedString(@"EZNav.BrainRot", nil),
                 NSLocalizedString(@"EZNav.Memories", nil),
                 NSLocalizedString(@"EZNav.CoinStore", nil),
                 NSLocalizedString(@"EZNav.Settings", nil)
             ];
-            icons = @[@"square.and.pencil", @"photo.on.rectangle.angled", @"play.circle.fill", @"music.note", @"waveform", @"gamecontroller.fill", @"brain.head.profile", @"circle.hexagongrid.fill", @"gearshape.fill"];
+            icons = @[@"square.and.pencil", @"photo.on.rectangle.angled", @"play.circle.fill", @"music.note", @"folder.fill", @"waveform", @"gamecontroller.fill", @"brain.head.profile", @"circle.hexagongrid.fill", @"gearshape.fill"];
         });
         UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:kNavigationCellID
                                                                  forIndexPath:indexPath];
@@ -250,7 +251,7 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
         static NSArray<NSString *> *actions;
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            actions = @[@"newChat", @"gallery", @"tts", @"music", @"cloning", @"brainRot", @"memories", @"coinStore", @"settings"];
+            actions = @[@"newChat", @"gallery", @"tts", @"music", @"files", @"cloning", @"brainRot", @"memories", @"coinStore", @"settings"];
         });
         if (self.navigationActionHandler) {
             self.navigationActionHandler(actions[(NSUInteger)indexPath.row]);
