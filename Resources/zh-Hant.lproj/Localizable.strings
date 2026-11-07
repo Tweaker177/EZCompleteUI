@@ -630,3 +630,27 @@
 "EZFileExplorer.DebUnsupportedMessage" = "此 .deb 套件內部使用 %@ 壓縮，應用程式尚無法解壓縮。";
 "EZFileExplorer.UnsupportedMessage" = "此壓縮檔使用 %@ 壓縮，應用程式尚無法解壓縮。你可以在其他支援的應用程式中打開它。";
 "EZFileExplorer.UnsupportedTitle" = "尚無法解壓縮";
+
+/* NSFW Seahorse (ez-seahorse) */
+"EZModelLabel.ImageGenNSFW" = "NSFW 圖像生成 (18+)";
+"EZImageNSFW.AttestationTitle" = "僅限成年人 (18+)";
+"EZImageNSFW.AttestationMessage" = "NSFW 圖像生成僅限成年人使用。確認您已年滿 18 歲以繼續。此確認將儲存到您的帳戶。";
+"EZImageNSFW.AttestationConfirm" = "我確認我已滿 18 歲";
+"EZImageNSFW.AttestationRequired" = "您必須確認自己已年滿 18 歲才能使用 NSFW 生成。";
+"EZImageNSFW.Cancel" = "取消";
+"EZImageNSFW.PaywallTitle" = "需要近期購買記錄";
+"EZImageNSFW.PaywallMessage" = "NSFW 生成要求在過去 %ld 天內有過購買。每次 NSFW 生成需 50 金幣。";
+"EZImageNSFW.ViewPlans" = "查看方案";
+"EZImageNSFW.InsufficientTitle" = "金幣不足";
+"EZImageNSFW.InsufficientMessage" = "NSFW 生成需 50 金幣。儲值或訂閱以繼續。";
+"EZImageNSFW.EnrollTitle" = "自拍核查";
+"EZImageNSFW.EnrollMessage" = "參考照片必須為您本人。拍攝一張一次性自拍，用於核對您的參考照片。自拍僅保存在此裝置上，絕不會上傳；核查時僅使用裁剪後的人臉圖像。";
+"EZImageNSFW.TakeSelfie" = "拍自拍";
+"EZImageNSFW.EnrollRequired" = "使用參考照片前需要先拍一張自拍。";
+"EZImageNSFW.ContinueWithoutReference" = "不使用並繼續";
+"EZImageNSFW.Cancelled" = "NSFW 生成已取消。";
+"EZImageNSFW.ReferenceRefusedTitle" = "參考照片未被使用";
+"EZImageNSFW.NoFaceMessage" = "該照片中未找到人臉，因此無法核查。請嘗試更清晰的正面照片。";
+"EZImageNSFW.VerifyFailedMessage" = "該照片與您的自拍不匹配，因此未被使用。";
+"EZImageNSFW.UploadFailedMessage" = "參考照片上傳失敗，因此未被使用。";
+"EZImageNSFW.RerouteButton" = "用 Seahorse 生成 (18+)";

@@ -581,6 +581,7 @@
 #import <CoreText/CoreText.h>
 #import <Photos/Photos.h>
 #import <PhotosUI/PhotosUI.h>
+#import <Vision/Vision.h>
 #import <QuartzCore/QuartzCore.h>
 #import "EZModelPickerViewController.h"
 #import "EZImageSettingsViewController.h"
@@ -1093,6 +1094,17 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)performChatMusicRequest:(NSDictionary *)musicRequest;
 - (NSString *)ez_chatMusicSummaryForEvent:(NSDictionary *)event;
 - (void)callGptImage1:(NSString *)prompt model:(NSString *)imageModel;
+- (void)callSeahorseImage:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths;
+- (void)ezSeahorseFetchEligibilityWithPrompt:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths allowAttestation:(BOOL)allowAttestation;
+- (void)ezSeahorseAttestWithPrompt:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths;
+- (void)ezSeahorsePrepareReferencesWithPrompt:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths;
+- (void)ezSeahorseVerifyReferenceAtIndex:(NSUInteger)index prompt:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths enrollmentCrop:(NSData *)enrollmentCrop assetURLs:(NSMutableArray<NSString *> *)assetURLs;
+- (void)ezSeahorseReferenceRefusedWithPrompt:(NSString *)prompt message:(NSString *)message assetURLs:(NSArray<NSString *> *)assetURLs;
+- (void)ezSeahorseUploadReferenceAtPath:(NSString *)path completion:(void (^)(NSString * _Nullable assetURL))completion;
+- (void)ezSeahorseGenerateWithPrompt:(NSString *)prompt referenceAssetURLs:(NSArray<NSString *> *)referenceAssetURLs;
+- (void)ezSeahorseFailWithMessage:(NSString *)message prompt:(NSString *)prompt;
+- (NSString *)ezSeahorseEnrollmentPath;
+- (BOOL)ezSeahorseHasEnrollment;
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath
                model:(NSString *)imageModel preserveChatModel:(BOOL)preserveChatModel;
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath;
@@ -1120,6 +1132,106 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)setupKeyboardObservers;
 - (void)closeDrawer;
 @end
+
+// ── NSFW (Seahorse) selfie-check helpers ──────────────────────────────────
+// The enrollment picker has its own one-shot delegate so it never
+// interferes with the chat attachment pickers; it retains itself (via
+// EZSeahorseActiveSelfiePicker) until the picker dismisses.
+
+@interface EZSeahorseSelfiePicker : NSObject <UIImagePickerControllerDelegate, UINavigationControllerDelegate>
+@property (nonatomic, copy) void (^completion)(UIImage * _Nullable image);
++ (void)captureFromViewController:(UIViewController *)presenter
+                       completion:(void (^)(UIImage * _Nullable image))completion;
+@end
+
+static EZSeahorseSelfiePicker *EZSeahorseActiveSelfiePicker = nil;
+
+@implementation EZSeahorseSelfiePicker
+
++ (void)captureFromViewController:(UIViewController *)presenter
+                       completion:(void (^)(UIImage * _Nullable))completion {
+    if (![UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera]) {
+        if (completion) completion(nil);
+        return;
+    }
+    EZSeahorseSelfiePicker *picker = [[EZSeahorseSelfiePicker alloc] init];
+    picker.completion = completion;
+    EZSeahorseActiveSelfiePicker = picker;
+    UIImagePickerController *ipc = [[UIImagePickerController alloc] init];
+    ipc.sourceType = UIImagePickerControllerSourceTypeCamera;
+    ipc.cameraDevice = UIImagePickerControllerCameraDeviceFront;
+    ipc.delegate = picker;
+    ipc.allowsEditing = NO;
+    [presenter presentViewController:ipc animated:YES completion:nil];
+}
+
+- (void)imagePickerController:(UIImagePickerController *)picker
+        didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> *)info {
+    UIImage *image = info[UIImagePickerControllerOriginalImage];
+    void (^completion)(UIImage *) = self.completion;
+    [picker dismissViewControllerAnimated:YES completion:^{
+        EZSeahorseActiveSelfiePicker = nil;
+        if (completion) completion(image);
+    }];
+}
+
+- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker {
+    void (^completion)(UIImage *) = self.completion;
+    [picker dismissViewControllerAnimated:YES completion:^{
+        EZSeahorseActiveSelfiePicker = nil;
+        if (completion) completion(nil);
+    }];
+}
+
+@end
+
+// Face-crops an image ON DEVICE (Vision framework, no external model):
+// finds the largest face and returns a head-and-shoulders JPEG crop, or
+// nil when no usable face is present. This crop is the only thing that
+// ever leaves the device for the selfie check — the original (possibly
+// NSFW) reference is uploaded only to Nureta, and only after a pass.
+static NSData * _Nullable EZSeahorseFaceCropJPEGData(UIImage *image) {
+    if (!image) return nil;
+    // Bake orientation into the pixels so crop math is in plain image space.
+    UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+    format.scale = 1.0;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:image.size format:format];
+    UIImage *flat = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull ctx) {
+        [image drawInRect:CGRectMake(0, 0, image.size.width, image.size.height)];
+    }];
+    CGImageRef cg = flat.CGImage;
+    if (!cg) return nil;
+
+    VNDetectFaceRectanglesRequest *request = [[VNDetectFaceRectanglesRequest alloc] init];
+    VNImageRequestHandler *handler = [[VNImageRequestHandler alloc] initWithCGImage:cg options:@{}];
+    NSError *detectError = nil;
+    if (![handler performRequests:@[request] error:&detectError]) return nil;
+
+    VNFaceObservation *best = nil;
+    CGFloat bestArea = 0;
+    for (VNFaceObservation *obs in request.results) {
+        CGFloat area = obs.boundingBox.size.width * obs.boundingBox.size.height;
+        if (area > bestArea) { bestArea = area; best = obs; }
+    }
+    if (!best) return nil;
+
+    CGFloat W = (CGFloat)CGImageGetWidth(cg);
+    CGFloat H = (CGFloat)CGImageGetHeight(cg);
+    CGRect bb = best.boundingBox; // normalized, origin at bottom-left
+    CGFloat fx = bb.origin.x * W;
+    CGFloat fw = bb.size.width * W;
+    CGFloat fh = bb.size.height * H;
+    CGFloat fyTop = (1.0 - bb.origin.y - bb.size.height) * H; // top-left origin
+    CGRect crop = CGRectMake(fx - fw * 0.45, fyTop - fh * 0.75, fw * 1.9, fh * 2.3);
+    crop = CGRectIntersection(crop, CGRectMake(0, 0, W, H));
+    if (CGRectIsNull(crop) || crop.size.width < 40 || crop.size.height < 40) return nil;
+
+    CGImageRef croppedRef = CGImageCreateWithImageInRect(cg, crop);
+    if (!croppedRef) return nil;
+    UIImage *cropImage = [UIImage imageWithCGImage:croppedRef];
+    CGImageRelease(croppedRef);
+    return UIImageJPEGRepresentation(cropImage, 0.7);
+}
 
 @implementation ViewController
 
@@ -1357,6 +1469,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
            @"gpt-image-2.5-flare",    // newest, fastest — low/medium/high/xhigh/max
            @"gpt-image-2",          // low/medium/high only
            @"gpt-image-1-mini",     // faster/cheaper image generation
+           @"seahorse-image",       // NSFW generation via Nureta Seahorse (18+, 50 coins, recent purchase required)
         // ── Video ─────────────────────────────────────────────────────────
         // SORA — commented out, not deleted. User removed Sora from Settings;
         // OpenAI's Sora API is also scheduled for shutdown 2026-09-24
@@ -3866,6 +3979,16 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         return;
     }
 
+    // ── NSFW (Seahorse) generation ───────────────────────────────────────────
+    // Photos attached to this message are treated as reference images and
+    // go through the selfie check inside the Seahorse flow.
+    if ([self.selectedModel isEqualToString:@"seahorse-image"]) {
+        NSArray<NSString *> *referencePaths = [self.pendingImagePaths copy];
+        [self.pendingImagePaths removeAllObjects];
+        [self callSeahorseImage:text referencePaths:referencePaths];
+        return;
+    }
+
     // ── Image model intent check ──────────────────────────────────────────────
     BOOL isImageModel = [self isGptImage1Family:self.selectedModel];
     // Chat models now choose analysis/generation/editing with an actual tool
@@ -4811,6 +4934,36 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             // generation failures until this fix.
             NSString *reason = json[@"reason"];
             NSString *fullMsg = reason.length ? [NSString stringWithFormat:@"%@ %@", errMsg, reason] : errMsg;
+            // Safety rejections (already refunded by ez-image) get a
+            // one-tap reroute into the NSFW Seahorse path with the same
+            // prompt. Any other error keeps the normal handling below.
+            NSString *lowerMsg = [fullMsg lowercaseString];
+            if ([lowerMsg containsString:@"safety"] ||
+                [lowerMsg containsString:@"content policy"] ||
+                [lowerMsg containsString:@"moderation"]) {
+                NSString *reroutePrompt = savedPrompt;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self hideStatusBanner];
+                    self.sendButton.enabled = YES;
+                    [self appendImageGridToChat:@[] prompt:reroutePrompt isError:YES errorText:fullMsg];
+                    UIAlertController *alert =
+                        [UIAlertController alertControllerWithTitle:@"Request Refused"
+                                                            message:fullMsg
+                                                     preferredStyle:UIAlertControllerStyleAlert];
+                    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.RerouteButton", nil)
+                                                              style:UIAlertActionStyleDefault
+                                                            handler:^(UIAlertAction *action) {
+                        self.selectedModel = @"seahorse-image";
+                        [self.modelButton setTitle:@"Model: seahorse-image" forState:UIControlStateNormal];
+                        [[NSUserDefaults standardUserDefaults] setObject:@"seahorse-image" forKey:@"selectedModel"];
+                        [self callSeahorseImage:reroutePrompt referencePaths:@[]];
+                    }]];
+                    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
+                                                              style:UIAlertActionStyleCancel handler:nil]];
+                    [self presentViewController:alert animated:YES completion:nil];
+                });
+                return;
+            }
             [self handleAPIError:fullMsg];
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self hideStatusBanner];
@@ -4889,6 +5042,414 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                     NSString *errMsg = @"Image generated but could not be saved.";
                     [self appendImageGridToChat:@[] prompt:savedPrompt isError:YES errorText:errMsg];
                 }
+                [self updateCoinBalanceDisplay];
+                [self updateImageGenerationProgress:1.0];
+                [self hideStatusBanner];
+                self.sendButton.enabled = YES;
+            });
+        });
+    }];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - NSFW Image Generation (Nureta Seahorse, 18+)
+// ─────────────────────────────────────────────────────────────────────────────
+// Selecting the "seahorse-image" model routes sends here instead of
+// ez-image. Gates mirror the server (ez-seahorse): a one-time 18+
+// attestation, a purchase within the server's recent-purchase window,
+// and 50 coins flat per generation. Attached photos become reference
+// images only after the selfie check: a one-time enrollment selfie
+// (saved on-device only, never uploaded) and each reference are
+// face-cropped on device, the crops are compared by the server-side
+// vision check, and only a pass uploads the original reference to
+// Nureta. The check is a consent checkpoint / deterrent, not biometric
+// proof — the copy says "selfie check", never "identity verified".
+
+- (NSString *)ezSeahorseEnrollmentPath {
+    NSString *dir = [[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject]
+                     stringByAppendingPathComponent:@"EZPrivate"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:dir
+                              withIntermediateDirectories:YES attributes:nil error:nil];
+    return [dir stringByAppendingPathComponent:@"enrollment-selfie.jpg"];
+}
+
+- (BOOL)ezSeahorseHasEnrollment {
+    return [[NSFileManager defaultManager] fileExistsAtPath:[self ezSeahorseEnrollmentPath]];
+}
+
+- (void)ezSeahorseFailWithMessage:(NSString *)message prompt:(NSString *)prompt {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self hideStatusBanner];
+        [self handleAPIError:message];
+        [self appendImageGridToChat:@[] prompt:prompt isError:YES errorText:message];
+        self.sendButton.enabled = YES;
+    });
+}
+
+- (void)callSeahorseImage:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths {
+    self.sendButton.enabled = NO;
+    EZLog(EZLogLevelInfo, @"SEAHORSE", @"NSFW generation requested via ez-seahorse");
+    NSString *token = [EZAuthManager shared].accessToken;
+    if (!token) {
+        [self handleAPIError:@"Not signed in"];
+        self.sendButton.enabled = YES;
+        return;
+    }
+    [self appendToChat:@"[System: Generating NSFW image with Seahorse...]"];
+    [self showImageGenStatusBanner];
+    [self updateImageGenerationProgress:0.14];
+    [self ezSeahorseFetchEligibilityWithPrompt:prompt referencePaths:referencePaths allowAttestation:YES];
+}
+
+- (void)ezSeahorseFetchEligibilityWithPrompt:(NSString *)prompt
+                            referencePaths:(NSArray<NSString *> *)referencePaths
+                          allowAttestation:(BOOL)allowAttestation {
+    NSString *token = [EZAuthManager shared].accessToken;
+    [self postToEZFunction:@"ez-seahorse" token:token body:@{ @"action": @"eligibility" }
+                completion:^(NSDictionary *json, NSError *error) {
+        if (error || !json) {
+            [self ezSeahorseFailWithMessage:(error.localizedDescription ?: @"Could not reach the server")
+                                     prompt:prompt];
+            return;
+        }
+        NSString *err = json[@"error"];
+        if (err.length) {
+            [self ezSeahorseFailWithMessage:err prompt:prompt];
+            return;
+        }
+        if (![json[@"adult_confirmed"] boolValue]) {
+            if (!allowAttestation) {
+                [self ezSeahorseFailWithMessage:NSLocalizedString(@"EZImageNSFW.AttestationRequired", nil)
+                                         prompt:prompt];
+                return;
+            }
+            dispatch_async(dispatch_get_main_queue(), ^{
+                UIAlertController *alert =
+                    [UIAlertController alertControllerWithTitle:NSLocalizedString(@"EZImageNSFW.AttestationTitle", nil)
+                                                        message:NSLocalizedString(@"EZImageNSFW.AttestationMessage", nil)
+                                                 preferredStyle:UIAlertControllerStyleAlert];
+                [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.AttestationConfirm", nil)
+                                                          style:UIAlertActionStyleDefault
+                                                        handler:^(UIAlertAction *action) {
+                    [self ezSeahorseAttestWithPrompt:prompt referencePaths:referencePaths];
+                }]];
+                [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
+                                                          style:UIAlertActionStyleCancel
+                                                        handler:^(UIAlertAction *action) {
+                    [self ezSeahorseFailWithMessage:NSLocalizedString(@"EZImageNSFW.AttestationRequired", nil)
+                                             prompt:prompt];
+                }]];
+                [self presentViewController:alert animated:YES completion:nil];
+            });
+            return;
+        }
+        NSInteger windowDays = [json[@"window_days"] integerValue] ?: 90;
+        if (![json[@"recent_purchase"] boolValue]) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideStatusBanner];
+                self.sendButton.enabled = YES;
+                NSString *msg = [NSString stringWithFormat:
+                    NSLocalizedString(@"EZImageNSFW.PaywallMessage", nil), (long)windowDays];
+                UIAlertController *alert =
+                    [UIAlertController alertControllerWithTitle:NSLocalizedString(@"EZImageNSFW.PaywallTitle", nil)
+                                                        message:msg
+                                                 preferredStyle:UIAlertControllerStyleAlert];
+                [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.ViewPlans", nil)
+                                                          style:UIAlertActionStyleDefault
+                                                        handler:^(UIAlertAction *action) {
+                    [self presentCoinStoreForFeature:@"NSFW images"];
+                }]];
+                [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
+                                                          style:UIAlertActionStyleCancel handler:nil]];
+                [self presentViewController:alert animated:YES completion:nil];
+            });
+            return;
+        }
+        if ([json[@"balance"] integerValue] < 50) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self hideStatusBanner];
+                self.sendButton.enabled = YES;
+                UIAlertController *alert =
+                    [UIAlertController alertControllerWithTitle:NSLocalizedString(@"EZImageNSFW.InsufficientTitle", nil)
+                                                        message:NSLocalizedString(@"EZImageNSFW.InsufficientMessage", nil)
+                                                 preferredStyle:UIAlertControllerStyleAlert];
+                [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.ViewPlans", nil)
+                                                          style:UIAlertActionStyleDefault
+                                                        handler:^(UIAlertAction *action) {
+                    [self presentCoinStoreForFeature:@"NSFW images"];
+                }]];
+                [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
+                                                          style:UIAlertActionStyleCancel handler:nil]];
+                [self presentViewController:alert animated:YES completion:nil];
+            });
+            return;
+        }
+        [self ezSeahorsePrepareReferencesWithPrompt:prompt referencePaths:referencePaths];
+    }];
+}
+
+- (void)ezSeahorseAttestWithPrompt:(NSString *)prompt
+                  referencePaths:(NSArray<NSString *> *)referencePaths {
+    NSString *token = [EZAuthManager shared].accessToken;
+    [self postToEZFunction:@"ez-seahorse" token:token body:@{ @"action": @"attest_adult" }
+                completion:^(NSDictionary *json, NSError *error) {
+        NSString *err = json[@"error"];
+        if (error || err.length) {
+            [self ezSeahorseFailWithMessage:(err.length ? err
+                                                 : (error.localizedDescription ?: @"Could not record confirmation"))
+                                     prompt:prompt];
+            return;
+        }
+        [self ezSeahorseFetchEligibilityWithPrompt:prompt referencePaths:referencePaths allowAttestation:NO];
+    }];
+}
+
+- (void)ezSeahorsePrepareReferencesWithPrompt:(NSString *)prompt
+                             referencePaths:(NSArray<NSString *> *)referencePaths {
+    NSArray<NSString *> *refs = referencePaths;
+    if (refs.count > 3) refs = [refs subarrayWithRange:NSMakeRange(refs.count - 3, 3)];
+    if (refs.count == 0) {
+        [self ezSeahorseGenerateWithPrompt:prompt referenceAssetURLs:@[]];
+        return;
+    }
+    if (![self ezSeahorseHasEnrollment]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            UIAlertController *alert =
+                [UIAlertController alertControllerWithTitle:NSLocalizedString(@"EZImageNSFW.EnrollTitle", nil)
+                                                    message:NSLocalizedString(@"EZImageNSFW.EnrollMessage", nil)
+                                             preferredStyle:UIAlertControllerStyleAlert];
+            [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.TakeSelfie", nil)
+                                                      style:UIAlertActionStyleDefault
+                                                    handler:^(UIAlertAction *action) {
+                [EZSeahorseSelfiePicker captureFromViewController:self
+                                                       completion:^(UIImage *image) {
+                    if (!image) {
+                        [self ezSeahorseFailWithMessage:NSLocalizedString(@"EZImageNSFW.EnrollRequired", nil)
+                                                 prompt:prompt];
+                        return;
+                    }
+                    NSData *data = UIImageJPEGRepresentation(image, 0.8);
+                    NSError *writeErr = nil;
+                    BOOL ok = [data writeToFile:[self ezSeahorseEnrollmentPath]
+                                        options:NSDataWritingAtomic | NSDataWritingFileProtectionCompleteUntilFirstUserAuthentication
+                                          error:&writeErr];
+                    if (!ok) {
+                        [self ezSeahorseFailWithMessage:(writeErr.localizedDescription ?: @"Could not save the selfie")
+                                                 prompt:prompt];
+                        return;
+                    }
+                    [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"nsfwSelfieEnrolled"];
+                    [self ezSeahorsePrepareReferencesWithPrompt:prompt referencePaths:refs];
+                }];
+            }]];
+            [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.ContinueWithoutReference", nil)
+                                                      style:UIAlertActionStyleDefault
+                                                    handler:^(UIAlertAction *action) {
+                [self ezSeahorseGenerateWithPrompt:prompt referenceAssetURLs:@[]];
+            }]];
+            [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
+                                                      style:UIAlertActionStyleCancel
+                                                    handler:^(UIAlertAction *action) {
+                [self ezSeahorseFailWithMessage:NSLocalizedString(@"EZImageNSFW.Cancelled", nil) prompt:prompt];
+            }]];
+            [self presentViewController:alert animated:YES completion:nil];
+        });
+        return;
+    }
+    UIImage *enrollmentImage = [UIImage imageWithContentsOfFile:[self ezSeahorseEnrollmentPath]];
+    NSData *enrollmentCrop = enrollmentImage ? EZSeahorseFaceCropJPEGData(enrollmentImage) : nil;
+    if (!enrollmentCrop) {
+        // The saved enrollment photo has no usable face — drop it and let
+        // the enrollment step above run again with a fresh selfie.
+        [[NSFileManager defaultManager] removeItemAtPath:[self ezSeahorseEnrollmentPath] error:nil];
+        [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"nsfwSelfieEnrolled"];
+        [self ezSeahorsePrepareReferencesWithPrompt:prompt referencePaths:refs];
+        return;
+    }
+    [self ezSeahorseVerifyReferenceAtIndex:0
+                                    prompt:prompt
+                          referencePaths:refs
+                            enrollmentCrop:enrollmentCrop
+                                 assetURLs:[NSMutableArray array]];
+}
+
+- (void)ezSeahorseVerifyReferenceAtIndex:(NSUInteger)index
+                                  prompt:(NSString *)prompt
+                        referencePaths:(NSArray<NSString *> *)referencePaths
+                          enrollmentCrop:(NSData *)enrollmentCrop
+                               assetURLs:(NSMutableArray<NSString *> *)assetURLs {
+    if (index >= referencePaths.count) {
+        [self ezSeahorseGenerateWithPrompt:prompt referenceAssetURLs:[assetURLs copy]];
+        return;
+    }
+    UIImage *refImage = [UIImage imageWithContentsOfFile:referencePaths[index]];
+    NSData *refCrop = refImage ? EZSeahorseFaceCropJPEGData(refImage) : nil;
+    if (!refCrop) {
+        [self ezSeahorseReferenceRefusedWithPrompt:prompt
+                                           message:NSLocalizedString(@"EZImageNSFW.NoFaceMessage", nil)
+                                         assetURLs:assetURLs];
+        return;
+    }
+    [self updateImageGenerationProgress:0.3];
+    NSString *token = [EZAuthManager shared].accessToken;
+    NSDictionary *body = @{
+        @"action":                 @"verify_reference",
+        @"enrollment_image_base64": [enrollmentCrop base64EncodedStringWithOptions:0],
+        @"reference_image_base64":  [refCrop base64EncodedStringWithOptions:0],
+    };
+    [self postToEZFunction:@"ez-seahorse" token:token body:body
+                completion:^(NSDictionary *json, NSError *error) {
+        NSString *verdict = (!error && json) ? json[@"verdict"] : nil;
+        if (![verdict isEqualToString:@"same"]) {
+            // Different person, unsure, or a model refusal — fail closed.
+            [self ezSeahorseReferenceRefusedWithPrompt:prompt
+                                               message:NSLocalizedString(@"EZImageNSFW.VerifyFailedMessage", nil)
+                                             assetURLs:assetURLs];
+            return;
+        }
+        // Passed: presign and upload the ORIGINAL reference to Nureta.
+        [self ezSeahorseUploadReferenceAtPath:referencePaths[index]
+                                   completion:^(NSString *assetURL) {
+            if (!assetURL) {
+                [self ezSeahorseReferenceRefusedWithPrompt:prompt
+                                                   message:NSLocalizedString(@"EZImageNSFW.UploadFailedMessage", nil)
+                                                 assetURLs:assetURLs];
+                return;
+            }
+            [assetURLs addObject:assetURL];
+            [self ezSeahorseVerifyReferenceAtIndex:index + 1
+                                            prompt:prompt
+                                  referencePaths:referencePaths
+                                    enrollmentCrop:enrollmentCrop
+                                         assetURLs:assetURLs];
+        }];
+    }];
+}
+
+- (void)ezSeahorseReferenceRefusedWithPrompt:(NSString *)prompt
+                                     message:(NSString *)message
+                                   assetURLs:(NSArray<NSString *> *)assetURLs {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIAlertController *alert =
+            [UIAlertController alertControllerWithTitle:NSLocalizedString(@"EZImageNSFW.ReferenceRefusedTitle", nil)
+                                                message:message
+                                         preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.ContinueWithoutReference", nil)
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *action) {
+            [self ezSeahorseGenerateWithPrompt:prompt referenceAssetURLs:assetURLs];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
+                                                  style:UIAlertActionStyleCancel
+                                                handler:^(UIAlertAction *action) {
+            [self ezSeahorseFailWithMessage:NSLocalizedString(@"EZImageNSFW.Cancelled", nil) prompt:prompt];
+        }]];
+        [self presentViewController:alert animated:YES completion:nil];
+    });
+}
+
+- (void)ezSeahorseUploadReferenceAtPath:(NSString *)path
+                             completion:(void (^)(NSString * _Nullable assetURL))completion {
+    NSData *data = [NSData dataWithContentsOfFile:path];
+    UIImage *image = data ? [UIImage imageWithData:data] : nil;
+    NSData *jpeg = image ? UIImageJPEGRepresentation(image, 0.9) : data;
+    if (!jpeg) { completion(nil); return; }
+    NSString *token = [EZAuthManager shared].accessToken;
+    NSDictionary *body = @{
+        @"action":       @"upload_reference",
+        @"content_type": @"image/jpeg",
+        @"file_name":    [NSString stringWithFormat:@"reference-%@.jpg", [NSUUID UUID].UUIDString],
+    };
+    [self postToEZFunction:@"ez-seahorse" token:token body:body
+                completion:^(NSDictionary *json, NSError *error) {
+        NSString *uploadURL = (!error && json) ? json[@"upload_url"] : nil;
+        NSString *assetURL  = (!error && json) ? json[@"asset_url"] : nil;
+        if (!uploadURL.length || !assetURL.length) { completion(nil); return; }
+        NSMutableURLRequest *put = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:uploadURL]];
+        put.HTTPMethod = @"PUT";
+        [put setValue:@"image/jpeg" forHTTPHeaderField:@"Content-Type"];
+        [[[NSURLSession sharedSession] uploadTaskWithRequest:put fromData:jpeg
+            completionHandler:^(NSData *d, NSURLResponse *response, NSError *uploadError) {
+            NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
+            BOOL ok = !uploadError && http.statusCode >= 200 && http.statusCode < 300;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(ok ? assetURL : nil);
+            });
+        }] resume];
+    }];
+}
+
+- (void)ezSeahorseGenerateWithPrompt:(NSString *)prompt
+                referenceAssetURLs:(NSArray<NSString *> *)referenceAssetURLs {
+    NSString *token = [EZAuthManager shared].accessToken;
+    NSString *imgSize = [[NSUserDefaults standardUserDefaults] stringForKey:@"imgSize"] ?: @"1024x1024";
+    NSString *size = ([imgSize containsString:@"2048"] || [imgSize containsString:@"4096"]) ? @"4K" : @"2K";
+    NSMutableDictionary *body = [@{ @"prompt": prompt, @"size": size, @"nsfw": @YES } mutableCopy];
+    if (referenceAssetURLs.count) body[@"reference_asset_urls"] = referenceAssetURLs;
+    [self updateImageGenerationProgress:0.45];
+    NSString *savedPrompt = prompt;
+    [self postToEZFunction:@"ez-seahorse" token:token body:body
+                completion:^(NSDictionary *json, NSError *error) {
+        if (error || !json) {
+            [self ezSeahorseFailWithMessage:(error.localizedDescription ?: @"Could not reach the server")
+                                     prompt:savedPrompt];
+            return;
+        }
+        NSString *err = json[@"error"];
+        if (err.length) {
+            if ([err isEqualToString:@"Insufficient coins"]) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self hideStatusBanner];
+                    self.sendButton.enabled = YES;
+                    UIAlertController *alert =
+                        [UIAlertController alertControllerWithTitle:NSLocalizedString(@"EZImageNSFW.InsufficientTitle", nil)
+                                                            message:NSLocalizedString(@"EZImageNSFW.InsufficientMessage", nil)
+                                                     preferredStyle:UIAlertControllerStyleAlert];
+                    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.ViewPlans", nil)
+                                                              style:UIAlertActionStyleDefault
+                                                            handler:^(UIAlertAction *action) {
+                        [self presentCoinStoreForFeature:@"NSFW images"];
+                    }]];
+                    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
+                                                              style:UIAlertActionStyleCancel handler:nil]];
+                    [self presentViewController:alert animated:YES completion:nil];
+                });
+                return;
+            }
+            [self ezSeahorseFailWithMessage:err prompt:savedPrompt];
+            return;
+        }
+        id balanceObj = json[@"balance"];
+        if (balanceObj && ![balanceObj isKindOfClass:[NSNull class]])
+            [[EZEntitlementManager shared] applyKnownBalance:[balanceObj integerValue]];
+        NSString *imageURL = json[@"image_url"];
+        if (!imageURL.length) {
+            [self ezSeahorseFailWithMessage:@"No image in response" prompt:savedPrompt];
+            return;
+        }
+        [self updateImageGenerationProgress:0.92];
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            NSData *imgData = [NSData dataWithContentsOfURL:[NSURL URLWithString:imageURL]];
+            NSString *path = imgData ? EZPhotoGallerySave(imgData, @"seahorse_1.png") : nil;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (!path) {
+                    [self ezSeahorseFailWithMessage:@"Image generated but could not be saved."
+                                             prompt:savedPrompt];
+                    return;
+                }
+                self.lastImagePrompt = savedPrompt;
+                self.lastImageLocalPath = path;
+                self.activeThread.lastImageLocalPath = path;
+                NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
+                [att addObject:path];
+                self.activeThread.attachmentPaths = [att copy];
+                [self saveActiveThread];
+                [self persistImagePath:path prompt:savedPrompt];
+                NSMutableDictionary *promptMap = [[[NSUserDefaults standardUserDefaults]
+                    dictionaryForKey:@"EZGalleryImagePrompts"] mutableCopy] ?: [NSMutableDictionary dictionary];
+                promptMap[path] = savedPrompt ?: @"";
+                [[NSUserDefaults standardUserDefaults] setObject:promptMap forKey:@"EZGalleryImagePrompts"];
+                [self appendImageGridToChat:@[path] prompt:savedPrompt isError:NO errorText:nil];
                 [self updateCoinBalanceDisplay];
                 [self updateImageGenerationProgress:1.0];
                 [self hideStatusBanner];

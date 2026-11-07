@@ -630,3 +630,27 @@
 "EZFileExplorer.DebUnsupportedMessage" = "This .deb package uses %@ compression inside, which the app can't extract yet.";
 "EZFileExplorer.UnsupportedMessage" = "This archive uses %@ compression, which the app can't extract yet. You can open it in another app that supports it.";
 "EZFileExplorer.UnsupportedTitle" = "Can't Extract Yet";
+
+/* NSFW Seahorse (ez-seahorse) */
+"EZModelLabel.ImageGenNSFW" = "NSFW Image Generation (18+)";
+"EZImageNSFW.AttestationTitle" = "Adults Only (18+)";
+"EZImageNSFW.AttestationMessage" = "NSFW image generation is for adults only. Confirm you are 18 or older to continue. This confirmation is saved to your account.";
+"EZImageNSFW.AttestationConfirm" = "I Confirm I'm 18+";
+"EZImageNSFW.AttestationRequired" = "You must confirm you are 18 or older to use NSFW generation.";
+"EZImageNSFW.Cancel" = "Cancel";
+"EZImageNSFW.PaywallTitle" = "Recent Purchase Required";
+"EZImageNSFW.PaywallMessage" = "NSFW generation requires a purchase within the last %ld days. Each NSFW generation costs 50 coins.";
+"EZImageNSFW.ViewPlans" = "View Plans";
+"EZImageNSFW.InsufficientTitle" = "Not Enough Coins";
+"EZImageNSFW.InsufficientMessage" = "NSFW generation costs 50 coins. Top up or subscribe to continue.";
+"EZImageNSFW.EnrollTitle" = "Selfie Check";
+"EZImageNSFW.EnrollMessage" = "Reference photos must be of you. Take a one-time selfie to check your reference photos against. The selfie stays on this device and is never uploaded; only a cropped face image is used for the check.";
+"EZImageNSFW.TakeSelfie" = "Take Selfie";
+"EZImageNSFW.EnrollRequired" = "A selfie is required before reference photos can be used.";
+"EZImageNSFW.ContinueWithoutReference" = "Continue Without It";
+"EZImageNSFW.Cancelled" = "NSFW generation cancelled.";
+"EZImageNSFW.ReferenceRefusedTitle" = "Reference Not Used";
+"EZImageNSFW.NoFaceMessage" = "No face could be found in that photo, so it can't be checked. Try a clearer, front-facing photo.";
+"EZImageNSFW.VerifyFailedMessage" = "That photo couldn't be matched to your selfie, so it wasn't used.";
+"EZImageNSFW.UploadFailedMessage" = "The reference photo couldn't be uploaded, so it wasn't used.";
+"EZImageNSFW.RerouteButton" = "Generate with Seahorse (18+)";

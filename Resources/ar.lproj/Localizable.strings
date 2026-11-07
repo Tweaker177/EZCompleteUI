@@ -589,3 +589,27 @@
 "EZFileExplorer.DebUnsupportedMessage" = "تستخدم حزمة .deb هذه ضغط %@ في الداخل، الذي لا يستطيع التطبيق استخراجه بعد.";
 "EZFileExplorer.UnsupportedMessage" = "يستخدم هذا الأرشيف ضغط %@، الذي لا يستطيع التطبيق استخراجه بعد. يمكنك فتحه في تطبيق آخر يدعمه.";
 "EZFileExplorer.UnsupportedTitle" = "لا يمكن الاستخراج بعد";
+
+/* NSFW Seahorse (ez-seahorse) */
+"EZModelLabel.ImageGenNSFW" = "إنشاء صور NSFW (18+)";
+"EZImageNSFW.AttestationTitle" = "للبالغين فقط (18+)";
+"EZImageNSFW.AttestationMessage" = "إنشاء صور NSFW مخصص للبالغين فقط. أكّد أن عمرك 18 عامًا أو أكثر للمتابعة. يتم حفظ هذا التأكيد في حسابك.";
+"EZImageNSFW.AttestationConfirm" = "أؤكد أنني 18+";
+"EZImageNSFW.AttestationRequired" = "يجب أن تؤكد أن عمرك 18 عامًا أو أكثر لاستخدام إنشاء NSFW.";
+"EZImageNSFW.Cancel" = "إلغاء";
+"EZImageNSFW.PaywallTitle" = "يلزم شراء حديث";
+"EZImageNSFW.PaywallMessage" = "يتطلب إنشاء NSFW عملية شراء خلال آخر %ld يومًا. تبلغ تكلفة كل إنشاء NSFW 50 عملة.";
+"EZImageNSFW.ViewPlans" = "عرض الخطط";
+"EZImageNSFW.InsufficientTitle" = "عملات غير كافية";
+"EZImageNSFW.InsufficientMessage" = "تبلغ تكلفة إنشاء NSFW 50 عملة. اشحن أو اشترك للمتابعة.";
+"EZImageNSFW.EnrollTitle" = "التحقق بصورة شخصية";
+"EZImageNSFW.EnrollMessage" = "يجب أن تكون الصور المرجعية لك. التقط صورة شخصية لمرة واحدة لمطابقة صورك المرجعية معها. تبقى الصورة الشخصية على هذا الجهاز ولا تُرفع أبدًا؛ تُستخدم فقط صورة مقصوصة للوجه في التحقق.";
+"EZImageNSFW.TakeSelfie" = "التقاط صورة شخصية";
+"EZImageNSFW.EnrollRequired" = "يلزم التقاط صورة شخصية قبل استخدام الصور المرجعية.";
+"EZImageNSFW.ContinueWithoutReference" = "المتابعة بدونها";
+"EZImageNSFW.Cancelled" = "تم إلغاء إنشاء NSFW.";
+"EZImageNSFW.ReferenceRefusedTitle" = "لم تُستخدم الصورة المرجعية";
+"EZImageNSFW.NoFaceMessage" = "لم يتم العثور على وجه في تلك الصورة، لذا لا يمكن التحقق منها. جرّب صورة أوضح ومواجهة للأمام.";
+"EZImageNSFW.VerifyFailedMessage" = "لم تتطابق تلك الصورة مع صورتك الشخصية، لذا لم تُستخدم.";
+"EZImageNSFW.UploadFailedMessage" = "تعذر رفع الصورة المرجعية، لذا لم تُستخدم.";
+"EZImageNSFW.RerouteButton" = "الإنشاء عبر Seahorse (18+)";

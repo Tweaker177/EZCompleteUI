@@ -589,3 +589,27 @@
 "EZFileExplorer.DebUnsupportedMessage" = "แพ็กเกจ .deb นี้ใช้การบีบอัด %@ ข้างใน ซึ่งแอปยังแตกไม่ได้";
 "EZFileExplorer.UnsupportedMessage" = "ไฟล์นี้ใช้การบีบอัด %@ ซึ่งแอปยังแตกไม่ได้ คุณสามารถเปิดในแอปอื่นที่รองรับได้";
 "EZFileExplorer.UnsupportedTitle" = "ยังแตกไฟล์ไม่ได้";
+
+/* NSFW Seahorse (ez-seahorse) */
+"EZModelLabel.ImageGenNSFW" = "การสร้างภาพ NSFW (18+)";
+"EZImageNSFW.AttestationTitle" = "สำหรับผู้ใหญ่เท่านั้น (18+)";
+"EZImageNSFW.AttestationMessage" = "การสร้างภาพ NSFW สำหรับผู้ใหญ่เท่านั้น โปรดยืนยันว่าคุณมีอายุ 18 ปีขึ้นไปเพื่อดำเนินการต่อ การยืนยันนี้จะถูกบันทึกไว้ในบัญชีของคุณ";
+"EZImageNSFW.AttestationConfirm" = "ฉันยืนยันว่าฉันอายุ 18+";
+"EZImageNSFW.AttestationRequired" = "คุณต้องยืนยันว่าคุณมีอายุ 18 ปีขึ้นไปจึงจะใช้การสร้าง NSFW ได้";
+"EZImageNSFW.Cancel" = "ยกเลิก";
+"EZImageNSFW.PaywallTitle" = "ต้องมีการซื้อล่าสุด";
+"EZImageNSFW.PaywallMessage" = "การสร้าง NSFW ต้องมีการซื้อภายใน %ld วันที่ผ่านมา การสร้าง NSFW แต่ละครั้งใช้ 50 เหรียญ";
+"EZImageNSFW.ViewPlans" = "ดูแพ็กเกจ";
+"EZImageNSFW.InsufficientTitle" = "เหรียญไม่เพียงพอ";
+"EZImageNSFW.InsufficientMessage" = "การสร้าง NSFW ใช้ 50 เหรียญ เติมเงินหรือสมัครสมาชิกเพื่อดำเนินการต่อ";
+"EZImageNSFW.EnrollTitle" = "การตรวจสอบด้วยเซลฟี่";
+"EZImageNSFW.EnrollMessage" = "รูปอ้างอิงต้องเป็นรูปของคุณ ถ่ายเซลฟี่เพียงครั้งเดียวเพื่อใช้ตรวจสอบรูปอ้างอิงของคุณ เซลฟี่จะอยู่บนอุปกรณ์นี้เท่านั้นและไม่ถูกอัปโหลด ส่วนที่ใช้ตรวจสอบคือภาพใบหน้าที่ครอบตัดแล้วเท่านั้น";
+"EZImageNSFW.TakeSelfie" = "ถ่ายเซลฟี่";
+"EZImageNSFW.EnrollRequired" = "จำเป็นต้องมีเซลฟี่ก่อนจึงจะใช้รูปอ้างอิงได้";
+"EZImageNSFW.ContinueWithoutReference" = "ดำเนินการต่อโดยไม่ใช้";
+"EZImageNSFW.Cancelled" = "ยกเลิกการสร้าง NSFW แล้ว";
+"EZImageNSFW.ReferenceRefusedTitle" = "ไม่ได้ใช้รูปอ้างอิง";
+"EZImageNSFW.NoFaceMessage" = "ไม่พบใบหน้าในรูปนั้น จึงไม่สามารถตรวจสอบได้ ลองใช้รูปที่ชัดเจนกว่าและหันหน้าตรง";
+"EZImageNSFW.VerifyFailedMessage" = "รูปนั้นไม่ตรงกับเซลฟี่ของคุณ จึงไม่ได้ถูกใช้";
+"EZImageNSFW.UploadFailedMessage" = "อัปโหลดรูปอ้างอิงไม่สำเร็จ จึงไม่ได้ถูกใช้";
+"EZImageNSFW.RerouteButton" = "สร้างด้วย Seahorse (18+)";

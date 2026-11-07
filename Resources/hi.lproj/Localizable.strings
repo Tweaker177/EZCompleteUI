@@ -589,3 +589,27 @@
 "EZFileExplorer.DebUnsupportedMessage" = "यह .deb पैकेज अंदर %@ संपीड़न का उपयोग करता है, जिसे ऐप अभी नहीं निकाल सकता।";
 "EZFileExplorer.UnsupportedMessage" = "यह आर्काइव %@ संपीड़न का उपयोग करता है, जिसे ऐप अभी नहीं निकाल सकता। आप इसे समर्थित किसी अन्य ऐप में खोल सकते हैं।";
 "EZFileExplorer.UnsupportedTitle" = "अभी नहीं निकाला जा सकता";
+
+/* NSFW Seahorse (ez-seahorse) */
+"EZModelLabel.ImageGenNSFW" = "NSFW छवि निर्माण (18+)";
+"EZImageNSFW.AttestationTitle" = "केवल वयस्कों के लिए (18+)";
+"EZImageNSFW.AttestationMessage" = "NSFW छवि निर्माण केवल वयस्कों के लिए है। जारी रखने के लिए पुष्टि करें कि आपकी आयु 18 वर्ष या अधिक है। यह पुष्टि आपके खाते में सहेजी जाती है।";
+"EZImageNSFW.AttestationConfirm" = "मैं पुष्टि करता/करती हूँ कि मैं 18+ हूँ";
+"EZImageNSFW.AttestationRequired" = "NSFW निर्माण का उपयोग करने के लिए आपको पुष्टि करनी होगी कि आपकी आयु 18 वर्ष या अधिक है।";
+"EZImageNSFW.Cancel" = "रद्द करें";
+"EZImageNSFW.PaywallTitle" = "हालिया खरीदारी आवश्यक है";
+"EZImageNSFW.PaywallMessage" = "NSFW निर्माण के लिए पिछले %ld दिनों के भीतर खरीदारी आवश्यक है। प्रत्येक NSFW निर्माण की लागत 50 सिक्के है।";
+"EZImageNSFW.ViewPlans" = "प्लान देखें";
+"EZImageNSFW.InsufficientTitle" = "पर्याप्त सिक्के नहीं";
+"EZImageNSFW.InsufficientMessage" = "NSFW निर्माण की लागत 50 सिक्के है। जारी रखने के लिए टॉप अप करें या सदस्यता लें।";
+"EZImageNSFW.EnrollTitle" = "सेल्फ़ी जाँच";
+"EZImageNSFW.EnrollMessage" = "संदर्भ फ़ोटो आपके ही होने चाहिए। अपने संदर्भ फ़ोटो से मिलान करने के लिए एक बार की सेल्फ़ी लें। सेल्फ़ी इसी डिवाइस पर रहती है और कभी अपलोड नहीं होती; जाँच के लिए केवल क्रॉप की गई चेहरे की छवि का उपयोग होता है।";
+"EZImageNSFW.TakeSelfie" = "सेल्फ़ी लें";
+"EZImageNSFW.EnrollRequired" = "संदर्भ फ़ोटो का उपयोग करने से पहले सेल्फ़ी आवश्यक है।";
+"EZImageNSFW.ContinueWithoutReference" = "इसके बिना जारी रखें";
+"EZImageNSFW.Cancelled" = "NSFW निर्माण रद्द किया गया।";
+"EZImageNSFW.ReferenceRefusedTitle" = "संदर्भ उपयोग नहीं हुआ";
+"EZImageNSFW.NoFaceMessage" = "उस फ़ोटो में कोई चेहरा नहीं मिला, इसलिए उसकी जाँच नहीं की जा सकती। अधिक स्पष्ट, सामने की ओर वाली फ़ोटो आज़माएँ।";
+"EZImageNSFW.VerifyFailedMessage" = "वह फ़ोटो आपकी सेल्फ़ी से मेल नहीं खाई, इसलिए उसका उपयोग नहीं किया गया।";
+"EZImageNSFW.UploadFailedMessage" = "संदर्भ फ़ोटो अपलोड नहीं हो सकी, इसलिए उसका उपयोग नहीं किया गया।";
+"EZImageNSFW.RerouteButton" = "Seahorse से बनाएँ (18+)";
