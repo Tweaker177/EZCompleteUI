@@ -102,8 +102,8 @@ static const NSInteger  kMaxVariantChoices      = 5;
 static const NSUInteger kEZMusicUpNextLimit = 50;
 
 typedef NS_ENUM(NSInteger, EZMusicTab) {
-    EZMusicTabCreate  = 0,
-    EZMusicTabLibrary = 1,
+    EZMusicTabLibrary = 0,
+    EZMusicTabCreate  = 1,
 };
 
 #pragma mark - Safe value helpers
@@ -800,8 +800,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
                                                  name:EZMusicArtworkDidUpdateNotification object:nil];
 
     self.tabControl = [[UISegmentedControl alloc] initWithItems:@[
-        EZMusicText(@"EZMusic.Tab.Create", @"Create"),
         EZMusicText(@"EZMusic.Tab.Library", @"Library"),
+        EZMusicText(@"EZMusic.Tab.Create", @"Create"),
     ]];
     self.tabControl.selectedSegmentIndex = EZMusicTabCreate;
     [self.tabControl addTarget:self action:@selector(tabChanged:) forControlEvents:UIControlEventValueChanged];
@@ -2726,8 +2726,12 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
 #pragma mark - Playback
 
-// The manifest, rather than table order, is the playlist's source of truth.
-// Keeping it local means an already-downloaded run can continue offline.
+// The manifest decides WHICH songs are in the playlist — keeping it local
+// means an already-downloaded run can continue offline. The ORDER, though,
+// is the Library table's order (newest first): Play starts at the top of the
+// list, Next moves down it, and Up Next lines up with what the user sees.
+// The manifest itself is oldest-first (songs are appended as they download),
+// which used to make the player run the visible list bottom to top.
 - (NSArray<NSString *> *)playlistEntryIDs {
     NSArray<NSString *> *manifestIDs = [[EZMusicLibraryManager sharedManager] localSongEntryIDs];
     NSMutableArray<NSString *> *playable = [NSMutableArray array];
@@ -2743,6 +2747,36 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
                 [playable addObject:EZMusicString(entry[@"id"])];
             }
         }
+        return playable;
+    }
+    if (playable.count > 1) {
+        NSMutableArray<NSString *> *ordered = [NSMutableArray arrayWithCapacity:playable.count];
+        NSMutableSet<NSString *> *remaining = [NSMutableSet setWithArray:playable];
+        // Loaded rows lead, in the exact order the table shows them.
+        for (NSDictionary *entry in self.entries) {
+            NSString *entryID = EZMusicString(entry[@"id"]);
+            if ([remaining containsObject:entryID]) {
+                [ordered addObject:entryID];
+                [remaining removeObject:entryID];
+            }
+        }
+        // Playable songs whose rows have not loaded (the library pages in)
+        // keep the same newest-first order by their saved creation date;
+        // ties and missing dates fall back to the later download first.
+        EZMusicLibraryManager *library = [EZMusicLibraryManager sharedManager];
+        NSArray<NSString *> *rest = [[remaining allObjects] sortedArrayUsingComparator:
+            ^NSComparisonResult(NSString *firstID, NSString *secondID) {
+            NSString *firstDate = EZMusicString([library localSongRecordForEntryID:firstID][@"created_at"]);
+            NSString *secondDate = EZMusicString([library localSongRecordForEntryID:secondID][@"created_at"]);
+            NSComparisonResult byDate = [secondDate compare:firstDate];
+            if (byDate != NSOrderedSame) return byDate;
+            NSUInteger firstManifest = [manifestIDs indexOfObject:firstID];
+            NSUInteger secondManifest = [manifestIDs indexOfObject:secondID];
+            if (firstManifest == secondManifest) return NSOrderedSame;
+            return firstManifest > secondManifest ? NSOrderedAscending : NSOrderedDescending;
+        }];
+        [ordered addObjectsFromArray:rest];
+        playable = ordered;
     }
     return playable;
 }
