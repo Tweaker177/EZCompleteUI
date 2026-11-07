@@ -112,6 +112,8 @@
 	<true/>
 	<key>MinimumOSVersion</key>
 	<string>15.0</string>
+	<key>NSCameraUsageDescription</key>
+	<string>EZCompleteUI uses the camera to take a one-time selfie for the NSFW image selfie check. The selfie stays on this device and is never uploaded.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Used for live dictation input</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

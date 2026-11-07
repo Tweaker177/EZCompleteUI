@@ -5070,6 +5070,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                      stringByAppendingPathComponent:@"EZPrivate"];
     [[NSFileManager defaultManager] createDirectoryAtPath:dir
                               withIntermediateDirectories:YES attributes:nil error:nil];
+    // The enrollment selfie must never leave the device (the UI promises
+    // "saved on-device only"), but Documents/ is backed up to iCloud by
+    // default — exclude this folder so the selfie is not in any backup.
+    NSURL *dirURL = [NSURL fileURLWithPath:dir];
+    [dirURL setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];
     return [dir stringByAppendingPathComponent:@"enrollment-selfie.jpg"];
 }
 
@@ -5238,6 +5243,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                                  prompt:prompt];
                         return;
                     }
+                    // Belt-and-braces with the folder exclusion in
+                    // ezSeahorseEnrollmentPath: the file itself must not
+                    // be backed up either, even if it predates the folder
+                    // exclusion (e.g. enrolled before this fix).
+                    [[NSURL fileURLWithPath:[self ezSeahorseEnrollmentPath]]
+                        setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];
                     [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"nsfwSelfieEnrolled"];
                     [self ezSeahorsePrepareReferencesWithPrompt:prompt referencePaths:refs];
                 }];
@@ -5388,6 +5399,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     if (referenceAssetURLs.count) body[@"reference_asset_urls"] = referenceAssetURLs;
     [self updateImageGenerationProgress:0.45];
     NSString *savedPrompt = prompt;
+    // Capture the thread that started this generation (same convention as
+    // the chat send path's capturedThreadID): the user can switch chats
+    // while generation is in flight, and the result must never be written
+    // into whichever thread happens to be active when it arrives.
+    EZChatThread *startingThread = self.activeThread;
     [self postToEZFunction:@"ez-seahorse" token:token body:body
                 completion:^(NSDictionary *json, NSError *error) {
         if (error || !json) {
@@ -5437,19 +5453,29 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                              prompt:savedPrompt];
                     return;
                 }
-                self.lastImagePrompt = savedPrompt;
-                self.lastImageLocalPath = path;
-                self.activeThread.lastImageLocalPath = path;
-                NSMutableArray *att = [self.activeThread.attachmentPaths mutableCopy];
-                [att addObject:path];
-                self.activeThread.attachmentPaths = [att copy];
-                [self saveActiveThread];
+                // Record the image on the thread that started the
+                // generation, never on whichever thread is active now.
+                // If the user switched chats mid-generation, the grid
+                // is not appended to the new thread either — the image
+                // is in the gallery and recorded on the origin thread,
+                // so it shows when the user returns to that thread.
+                if (startingThread) {
+                    startingThread.lastImageLocalPath = path;
+                    NSMutableArray *att = [startingThread.attachmentPaths mutableCopy];
+                    [att addObject:path];
+                    startingThread.attachmentPaths = [att copy];
+                    EZThreadSave(startingThread, nil);
+                }
                 [self persistImagePath:path prompt:savedPrompt];
                 NSMutableDictionary *promptMap = [[[NSUserDefaults standardUserDefaults]
                     dictionaryForKey:@"EZGalleryImagePrompts"] mutableCopy] ?: [NSMutableDictionary dictionary];
                 promptMap[path] = savedPrompt ?: @"";
                 [[NSUserDefaults standardUserDefaults] setObject:promptMap forKey:@"EZGalleryImagePrompts"];
-                [self appendImageGridToChat:@[path] prompt:savedPrompt isError:NO errorText:nil];
+                if (self.activeThread == startingThread) {
+                    self.lastImagePrompt = savedPrompt;
+                    self.lastImageLocalPath = path;
+                    [self appendImageGridToChat:@[path] prompt:savedPrompt isError:NO errorText:nil];
+                }
                 [self updateCoinBalanceDisplay];
                 [self updateImageGenerationProgress:1.0];
                 [self hideStatusBanner];
