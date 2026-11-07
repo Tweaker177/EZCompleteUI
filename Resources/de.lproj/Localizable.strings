@@ -589,3 +589,27 @@
 "EZFileExplorer.DebUnsupportedMessage" = "Dieses .deb-Paket verwendet innen %@-Kompression, die die App noch nicht extrahieren kann.";
 "EZFileExplorer.UnsupportedMessage" = "Dieses Archiv verwendet %@-Kompression, die die App noch nicht extrahieren kann. Du kannst es in einer anderen App öffnen, die das unterstützt.";
 "EZFileExplorer.UnsupportedTitle" = "Noch nicht extrahierbar";
+
+/* NSFW Seahorse (ez-seahorse) */
+"EZModelLabel.ImageGenNSFW" = "NSFW-Bilderstellung (18+)";
+"EZImageNSFW.AttestationTitle" = "Nur für Erwachsene (18+)";
+"EZImageNSFW.AttestationMessage" = "Die NSFW-Bilderstellung ist nur für Erwachsene. Bestätige, dass du 18 Jahre oder älter bist, um fortzufahren. Diese Bestätigung wird in deinem Konto gespeichert.";
+"EZImageNSFW.AttestationConfirm" = "Ich bestätige: Ich bin 18+";
+"EZImageNSFW.AttestationRequired" = "Du musst bestätigen, dass du 18 Jahre oder älter bist, um die NSFW-Erstellung zu nutzen.";
+"EZImageNSFW.Cancel" = "Abbrechen";
+"EZImageNSFW.PaywallTitle" = "Aktueller Kauf erforderlich";
+"EZImageNSFW.PaywallMessage" = "Die NSFW-Erstellung erfordert einen Kauf innerhalb der letzten %ld Tage. Jede NSFW-Erstellung kostet 50 Münzen.";
+"EZImageNSFW.ViewPlans" = "Pläne ansehen";
+"EZImageNSFW.InsufficientTitle" = "Nicht genug Münzen";
+"EZImageNSFW.InsufficientMessage" = "Die NSFW-Erstellung kostet 50 Münzen. Lade Guthaben auf oder abonniere, um fortzufahren.";
+"EZImageNSFW.EnrollTitle" = "Selfie-Prüfung";
+"EZImageNSFW.EnrollMessage" = "Referenzfotos müssen dich zeigen. Mache ein einmaliges Selfie, um deine Referenzfotos damit abzugleichen. Das Selfie bleibt auf diesem Gerät und wird nie hochgeladen; nur ein zugeschnittenes Gesichtsbild wird für die Prüfung verwendet.";
+"EZImageNSFW.TakeSelfie" = "Selfie aufnehmen";
+"EZImageNSFW.EnrollRequired" = "Ein Selfie ist erforderlich, bevor Referenzfotos verwendet werden können.";
+"EZImageNSFW.ContinueWithoutReference" = "Ohne Referenz fortfahren";
+"EZImageNSFW.Cancelled" = "NSFW-Erstellung abgebrochen.";
+"EZImageNSFW.ReferenceRefusedTitle" = "Referenz nicht verwendet";
+"EZImageNSFW.NoFaceMessage" = "In diesem Foto wurde kein Gesicht gefunden, daher kann es nicht geprüft werden. Versuche ein deutlicheres Foto von vorne.";
+"EZImageNSFW.VerifyFailedMessage" = "Dieses Foto stimmte nicht mit deinem Selfie überein und wurde daher nicht verwendet.";
+"EZImageNSFW.UploadFailedMessage" = "Das Referenzfoto konnte nicht hochgeladen werden und wurde daher nicht verwendet.";
+"EZImageNSFW.RerouteButton" = "Mit Seahorse generieren (18+)";
