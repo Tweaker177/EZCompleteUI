@@ -629,3 +629,27 @@
 "EZFileExplorer.DebUnsupportedMessage" = "Этот пакет .deb использует внутри сжатие %@, которое приложение пока не может извлечь.";
 "EZFileExplorer.UnsupportedMessage" = "Этот архив использует сжатие %@, которое приложение пока не может извлечь. Его можно открыть в другом приложении с поддержкой этого формата.";
 "EZFileExplorer.UnsupportedTitle" = "Пока нельзя извлечь";
+
+/* NSFW Seahorse (ez-seahorse) */
+"EZModelLabel.ImageGenNSFW" = "Создание изображений NSFW (18+)";
+"EZImageNSFW.AttestationTitle" = "Только для взрослых (18+)";
+"EZImageNSFW.AttestationMessage" = "Создание изображений NSFW доступно только взрослым. Подтвердите, что вам 18 лет или больше, чтобы продолжить. Это подтверждение сохраняется в вашем аккаунте.";
+"EZImageNSFW.AttestationConfirm" = "Подтверждаю, мне есть 18+";
+"EZImageNSFW.AttestationRequired" = "Вы должны подтвердить, что вам 18 лет или больше, чтобы использовать создание NSFW.";
+"EZImageNSFW.Cancel" = "Отмена";
+"EZImageNSFW.PaywallTitle" = "Требуется недавняя покупка";
+"EZImageNSFW.PaywallMessage" = "Для создания NSFW требуется покупка за последние %ld дней. Каждое создание NSFW стоит 50 монет.";
+"EZImageNSFW.ViewPlans" = "Посмотреть планы";
+"EZImageNSFW.InsufficientTitle" = "Недостаточно монет";
+"EZImageNSFW.InsufficientMessage" = "Создание NSFW стоит 50 монет. Пополните баланс или оформите подписку, чтобы продолжить.";
+"EZImageNSFW.EnrollTitle" = "Проверка по селфи";
+"EZImageNSFW.EnrollMessage" = "На референсных фото должны быть вы. Сделайте одно селфи, чтобы сверять с ним референсные фото. Селфи остаётся на этом устройстве и никогда не загружается; для проверки используется только обрезанное изображение лица.";
+"EZImageNSFW.TakeSelfie" = "Сделать селфи";
+"EZImageNSFW.EnrollRequired" = "Селфи требуется, прежде чем можно будет использовать референсные фото.";
+"EZImageNSFW.ContinueWithoutReference" = "Продолжить без него";
+"EZImageNSFW.Cancelled" = "Создание NSFW отменено.";
+"EZImageNSFW.ReferenceRefusedTitle" = "Референс не использован";
+"EZImageNSFW.NoFaceMessage" = "На этом фото не найдено лицо, поэтому его нельзя проверить. Попробуйте более чёткое фото анфас.";
+"EZImageNSFW.VerifyFailedMessage" = "Это фото не совпало с вашим селфи, поэтому не было использовано.";
+"EZImageNSFW.UploadFailedMessage" = "Референсное фото не удалось загрузить, поэтому оно не было использовано.";
+"EZImageNSFW.RerouteButton" = "Создать через Seahorse (18+)";

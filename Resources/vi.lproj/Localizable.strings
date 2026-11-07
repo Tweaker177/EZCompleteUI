@@ -589,3 +589,27 @@
 "EZFileExplorer.DebUnsupportedMessage" = "Gói .deb này dùng nén %@ bên trong mà ứng dụng chưa thể giải nén.";
 "EZFileExplorer.UnsupportedMessage" = "Tệp nén này dùng nén %@ mà ứng dụng chưa thể giải nén. Bạn có thể mở nó trong một ứng dụng khác có hỗ trợ.";
 "EZFileExplorer.UnsupportedTitle" = "Chưa thể giải nén";
+
+/* NSFW Seahorse (ez-seahorse) */
+"EZModelLabel.ImageGenNSFW" = "Tạo ảnh NSFW (18+)";
+"EZImageNSFW.AttestationTitle" = "Chỉ dành cho người lớn (18+)";
+"EZImageNSFW.AttestationMessage" = "Tạo ảnh NSFW chỉ dành cho người lớn. Xác nhận bạn từ 18 tuổi trở lên để tiếp tục. Xác nhận này được lưu vào tài khoản của bạn.";
+"EZImageNSFW.AttestationConfirm" = "Tôi xác nhận tôi 18+";
+"EZImageNSFW.AttestationRequired" = "Bạn phải xác nhận mình từ 18 tuổi trở lên để dùng tính năng tạo NSFW.";
+"EZImageNSFW.Cancel" = "Hủy";
+"EZImageNSFW.PaywallTitle" = "Cần mua hàng gần đây";
+"EZImageNSFW.PaywallMessage" = "Tạo NSFW yêu cầu có giao dịch mua trong %ld ngày qua. Mỗi lần tạo NSFW tốn 50 xu.";
+"EZImageNSFW.ViewPlans" = "Xem các gói";
+"EZImageNSFW.InsufficientTitle" = "Không đủ xu";
+"EZImageNSFW.InsufficientMessage" = "Tạo NSFW tốn 50 xu. Nạp thêm hoặc đăng ký để tiếp tục.";
+"EZImageNSFW.EnrollTitle" = "Kiểm tra bằng ảnh selfie";
+"EZImageNSFW.EnrollMessage" = "Ảnh tham chiếu phải là ảnh của bạn. Chụp một ảnh selfie duy nhất để kiểm tra các ảnh tham chiếu của bạn. Ảnh selfie chỉ lưu trên thiết bị này và không bao giờ được tải lên; chỉ hình ảnh khuôn mặt đã cắt mới được dùng để kiểm tra.";
+"EZImageNSFW.TakeSelfie" = "Chụp selfie";
+"EZImageNSFW.EnrollRequired" = "Cần có ảnh selfie trước khi có thể dùng ảnh tham chiếu.";
+"EZImageNSFW.ContinueWithoutReference" = "Tiếp tục mà không dùng";
+"EZImageNSFW.Cancelled" = "Đã hủy tạo NSFW.";
+"EZImageNSFW.ReferenceRefusedTitle" = "Không dùng ảnh tham chiếu";
+"EZImageNSFW.NoFaceMessage" = "Không tìm thấy khuôn mặt trong ảnh đó nên không thể kiểm tra. Hãy thử ảnh rõ hơn, chụp chính diện.";
+"EZImageNSFW.VerifyFailedMessage" = "Ảnh đó không khớp với ảnh selfie của bạn nên không được sử dụng.";
+"EZImageNSFW.UploadFailedMessage" = "Không tải lên được ảnh tham chiếu nên ảnh không được sử dụng.";
+"EZImageNSFW.RerouteButton" = "Tạo bằng Seahorse (18+)";

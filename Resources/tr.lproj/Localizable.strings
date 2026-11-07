@@ -630,3 +630,27 @@
 "EZFileExplorer.DebUnsupportedMessage" = "Bu .deb paketi içinde, uygulamanın henüz çıkaramadığı %@ sıkıştırması kullanılıyor.";
 "EZFileExplorer.UnsupportedMessage" = "Bu arşiv, uygulamanın henüz çıkaramadığı %@ sıkıştırmasını kullanıyor. Destekleyen başka bir uygulamada açabilirsiniz.";
 "EZFileExplorer.UnsupportedTitle" = "Henüz Çıkarılamıyor";
+
+/* NSFW Seahorse (ez-seahorse) */
+"EZModelLabel.ImageGenNSFW" = "NSFW Görüntü Oluşturma (18+)";
+"EZImageNSFW.AttestationTitle" = "Yalnızca Yetişkinler (18+)";
+"EZImageNSFW.AttestationMessage" = "NSFW görüntü oluşturma yalnızca yetişkinler içindir. Devam etmek için 18 yaşında veya daha büyük olduğunuzu onaylayın. Bu onay hesabınıza kaydedilir.";
+"EZImageNSFW.AttestationConfirm" = "18+ Olduğumu Onaylıyorum";
+"EZImageNSFW.AttestationRequired" = "NSFW oluşturmayı kullanmak için 18 yaşında veya daha büyük olduğunuzu onaylamanız gerekir.";
+"EZImageNSFW.Cancel" = "İptal";
+"EZImageNSFW.PaywallTitle" = "Yakın Zamanda Satın Alma Gerekli";
+"EZImageNSFW.PaywallMessage" = "NSFW oluşturma, son %ld gün içinde bir satın alma gerektirir. Her NSFW oluşturma 50 jeton tutarındadır.";
+"EZImageNSFW.ViewPlans" = "Planları Gör";
+"EZImageNSFW.InsufficientTitle" = "Yetersiz Jeton";
+"EZImageNSFW.InsufficientMessage" = "NSFW oluşturma 50 jeton tutarındadır. Devam etmek için bakiye yükleyin veya abone olun.";
+"EZImageNSFW.EnrollTitle" = "Selfie Kontrolü";
+"EZImageNSFW.EnrollMessage" = "Referans fotoğraflar size ait olmalıdır. Referans fotoğraflarınızı kontrol etmek için bir kerelik bir selfie çekin. Selfie bu cihazda kalır ve asla yüklenmez; kontrol için yalnızca kırpılmış bir yüz görüntüsü kullanılır.";
+"EZImageNSFW.TakeSelfie" = "Selfie Çek";
+"EZImageNSFW.EnrollRequired" = "Referans fotoğraflar kullanılmadan önce bir selfie gereklidir.";
+"EZImageNSFW.ContinueWithoutReference" = "Onsuz Devam Et";
+"EZImageNSFW.Cancelled" = "NSFW oluşturma iptal edildi.";
+"EZImageNSFW.ReferenceRefusedTitle" = "Referans Kullanılmadı";
+"EZImageNSFW.NoFaceMessage" = "O fotoğrafta yüz bulunamadığı için kontrol edilemedi. Daha net, önden çekilmiş bir fotoğraf deneyin.";
+"EZImageNSFW.VerifyFailedMessage" = "O fotoğraf selfienizle eşleşmediği için kullanılmadı.";
+"EZImageNSFW.UploadFailedMessage" = "Referans fotoğraf yüklenemediği için kullanılmadı.";
+"EZImageNSFW.RerouteButton" = "Seahorse ile Oluştur (18+)";

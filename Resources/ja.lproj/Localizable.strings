@@ -589,3 +589,27 @@
 "EZFileExplorer.DebUnsupportedMessage" = "この.debパッケージは内部で%@圧縮を使用しており、アプリではまだ解凍できません。";
 "EZFileExplorer.UnsupportedMessage" = "このアーカイブは%@圧縮を使用しており、アプリではまだ解凍できません。対応する他のアプリで開くことができます。";
 "EZFileExplorer.UnsupportedTitle" = "まだ解凍できません";
+
+/* NSFW Seahorse (ez-seahorse) */
+"EZModelLabel.ImageGenNSFW" = "NSFW画像生成 (18+)";
+"EZImageNSFW.AttestationTitle" = "成人限定 (18+)";
+"EZImageNSFW.AttestationMessage" = "NSFW画像生成は成人のみ利用できます。続けるには18歳以上であることを確認してください。この確認はアカウントに保存されます。";
+"EZImageNSFW.AttestationConfirm" = "18歳以上であることを確認します";
+"EZImageNSFW.AttestationRequired" = "NSFW生成を利用するには、18歳以上であることを確認する必要があります。";
+"EZImageNSFW.Cancel" = "キャンセル";
+"EZImageNSFW.PaywallTitle" = "最近の購入が必要です";
+"EZImageNSFW.PaywallMessage" = "NSFW生成には過去%ld日以内の購入が必要です。NSFW生成は1回50コインです。";
+"EZImageNSFW.ViewPlans" = "プランを見る";
+"EZImageNSFW.InsufficientTitle" = "コインが不足しています";
+"EZImageNSFW.InsufficientMessage" = "NSFW生成は50コインかかります。続けるにはチャージするか登録してください。";
+"EZImageNSFW.EnrollTitle" = "自撮りチェック";
+"EZImageNSFW.EnrollMessage" = "参考写真はあなた本人のものに限ります。一度だけ自撮り写真を撮影し、参考写真と照合します。自撮り写真はこのデバイスにのみ保存され、アップロードされることはありません。チェックに使われるのは切り取った顔画像だけです。";
+"EZImageNSFW.TakeSelfie" = "自撮りを撮る";
+"EZImageNSFW.EnrollRequired" = "参考写真を使うには、まず自撮りが必要です。";
+"EZImageNSFW.ContinueWithoutReference" = "なしで続ける";
+"EZImageNSFW.Cancelled" = "NSFW生成がキャンセルされました。";
+"EZImageNSFW.ReferenceRefusedTitle" = "参考写真は使用されませんでした";
+"EZImageNSFW.NoFaceMessage" = "その写真から顔が見つからなかったため、チェックできません。正面を向いた鮮明な写真をお試しください。";
+"EZImageNSFW.VerifyFailedMessage" = "その写真はあなたの自撮りと一致しなかったため、使用されませんでした。";
+"EZImageNSFW.UploadFailedMessage" = "参考写真をアップロードできなかったため、使用されませんでした。";
+"EZImageNSFW.RerouteButton" = "Seahorseで生成 (18+)";
