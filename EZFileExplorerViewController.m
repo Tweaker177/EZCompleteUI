@@ -629,8 +629,14 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
         [[EZFileExplorerViewController alloc] initWithRootURL:item.url
                                                         title:nil
                                                      readOnly:readOnly];
-    next.isTrashFolder = self.isTrashFolder &&
-        [item.url.path hasPrefix:[[self class] ez_trashURL].path];
+    // Trash is trash no matter how it was reached — deriving the flag
+    // from the URL alone (not from the parent's flag) means opening
+    // .ez-trash from inside Documents gets the same Restore / Empty
+    // Trash actions as opening it from Home. The trailing-slash match
+    // keeps a sibling like ".ez-trash2" from counting as trash.
+    NSString *trashPath = [[self class] ez_trashURL].path;
+    next.isTrashFolder = [item.url.path isEqualToString:trashPath] ||
+        [item.url.path hasPrefix:[trashPath stringByAppendingString:@"/"]];
     [self.navigationController pushViewController:next animated:YES];
 }
 
@@ -765,7 +771,10 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
     // restoring and permanent erase are the trash folder's own actions
     // (P1), so the move action is hidden there rather than dead.
     if (self.readOnly || self.isTrashFolder) return NO;
-    return ![item.url.path hasPrefix:[[self class] ez_trashURL].path];
+    NSString *trashPath = [[self class] ez_trashURL].path;
+    BOOL insideTrash = [item.url.path isEqualToString:trashPath] ||
+        [item.url.path hasPrefix:[trashPath stringByAppendingString:@"/"]];
+    return !insideTrash;
 }
 
 - (nullable UISwipeActionsConfiguration *)tableView:(UITableView *)tableView
@@ -1071,7 +1080,10 @@ handler:^(__kindof UIAction *a) {
     // confirmed action that only exists in the Trash folder (P1) — a
     // plain "move to trash" from here would be a no-op move onto
     // itself, so don't offer it there.
-    if ([item.url.path hasPrefix:[[self class] ez_trashURL].path]) return;
+    NSString *trashPath = [[self class] ez_trashURL].path;
+    BOOL insideTrash = [item.url.path isEqualToString:trashPath] ||
+        [item.url.path hasPrefix:[trashPath stringByAppendingString:@"/"]];
+    if (insideTrash) return;
     NSError *error = nil;
     if (![self ez_moveURLToTrash:item.url error:&error]) {
         [self ez_presentError:error];
@@ -1553,7 +1565,14 @@ handler:^(__kindof UIAction *a) {
         return;
     }
     [queue removeObjectAtIndex:0];
-    NSString *base = item.name.stringByDeletingPathExtension;
+    // Double extensions first: "backup.tar.gz" extracts to "backup",
+    // not "backup.tar" (stringByDeletingPathExtension strips one).
+    NSString *base = item.name;
+    if ([base.lowercaseString hasSuffix:@".tar.gz"]) {
+        base = base.stringByDeletingPathExtension.stringByDeletingPathExtension;
+    } else {
+        base = base.stringByDeletingPathExtension;
+    }
     NSURL *destination = [self ez_uniqueURLForName:base inDirectory:self.rootURL];
     if ([EZArchiveService archiveRequiresPassword:item.url]) {
         [self ez_promptForPasswordForItem:item
