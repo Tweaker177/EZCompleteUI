@@ -79,6 +79,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
 @property (nonatomic) NSInteger freeSpinSessionTotal; // Coins won across the current free-spin run; celebrated when the run ends, mirroring the Classic machine
 @property (nonatomic) BOOL spinning, celebrating;
 @property (nonatomic) NSUInteger animationID;
+@property (nonatomic) NSUInteger lineCelebrationID;
 @end
 
 @implementation BRPennySlotViewController
@@ -97,7 +98,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
 - (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (!self.musicPlayer.isPlaying) [self playTheme:@"brainrot-theme1"]; }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; if (self.isMovingFromParentViewController) [self.musicPlayer stop]; }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; if (self.isMovingFromParentViewController) [self.musicPlayer stop]; }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
 - (void)openLounge { [self.navigationController pushViewController:[[BRSlotRoomViewController alloc] initWithRoomID:@"ezcoin-penny" title:NSLocalizedString(@"BRSlot.Penny.LoungeTitle", nil)] animated:YES]; }
 
@@ -240,7 +241,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     if (self.spinning) return;
     self.spinning = YES; self.spinButton.enabled = self.maxButton.enabled = self.customizeButton.enabled = NO; [self updateBonusLabel];
     [self.winOverlay removeFromSuperview]; self.winOverlay=nil; self.celebrating=NO; [self playTheme:@"brainrot-theme1"];
-    for (NSArray<UIImageView *> *column in self.reels) for (UIImageView *tile in column) tile.layer.borderWidth = 0;
+    [self clearLineHighlights];
     self.messageLabel.text = self.freeSpinsRemaining ? NSLocalizedString(@"BRSlot.Penny.FreeSpin", nil) : NSLocalizedString(@"BRSlot.CheckingBalance", nil);
     if (self.freeSpinsRemaining > 0) { [self beginSpin]; return; }
     NSInteger wager = self.lines*self.betPerLine;
@@ -277,8 +278,10 @@ static UIImage *PennyEZCoinSymbolImage(void) {
         BOOL wasFreeSpin=[result[@"was_free_spin"] boolValue];
         if (wasFreeSpin) self.freeSpinSessionTotal+=payout;
         [EZEntitlementManager.shared applyKnownBalance:balance]; self.balanceLabel.text=[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
-        for (NSArray *col in self.reels) for (UIImageView *tile in col) tile.layer.borderWidth=0;
-        for (NSDictionary *line in result[@"winning_lines"]) for (NSInteger col=0;col<[line[@"matches"] integerValue] && col<5;col++) { NSInteger row=[line[@"rows"][col] integerValue]; if (row>=0 && row<3) { UIImageView *tile=self.reels[col][row]; tile.layer.borderWidth=3; tile.layer.borderColor=UIColor.systemYellowColor.CGColor; } }
+        [self clearLineHighlights];
+        NSMutableArray *winLines=[NSMutableArray array];
+        for (NSDictionary *line in result[@"winning_lines"]) { if (![line isKindOfClass:NSDictionary.class]) continue; NSArray *rows=[line[@"rows"] isKindOfClass:NSArray.class]?line[@"rows"]:@[]; NSInteger matches=MIN([line[@"matches"] integerValue],5); NSMutableArray *coords=[NSMutableArray array]; for (NSInteger col=0;col<matches && col<(NSInteger)rows.count;col++) { NSInteger row=[rows[col] integerValue]; if (row>=0 && row<3) [coords addObject:@[@(col),@(row)]]; } if (coords.count) [winLines addObject:coords]; }
+        if (winLines.count) [self celebrateWinLines:winLines step:0 passes:(winLines.count<=2?3:winLines.count<=4?2:1) celebrationID:self.lineCelebrationID];
         self.messageLabel.text = awarded ? [NSString stringWithFormat:@"⚡ +%ld FREE SPINS! %@",(long)awarded,payout ? [NSString stringWithFormat:@"Won %ld coins",(long)payout] : @""] : payout ? [NSString stringWithFormat:@"🎉 Won %ld coins on %@ line%@",(long)payout,result[@"win_lines"],[result[@"win_lines"] integerValue]==1?@"":@"s"] : [result[@"was_free_spin"] boolValue] ? @"Free spin • no line win" : [NSString stringWithFormat:@"No win • −%@ coins",result[@"wager"]];
         self.messageLabel.textColor=(payout || awarded) ? UIColor.systemYellowColor : [UIColor colorWithWhite:.8 alpha:1];
         if (payout || awarded) { [self playTheme:@"brainrot-theme2"]; [self showWin:payout awarded:awarded]; } else { [self.lossPlayer stop]; self.lossPlayer.currentTime=0; [self.lossPlayer play]; [self playTheme:@"brainrot-theme1"]; }
@@ -287,7 +290,27 @@ static UIImage *PennyEZCoinSymbolImage(void) {
         if (wasFreeSpin && self.freeSpinsRemaining==0 && self.freeSpinSessionTotal>0) { NSInteger total=self.freeSpinSessionTotal; self.freeSpinSessionTotal=0; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.75*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self showFreeSpinsComplete:total]; }); }
     });
 }
-- (void)finishWithError:(NSString *)message { ++self.animationID; if (self.preSpinBoard.count == 5) { for (NSInteger col=0;col<5;col++) for (NSInteger row=0;row<3;row++) [self setSymbol:self.preSpinBoard[col][row] onTile:self.reels[col][row]]; self.preSpinBoard=nil; } self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=self.customizeButton.enabled=YES; [self updateBonusLabel]; self.messageLabel.text=message; self.messageLabel.textColor=UIColor.systemOrangeColor; }
+- (void)clearLineHighlights { self.lineCelebrationID++; for (NSArray *col in self.reels) for (UIImageView *tile in col) { [tile.layer removeAllAnimations]; tile.transform=CGAffineTransformIdentity; tile.backgroundColor=UIColor.whiteColor; tile.layer.borderWidth=0; tile.layer.borderColor=nil; } }
+// Shows ONE winning line at a time — colored border, tinted tiles, and a
+// staggered pop on its symbols — cycling through every line for a few
+// passes, then leaves all lines lit at once, each in its own color.
+- (void)celebrateWinLines:(NSArray *)lines step:(NSInteger)step passes:(NSInteger)passes celebrationID:(NSUInteger)celebrationID {
+    if (celebrationID != self.lineCelebrationID) return;
+    if (step >= (NSInteger)lines.count * passes) { for (NSInteger i=0;i<(NSInteger)lines.count;i++) [self applyWinLine:lines[i] index:i celebrate:NO]; return; }
+    for (NSArray *col in self.reels) for (UIImageView *tile in col) { tile.layer.borderWidth=0; tile.layer.borderColor=nil; tile.backgroundColor=UIColor.whiteColor; tile.transform=CGAffineTransformIdentity; }
+    NSInteger lineIndex = step % (NSInteger)lines.count;
+    [self applyWinLine:lines[lineIndex] index:lineIndex celebrate:YES];
+    [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.95*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self celebrateWinLines:lines step:step+1 passes:passes celebrationID:celebrationID]; });
+}
+- (void)applyWinLine:(NSArray *)coords index:(NSInteger)index celebrate:(BOOL)celebrate {
+    NSArray *palette=@[ @[@1.0,@0.77,@0.08], @[@1.0,@0.25,@0.55], @[@0.15,@0.85,@1.0], @[@0.35,@1.0,@0.55], @[@0.72,@0.45,@1.0] ];
+    NSArray *rgb=palette[index%(NSInteger)palette.count];
+    UIColor *border=[UIColor colorWithRed:[rgb[0] doubleValue] green:[rgb[1] doubleValue] blue:[rgb[2] doubleValue] alpha:1];
+    UIColor *tint=[UIColor colorWithRed:[rgb[0] doubleValue]*.28+.72 green:[rgb[1] doubleValue]*.28+.72 blue:[rgb[2] doubleValue]*.28+.72 alpha:1];
+    for (NSArray *coord in coords) { UIImageView *tile=self.reels[[coord[0] integerValue]][[coord[1] integerValue]]; tile.layer.borderWidth=3; tile.layer.borderColor=border.CGColor; tile.backgroundColor=tint; if (!celebrate) continue; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)([coord[0] integerValue]*.09*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [UIView animateWithDuration:.16 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{ tile.transform=CGAffineTransformMakeScale(1.16,1.16); } completion:^(__unused BOOL done){ [UIView animateWithDuration:.3 delay:0 usingSpringWithDamping:.42 initialSpringVelocity:.5 options:0 animations:^{ tile.transform=CGAffineTransformIdentity; } completion:nil]; }]; }); }
+}
+- (void)finishWithError:(NSString *)message { ++self.animationID; [self clearLineHighlights]; if (self.preSpinBoard.count == 5) { for (NSInteger col=0;col<5;col++) for (NSInteger row=0;row<3;row++) [self setSymbol:self.preSpinBoard[col][row] onTile:self.reels[col][row]]; self.preSpinBoard=nil; } self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=self.customizeButton.enabled=YES; [self updateBonusLabel]; self.messageLabel.text=message; self.messageLabel.textColor=UIColor.systemOrangeColor; }
 - (void)showCoinStore {
     if (self.presentedViewController) return;
     EZCoinStoreViewController *store=[EZCoinStoreViewController new]; store.showLowCoinsWarning=YES; store.triggeringFeatureName=NSLocalizedString(@"BRSlot.Penny.StoreFeature", nil);

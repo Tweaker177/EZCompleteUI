@@ -18,6 +18,15 @@ static NSDictionary<NSString *, NSString *> *BRSlotFallbackSymbols(void) {
               @"bell": @"🔔", @"diamond": @"♦︎", @"seven": @"7", @"brain": @"🧠" };
 }
 
+// One color per winning line, so cycled lines are easy to tell apart.
+static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
+    return @[ @[@1.0, @0.77, @0.08],   // gold
+              @[@1.0, @0.25, @0.55],   // pink
+              @[@0.15, @0.85, @1.0],   // cyan
+              @[@0.35, @1.0, @0.55],   // green
+              @[@0.72, @0.45, @1.0] ]; // purple
+}
+
 @interface BRSlotOddsSheetViewController : UIViewController <UITableViewDataSource>
 @property (nonatomic, copy) NSDictionary<NSString *, UIImage *> *symbolImages;
 @property (nonatomic, strong) UITableView *tableView;
@@ -107,6 +116,7 @@ static NSDictionary<NSString *, NSString *> *BRSlotFallbackSymbols(void) {
 @property (nonatomic, strong) UIView *winOverlay;
 @property (nonatomic) BOOL winningThemeActive;
 @property (nonatomic) NSUInteger placeholderAnimationID;
+@property (nonatomic) NSUInteger winLineCelebrationID;
 @property (nonatomic, strong) UIView *jackpotBanner;
 @property (nonatomic, strong) UILabel *jackpotBannerLabel;
 @property (nonatomic) NSInteger progressiveJackpot;
@@ -164,7 +174,7 @@ static NSDictionary<NSString *, NSString *> *BRSlotFallbackSymbols(void) {
         self.machineTrailingConstraint.constant = -inset;
     }
 }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; if (self.isMovingFromParentViewController || self.navigationController.isBeingDismissed) { [self.musicPlayer stop]; self.musicPlayer = nil; } }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearWinningLineHighlights]; if (self.isMovingFromParentViewController || self.navigationController.isBeingDismissed) { [self.musicPlayer stop]; self.musicPlayer = nil; } }
 
 - (void)buildUI {
     if (self.importedRoomImage) { UIImageView *room = [[UIImageView alloc] initWithImage:self.importedRoomImage]; room.frame = self.view.bounds; room.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight; room.contentMode = UIViewContentModeScaleAspectFill; room.alpha = .22; [self.view insertSubview:room atIndex:0]; }
@@ -378,8 +388,80 @@ static NSDictionary<NSString *, NSString *> *BRSlotFallbackSymbols(void) {
     [UIView animateWithDuration:.2 animations:^{ overlay.alpha = 0; } completion:^(BOOL finished) { [overlay removeFromSuperview]; }];
 }
 
-- (void)clearWinningLineHighlights { for (NSArray *column in self.reels) for (UIImageView *tile in column) { tile.layer.borderWidth = 0; tile.layer.borderColor = nil; } }
-- (void)highlightWinningLines:(NSArray *)lines { [self clearWinningLineHighlights]; for (NSDictionary *line in lines) { NSArray *rows = [line[@"rows"] isKindOfClass:NSArray.class] ? line[@"rows"] : @[]; if (rows.count != 3) continue; for (NSInteger col = 0; col < 3; col++) { NSInteger row = [rows[col] integerValue]; if (row < 0 || row > 2) continue; UIImageView *tile = self.reels[col][row]; tile.layer.borderWidth = 3; tile.layer.borderColor = [UIColor colorWithRed:1 green:.77 blue:.08 alpha:1].CGColor; } } }
+- (void)clearWinningLineHighlights {
+    // Bumping the ID cancels any celebration cycle still scheduled.
+    self.winLineCelebrationID += 1;
+    for (NSArray *column in self.reels) for (UIImageView *tile in column) {
+        [tile.layer removeAllAnimations];
+        tile.transform = CGAffineTransformIdentity;
+        tile.backgroundColor = [UIColor colorWithWhite:1 alpha:.96];
+        tile.layer.borderWidth = 0;
+        tile.layer.borderColor = nil;
+    }
+}
+- (void)highlightWinningLines:(NSArray *)lines {
+    [self clearWinningLineHighlights];
+    NSMutableArray<NSArray<NSNumber *> *> *parsed = [NSMutableArray array];
+    for (NSDictionary *line in lines) {
+        if (![line isKindOfClass:NSDictionary.class]) continue;
+        NSArray *rows = [line[@"rows"] isKindOfClass:NSArray.class] ? line[@"rows"] : @[];
+        if (rows.count != 3) continue;
+        BOOL valid = YES;
+        for (id row in rows) if (![row isKindOfClass:NSNumber.class] || [row integerValue] < 0 || [row integerValue] > 2) valid = NO;
+        if (valid) [parsed addObject:rows];
+    }
+    if (!parsed.count) return;
+    // A few passes through the lines: more lines, fewer passes, so the
+    // whole show stays in the same few-seconds range.
+    NSInteger passes = parsed.count <= 2 ? 3 : parsed.count <= 4 ? 2 : 1;
+    [self showWinningLineStep:0 ofLines:parsed passes:passes celebrationID:self.winLineCelebrationID];
+}
+
+// Shows ONE winning line at a time — colored border, tinted tiles, and a
+// staggered pop on its symbols — then moves to the next line, pass after
+// pass. After the final pass every winning line stays lit at once, each
+// in its own color (the end state the old static highlight produced),
+// until the next spin clears them.
+- (void)showWinningLineStep:(NSInteger)step ofLines:(NSArray<NSArray<NSNumber *> *> *)lines passes:(NSInteger)passes celebrationID:(NSUInteger)celebrationID {
+    if (celebrationID != self.winLineCelebrationID) return;
+    if (step >= (NSInteger)lines.count * passes) {
+        for (NSInteger i = 0; i < (NSInteger)lines.count; i++) [self applyWinningLineHighlight:lines[i] colorIndex:i celebrate:NO];
+        return;
+    }
+    // Reset the tiles without the public clear — that would bump the ID
+    // and cancel this cycle.
+    for (NSArray *column in self.reels) for (UIImageView *tile in column) {
+        tile.layer.borderWidth = 0;
+        tile.layer.borderColor = nil;
+        tile.backgroundColor = [UIColor colorWithWhite:1 alpha:.96];
+        tile.transform = CGAffineTransformIdentity;
+    }
+    NSInteger lineIndex = step % (NSInteger)lines.count;
+    [self applyWinningLineHighlight:lines[lineIndex] colorIndex:lineIndex celebrate:YES];
+    [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.95 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self showWinningLineStep:step + 1 ofLines:lines passes:passes celebrationID:celebrationID];
+    });
+}
+
+- (void)applyWinningLineHighlight:(NSArray<NSNumber *> *)rows colorIndex:(NSInteger)colorIndex celebrate:(BOOL)celebrate {
+    NSArray<NSArray<NSNumber *> *> *palette = BRWinLinePalette();
+    NSArray<NSNumber *> *rgb = palette[(NSUInteger)(colorIndex % (NSInteger)palette.count)];
+    UIColor *border = [UIColor colorWithRed:rgb[0].doubleValue green:rgb[1].doubleValue blue:rgb[2].doubleValue alpha:1];
+    UIColor *tint = [UIColor colorWithRed:rgb[0].doubleValue * .28 + .72 green:rgb[1].doubleValue * .28 + .72 blue:rgb[2].doubleValue * .28 + .72 alpha:1];
+    for (NSInteger col = 0; col < 3; col++) {
+        UIImageView *tile = self.reels[col][rows[col].integerValue];
+        tile.layer.borderWidth = 3.5;
+        tile.layer.borderColor = border.CGColor;
+        tile.backgroundColor = tint;
+        if (!celebrate) continue;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(col * 0.09 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [UIView animateWithDuration:.16 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{ tile.transform = CGAffineTransformMakeScale(1.16, 1.16); } completion:^(BOOL finished) {
+                [UIView animateWithDuration:.3 delay:0 usingSpringWithDamping:.42 initialSpringVelocity:.5 options:0 animations:^{ tile.transform = CGAffineTransformIdentity; } completion:nil];
+            }];
+        });
+    }
+}
 
 #pragma mark - Win celebration and audio
 
