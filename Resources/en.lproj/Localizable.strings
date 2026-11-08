@@ -644,7 +644,7 @@
 "EZImageNSFW.InsufficientTitle" = "Not Enough Coins";
 "EZImageNSFW.InsufficientMessage" = "NSFW generation costs 50 coins. Top up or subscribe to continue.";
 "EZImageNSFW.IDTitle" = "ID Check (18+)";
-"EZImageNSFW.IDMessage" = "NSFW generation is adults-only, verified with a one-time ID check. Upload a photo of your government ID: the AI reads only your date of birth to confirm you're 18+, and the photo on the ID becomes your likeness reference. Only the cropped photo from the ID is kept, on this device only — the full ID image is deleted right after the check and is never stored.";
+"EZImageNSFW.IDMessage" = "One-time check. Upload a photo of your government ID: if your age is not verified yet, its date of birth is read once to confirm you are 18 or older, and the ID image itself is never stored. The face from the ID photo is saved privately as your likeness reference for checking reference photos. You will not be asked again.";
 "EZImageNSFW.UploadID" = "Upload ID Photo";
 "EZImageNSFW.IDRequired" = "An ID check is required before NSFW generation can be used.";
 "EZImageNSFW.IDNoFace" = "No photo could be found on that ID. Try a clearer photo of the ID.";

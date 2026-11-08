@@ -603,7 +603,7 @@
 "EZImageNSFW.InsufficientTitle" = "金币不足";
 "EZImageNSFW.InsufficientMessage" = "NSFW 生成需 50 金币。充值或订阅以继续。";
 "EZImageNSFW.IDTitle" = "身份证件核查（18+）";
-"EZImageNSFW.IDMessage" = "NSFW 生成仅限成人使用，并通过一次性证件核查进行验证。上传您的政府身份证件照片：AI 仅读取您的出生日期以确认您已满 18 岁，证件上的照片将成为您的人像比对参考。仅保留从证件裁剪出的照片，且仅保存在本设备上——证件完整图像在核查后立即删除，绝不存储。";
+"EZImageNSFW.IDMessage" = "一次性检查。上传政府身份证件照片：如果您的年龄尚未验证，系统将读取一次出生日期以确认您已满 18 岁，证件图像本身绝不会被存储。证件照片中的面部将以私密方式保存为您的相似度参考，用于核对参考照片。之后不会再要求您提供。";
 "EZImageNSFW.UploadID" = "上传证件照片";
 "EZImageNSFW.IDRequired" = "使用 NSFW 生成前必须进行证件核查。";
 "EZImageNSFW.IDNoFace" = "无法在该证件上找到照片。请尝试更清晰的证件照片。";

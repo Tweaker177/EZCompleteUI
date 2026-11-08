@@ -644,7 +644,7 @@
 "EZImageNSFW.InsufficientTitle" = "Yetersiz Jeton";
 "EZImageNSFW.InsufficientMessage" = "NSFW oluşturma 50 jeton tutarındadır. Devam etmek için bakiye yükleyin veya abone olun.";
 "EZImageNSFW.IDTitle" = "Kimlik Kontrolü (18+)";
-"EZImageNSFW.IDMessage" = "NSFW üretimi yalnızca yetişkinlere özeldir ve tek seferlik bir kimlik kontrolüyle doğrulanır. Resmî kimliğinizin fotoğrafını yükleyin: Yapay zekâ yalnızca doğum tarihinizi okuyarak 18 yaşından büyük olduğunuzu doğrular ve kimlikteki fotoğraf, benzerlik referansınız olur. Yalnızca kimlikten kırpılan fotoğraf saklanır ve yalnızca bu cihazda tutulur — kimliğin tam görüntüsü kontrolden hemen sonra silinir ve asla saklanmaz.";
+"EZImageNSFW.IDMessage" = "Tek seferlik kontrol. Resmî kimliğinizin fotoğrafını yükleyin: yaşınız henüz doğrulanmadıysa, 18 yaşında veya daha büyük olduğunuzu doğrulamak için doğum tarihi bir kez okunur ve kimlik görüntüsünün kendisi asla saklanmaz. Kimlik fotoğrafındaki yüz, referans fotoğrafları kontrol etmek için benzerlik referansınız olarak gizli şekilde kaydedilir. Bir daha istenmeyecek.";
 "EZImageNSFW.UploadID" = "Kimlik Fotoğrafını Yükle";
 "EZImageNSFW.IDRequired" = "NSFW üretimini kullanmadan önce kimlik kontrolü gereklidir.";
 "EZImageNSFW.IDNoFace" = "Bu kimlikte bir fotoğraf bulunamadı. Kimliğin daha net bir fotoğrafını deneyin.";
