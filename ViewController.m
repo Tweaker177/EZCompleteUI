@@ -595,6 +595,7 @@
 #import "TextToSpeechViewController.h"
 #import "EZMusicViewController.h"
 #import "EZFileExplorerViewController.h"
+#import "EZSoundsViewController.h"
 #import "EZMusicService.h"
 #import "EZMusicLibraryManager.h"
 #import "EZMusicBubbleCell.h"
@@ -2891,6 +2892,7 @@ static NSData * _Nullable EZSeahorseFaceCropJPEGData(UIImage *image) {
                 else if ([action isEqualToString:@"tts"]) [weakSelf openTTS];
                 else if ([action isEqualToString:@"music"]) [weakSelf openMusic];
                 else if ([action isEqualToString:@"files"]) [weakSelf openFiles];
+                else if ([action isEqualToString:@"sounds"]) [weakSelf openSounds];
                 else if ([action isEqualToString:@"cloning"]) [weakSelf openCloning];
                 else if ([action isEqualToString:@"brainRot"]) [weakSelf openBrainRot];
                 else if ([action isEqualToString:@"memories"]) [weakSelf openMemories];
@@ -9325,6 +9327,12 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 - (void)openFiles {
     UINavigationController *nav = [[UINavigationController alloc]
         initWithRootViewController:[[EZFileExplorerViewController alloc] init]];
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)openSounds {
+    UINavigationController *nav = [[UINavigationController alloc]
+        initWithRootViewController:[[EZSoundsViewController alloc] init]];
     [self presentViewController:nav animated:YES completion:nil];
 }
 
