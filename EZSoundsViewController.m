@@ -13,6 +13,7 @@
 #import "EZSoundLibraryManager.h"
 #import "EZSoundManifestEntry.h"
 #import "EZTTSLibraryManager.h"
+#import "EZTTSClipEditViewController.h"
 #import "EZTTSManifestEntry.h"
 
 // ── Neon arcade palette (mirrors TextToSpeechViewController) ────────────────
@@ -313,7 +314,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 };
 
 @interface EZSoundsViewController () <UITableViewDataSource, UITableViewDelegate,
-                                      UITextViewDelegate,
+                                      UITextViewDelegate, UIGestureRecognizerDelegate,
                                       UIImagePickerControllerDelegate, UINavigationControllerDelegate,
                                       UIDocumentPickerDelegate>
 @property (nonatomic, strong) UISegmentedControl *tabControl;
@@ -361,6 +362,14 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(playerDidUpdate:)
                                                  name:EZMediaPlayerDidUpdateNotification
+                                               object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(soundsKeyboardWillShow:)
+                                                 name:UIKeyboardWillShowNotification
+                                               object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(soundsKeyboardWillHide:)
+                                                 name:UIKeyboardWillHideNotification
                                                object:nil];
 }
 
@@ -446,7 +455,17 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     UIScrollView *scroll = [[UIScrollView alloc] init];
     scroll.translatesAutoresizingMaskIntoConstraints = NO;
     scroll.alwaysBounceVertical = YES;
+    scroll.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
     self.createPanel = scroll;
+    // Tap anywhere outside the prompt field to dismiss the keyboard.
+    // cancelsTouchesInView stays NO so the slider, switch, and buttons
+    // still receive their taps normally; the delegate below only keeps
+    // the gesture out of the prompt field itself.
+    UITapGestureRecognizer *dismissTap = [[UITapGestureRecognizer alloc] initWithTarget:self
+                                                                                 action:@selector(dismissKeyboard)];
+    dismissTap.cancelsTouchesInView = NO;
+    dismissTap.delegate = self;
+    [scroll addGestureRecognizer:dismissTap];
     [self.view addSubview:scroll];
 
     UIView *content = [[UIView alloc] init];
@@ -459,6 +478,18 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 
     self.promptView = [[UITextView alloc] init];
     self.promptView.delegate = self;
+    // A multi-line prompt has no Return-key way out of the keyboard, so
+    // it gets the app's standard Done bar above the keyboard.
+    UIToolbar *keyboardBar = [[UIToolbar alloc] initWithFrame:CGRectMake(0, 0, 320, 44)];
+    keyboardBar.barStyle = UIBarStyleBlack;
+    keyboardBar.tintColor = EZSoundsNeonCyan();
+    UIBarButtonItem *kbFlex = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+    UIBarButtonItem *kbDone = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                             target:self action:@selector(dismissKeyboard)];
+    keyboardBar.items = @[kbFlex, kbDone];
+    self.promptView.inputAccessoryView = keyboardBar;
     self.promptView.backgroundColor = [UIColor clearColor];
     self.promptView.textColor = EZSoundsNeonText();
     self.promptView.font = [UIFont systemFontOfSize:16];
@@ -738,6 +769,58 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     });
 }
 
+#pragma mark - Keyboard (Create tab)
+
+- (void)dismissKeyboard {
+    [self.view endEditing:YES];
+}
+
+/// The tap-to-dismiss gesture rides on the whole Create scroll view;
+/// only a tap OUTSIDE the prompt field may dismiss — taps inside it
+/// are text editing, and every other control keeps its own touches
+/// because the gesture doesn't cancel them.
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+       shouldReceiveTouch:(UITouch *)touch {
+    if ([touch.view isDescendantOfView:self.promptView]) return NO;
+    return YES;
+}
+
+/// Keyboard avoidance: while the keyboard is up, the Create scroll
+/// view gets a bottom inset equal to the keyboard's overlap and the
+/// Generate button is scrolled into view — it can never sit trapped
+/// underneath the keyboard.
+- (void)soundsKeyboardWillShow:(NSNotification *)note {
+    if (self.createPanel.hidden || !self.promptView.isFirstResponder) return;
+    UIScrollView *scroll = (UIScrollView *)self.createPanel;
+    CGRect kbFrame = [note.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
+    CGRect kbInView = [self.view convertRect:kbFrame fromView:nil];
+    CGFloat overlap = MAX(0, CGRectGetMaxY(scroll.frame) - CGRectGetMinY(kbInView));
+    if (overlap <= 0) return;
+    NSTimeInterval duration = [note.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
+    [UIView animateWithDuration:duration animations:^{
+        scroll.contentInset = UIEdgeInsetsMake(0, 0, overlap, 0);
+        scroll.scrollIndicatorInsets = scroll.contentInset;
+        [self.view layoutIfNeeded];
+    } completion:^(BOOL finished) {
+        UIView *content = self.generateButton.superview;
+        CGRect buttonRect = [self.generateButton convertRect:self.generateButton.bounds
+                                                     toView:content];
+        buttonRect = CGRectInset(buttonRect, 0, -12);
+        [scroll scrollRectToVisible:buttonRect animated:YES];
+    }];
+}
+
+- (void)soundsKeyboardWillHide:(NSNotification *)note {
+    UIScrollView *scroll = (UIScrollView *)self.createPanel;
+    if (UIEdgeInsetsEqualToEdgeInsets(scroll.contentInset, UIEdgeInsetsZero)) return;
+    NSTimeInterval duration = [note.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
+    [UIView animateWithDuration:duration animations:^{
+        scroll.contentInset = UIEdgeInsetsZero;
+        scroll.scrollIndicatorInsets = UIEdgeInsetsZero;
+        [self.view layoutIfNeeded];
+    }];
+}
+
 #pragma mark - Create tab
 
 - (NSInteger)selectedSeconds {
@@ -758,6 +841,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 
 - (void)generateTapped {
     if (self.generating) return;
+    [self.view endEditing:YES];
     NSString *prompt = [self.promptView.text stringByTrimmingCharactersInSet:
                         [NSCharacterSet whitespaceAndNewlineCharacterSet]];
     if (prompt.length < 3) {
@@ -875,11 +959,16 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 
 - (EZMediaPlayerItem *)playerItemForEntry:(EZSoundManifestEntry *)entry {
     NSURL *url = [[EZSoundLibraryManager sharedManager] absoluteURLForEntry:entry];
+    // Honor a playback rate set in the clip editor, exactly like the
+    // TTS library list does for its clips.
+    id storedRate = entry.metadata[@"playbackRate"];
+    float rate = [storedRate isKindOfClass:[NSNumber class]] ? [storedRate floatValue] : 1.0f;
     return [EZMediaPlayerItem itemWithIdentifier:[kEZSoundsPlayerIdentifierPrefix stringByAppendingString:entry.uuid]
                                            title:[self displayTitleForEntry:entry]
                                         subtitle:@"EZCompleteUI"
                                          fileURL:url
-                                    durationHint:entry.duration];
+                                    durationHint:entry.duration
+                                    playbackRate:rate];
 }
 
 - (void)playEntry:(EZSoundManifestEntry *)entry queueRest:(BOOL)queueRest {
@@ -1033,6 +1122,16 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Rename", nil)
                   destructive:NO
                       handler:^{ [self presentRenameForEntry:entry]; }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Edit", nil)
+                  destructive:NO
+                      handler:^{
+        // The app's existing clip editor, opened on this sound: its
+        // edits archive back into the Sounds library as new entries
+        // (original untouched), except in-place normalize.
+        EZTTSClipEditViewController *editor =
+            [[EZTTSClipEditViewController alloc] initWithSoundEntry:entry];
+        [self.navigationController pushViewController:editor animated:YES];
+    }];
     [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Share", nil)
                   destructive:NO
                       handler:^{ [self shareEntry:entry]; }];

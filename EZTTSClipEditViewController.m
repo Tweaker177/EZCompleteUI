@@ -7,6 +7,8 @@
 
 #import "EZTTSClipEditViewController.h"
 #import "EZTTSLibraryManager.h"
+#import "EZSoundLibraryManager.h"
+#import "EZSoundManifestEntry.h"
 #import "EZMediaPlayerManager.h"
 #import "TextToSpeechViewController.h"
 #import "EZVoicePickerViewController.h"
@@ -25,6 +27,17 @@ static UIColor *EZEditElectricBlue(void) {
 @interface EZTTSClipEditViewController () <AVAudioPlayerDelegate>
 
 @property (nonatomic, strong) EZTTSManifestEntry *entry;
+
+/// Non-nil when the editor was opened on a generated sound instead of
+/// a TTS clip. The editor then works on a mirror entry (self.entry)
+/// for display and persistence, and all archiving goes through
+/// EZSoundLibraryManager (see the host-library seam below).
+@property (nonatomic, strong, nullable) EZSoundManifestEntry *soundEntry;
+/// The audio file being edited, resolved once at init and refreshed
+/// after an in-place replace swaps the file underneath the entry.
+@property (nonatomic, strong) NSURL *audioURL;
+/// Root for scene-asset lookups (TTS clips only; nil for sounds).
+@property (nonatomic, strong, nullable) NSURL *libraryRootURL;
 
 @property (nonatomic, strong) UIScrollView *scrollView;
 @property (nonatomic, strong) UIView *promptContainer;
@@ -82,8 +95,136 @@ static UIColor *EZEditElectricBlue(void) {
         _entry = entry;
         _selectedVoiceID = entry.voiceID ?: @"";
         _selectedVoiceName = entry.voiceName;
+        _audioURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:entry];
+        _libraryRootURL = [[EZTTSLibraryManager sharedManager] libraryRootURL];
     }
     return self;
+}
+
+- (instancetype)initWithSoundEntry:(EZSoundManifestEntry *)entry {
+    self = [super initWithNibName:nil bundle:nil];
+    if (self) {
+        _soundEntry = entry;
+        _entry = [self mirrorEntryForSoundEntry:entry];
+        _selectedVoiceID = @"";
+        _selectedVoiceName = nil;
+        _audioURL = [[EZSoundLibraryManager sharedManager] absoluteURLForEntry:entry];
+        _libraryRootURL = nil;
+    }
+    return self;
+}
+
+#pragma mark - Host library seam (TTS library or Sounds library)
+
+/// The editor edits one audio file; which library archives the results
+/// depends on how it was opened. For a sound, the editor displays and
+/// tracks a detached EZTTSManifestEntry mirror of the sound entry —
+/// every field the editing tools read exists on both entry types —
+/// while the real persistence lands in the Sounds library.
+
+- (EZTTSManifestEntry *)mirrorEntryForSoundEntry:(EZSoundManifestEntry *)sound {
+    EZTTSManifestEntry *mirror = [[EZTTSManifestEntry alloc] init];
+    mirror.uuid = sound.uuid;
+    mirror.created = sound.created;
+    mirror.provider = sound.provider;
+    mirror.model = sound.model;
+    mirror.prompt = sound.prompt;
+    mirror.preview = sound.preview;
+    mirror.filename = sound.filename;
+    mirror.relativePath = sound.relativePath;
+    mirror.duration = sound.duration;
+    mirror.sampleRate = sound.sampleRate;
+    mirror.fileSize = sound.fileSize;
+    mirror.favorite = sound.isFavorite;
+    mirror.tags = sound.tags;
+    mirror.metadata = sound.metadata;
+    return mirror;
+}
+
+/// Archives edited audio as a BRAND-NEW entry in the host library —
+/// the save convention for every edit except in-place normalize. The
+/// original entry is never touched.
+- (void)archiveEditedAudioData:(NSData *)data
+                        prompt:(NSString *)prompt
+                     extension:(NSString *)extension
+                    completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion {
+    if (self.soundEntry) {
+        EZSoundManifestEntry *source = self.soundEntry;
+        [[EZSoundLibraryManager sharedManager] saveAudioData:data
+                                                        prompt:prompt
+                                                      provider:source.provider
+                                                         model:source.model
+                                                     extension:extension
+                                                      metadata:nil
+                                                    completion:^(EZSoundManifestEntry *saved, NSError *error) {
+            completion(saved ? [self mirrorEntryForSoundEntry:saved] : nil, error);
+        }];
+        return;
+    }
+    [[EZTTSLibraryManager sharedManager] saveAudioData:data
+                                                  prompt:prompt
+                                               voiceName:self.entry.voiceName
+                                                 voiceID:self.entry.voiceID
+                                                provider:self.entry.provider
+                                                   model:self.entry.model
+                                               extension:extension
+                                              completion:completion];
+}
+
+/// Replaces the audio underneath the SAME entry (in-place normalize).
+/// The entry keeps its position, title, favorite flag, and metadata;
+/// self.audioURL is refreshed to the replacement file either way.
+- (void)replaceEditedAudioData:(NSData *)data
+                     extension:(NSString *)extension
+                    completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion {
+    if (self.soundEntry) {
+        [[EZSoundLibraryManager sharedManager] replaceAudioForSoundUUID:self.soundEntry.uuid
+                                                                 withData:data
+                                                                extension:extension
+                                                               completion:^(EZSoundManifestEntry *updated, NSError *error) {
+            if (updated) {
+                self.soundEntry = updated;
+                self.audioURL = [[EZSoundLibraryManager sharedManager] absoluteURLForEntry:updated];
+            }
+            completion(updated ? [self mirrorEntryForSoundEntry:updated] : nil, error);
+        }];
+        return;
+    }
+    [[EZTTSLibraryManager sharedManager] replaceAudioForClipUUID:self.entry.uuid
+                                                          withData:data
+                                                         extension:extension
+                                                        completion:^(EZTTSManifestEntry *updated, NSError *error) {
+        if (updated) {
+            self.audioURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:updated];
+        }
+        completion(updated, error);
+    }];
+}
+
+/// Speed is metadata-only in both libraries ("playbackRate"); each
+/// library's list applies it when handing the entry to the player.
+- (void)persistPlaybackRate:(float)rate {
+    if (self.soundEntry) {
+        [[EZSoundLibraryManager sharedManager] setPlaybackRate:rate
+                                                  forSoundUUID:self.soundEntry.uuid
+                                                    completion:^(EZSoundManifestEntry *entry, NSError *error) {
+            if (error) {
+                EZLogf(EZLogLevelWarning, @"SoundLibrary", @"Failed to persist playback rate: %@", error.localizedDescription);
+                return;
+            }
+            EZLogf(EZLogLevelInfo, @"SoundLibrary", @"Saved playback rate %.2fx for sound %@", rate, entry.uuid);
+        }];
+        return;
+    }
+    [[EZTTSLibraryManager sharedManager] setPlaybackRate:rate
+                                              forClipUUID:self.entry.uuid
+                                               completion:^(EZTTSManifestEntry * _Nullable entry, NSError * _Nullable error) {
+        if (error) {
+            EZLogf(EZLogLevelWarning, @"TTSLibrary", @"Failed to persist playback rate: %@", error.localizedDescription);
+            return;
+        }
+        EZLogf(EZLogLevelInfo, @"TTSLibrary", @"Saved playback rate %.2fx for clip %@", rate, entry.uuid);
+    }];
 }
 
 #pragma mark - Lifecycle
@@ -127,7 +268,7 @@ static UIColor *EZEditElectricBlue(void) {
     [self setupWaveformSection];
     if ([self hasEditableBackgroundAudio]) [self setupBackgroundAudioSection];
     [self setupSpeedSection];
-    [self setupVoiceSection];
+    if (!self.soundEntry) [self setupVoiceSection];
     [self setupEffectsSection];
 
     [self loadWaveform];
@@ -219,7 +360,7 @@ static UIColor *EZEditElectricBlue(void) {
 }
 
 - (void)loadWaveform {
-    NSURL *audioURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:self.entry];
+    NSURL *audioURL = self.audioURL;
     [self.editWaveformView loadAudioFileAtURL:audioURL completion:^(BOOL success, NSError * _Nullable error) {
         if (!success) {
             EZLogf(EZLogLevelWarning, @"TTSLibrary", @"Edit-view waveform render failed: %@", error.localizedDescription);
@@ -263,7 +404,7 @@ static UIColor *EZEditElectricBlue(void) {
 - (NSURL *)sceneAssetURLForMetadataKey:(NSString *)key {
     NSString *relativePath = [self.entry.metadata[key] isKindOfClass:NSString.class] ? self.entry.metadata[key] : nil;
     if (!relativePath.length || [relativePath hasPrefix:@"/"] || [relativePath containsString:@".."]) return nil;
-    NSURL *url = [[[EZTTSLibraryManager sharedManager] libraryRootURL] URLByAppendingPathComponent:relativePath];
+    NSURL *url = [self.libraryRootURL URLByAppendingPathComponent:relativePath];
     return [[NSFileManager defaultManager] fileExistsAtPath:url.path] ? url : nil;
 }
 
@@ -382,7 +523,7 @@ static UIColor *EZEditElectricBlue(void) {
                         duration:(NSTimeInterval)silenceDuration
                       completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
 {
-    NSURL *sourceURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:self.entry];
+    NSURL *sourceURL = self.audioURL;
     AVURLAsset *asset = [AVURLAsset URLAssetWithURL:sourceURL options:nil];
     AVAssetTrack *sourceTrack = [[asset tracksWithMediaType:AVMediaTypeAudio] firstObject];
     if (!sourceTrack) {
@@ -429,7 +570,7 @@ static UIColor *EZEditElectricBlue(void) {
                   endFraction:(CGFloat)endFraction
                    completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
 {
-    NSURL *sourceURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:self.entry];
+    NSURL *sourceURL = self.audioURL;
     AVURLAsset *asset = [AVURLAsset URLAssetWithURL:sourceURL options:nil];
     AVAssetTrack *sourceTrack = [[asset tracksWithMediaType:AVMediaTypeAudio] firstObject];
     if (!sourceTrack) {
@@ -508,7 +649,7 @@ static UIColor *EZEditElectricBlue(void) {
                        saveAsNew:(BOOL)saveAsNew
                       completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
 {
-    NSURL *sourceURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:self.entry];
+    NSURL *sourceURL = self.audioURL;
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSError *openError;
@@ -587,19 +728,12 @@ static UIColor *EZEditElectricBlue(void) {
         }
 
         if (saveAsNew) {
-            [[EZTTSLibraryManager sharedManager] saveAudioData:audioData
-                                                          prompt:[self.entry.prompt stringByAppendingString:@" (normalized)"]
-                                                       voiceName:self.entry.voiceName
-                                                         voiceID:self.entry.voiceID
-                                                        provider:self.entry.provider
-                                                           model:self.entry.model
-                                                       extension:@"caf"
-                                                      completion:completion];
+            [self archiveEditedAudioData:audioData
+                                  prompt:[self.entry.prompt stringByAppendingString:@" (normalized)"]
+                               extension:@"caf"
+                              completion:completion];
         } else {
-            [[EZTTSLibraryManager sharedManager] replaceAudioForClipUUID:self.entry.uuid
-                                                                  withData:audioData
-                                                                 extension:@"caf"
-                                                                completion:completion];
+            [self replaceEditedAudioData:audioData extension:@"caf" completion:completion];
         }
     });
 }
@@ -643,14 +777,10 @@ static UIColor *EZEditElectricBlue(void) {
             return;
         }
 
-        [[EZTTSLibraryManager sharedManager] saveAudioData:audioData
-                                                      prompt:[self.entry.prompt stringByAppendingString:suffix]
-                                                   voiceName:self.entry.voiceName
-                                                     voiceID:self.entry.voiceID
-                                                    provider:self.entry.provider
-                                                       model:self.entry.model
-                                                   extension:@"m4a"
-                                                  completion:completion];
+        [self archiveEditedAudioData:audioData
+                              prompt:[self.entry.prompt stringByAppendingString:suffix]
+                           extension:@"m4a"
+                          completion:completion];
     }];
 }
 
@@ -746,15 +876,7 @@ static UIColor *EZEditElectricBlue(void) {
 }
 
 - (void)handleSpeedSliderReleased:(UISlider *)slider {
-    [[EZTTSLibraryManager sharedManager] setPlaybackRate:slider.value
-                                              forClipUUID:self.entry.uuid
-                                               completion:^(EZTTSManifestEntry * _Nullable entry, NSError * _Nullable error) {
-        if (error) {
-            EZLogf(EZLogLevelWarning, @"TTSLibrary", @"Failed to persist playback rate: %@", error.localizedDescription);
-            return;
-        }
-        EZLogf(EZLogLevelInfo, @"TTSLibrary", @"Saved playback rate %.2fx for clip %@", slider.value, entry.uuid);
-    }];
+    [self persistPlaybackRate:slider.value];
 }
 
 - (void)handleSpeedPreviewTapped {
@@ -786,7 +908,7 @@ static UIColor *EZEditElectricBlue(void) {
         return;
     }
 
-    NSURL *audioURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:self.entry];
+    NSURL *audioURL = self.audioURL;
     NSError *error;
     AVAudioPlayer *player = [[AVAudioPlayer alloc] initWithContentsOfURL:audioURL error:&error];
     if (!player) {
@@ -1020,7 +1142,7 @@ static UIColor *EZEditElectricBlue(void) {
              promptSuffix:(NSString *)suffix
                completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
 {
-    NSURL *sourceURL = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:self.entry];
+    NSURL *sourceURL = self.audioURL;
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSError *openError;
@@ -1110,14 +1232,10 @@ static UIColor *EZEditElectricBlue(void) {
         NSData *audioData = [NSData dataWithContentsOfURL:outputURL];
         if (!audioData) { [self finishBackgroundWork:completion entry:nil error:[self errorWithCode:-32 message:@"Couldn't read back the processed audio."]]; return; }
 
-        [[EZTTSLibraryManager sharedManager] saveAudioData:audioData
-                                                      prompt:[self.entry.prompt stringByAppendingString:suffix]
-                                                   voiceName:self.entry.voiceName
-                                                     voiceID:self.entry.voiceID
-                                                    provider:self.entry.provider
-                                                       model:self.entry.model
-                                                   extension:@"caf"
-                                                  completion:completion];
+        [self archiveEditedAudioData:audioData
+                              prompt:[self.entry.prompt stringByAppendingString:suffix]
+                           extension:@"caf"
+                          completion:completion];
     });
 }
 
@@ -1217,13 +1335,15 @@ static UIColor *EZEditElectricBlue(void) {
     self.speedPreviewButton.frame = CGRectMake(margin, y, width, 32);
     y = CGRectGetMaxY(self.speedPreviewButton.frame) + 28;
 
-    // Voice section
-    self.voiceSectionLabel.frame = CGRectMake(margin, y, width, 16);
-    y = CGRectGetMaxY(self.voiceSectionLabel.frame) + 8;
-    self.voiceButton.frame = CGRectMake(margin, y, width, 40);
-    y = CGRectGetMaxY(self.voiceButton.frame) + 10;
-    self.regenerateWithVoiceButton.frame = CGRectMake(margin, y, width, 32);
-    y = CGRectGetMaxY(self.regenerateWithVoiceButton.frame) + 28;
+    // Voice section (TTS clips only — absent entirely for sounds)
+    if (self.voiceSectionLabel) {
+        self.voiceSectionLabel.frame = CGRectMake(margin, y, width, 16);
+        y = CGRectGetMaxY(self.voiceSectionLabel.frame) + 8;
+        self.voiceButton.frame = CGRectMake(margin, y, width, 40);
+        y = CGRectGetMaxY(self.voiceButton.frame) + 10;
+        self.regenerateWithVoiceButton.frame = CGRectMake(margin, y, width, 32);
+        y = CGRectGetMaxY(self.regenerateWithVoiceButton.frame) + 28;
+    }
 
     // Effects section
     self.effectsSectionLabel.frame = CGRectMake(margin, y, width, 16);

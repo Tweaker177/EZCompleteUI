@@ -708,3 +708,6 @@
 "EZSounds.RenamePlaceholder" = "Bu sesin adı";
 "EZSounds.Save" = "Kaydet";
 "EZSounds.MixTimeout" = "Bu çok uzun sürüyor, bu yüzden karıştırma iptal edildi. Daha kısa bir klip dene.";
+
+/* EZSounds (edit) */
+"EZSounds.Edit" = "Düzenle";

@@ -667,3 +667,6 @@
 "EZSounds.RenamePlaceholder" = "इस ध्वनि का नाम";
 "EZSounds.Save" = "सहेजें";
 "EZSounds.MixTimeout" = "इसमें बहुत समय लग रहा है, इसलिए मिक्स रद्द कर दिया गया। छोटी क्लिप आज़माएँ।";
+
+/* EZSounds (edit) */
+"EZSounds.Edit" = "संपादित करें";

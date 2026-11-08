@@ -667,3 +667,6 @@
 "EZSounds.RenamePlaceholder" = "Tên của âm thanh này";
 "EZSounds.Save" = "Lưu";
 "EZSounds.MixTimeout" = "Việc này mất quá nhiều thời gian nên đã hủy trộn. Hãy thử clip ngắn hơn.";
+
+/* EZSounds (edit) */
+"EZSounds.Edit" = "Chỉnh sửa";

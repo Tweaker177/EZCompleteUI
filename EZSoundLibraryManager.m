@@ -406,6 +406,118 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
     });
 }
 
+- (void)replaceAudioForSoundUUID:(NSString *)uuid
+                        withData:(NSData *)audioData
+                       extension:(NSString *)extension
+                      completion:(nullable void (^)(EZSoundManifestEntry * _Nullable, NSError * _Nullable))completion
+{
+    dispatch_async(self.ioQueue, ^{
+        EZSoundManifestEntry *target = nil;
+        for (EZSoundManifestEntry *entry in self.entries) {
+            if ([entry.uuid isEqualToString:uuid]) { target = entry; break; }
+        }
+        if (!target) {
+            NSError *err = EZSoundLibraryError(EZSoundLibraryErrorCodeSoundNotFound, @"No sound with that id.");
+            if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, err); });
+            return;
+        }
+        NSURL *oldFileURL = [self absoluteURLForEntry:target];
+
+        // Fresh filename, named exactly like a fresh save — the
+        // replacement may be in a different container than the
+        // original (edits export .caf / .m4a), so reusing the old
+        // filename could leave its extension lying about its contents.
+        NSString *stamp = [NSString stringWithFormat:@"%.0f", [[NSDate date] timeIntervalSince1970]];
+        NSString *unique = [[[NSUUID UUID] UUIDString] substringToIndex:8];
+        NSString *filename = [NSString stringWithFormat:@"sound_%@_%@.%@", stamp, unique, extension];
+        NSString *relativePath = [kEZAudioFolderName stringByAppendingPathComponent:filename];
+        NSURL *destinationURL = [self.libraryRootURL URLByAppendingPathComponent:relativePath isDirectory:NO];
+
+        NSError *writeError;
+        if (![audioData writeToURL:destinationURL options:NSDataWritingAtomic error:&writeError]) {
+            NSError *err = EZSoundLibraryError(EZSoundLibraryErrorCodeWriteFailed,
+                [NSString stringWithFormat:@"Could not write replacement audio: %@", writeError.localizedDescription]);
+            if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, err); });
+            return;
+        }
+
+        // Measure exactly like a fresh save does.
+        double duration = 0, sampleRate = 0;
+        AVURLAsset *asset = [AVURLAsset URLAssetWithURL:destinationURL options:nil];
+        if (CMTIME_IS_NUMERIC(asset.duration)) duration = CMTimeGetSeconds(asset.duration);
+        AVAudioFile *audioFile = [[AVAudioFile alloc] initForReading:destinationURL error:nil];
+        if (audioFile) {
+            sampleRate = audioFile.fileFormat.sampleRate;
+            if (duration <= 0 && audioFile.fileFormat.sampleRate > 0) {
+                duration = (double)audioFile.length / audioFile.fileFormat.sampleRate;
+            }
+        }
+        unsigned long long fileSize = (unsigned long long)audioData.length;
+
+        NSString *oldFilename = target.filename;
+        NSString *oldRelativePath = target.relativePath;
+        double oldDuration = target.duration, oldSampleRate = target.sampleRate;
+        unsigned long long oldFileSize = target.fileSize;
+        target.filename = filename;
+        target.relativePath = relativePath;
+        target.duration = duration;
+        target.sampleRate = sampleRate;
+        target.fileSize = fileSize;
+
+        NSError *persistError;
+        if (![self persistEntriesToDisk:self.entries error:&persistError]) {
+            target.filename = oldFilename;
+            target.relativePath = oldRelativePath;
+            target.duration = oldDuration;
+            target.sampleRate = oldSampleRate;
+            target.fileSize = oldFileSize;
+            [[NSFileManager defaultManager] removeItemAtURL:destinationURL error:nil];
+            if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, persistError); });
+            return;
+        }
+        [self refreshSnapshotLocked_NoLock:YES];
+
+        // Manifest is updated — best-effort delete of the old file; a
+        // stray file on disk is a smaller problem than reporting a
+        // failure for an edit that actually landed.
+        NSError *deleteError;
+        if (![[NSFileManager defaultManager] removeItemAtURL:oldFileURL error:&deleteError]) {
+            EZLogf(EZLogLevelWarning, @"SoundLibrary", @"Replaced audio for %@ but could not remove old file: %@", uuid, deleteError.localizedDescription);
+        }
+        EZLogf(EZLogLevelInfo, @"SoundLibrary", @"Replaced audio in place for sound %@", uuid);
+        if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(target, nil); });
+    });
+}
+
+- (void)setPlaybackRate:(float)rate
+           forSoundUUID:(NSString *)uuid
+             completion:(nullable void (^)(EZSoundManifestEntry * _Nullable, NSError * _Nullable))completion
+{
+    dispatch_async(self.ioQueue, ^{
+        EZSoundManifestEntry *target = nil;
+        for (EZSoundManifestEntry *entry in self.entries) {
+            if ([entry.uuid isEqualToString:uuid]) { target = entry; break; }
+        }
+        if (!target) {
+            NSError *err = EZSoundLibraryError(EZSoundLibraryErrorCodeSoundNotFound, @"No sound with that id.");
+            if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, err); });
+            return;
+        }
+        NSDictionary *oldMetadata = target.metadata;
+        NSMutableDictionary *meta = [oldMetadata mutableCopy];
+        meta[@"playbackRate"] = @(rate);
+        target.metadata = meta;
+        NSError *persistError;
+        if (![self persistEntriesToDisk:self.entries error:&persistError]) {
+            target.metadata = oldMetadata;
+            if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, persistError); });
+            return;
+        }
+        [self refreshSnapshotLocked_NoLock:YES];
+        if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(target, nil); });
+    });
+}
+
 #pragma mark - Export
 
 - (nullable NSURL *)exportURLForSoundWithUUID:(NSString *)uuid {
