@@ -625,7 +625,7 @@
 "EZImageNSFW.InsufficientTitle" = "Pièces insuffisantes";
 "EZImageNSFW.InsufficientMessage" = "La génération NSFW coûte 50 pièces. Rechargez ou abonnez-vous pour continuer.";
 "EZImageNSFW.IDTitle" = "Vérification d'identité (18+)";
-"EZImageNSFW.IDMessage" = "La génération NSFW est réservée aux adultes et vérifiée par un contrôle d'identité unique. Importez une photo de votre pièce d'identité officielle : l'IA lit uniquement votre date de naissance pour confirmer que vous avez plus de 18 ans, et la photo du document devient votre référence de ressemblance. Seule la photo recadrée du document est conservée, et uniquement sur cet appareil — l'image complète du document est supprimée juste après le contrôle et n'est jamais stockée.";
+"EZImageNSFW.IDMessage" = "Vérification unique. Téléversez une photo de votre pièce d'identité officielle : si votre âge n'est pas encore vérifié, la date de naissance est lue une seule fois pour confirmer que vous avez 18 ans ou plus, et l'image de la pièce n'est jamais conservée. Le visage de la photo d'identité est enregistré en privé comme référence de ressemblance pour vérifier les photos de référence. Cela ne vous sera plus demandé.";
 "EZImageNSFW.UploadID" = "Importer la photo d'identité";
 "EZImageNSFW.IDRequired" = "Un contrôle d'identité est requis avant d'utiliser la génération NSFW.";
 "EZImageNSFW.IDNoFace" = "Aucune photo n'a pu être trouvée sur ce document. Essayez une photo plus nette du document.";

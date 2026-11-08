@@ -644,7 +644,7 @@
 "EZImageNSFW.InsufficientTitle" = "Koin Tidak Cukup";
 "EZImageNSFW.InsufficientMessage" = "Pembuatan NSFW berharga 50 koin. Isi ulang atau berlangganan untuk melanjutkan.";
 "EZImageNSFW.IDTitle" = "Pemeriksaan ID (18+)";
-"EZImageNSFW.IDMessage" = "Pembuatan NSFW hanya untuk orang dewasa, diverifikasi dengan pemeriksaan ID satu kali. Unggah foto kartu identitas resmi Anda: AI hanya membaca tanggal lahir Anda untuk memastikan Anda berusia 18+, dan foto pada kartu identitas menjadi referensi kemiripan Anda. Hanya foto yang dipotong dari kartu identitas yang disimpan, dan hanya di perangkat ini — gambar kartu identitas lengkap dihapus segera setelah pemeriksaan dan tidak pernah disimpan.";
+"EZImageNSFW.IDMessage" = "Pemeriksaan satu kali. Unggah foto ID resmi Anda: jika usia Anda belum terverifikasi, tanggal lahir dibaca satu kali untuk memastikan Anda berusia 18 tahun ke atas, dan gambar ID itu sendiri tidak pernah disimpan. Wajah dari foto ID disimpan secara pribadi sebagai referensi kemiripan Anda untuk memeriksa foto referensi. Anda tidak akan diminta lagi.";
 "EZImageNSFW.UploadID" = "Unggah Foto ID";
 "EZImageNSFW.IDRequired" = "Pemeriksaan ID diperlukan sebelum pembuatan NSFW dapat digunakan.";
 "EZImageNSFW.IDNoFace" = "Tidak ada foto yang dapat ditemukan pada ID tersebut. Coba foto ID yang lebih jelas.";

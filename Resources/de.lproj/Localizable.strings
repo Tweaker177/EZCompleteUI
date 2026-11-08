@@ -603,7 +603,7 @@
 "EZImageNSFW.InsufficientTitle" = "Nicht genug Münzen";
 "EZImageNSFW.InsufficientMessage" = "Die NSFW-Erstellung kostet 50 Münzen. Lade Guthaben auf oder abonniere, um fortzufahren.";
 "EZImageNSFW.IDTitle" = "Ausweisprüfung (18+)";
-"EZImageNSFW.IDMessage" = "NSFW-Generierung ist nur für Erwachsene und wird mit einer einmaligen Ausweisprüfung verifiziert. Laden Sie ein Foto Ihres amtlichen Ausweises hoch: Die KI liest nur Ihr Geburtsdatum, um zu bestätigen, dass Sie 18+ sind, und das Foto auf dem Ausweis wird zu Ihrer Referenz für den Ähnlichkeitsabgleich. Nur das zugeschnittene Foto aus dem Ausweis wird gespeichert, und nur auf diesem Gerät — das vollständige Ausweisbild wird direkt nach der Prüfung gelöscht und nie gespeichert.";
+"EZImageNSFW.IDMessage" = "Einmalige Prüfung. Lade ein Foto deines amtlichen Ausweises hoch: Ist dein Alter noch nicht bestätigt, wird das Geburtsdatum einmalig gelesen, um zu bestätigen, dass du 18 oder älter bist — das Ausweisbild selbst wird nie gespeichert. Das Gesicht aus dem Ausweisfoto wird privat als Ähnlichkeitsreferenz gespeichert, um Referenzfotos zu prüfen. Du wirst nicht erneut gefragt.";
 "EZImageNSFW.UploadID" = "Ausweisfoto hochladen";
 "EZImageNSFW.IDRequired" = "Vor der NSFW-Generierung ist eine Ausweisprüfung erforderlich.";
 "EZImageNSFW.IDNoFace" = "Auf diesem Ausweis konnte kein Foto gefunden werden. Versuchen Sie es mit einem deutlicheren Foto des Ausweises.";
