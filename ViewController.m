@@ -1591,21 +1591,34 @@ static NSData * _Nullable EZSeahorseFaceCropJPEGData(UIImage *image) {
                         NSString *fname = self.activeThread.attachmentPaths.lastObject.lastPathComponent;
                         text = fname.length > 0
                             ? [@"Attachment: " stringByAppendingString:fname]
-                            : @"[Attachment]";
+                            : @"Attachment";
                     }
                 }
 
-                // Memory context is internal routing metadata, not a title.
+                // Internal prompt wrappers are routing metadata, not
+                // titles. Memory context and a validated helper answer
+                // both bury the real words after a "[User message]"
+                // marker; attached-file context buries them after
+                // "[User question]: ". A title is never a bracketed
+                // marker — if nothing human-authored remains, skip this
+                // message and let a later one name the thread.
                 if ([text hasPrefix:@"[Memories with possible relevance:"] ||
-                    [text hasPrefix:@"[Possibly relevant memories:"]) {
+                    [text hasPrefix:@"[Possibly relevant memories:"] ||
+                    [text hasPrefix:@"[Validated helper answer"]) {
                     NSRange userMsgRange = [text rangeOfString:@"[User message]\n"];
                     if (userMsgRange.location != NSNotFound) {
                         text = [text substringFromIndex:userMsgRange.location + userMsgRange.length];
                     } else { continue; }
                 }
+                if ([text hasPrefix:@"[Attached file:"] || [text hasPrefix:@"[Attached image:"]) {
+                    NSRange questionRange = [text rangeOfString:@"[User question]: "];
+                    if (questionRange.location != NSNotFound) {
+                        text = [text substringFromIndex:questionRange.location + questionRange.length];
+                    } else { continue; }
+                }
 
                 text = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                if (text.length == 0) continue;
+                if (text.length == 0 || [text hasPrefix:@"["]) continue;
                 self.activeThread.title = text.length > 60
                     ? [[text substringToIndex:60] stringByAppendingString:@"\u2026"]
                     : text;
@@ -1717,9 +1730,19 @@ static NSData * _Nullable EZSeahorseFaceCropJPEGData(UIImage *image) {
         if (!text) continue;
 
         if ([role isEqualToString:@"user"]) {
-            if ([text hasPrefix:@"[Memories with possible relevance:]"]) {
+            // Stored user turns can carry an internal prompt wrapper
+            // (memory context, a validated helper answer sent for web
+            // verification, attached-file context). Show only the words
+            // the user actually wrote — never the wrapper itself.
+            if ([text hasPrefix:@"[Memories with possible relevance:"] ||
+                [text hasPrefix:@"[Possibly relevant memories:"] ||
+                [text hasPrefix:@"[Validated helper answer"]) {
                 NSRange r = [text rangeOfString:@"[User message]\n"];
                 if (r.location != NSNotFound) text = [text substringFromIndex:r.location + r.length];
+            }
+            if ([text hasPrefix:@"[Attached file:"] || [text hasPrefix:@"[Attached image:"]) {
+                NSRange r = [text rangeOfString:@"[User question]: "];
+                text = r.location != NSNotFound ? [text substringFromIndex:r.location + r.length] : @"";
             }
             text = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
             if (text.length > 0) [self appendToChat:[NSString stringWithFormat:@"You: %@", text]];

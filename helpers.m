@@ -71,28 +71,59 @@ static NSString * const kEZHelperURL = @"https://spuoimtqofhbdzosrbng.supabase.c
 static const float kDirectAnswerConfidenceThreshold = 0.85f;
 static const float kAnswerValidatorConfidenceThreshold = 0.75f;
 
-// Memory context is injected ahead of a user's actual message for model
-// routing. It is implementation metadata, never a meaningful thread title.
+// Internal prompt wrappers are stored ahead of (or around) the user's
+// actual words for model routing: memory context, a validated helper
+// answer being sent to the main model for web verification, and
+// attached-file context. They are implementation metadata, never a
+// meaningful thread title. This extracts the human-authored text from a
+// stored user message, or returns "" when the message carries none.
 static NSString *EZThreadTitleFromUserMessage(NSString *text) {
     NSString *trimmed = [text stringByTrimmingCharactersInSet:
         [NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if (![trimmed hasPrefix:@"[Possibly relevant memories:"] &&
-        ![trimmed hasPrefix:@"[Memories with possible relevance:"]) {
-        return trimmed;
+
+    // Wrappers that bury the real words after a "[User message]" marker:
+    // memory context and the validated-helper verification prompt.
+    if ([trimmed hasPrefix:@"[Possibly relevant memories:"] ||
+        [trimmed hasPrefix:@"[Memories with possible relevance:"] ||
+        [trimmed hasPrefix:@"[Validated helper answer"]) {
+        NSRange marker = [trimmed rangeOfString:@"[User message]"
+                                        options:NSCaseInsensitiveSearch];
+        if (marker.location == NSNotFound) return @"";
+        NSUInteger start = NSMaxRange(marker);
+        if (start < trimmed.length && [trimmed characterAtIndex:start] == '\n') start++;
+        trimmed = [[trimmed substringFromIndex:start]
+            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     }
 
-    NSRange marker = [trimmed rangeOfString:@"[User message]"
-                                    options:NSCaseInsensitiveSearch];
-    if (marker.location == NSNotFound) return @"";
-    NSUInteger start = NSMaxRange(marker);
-    if (start < trimmed.length && [trimmed characterAtIndex:start] == '\n') start++;
-    return [[trimmed substringFromIndex:start]
-        stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    // Attached-file context: "[Attached file: name]\n\n<file text>\n\n
+    // [User question]: <the user's actual words>".
+    if ([trimmed hasPrefix:@"[Attached file:"] || [trimmed hasPrefix:@"[Attached image:"]) {
+        NSRange marker = [trimmed rangeOfString:@"[User question]"];
+        if (marker.location == NSNotFound) return @"";
+        NSUInteger start = NSMaxRange(marker);
+        if (start < trimmed.length && [trimmed characterAtIndex:start] == ':') start++;
+        trimmed = [[trimmed substringFromIndex:start]
+            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    }
+
+    // A derived title is never an internal bracketed marker. If what
+    // remains still opens with one, this message has no title-worthy text.
+    if ([trimmed hasPrefix:@"["]) return @"";
+    return trimmed;
 }
 
 static BOOL EZThreadTitleIsMemoryContext(NSString *title) {
     return [title hasPrefix:@"[Possibly relevant memories:"] ||
            [title hasPrefix:@"[Memories with possible relevance:"];
+}
+
+// Titles that came from an internal prompt wrapper rather than the user.
+static BOOL EZThreadTitleIsInternalMarker(NSString *title) {
+    return EZThreadTitleIsMemoryContext(title) ||
+           [title hasPrefix:@"[Validated helper answer"] ||
+           [title hasPrefix:@"[Attached file:"] ||
+           [title hasPrefix:@"[Attached image:"] ||
+           [title isEqualToString:@"[Attachment]"];
 }
 
 BOOL EZActivatePlaybackAudioSession(NSError * _Nullable * _Nullable error) {
@@ -1438,10 +1469,10 @@ void EZThreadSave(EZChatThread *thread, void (^ _Nullable completionCallback)(BO
     // Stamp timestamps before serialization.
     thread.updatedAt = _timestampISO8601();
     if (thread.createdAt.length == 0) thread.createdAt = thread.updatedAt;
-    // Do not allow injected memory context (including an old persisted title)
-    // to survive as a thread name.
-    if (EZThreadTitleIsMemoryContext(thread.title)) thread.title = @"";
-    if (EZThreadTitleIsMemoryContext(thread.displayText)) thread.displayText = @"";
+    // Do not allow injected context or any other internal prompt wrapper
+    // (including an old persisted title) to survive as a thread name.
+    if (EZThreadTitleIsInternalMarker(thread.title)) thread.title = @"";
+    if (EZThreadTitleIsInternalMarker(thread.displayText)) thread.displayText = @"";
     if (thread.title.length       == 0) thread.title       = NSLocalizedString(@"EZThread.NewConversation", nil);
     if (thread.displayText.length == 0) thread.displayText = thread.title;
 
