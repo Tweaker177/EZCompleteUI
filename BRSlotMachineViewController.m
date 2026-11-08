@@ -439,7 +439,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
     NSInteger lineIndex = step % (NSInteger)lines.count;
     [self applyWinningLineHighlight:lines[lineIndex] colorIndex:lineIndex celebrate:YES];
     [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.95 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self showWinningLineStep:step + 1 ofLines:lines passes:passes celebrationID:celebrationID];
     });
 }
@@ -455,9 +455,9 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
         tile.layer.borderColor = border.CGColor;
         tile.backgroundColor = tint;
         if (!celebrate) continue;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(col * 0.09 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [UIView animateWithDuration:.16 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{ tile.transform = CGAffineTransformMakeScale(1.16, 1.16); } completion:^(BOOL finished) {
-                [UIView animateWithDuration:.3 delay:0 usingSpringWithDamping:.42 initialSpringVelocity:.5 options:0 animations:^{ tile.transform = CGAffineTransformIdentity; } completion:nil];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(col * 0.13 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [UIView animateWithDuration:.22 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{ tile.transform = CGAffineTransformMakeScale(1.22, 1.22); } completion:^(BOOL finished) {
+                [UIView animateWithDuration:.5 delay:0 usingSpringWithDamping:.5 initialSpringVelocity:.35 options:0 animations:^{ tile.transform = CGAffineTransformIdentity; } completion:nil];
             }];
         });
     }
