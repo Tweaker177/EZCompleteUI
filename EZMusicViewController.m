@@ -2910,9 +2910,11 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 - (EZMediaPlayerItem *)playerItemForEntry:(NSDictionary *)entry fileURL:(NSURL *)url {
     NSString *entryID = EZMusicString(entry[@"id"]);
     NSNumber *durationMilliseconds = [entry[@"duration_actual_ms"] isKindOfClass:[NSNumber class]] ? entry[@"duration_actual_ms"] : nil;
+    // The shared player publishes the subtitle as the Now Playing artist,
+    // so brand it like the chat song cards do — not "AI Music".
     EZMediaPlayerItem *item = [EZMediaPlayerItem itemWithIdentifier:entryID
                                                               title:EZMusicString(entry[@"title"])
-                                                           subtitle:@"AI Music"
+                                                           subtitle:@"EZCompleteUI"
                                                             fileURL:url
                                                        durationHint:durationMilliseconds.doubleValue / 1000.0];
     item.artwork = [[EZMusicArtworkService sharedService] cachedArtworkForEntryID:entryID];
