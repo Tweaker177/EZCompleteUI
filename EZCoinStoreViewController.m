@@ -623,6 +623,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, strong) EZCoinPotView           *storePotView;
 
+@property (nonatomic, strong) NSTimer                 *freeSpinsReelTimer;  // Cycles the celebration reels until they land
+
+@property (nonatomic, strong) NSTimer                 *freeSpinsCountTimer; // Counts the won spins up inside the win message
+
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 
 // Daily coins UI and state
@@ -2650,33 +2654,433 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 - (void)showFreeSpinsCelebration:(NSInteger)spinsAdded {
 
-    UIAlertController *alert = [UIAlertController
+    // Same overlay family as the coin celebration, slot-machine edition: a
 
-        alertControllerWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.Title", @"Free spins celebration title")
+    // card springs in, three reels spin and land one by one on a jackpot
 
-                         message:[NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.Message", @"Free spins celebration message"), (long)spinsAdded]
+    // 7-7-7, the prize counts up inside the localized win message, and
 
-                  preferredStyle:UIAlertControllerStyleAlert];
+    // sparkles burst when the last reel lands. Play Now opens the first
+
+    // Brainrot slot (the old alert button's destination); Later dismisses.
+
+    // If a celebration is somehow already up, replace it synchronously.
+
+    [self.freeSpinsReelTimer invalidate];
+
+    self.freeSpinsReelTimer = nil;
+
+    [self.freeSpinsCountTimer invalidate];
+
+    self.freeSpinsCountTimer = nil;
+
+    [[self.view viewWithTag:9902] removeFromSuperview];
+
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+
+    overlay.backgroundColor  = [UIColor colorWithWhite:0 alpha:0.75];
+
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+
+    overlay.alpha            = 0;
+
+    overlay.tag              = 9902;
+
+    [self.view addSubview:overlay];
+
+    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 280, 316)];
+
+    card.center            = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height / 2);
+
+    card.backgroundColor   = [UIColor colorWithRed:0.08 green:0.08 blue:0.14 alpha:1.0];
+
+    card.layer.cornerRadius = 24;
+
+    card.layer.borderWidth  = 1.5;
+
+    card.layer.borderColor  = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.6].CGColor;
+
+    card.transform          = CGAffineTransformMakeScale(0.7, 0.7);
+
+    [overlay addSubview:card];
+
+    UILabel *headlineLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 16, 240, 30)];
+
+    headlineLabel.text          = NSLocalizedString(@"EZCoinStore.FreeSpins.Title", @"Free spins celebration title");
+
+    headlineLabel.font          = [UIFont boldSystemFontOfSize:20];
+
+    headlineLabel.textColor     = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0];
+
+    headlineLabel.textAlignment = NSTextAlignmentCenter;
+
+    [card addSubview:headlineLabel];
+
+    // The reels cycle the Classic machine's own fallback glyphs; the
+
+    // jackpot they land on is its red seven.
+
+    NSArray<NSString *> *spinGlyphs = @[@"🍒", @"🔔", @"♦︎", @"🧠", @"▰", @"7"];
+
+    NSMutableArray<UILabel *> *glyphLabels = [NSMutableArray array];
+
+    NSMutableArray<UIView *> *tiles = [NSMutableArray array];
+
+    for (NSInteger reel = 0; reel < 3; reel++) {
+
+        UIView *tile = [[UIView alloc] initWithFrame:CGRectMake(20 + reel * 84, 58, 72, 84)];
+
+        tile.backgroundColor    = [UIColor colorWithRed:0.16 green:0.10 blue:0.28 alpha:1.0];
+
+        tile.layer.cornerRadius = 12;
+
+        tile.layer.borderWidth  = 1.0;
+
+        tile.layer.borderColor  = [UIColor colorWithWhite:1.0 alpha:0.18].CGColor;
+
+        [card addSubview:tile];
+
+        [tiles addObject:tile];
+
+        UILabel *glyph = [[UILabel alloc] initWithFrame:tile.bounds];
+
+        glyph.text          = spinGlyphs[(NSUInteger)reel % spinGlyphs.count];
+
+        glyph.font          = [UIFont systemFontOfSize:38 weight:UIFontWeightBlack];
+
+        glyph.textColor     = [UIColor colorWithRed:1.0 green:0.77 blue:0.18 alpha:1.0];
+
+        glyph.textAlignment = NSTextAlignmentCenter;
+
+        [tile addSubview:glyph];
+
+        [glyphLabels addObject:glyph];
+
+    }
+
+    UILabel *amountLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 158, 248, 30)];
+
+    amountLabel.text          = [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.Message", @"Free spins celebration message"), 0L];
+
+    amountLabel.font          = [UIFont boldSystemFontOfSize:21];
+
+    amountLabel.textColor     = [UIColor whiteColor];
+
+    amountLabel.textAlignment = NSTextAlignmentCenter;
+
+    amountLabel.adjustsFontSizeToFitWidth = YES;
+
+    amountLabel.minimumScaleFactor        = 0.65;
+
+    [card addSubview:amountLabel];
+
+    UIButton *playNowButton = [UIButton buttonWithType:UIButtonTypeSystem];
+
+    playNowButton.frame              = CGRectMake(40, 208, 200, 46);
+
+    playNowButton.backgroundColor    = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0];
+
+    playNowButton.layer.cornerRadius = 12;
+
+    playNowButton.titleLabel.font    = [UIFont boldSystemFontOfSize:16];
+
+    [playNowButton setTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.PlayNow", @"Play now button") forState:UIControlStateNormal];
+
+    [playNowButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+
+    [playNowButton addTarget:self action:@selector(freeSpinsPlayNowTapped) forControlEvents:UIControlEventTouchUpInside];
+
+    [card addSubview:playNowButton];
+
+    UIButton *laterButton = [UIButton buttonWithType:UIButtonTypeSystem];
+
+    laterButton.frame           = CGRectMake(40, 262, 200, 34);
+
+    laterButton.titleLabel.font = [UIFont systemFontOfSize:15];
+
+    [laterButton setTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.Later", @"Later button") forState:UIControlStateNormal];
+
+    [laterButton setTitleColor:[UIColor colorWithWhite:1.0 alpha:0.75] forState:UIControlStateNormal];
+
+    [laterButton addTarget:self action:@selector(freeSpinsLaterTapped) forControlEvents:UIControlEventTouchUpInside];
+
+    [card addSubview:laterButton];
+
+    __block NSInteger stoppedReels = 0;
 
     __weak typeof(self) weakSelf = self;
 
-    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.PlayNow", @"Play now button")
+    self.freeSpinsReelTimer = [NSTimer scheduledTimerWithTimeInterval:0.07 repeats:YES block:^(NSTimer *timer) {
 
-                                              style:UIAlertActionStyleDefault
+        if (!overlay.superview) { [timer invalidate]; return; }
 
-                                            handler:^(__unused UIAlertAction *action) {
+        for (NSInteger reel = stoppedReels; reel < 3; reel++) {
 
-        [weakSelf openFirstBrainrotSlot];
+            glyphLabels[(NSUInteger)reel].text = spinGlyphs[arc4random_uniform((u_int32_t)spinGlyphs.count)];
 
-    }]];
+        }
 
-    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.Later", @"Later button")
+    }];
 
-                                              style:UIAlertActionStyleCancel
+    // The reels stop left to right; each stop bounces its tile and clicks,
 
-                                            handler:nil]];
+    // and the last one pays out: sparkles, a success buzz, a prize pulse.
 
-    [self presentViewController:alert animated:YES completion:nil];
+    NSArray<NSNumber *> *stopDelays = @[@0.75, @1.2, @1.65];
+
+    for (NSInteger reel = 0; reel < 3; reel++) {
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(stopDelays[(NSUInteger)reel].doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+
+            if (!overlay.superview) return;
+
+            stoppedReels = reel + 1;
+
+            UILabel *glyph = glyphLabels[(NSUInteger)reel];
+
+            glyph.text      = @"7";
+
+            glyph.textColor = [UIColor redColor];
+
+            glyph.font      = [UIFont systemFontOfSize:44 weight:UIFontWeightBlack];
+
+            UIView *tile = tiles[(NSUInteger)reel];
+
+            tile.layer.borderColor = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.9].CGColor;
+
+            [UIView animateWithDuration:0.14 animations:^{
+
+                tile.transform = CGAffineTransformMakeScale(1.12, 1.12);
+
+            } completion:^(BOOL finished) {
+
+                [UIView animateWithDuration:0.18 animations:^{
+
+                    tile.transform = CGAffineTransformIdentity;
+
+                }];
+
+            }];
+
+            [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium] impactOccurred];
+
+            if (reel == 2) {
+
+                [weakSelf.freeSpinsReelTimer invalidate];
+
+                weakSelf.freeSpinsReelTimer = nil;
+
+                [[[UINotificationFeedbackGenerator alloc] init] notificationOccurred:UINotificationFeedbackTypeSuccess];
+
+                [weakSelf burstSparklesOverReelsInCard:card];
+
+                [UIView animateWithDuration:0.18 animations:^{
+
+                    amountLabel.transform = CGAffineTransformMakeScale(1.12, 1.12);
+
+                } completion:^(BOOL finished) {
+
+                    [UIView animateWithDuration:0.18 animations:^{
+
+                        amountLabel.transform = CGAffineTransformIdentity;
+
+                    }];
+
+                }];
+
+            }
+
+        });
+
+    }
+
+    [UIView animateWithDuration:0.4 delay:0 usingSpringWithDamping:0.7 initialSpringVelocity:0.5 options:0 animations:^{
+
+        overlay.alpha  = 1;
+
+        card.transform = CGAffineTransformIdentity;
+
+    } completion:^(BOOL finished) {
+
+        if (!overlay.superview) return;
+
+        // Count the prize up inside the win message while the reels land,
+
+        // easing out so the last numbers arrive with a little weight.
+
+        __block NSInteger ticks = 0;
+
+        weakSelf.freeSpinsCountTimer = [NSTimer scheduledTimerWithTimeInterval:0.05 repeats:YES block:^(NSTimer *timer) {
+
+            if (!overlay.superview) { [timer invalidate]; return; }
+
+            ticks += 1;
+
+            double progress = MIN(1.0, ticks / 26.0);
+
+            double eased = 1.0 - (1.0 - progress) * (1.0 - progress);
+
+            NSInteger shown = (NSInteger)llround(spinsAdded * eased);
+
+            amountLabel.text = [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.Message", @"Free spins celebration message"), (long)shown];
+
+            if (progress >= 1.0) {
+
+                [timer invalidate];
+
+                if (weakSelf.freeSpinsCountTimer == timer) weakSelf.freeSpinsCountTimer = nil;
+
+            }
+
+        }];
+
+    }];
+
+}
+
+- (void)freeSpinsPlayNowTapped {
+
+    [self dismissFreeSpinsCelebrationOpeningSlot:YES];
+
+}
+
+- (void)freeSpinsLaterTapped {
+
+    [self dismissFreeSpinsCelebrationOpeningSlot:NO];
+
+}
+
+- (void)dismissFreeSpinsCelebrationOpeningSlot:(BOOL)openSlot {
+
+    [self.freeSpinsReelTimer invalidate];
+
+    self.freeSpinsReelTimer = nil;
+
+    [self.freeSpinsCountTimer invalidate];
+
+    self.freeSpinsCountTimer = nil;
+
+    UIView *overlay = [self.view viewWithTag:9902];
+
+    if (!overlay) {
+
+        if (openSlot) [self openFirstBrainrotSlot];
+
+        return;
+
+    }
+
+    [UIView animateWithDuration:0.25 animations:^{
+
+        overlay.alpha = 0;
+
+    } completion:^(BOOL finished) {
+
+        [overlay removeFromSuperview];
+
+        if (openSlot) [self openFirstBrainrotSlot];
+
+    }];
+
+}
+
+// A one-shot burst of gold stars over the reels when the jackpot lands.
+
+- (void)burstSparklesOverReelsInCard:(UIView *)card {
+
+    CAEmitterLayer *emitter = [CAEmitterLayer layer];
+
+    emitter.emitterPosition = CGPointMake(card.bounds.size.width / 2, 100);
+
+    emitter.emitterSize     = CGSizeMake(240, 30);
+
+    emitter.emitterShape    = kCAEmitterLayerRectangle;
+
+    CAEmitterCell *star = [CAEmitterCell emitterCell];
+
+    star.contents      = (id)[self sparkleStarImage].CGImage;
+
+    star.birthRate     = 240;
+
+    star.lifetime      = 0.9;
+
+    star.lifetimeRange = 0.3;
+
+    star.velocity      = 170;
+
+    star.velocityRange = 90;
+
+    star.emissionRange = 6.283185307179586;
+
+    star.spin          = 4;
+
+    star.spinRange     = 6;
+
+    star.scale         = 0.55;
+
+    star.scaleRange    = 0.4;
+
+    star.alphaSpeed    = -1.1;
+
+    star.color         = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0].CGColor;
+
+    emitter.emitterCells = @[star];
+
+    [card.layer addSublayer:emitter];
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+
+        emitter.birthRate = 0;
+
+    });
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+
+        [emitter removeFromSuperlayer];
+
+    });
+
+}
+
+// A small four-point star drawn in code — no bundled asset needed. Drawn
+
+// white; the emitter cell's color tints it gold.
+
+- (UIImage *)sparkleStarImage {
+
+    CGSize size = CGSizeMake(16, 16);
+
+    UIGraphicsBeginImageContextWithOptions(size, NO, 0);
+
+    UIBezierPath *starPath = [UIBezierPath bezierPath];
+
+    [starPath moveToPoint:CGPointMake(8, 0)];
+
+    [starPath addLineToPoint:CGPointMake(10, 6)];
+
+    [starPath addLineToPoint:CGPointMake(16, 8)];
+
+    [starPath addLineToPoint:CGPointMake(10, 10)];
+
+    [starPath addLineToPoint:CGPointMake(8, 16)];
+
+    [starPath addLineToPoint:CGPointMake(6, 10)];
+
+    [starPath addLineToPoint:CGPointMake(0, 8)];
+
+    [starPath addLineToPoint:CGPointMake(6, 6)];
+
+    [starPath closePath];
+
+    [[UIColor whiteColor] setFill];
+
+    [starPath fill];
+
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+
+    UIGraphicsEndImageContext();
+
+    return image;
 
 }
 
