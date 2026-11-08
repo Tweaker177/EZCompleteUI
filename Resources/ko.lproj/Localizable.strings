@@ -708,3 +708,6 @@
 "EZSounds.RenamePlaceholder" = "이 사운드의 이름";
 "EZSounds.Save" = "저장";
 "EZSounds.MixTimeout" = "너무 오래 걸려서 믹싱이 취소되었습니다. 더 짧은 클립으로 시도하세요.";
+
+/* EZSounds (edit) */
+"EZSounds.Edit" = "편집";
