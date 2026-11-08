@@ -667,3 +667,6 @@
 "EZSounds.RenamePlaceholder" = "这个声音的名字";
 "EZSounds.Save" = "保存";
 "EZSounds.MixTimeout" = "耗时过长，已取消混合。请试试更短的片段。";
+
+/* EZSounds (edit) */
+"EZSounds.Edit" = "编辑";

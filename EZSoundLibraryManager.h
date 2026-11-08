@@ -92,6 +92,26 @@ typedef NS_ENUM(NSInteger, EZSoundLibraryErrorCode) {
                        title:(NSString *)title
                   completion:(nullable void (^)(EZSoundManifestEntry * _Nullable entry, NSError * _Nullable error))completion;
 
+/// Replaces the audio file behind an existing sound with new data —
+/// the same entry keeps its position, title, favorite flag, and
+/// metadata; only the file, filename, duration, sample rate, and file
+/// size change. The replacement is written to a fresh filename (its
+/// container may differ from the original's), the manifest is updated
+/// with rollback on failure, and the old file is removed best-effort.
+/// Used by in-place edits (e.g. normalizing a whole sound from the
+/// clip editor).
+- (void)replaceAudioForSoundUUID:(NSString *)uuid
+                        withData:(NSData *)audioData
+                       extension:(NSString *)extension
+                      completion:(nullable void (^)(EZSoundManifestEntry * _Nullable entry, NSError * _Nullable error))completion;
+
+/// Persists a playback rate in the sound's metadata under
+/// "playbackRate", mirroring the TTS library; the Sounds list applies
+/// it when handing the sound to the shared player.
+- (void)setPlaybackRate:(float)rate
+           forSoundUUID:(NSString *)uuid
+             completion:(nullable void (^)(EZSoundManifestEntry * _Nullable entry, NSError * _Nullable error))completion;
+
 #pragma mark - Export
 
 /// Absolute file URL suitable for handing directly to UIActivityViewController,

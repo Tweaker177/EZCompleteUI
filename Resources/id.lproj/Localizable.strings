@@ -708,3 +708,6 @@
 "EZSounds.RenamePlaceholder" = "Nama untuk suara ini";
 "EZSounds.Save" = "Simpan";
 "EZSounds.MixTimeout" = "Ini terlalu lama, jadi campuran dibatalkan. Coba klip yang lebih pendek.";
+
+/* EZSounds (edit) */
+"EZSounds.Edit" = "Edit";

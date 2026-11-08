@@ -689,3 +689,6 @@
 "EZSounds.RenamePlaceholder" = "Nombre para este sonido";
 "EZSounds.Save" = "Guardar";
 "EZSounds.MixTimeout" = "Esto está tardando demasiado, así que la mezcla se canceló. Prueba con un clip más corto.";
+
+/* EZSounds (edit) */
+"EZSounds.Edit" = "Editar";

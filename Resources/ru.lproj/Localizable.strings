@@ -707,3 +707,6 @@
 "EZSounds.RenamePlaceholder" = "Название этого звука";
 "EZSounds.Save" = "Сохранить";
 "EZSounds.MixTimeout" = "Это занимает слишком много времени, поэтому сведение отменено. Попробуйте клип покороче.";
+
+/* EZSounds (edit) */
+"EZSounds.Edit" = "Изменить";
