@@ -602,6 +602,16 @@
 "EZImageNSFW.ViewPlans" = "Vedi i piani";
 "EZImageNSFW.InsufficientTitle" = "Monete insufficienti";
 "EZImageNSFW.InsufficientMessage" = "La generazione NSFW costa 50 monete. Ricarica o abbonati per continuare.";
+"EZImageNSFW.IDTitle" = "Controllo documento (18+)";
+"EZImageNSFW.IDMessage" = "La generazione NSFW è riservata agli adulti e verificata con un controllo del documento una tantum. Carica una foto del tuo documento d'identità ufficiale: l'IA legge solo la tua data di nascita per confermare che hai più di 18 anni, e la foto sul documento diventa il tuo riferimento di somiglianza. Viene conservata solo la foto ritagliata dal documento, e solo su questo dispositivo: l'immagine completa del documento viene eliminata subito dopo il controllo e non viene mai archiviata.";
+"EZImageNSFW.UploadID" = "Carica foto del documento";
+"EZImageNSFW.IDRequired" = "È necessario un controllo del documento prima di poter usare la generazione NSFW.";
+"EZImageNSFW.IDNoFace" = "Non è stato possibile trovare una foto su quel documento. Prova con una foto più nitida del documento.";
+"EZImageNSFW.IDUnreadable" = "Non è stato possibile leggere la data di nascita su quel documento. Prova con una foto più nitida e ben illuminata del documento.";
+"EZImageNSFW.IDUnderage" = "Quel documento mostra una data di nascita inferiore a 18 anni, quindi la generazione NSFW non può essere attivata.";
+"EZImageNSFW.IDSaveTitle" = "Salva la foto del tuo documento";
+"EZImageNSFW.IDSaveMessage" = "Il tuo account ha il documento verificato, ma questo dispositivo non ha ancora il tuo riferimento di somiglianza. Carica la stessa foto del documento una volta, così le foto di riferimento potranno essere confrontate con essa. Viene conservata solo la foto ritagliata dal documento, e solo su questo dispositivo.";
+"EZImageNSFW.IDSaveRequired" = "La foto del tuo documento è necessaria su questo dispositivo prima di poter usare foto di riferimento.";
 "EZImageNSFW.EnrollTitle" = "Verifica con selfie";
 "EZImageNSFW.EnrollMessage" = "Le foto di riferimento devono ritrarti. Scatta un selfie una tantum per confrontare le tue foto di riferimento. Il selfie resta su questo dispositivo e non viene mai caricato; per la verifica viene usata solo un'immagine ritagliata del volto.";
 "EZImageNSFW.TakeSelfie" = "Scatta selfie";
@@ -610,6 +620,6 @@
 "EZImageNSFW.Cancelled" = "Generazione NSFW annullata.";
 "EZImageNSFW.ReferenceRefusedTitle" = "Riferimento non usato";
 "EZImageNSFW.NoFaceMessage" = "In quella foto non è stato trovato alcun volto, quindi non può essere verificata. Prova con una foto più nitida e frontale.";
-"EZImageNSFW.VerifyFailedMessage" = "Quella foto non corrispondeva al tuo selfie, quindi non è stata usata.";
+"EZImageNSFW.VerifyFailedMessage" = "Quella foto non ha trovato corrispondenza con la foto del tuo documento, quindi non è stata utilizzata.";
 "EZImageNSFW.UploadFailedMessage" = "La foto di riferimento non ha potuto essere caricata, quindi non è stata usata.";
 "EZImageNSFW.RerouteButton" = "Genera con Seahorse (18+)";

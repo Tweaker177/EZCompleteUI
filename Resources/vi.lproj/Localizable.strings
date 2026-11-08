@@ -602,6 +602,16 @@
 "EZImageNSFW.ViewPlans" = "Xem các gói";
 "EZImageNSFW.InsufficientTitle" = "Không đủ xu";
 "EZImageNSFW.InsufficientMessage" = "Tạo NSFW tốn 50 xu. Nạp thêm hoặc đăng ký để tiếp tục.";
+"EZImageNSFW.IDTitle" = "Kiểm tra giấy tờ (18+)";
+"EZImageNSFW.IDMessage" = "Tạo nội dung NSFW chỉ dành cho người lớn và được xác minh bằng một lần kiểm tra giấy tờ duy nhất. Tải lên ảnh giấy tờ tùy thân do chính phủ cấp của bạn: AI chỉ đọc ngày sinh của bạn để xác nhận bạn trên 18 tuổi, và ảnh trên giấy tờ trở thành tài liệu tham chiếu khuôn mặt của bạn. Chỉ ảnh đã cắt từ giấy tờ được giữ lại, và chỉ trên thiết bị này — ảnh giấy tờ đầy đủ sẽ bị xóa ngay sau khi kiểm tra và không bao giờ được lưu trữ.";
+"EZImageNSFW.UploadID" = "Tải lên ảnh giấy tờ";
+"EZImageNSFW.IDRequired" = "Cần kiểm tra giấy tờ trước khi có thể sử dụng tính năng tạo nội dung NSFW.";
+"EZImageNSFW.IDNoFace" = "Không tìm thấy ảnh trên giấy tờ đó. Hãy thử ảnh giấy tờ rõ nét hơn.";
+"EZImageNSFW.IDUnreadable" = "Không đọc được ngày sinh trên giấy tờ đó. Hãy thử ảnh giấy tờ rõ nét hơn và đủ sáng.";
+"EZImageNSFW.IDUnderage" = "Giấy tờ đó cho thấy ngày sinh dưới 18 tuổi, vì vậy không thể bật tính năng tạo nội dung NSFW.";
+"EZImageNSFW.IDSaveTitle" = "Lưu ảnh giấy tờ của bạn";
+"EZImageNSFW.IDSaveMessage" = "Tài khoản của bạn đã được kiểm tra giấy tờ, nhưng thiết bị này chưa có tài liệu tham chiếu khuôn mặt của bạn. Tải lên cùng một ảnh giấy tờ một lần để các ảnh tham chiếu có thể được kiểm tra đối chiếu với nó. Chỉ ảnh đã cắt từ giấy tờ được giữ lại, và chỉ trên thiết bị này.";
+"EZImageNSFW.IDSaveRequired" = "Cần có ảnh giấy tờ của bạn trên thiết bị này trước khi có thể sử dụng ảnh tham chiếu.";
 "EZImageNSFW.EnrollTitle" = "Kiểm tra bằng ảnh selfie";
 "EZImageNSFW.EnrollMessage" = "Ảnh tham chiếu phải là ảnh của bạn. Chụp một ảnh selfie duy nhất để kiểm tra các ảnh tham chiếu của bạn. Ảnh selfie chỉ lưu trên thiết bị này và không bao giờ được tải lên; chỉ hình ảnh khuôn mặt đã cắt mới được dùng để kiểm tra.";
 "EZImageNSFW.TakeSelfie" = "Chụp selfie";
@@ -610,6 +620,6 @@
 "EZImageNSFW.Cancelled" = "Đã hủy tạo NSFW.";
 "EZImageNSFW.ReferenceRefusedTitle" = "Không dùng ảnh tham chiếu";
 "EZImageNSFW.NoFaceMessage" = "Không tìm thấy khuôn mặt trong ảnh đó nên không thể kiểm tra. Hãy thử ảnh rõ hơn, chụp chính diện.";
-"EZImageNSFW.VerifyFailedMessage" = "Ảnh đó không khớp với ảnh selfie của bạn nên không được sử dụng.";
+"EZImageNSFW.VerifyFailedMessage" = "Ảnh đó không khớp với ảnh giấy tờ của bạn nên đã không được sử dụng.";
 "EZImageNSFW.UploadFailedMessage" = "Không tải lên được ảnh tham chiếu nên ảnh không được sử dụng.";
 "EZImageNSFW.RerouteButton" = "Tạo bằng Seahorse (18+)";

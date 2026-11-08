@@ -602,6 +602,16 @@
 "EZImageNSFW.ViewPlans" = "Pläne ansehen";
 "EZImageNSFW.InsufficientTitle" = "Nicht genug Münzen";
 "EZImageNSFW.InsufficientMessage" = "Die NSFW-Erstellung kostet 50 Münzen. Lade Guthaben auf oder abonniere, um fortzufahren.";
+"EZImageNSFW.IDTitle" = "Ausweisprüfung (18+)";
+"EZImageNSFW.IDMessage" = "NSFW-Generierung ist nur für Erwachsene und wird mit einer einmaligen Ausweisprüfung verifiziert. Laden Sie ein Foto Ihres amtlichen Ausweises hoch: Die KI liest nur Ihr Geburtsdatum, um zu bestätigen, dass Sie 18+ sind, und das Foto auf dem Ausweis wird zu Ihrer Referenz für den Ähnlichkeitsabgleich. Nur das zugeschnittene Foto aus dem Ausweis wird gespeichert, und nur auf diesem Gerät — das vollständige Ausweisbild wird direkt nach der Prüfung gelöscht und nie gespeichert.";
+"EZImageNSFW.UploadID" = "Ausweisfoto hochladen";
+"EZImageNSFW.IDRequired" = "Vor der NSFW-Generierung ist eine Ausweisprüfung erforderlich.";
+"EZImageNSFW.IDNoFace" = "Auf diesem Ausweis konnte kein Foto gefunden werden. Versuchen Sie es mit einem deutlicheren Foto des Ausweises.";
+"EZImageNSFW.IDUnreadable" = "Das Geburtsdatum auf diesem Ausweis konnte nicht gelesen werden. Versuchen Sie es mit einem deutlicheren, gut beleuchteten Foto des Ausweises.";
+"EZImageNSFW.IDUnderage" = "Dieser Ausweis zeigt ein Geburtsdatum unter 18 Jahren, daher kann die NSFW-Generierung nicht aktiviert werden.";
+"EZImageNSFW.IDSaveTitle" = "Speichern Sie Ihr Ausweisfoto";
+"EZImageNSFW.IDSaveMessage" = "Ihr Konto ist ausweisgeprüft, aber dieses Gerät hat Ihre Ähnlichkeitsreferenz noch nicht. Laden Sie dasselbe Ausweisfoto einmal hoch, damit Referenzfotos damit abgeglichen werden können. Nur das zugeschnittene Foto aus dem Ausweis wird gespeichert, und nur auf diesem Gerät.";
+"EZImageNSFW.IDSaveRequired" = "Ihr Ausweisfoto wird auf diesem Gerät benötigt, bevor Referenzfotos verwendet werden können.";
 "EZImageNSFW.EnrollTitle" = "Selfie-Prüfung";
 "EZImageNSFW.EnrollMessage" = "Referenzfotos müssen dich zeigen. Mache ein einmaliges Selfie, um deine Referenzfotos damit abzugleichen. Das Selfie bleibt auf diesem Gerät und wird nie hochgeladen; nur ein zugeschnittenes Gesichtsbild wird für die Prüfung verwendet.";
 "EZImageNSFW.TakeSelfie" = "Selfie aufnehmen";
@@ -610,6 +620,6 @@
 "EZImageNSFW.Cancelled" = "NSFW-Erstellung abgebrochen.";
 "EZImageNSFW.ReferenceRefusedTitle" = "Referenz nicht verwendet";
 "EZImageNSFW.NoFaceMessage" = "In diesem Foto wurde kein Gesicht gefunden, daher kann es nicht geprüft werden. Versuche ein deutlicheres Foto von vorne.";
-"EZImageNSFW.VerifyFailedMessage" = "Dieses Foto stimmte nicht mit deinem Selfie überein und wurde daher nicht verwendet.";
+"EZImageNSFW.VerifyFailedMessage" = "Dieses Foto konnte nicht mit Ihrem Ausweisfoto abgeglichen werden und wurde daher nicht verwendet.";
 "EZImageNSFW.UploadFailedMessage" = "Das Referenzfoto konnte nicht hochgeladen werden und wurde daher nicht verwendet.";
 "EZImageNSFW.RerouteButton" = "Mit Seahorse generieren (18+)";

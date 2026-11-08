@@ -602,6 +602,16 @@
 "EZImageNSFW.ViewPlans" = "查看套餐";
 "EZImageNSFW.InsufficientTitle" = "金币不足";
 "EZImageNSFW.InsufficientMessage" = "NSFW 生成需 50 金币。充值或订阅以继续。";
+"EZImageNSFW.IDTitle" = "身份证件核查（18+）";
+"EZImageNSFW.IDMessage" = "NSFW 生成仅限成人使用，并通过一次性证件核查进行验证。上传您的政府身份证件照片：AI 仅读取您的出生日期以确认您已满 18 岁，证件上的照片将成为您的人像比对参考。仅保留从证件裁剪出的照片，且仅保存在本设备上——证件完整图像在核查后立即删除，绝不存储。";
+"EZImageNSFW.UploadID" = "上传证件照片";
+"EZImageNSFW.IDRequired" = "使用 NSFW 生成前必须进行证件核查。";
+"EZImageNSFW.IDNoFace" = "无法在该证件上找到照片。请尝试更清晰的证件照片。";
+"EZImageNSFW.IDUnreadable" = "无法读取该证件上的出生日期。请尝试更清晰、光线充足的证件照片。";
+"EZImageNSFW.IDUnderage" = "该证件显示的出生日期未满 18 岁，因此无法启用 NSFW 生成。";
+"EZImageNSFW.IDSaveTitle" = "保存您的证件照片";
+"EZImageNSFW.IDSaveMessage" = "您的账户已通过证件核查，但本设备尚未保存您的人像参考。将同一张证件照片上传一次，即可将参考照片与其进行比对。仅保留从证件裁剪出的照片，且仅保存在本设备上。";
+"EZImageNSFW.IDSaveRequired" = "使用参考照片前，本设备需要您的证件照片。";
 "EZImageNSFW.EnrollTitle" = "自拍核查";
 "EZImageNSFW.EnrollMessage" = "参考照片必须为您本人。拍摄一张一次性自拍，用于核对您的参考照片。自拍仅保存在此设备上，绝不会上传；核查时仅使用裁剪后的人脸图像。";
 "EZImageNSFW.TakeSelfie" = "拍自拍";
@@ -610,6 +620,6 @@
 "EZImageNSFW.Cancelled" = "NSFW 生成已取消。";
 "EZImageNSFW.ReferenceRefusedTitle" = "参考照片未被使用";
 "EZImageNSFW.NoFaceMessage" = "该照片中未找到人脸，因此无法核查。请尝试更清晰的正面照片。";
-"EZImageNSFW.VerifyFailedMessage" = "该照片与您的自拍不匹配，因此未被使用。";
+"EZImageNSFW.VerifyFailedMessage" = "该照片无法与您的证件照片匹配，因此未被使用。";
 "EZImageNSFW.UploadFailedMessage" = "参考照片上传失败，因此未被使用。";
 "EZImageNSFW.RerouteButton" = "用 Seahorse 生成 (18+)";
