@@ -644,7 +644,7 @@
 "EZImageNSFW.InsufficientTitle" = "金幣不足";
 "EZImageNSFW.InsufficientMessage" = "NSFW 生成需 50 金幣。儲值或訂閱以繼續。";
 "EZImageNSFW.IDTitle" = "身分證件核查（18+）";
-"EZImageNSFW.IDMessage" = "NSFW 生成僅限成人使用，並透過一次性證件核查進行驗證。上傳您的政府身分證件照片：AI 僅讀取您的出生日期以確認您已滿 18 歲，證件上的照片將成為您的人像比對參考。僅保留從證件裁剪出的照片，且僅保存在本裝置上——證件完整圖像在核查後立即刪除，絕不儲存。";
+"EZImageNSFW.IDMessage" = "一次性檢查。上傳政府身分證件照片：如果您的年齡尚未驗證，系統將讀取一次出生日期以確認您已滿 18 歲，證件影像本身絕不會被儲存。證件照片中的面部將以私密方式保存為您的相似度參考，用於核對參考照片。之後不會再要求您提供。";
 "EZImageNSFW.UploadID" = "上傳證件照片";
 "EZImageNSFW.IDRequired" = "使用 NSFW 生成前必須進行證件核查。";
 "EZImageNSFW.IDNoFace" = "無法在該證件上找到照片。請嘗試更清晰的證件照片。";

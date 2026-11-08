@@ -603,7 +603,7 @@
 "EZImageNSFW.InsufficientTitle" = "Không đủ xu";
 "EZImageNSFW.InsufficientMessage" = "Tạo NSFW tốn 50 xu. Nạp thêm hoặc đăng ký để tiếp tục.";
 "EZImageNSFW.IDTitle" = "Kiểm tra giấy tờ (18+)";
-"EZImageNSFW.IDMessage" = "Tạo nội dung NSFW chỉ dành cho người lớn và được xác minh bằng một lần kiểm tra giấy tờ duy nhất. Tải lên ảnh giấy tờ tùy thân do chính phủ cấp của bạn: AI chỉ đọc ngày sinh của bạn để xác nhận bạn trên 18 tuổi, và ảnh trên giấy tờ trở thành tài liệu tham chiếu khuôn mặt của bạn. Chỉ ảnh đã cắt từ giấy tờ được giữ lại, và chỉ trên thiết bị này — ảnh giấy tờ đầy đủ sẽ bị xóa ngay sau khi kiểm tra và không bao giờ được lưu trữ.";
+"EZImageNSFW.IDMessage" = "Kiểm tra một lần duy nhất. Tải lên ảnh giấy tờ tùy thân do chính phủ cấp: nếu tuổi của bạn chưa được xác minh, ngày sinh sẽ được đọc một lần để xác nhận bạn từ 18 tuổi trở lên, và bản thân ảnh giấy tờ không bao giờ được lưu. Khuôn mặt trong ảnh giấy tờ được lưu riêng tư làm tham chiếu nhận diện của bạn để kiểm tra các ảnh tham chiếu. Bạn sẽ không bị yêu cầu lại.";
 "EZImageNSFW.UploadID" = "Tải lên ảnh giấy tờ";
 "EZImageNSFW.IDRequired" = "Cần kiểm tra giấy tờ trước khi có thể sử dụng tính năng tạo nội dung NSFW.";
 "EZImageNSFW.IDNoFace" = "Không tìm thấy ảnh trên giấy tờ đó. Hãy thử ảnh giấy tờ rõ nét hơn.";

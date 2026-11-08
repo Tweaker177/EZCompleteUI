@@ -603,7 +603,7 @@
 "EZImageNSFW.InsufficientTitle" = "Monete insufficienti";
 "EZImageNSFW.InsufficientMessage" = "La generazione NSFW costa 50 monete. Ricarica o abbonati per continuare.";
 "EZImageNSFW.IDTitle" = "Controllo documento (18+)";
-"EZImageNSFW.IDMessage" = "La generazione NSFW è riservata agli adulti e verificata con un controllo del documento una tantum. Carica una foto del tuo documento d'identità ufficiale: l'IA legge solo la tua data di nascita per confermare che hai più di 18 anni, e la foto sul documento diventa il tuo riferimento di somiglianza. Viene conservata solo la foto ritagliata dal documento, e solo su questo dispositivo: l'immagine completa del documento viene eliminata subito dopo il controllo e non viene mai archiviata.";
+"EZImageNSFW.IDMessage" = "Verifica una tantum. Carica una foto del tuo documento d'identità ufficiale: se la tua età non è ancora verificata, la data di nascita viene letta una sola volta per confermare che hai almeno 18 anni, e l'immagine del documento non viene mai conservata. Il volto della foto del documento viene salvato in privato come riferimento di somiglianza per controllare le foto di riferimento. Non ti verrà più chiesto.";
 "EZImageNSFW.UploadID" = "Carica foto del documento";
 "EZImageNSFW.IDRequired" = "È necessario un controllo del documento prima di poter usare la generazione NSFW.";
 "EZImageNSFW.IDNoFace" = "Non è stato possibile trovare una foto su quel documento. Prova con una foto più nitida del documento.";
