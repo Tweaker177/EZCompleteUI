@@ -702,3 +702,9 @@
 "EZSounds.NoTTSClips" = "Anda belum punya klip teks-ke-ucapan. Buat satu dulu, lalu gunakan suara sebagai latarnya.";
 "EZSounds.MixingTTSBackground" = "Mencampur latar…";
 "EZSounds.TTSBackgroundSaved" = "Selesai! Klip hasil campuran ada di Teks ke Ucapan → Riwayat, dan dapat dicampur ulang di sana seperti adegan lainnya.";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "Ganti Nama";
+"EZSounds.RenamePlaceholder" = "Nama untuk suara ini";
+"EZSounds.Save" = "Simpan";
+"EZSounds.MixTimeout" = "Ini terlalu lama, jadi campuran dibatalkan. Coba klip yang lebih pendek.";

@@ -661,3 +661,9 @@
 "EZSounds.NoTTSClips" = "まだテキスト読み上げクリップがありません。先に1つ作成してから、サウンドを背景として使用してください。";
 "EZSounds.MixingTTSBackground" = "背景をミックス中…";
 "EZSounds.TTSBackgroundSaved" = "完了！ミックスしたクリップは「テキスト読み上げ → 履歴」にあり、他のシーンと同じように再ミックスできます。";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "名前を変更";
+"EZSounds.RenamePlaceholder" = "このサウンドの名前";
+"EZSounds.Save" = "保存";
+"EZSounds.MixTimeout" = "時間がかかりすぎているため、ミックスをキャンセルしました。短いクリップでお試しください。";

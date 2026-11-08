@@ -702,3 +702,9 @@
 "EZSounds.NoTTSClips" = "아직 텍스트 음성 변환 클립이 없습니다. 먼저 하나 만든 뒤 사운드를 배경으로 사용하세요.";
 "EZSounds.MixingTTSBackground" = "배경 믹싱 중…";
 "EZSounds.TTSBackgroundSaved" = "완료! 믹싱된 클립은 텍스트 음성 변환 → 기록에 있으며, 다른 장면처럼 거기서 다시 믹싱할 수 있습니다.";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "이름 변경";
+"EZSounds.RenamePlaceholder" = "이 사운드의 이름";
+"EZSounds.Save" = "저장";
+"EZSounds.MixTimeout" = "너무 오래 걸려서 믹싱이 취소되었습니다. 더 짧은 클립으로 시도하세요.";

@@ -683,3 +683,9 @@
 "EZSounds.NoTTSClips" = "Você ainda não tem clipes de texto para voz. Crie um primeiro e depois use um som como fundo dele.";
 "EZSounds.MixingTTSBackground" = "Mixando o fundo…";
 "EZSounds.TTSBackgroundSaved" = "Pronto! O clipe mixado está em Texto para voz → Histórico e pode ser remixado lá como qualquer outra cena.";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "Renomear";
+"EZSounds.RenamePlaceholder" = "Nome deste som";
+"EZSounds.Save" = "Salvar";
+"EZSounds.MixTimeout" = "Isto está demorando demais, então a mixagem foi cancelada. Tente um clipe mais curto.";

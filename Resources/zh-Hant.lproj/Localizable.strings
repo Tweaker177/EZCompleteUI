@@ -702,3 +702,9 @@
 "EZSounds.NoTTSClips" = "你還沒有文字轉語音片段。先建立一個，然後就能把聲音用作它的背景了。";
 "EZSounds.MixingTTSBackground" = "正在混合背景…";
 "EZSounds.TTSBackgroundSaved" = "完成！混合後的片段在「文字轉語音 → 歷史」中，可以像其他場景一樣在那裡重新混合。";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "重新命名";
+"EZSounds.RenamePlaceholder" = "這個聲音的名字";
+"EZSounds.Save" = "儲存";
+"EZSounds.MixTimeout" = "耗時過長，已取消混合。請試試更短的片段。";

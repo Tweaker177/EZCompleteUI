@@ -374,6 +374,38 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
     });
 }
 
+- (void)renameSoundWithUUID:(NSString *)uuid
+                       title:(NSString *)title
+                  completion:(nullable void (^)(EZSoundManifestEntry * _Nullable, NSError * _Nullable))completion
+{
+    dispatch_async(self.ioQueue, ^{
+        EZSoundManifestEntry *target = nil;
+        for (EZSoundManifestEntry *entry in self.entries) {
+            if ([entry.uuid isEqualToString:uuid]) { target = entry; break; }
+        }
+        if (!target) {
+            NSError *err = EZSoundLibraryError(EZSoundLibraryErrorCodeSoundNotFound, @"No sound with that id.");
+            if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, err); });
+            return;
+        }
+        NSString *trimmed = [title stringByTrimmingCharactersInSet:
+                             [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        NSDictionary *oldMetadata = target.metadata;
+        NSMutableDictionary *meta = [oldMetadata mutableCopy];
+        if (trimmed.length) meta[@"title"] = trimmed;
+        else [meta removeObjectForKey:@"title"];
+        target.metadata = meta;
+        NSError *persistError;
+        if (![self persistEntriesToDisk:self.entries error:&persistError]) {
+            target.metadata = oldMetadata;
+            if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, persistError); });
+            return;
+        }
+        [self refreshSnapshotLocked_NoLock:YES];
+        if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(target, nil); });
+    });
+}
+
 #pragma mark - Export
 
 - (nullable NSURL *)exportURLForSoundWithUUID:(NSString *)uuid {

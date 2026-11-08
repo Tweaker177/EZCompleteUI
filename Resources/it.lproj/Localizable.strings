@@ -661,3 +661,9 @@
 "EZSounds.NoTTSClips" = "Non hai ancora clip di sintesi vocale. Creane una prima, poi usa un suono come suo sfondo.";
 "EZSounds.MixingTTSBackground" = "Mixaggio dello sfondo…";
 "EZSounds.TTSBackgroundSaved" = "Fatto! La clip mixata è in Sintesi vocale → Cronologia e può essere rimixata lì come qualsiasi altra scena.";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "Rinomina";
+"EZSounds.RenamePlaceholder" = "Nome di questo suono";
+"EZSounds.Save" = "Salva";
+"EZSounds.MixTimeout" = "Ci sta mettendo troppo, quindi il mix è stato annullato. Prova una clip più corta.";

@@ -83,6 +83,15 @@ typedef NS_ENUM(NSInteger, EZSoundLibraryErrorCode) {
        forSoundUUID:(NSString *)uuid
          completion:(nullable void (^)(EZSoundManifestEntry * _Nullable entry, NSError * _Nullable error))completion;
 
+/// Sets a user-facing display title on the sound (stored in the entry's
+/// metadata under "title", the same convention as the TTS library) without
+/// touching the underlying audio filename or the original prompt. An empty
+/// or whitespace-only title clears the custom title, and the prompt is
+/// shown again.
+- (void)renameSoundWithUUID:(NSString *)uuid
+                       title:(NSString *)title
+                  completion:(nullable void (^)(EZSoundManifestEntry * _Nullable entry, NSError * _Nullable error))completion;
+
 #pragma mark - Export
 
 /// Absolute file URL suitable for handing directly to UIActivityViewController,

@@ -661,3 +661,9 @@
 "EZSounds.NoTTSClips" = "คุณยังไม่มีคลิปแปลงข้อความเป็นเสียงพูด สร้างคลิปแรกก่อน แล้วจึงใช้เสียงเป็นพื้นหลัง";
 "EZSounds.MixingTTSBackground" = "กำลังผสมพื้นหลัง…";
 "EZSounds.TTSBackgroundSaved" = "เสร็จแล้ว! คลิปที่ผสมแล้วอยู่ใน แปลงข้อความเป็นเสียงพูด → ประวัติ และสามารถผสมใหม่ที่นั่นได้เหมือนฉากอื่น ๆ";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "เปลี่ยนชื่อ";
+"EZSounds.RenamePlaceholder" = "ชื่อของเสียงนี้";
+"EZSounds.Save" = "บันทึก";
+"EZSounds.MixTimeout" = "ใช้เวลานานเกินไป จึงยกเลิกการผสมแล้ว ลองใช้คลิปที่สั้นกว่านี้";

@@ -661,3 +661,9 @@
 "EZSounds.NoTTSClips" = "Du hast noch keine Text-to-Speech-Clips. Erstelle zuerst einen und nutze dann einen Sound als Hintergrund.";
 "EZSounds.MixingTTSBackground" = "Hintergrund wird gemischt…";
 "EZSounds.TTSBackgroundSaved" = "Fertig! Der gemischte Clip liegt unter Text to Speech → Verlauf und kann dort wie jede andere Szene neu gemischt werden.";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "Umbenennen";
+"EZSounds.RenamePlaceholder" = "Name für diesen Sound";
+"EZSounds.Save" = "Speichern";
+"EZSounds.MixTimeout" = "Das dauert zu lange, also wurde der Mix abgebrochen. Versuche einen kürzeren Clip.";
