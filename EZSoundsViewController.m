@@ -786,9 +786,10 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 }
 
 /// Keyboard avoidance: while the keyboard is up, the Create scroll
-/// view gets a bottom inset equal to the keyboard's overlap and the
-/// Generate button is scrolled into view — it can never sit trapped
-/// underneath the keyboard.
+/// view gets a bottom inset equal to the keyboard's overlap, so no
+/// content is trapped underneath it, and the prompt field being
+/// edited is kept in view. Generate stays reachable through that
+/// inset plus the Done bar / drag-to-dismiss above.
 - (void)soundsKeyboardWillShow:(NSNotification *)note {
     if (self.createPanel.hidden || !self.promptView.isFirstResponder) return;
     UIScrollView *scroll = (UIScrollView *)self.createPanel;
@@ -802,11 +803,20 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         scroll.scrollIndicatorInsets = scroll.contentInset;
         [self.view layoutIfNeeded];
     } completion:^(BOOL finished) {
+        // Keep the field being EDITED in view — never scroll away
+        // from it toward the Generate button. (The first version of
+        // this fix scrolled to Generate here, which yanked the
+        // prompt off the top of the screen while the user was still
+        // typing in it.) The rect is converted into the scroll
+        // view's content coordinates via the shared content view,
+        // and scrollRectToVisible is a no-op when the prompt is
+        // already fully visible, so in the common case nothing
+        // moves at all — only the inset grows.
         UIView *content = self.generateButton.superview;
-        CGRect buttonRect = [self.generateButton convertRect:self.generateButton.bounds
-                                                     toView:content];
-        buttonRect = CGRectInset(buttonRect, 0, -12);
-        [scroll scrollRectToVisible:buttonRect animated:YES];
+        CGRect promptRect = [self.promptView convertRect:self.promptView.bounds
+                                                 toView:content];
+        promptRect = CGRectInset(promptRect, 0, -12);
+        [scroll scrollRectToVisible:promptRect animated:YES];
     }];
 }
 
