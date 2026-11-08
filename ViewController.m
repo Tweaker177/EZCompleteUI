@@ -3232,8 +3232,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // selected model and let the send-time intent router choose chat, edit,
     // or generation from the actual prompt. Only Photo Detail's explicit
     // Edit with AI action enters edit mode immediately.
+    // Seahorse is exempt from the vision reroute: it is not a chat
+    // model, and attached photos are its generation references, taken
+    // from pendingImagePaths by the Seahorse branch at send time.
     if (![self modelSupportsVision:self.selectedModel] &&
-        ![self isGptImage1Family:self.selectedModel]) {
+        ![self isGptImage1Family:self.selectedModel] &&
+        ![self.selectedModel isEqualToString:@"seahorse-image"]) {
         NSString *prev     = self.selectedModel;
         self.selectedModel = @"gpt-4o";
         [self.modelButton setTitle:@"Model: gpt-4o" forState:UIControlStateNormal];
