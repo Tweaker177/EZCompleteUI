@@ -624,6 +624,16 @@
 "EZImageNSFW.ViewPlans" = "Voir les offres";
 "EZImageNSFW.InsufficientTitle" = "Pièces insuffisantes";
 "EZImageNSFW.InsufficientMessage" = "La génération NSFW coûte 50 pièces. Rechargez ou abonnez-vous pour continuer.";
+"EZImageNSFW.IDTitle" = "Vérification d'identité (18+)";
+"EZImageNSFW.IDMessage" = "La génération NSFW est réservée aux adultes et vérifiée par un contrôle d'identité unique. Importez une photo de votre pièce d'identité officielle : l'IA lit uniquement votre date de naissance pour confirmer que vous avez plus de 18 ans, et la photo du document devient votre référence de ressemblance. Seule la photo recadrée du document est conservée, et uniquement sur cet appareil — l'image complète du document est supprimée juste après le contrôle et n'est jamais stockée.";
+"EZImageNSFW.UploadID" = "Importer la photo d'identité";
+"EZImageNSFW.IDRequired" = "Un contrôle d'identité est requis avant d'utiliser la génération NSFW.";
+"EZImageNSFW.IDNoFace" = "Aucune photo n'a pu être trouvée sur ce document. Essayez une photo plus nette du document.";
+"EZImageNSFW.IDUnreadable" = "La date de naissance sur ce document n'a pas pu être lue. Essayez une photo plus nette et bien éclairée du document.";
+"EZImageNSFW.IDUnderage" = "Ce document indique une date de naissance de moins de 18 ans, la génération NSFW ne peut donc pas être activée.";
+"EZImageNSFW.IDSaveTitle" = "Enregistrez votre photo d'identité";
+"EZImageNSFW.IDSaveMessage" = "Votre compte est vérifié par pièce d'identité, mais cet appareil ne dispose pas encore de votre référence de ressemblance. Importez la même photo du document une fois pour que les photos de référence puissent être comparées avec elle. Seule la photo recadrée du document est conservée, et uniquement sur cet appareil.";
+"EZImageNSFW.IDSaveRequired" = "La photo de votre document est requise sur cet appareil avant de pouvoir utiliser des photos de référence.";
 "EZImageNSFW.EnrollTitle" = "Vérification par selfie";
 "EZImageNSFW.EnrollMessage" = "Les photos de référence doivent vous représenter. Prenez un selfie unique pour vérifier vos photos de référence. Le selfie reste sur cet appareil et n'est jamais envoyé ; seule une image recadrée du visage est utilisée pour la vérification.";
 "EZImageNSFW.TakeSelfie" = "Prendre un selfie";
@@ -632,6 +642,6 @@
 "EZImageNSFW.Cancelled" = "Génération NSFW annulée.";
 "EZImageNSFW.ReferenceRefusedTitle" = "Référence non utilisée";
 "EZImageNSFW.NoFaceMessage" = "Aucun visage n'a été trouvé dans cette photo, elle ne peut donc pas être vérifiée. Essayez une photo plus nette, de face.";
-"EZImageNSFW.VerifyFailedMessage" = "Cette photo ne correspond pas à votre selfie, elle n'a donc pas été utilisée.";
+"EZImageNSFW.VerifyFailedMessage" = "Cette photo n'a pas pu être comparée à la photo de votre document, elle n'a donc pas été utilisée.";
 "EZImageNSFW.UploadFailedMessage" = "La photo de référence n'a pas pu être envoyée, elle n'a donc pas été utilisée.";
 "EZImageNSFW.RerouteButton" = "Générer avec Seahorse (18+)";

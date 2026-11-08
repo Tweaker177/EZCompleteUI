@@ -643,6 +643,16 @@
 "EZImageNSFW.ViewPlans" = "Lihat Paket";
 "EZImageNSFW.InsufficientTitle" = "Koin Tidak Cukup";
 "EZImageNSFW.InsufficientMessage" = "Pembuatan NSFW berharga 50 koin. Isi ulang atau berlangganan untuk melanjutkan.";
+"EZImageNSFW.IDTitle" = "Pemeriksaan ID (18+)";
+"EZImageNSFW.IDMessage" = "Pembuatan NSFW hanya untuk orang dewasa, diverifikasi dengan pemeriksaan ID satu kali. Unggah foto kartu identitas resmi Anda: AI hanya membaca tanggal lahir Anda untuk memastikan Anda berusia 18+, dan foto pada kartu identitas menjadi referensi kemiripan Anda. Hanya foto yang dipotong dari kartu identitas yang disimpan, dan hanya di perangkat ini — gambar kartu identitas lengkap dihapus segera setelah pemeriksaan dan tidak pernah disimpan.";
+"EZImageNSFW.UploadID" = "Unggah Foto ID";
+"EZImageNSFW.IDRequired" = "Pemeriksaan ID diperlukan sebelum pembuatan NSFW dapat digunakan.";
+"EZImageNSFW.IDNoFace" = "Tidak ada foto yang dapat ditemukan pada ID tersebut. Coba foto ID yang lebih jelas.";
+"EZImageNSFW.IDUnreadable" = "Tanggal lahir pada ID tersebut tidak dapat dibaca. Coba foto ID yang lebih jelas dan terang.";
+"EZImageNSFW.IDUnderage" = "ID tersebut menunjukkan tanggal lahir di bawah 18 tahun, jadi pembuatan NSFW tidak dapat diaktifkan.";
+"EZImageNSFW.IDSaveTitle" = "Simpan Foto ID Anda";
+"EZImageNSFW.IDSaveMessage" = "Akun Anda sudah terverifikasi ID, tetapi perangkat ini belum memiliki referensi kemiripan Anda. Unggah foto ID yang sama sekali agar foto referensi dapat dibandingkan dengannya. Hanya foto yang dipotong dari kartu identitas yang disimpan, dan hanya di perangkat ini.";
+"EZImageNSFW.IDSaveRequired" = "Foto ID Anda diperlukan di perangkat ini sebelum foto referensi dapat digunakan.";
 "EZImageNSFW.EnrollTitle" = "Pemeriksaan Selfie";
 "EZImageNSFW.EnrollMessage" = "Foto referensi harus foto Anda. Ambil satu selfie sekali saja untuk memeriksa foto referensi Anda. Selfie tetap tersimpan di perangkat ini dan tidak pernah diunggah; hanya gambar wajah yang dipotong yang digunakan untuk pemeriksaan.";
 "EZImageNSFW.TakeSelfie" = "Ambil Selfie";
@@ -651,6 +661,6 @@
 "EZImageNSFW.Cancelled" = "Pembuatan NSFW dibatalkan.";
 "EZImageNSFW.ReferenceRefusedTitle" = "Referensi Tidak Digunakan";
 "EZImageNSFW.NoFaceMessage" = "Tidak ada wajah yang ditemukan di foto itu, jadi tidak dapat diperiksa. Coba foto yang lebih jelas dan menghadap ke depan.";
-"EZImageNSFW.VerifyFailedMessage" = "Foto itu tidak cocok dengan selfie Anda, jadi tidak digunakan.";
+"EZImageNSFW.VerifyFailedMessage" = "Foto tersebut tidak dapat dicocokkan dengan foto ID Anda, jadi tidak digunakan.";
 "EZImageNSFW.UploadFailedMessage" = "Foto referensi tidak dapat diunggah, jadi tidak digunakan.";
 "EZImageNSFW.RerouteButton" = "Buat dengan Seahorse (18+)";

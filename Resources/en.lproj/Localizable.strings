@@ -643,6 +643,16 @@
 "EZImageNSFW.ViewPlans" = "View Plans";
 "EZImageNSFW.InsufficientTitle" = "Not Enough Coins";
 "EZImageNSFW.InsufficientMessage" = "NSFW generation costs 50 coins. Top up or subscribe to continue.";
+"EZImageNSFW.IDTitle" = "ID Check (18+)";
+"EZImageNSFW.IDMessage" = "NSFW generation is adults-only, verified with a one-time ID check. Upload a photo of your government ID: the AI reads only your date of birth to confirm you're 18+, and the photo on the ID becomes your likeness reference. Only the cropped photo from the ID is kept, on this device only — the full ID image is deleted right after the check and is never stored.";
+"EZImageNSFW.UploadID" = "Upload ID Photo";
+"EZImageNSFW.IDRequired" = "An ID check is required before NSFW generation can be used.";
+"EZImageNSFW.IDNoFace" = "No photo could be found on that ID. Try a clearer photo of the ID.";
+"EZImageNSFW.IDUnreadable" = "The date of birth on that ID couldn't be read. Try a clearer, well-lit photo of the ID.";
+"EZImageNSFW.IDUnderage" = "That ID shows a date of birth under 18, so NSFW generation can't be enabled.";
+"EZImageNSFW.IDSaveTitle" = "Save Your ID Photo";
+"EZImageNSFW.IDSaveMessage" = "Your account is ID-checked, but this device doesn't have your likeness reference yet. Upload the same ID photo once so reference photos can be checked against it. Only the cropped photo from the ID is kept, on this device only.";
+"EZImageNSFW.IDSaveRequired" = "Your ID photo is needed on this device before reference photos can be used.";
 "EZImageNSFW.EnrollTitle" = "Selfie Check";
 "EZImageNSFW.EnrollMessage" = "Reference photos must be of you. Take a one-time selfie to check your reference photos against. The selfie stays on this device and is never uploaded; only a cropped face image is used for the check.";
 "EZImageNSFW.TakeSelfie" = "Take Selfie";
@@ -651,6 +661,6 @@
 "EZImageNSFW.Cancelled" = "NSFW generation cancelled.";
 "EZImageNSFW.ReferenceRefusedTitle" = "Reference Not Used";
 "EZImageNSFW.NoFaceMessage" = "No face could be found in that photo, so it can't be checked. Try a clearer, front-facing photo.";
-"EZImageNSFW.VerifyFailedMessage" = "That photo couldn't be matched to your selfie, so it wasn't used.";
+"EZImageNSFW.VerifyFailedMessage" = "That photo couldn't be matched to your ID photo, so it wasn't used.";
 "EZImageNSFW.UploadFailedMessage" = "The reference photo couldn't be uploaded, so it wasn't used.";
 "EZImageNSFW.RerouteButton" = "Generate with Seahorse (18+)";

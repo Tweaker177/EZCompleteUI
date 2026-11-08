@@ -602,6 +602,16 @@
 "EZImageNSFW.ViewPlans" = "プランを見る";
 "EZImageNSFW.InsufficientTitle" = "コインが不足しています";
 "EZImageNSFW.InsufficientMessage" = "NSFW生成は50コインかかります。続けるにはチャージするか登録してください。";
+"EZImageNSFW.IDTitle" = "ID確認（18歳以上）";
+"EZImageNSFW.IDMessage" = "NSFW生成は成人専用で、1回限りのID確認で認証されます。公的な身分証の写真をアップロードしてください：AIが読み取るのは生年月日のみで、18歳以上であることを確認します。身分証の写真は、あなたの類似照合用リファレンスになります。保持されるのは身分証から切り取った写真のみで、このデバイス上に限ります — 身分証全体の画像は確認後すぐに削除され、保存されることはありません。";
+"EZImageNSFW.UploadID" = "ID写真をアップロード";
+"EZImageNSFW.IDRequired" = "NSFW生成を使用するにはID確認が必要です。";
+"EZImageNSFW.IDNoFace" = "その身分証から写真を検出できませんでした。より鮮明な身分証の写真をお試しください。";
+"EZImageNSFW.IDUnreadable" = "その身分証の生年月日を読み取れませんでした。より鮮明で明るい身分証の写真をお試しください。";
+"EZImageNSFW.IDUnderage" = "その身分証の生年月日は18歳未満のため、NSFW生成を有効化できません。";
+"EZImageNSFW.IDSaveTitle" = "ID写真を保存";
+"EZImageNSFW.IDSaveMessage" = "アカウントのID確認は完了していますが、このデバイスにはまだあなたの類似照合用リファレンスがありません。同じID写真を1回アップロードすると、参照写真と照合できるようになります。保持されるのは身分証から切り取った写真のみで、このデバイス上に限ります。";
+"EZImageNSFW.IDSaveRequired" = "参照写真を使用するには、このデバイスにID写真が必要です。";
 "EZImageNSFW.EnrollTitle" = "自撮りチェック";
 "EZImageNSFW.EnrollMessage" = "参考写真はあなた本人のものに限ります。一度だけ自撮り写真を撮影し、参考写真と照合します。自撮り写真はこのデバイスにのみ保存され、アップロードされることはありません。チェックに使われるのは切り取った顔画像だけです。";
 "EZImageNSFW.TakeSelfie" = "自撮りを撮る";
@@ -610,6 +620,6 @@
 "EZImageNSFW.Cancelled" = "NSFW生成がキャンセルされました。";
 "EZImageNSFW.ReferenceRefusedTitle" = "参考写真は使用されませんでした";
 "EZImageNSFW.NoFaceMessage" = "その写真から顔が見つからなかったため、チェックできません。正面を向いた鮮明な写真をお試しください。";
-"EZImageNSFW.VerifyFailedMessage" = "その写真はあなたの自撮りと一致しなかったため、使用されませんでした。";
+"EZImageNSFW.VerifyFailedMessage" = "その写真はID写真と一致しなかったため、使用されませんでした。";
 "EZImageNSFW.UploadFailedMessage" = "参考写真をアップロードできなかったため、使用されませんでした。";
 "EZImageNSFW.RerouteButton" = "Seahorseで生成 (18+)";

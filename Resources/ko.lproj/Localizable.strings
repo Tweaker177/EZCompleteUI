@@ -643,6 +643,16 @@
 "EZImageNSFW.ViewPlans" = "요금제 보기";
 "EZImageNSFW.InsufficientTitle" = "코인 부족";
 "EZImageNSFW.InsufficientMessage" = "NSFW 생성 비용은 50코인입니다. 계속하려면 충전하거나 구독하세요.";
+"EZImageNSFW.IDTitle" = "신분증 확인 (18+)";
+"EZImageNSFW.IDMessage" = "NSFW 생성은 성인 전용이며, 1회 신분증 확인으로 인증됩니다. 정부 발급 신분증 사진을 업로드하세요. AI는 생년월일만 읽어 18세 이상인지 확인하고, 신분증의 사진이 본인 대조용 참조가 됩니다. 신분증에서 잘라낸 사진만 보관되며, 이 기기에만 저장됩니다 — 신분증 전체 이미지는 확인 직후 삭제되며 절대 저장되지 않습니다.";
+"EZImageNSFW.UploadID" = "신분증 사진 업로드";
+"EZImageNSFW.IDRequired" = "NSFW 생성을 사용하려면 신분증 확인이 필요합니다.";
+"EZImageNSFW.IDNoFace" = "해당 신분증에서 사진을 찾을 수 없습니다. 더 선명한 신분증 사진을 시도해 보세요.";
+"EZImageNSFW.IDUnreadable" = "해당 신분증의 생년월일을 읽을 수 없습니다. 더 선명하고 밝은 신분증 사진을 시도해 보세요.";
+"EZImageNSFW.IDUnderage" = "해당 신분증의 생년월일이 18세 미만으로 표시되어 NSFW 생성을 활성화할 수 없습니다.";
+"EZImageNSFW.IDSaveTitle" = "신분증 사진 저장";
+"EZImageNSFW.IDSaveMessage" = "계정은 신분증 확인이 완료되었지만, 이 기기에는 아직 본인 대조용 참조가 없습니다. 같은 신분증 사진을 한 번 업로드하면 참조 사진과 대조할 수 있습니다. 신분증에서 잘라낸 사진만 보관되며, 이 기기에만 저장됩니다.";
+"EZImageNSFW.IDSaveRequired" = "참조 사진을 사용하려면 이 기기에 신분증 사진이 필요합니다.";
 "EZImageNSFW.EnrollTitle" = "셀피 확인";
 "EZImageNSFW.EnrollMessage" = "참고 사진은 본인이어야 합니다. 한 번만 셀피를 찍어 참고 사진과 대조합니다. 셀피는 이 기기에만 저장되며 절대 업로드되지 않습니다. 확인에는 잘라낸 얼굴 이미지만 사용됩니다.";
 "EZImageNSFW.TakeSelfie" = "셀피 찍기";
@@ -651,6 +661,6 @@
 "EZImageNSFW.Cancelled" = "NSFW 생성이 취소되었습니다.";
 "EZImageNSFW.ReferenceRefusedTitle" = "참고 사진 미사용";
 "EZImageNSFW.NoFaceMessage" = "해당 사진에서 얼굴을 찾을 수 없어 확인할 수 없습니다. 정면을 향한 더 선명한 사진을 사용해 보세요.";
-"EZImageNSFW.VerifyFailedMessage" = "해당 사진이 셀피와 일치하지 않아 사용되지 않았습니다.";
+"EZImageNSFW.VerifyFailedMessage" = "해당 사진을 신분증 사진과 대조할 수 없어 사용되지 않았습니다.";
 "EZImageNSFW.UploadFailedMessage" = "참고 사진을 업로드할 수 없어 사용되지 않았습니다.";
 "EZImageNSFW.RerouteButton" = "Seahorse로 생성 (18+)";

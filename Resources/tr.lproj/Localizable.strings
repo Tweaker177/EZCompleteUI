@@ -643,6 +643,16 @@
 "EZImageNSFW.ViewPlans" = "Planları Gör";
 "EZImageNSFW.InsufficientTitle" = "Yetersiz Jeton";
 "EZImageNSFW.InsufficientMessage" = "NSFW oluşturma 50 jeton tutarındadır. Devam etmek için bakiye yükleyin veya abone olun.";
+"EZImageNSFW.IDTitle" = "Kimlik Kontrolü (18+)";
+"EZImageNSFW.IDMessage" = "NSFW üretimi yalnızca yetişkinlere özeldir ve tek seferlik bir kimlik kontrolüyle doğrulanır. Resmî kimliğinizin fotoğrafını yükleyin: Yapay zekâ yalnızca doğum tarihinizi okuyarak 18 yaşından büyük olduğunuzu doğrular ve kimlikteki fotoğraf, benzerlik referansınız olur. Yalnızca kimlikten kırpılan fotoğraf saklanır ve yalnızca bu cihazda tutulur — kimliğin tam görüntüsü kontrolden hemen sonra silinir ve asla saklanmaz.";
+"EZImageNSFW.UploadID" = "Kimlik Fotoğrafını Yükle";
+"EZImageNSFW.IDRequired" = "NSFW üretimini kullanmadan önce kimlik kontrolü gereklidir.";
+"EZImageNSFW.IDNoFace" = "Bu kimlikte bir fotoğraf bulunamadı. Kimliğin daha net bir fotoğrafını deneyin.";
+"EZImageNSFW.IDUnreadable" = "Bu kimlikteki doğum tarihi okunamadı. Kimliğin daha net ve iyi aydınlatılmış bir fotoğrafını deneyin.";
+"EZImageNSFW.IDUnderage" = "Bu kimlikte doğum tarihi 18 yaşın altında görünüyor, bu nedenle NSFW üretimi etkinleştirilemez.";
+"EZImageNSFW.IDSaveTitle" = "Kimlik Fotoğrafınızı Kaydedin";
+"EZImageNSFW.IDSaveMessage" = "Hesabınızın kimlik kontrolü tamamlandı, ancak bu cihazda benzerlik referansınız henüz yok. Referans fotoğrafların karşılaştırılabilmesi için aynı kimlik fotoğrafını bir kez yükleyin. Yalnızca kimlikten kırpılan fotoğraf saklanır ve yalnızca bu cihazda tutulur.";
+"EZImageNSFW.IDSaveRequired" = "Referans fotoğraflar kullanılmadan önce kimlik fotoğrafınızın bu cihazda olması gerekir.";
 "EZImageNSFW.EnrollTitle" = "Selfie Kontrolü";
 "EZImageNSFW.EnrollMessage" = "Referans fotoğraflar size ait olmalıdır. Referans fotoğraflarınızı kontrol etmek için bir kerelik bir selfie çekin. Selfie bu cihazda kalır ve asla yüklenmez; kontrol için yalnızca kırpılmış bir yüz görüntüsü kullanılır.";
 "EZImageNSFW.TakeSelfie" = "Selfie Çek";
@@ -651,6 +661,6 @@
 "EZImageNSFW.Cancelled" = "NSFW oluşturma iptal edildi.";
 "EZImageNSFW.ReferenceRefusedTitle" = "Referans Kullanılmadı";
 "EZImageNSFW.NoFaceMessage" = "O fotoğrafta yüz bulunamadığı için kontrol edilemedi. Daha net, önden çekilmiş bir fotoğraf deneyin.";
-"EZImageNSFW.VerifyFailedMessage" = "O fotoğraf selfienizle eşleşmediği için kullanılmadı.";
+"EZImageNSFW.VerifyFailedMessage" = "Bu fotoğraf kimlik fotoğrafınızla eşleştirilemedi, bu nedenle kullanılmadı.";
 "EZImageNSFW.UploadFailedMessage" = "Referans fotoğraf yüklenemediği için kullanılmadı.";
 "EZImageNSFW.RerouteButton" = "Seahorse ile Oluştur (18+)";
