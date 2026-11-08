@@ -1071,7 +1071,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
                 AVAssetExportSession *exporter = [[AVAssetExportSession alloc] initWithAsset:composition
                                                                                     presetName:AVAssetExportPresetAppleM4A];
                 exporter.outputURL = outURL;
-                exporter.outputFileType = AVFileTypeM4A;
+                exporter.outputFileType = AVFileTypeAppleM4A;
                 exporter.audioMix = audioMix;
                 [exporter exportAsynchronouslyWithCompletionHandler:^{
                     NSData *mixedData = (exporter.status == AVAssetExportSessionStatusCompleted)
