@@ -123,22 +123,25 @@ static UIColor *EZEditElectricBlue(void) {
 /// while the real persistence lands in the Sounds library.
 
 - (EZTTSManifestEntry *)mirrorEntryForSoundEntry:(EZSoundManifestEntry *)sound {
-    EZTTSManifestEntry *mirror = [[EZTTSManifestEntry alloc] init];
-    mirror.uuid = sound.uuid;
-    mirror.created = sound.created;
-    mirror.provider = sound.provider;
-    mirror.model = sound.model;
-    mirror.prompt = sound.prompt;
-    mirror.preview = sound.preview;
-    mirror.filename = sound.filename;
-    mirror.relativePath = sound.relativePath;
-    mirror.duration = sound.duration;
-    mirror.sampleRate = sound.sampleRate;
-    mirror.fileSize = sound.fileSize;
-    mirror.favorite = sound.isFavorite;
-    mirror.tags = sound.tags;
-    mirror.metadata = sound.metadata;
-    return mirror;
+    // EZTTSManifestEntry marks -init NS_UNAVAILABLE; the mirror is
+    // built through the designated initializer in one shot (sounds
+    // have no voice name/ID, so those two stay nil).
+    return [[EZTTSManifestEntry alloc] initWithUUID:sound.uuid
+                                             created:sound.created
+                                            provider:sound.provider
+                                           voiceName:nil
+                                             voiceID:nil
+                                               model:sound.model
+                                              prompt:sound.prompt
+                                             preview:sound.preview
+                                            filename:sound.filename
+                                        relativePath:sound.relativePath
+                                            duration:sound.duration
+                                          sampleRate:sound.sampleRate
+                                            fileSize:sound.fileSize
+                                            favorite:sound.isFavorite
+                                                tags:sound.tags
+                                            metadata:sound.metadata];
 }
 
 /// Archives edited audio as a BRAND-NEW entry in the host library —
