@@ -702,3 +702,9 @@
 "EZSounds.NoTTSClips" = "Henüz metinden konuşmaya klibin yok. Önce bir tane oluştur, sonra bir sesi onun arka planı olarak kullan.";
 "EZSounds.MixingTTSBackground" = "Arka plan karıştırılıyor…";
 "EZSounds.TTSBackgroundSaved" = "Tamam! Karıştırılan klip Metinden Konuşmaya → Geçmiş bölümünde ve oradaki her sahne gibi yeniden karıştırılabilir.";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "Yeniden Adlandır";
+"EZSounds.RenamePlaceholder" = "Bu sesin adı";
+"EZSounds.Save" = "Kaydet";
+"EZSounds.MixTimeout" = "Bu çok uzun sürüyor, bu yüzden karıştırma iptal edildi. Daha kısa bir klip dene.";

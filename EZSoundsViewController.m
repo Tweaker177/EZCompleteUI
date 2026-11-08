@@ -35,6 +35,233 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
     return MAX(5, (NSInteger)ceil(seconds * 0.5));
 }
 
+// ── EZNeonSheet ─────────────────────────────────────────────────────────────
+// App-styled replacement for UIAlertController action sheets and alerts on
+// this screen: a dim backdrop with a neon panel — bottom-anchored for action
+// lists, centered for alerts, text entry, and progress. Every menu this
+// screen shows goes through here so nothing falls back to stock iOS styling.
+
+@interface EZNeonSheet : UIView
+@property (nonatomic, strong, readonly) UIView *panel;
+@property (nonatomic, strong, readonly, nullable) UITextField *textField;
+@property (nonatomic, assign) BOOL dismissOnBackdropTap;
++ (instancetype)sheetInHostView:(UIView *)host centered:(BOOL)centered;
+- (void)setTitle:(nullable NSString *)title message:(nullable NSString *)message;
+- (void)addButtonWithTitle:(NSString *)title
+               destructive:(BOOL)destructive
+                   handler:(nullable void (^)(void))handler;
+- (void)addTextFieldWithText:(nullable NSString *)text placeholder:(nullable NSString *)placeholder;
+- (void)addSpinner;
+- (void)present;
+- (void)dismissWithCompletion:(nullable void (^)(void))completion;
+@end
+
+@implementation EZNeonSheet {
+    UIView *_dimView;
+    UIStackView *_stack;
+    NSMutableArray<void (^)(void)> *_handlers;
+    BOOL _centered;
+    CGFloat _keyboardShift;
+}
+
++ (instancetype)sheetInHostView:(UIView *)host centered:(BOOL)centered {
+    EZNeonSheet *sheet = [[EZNeonSheet alloc] initWithFrame:host.bounds];
+    sheet->_centered = centered;
+    sheet.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [sheet buildInHost:host];
+    return sheet;
+}
+
+- (void)buildInHost:(UIView *)host {
+    _handlers = [NSMutableArray array];
+    _dimView = [[UIView alloc] initWithFrame:self.bounds];
+    _dimView.backgroundColor = [UIColor blackColor];
+    _dimView.alpha = 0;
+    _dimView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [_dimView addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(backdropTapped)]];
+    [self addSubview:_dimView];
+
+    _panel = [[UIView alloc] init];
+    _panel.backgroundColor = EZSoundsNeonPanel();
+    _panel.layer.cornerRadius = 18;
+    _panel.layer.borderWidth = 1.0;
+    _panel.layer.borderColor = EZSoundsNeonViolet().CGColor;
+    _panel.layer.shadowColor = EZSoundsNeonViolet().CGColor;
+    _panel.layer.shadowOpacity = 0.45;
+    _panel.layer.shadowRadius = 12;
+    _panel.layer.shadowOffset = CGSizeZero;
+    _panel.translatesAutoresizingMaskIntoConstraints = NO;
+    [self addSubview:_panel];
+
+    _stack = [[UIStackView alloc] init];
+    _stack.axis = UILayoutConstraintAxisVertical;
+    _stack.spacing = 10;
+    _stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [_panel addSubview:_stack];
+
+    if (_centered) {
+        _panel.layer.maskedCorners = kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner |
+                                     kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
+        [NSLayoutConstraint activateConstraints:@[
+            [_panel.centerXAnchor constraintEqualToAnchor:self.centerXAnchor],
+            [_panel.centerYAnchor constraintEqualToAnchor:self.centerYAnchor],
+            [_panel.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:24],
+            [_panel.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-24],
+        ]];
+    } else {
+        _panel.layer.maskedCorners = kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner;
+        [NSLayoutConstraint activateConstraints:@[
+            [_panel.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+            [_panel.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
+            [_panel.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
+        ]];
+    }
+    CGFloat bottomPad = _centered ? 16 : 16 + host.safeAreaInsets.bottom;
+    [NSLayoutConstraint activateConstraints:@[
+        [_stack.topAnchor constraintEqualToAnchor:_panel.topAnchor constant:16],
+        [_stack.leadingAnchor constraintEqualToAnchor:_panel.leadingAnchor constant:16],
+        [_stack.trailingAnchor constraintEqualToAnchor:_panel.trailingAnchor constant:-16],
+        [_stack.bottomAnchor constraintEqualToAnchor:_panel.bottomAnchor constant:-bottomPad],
+    ]];
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(keyboardWillShow:)
+                                                 name:UIKeyboardWillShowNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(keyboardWillHide:)
+                                                 name:UIKeyboardWillHideNotification object:nil];
+    [host addSubview:self];
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)setTitle:(NSString *)title message:(NSString *)message {
+    if (title.length) {
+        UILabel *label = [[UILabel alloc] init];
+        label.text = title;
+        label.textColor = EZSoundsNeonText();
+        label.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+        label.textAlignment = NSTextAlignmentCenter;
+        label.numberOfLines = 0;
+        [_stack addArrangedSubview:label];
+    }
+    if (message.length) {
+        UILabel *label = [[UILabel alloc] init];
+        label.text = message;
+        label.textColor = EZSoundsNeonDimText();
+        label.font = [UIFont systemFontOfSize:14];
+        label.textAlignment = NSTextAlignmentCenter;
+        label.numberOfLines = 0;
+        [_stack addArrangedSubview:label];
+    }
+}
+
+- (void)addButtonWithTitle:(NSString *)title
+               destructive:(BOOL)destructive
+                   handler:(void (^)(void))handler {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    [button setTitle:title forState:UIControlStateNormal];
+    [button setTitleColor:(destructive ? EZSoundsNeonPink() : EZSoundsNeonText())
+                 forState:UIControlStateNormal];
+    button.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+    button.backgroundColor = EZSoundsNeonField();
+    button.layer.cornerRadius = 12;
+    button.layer.borderWidth = 1.0;
+    button.layer.borderColor = (destructive ? EZSoundsNeonPink() : EZSoundsNeonCyan()).CGColor;
+    [button.heightAnchor constraintEqualToConstant:48].active = YES;
+    button.tag = (NSInteger)_handlers.count;
+    [_handlers addObject:(handler ?: ^{})];
+    [button addTarget:self action:@selector(buttonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [_stack addArrangedSubview:button];
+}
+
+- (void)addTextFieldWithText:(NSString *)text placeholder:(NSString *)placeholder {
+    UITextField *field = [[UITextField alloc] init];
+    field.text = text;
+    field.placeholder = placeholder;
+    field.textColor = EZSoundsNeonText();
+    field.font = [UIFont systemFontOfSize:16];
+    field.backgroundColor = EZSoundsNeonField();
+    field.layer.cornerRadius = 10;
+    field.layer.borderWidth = 1.0;
+    field.layer.borderColor = EZSoundsNeonCyan().CGColor;
+    field.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 10, 1)];
+    field.leftViewMode = UITextFieldViewModeAlways;
+    field.returnKeyType = UIReturnKeyDone;
+    field.autocapitalizationType = UITextAutocapitalizationTypeSentences;
+    [field.heightAnchor constraintEqualToConstant:44].active = YES;
+    _textField = field;
+    [_stack addArrangedSubview:field];
+}
+
+- (void)addSpinner {
+    UIActivityIndicatorView *spinner =
+        [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
+    spinner.color = EZSoundsNeonCyan();
+    [spinner startAnimating];
+    [_stack addArrangedSubview:spinner];
+}
+
+- (void)present {
+    [self layoutIfNeeded];
+    CGFloat travel = _centered ? 24 : _panel.bounds.size.height + 40;
+    _panel.transform = CGAffineTransformMakeTranslation(0, _centered ? travel : travel);
+    _panel.alpha = _centered ? 0 : 1;
+    [UIView animateWithDuration:0.3 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+        self->_dimView.alpha = 0.55;
+        self->_panel.transform = CGAffineTransformIdentity;
+        self->_panel.alpha = 1;
+    } completion:^(BOOL finished) {
+        if (self->_textField) [self->_textField becomeFirstResponder];
+    }];
+}
+
+- (void)dismissWithCompletion:(void (^)(void))completion {
+    [_textField resignFirstResponder];
+    [UIView animateWithDuration:0.25 delay:0 options:UIViewAnimationOptionCurveEaseIn animations:^{
+        self->_dimView.alpha = 0;
+        if (self->_centered) {
+            self->_panel.alpha = 0;
+        } else {
+            self->_panel.transform = CGAffineTransformMakeTranslation(0, self->_panel.bounds.size.height + 40);
+        }
+    } completion:^(BOOL finished) {
+        [self removeFromSuperview];
+        if (completion) completion();
+    }];
+}
+
+- (void)buttonTapped:(UIButton *)sender {
+    void (^handler)(void) = (sender.tag >= 0 && sender.tag < (NSInteger)_handlers.count)
+        ? _handlers[(NSUInteger)sender.tag] : nil;
+    [self dismissWithCompletion:handler];
+}
+
+- (void)backdropTapped {
+    if (self.dismissOnBackdropTap) [self dismissWithCompletion:nil];
+}
+
+- (void)keyboardWillShow:(NSNotification *)note {
+    if (!_centered || !_textField) return;
+    CGRect kb = [note.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
+    _keyboardShift = MAX(0, kb.size.height - 150);
+    [UIView animateWithDuration:0.25 animations:^{
+        self->_panel.transform = CGAffineTransformMakeTranslation(0, -self->_keyboardShift);
+    }];
+}
+
+- (void)keyboardWillHide:(NSNotification *)note {
+    if (!_centered || !_textField) return;
+    _keyboardShift = 0;
+    [UIView animateWithDuration:0.25 animations:^{
+        self->_panel.transform = CGAffineTransformIdentity;
+    }];
+}
+
+@end
+
 // ── TTS clip picker (used by "Use as TTS Background") ───────────────────────
 
 @interface EZSoundsTTSClipPickerViewController : UITableViewController
@@ -108,6 +335,13 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 @property (nonatomic, copy) NSArray<EZSoundManifestEntry *> *entries;
 @property (nonatomic, strong) EZSoundManifestEntry *pendingVideoEntry;
 @property (nonatomic, assign) BOOL generating;
+
+// In-flight mix bookkeeping: every mix finishes through one funnel
+// (finishProgressForToken:...) and a watchdog cancels anything that
+// overruns, so the progress UI can never spin forever.
+@property (nonatomic, strong) EZNeonSheet *progressSheet;
+@property (nonatomic, copy) NSString *activeMixToken;
+@property (nonatomic, strong) AVAssetExportSession *activeExport;
 @end
 
 @implementation EZSoundsViewController
@@ -141,6 +375,19 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 
 - (void)closeTapped {
     [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (UIView *)sheetHostView {
+    return self.navigationController.view ?: self.view;
+}
+
+/// The name shown for a sound everywhere: the user's custom title
+/// (metadata[@"title"], set by Rename) when there is one, else the
+/// prompt preview — same convention as the TTS library.
+- (NSString *)displayTitleForEntry:(EZSoundManifestEntry *)entry {
+    NSString *custom = [entry.metadata[@"title"] isKindOfClass:NSString.class] ? entry.metadata[@"title"] : nil;
+    if (custom.length) return custom;
+    return entry.preview.length ? entry.preview : entry.prompt;
 }
 
 #pragma mark - UI construction
@@ -423,6 +670,74 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     if (library) [self.libraryTable reloadData];
 }
 
+#pragma mark - Styled sheets / alerts (no stock UIAlertController on this screen)
+
+- (void)showAlertTitle:(NSString *)title message:(NSString *)message {
+    EZNeonSheet *sheet = [EZNeonSheet sheetInHostView:[self sheetHostView] centered:YES];
+    [sheet setTitle:title message:message];
+    [sheet addButtonWithTitle:@"OK" destructive:NO handler:nil];
+    [sheet present];
+}
+
+/// Shows the neon progress sheet and arms a watchdog: if the operation
+/// hasn't finished through finishProgressForToken: within `timeout`
+/// seconds, the export is cancelled and the user gets an error instead
+/// of an endless spinner.
+- (NSString *)beginProgressWithTitle:(NSString *)title timeout:(NSTimeInterval)timeout {
+    NSString *token = [[NSUUID UUID] UUIDString];
+    self.activeMixToken = token;
+    EZNeonSheet *sheet = [EZNeonSheet sheetInHostView:[self sheetHostView] centered:YES];
+    sheet.dismissOnBackdropTap = NO;
+    [sheet setTitle:title message:nil];
+    [sheet addSpinner];
+    self.progressSheet = sheet;
+    [sheet present];
+
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeout * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        typeof(self) strongSelf = weakSelf;
+        if (!strongSelf || ![strongSelf.activeMixToken isEqualToString:token]) return;
+        [strongSelf.activeExport cancelExport];
+        NSError *timeoutError = [NSError errorWithDomain:@"EZSounds" code:-42
+            userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"EZSounds.MixTimeout", nil)}];
+        [strongSelf finishProgressForToken:token error:timeoutError successTitle:nil successMessage:nil];
+    });
+    return token;
+}
+
+/// The single exit door for both mixes. Runs on the main queue, fires
+/// exactly once per token (late completions and the watchdog can't
+/// double-finish), always dismisses the progress sheet, and always
+/// shows the outcome.
+- (void)finishProgressForToken:(NSString *)token
+                         error:(nullable NSError *)error
+                  successTitle:(nullable NSString *)successTitle
+                successMessage:(nullable NSString *)successMessage {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (![self.activeMixToken isEqualToString:token]) return;
+        self.activeMixToken = nil;
+        self.activeExport = nil;
+        EZNeonSheet *sheet = self.progressSheet;
+        self.progressSheet = nil;
+        void (^showResult)(void) = ^{
+            if (error) {
+                [self showAlertTitle:NSLocalizedString(@"EZSounds.ErrorTitle", nil)
+                             message:(error.localizedDescription
+                                      ?: NSLocalizedString(@"EZSounds.GenericError", nil))];
+            } else if (successMessage) {
+                [self showAlertTitle:(successTitle ?: NSLocalizedString(@"EZSounds.Title", nil))
+                             message:successMessage];
+            }
+        };
+        if (sheet) {
+            [sheet dismissWithCompletion:showResult];
+        } else {
+            showResult();
+        }
+    });
+}
+
 #pragma mark - Create tab
 
 - (NSInteger)selectedSeconds {
@@ -561,7 +876,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 - (EZMediaPlayerItem *)playerItemForEntry:(EZSoundManifestEntry *)entry {
     NSURL *url = [[EZSoundLibraryManager sharedManager] absoluteURLForEntry:entry];
     return [EZMediaPlayerItem itemWithIdentifier:[kEZSoundsPlayerIdentifierPrefix stringByAppendingString:entry.uuid]
-                                           title:(entry.preview.length ? entry.preview : entry.prompt)
+                                           title:[self displayTitleForEntry:entry]
                                         subtitle:@"EZCompleteUI"
                                          fileURL:url
                                     durationHint:entry.duration];
@@ -592,7 +907,9 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     for (EZSoundManifestEntry *entry in self.entries) [items addObject:[self playerItemForEntry:entry]];
     EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
     [player playItem:items.firstObject];
-    [player replaceUpNext:[items subarrayWithRange:NSMakeRange(1, items.count - 1)]];
+    if (items.count > 1) {
+        [player replaceUpNext:[items subarrayWithRange:NSMakeRange(1, items.count - 1)]];
+    }
 }
 
 - (void)playerDidUpdate:(NSNotification *)note {
@@ -630,20 +947,23 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     cell.imageView.image = icon;
     cell.imageView.tintColor = current ? EZSoundsNeonPink() : EZSoundsNeonCyan();
 
-    cell.textLabel.text = entry.preview.length ? entry.preview : entry.prompt;
+    cell.textLabel.text = [self displayTitleForEntry:entry];
     cell.textLabel.textColor = current ? EZSoundsNeonPink() : EZSoundsNeonText();
     cell.textLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     cell.textLabel.numberOfLines = 1;
 
     NSString *durationText = [EZMediaPlayerManager formattedTime:entry.duration];
     BOOL loop = [entry.metadata[@"loop"] respondsToSelector:@selector(boolValue)] && [entry.metadata[@"loop"] boolValue];
+    BOOL hasCustomTitle = [entry.metadata[@"title"] isKindOfClass:NSString.class] &&
+                          [(NSString *)entry.metadata[@"title"] length] > 0;
     NSDateFormatter *fmt = [[NSDateFormatter alloc] init];
     fmt.dateStyle = NSDateFormatterShortStyle;
     fmt.timeStyle = NSDateFormatterShortStyle;
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@%@%@%@",
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@%@%@%@%@",
         durationText,
         loop ? @" • ∞" : @"",
         entry.isFavorite ? @" • ★" : @"",
+        hasCustomTitle ? [NSString stringWithFormat:@" • %@", entry.preview ?: @""] : @"",
         [NSString stringWithFormat:@" • %@", [fmt stringFromDate:entry.created]]];
     cell.detailTextLabel.textColor = EZSoundsNeonDimText();
     cell.detailTextLabel.font = [UIFont systemFontOfSize:12.5];
@@ -697,70 +1017,85 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 
 - (void)moreTapped:(UIButton *)sender {
     if (sender.tag < 0 || sender.tag >= (NSInteger)self.entries.count) return;
-    [self presentActionsForEntry:self.entries[sender.tag] sourceView:sender];
+    [self presentActionsForEntry:self.entries[sender.tag]];
 }
 
-- (void)presentActionsForEntry:(EZSoundManifestEntry *)entry sourceView:(UIView *)sourceView {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:(entry.preview.length ? entry.preview : entry.prompt)
-                                                                   message:nil
-                                                            preferredStyle:UIAlertControllerStyleActionSheet];
-    [sheet addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSounds.AddToVideo", nil)
-                                               style:UIAlertActionStyleDefault
-                                             handler:^(UIAlertAction *action) {
-        [self beginAddToVideoForEntry:entry];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSounds.UseAsTTSBackground", nil)
-                                               style:UIAlertActionStyleDefault
-                                             handler:^(UIAlertAction *action) {
-        [self beginTTSBackgroundForEntry:entry];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSounds.Share", nil)
-                                               style:UIAlertActionStyleDefault
-                                             handler:^(UIAlertAction *action) {
-        [self shareEntry:entry sourceView:sourceView];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:(entry.isFavorite
-                                                     ? NSLocalizedString(@"EZSounds.Unfavorite", nil)
-                                                     : NSLocalizedString(@"EZSounds.Favorite", nil))
-                                               style:UIAlertActionStyleDefault
-                                             handler:^(UIAlertAction *action) {
+- (void)presentActionsForEntry:(EZSoundManifestEntry *)entry {
+    EZNeonSheet *sheet = [EZNeonSheet sheetInHostView:[self sheetHostView] centered:NO];
+    sheet.dismissOnBackdropTap = YES;
+    [sheet setTitle:[self displayTitleForEntry:entry] message:nil];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.AddToVideo", nil)
+                  destructive:NO
+                      handler:^{ [self beginAddToVideoForEntry:entry]; }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.UseAsTTSBackground", nil)
+                  destructive:NO
+                      handler:^{ [self beginTTSBackgroundForEntry:entry]; }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Rename", nil)
+                  destructive:NO
+                      handler:^{ [self presentRenameForEntry:entry]; }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Share", nil)
+                  destructive:NO
+                      handler:^{ [self shareEntry:entry]; }];
+    [sheet addButtonWithTitle:(entry.isFavorite
+                                ? NSLocalizedString(@"EZSounds.Unfavorite", nil)
+                                : NSLocalizedString(@"EZSounds.Favorite", nil))
+                  destructive:NO
+                      handler:^{
         [[EZSoundLibraryManager sharedManager] setFavorite:!entry.isFavorite
                                               forSoundUUID:entry.uuid
                                                 completion:^(EZSoundManifestEntry *updated, NSError *error) {
             [self reloadEntries];
         }];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSounds.Delete", nil)
-                                               style:UIAlertActionStyleDestructive
-                                             handler:^(UIAlertAction *action) {
-        [self confirmDeleteEntry:entry];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSounds.Cancel", nil)
-                                               style:UIAlertActionStyleCancel handler:nil]];
-    sheet.popoverPresentationController.sourceView = sourceView;
-    sheet.popoverPresentationController.sourceRect = sourceView.bounds;
-    [self presentViewController:sheet animated:YES completion:nil];
+    }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Delete", nil)
+                  destructive:YES
+                      handler:^{ [self confirmDeleteEntry:entry]; }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Cancel", nil)
+                  destructive:NO handler:nil];
+    [sheet present];
 }
 
-- (void)shareEntry:(EZSoundManifestEntry *)entry sourceView:(UIView *)sourceView {
+- (void)presentRenameForEntry:(EZSoundManifestEntry *)entry {
+    EZNeonSheet *sheet = [EZNeonSheet sheetInHostView:[self sheetHostView] centered:YES];
+    [sheet setTitle:NSLocalizedString(@"EZSounds.Rename", nil) message:nil];
+    NSString *current = [entry.metadata[@"title"] isKindOfClass:NSString.class] ? entry.metadata[@"title"] : nil;
+    [sheet addTextFieldWithText:(current ?: @"")
+                    placeholder:NSLocalizedString(@"EZSounds.RenamePlaceholder", nil)];
+    __weak EZNeonSheet *weakSheet = sheet;
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Save", nil)
+                  destructive:NO
+                      handler:^{
+        NSString *title = [weakSheet.textField.text
+            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        [[EZSoundLibraryManager sharedManager] renameSoundWithUUID:entry.uuid
+                                                             title:title
+                                                        completion:^(EZSoundManifestEntry *updated, NSError *error) {
+            [self reloadEntries];
+        }];
+    }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Cancel", nil)
+                  destructive:NO handler:nil];
+    [sheet present];
+}
+
+- (void)shareEntry:(EZSoundManifestEntry *)entry {
     NSURL *url = [[EZSoundLibraryManager sharedManager] exportURLForSoundWithUUID:entry.uuid];
     if (!url) return;
     UIActivityViewController *activity = [[UIActivityViewController alloc] initWithActivityItems:@[url]
                                                                              applicationActivities:nil];
-    activity.popoverPresentationController.sourceView = sourceView;
-    activity.popoverPresentationController.sourceRect = sourceView.bounds;
+    activity.popoverPresentationController.sourceView = self.view;
+    activity.popoverPresentationController.sourceRect =
+        CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 1, 1);
     [self presentViewController:activity animated:YES completion:nil];
 }
 
 - (void)confirmDeleteEntry:(EZSoundManifestEntry *)entry {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"EZSounds.DeleteConfirmTitle", nil)
-                                                                   message:(entry.preview.length ? entry.preview : entry.prompt)
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSounds.Cancel", nil)
-                                               style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSounds.Delete", nil)
-                                               style:UIAlertActionStyleDestructive
-                                             handler:^(UIAlertAction *action) {
+    EZNeonSheet *sheet = [EZNeonSheet sheetInHostView:[self sheetHostView] centered:YES];
+    [sheet setTitle:NSLocalizedString(@"EZSounds.DeleteConfirmTitle", nil)
+            message:[self displayTitleForEntry:entry]];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Delete", nil)
+                  destructive:YES
+                      handler:^{
         // removeItemWithIdentifier: also drops it from Up Next, and moves
         // playback on if it happens to be the current item.
         [[EZMediaPlayerManager sharedManager]
@@ -769,46 +1104,22 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
                                                         completion:^(BOOL success, NSError *error) {
             [self reloadEntries];
         }];
-    }]];
-    [self presentViewController:alert animated:YES completion:nil];
-}
-
-#pragma mark - Alerts / progress
-
-- (void)showAlertTitle:(NSString *)title message:(NSString *)message {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
-                                                                   message:message
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-    [self presentViewController:alert animated:YES completion:nil];
-}
-
-- (UIAlertController *)presentProgressAlertWithTitle:(NSString *)title {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
-                                                                   message:@"\n"
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
-    spinner.translatesAutoresizingMaskIntoConstraints = NO;
-    [alert.view addSubview:spinner];
-    [NSLayoutConstraint activateConstraints:@[
-        [spinner.centerXAnchor constraintEqualToAnchor:alert.view.centerXAnchor],
-        [spinner.bottomAnchor constraintEqualToAnchor:alert.view.bottomAnchor constant:-52],
-    ]];
-    [spinner startAnimating];
-    [self presentViewController:alert animated:YES completion:nil];
-    return alert;
+    }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Cancel", nil)
+                  destructive:NO handler:nil];
+    [sheet present];
 }
 
 #pragma mark - Add to Video
 
 - (void)beginAddToVideoForEntry:(EZSoundManifestEntry *)entry {
     self.pendingVideoEntry = entry;
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"EZSounds.PickVideoSource", nil)
-                                                                   message:nil
-                                                            preferredStyle:UIAlertControllerStyleActionSheet];
-    [sheet addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSounds.PhotoLibrary", nil)
-                                               style:UIAlertActionStyleDefault
-                                             handler:^(UIAlertAction *action) {
+    EZNeonSheet *sheet = [EZNeonSheet sheetInHostView:[self sheetHostView] centered:NO];
+    sheet.dismissOnBackdropTap = YES;
+    [sheet setTitle:NSLocalizedString(@"EZSounds.PickVideoSource", nil) message:nil];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.PhotoLibrary", nil)
+                  destructive:NO
+                      handler:^{
         if (![UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypePhotoLibrary]) return;
         UIImagePickerController *picker = [[UIImagePickerController alloc] init];
         picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
@@ -816,19 +1127,19 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         picker.videoQuality = UIImagePickerControllerQualityTypeHigh;
         picker.delegate = self;
         [self presentViewController:picker animated:YES completion:nil];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSounds.Files", nil)
-                                               style:UIAlertActionStyleDefault
-                                             handler:^(UIAlertAction *action) {
+    }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Files", nil)
+                  destructive:NO
+                      handler:^{
         UIDocumentPickerViewController *picker =
             [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeMovie, UTTypeVideo]];
         picker.delegate = self;
         picker.allowsMultipleSelection = NO;
         [self presentViewController:picker animated:YES completion:nil];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSounds.Cancel", nil)
-                                               style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:sheet animated:YES completion:nil];
+    }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Cancel", nil)
+                  destructive:NO handler:nil];
+    [sheet present];
 }
 
 - (void)imagePickerController:(UIImagePickerController *)picker
@@ -880,9 +1191,11 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 /// the sound loops to fill the video's length at bed level and fades out over
 /// the last two seconds. Exports an .mp4 into the Sounds cache and offers it
 /// through the share sheet (Save Video lands it in Photos from there).
+/// Finishes through the watchdog-guarded funnel, like the TTS mix.
 - (void)muxVideoAtURL:(NSURL *)videoURL withBedEntry:(EZSoundManifestEntry *)entry {
     NSURL *bedURL = [[EZSoundLibraryManager sharedManager] absoluteURLForEntry:entry];
-    UIAlertController *progress = [self presentProgressAlertWithTitle:NSLocalizedString(@"EZSounds.AddingToVideo", nil)];
+    NSString *token = [self beginProgressWithTitle:NSLocalizedString(@"EZSounds.AddingToVideo", nil)
+                                           timeout:240];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         AVURLAsset *videoAsset = [AVURLAsset URLAssetWithURL:videoURL options:nil];
         AVURLAsset *bedAsset = [AVURLAsset URLAssetWithURL:bedURL options:nil];
@@ -894,8 +1207,13 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         AVMutableAudioMix *audioMix = [AVMutableAudioMix audioMix];
         NSMutableArray<AVMutableAudioMixInputParameters *> *mixParams = [NSMutableArray array];
 
-        if (videoTrack && bedTrack && CMTIME_IS_NUMERIC(videoDuration) &&
-            CMTIME_COMPARE_INLINE(videoDuration, >, kCMTimeZero) &&
+        // A video whose duration can't be read (indefinite / non-numeric) is
+        // rejected up front — tiling a bed against an unknown length is how
+        // exports wedge.
+        BOOL durationOK = CMTIME_IS_NUMERIC(videoDuration) &&
+                          CMTIME_COMPARE_INLINE(videoDuration, >, kCMTimeZero) &&
+                          CMTimeGetSeconds(videoDuration) < 6 * 3600;
+        if (videoTrack && bedTrack && durationOK &&
             CMTIME_COMPARE_INLINE(bedAsset.duration, >, kCMTimeZero)) {
             AVMutableCompositionTrack *videoOut = [composition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
             [videoOut insertTimeRange:CMTimeRangeMake(kCMTimeZero, videoDuration) ofTrack:videoTrack atTime:kCMTimeZero error:&insertError];
@@ -913,6 +1231,11 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
                 while (!insertError && CMTIME_COMPARE_INLINE(cursor, <, videoDuration)) {
                     CMTime remaining = CMTimeSubtract(videoDuration, cursor);
                     CMTime part = CMTimeMinimum(bedAsset.duration, remaining);
+                    if (CMTIME_COMPARE_INLINE(part, <=, kCMTimeZero)) {
+                        insertError = [NSError errorWithDomain:@"EZSounds" code:-43
+                            userInfo:@{NSLocalizedDescriptionKey: @"Could not read that sound."}];
+                        break;
+                    }
                     [bedOut insertTimeRange:CMTimeRangeMake(kCMTimeZero, part) ofTrack:bedTrack atTime:cursor error:&insertError];
                     cursor = CMTimeAdd(cursor, part);
                 }
@@ -934,12 +1257,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         }
 
         if (insertError) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [progress dismissViewControllerAnimated:YES completion:^{
-                    [self showAlertTitle:NSLocalizedString(@"EZSounds.ErrorTitle", nil)
-                                 message:insertError.localizedDescription];
-                }];
-            });
+            [self finishProgressForToken:token error:insertError successTitle:nil successMessage:nil];
             return;
         }
         audioMix.inputParameters = mixParams;
@@ -954,10 +1272,18 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         exporter.outputFileType = AVFileTypeMPEG4;
         exporter.audioMix = audioMix;
         exporter.shouldOptimizeForNetworkUse = YES;
+        dispatch_async(dispatch_get_main_queue(), ^{ self.activeExport = exporter; });
         [exporter exportAsynchronouslyWithCompletionHandler:^{
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [progress dismissViewControllerAnimated:YES completion:^{
-                    if (exporter.status == AVAssetExportSessionStatusCompleted) {
+            if (exporter.status == AVAssetExportSessionStatusCompleted) {
+                // Success here has no message of its own — dismiss the
+                // progress UI and hand the file to the share sheet.
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (![self.activeMixToken isEqualToString:token]) return;
+                    self.activeMixToken = nil;
+                    self.activeExport = nil;
+                    EZNeonSheet *sheet = self.progressSheet;
+                    self.progressSheet = nil;
+                    void (^share)(void) = ^{
                         UIActivityViewController *activity =
                             [[UIActivityViewController alloc] initWithActivityItems:@[outURL]
                                                               applicationActivities:nil];
@@ -965,13 +1291,14 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
                         activity.popoverPresentationController.sourceRect =
                             CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 1, 1);
                         [self presentViewController:activity animated:YES completion:nil];
-                    } else {
-                        [self showAlertTitle:NSLocalizedString(@"EZSounds.ErrorTitle", nil)
-                                     message:(exporter.error.localizedDescription
-                                              ?: NSLocalizedString(@"EZSounds.GenericError", nil))];
-                    }
-                }];
-            });
+                    };
+                    if (sheet) [sheet dismissWithCompletion:share]; else share();
+                });
+            } else {
+                NSError *exportError = exporter.error ?: [NSError errorWithDomain:@"EZSounds" code:-44
+                    userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"EZSounds.GenericError", nil)}];
+                [self finishProgressForToken:token error:exportError successTitle:nil successMessage:nil];
+            }
         }];
     });
 }
@@ -988,8 +1315,19 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     EZSoundsTTSClipPickerViewController *picker = [[EZSoundsTTSClipPickerViewController alloc] initWithStyle:UITableViewStylePlain];
     __weak typeof(self) weakSelf = self;
     picker.onPick = ^(EZTTSManifestEntry *clip) {
+        // Start the mix only once the pop transition has settled — the
+        // previous build presented its progress UI mid-transition and
+        // chained dismissals off it, which is how the flow could wedge.
+        id<UIViewControllerTransitionCoordinator> coordinator =
+            weakSelf.navigationController.transitionCoordinator;
         [weakSelf.navigationController popViewControllerAnimated:YES];
-        [weakSelf mixTTSClip:clip withBedEntry:entry];
+        if (coordinator) {
+            [coordinator animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+                [weakSelf mixTTSClip:clip withBedEntry:entry];
+            }];
+        } else {
+            [weakSelf mixTTSClip:clip withBedEntry:entry];
+        }
     };
     [self.navigationController pushViewController:picker animated:YES];
 }
@@ -999,17 +1337,23 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 /// narration plus a 3-second tail that fades out. The two layers are copied
 /// into the TTS library and linked from the mixed clip's scene metadata, so
 /// the TTS clip editor can re-mix it later like any other scene.
+///
+/// Lengths come from the library manifests (measured when each file was
+/// saved), not from AVAsset's own duration — an asset that misreports its
+/// length can no longer stretch the mix, and every exit goes through the
+/// watchdog-guarded finish funnel, so the progress UI always resolves.
 - (void)mixTTSClip:(EZTTSManifestEntry *)clip withBedEntry:(EZSoundManifestEntry *)entry {
     EZTTSLibraryManager *ttsLibrary = [EZTTSLibraryManager sharedManager];
     NSURL *narrationURL = [ttsLibrary absoluteURLForEntry:clip];
     NSURL *bedURL = [[EZSoundLibraryManager sharedManager] absoluteURLForEntry:entry];
-    UIAlertController *progress = [self presentProgressAlertWithTitle:NSLocalizedString(@"EZSounds.MixingTTSBackground", nil)];
+    NSString *token = [self beginProgressWithTitle:NSLocalizedString(@"EZSounds.MixingTTSBackground", nil)
+                                           timeout:120];
 
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         // 1. Archive the two layers in the TTS library, TTS-scene style.
-        NSString *token = [[NSUUID UUID] UUIDString];
-        NSString *narrationName = [NSString stringWithFormat:@"narration_%@.%@", token, narrationURL.pathExtension ?: @"mp3"];
-        NSString *backgroundName = [NSString stringWithFormat:@"sound_%@.%@", token, bedURL.pathExtension ?: @"mp3"];
+        NSString *layerToken = [[NSUUID UUID] UUIDString];
+        NSString *narrationName = [NSString stringWithFormat:@"narration_%@.%@", layerToken, narrationURL.pathExtension ?: @"mp3"];
+        NSString *backgroundName = [NSString stringWithFormat:@"sound_%@.%@", layerToken, bedURL.pathExtension ?: @"mp3"];
         NSString *narrationPath = [@"Sources" stringByAppendingPathComponent:narrationName];
         NSString *backgroundPath = [@"Sounds" stringByAppendingPathComponent:backgroundName];
         NSURL *narrationDest = [ttsLibrary.libraryRootURL URLByAppendingPathComponent:narrationPath];
@@ -1039,21 +1383,45 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         AVURLAsset *bed = [AVURLAsset URLAssetWithURL:bedURL options:nil];
         AVAssetTrack *voiceTrack = [[narration tracksWithMediaType:AVMediaTypeAudio] firstObject];
         AVAssetTrack *bedTrack = [[bed tracksWithMediaType:AVMediaTypeAudio] firstObject];
-        CMTime narrationDuration = narration.duration;
-        CMTime tail = CMTimeMakeWithSeconds(3.0, 600);
-        CMTime mixDuration = CMTimeAdd(narrationDuration, tail);
+
+        // Authoritative lengths: the manifests' measured durations, each
+        // cross-checked against (and capped by) its track's real range when
+        // the track reports a sane one.
+        double narrationSeconds = clip.duration;
+        double bedSeconds = entry.duration;
+        if (voiceTrack && CMTIME_IS_NUMERIC(voiceTrack.timeRange.duration)) {
+            double trackSeconds = CMTimeGetSeconds(voiceTrack.timeRange.duration);
+            if (trackSeconds > 0) narrationSeconds = (narrationSeconds > 0)
+                ? MIN(narrationSeconds, trackSeconds) : trackSeconds;
+        }
+        if (bedTrack && CMTIME_IS_NUMERIC(bedTrack.timeRange.duration)) {
+            double trackSeconds = CMTimeGetSeconds(bedTrack.timeRange.duration);
+            if (trackSeconds > 0) bedSeconds = (bedSeconds > 0)
+                ? MIN(bedSeconds, trackSeconds) : trackSeconds;
+        }
+
         NSError *mixError = nil;
         AVMutableComposition *composition = [AVMutableComposition composition];
-        if (voiceTrack && bedTrack && CMTIME_IS_NUMERIC(narrationDuration) &&
-            CMTIME_COMPARE_INLINE(narrationDuration, >, kCMTimeZero) &&
-            CMTIME_COMPARE_INLINE(bed.duration, >, kCMTimeZero)) {
+        BOOL lengthsOK = voiceTrack && bedTrack &&
+                         narrationSeconds > 0.05 && narrationSeconds < 6 * 3600 &&
+                         bedSeconds > 0.05 && bedSeconds < 3600;
+        if (lengthsOK) {
+            CMTime narrationDuration = CMTimeMakeWithSeconds(narrationSeconds, 600);
+            CMTime bedDuration = CMTimeMakeWithSeconds(bedSeconds, 600);
+            CMTime tail = CMTimeMakeWithSeconds(3.0, 600);
+            CMTime mixDuration = CMTimeAdd(narrationDuration, tail);
             AVMutableCompositionTrack *voice = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
             [voice insertTimeRange:CMTimeRangeMake(kCMTimeZero, narrationDuration) ofTrack:voiceTrack atTime:kCMTimeZero error:&mixError];
             AVMutableCompositionTrack *bedOut = [composition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
             CMTime cursor = kCMTimeZero;
             while (!mixError && CMTIME_COMPARE_INLINE(cursor, <, mixDuration)) {
                 CMTime remaining = CMTimeSubtract(mixDuration, cursor);
-                CMTime part = CMTimeMinimum(bed.duration, remaining);
+                CMTime part = CMTimeMinimum(bedDuration, remaining);
+                if (CMTIME_COMPARE_INLINE(part, <=, kCMTimeZero)) {
+                    mixError = [NSError errorWithDomain:@"EZSounds" code:-43
+                        userInfo:@{NSLocalizedDescriptionKey: @"Could not read that sound."}];
+                    break;
+                }
                 [bedOut insertTimeRange:CMTimeRangeMake(kCMTimeZero, part) ofTrack:bedTrack atTime:cursor error:&mixError];
                 cursor = CMTimeAdd(cursor, part);
             }
@@ -1066,24 +1434,21 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
                 audioMix.inputParameters = @[bedMix];
 
                 NSURL *outURL = [NSURL fileURLWithPath:[NSTemporaryDirectory()
-                    stringByAppendingPathComponent:[NSString stringWithFormat:@"sound_scene_%@.m4a", token]]];
+                    stringByAppendingPathComponent:[NSString stringWithFormat:@"sound_scene_%@.m4a", layerToken]]];
                 [fm removeItemAtURL:outURL error:nil];
                 AVAssetExportSession *exporter = [[AVAssetExportSession alloc] initWithAsset:composition
                                                                                     presetName:AVAssetExportPresetAppleM4A];
                 exporter.outputURL = outURL;
                 exporter.outputFileType = AVFileTypeM4A;
                 exporter.audioMix = audioMix;
+                dispatch_async(dispatch_get_main_queue(), ^{ self.activeExport = exporter; });
                 [exporter exportAsynchronouslyWithCompletionHandler:^{
                     NSData *mixedData = (exporter.status == AVAssetExportSessionStatusCompleted)
                         ? [NSData dataWithContentsOfURL:outURL] : nil;
                     if (!mixedData.length) {
-                        dispatch_async(dispatch_get_main_queue(), ^{
-                            [progress dismissViewControllerAnimated:YES completion:^{
-                                [self showAlertTitle:NSLocalizedString(@"EZSounds.ErrorTitle", nil)
-                                             message:(exporter.error.localizedDescription
-                                                      ?: NSLocalizedString(@"EZSounds.GenericError", nil))];
-                            }];
-                        });
+                        NSError *exportError = exporter.error ?: [NSError errorWithDomain:@"EZSounds" code:-44
+                            userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"EZSounds.GenericError", nil)}];
+                        [self finishProgressForToken:token error:exportError successTitle:nil successMessage:nil];
                         return;
                     }
                     [ttsLibrary saveAudioData:mixedData
@@ -1095,16 +1460,17 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
                                     extension:@"m4a"
                                      metadata:sceneMetadata
                                    completion:^(EZTTSManifestEntry *saved, NSError *saveError) {
-                        [progress dismissViewControllerAnimated:YES completion:^{
-                            if (saved) {
-                                [self showAlertTitle:NSLocalizedString(@"EZSounds.UseAsTTSBackground", nil)
-                                             message:NSLocalizedString(@"EZSounds.TTSBackgroundSaved", nil)];
-                            } else {
-                                [self showAlertTitle:NSLocalizedString(@"EZSounds.ErrorTitle", nil)
-                                             message:(saveError.localizedDescription
-                                                      ?: NSLocalizedString(@"EZSounds.GenericError", nil))];
-                            }
-                        }];
+                        if (saved) {
+                            [self finishProgressForToken:token
+                                                   error:nil
+                                            successTitle:NSLocalizedString(@"EZSounds.UseAsTTSBackground", nil)
+                                          successMessage:NSLocalizedString(@"EZSounds.TTSBackgroundSaved", nil)];
+                        } else {
+                            [self finishProgressForToken:token
+                                                   error:(saveError ?: [NSError errorWithDomain:@"EZSounds" code:-45
+                                                       userInfo:@{NSLocalizedDescriptionKey: NSLocalizedString(@"EZSounds.GenericError", nil)}])
+                                            successTitle:nil successMessage:nil];
+                        }
                     }];
                 }];
                 return;
@@ -1112,12 +1478,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         }
         NSError *failError = mixError ?: [NSError errorWithDomain:@"EZSounds" code:-41
             userInfo:@{NSLocalizedDescriptionKey: @"Could not prepare the audio tracks for mixing."}];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [progress dismissViewControllerAnimated:YES completion:^{
-                [self showAlertTitle:NSLocalizedString(@"EZSounds.ErrorTitle", nil)
-                             message:failError.localizedDescription];
-            }];
-        });
+        [self finishProgressForToken:token error:failError successTitle:nil successMessage:nil];
     });
 }
 

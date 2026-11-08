@@ -661,3 +661,9 @@
 "EZSounds.NoTTSClips" = "ليس لديك مقاطع تحويل نص إلى كلام بعد. أنشئ واحداً أولاً، ثم استخدم صوتاً كخلفية له.";
 "EZSounds.MixingTTSBackground" = "جارٍ مزج الخلفية…";
 "EZSounds.TTSBackgroundSaved" = "تم! المقطع الممزوج موجود في تحويل النص إلى كلام ← السجل، ويمكن إعادة مزجه هناك مثل أي مشهد آخر.";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "إعادة التسمية";
+"EZSounds.RenamePlaceholder" = "اسم هذا الصوت";
+"EZSounds.Save" = "حفظ";
+"EZSounds.MixTimeout" = "يستغرق هذا وقتاً طويلاً، لذا تم إلغاء المزج. جرّب مقطعاً أقصر.";

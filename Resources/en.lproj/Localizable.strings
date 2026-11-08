@@ -702,3 +702,9 @@
 "EZSounds.NoTTSClips" = "You don't have any Text-to-Speech clips yet. Create one first, then use a sound as its background.";
 "EZSounds.MixingTTSBackground" = "Mixing background…";
 "EZSounds.TTSBackgroundSaved" = "Done! The mixed clip is in Text to Speech → History, and it can be re-mixed there like any other scene.";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "Rename";
+"EZSounds.RenamePlaceholder" = "Name this sound";
+"EZSounds.Save" = "Save";
+"EZSounds.MixTimeout" = "This is taking too long, so the mix was cancelled. Try a shorter clip.";

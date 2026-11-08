@@ -661,3 +661,9 @@
 "EZSounds.NoTTSClips" = "आपके पास अभी कोई टेक्स्ट-टू-स्पीच क्लिप नहीं है। पहले एक बनाएँ, फिर ध्वनि को उसकी पृष्ठभूमि बनाएँ।";
 "EZSounds.MixingTTSBackground" = "पृष्ठभूमि मिक्स हो रही है…";
 "EZSounds.TTSBackgroundSaved" = "हो गया! मिक्स की गई क्लिप टेक्स्ट टू स्पीच → इतिहास में है, और वहाँ किसी भी अन्य सीन की तरह उसे फिर से मिक्स किया जा सकता है।";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "नाम बदलें";
+"EZSounds.RenamePlaceholder" = "इस ध्वनि का नाम";
+"EZSounds.Save" = "सहेजें";
+"EZSounds.MixTimeout" = "इसमें बहुत समय लग रहा है, इसलिए मिक्स रद्द कर दिया गया। छोटी क्लिप आज़माएँ।";

@@ -661,3 +661,9 @@
 "EZSounds.NoTTSClips" = "Bạn chưa có clip chuyển văn bản thành giọng nói nào. Tạo một clip trước, rồi dùng âm thanh làm nền cho nó.";
 "EZSounds.MixingTTSBackground" = "Đang trộn nền…";
 "EZSounds.TTSBackgroundSaved" = "Xong! Clip đã trộn nằm trong Chuyển văn bản thành giọng nói → Lịch sử, và có thể trộn lại ở đó như mọi cảnh khác.";
+
+/* EZSounds (rename + mix timeout) */
+"EZSounds.Rename" = "Đổi tên";
+"EZSounds.RenamePlaceholder" = "Tên của âm thanh này";
+"EZSounds.Save" = "Lưu";
+"EZSounds.MixTimeout" = "Việc này mất quá nhiều thời gian nên đã hủy trộn. Hãy thử clip ngắn hơn.";
