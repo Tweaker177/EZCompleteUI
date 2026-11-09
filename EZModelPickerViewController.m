@@ -62,9 +62,8 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
 }
 
 static BOOL EZModelRequiresSubscription(NSString *model) {
-    if ([model isEqualToString:@"gpt-6-astra"] || [model isEqualToString:@"gpt-6.1-sol"] ||
-        [model isEqualToString:@"gpt-6.1-terra"]) return YES;
-    return NO;
+    return [model isEqualToString:@"gpt-6-astra"] ||
+           [model isEqualToString:@"gpt-6.1-sol"];
 }
 
 @implementation EZModelPickerViewController
