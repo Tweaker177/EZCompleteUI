@@ -1310,6 +1310,9 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         selector:@selector(handleOpenChatThread:)
         name:@"EZOpenChatThread" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self
+        selector:@selector(handleSeahorseRerouteRequest:)
+        name:@"EZSeahorseRerouteRequested" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
         selector:@selector(handleSubscriptionUpdated)
         name:@"EZSubscriptionUpdated" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self
@@ -1856,6 +1859,25 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 /// extension, using dashes for the time component, e.g. "2026-04-05T14-29-20".
 /// EZChatThread.threadID uses colons internally ("2026-04-05T14:29:20"), so we
 /// normalise before calling EZThreadLoad.
+/// Handles the "EZSeahorseRerouteRequested" notification posted by the
+/// gallery editor (EZPhotoDetailViewController) when a safety-refused
+/// edit is rerouted. userInfo carries the edit prompt and the edit's
+/// source files as Seahorse references. The gallery has already
+/// dismissed itself by the time this runs, so the Seahorse flow's
+/// alerts can present here.
+- (void)handleSeahorseRerouteRequest:(NSNotification *)notification {
+    id promptObj = notification.userInfo[@"prompt"];
+    NSString *prompt = [promptObj isKindOfClass:NSString.class] ? promptObj : @"";
+    id refsObj = notification.userInfo[@"referencePaths"];
+    NSArray<NSString *> *referencePaths = [refsObj isKindOfClass:NSArray.class] ? refsObj : @[];
+    EZLogf(EZLogLevelInfo, @"SEAHORSE", @"gallery reroute received: refs=%lu",
+           (unsigned long)referencePaths.count);
+    self.selectedModel = @"seahorse-image";
+    [self.modelButton setTitle:@"Model: seahorse-image" forState:UIControlStateNormal];
+    [[NSUserDefaults standardUserDefaults] setObject:@"seahorse-image" forKey:@"selectedModel"];
+    [self callSeahorseImage:prompt referencePaths:referencePaths];
+}
+
 - (void)handleOpenChatThread:(NSNotification *)notification {
     NSString *rawID = notification.userInfo[@"threadID"];
     if (!rawID.length) {
