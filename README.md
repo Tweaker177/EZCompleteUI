@@ -29,10 +29,10 @@ The current release is **7.2.0** and targets iOS 15.0 and later. See
 - **Sounds:** generate any sound you can describe, up to 30 seconds, with an optional seamless loop — rain, ambience, effects, background beds. Sounds live in their own library with a built-in clip editor (trim, insert silence, normalize, speed, pitch/reverb/echo/EQ effects), and any sound can be mixed under a video or used as the background bed for a text-to-speech scene.
 - Text-to-speech with Apple voices and ElevenLabs voices, ElevenLabs voice cloning and clone management, and a TTS library where generations can be replayed, exported, re-ordered, edited, volume-maximized, effect-treated, and combined.
 - Transcription with Whisper, and Apple speech dictation.
-- **File explorer:** browse the app's storage, edit text files, create and extract ZIP/TAR/GZ archives, and manage a trash with restore — all without leaving the app.
+- **File explorer:** browse and search the app's storage, preview and share files, edit text files, create and extract ZIP, TAR, and Debian package archives, and manage a trash with restore — all without leaving the app.
 - Web search toggle with an optional location hint.
 - **Brainrot slots:** two slot machines (Classic and Penny) with animated win celebrations and free spins, which free-coin claims can also award. Plus the Brainrot custom-game creation engine, a game library/picker, community-shared games, and admin tools.
-- Recurring free-coin claims from the coin store, periodic buy-one-get-one promotions, and a referral program: share your code and you and each friend who signs up with it get 200 free coins.
+- Free coins every 6 hours from the coin store, periodic buy-one-get-one promotions, and a referral program: share your code and you and each friend who signs up with it get 200 free coins.
 - The interface is localized in 17 languages.
 - In-app Terms, Privacy, Refund, and Support/Feedback screens.
 
@@ -63,7 +63,7 @@ Everything AI in the app runs on coins. Subscriptions credit coins monthly (annu
 | Power | $49.99/mo | 6,250 |
 | Enterprise | $99.99/mo | 12,500 |
 
-One-time coin packs are also available from $5 (400 coins) to $99.99 (12,500 coins). Free coins can be claimed from the store on a recurring timer, claims can award free spins for the slot machines, and the store runs periodic buy-one-get-one promotions on packs and subscriptions.
+One-time coin packs are also available from $5 (400 coins) to $99.99 (12,500 coins). Free coins can be claimed from the store every 6 hours (5 coins per claim, 10 for subscribers), claims can award free spins for the slot machines, and the store runs periodic buy-one-get-one promotions on packs and subscriptions.
 
 ## Using the app
 
