@@ -31,6 +31,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.0",
+          "buildVersion": "7.2.0",
+          "date": "2026-11-09",
+          "localizedDescription": "## What's new since 7.1.17\n\n### Sound effects and scenes\n\n- Meet **Sounds**: describe an environment, effect, or other sound and generate audio from your prompt. Choose its duration and whether it should loop.\n- Browse and play your sounds in a dedicated library, mark favorites, rename, edit, share, and delete them.\n- Add a sound to a video or mix it underneath a text-to-speech clip. Reopen the resulting scene in the clip editor to adjust the mix.\n- Sounds now has styled menus, improved progress handling, and keyboard behavior that keeps the prompt in view while editing.\n\n### File Explorer\n\n- Explore files and folders inside the app, search the current folder, preview supported documents, inspect file information, and share files.\n- Edit supported text and source files with the built-in editor. Read-only handling protects files that cannot safely be edited.\n- Work with ZIP, TAR, and supported Debian package archives, including archive extraction and ZIP creation.\n- Move files to Trash and restore them when needed. Archive extraction and trash navigation have also been improved.\n\n### Image generation\n\n- Added the Seahorse image generation option, including its account enrollment and reference-image flow.\n- Improved handling of reference photos and image attachments so vision requests stay with the intended image workflow.\n\n### Music, chat, and games\n\n- The AI Music library is easier to reach, and its playlist plays through the visible list in order.\n- Restored chats and thread titles no longer expose internal formatting wrappers.\n- Slot wins now highlight winning lines one at a time with animated symbols. Free-spin rewards also have an updated celebration.\n\nIncludes additional fixes, accessibility and localization updates, and improvements throughout the app. Online features require their corresponding services to be available.\n\n## Downloads\n\n- **IPA:** `EZCompleteUI-7.2.0-release.ipa`\n- **Deb:** `com.i0stweak3r.ezcompleteui_7.2.0_iphoneos-arm64.deb`\n\nRequires iOS 15…",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.0/EZCompleteUI-7.2.0-release.ipa",
+          "size": 12159794,
+          "sha256": "07d763bb20757c0e2068898fa1cca483f3b151b21c7c4648eaa5d1e05f942e54",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.1.17",
           "buildVersion": "7.1.17",
           "date": "2026-11-03",
@@ -114,6 +124,7 @@
       "appPermissions": {
         "entitlements": [],
         "privacy": {
+          "NSCameraUsageDescription": "EZCompleteUI uses the camera to take a one-time selfie for the NSFW image selfie check. The selfie stays on this device and is never uploaded.",
           "NSDocumentsFolderUsageDescription": "EZCompleteUI needs access to your files so you can attach documents, images, and audio to your chats.",
           "NSMicrophoneUsageDescription": "EZCompleteUI uses the microphone for voice dictation.",
           "NSPhotoLibraryAddUsageDescription": "EZCompleteUI saves AI-generated images to your Photo Library.",
