@@ -1138,6 +1138,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 // interferes with the chat attachment pickers; it retains itself (via
 // EZSeahorseActiveIDPicker) until the picker dismisses.
 
+#import <CommonCrypto/CommonDigest.h>
+
 @interface EZSeahorseIDPicker : NSObject <UIImagePickerControllerDelegate, UINavigationControllerDelegate>
 @property (nonatomic, copy) void (^completion)(UIImage * _Nullable image);
 + (void)pickFromViewController:(UIViewController *)presenter
@@ -1230,6 +1232,54 @@ static NSData * _Nullable EZSeahorseFaceCropJPEGData(UIImage *image) {
     UIImage *cropImage = [UIImage imageWithCGImage:croppedRef];
     CGImageRelease(croppedRef);
     return UIImageJPEGRepresentation(cropImage, 0.7);
+}
+
+// SHA-256 hex of a data blob — for the generated-output provenance
+// check: ez-seahorse records the hash of every image it generates,
+// and a reference whose hash is on that registry passes
+// verify_reference without a likeness call.
+static NSString * _Nullable EZSeahorseSHA256Hex(NSData *data) {
+    if (!data.length) return nil;
+    unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256(data.bytes, (CC_LONG)data.length, digest);
+    NSMutableString *hex = [NSMutableString stringWithCapacity:CC_SHA256_DIGEST_LENGTH * 2];
+    for (int i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) {
+        [hex appendFormat:@"%02x", digest[i]];
+    }
+    return [hex copy];
+}
+
+// Hashes this device remembers for images ez-seahorse generated and
+// this app saved: local file path -> sha256 hex, taken from the
+// generate response. This is the reliable provenance channel — it
+// does not depend on the picked file's bytes surviving a round trip
+// through the photo library.
+static NSString * const EZSeahorseGeneratedHashesKey = @"EZSeahorseGeneratedHashes";
+
+static NSString * _Nullable EZSeahorseRecordedHashForPath(NSString *path) {
+    NSDictionary *map = [[NSUserDefaults standardUserDefaults]
+                         dictionaryForKey:EZSeahorseGeneratedHashesKey];
+    id hash = path ? map[path] : nil;
+    return [hash isKindOfClass:NSString.class] ? hash : nil;
+}
+
+static void EZSeahorseRecordHashForPath(NSString *path, NSString *hash) {
+    if (!path.length || !hash.length) return;
+    NSMutableDictionary *map = [[[NSUserDefaults standardUserDefaults]
+        dictionaryForKey:EZSeahorseGeneratedHashesKey] mutableCopy] ?: [NSMutableDictionary dictionary];
+    map[path] = hash;
+    [[NSUserDefaults standardUserDefaults] setObject:map forKey:EZSeahorseGeneratedHashesKey];
+}
+
+// The provenance hash for a reference file: the recorded hash when
+// this app saved the file itself; otherwise the SHA-256 of the
+// file's current bytes. The byte hash is an exact match — a
+// re-encoded, cropped, or screenshotted copy misses the registry
+// and falls back to the likeness check, exactly as before.
+static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
+    NSString *recorded = EZSeahorseRecordedHashForPath(path);
+    if (recorded) return recorded;
+    return EZSeahorseSHA256Hex([NSData dataWithContentsOfFile:path]);
 }
 
 @implementation ViewController
@@ -5084,6 +5134,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // The EZPrivate enrollment files from the v1/v2 builds are ignored.
 
 - (void)ezSeahorseFailWithMessage:(NSString *)message prompt:(NSString *)prompt {
+    EZLogf(EZLogLevelError, @"SEAHORSE", @"flow failed: %@", message);
     dispatch_async(dispatch_get_main_queue(), ^{
         [self hideStatusBanner];
         [self handleAPIError:message];
@@ -5094,7 +5145,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)callSeahorseImage:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths {
     self.sendButton.enabled = NO;
-    EZLog(EZLogLevelInfo, @"SEAHORSE", @"NSFW generation requested via ez-seahorse");
+    EZLogf(EZLogLevelInfo, @"SEAHORSE", @"generate requested: refs=%lu",
+           (unsigned long)referencePaths.count);
     NSString *token = [EZAuthManager shared].accessToken;
     if (!token) {
         [self handleAPIError:@"Not signed in"];
@@ -5136,6 +5188,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                          prompt:prompt];
                 return;
             }
+            EZLogf(EZLogLevelInfo, @"SEAHORSE", @"eligibility: id_verified=0 - ID check required");
             [self ezSeahorsePromptForIDWithPrompt:prompt referencePaths:referencePaths ageAlreadyVerified:NO];
             return;
         }
@@ -5152,6 +5205,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                          prompt:prompt];
                 return;
             }
+            EZLogf(EZLogLevelInfo, @"SEAHORSE", @"eligibility: id_verified=1 likeness_saved=0 - crop save required");
             [self ezSeahorsePromptForIDWithPrompt:prompt referencePaths:referencePaths ageAlreadyVerified:YES];
             return;
         }
@@ -5160,6 +5214,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         BOOL recentPurchase = [json[@"recent_purchase"] isKindOfClass:NSNumber.class] &&
                               [json[@"recent_purchase"] boolValue];
         if (!recentPurchase) {
+            EZLogf(EZLogLevelInfo, @"SEAHORSE", @"eligibility: purchase gate failed (window=%ld days)", (long)windowDays);
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self hideStatusBanner];
                 self.sendButton.enabled = YES;
@@ -5201,6 +5256,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             });
             return;
         }
+        EZLogf(EZLogLevelInfo, @"SEAHORSE", @"eligibility ok: id_verified=1 likeness_saved=1 purchase=1 balance=%ld", (long)balance);
         [self ezSeahorsePrepareReferencesWithPrompt:prompt referencePaths:referencePaths];
     }];
 }
@@ -5300,12 +5356,16 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         if (!verified) {
             id reasonObj = json[@"reason"];
             NSString *reason = [reasonObj isKindOfClass:NSString.class] ? reasonObj : nil;
+            EZLogf(EZLogLevelWarning, @"SEAHORSE", @"verify_id: verified=0 reason=%@", reason ?: @"unknown");
             [self ezSeahorseFailWithMessage:NSLocalizedString([reason isEqualToString:@"underage"]
                                                                   ? @"EZImageNSFW.IDUnderage"
                                                                   : @"EZImageNSFW.IDUnreadable", nil)
                                      prompt:prompt];
             return;
         }
+        EZLogf(EZLogLevelInfo, @"SEAHORSE", @"verify_id: verified=1 likeness_saved=%d slot=%ld",
+               [json[@"likeness_saved"] isKindOfClass:NSNumber.class] && [json[@"likeness_saved"] boolValue],
+               (long)([json[@"slot"] isKindOfClass:NSNumber.class] ? [json[@"slot"] integerValue] : 1));
         [self ezSeahorseFetchEligibilityWithPrompt:prompt referencePaths:referencePaths allowIDCheck:NO];
     }];
 }
@@ -5314,6 +5374,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                              referencePaths:(NSArray<NSString *> *)referencePaths {
     NSArray<NSString *> *refs = referencePaths;
     if (refs.count > 3) refs = [refs subarrayWithRange:NSMakeRange(refs.count - 3, 3)];
+    EZLogf(EZLogLevelInfo, @"SEAHORSE", @"references: %lu attached, checking %lu",
+           (unsigned long)referencePaths.count, (unsigned long)refs.count);
     if (refs.count == 0) {
         [self ezSeahorseGenerateWithPrompt:prompt referenceAssetURLs:@[]];
         return;
@@ -5337,6 +5399,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
     UIImage *refImage = [UIImage imageWithContentsOfFile:referencePaths[index]];
     NSData *refCrop = refImage ? EZSeahorseFaceCropJPEGData(refImage) : nil;
+    NSString *refHash = EZSeahorseReferenceHashForPath(referencePaths[index]);
+    EZLogf(EZLogLevelInfo, @"SEAHORSE", @"reference %lu: face_crop=%@ sha256=%@",
+           (unsigned long)(index + 1), refCrop ? @"yes" : @"no",
+           refHash ? [refHash substringToIndex:MIN((NSUInteger)12, refHash.length)] : @"none");
     if (!refCrop) {
         // No face in this reference means there is nothing to compare
         // against the enrollment — per the product rule that is fair
@@ -5359,10 +5425,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
     [self updateImageGenerationProgress:0.3];
     NSString *token = [EZAuthManager shared].accessToken;
-    NSDictionary *body = @{
+    NSMutableDictionary *body = [@{
         @"action":                 @"verify_reference",
         @"reference_image_base64": [refCrop base64EncodedStringWithOptions:0],
-    };
+    } mutableCopy];
+    if (refHash) body[@"reference_sha256"] = refHash;
     [self postToEZFunction:@"ez-seahorse" token:token body:body
                 completion:^(NSDictionary *json, NSError *error) {
         id errObj = json[@"error"];
@@ -5378,6 +5445,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
         NSString *verdict = (!error && json && [json[@"verdict"] isKindOfClass:NSString.class])
             ? json[@"verdict"] : nil;
+        EZLogf(EZLogLevelInfo, @"SEAHORSE", @"reference %lu verdict=%@%@",
+               (unsigned long)(index + 1),
+               verdict ?: (error ? @"call_failed" : @"none"),
+               ([json[@"registry_match"] isKindOfClass:NSNumber.class] && [json[@"registry_match"] boolValue])
+                   ? @" (registry match)" : @"");
         if ([verdict isEqualToString:@"different"]) {
             // The ONLY blocking verdict: the check is sure this is
             // someone else. "same", "unsure", a model refusal, and
@@ -5449,6 +5521,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         NSString *assetURL  = (!error && json && [json[@"asset_url"] isKindOfClass:NSString.class])
             ? json[@"asset_url"] : nil;
         if (!uploadURL.length || !assetURL.length) { completion(nil); return; }
+        EZLogf(EZLogLevelInfo, @"SEAHORSE", @"reference upload: presign ok, %lu bytes",
+               (unsigned long)jpeg.length);
         NSMutableURLRequest *put = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:uploadURL]];
         put.HTTPMethod = @"PUT";
         [put setValue:@"image/jpeg" forHTTPHeaderField:@"Content-Type"];
@@ -5456,6 +5530,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             completionHandler:^(NSData *d, NSURLResponse *response, NSError *uploadError) {
             NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
             BOOL ok = !uploadError && http.statusCode >= 200 && http.statusCode < 300;
+            EZLogf(EZLogLevelInfo, @"SEAHORSE", @"reference upload: PUT status=%ld ok=%d",
+                   (long)http.statusCode, ok);
             dispatch_async(dispatch_get_main_queue(), ^{
                 completion(ok ? assetURL : nil);
             });
@@ -5470,6 +5546,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSString *size = ([imgSize containsString:@"2048"] || [imgSize containsString:@"4096"]) ? @"4K" : @"2K";
     NSMutableDictionary *body = [@{ @"prompt": prompt, @"size": size, @"nsfw": @YES } mutableCopy];
     if (referenceAssetURLs.count) body[@"reference_asset_urls"] = referenceAssetURLs;
+    EZLogf(EZLogLevelInfo, @"SEAHORSE", @"generate: size=%@ refs_forwarded=%lu",
+           size, (unsigned long)referenceAssetURLs.count);
     [self updateImageGenerationProgress:0.45];
     NSString *savedPrompt = prompt;
     // Capture the thread that started this generation (same convention as
@@ -5522,6 +5600,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
             NSData *imgData = [NSData dataWithContentsOfURL:[NSURL URLWithString:imageURL]];
             NSString *path = imgData ? EZPhotoGallerySave(imgData, @"seahorse_1.png") : nil;
+            NSString *outputHash = [json[@"output_sha256"] isKindOfClass:NSString.class]
+                ? json[@"output_sha256"] : nil;
+            if (path && outputHash) EZSeahorseRecordHashForPath(path, outputHash);
+            EZLogf(EZLogLevelInfo, @"SEAHORSE", @"generate success: task=%@ output_sha256=%@ saved=%@",
+                   [json[@"task_id"] isKindOfClass:NSString.class] ? json[@"task_id"] : @"?",
+                   outputHash ? [outputHash substringToIndex:MIN((NSUInteger)12, outputHash.length)] : @"none",
+                   path ? @"yes" : @"no");
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (!path) {
                     [self ezSeahorseFailWithMessage:@"Image generated but could not be saved."
