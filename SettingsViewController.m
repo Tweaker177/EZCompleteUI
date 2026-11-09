@@ -20,6 +20,7 @@
     #import "EZReferralManager.h"
     #import "helpers.h"
     #import <SafariServices/SafariServices.h>
+    #import <Vision/Vision.h>
 
     static NSString * const kHelperTemperatureDefaultsKey = @"helperTemperature";
     static NSString * const kSpeedModeDefaultsKey       = @"fastMode";
@@ -33,6 +34,105 @@
     // PayPal sandbox plan ID — replace with live Plan ID before release
     static NSString * const kPayPalPlanID = @"P-1HW38522AL709604TNHUUASA";
 
+    // ── NSFW (Seahorse) enrollment helpers ────────────────────────────────
+    // Slim copies of the ID picker and the on-device face crop that live in
+    // ViewController.m for the chat flow — file-local there, so these are
+    // separate statics here. The picker class is renamed because
+    // ViewController's EZSeahorseIDPicker is a real Objective-C class and
+    // the name cannot repeat at link time.
+    @interface EZSettingsSeahorseIDPicker : NSObject <UIImagePickerControllerDelegate, UINavigationControllerDelegate>
+    @property (nonatomic, copy) void (^completion)(UIImage * _Nullable);
+    + (void)pickFromViewController:(UIViewController *)presenter
+                        completion:(void (^)(UIImage * _Nullable))completion;
+    @end
+
+    static EZSettingsSeahorseIDPicker *EZSettingsActiveSeahorsePicker = nil;
+
+    @implementation EZSettingsSeahorseIDPicker
+
+    + (void)pickFromViewController:(UIViewController *)presenter
+                        completion:(void (^)(UIImage * _Nullable))completion {
+        if (![UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypePhotoLibrary]) {
+            if (completion) completion(nil);
+            return;
+        }
+        EZSettingsSeahorseIDPicker *picker = [[EZSettingsSeahorseIDPicker alloc] init];
+        picker.completion = completion;
+        EZSettingsActiveSeahorsePicker = picker;
+        UIImagePickerController *ipc = [[UIImagePickerController alloc] init];
+        ipc.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
+        ipc.delegate = picker;
+        ipc.allowsEditing = NO;
+        [presenter presentViewController:ipc animated:YES completion:nil];
+    }
+
+    - (void)imagePickerController:(UIImagePickerController *)picker
+            didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> *)info {
+        UIImage *image = info[UIImagePickerControllerOriginalImage];
+        void (^completion)(UIImage *) = self.completion;
+        [picker dismissViewControllerAnimated:YES completion:^{
+            EZSettingsActiveSeahorsePicker = nil;
+            if (completion) completion(image);
+        }];
+    }
+
+    - (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker {
+        void (^completion)(UIImage *) = self.completion;
+        [picker dismissViewControllerAnimated:YES completion:^{
+            EZSettingsActiveSeahorsePicker = nil;
+            if (completion) completion(nil);
+        }];
+    }
+
+    @end
+
+    // Face-crops an image ON DEVICE (Vision): largest face, head-and-
+    // shoulders JPEG, or nil when no usable face is present. Same math as
+    // the chat flow's crop — the server compares against crops made this
+    // way, so the two must stay in step.
+    static NSData * _Nullable EZSettingsSeahorseFaceCropJPEGData(UIImage *image) {
+        if (!image) return nil;
+        UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+        format.scale = 1.0;
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:image.size format:format];
+        UIImage *flat = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull ctx) {
+            [image drawInRect:CGRectMake(0, 0, image.size.width, image.size.height)];
+        }];
+        CGImageRef cg = flat.CGImage;
+        if (!cg) return nil;
+
+        VNDetectFaceRectanglesRequest *request = [[VNDetectFaceRectanglesRequest alloc] init];
+        VNImageRequestHandler *handler = [[VNImageRequestHandler alloc] initWithCGImage:cg options:@{}];
+        NSError *detectError = nil;
+        if (![handler performRequests:@[request] error:&detectError]) return nil;
+
+        VNFaceObservation *best = nil;
+        CGFloat bestArea = 0;
+        for (VNFaceObservation *obs in request.results) {
+            CGFloat area = obs.boundingBox.size.width * obs.boundingBox.size.height;
+            if (area > bestArea) { bestArea = area; best = obs; }
+        }
+        if (!best) return nil;
+
+        CGFloat W = (CGFloat)CGImageGetWidth(cg);
+        CGFloat H = (CGFloat)CGImageGetHeight(cg);
+        CGRect bb = best.boundingBox; // normalized, origin at bottom-left
+        CGFloat fx = bb.origin.x * W;
+        CGFloat fw = bb.size.width * W;
+        CGFloat fh = bb.size.height * H;
+        CGFloat fyTop = (1.0 - bb.origin.y - bb.size.height) * H; // top-left origin
+        CGRect crop = CGRectMake(fx - fw * 0.45, fyTop - fh * 0.75, fw * 1.9, fh * 2.3);
+        crop = CGRectIntersection(crop, CGRectMake(0, 0, W, H));
+        if (CGRectIsNull(crop) || crop.size.width < 40 || crop.size.height < 40) return nil;
+
+        CGImageRef croppedRef = CGImageCreateWithImageInRect(cg, crop);
+        if (!croppedRef) return nil;
+        UIImage *cropImage = [UIImage imageWithCGImage:croppedRef];
+        CGImageRelease(croppedRef);
+        return UIImageJPEGRepresentation(cropImage, 0.7);
+    }
+
+
     // ─────────────────────────────────────────────────────────────────────────────
     // MARK: - Private interface
     // ─────────────────────────────────────────────────────────────────────────────
@@ -45,6 +145,34 @@
 
     // ── Subscription ──────────────────────────────────────────────────────────────
     @property (nonatomic, strong) UILabel  *subscriptionStatusLabel;
+    @property (nonatomic, strong) UILabel  *seahorseStatusLabel;
+    @property (nonatomic, strong) UIButton *seahorseSlot1Button;
+    @property (nonatomic, strong) UIButton *seahorsePartnerButton;
+    @property (nonatomic, strong) UIButton *seahorseRemovePartnerButton;
+    @property (nonatomic, strong) UIButton *seahorseRemoveMineButton;
+    @property (nonatomic, strong) NSDictionary *seahorseEligibility;
+    @property (nonatomic) BOOL seahorseLoaded;
+    @property (nonatomic) BOOL seahorseBusy;
+    - (UILabel *)addWrappingLabel:(NSString *)text y:(CGFloat *)y minHeight:(CGFloat)minHeight;
+    - (UIButton *)addSeahorseButton:(NSString *)title color:(UIColor *)color
+                             action:(SEL)action y:(CGFloat *)y w:(CGFloat)width;
+    - (void)seahorsePost:(NSDictionary *)body
+              completion:(void (^)(NSDictionary * _Nullable json))completion;
+    - (void)refreshSeahorseStatus;
+    - (BOOL)seahorseSupported;
+    - (NSDictionary *)seahorseEnrollmentForSlot:(NSInteger)slot;
+    - (BOOL)seahorseSlot:(NSInteger)slot hasFlag:(NSString *)flag;
+    - (void)setSeahorseButton:(UIButton *)button enabled:(BOOL)enabled;
+    - (void)updateSeahorseUI;
+    - (void)seahorseVerifyMineTapped;
+    - (void)seahorseVerifyPartnerTapped;
+    - (void)seahorseBeginVerifySlot:(NSInteger)slot;
+    - (void)seahorseSubmitIDImage:(UIImage *)image slot:(NSInteger)slot
+                  alreadyVerified:(BOOL)alreadyVerified;
+    - (void)seahorseRemovePartnerTapped;
+    - (void)seahorseRemoveMineTapped;
+    - (void)seahorseConfirmRemoveSlot:(NSInteger)slot;
+    - (void)seahorseRemoveSlot:(NSInteger)slot;
     @property (nonatomic, strong) UILabel  *coinBalanceLabel;
     @property (nonatomic, strong) UILabel  *referralCodeLabel;
 
@@ -123,6 +251,7 @@
         [self refreshSubscriptionDisplay];
         [EZReferralManager applyPendingReferralCode];
         [self refreshReferralCodeLabel];
+        [self refreshSeahorseStatus];
     }
 
     - (void)dealloc {
@@ -355,6 +484,29 @@
                   color:[UIColor systemTealColor]
                  action:@selector(openSupportRequest)
                       y:&y w:w];
+
+        // ── NSFW Images (Seahorse) ────────────────────────────────────
+        [self addSection:@"🔞 NSFW Images (Seahorse)" y:&y];
+        self.seahorseStatusLabel = [self addWrappingLabel:@"Checking enrollment…"
+                                                        y:&y minHeight:40];
+        self.seahorseSlot1Button = [self addSeahorseButton:@"Verify My ID"
+                                                     color:[UIColor systemIndigoColor]
+                                                    action:@selector(seahorseVerifyMineTapped)
+                                                         y:&y w:w];
+        self.seahorsePartnerButton = [self addSeahorseButton:@"Add a Second ID (Partner)"
+                                                       color:[UIColor systemPurpleColor]
+                                                      action:@selector(seahorseVerifyPartnerTapped)
+                                                           y:&y w:w];
+        self.seahorseRemovePartnerButton = [self addSeahorseButton:@"Remove Partner ID"
+                                                              color:[UIColor systemOrangeColor]
+                                                             action:@selector(seahorseRemovePartnerTapped)
+                                                                  y:&y w:w];
+        self.seahorseRemoveMineButton = [self addSeahorseButton:@"Remove My ID"
+                                                           color:[UIColor systemRedColor]
+                                                          action:@selector(seahorseRemoveMineTapped)
+                                                               y:&y w:w];
+        [self addWrappingLabel:@"Only add a partner who has agreed to have their ID checked and their likeness used in your images. Each ID is read once by AI to check the date of birth and is never stored; only the face crop from the ID photo is kept, privately, with your account."
+                             y:&y minHeight:0];
 
         self.scrollView.contentSize = CGSizeMake(self.view.frame.size.width, y + 30);
     }
@@ -840,6 +992,289 @@
                                                     handler:nil]];
             [self presentViewController:alert animated:YES completion:nil];
         });
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MARK: - NSFW (Seahorse) enrollment
+    //
+    // Manages the ez-seahorse enrollment from Settings: status for both
+    // likeness slots, verify/replace an ID, add a partner ID, remove
+    // either enrollment. All slot operations are gated on the v1.4
+    // server capability (eligibility reports api_version >= 4 with an
+    // enrollments array): against an older function, verify_id ignores
+    // `slot` and would store a partner's crop over the account holder's,
+    // and remove_enrollment does not exist — so on an old server the
+    // section explains instead of acting. Settings copy is hard-coded
+    // English, per this screen's convention.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    - (UILabel *)addWrappingLabel:(NSString *)text y:(CGFloat *)y minHeight:(CGFloat)minHeight {
+        UILabel *label      = [[UILabel alloc] initWithFrame:
+                               CGRectMake(20, *y, self.view.frame.size.width - 40, 20)];
+        label.text          = text;
+        label.font          = [UIFont systemFontOfSize:13];
+        label.textColor     = [UIColor secondaryLabelColor];
+        label.numberOfLines = 0;
+        [label sizeToFit];
+        if (label.frame.size.height < minHeight) {
+            label.frame = CGRectMake(20, *y, self.view.frame.size.width - 40, minHeight);
+        }
+        [self.scrollView addSubview:label];
+        *y += label.frame.size.height + 6;
+        return label;
+    }
+
+    // addButton: with the button handed back, so its title/enabled state
+    // can track the enrollment status.
+    - (UIButton *)addSeahorseButton:(NSString *)title color:(UIColor *)color
+                             action:(SEL)action y:(CGFloat *)y w:(CGFloat)width {
+        UIButton *button          = [UIButton buttonWithType:UIButtonTypeSystem];
+        button.frame              = CGRectMake(20, *y, width, 44);
+        button.backgroundColor    = color;
+        button.tintColor          = [UIColor whiteColor];
+        button.layer.cornerRadius = 10;
+        [button setTitle:title forState:UIControlStateNormal];
+        [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+        [self.scrollView addSubview:button];
+        *y += 55;
+        return button;
+    }
+
+    - (void)seahorsePost:(NSDictionary *)body
+              completion:(void (^)(NSDictionary * _Nullable json))completion {
+        NSString *token = [EZAuthManager shared].accessToken;
+        if (!token.length) { if (completion) completion(nil); return; }
+        NSURL *url = [NSURL URLWithString:@"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-seahorse"];
+        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+        request.HTTPMethod = @"POST";
+        request.timeoutInterval = 60;
+        [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+        [request setValue:[NSString stringWithFormat:@"Bearer %@", token]
+       forHTTPHeaderField:@"Authorization"];
+        request.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
+        [[[NSURLSession sharedSession] dataTaskWithRequest:request
+            completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+            NSDictionary *json = data.length
+                ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+            if (![json isKindOfClass:NSDictionary.class]) json = nil;
+            dispatch_async(dispatch_get_main_queue(), ^{ if (completion) completion(json); });
+        }] resume];
+    }
+
+    - (void)refreshSeahorseStatus {
+        if (!self.seahorseStatusLabel) return;
+        [self seahorsePost:@{ @"action": @"eligibility" }
+                completion:^(NSDictionary *json) {
+            self.seahorseLoaded = YES;
+            self.seahorseEligibility = json;
+            [self updateSeahorseUI];
+        }];
+    }
+
+    - (BOOL)seahorseSupported {
+        NSNumber *version = [self.seahorseEligibility[@"api_version"] isKindOfClass:NSNumber.class]
+            ? self.seahorseEligibility[@"api_version"] : nil;
+        return version && [version integerValue] >= 4 &&
+               [self.seahorseEligibility[@"enrollments"] isKindOfClass:NSArray.class];
+    }
+
+    - (NSDictionary *)seahorseEnrollmentForSlot:(NSInteger)slot {
+        NSArray *enrollments = [self.seahorseEligibility[@"enrollments"] isKindOfClass:NSArray.class]
+            ? self.seahorseEligibility[@"enrollments"] : nil;
+        for (id entry in enrollments) {
+            if ([entry isKindOfClass:NSDictionary.class] &&
+                [entry[@"slot"] isKindOfClass:NSNumber.class] &&
+                [entry[@"slot"] integerValue] == slot) return entry;
+        }
+        return nil;
+    }
+
+    - (BOOL)seahorseSlot:(NSInteger)slot hasFlag:(NSString *)flag {
+        NSDictionary *entry = [self seahorseEnrollmentForSlot:slot];
+        return [entry[flag] isKindOfClass:NSNumber.class] && [entry[flag] boolValue];
+    }
+
+    - (void)setSeahorseButton:(UIButton *)button enabled:(BOOL)enabled {
+        button.enabled = enabled;
+        button.alpha   = enabled ? 1.0 : 0.45;
+    }
+
+    - (void)updateSeahorseUI {
+        if (!self.seahorseStatusLabel) return;
+        if (!self.seahorseLoaded) {
+            self.seahorseStatusLabel.text = @"Checking enrollment…";
+            [self setSeahorseButton:self.seahorseSlot1Button enabled:NO];
+            [self setSeahorseButton:self.seahorsePartnerButton enabled:NO];
+            [self setSeahorseButton:self.seahorseRemovePartnerButton enabled:NO];
+            [self setSeahorseButton:self.seahorseRemoveMineButton enabled:NO];
+            return;
+        }
+        if (!self.seahorseEligibility) {
+            self.seahorseStatusLabel.text =
+                @"Couldn't load enrollment status. Check your connection and reopen Settings.";
+            [self setSeahorseButton:self.seahorseSlot1Button enabled:NO];
+            [self setSeahorseButton:self.seahorsePartnerButton enabled:NO];
+            [self setSeahorseButton:self.seahorseRemovePartnerButton enabled:NO];
+            [self setSeahorseButton:self.seahorseRemoveMineButton enabled:NO];
+            return;
+        }
+        if (![self seahorseSupported]) {
+            self.seahorseStatusLabel.text =
+                @"Update the ez-seahorse function to manage enrollment here.";
+            [self setSeahorseButton:self.seahorseSlot1Button enabled:NO];
+            [self setSeahorseButton:self.seahorsePartnerButton enabled:NO];
+            [self setSeahorseButton:self.seahorseRemovePartnerButton enabled:NO];
+            [self setSeahorseButton:self.seahorseRemoveMineButton enabled:NO];
+            return;
+        }
+        BOOL mine         = [self seahorseSlot:1 hasFlag:@"verified"];
+        BOOL mineCrop     = [self seahorseSlot:1 hasFlag:@"likeness_saved"];
+        BOOL partner      = [self seahorseSlot:2 hasFlag:@"verified"];
+        BOOL partnerCrop  = [self seahorseSlot:2 hasFlag:@"likeness_saved"];
+        self.seahorseStatusLabel.text = [NSString stringWithFormat:
+            @"Your ID: %@%@\nPartner ID: %@%@",
+            mine ? @"verified ✓" : @"not verified",
+            mine ? (mineCrop ? @" · likeness saved ✓" : @" · likeness NOT saved") : @"",
+            partner ? @"added ✓" : @"not added",
+            partner ? (partnerCrop ? @" · likeness saved ✓" : @" · likeness NOT saved") : @""];
+        [self.seahorseSlot1Button setTitle:(mine ? @"Replace My ID" : @"Verify My ID")
+                                  forState:UIControlStateNormal];
+        [self.seahorsePartnerButton setTitle:(partner ? @"Replace Partner ID"
+                                                       : @"Add a Second ID (Partner)")
+                                    forState:UIControlStateNormal];
+        [self setSeahorseButton:self.seahorseSlot1Button enabled:!self.seahorseBusy];
+        [self setSeahorseButton:self.seahorsePartnerButton
+                        enabled:!self.seahorseBusy && mine];
+        [self setSeahorseButton:self.seahorseRemovePartnerButton
+                        enabled:!self.seahorseBusy && partner];
+        [self setSeahorseButton:self.seahorseRemoveMineButton
+                        enabled:!self.seahorseBusy && mine];
+    }
+
+    - (void)seahorseVerifyMineTapped    { [self seahorseBeginVerifySlot:1]; }
+    - (void)seahorseVerifyPartnerTapped { [self seahorseBeginVerifySlot:2]; }
+
+    - (void)seahorseBeginVerifySlot:(NSInteger)slot {
+        if (![self seahorseSupported]) {
+            [self showAlert:@"NSFW Images"
+                    message:@"Update the ez-seahorse function to manage enrollment here."];
+            return;
+        }
+        if (slot == 2 && ![self seahorseSlot:1 hasFlag:@"verified"]) {
+            [self showAlert:@"NSFW Images"
+                    message:@"Verify your own ID first — a partner enrollment is attached to yours."];
+            return;
+        }
+        BOOL alreadyVerified = [self seahorseSlot:slot hasFlag:@"verified"];
+        [EZSettingsSeahorseIDPicker pickFromViewController:self
+                                                completion:^(UIImage *image) {
+            if (!image) return;
+            [self seahorseSubmitIDImage:image slot:slot alreadyVerified:alreadyVerified];
+        }];
+    }
+
+    // Mirrors the chat flow's verify payload: the on-device face crop
+    // always goes (it becomes the saved likeness); the full ID image —
+    // downscaled, for the one-time date-of-birth read only — goes only
+    // when this slot's age check still has to run.
+    - (void)seahorseSubmitIDImage:(UIImage *)image slot:(NSInteger)slot
+                  alreadyVerified:(BOOL)alreadyVerified {
+        NSData *crop = EZSettingsSeahorseFaceCropJPEGData(image);
+        if (!crop) {
+            [self showAlert:@"NSFW Images"
+                    message:@"No face could be found in that photo. Use a clear photo of the ID."];
+            return;
+        }
+        NSMutableDictionary *body = [@{
+            @"action":                 @"verify_id",
+            @"slot":                   @(slot),
+            @"enrollment_crop_base64": [crop base64EncodedStringWithOptions:0],
+        } mutableCopy];
+        if (!alreadyVerified) {
+            UIImage *idImage = image;
+            CGFloat maxDim = MAX(image.size.width, image.size.height);
+            if (maxDim > 1600) {
+                CGFloat scale = 1600.0 / maxDim;
+                CGSize size = CGSizeMake(image.size.width * scale, image.size.height * scale);
+                UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
+                idImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+                    [image drawInRect:CGRectMake(0, 0, size.width, size.height)];
+                }];
+            }
+            NSData *idData = UIImageJPEGRepresentation(idImage, 0.7);
+            if (!idData.length) {
+                [self showAlert:@"NSFW Images"
+                        message:@"That photo couldn't be read. Try a clearer photo of the ID."];
+                return;
+            }
+            body[@"id_image_base64"] = [idData base64EncodedStringWithOptions:0];
+        }
+        self.seahorseBusy = YES;
+        [self updateSeahorseUI];
+        EZLogf(EZLogLevelInfo, @"SEAHORSE", @"settings verify_id: slot=%ld age_check=%d",
+               (long)slot, !alreadyVerified);
+        [self seahorsePost:body completion:^(NSDictionary *json) {
+            self.seahorseBusy = NO;
+            NSString *err = [json[@"error"] isKindOfClass:NSString.class] ? json[@"error"] : nil;
+            BOOL verified = [json[@"verified"] isKindOfClass:NSNumber.class] &&
+                            [json[@"verified"] boolValue];
+            if (err.length) {
+                [self showAlert:@"NSFW Images" message:err];
+            } else if (!verified) {
+                NSString *reason = [json[@"reason"] isKindOfClass:NSString.class]
+                    ? json[@"reason"] : nil;
+                [self showAlert:@"NSFW Images"
+                        message:([reason isEqualToString:@"underage"]
+                            ? @"This ID shows someone under 18, so it can't be enrolled."
+                            : @"The date of birth couldn't be read from that ID. Try a clearer photo.")];
+            } else {
+                [self showAlert:@"NSFW Images"
+                        message:(slot == 2 ? @"Partner ID saved." : @"Your ID is saved.")];
+            }
+            [self refreshSeahorseStatus];
+        }];
+    }
+
+    - (void)seahorseRemovePartnerTapped { [self seahorseConfirmRemoveSlot:2]; }
+    - (void)seahorseRemoveMineTapped    { [self seahorseConfirmRemoveSlot:1]; }
+
+    - (void)seahorseConfirmRemoveSlot:(NSInteger)slot {
+        if (![self seahorseSupported]) {
+            [self showAlert:@"NSFW Images"
+                    message:@"Update the ez-seahorse function to manage enrollment here."];
+            return;
+        }
+        NSString *title   = slot == 2 ? @"Remove Partner ID?" : @"Remove Your ID?";
+        NSString *message = slot == 2
+            ? @"This deletes the partner's saved likeness. Their face will no longer pass the reference check."
+            : @"This deletes your saved likeness AND your partner's, and removes your verification. You'll need to do the ID check again before generating NSFW images.";
+        UIAlertController *confirm = [UIAlertController
+            alertControllerWithTitle:title message:message
+                      preferredStyle:UIAlertControllerStyleAlert];
+        [confirm addAction:[UIAlertAction actionWithTitle:@"Remove"
+                                                   style:UIAlertActionStyleDestructive
+                                                 handler:^(UIAlertAction *a) {
+            [self seahorseRemoveSlot:slot];
+        }]];
+        [confirm addAction:[UIAlertAction actionWithTitle:@"Cancel"
+                                                   style:UIAlertActionStyleCancel handler:nil]];
+        [self presentViewController:confirm animated:YES completion:nil];
+    }
+
+    - (void)seahorseRemoveSlot:(NSInteger)slot {
+        self.seahorseBusy = YES;
+        [self updateSeahorseUI];
+        [self seahorsePost:@{ @"action": @"remove_enrollment", @"slot": @(slot) }
+                completion:^(NSDictionary *json) {
+            self.seahorseBusy = NO;
+            NSString *err = [json[@"error"] isKindOfClass:NSString.class] ? json[@"error"] : nil;
+            EZLogf(EZLogLevelInfo, @"SEAHORSE", @"settings remove_enrollment: slot=%ld ok=%d",
+                   (long)slot, !err.length);
+            [self showAlert:@"NSFW Images"
+                    message:(err.length ? err : @"Enrollment removed.")];
+            [self refreshSeahorseStatus];
+        }];
     }
 
     @end
