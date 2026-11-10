@@ -529,6 +529,8 @@
 "EZCoinStore.FreeSpins.Message" = "Kamu memenangkan %ld putaran gratis!";
 "EZCoinStore.FreeSpins.PlayNow" = "Main Sekarang";
 "EZCoinStore.FreeSpins.Later" = "Nanti";
+"EZCoinStore.FreeSpins.MessageClassic" = "Anda memenangkan %ld putaran gratis di Slot Klasik!";
+"EZCoinStore.FreeSpins.MessagePenny" = "Anda memenangkan %ld putaran gratis di Slot Penny!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "Tindakan tidak dapat diselesaikan.";

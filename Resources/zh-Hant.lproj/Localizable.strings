@@ -529,6 +529,8 @@
 "EZCoinStore.FreeSpins.Message" = "你贏得了 %ld 次免費旋轉！";
 "EZCoinStore.FreeSpins.PlayNow" = "立即遊玩";
 "EZCoinStore.FreeSpins.Later" = "稍後";
+"EZCoinStore.FreeSpins.MessageClassic" = "您在經典老虎機贏得了 %ld 次免費旋轉！";
+"EZCoinStore.FreeSpins.MessagePenny" = "您在便士老虎機贏得了 %ld 次免費旋轉！";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "無法完成此動作。";

@@ -529,6 +529,8 @@
 "EZCoinStore.FreeSpins.Message" = "You won %ld free spins!";
 "EZCoinStore.FreeSpins.PlayNow" = "Play Now";
 "EZCoinStore.FreeSpins.Later" = "Later";
+"EZCoinStore.FreeSpins.MessageClassic" = "You won %ld free spins on the Classic Slots!";
+"EZCoinStore.FreeSpins.MessagePenny" = "You won %ld free spins on the Penny Slots!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "The action couldn't be completed.";

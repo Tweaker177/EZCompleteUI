@@ -488,6 +488,8 @@
 "EZCoinStore.FreeSpins.Message" = "لقد فزت بـ %ld دورة مجانية!";
 "EZCoinStore.FreeSpins.PlayNow" = "العب الآن";
 "EZCoinStore.FreeSpins.Later" = "لاحقًا";
+"EZCoinStore.FreeSpins.MessageClassic" = "لقد فزت بـ %ld لفات مجانية على ماكينات كلاسيك!";
+"EZCoinStore.FreeSpins.MessagePenny" = "لقد فزت بـ %ld لفات مجانية على ماكينات بيني!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "تعذّر إكمال الإجراء.";

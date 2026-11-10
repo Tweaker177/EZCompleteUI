@@ -488,6 +488,8 @@
 "EZCoinStore.FreeSpins.Message" = "%ld 回のフリースピンを獲得しました！";
 "EZCoinStore.FreeSpins.PlayNow" = "今すぐプレイ";
 "EZCoinStore.FreeSpins.Later" = "後で";
+"EZCoinStore.FreeSpins.MessageClassic" = "%ld 回のフリースピンをクラシックスロットで獲得しました！";
+"EZCoinStore.FreeSpins.MessagePenny" = "%ld 回のフリースピンをペニースロットで獲得しました！";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "操作を完了できませんでした。";

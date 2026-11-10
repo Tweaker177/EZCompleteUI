@@ -529,6 +529,8 @@
 "EZCoinStore.FreeSpins.Message" = "%ld ücretsiz dönüş kazandınız!";
 "EZCoinStore.FreeSpins.PlayNow" = "Şimdi Oyna";
 "EZCoinStore.FreeSpins.Later" = "Sonra";
+"EZCoinStore.FreeSpins.MessageClassic" = "Classic Slots'ta %ld ücretsiz dönüş kazandınız!";
+"EZCoinStore.FreeSpins.MessagePenny" = "Penny Slots'ta %ld ücretsiz dönüş kazandınız!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "İşlem tamamlanamadı.";

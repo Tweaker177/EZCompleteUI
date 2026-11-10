@@ -510,6 +510,8 @@
 "EZCoinStore.FreeSpins.Message" = "¡Ganaste %ld tiradas gratis!";
 "EZCoinStore.FreeSpins.PlayNow" = "Jugar ahora";
 "EZCoinStore.FreeSpins.Later" = "Más tarde";
+"EZCoinStore.FreeSpins.MessageClassic" = "¡Ganaste %ld giros gratis en las tragamonedas clásicas!";
+"EZCoinStore.FreeSpins.MessagePenny" = "¡Ganaste %ld giros gratis en las tragamonedas de un centavo!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "La acción no pudo completarse.";

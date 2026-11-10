@@ -488,6 +488,8 @@
 "EZCoinStore.FreeSpins.Message" = "आपने %ld मुफ़्त स्पिन जीते!";
 "EZCoinStore.FreeSpins.PlayNow" = "अभी खेलें";
 "EZCoinStore.FreeSpins.Later" = "बाद में";
+"EZCoinStore.FreeSpins.MessageClassic" = "आपने Classic Slots पर %ld मुफ़्त स्पिन जीते!";
+"EZCoinStore.FreeSpins.MessagePenny" = "आपने Penny Slots पर %ld मुफ़्त स्पिन जीते!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "कार्रवाई पूरी नहीं हो सकी.";

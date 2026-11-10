@@ -488,6 +488,8 @@
 "EZCoinStore.FreeSpins.Message" = "คุณชนะ %ld ฟรีสปิน!";
 "EZCoinStore.FreeSpins.PlayNow" = "เล่นเลย";
 "EZCoinStore.FreeSpins.Later" = "ไว้ทีหลัง";
+"EZCoinStore.FreeSpins.MessageClassic" = "คุณชนะฟรีสปิน %ld ครั้งที่สล็อต Classic!";
+"EZCoinStore.FreeSpins.MessagePenny" = "คุณชนะฟรีสปิน %ld ครั้งที่สล็อต Penny!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "ไม่สามารถดำเนินการให้เสร็จได้";
