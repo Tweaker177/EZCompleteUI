@@ -488,6 +488,8 @@
 "EZCoinStore.FreeSpins.Message" = "Bạn đã thắng %ld lượt quay miễn phí!";
 "EZCoinStore.FreeSpins.PlayNow" = "Chơi ngay";
 "EZCoinStore.FreeSpins.Later" = "Để sau";
+"EZCoinStore.FreeSpins.MessageClassic" = "Bạn thắng %ld vòng quay miễn phí tại Máy Classic!";
+"EZCoinStore.FreeSpins.MessagePenny" = "Bạn thắng %ld vòng quay miễn phí tại Máy Penny!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "Không thể hoàn tất hành động.";

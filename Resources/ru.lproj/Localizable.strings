@@ -528,6 +528,8 @@
 "EZCoinStore.FreeSpins.Message" = "Вы выиграли %ld бесплатных вращений!";
 "EZCoinStore.FreeSpins.PlayNow" = "Играть";
 "EZCoinStore.FreeSpins.Later" = "Позже";
+"EZCoinStore.FreeSpins.MessageClassic" = "Вы выиграли %ld бесплатных вращений на автоматах Classic!";
+"EZCoinStore.FreeSpins.MessagePenny" = "Вы выиграли %ld бесплатных вращений на автоматах Penny!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "Не удалось завершить действие.";

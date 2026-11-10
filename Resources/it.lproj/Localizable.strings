@@ -488,6 +488,8 @@
 "EZCoinStore.FreeSpins.Message" = "Hai vinto %ld giri gratuiti!";
 "EZCoinStore.FreeSpins.PlayNow" = "Gioca ora";
 "EZCoinStore.FreeSpins.Later" = "Più tardi";
+"EZCoinStore.FreeSpins.MessageClassic" = "Hai vinto %ld giri gratuiti alle slot Classic!";
+"EZCoinStore.FreeSpins.MessagePenny" = "Hai vinto %ld giri gratuiti alle slot Penny!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "Impossibile completare l'azione.";

@@ -510,6 +510,8 @@
 "EZCoinStore.FreeSpins.Message" = "Tu as gagné %ld tours gratuits !";
 "EZCoinStore.FreeSpins.PlayNow" = "Jouer";
 "EZCoinStore.FreeSpins.Later" = "Plus tard";
+"EZCoinStore.FreeSpins.MessageClassic" = "Vous avez gagné %ld tours gratuits sur les machines Classic !";
+"EZCoinStore.FreeSpins.MessagePenny" = "Vous avez gagné %ld tours gratuits sur les machines Penny !";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "L'action n'a pas pu être terminée.";

@@ -97,6 +97,8 @@
 
 #import "BRSlotMachineViewController.h"
 
+#import "BRPennySlotViewController.h"
+
 // ── Safe JSON value helpers ───────────────────────────────────────────────────
 
 // NSJSONSerialization maps JSON `null` to [NSNull null], a real Objective-C object
@@ -640,6 +642,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 @property (nonatomic, assign) BOOL       openSlotAfterClaimCelebration; // Set only by a successful daily claim; dismissing that celebration opens the first Brainrot slot
 
 @property (nonatomic, assign) NSInteger  pendingClaimSpins; // Free spins awarded alongside a coins claim (spins_added in the claim response); celebrated once the coin celebration is dismissed
+
+@property (nonatomic, copy)   NSString        *pendingClaimSpinsMachine; // Server-suggested machine for the pending claim spins (claim response spins_machine: "classic" or "penny"); nil = no suggestion (older server) — celebration keeps the original copy and Play Now opens the Classic slot
 
 @property (nonatomic, assign) NSInteger  dailyCoinsPendingAmount; // 10 or 15 depending on membership; from server
 
@@ -1817,6 +1821,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
                     NSInteger spinsAdded = jsonInteger(json, @"spins_added");
 
+                    self.pendingClaimSpinsMachine = jsonString(json, @"spins_machine");
+
                     [self showFreeSpinsCelebration:spinsAdded];
 
                 } else {
@@ -1837,6 +1843,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
                     // (see dismissCelebration:). Absent the field this
                     // stays 0 and the claim behaves exactly as before.
                     self.pendingClaimSpins = jsonInteger(json, @"spins_added");
+
+                    self.pendingClaimSpinsMachine = jsonString(json, @"spins_machine");
 
                     [self showCoinCelebration:coinsAdded newBalance:newBalance];
 
@@ -2629,6 +2637,34 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 // Shown after any successful coin credit: purchases, top-ups, and daily rewards.
 
+- (NSString *)freeSpinsAmountTextForCount:(NSInteger)count {
+
+    // When the claim named a machine for these spins, the celebration
+
+    // says so; the named machine is also where Play Now goes (see
+
+    // openClaimCelebrationSlot). No suggestion (older server): the
+
+    // original copy, byte for byte.
+
+    NSString *machine = self.pendingClaimSpinsMachine;
+
+    if ([machine isEqualToString:@"penny"]) {
+
+        return [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.MessagePenny", @"Free spins celebration message naming the Penny Slots"), (long)count];
+
+    }
+
+    if ([machine isEqualToString:@"classic"]) {
+
+        return [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.MessageClassic", @"Free spins celebration message naming the Classic Slots"), (long)count];
+
+    }
+
+    return [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.Message", @"Free spins celebration message"), (long)count];
+
+}
+
 - (void)showFreeSpinsCelebration:(NSInteger)spinsAdded {
 
     // Same overlay family as the coin celebration, slot-machine edition: a
@@ -2737,7 +2773,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     UILabel *amountLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 158, 248, 30)];
 
-    amountLabel.text          = [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.Message", @"Free spins celebration message"), 0L];
+    amountLabel.text          = [self freeSpinsAmountTextForCount:0];
 
     amountLabel.font          = [UIFont boldSystemFontOfSize:21];
 
@@ -2753,7 +2789,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     UIButton *playNowButton = [UIButton buttonWithType:UIButtonTypeSystem];
 
-    playNowButton.frame              = CGRectMake(40, 208, 200, 46);
+    playNowButton.frame              = CGRectMake(40, 224, 200, 46);
 
     playNowButton.backgroundColor    = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0];
 
@@ -2769,19 +2805,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     [card addSubview:playNowButton];
 
-    UIButton *laterButton = [UIButton buttonWithType:UIButtonTypeSystem];
-
-    laterButton.frame           = CGRectMake(40, 262, 200, 34);
-
-    laterButton.titleLabel.font = [UIFont systemFontOfSize:15];
-
-    [laterButton setTitle:NSLocalizedString(@"EZCoinStore.FreeSpins.Later", @"Later button") forState:UIControlStateNormal];
-
-    [laterButton setTitleColor:[UIColor colorWithWhite:1.0 alpha:0.75] forState:UIControlStateNormal];
-
-    [laterButton addTarget:self action:@selector(freeSpinsLaterTapped) forControlEvents:UIControlEventTouchUpInside];
-
-    [card addSubview:laterButton];
 
     __block NSInteger stoppedReels = 0;
 
@@ -2899,7 +2922,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
             NSInteger shown = (NSInteger)llround(spinsAdded * eased);
 
-            amountLabel.text = [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.Message", @"Free spins celebration message"), (long)shown];
+            amountLabel.text = [self freeSpinsAmountTextForCount:shown];
 
             if (progress >= 1.0) {
 
@@ -2921,11 +2944,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 }
 
-- (void)freeSpinsLaterTapped {
-
-    [self dismissFreeSpinsCelebrationOpeningSlot:NO];
-
-}
 
 - (void)dismissFreeSpinsCelebrationOpeningSlot:(BOOL)openSlot {
 
@@ -2941,7 +2959,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (!overlay) {
 
-        if (openSlot) [self openFirstBrainrotSlot];
+        if (openSlot) [self openClaimCelebrationSlot];
 
         return;
 
@@ -2955,7 +2973,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         [overlay removeFromSuperview];
 
-        if (openSlot) [self openFirstBrainrotSlot];
+        if (openSlot) [self openClaimCelebrationSlot];
 
     }];
 
@@ -3069,6 +3087,48 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 - (void)openFirstBrainrotSlot {
 
     BRSlotMachineViewController *slot = [BRSlotMachineViewController new];
+
+    if (self.navigationController) {
+
+        [self.navigationController pushViewController:slot animated:YES];
+
+    } else {
+
+        UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:slot];
+
+        nav.modalPresentationStyle = UIModalPresentationPageSheet;
+
+        [self presentViewController:nav animated:YES completion:nil];
+
+    }
+
+}
+
+// Play Now destination for a claim free-spins celebration: the
+
+// machine the claim suggested, or the Classic slot when it didn't
+
+// (older server). The suggestion is consumed either way. The spins
+
+// themselves stay in the shared pool — this only chooses where the
+
+// player is taken to play them.
+
+- (void)openClaimCelebrationSlot {
+
+    NSString *machine = self.pendingClaimSpinsMachine;
+
+    self.pendingClaimSpinsMachine = nil;
+
+    if (![machine isEqualToString:@"penny"]) {
+
+        [self openFirstBrainrotSlot];
+
+        return;
+
+    }
+
+    BRPennySlotViewController *slot = [BRPennySlotViewController new];
 
     if (self.navigationController) {
 

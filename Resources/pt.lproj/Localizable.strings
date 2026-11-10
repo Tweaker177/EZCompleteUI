@@ -510,6 +510,8 @@
 "EZCoinStore.FreeSpins.Message" = "Você ganhou %ld giros grátis!";
 "EZCoinStore.FreeSpins.PlayNow" = "Jogar agora";
 "EZCoinStore.FreeSpins.Later" = "Depois";
+"EZCoinStore.FreeSpins.MessageClassic" = "Você ganhou %ld giros grátis nos caça-níqueis Classic!";
+"EZCoinStore.FreeSpins.MessagePenny" = "Você ganhou %ld giros grátis nos caça-níqueis Penny!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "A ação não pôde ser concluída.";

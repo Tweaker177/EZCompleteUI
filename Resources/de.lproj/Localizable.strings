@@ -488,6 +488,8 @@
 "EZCoinStore.FreeSpins.Message" = "Du hast %ld Freispiele gewonnen!";
 "EZCoinStore.FreeSpins.PlayNow" = "Jetzt spielen";
 "EZCoinStore.FreeSpins.Later" = "Später";
+"EZCoinStore.FreeSpins.MessageClassic" = "Du hast %ld Freispiele an den Classic Slots gewonnen!";
+"EZCoinStore.FreeSpins.MessagePenny" = "Du hast %ld Freispiele an den Penny Slots gewonnen!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "Die Aktion konnte nicht abgeschlossen werden.";
