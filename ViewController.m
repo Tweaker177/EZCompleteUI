@@ -1102,6 +1102,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)ezSeahorsePrepareReferencesWithPrompt:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths;
 - (void)ezSeahorseVerifyReferenceAtIndex:(NSUInteger)index prompt:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths assetURLs:(NSMutableArray<NSString *> *)assetURLs;
 - (void)ezSeahorseReferenceRefusedWithPrompt:(NSString *)prompt message:(NSString *)message assetURLs:(NSArray<NSString *> *)assetURLs;
+- (BOOL)ezImageErrorIsSafetyRejection:(NSString *)fullMsg;
+- (void)presentSeahorseRerouteForPrompt:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths errorText:(NSString *)fullMsg;
 - (void)ezSeahorseUploadReferenceAtPath:(NSString *)path completion:(void (^)(NSString * _Nullable assetURL))completion;
 - (void)ezSeahorseGenerateWithPrompt:(NSString *)prompt referenceAssetURLs:(NSArray<NSString *> *)referenceAssetURLs;
 - (void)ezSeahorseFailWithMessage:(NSString *)message prompt:(NSString *)prompt;
@@ -4946,6 +4948,47 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 // Explicit model argument lets a chat tool render without changing the picker.
+// YES when an ez-image error message is a safety/content rejection
+// (already refunded server-side) rather than a real failure — those
+// get the one-tap Seahorse reroute instead of a dead-end error. The
+// underscore variant covers the API's raw error code
+// (content_policy_violation) leaking through unformatted.
+- (BOOL)ezImageErrorIsSafetyRejection:(NSString *)fullMsg {
+    NSString *lowerMsg = [fullMsg lowercaseString];
+    return [lowerMsg containsString:@"safety"] ||
+           [lowerMsg containsString:@"content policy"] ||
+           [lowerMsg containsString:@"content_policy"] ||
+           [lowerMsg containsString:@"moderation"];
+}
+
+// Presents the "Request Refused" alert whose button switches the
+// model to seahorse-image and retries the same prompt through the
+// NSFW path with the given reference files. Callers append their
+// own error grid first; this owns the banner/button/alert state.
+- (void)presentSeahorseRerouteForPrompt:(NSString *)prompt
+                       referencePaths:(NSArray<NSString *> *)referencePaths
+                            errorText:(NSString *)fullMsg {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self hideStatusBanner];
+        self.sendButton.enabled = YES;
+        UIAlertController *alert =
+            [UIAlertController alertControllerWithTitle:@"Request Refused"
+                                                message:fullMsg
+                                         preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.RerouteButton", nil)
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *action) {
+            self.selectedModel = @"seahorse-image";
+            [self.modelButton setTitle:@"Model: seahorse-image" forState:UIControlStateNormal];
+            [[NSUserDefaults standardUserDefaults] setObject:@"seahorse-image" forKey:@"selectedModel"];
+            [self callSeahorseImage:prompt referencePaths:referencePaths];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
+                                                  style:UIAlertActionStyleCancel handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+    });
+}
+
 - (void)callGptImage1:(NSString *)prompt model:(NSString *)imageModel {
     self.sendButton.enabled = NO;
     EZLog(EZLogLevelInfo, @"GPTIMAGE", @"Sending generation request via ez-image");
@@ -5013,37 +5056,20 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             // Safety rejections (already refunded by ez-image) get a
             // one-tap reroute into the NSFW Seahorse path with the same
             // prompt. Any other error keeps the normal handling below.
-            NSString *lowerMsg = [fullMsg lowercaseString];
-            if ([lowerMsg containsString:@"safety"] ||
-                [lowerMsg containsString:@"content policy"] ||
-                [lowerMsg containsString:@"moderation"]) {
+            if ([self ezImageErrorIsSafetyRejection:fullMsg]) {
                 NSString *reroutePrompt = savedPrompt;
+                // Photos attached to the refused message are the
+                // references for the Seahorse retry — carry them over
+                // instead of dropping them, and clear the pending list
+                // so they don't leak into the next send.
+                NSArray<NSString *> *referencePaths = [self.pendingImagePaths copy];
+                [self.pendingImagePaths removeAllObjects];
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    [self hideStatusBanner];
-                    self.sendButton.enabled = YES;
                     [self appendImageGridToChat:@[] prompt:reroutePrompt isError:YES errorText:fullMsg];
-                    UIAlertController *alert =
-                        [UIAlertController alertControllerWithTitle:@"Request Refused"
-                                                            message:fullMsg
-                                                     preferredStyle:UIAlertControllerStyleAlert];
-                    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.RerouteButton", nil)
-                                                              style:UIAlertActionStyleDefault
-                                                            handler:^(UIAlertAction *action) {
-                        self.selectedModel = @"seahorse-image";
-                        [self.modelButton setTitle:@"Model: seahorse-image" forState:UIControlStateNormal];
-                        [[NSUserDefaults standardUserDefaults] setObject:@"seahorse-image" forKey:@"selectedModel"];
-                        // Photos attached to the refused message are the
-                        // references for the Seahorse retry — carry them
-                        // over instead of dropping them, and clear the
-                        // pending list so they don't leak into the next send.
-                        NSArray<NSString *> *referencePaths = [self.pendingImagePaths copy];
-                        [self.pendingImagePaths removeAllObjects];
-                        [self callSeahorseImage:reroutePrompt referencePaths:referencePaths];
-                    }]];
-                    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
-                                                              style:UIAlertActionStyleCancel handler:nil]];
-                    [self presentViewController:alert animated:YES completion:nil];
                 });
+                [self presentSeahorseRerouteForPrompt:reroutePrompt
+                                     referencePaths:referencePaths
+                                          errorText:fullMsg];
                 return;
             }
             [self handleAPIError:fullMsg];
@@ -5761,6 +5787,20 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             // for why this matters.
             NSString *reason = json[@"reason"];
             NSString *fullMsg = reason.length ? [NSString stringWithFormat:@"%@ %@", errMsg, reason] : errMsg;
+            // Safety rejections get the same one-tap Seahorse reroute
+            // as generation — this path never had it, so a refused
+            // edit was a dead end. The image being edited is the
+            // reference for the retry.
+            if ([self ezImageErrorIsSafetyRejection:fullMsg]) {
+                NSArray<NSString *> *referencePaths = imagePath ? @[imagePath] : @[];
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self appendImageGridToChat:@[] prompt:prompt isError:YES errorText:fullMsg];
+                });
+                [self presentSeahorseRerouteForPrompt:prompt
+                                     referencePaths:referencePaths
+                                          errorText:fullMsg];
+                return;
+            }
             [self handleAPIError:fullMsg];
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self hideStatusBanner];
