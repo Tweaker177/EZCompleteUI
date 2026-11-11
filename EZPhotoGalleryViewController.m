@@ -840,6 +840,7 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 - (void)finishImageEditWithImage:(UIImage * _Nullable)editedImage
                             error:(NSString * _Nullable)errorMessage;
 - (void)showImageEditError:(NSString *)message;
+- (void)presentSeahorseRerouteWithMessage:(NSString *)message;
 - (UIImage *)shareImageWithBranding;
 - (UIImage *)shareImageWithBrandingForImage:(UIImage *)image showOriginalCard:(BOOL)showOriginalCard;
 - (CGRect)originalCardRectInImageArea:(CGRect)imageArea border:(CGFloat)border;
@@ -854,6 +855,18 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 - (void)showImageSettings;
 - (void)showPhotoAtGalleryIndex:(NSUInteger)index animated:(BOOL)animated;
 @end
+
+// YES when an ez-image error message is a safety/content rejection
+// rather than a real failure — the same wording the chat image paths
+// check (ViewController's ezImageErrorIsSafetyRejection:), including
+// the underscore form of the API's raw error code.
+static BOOL EZGalleryErrorIsSafetyRejection(NSString *message) {
+    NSString *lowerMsg = [message lowercaseString];
+    return [lowerMsg containsString:@"safety"] ||
+           [lowerMsg containsString:@"content policy"] ||
+           [lowerMsg containsString:@"content_policy"] ||
+           [lowerMsg containsString:@"moderation"];
+}
 
 @implementation EZPhotoDetailViewController {
     UIScrollView      *_scrollView;
@@ -2168,6 +2181,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
         [self stopProcessingAnimationWithCompletion:nil];
         [self showImageEditError:errorMessage ?: @"The image edit did not return an image."];
+        if (errorMessage.length > 0 && EZGalleryErrorIsSafetyRejection(errorMessage)) {
+            [self presentSeahorseRerouteWithMessage:errorMessage];
+        }
         return;
     }
 
@@ -2246,6 +2262,43 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     _editErrorLabel.text = message.length ? message : @"Image edit could not be completed.";
     _editErrorLabel.hidden = NO;
     EZLogf(EZLogLevelWarning, @"IMGEDIT", @"Gallery edit failed: %@", _editErrorLabel.text);
+}
+
+// Gallery edits bypass the chat controller, so the Seahorse flow
+// (which lives there) can't be called directly. Offer the same
+// one-tap reroute the chat image paths show; on tap, dismiss the
+// gallery back to the chat and hand the prompt + the edit's source
+// files over via EZSeahorseRerouteRequested, which ViewController
+// observes and turns into a callSeahorseImage: call.
+- (void)presentSeahorseRerouteWithMessage:(NSString *)message {
+    NSString *prompt = [_editPromptField.text
+        stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSMutableArray<NSString *> *refs = [NSMutableArray array];
+    if (_editSourcePaths.count) [refs addObjectsFromArray:_editSourcePaths];
+    if (!refs.count && _editSourceFilePath.length) [refs addObject:_editSourceFilePath];
+    if (!refs.count && self.filePath.length) [refs addObject:self.filePath];
+    EZLogf(EZLogLevelInfo, @"IMGEDIT",
+           @"Gallery edit safety rejection — Seahorse reroute offered (refs=%lu)",
+           (unsigned long)refs.count);
+    UIAlertController *alert =
+        [UIAlertController alertControllerWithTitle:@"Request Refused"
+                                            message:message
+                                     preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.RerouteButton", nil)
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *action) {
+        NSDictionary *info = @{ @"prompt": prompt ?: @"",
+                                @"referencePaths": [refs copy] };
+        UIViewController *presenter = self.navigationController ?: self;
+        [presenter dismissViewControllerAnimated:YES completion:^{
+            [[NSNotificationCenter defaultCenter]
+                postNotificationName:@"EZSeahorseRerouteRequested"
+                              object:nil userInfo:info];
+        }];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
+                                              style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
