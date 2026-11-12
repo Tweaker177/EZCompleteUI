@@ -380,6 +380,21 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     _modelLabel.text     = safeString(row[@"model"]);
     _contactModel        = _modelLabel.text;
 
+    // Fast Mode (ez-chat v1.12+): chat rows carry the mode the request
+    // actually ran in. Show it next to the model so a charge can be
+    // checked against its multiplier at a glance. The field is absent
+    // on older rows — the label then stays exactly as it was.
+    NSString *fastMode = safeString(row[@"fast_mode"]);
+    if (fastMode.length) {
+        NSString *modeLabel = (@{ @"standard":  @"Standard",
+                                  @"flex":      @"Flex",
+                                  @"fast":      @"Fast",
+                                  @"ultrafast": @"Ultrafast" })[fastMode];
+        if (modeLabel) {
+            _modelLabel.text = [NSString stringWithFormat:@"%@ \u00b7 %@", _modelLabel.text, modeLabel];
+        }
+    }
+
     // User identity (admin-only fields)
     NSString *email = safeString(row[@"user_email"]);
     NSString *ip    = safeString(row[@"ip_address"]);
