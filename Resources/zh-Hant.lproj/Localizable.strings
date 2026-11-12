@@ -374,18 +374,18 @@
 "EZNav.RecentChats" = "最近的聊天";
 /* First-run tutorial */
 "EZTutorial.Skip" = "跳過"; "EZTutorial.Back" = "返回"; "EZTutorial.Next" = "下一步"; "EZTutorial.GetStarted" = "開始使用";
-"EZTutorial.Welcome.Title" = "歡迎使用 EZCompleteUI"; "EZTutorial.Welcome.Body" = "快速導覽會告訴你各項功能的位置。你隨時可以跳過。";
-"EZTutorial.Chat.Title" = "聊天與創作"; "EZTutorial.Chat.Body" = "在頂部選擇模型。使用迴紋針附加檔案或照片、麥克風口述、地球圖示進行網路搜尋、閃電圖示取得助手直接回答。按下傳送即可開始你的請求。";
-"EZTutorial.Navigate.Title" = "你的選單與聊天"; "EZTutorial.Navigate.Body" = "點一下左上角的選單，可前往相簿、語音工具、Brain Rot、回憶、金幣商店、設定和你最近的聊天。在那裡使用搜尋來找對話。";
-"EZTutorial.Gallery.Title" = "相簿"; "EZTutorial.Gallery.Body" = "點一下左上角的 + 新增照片。雙指捏合可調整網格，從 2 欄到 5 欄。使用「選取」來分享或刪除多張照片。";
-"EZTutorial.Detail.Title" = "照片詳情"; "EZTutorial.Detail.Body" = "「提問」會將此圖片帶回聊天。在下方描述編輯內容，或使用 + 新增最多四張參考圖片，將它們合併成一個新創作。"; "EZTutorial.Detail.Prompt" = "描述你的編輯…"; "EZTutorial.Detail.Ask" = "提問"; "EZTutorial.Detail.Edit" = "用 AI 編輯";
+"EZTutorial.Welcome.Title" = "歡迎使用 EZCompleteUI"; "EZTutorial.Welcome.Body" = "快速了解一下每個功能在哪裡。";
+"EZTutorial.Chat.Title" = "聊天與創作"; "EZTutorial.Chat.Body" = "選個模型。附件、語音輸入或搜尋 — 然後傳送。";
+"EZTutorial.Navigate.Title" = "你的選單與聊天"; "EZTutorial.Navigate.Body" = "所有功能都在左上角的選單裡。";
+"EZTutorial.Gallery.Title" = "相簿"; "EZTutorial.Gallery.Body" = "點 + 新增。捏合調整格線大小。選取可分享或刪除。";
+"EZTutorial.Detail.Title" = "照片詳情"; "EZTutorial.Detail.Body" = "問問這張照片，或者描述你想要的編輯。"; "EZTutorial.Detail.Prompt" = "描述你的編輯…"; "EZTutorial.Detail.Ask" = "提問"; "EZTutorial.Detail.Edit" = "用 AI 編輯";
 "EZTutorial.Tools.Title" = "回憶與金幣"; "EZTutorial.Tools.Body" = "回憶讓實用的結果隨手可得。金幣商店管理方案與金幣。你的餘額隨時可在主畫面查看。";
-"EZTutorial.Memories.Title" = "回憶"; "EZTutorial.Memories.Body" = "搜尋已儲存的回憶，然後點一下其文字進行編輯。再點一下即可結束編輯。藍色連結會開啟建立它的確切聊天回合，附加圖片則會開啟照片詳情。"; "EZTutorial.Memories.Search" = "搜尋回憶"; "EZTutorial.Memories.Source" = "開啟原始聊天回合"; "EZTutorial.Memories.Editable" = "點一下此已儲存回憶進行編輯。";
-"EZTutorial.CoinStore.Title" = "金幣商店"; "EZTutorial.CoinStore.Body" = "右上角的使用記錄列出每一筆入帳與扣款。每天領取四次免費金幣；允許通知，以便在準備好時收到提醒。部分進階模型與功能需要購買才能解鎖。PayPal 訂閱會自動入帳，也提供一次性加值。"; "EZTutorial.CoinStore.Usage" = "使用記錄"; "EZTutorial.CoinStore.Free" = "免費金幣每天可領四次 • 啟用提醒"; "EZTutorial.CoinStore.Offer" = "買一送一"; "EZTutorial.CoinStore.Select" = "準備開始了嗎？選擇符合你需求的等級。";
-"EZTutorial.CoinStore.Bonus" = "訂閱者每次領取 20 金幣 • 無方案者 10 金幣";
+"EZTutorial.Memories.Title" = "回憶"; "EZTutorial.Memories.Body" = "點按回憶即可編輯。藍色連結會重新打開它所在的對話。"; "EZTutorial.Memories.Search" = "搜尋回憶"; "EZTutorial.Memories.Source" = "開啟原始聊天回合"; "EZTutorial.Memories.Editable" = "點一下此已儲存回憶進行編輯。";
+"EZTutorial.CoinStore.Title" = "金幣商店"; "EZTutorial.CoinStore.Body" = "方案、儲值和你的餘額。"; "EZTutorial.CoinStore.Usage" = "使用記錄"; "EZTutorial.CoinStore.Free" = "免費金幣 — 開啟提醒"; "EZTutorial.CoinStore.Offer" = "買一送一"; "EZTutorial.CoinStore.Select" = "選一個適合你的方案。";
+"EZTutorial.CoinStore.Bonus" = "有方案每次領 10 • 無方案 5";
 "EZTutorial.CoinStore.Claim" = "領取免費金幣"; "EZTutorial.Memories.Intro" = "回憶讓實用的結果隨手可得。";
 "EZTutorial.CoinStore.Next" = "下一次：6小時 00分"; "EZCoinStore.UsageLog" = "使用記錄";
-"EZTutorial.CoinStore.BodyTop" = "• 透過使用記錄查看每一筆入帳與扣款。\n\n• 每天領取四次免費金幣，並啟用通知接收提醒。"; "EZTutorial.CoinStore.BodyBottom" = "• 部分進階模型與功能需要購買才能解鎖。";
+"EZTutorial.CoinStore.BodyTop" = "每一筆入帳和扣費 — 都在使用記錄裡。"; "EZTutorial.CoinStore.BodyBottom" = "部分進階模型需要購買後才能解鎖。";
 "EZGameMode.Title" = "選擇遊戲"; "EZGameMode.Maze" = "迷宮冒險"; "EZGameMode.Ricochet" = "彈跳爆破"; "EZGameMode.Cancel" = "取消";
 "EZGameMode.Subtitle" = "選擇你想要的玩法。"; "EZGameMode.MazeDescription" = "使用你的自訂遊戲素材探索生成的迷宮。"; "EZGameMode.RicochetDescription" = "在開放競技場中彈跳，伴隨音樂、道具與 MIDI。";
 "EZThread.NewConversation" = "新對話";
@@ -393,6 +393,7 @@
 "EZTutorial.Demo.ModelPicker" = "模型選擇器"; "EZTutorial.Demo.Model" = "模型：gpt-6-astra"; "EZTutorial.Demo.Controls" = "控制項"; "EZTutorial.Demo.Placeholder" = "輸入訊息…"; "EZTutorial.Demo.Send" = "傳送";
 "EZTutorial.Feedback" = "還有問題或想分享意見回饋？點一下這裡。";
 "EZTutorial.Menu.SampleChat" = "你最近的對話";
+"EZTutorial.Music.Body" = "描述一下 — AI 來作詞作曲並演唱。"; "EZTutorial.Music.Prompt" = "描述你的歌曲…"; "EZTutorial.Music.Create" = "建立歌曲"; "EZTutorial.Sounds.Body" = "任何你能描述的聲音 — 最長 30 秒。"; "EZTutorial.Sounds.Prompt" = "描述一個聲音…"; "EZTutorial.Files.Body" = "應用程式產生的文件、圖片和歌曲 — 全都在這裡。";
 "EZGallery.Title" = "相簿"; "EZGallery.Select" = "選取"; "EZGallery.Done" = "完成"; "EZGallery.SelectedCount" = "已選 %lu 張"; "EZGallery.DeleteTitle" = "刪除照片？"; "EZGallery.DeleteMessage" = "永久刪除所選的 %lu 張照片？"; "EZGallery.Delete" = "刪除"; "EZGallery.Cancel" = "取消";
 
 /* Image generation progress */
