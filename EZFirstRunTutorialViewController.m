@@ -14,6 +14,9 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
 @property (nonatomic, strong) UIView *navigationDemoView;
 @property (nonatomic, strong) UIView *galleryDemoView;
 @property (nonatomic, strong) UIView *detailDemoView;
+@property (nonatomic, strong) UIView *musicDemoView;
+@property (nonatomic, strong) UIView *soundsDemoView;
+@property (nonatomic, strong) UIView *filesDemoView;
 @property (nonatomic, strong) UIView *memoriesDemoView;
 @property (nonatomic, strong) UIView *coinStoreDemoView;
 @property (nonatomic, strong) NSLayoutConstraint *standardTitleTopConstraint;
@@ -26,6 +29,12 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
 @property (nonatomic, strong) NSLayoutConstraint *galleryDemoBottomConstraint;
 @property (nonatomic, strong) NSLayoutConstraint *detailDemoTopConstraint;
 @property (nonatomic, strong) NSLayoutConstraint *detailDemoBottomConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *musicDemoTopConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *musicDemoBottomConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *soundsDemoTopConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *soundsDemoBottomConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *filesDemoTopConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *filesDemoBottomConstraint;
 @property (nonatomic, strong) NSLayoutConstraint *memoriesDemoTopConstraint;
 @property (nonatomic, strong) NSLayoutConstraint *memoriesDemoBottomConstraint;
 @property (nonatomic, strong) NSLayoutConstraint *coinStoreDemoTopConstraint;
@@ -83,7 +92,7 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     [self.view addSubview:self.bodyLabel];
 
     self.pageControl = [UIPageControl new];
-    self.pageControl.numberOfPages = 7;
+    self.pageControl.numberOfPages = 10;
     self.pageControl.currentPageIndicatorTintColor = [UIColor colorWithRed:0.08 green:0.90 blue:0.72 alpha:1];
     self.pageControl.pageIndicatorTintColor = [UIColor colorWithWhite:1 alpha:0.25];
     self.pageControl.userInteractionEnabled = NO;
@@ -94,6 +103,9 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     [self buildNavigationDemo];
     [self buildGalleryDemo];
     [self buildDetailDemo];
+    [self buildMusicDemo];
+    [self buildSoundsDemo];
+    [self buildFilesDemo];
     [self buildMemoriesDemo];
     [self buildCoinStoreDemo];
 
@@ -143,6 +155,12 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
         [self.galleryDemoView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-22],
         [self.detailDemoView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:22],
         [self.detailDemoView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-22],
+        [self.musicDemoView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:22],
+        [self.musicDemoView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-22],
+        [self.soundsDemoView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:22],
+        [self.soundsDemoView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-22],
+        [self.filesDemoView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:22],
+        [self.filesDemoView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-22],
         [self.memoriesDemoView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:22],
         [self.memoriesDemoView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-22],
         [self.coinStoreDemoView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:22],
@@ -169,6 +187,12 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     self.galleryDemoBottomConstraint = [self.galleryDemoView.bottomAnchor constraintEqualToAnchor:self.pageControl.topAnchor constant:-18];
     self.detailDemoTopConstraint = [self.detailDemoView.topAnchor constraintEqualToAnchor:self.titleLabel.bottomAnchor constant:20];
     self.detailDemoBottomConstraint = [self.detailDemoView.bottomAnchor constraintEqualToAnchor:self.pageControl.topAnchor constant:-18];
+    self.musicDemoTopConstraint = [self.musicDemoView.topAnchor constraintEqualToAnchor:self.titleLabel.bottomAnchor constant:20];
+    self.musicDemoBottomConstraint = [self.musicDemoView.bottomAnchor constraintEqualToAnchor:self.pageControl.topAnchor constant:-18];
+    self.soundsDemoTopConstraint = [self.soundsDemoView.topAnchor constraintEqualToAnchor:self.titleLabel.bottomAnchor constant:20];
+    self.soundsDemoBottomConstraint = [self.soundsDemoView.bottomAnchor constraintEqualToAnchor:self.pageControl.topAnchor constant:-18];
+    self.filesDemoTopConstraint = [self.filesDemoView.topAnchor constraintEqualToAnchor:self.titleLabel.bottomAnchor constant:20];
+    self.filesDemoBottomConstraint = [self.filesDemoView.bottomAnchor constraintEqualToAnchor:self.pageControl.topAnchor constant:-18];
     self.memoriesDemoTopConstraint = [self.memoriesDemoView.topAnchor constraintEqualToAnchor:self.titleLabel.bottomAnchor constant:20];
     self.memoriesDemoBottomConstraint = [self.memoriesDemoView.bottomAnchor constraintEqualToAnchor:self.pageControl.topAnchor constant:-18];
     self.coinStoreDemoTopConstraint = [self.coinStoreDemoView.topAnchor constraintEqualToAnchor:self.titleLabel.bottomAnchor constant:20];
@@ -494,6 +518,161 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     ]];
 }
 
+
+// Music, Sounds, and Files pages (added with the copy-trim rework). Each
+// follows the established demo pattern: a short body line at the top and a
+// quiet mock of the real screen below it — the UI explains itself.
+- (void)buildMusicDemo {
+    self.musicDemoView = [UIView new];
+    self.musicDemoView.backgroundColor = [UIColor colorWithRed:0.045 green:0.03 blue:0.10 alpha:1];
+    self.musicDemoView.layer.cornerRadius = 22;
+    self.musicDemoView.layer.borderWidth = 1;
+    self.musicDemoView.layer.borderColor = [UIColor colorWithRed:0.62 green:0.35 blue:0.95 alpha:0.55].CGColor;
+    self.musicDemoView.hidden = YES;
+    self.musicDemoView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:self.musicDemoView];
+
+    UILabel *description = [self demoLabel:NSLocalizedString(@"EZTutorial.Music.Body", nil) color:[UIColor colorWithWhite:0.84 alpha:1] font:14];
+    description.textAlignment = NSTextAlignmentCenter;
+    [self.musicDemoView addSubview:description];
+
+    UIView *song = [UIView new];
+    song.backgroundColor = [UIColor colorWithWhite:1 alpha:0.07];
+    song.layer.cornerRadius = 14;
+    song.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.musicDemoView addSubview:song];
+    UIView *artwork = [self galleryTileWithColor:[UIColor colorWithRed:0.38 green:0.22 blue:0.58 alpha:1] symbol:@"music.note"];
+    [song addSubview:artwork];
+    UILabel *songTitle = [self demoLabel:@"Midnight Drive" color:UIColor.whiteColor font:14];
+    [song addSubview:songTitle];
+    UILabel *songMeta = [self demoLabel:@"AI Song • 1:00" color:[UIColor colorWithWhite:0.62 alpha:1] font:11];
+    [song addSubview:songMeta];
+    UIButton *play = [self demoIconButton:@"play.circle.fill" tint:[UIColor colorWithRed:0.05 green:0.92 blue:0.72 alpha:1]];
+    [song addSubview:play];
+
+    UIView *prompt = [UIView new];
+    prompt.backgroundColor = [UIColor colorWithWhite:1 alpha:0.12];
+    prompt.layer.cornerRadius = 13;
+    prompt.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.musicDemoView addSubview:prompt];
+    UIImageView *sparkles = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"sparkles"]];
+    sparkles.tintColor = [UIColor colorWithRed:1.0 green:0.78 blue:0.1 alpha:1];
+    sparkles.translatesAutoresizingMaskIntoConstraints = NO;
+    [prompt addSubview:sparkles];
+    UILabel *placeholder = [self demoLabel:NSLocalizedString(@"EZTutorial.Music.Prompt", nil) color:[UIColor colorWithWhite:0.65 alpha:1] font:13];
+    [prompt addSubview:placeholder];
+
+    UIButton *create = [UIButton buttonWithType:UIButtonTypeSystem];
+    create.backgroundColor = [UIColor colorWithRed:0.04 green:0.82 blue:0.65 alpha:1];
+    create.layer.cornerRadius = 12;
+    create.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBold];
+    [create setTitle:NSLocalizedString(@"EZTutorial.Music.Create", nil) forState:UIControlStateNormal];
+    [create setTitleColor:UIColor.blackColor forState:UIControlStateNormal];
+    create.userInteractionEnabled = NO;
+    create.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.musicDemoView addSubview:create];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [description.topAnchor constraintEqualToAnchor:self.musicDemoView.topAnchor constant:15], [description.leadingAnchor constraintEqualToAnchor:self.musicDemoView.leadingAnchor constant:16], [description.trailingAnchor constraintEqualToAnchor:self.musicDemoView.trailingAnchor constant:-16],
+        [song.topAnchor constraintEqualToAnchor:description.bottomAnchor constant:16], [song.leadingAnchor constraintEqualToAnchor:self.musicDemoView.leadingAnchor constant:14], [song.trailingAnchor constraintEqualToAnchor:self.musicDemoView.trailingAnchor constant:-14], [song.heightAnchor constraintEqualToConstant:76],
+        [artwork.leadingAnchor constraintEqualToAnchor:song.leadingAnchor constant:12], [artwork.centerYAnchor constraintEqualToAnchor:song.centerYAnchor], [artwork.widthAnchor constraintEqualToConstant:52], [artwork.heightAnchor constraintEqualToConstant:52],
+        [songTitle.leadingAnchor constraintEqualToAnchor:artwork.trailingAnchor constant:12], [songTitle.topAnchor constraintEqualToAnchor:song.topAnchor constant:16], [songTitle.trailingAnchor constraintEqualToAnchor:play.leadingAnchor constant:-8],
+        [songMeta.leadingAnchor constraintEqualToAnchor:songTitle.leadingAnchor], [songMeta.topAnchor constraintEqualToAnchor:songTitle.bottomAnchor constant:4],
+        [play.trailingAnchor constraintEqualToAnchor:song.trailingAnchor constant:-12], [play.centerYAnchor constraintEqualToAnchor:song.centerYAnchor], [play.widthAnchor constraintEqualToConstant:34], [play.heightAnchor constraintEqualToConstant:34],
+        [prompt.topAnchor constraintEqualToAnchor:song.bottomAnchor constant:14], [prompt.leadingAnchor constraintEqualToAnchor:self.musicDemoView.leadingAnchor constant:14], [prompt.trailingAnchor constraintEqualToAnchor:self.musicDemoView.trailingAnchor constant:-14], [prompt.heightAnchor constraintEqualToConstant:48],
+        [sparkles.leadingAnchor constraintEqualToAnchor:prompt.leadingAnchor constant:12], [sparkles.centerYAnchor constraintEqualToAnchor:prompt.centerYAnchor], [sparkles.widthAnchor constraintEqualToConstant:22], [sparkles.heightAnchor constraintEqualToConstant:22],
+        [placeholder.leadingAnchor constraintEqualToAnchor:sparkles.trailingAnchor constant:9], [placeholder.centerYAnchor constraintEqualToAnchor:prompt.centerYAnchor],
+        [create.topAnchor constraintEqualToAnchor:prompt.bottomAnchor constant:14], [create.leadingAnchor constraintEqualToAnchor:self.musicDemoView.leadingAnchor constant:14], [create.trailingAnchor constraintEqualToAnchor:self.musicDemoView.trailingAnchor constant:-14], [create.heightAnchor constraintEqualToConstant:48],
+    ]];
+}
+
+- (void)buildSoundsDemo {
+    self.soundsDemoView = [UIView new];
+    self.soundsDemoView.backgroundColor = [UIColor colorWithRed:0.02 green:0.06 blue:0.09 alpha:1];
+    self.soundsDemoView.layer.cornerRadius = 22;
+    self.soundsDemoView.layer.borderWidth = 1;
+    self.soundsDemoView.layer.borderColor = [UIColor colorWithRed:0.05 green:0.85 blue:0.75 alpha:0.55].CGColor;
+    self.soundsDemoView.hidden = YES;
+    self.soundsDemoView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:self.soundsDemoView];
+
+    UILabel *description = [self demoLabel:NSLocalizedString(@"EZTutorial.Sounds.Body", nil) color:[UIColor colorWithWhite:0.84 alpha:1] font:14];
+    description.textAlignment = NSTextAlignmentCenter;
+    [self.soundsDemoView addSubview:description];
+
+    UIView *prompt = [UIView new];
+    prompt.backgroundColor = [UIColor colorWithWhite:1 alpha:0.12];
+    prompt.layer.cornerRadius = 13;
+    prompt.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.soundsDemoView addSubview:prompt];
+    UIImageView *wave = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"waveform"]];
+    wave.tintColor = [UIColor colorWithRed:0.05 green:0.85 blue:0.75 alpha:1];
+    wave.translatesAutoresizingMaskIntoConstraints = NO;
+    [prompt addSubview:wave];
+    UILabel *placeholder = [self demoLabel:NSLocalizedString(@"EZTutorial.Sounds.Prompt", nil) color:[UIColor colorWithWhite:0.65 alpha:1] font:13];
+    [prompt addSubview:placeholder];
+
+    UILabel *duration = [self demoLabel:[NSString stringWithFormat:NSLocalizedString(@"EZSounds.Duration", nil), (long)15] color:[UIColor colorWithWhite:0.84 alpha:1] font:13];
+    [self.soundsDemoView addSubview:duration];
+    UISlider *slider = [UISlider new];
+    slider.value = 0.5;
+    slider.enabled = NO;
+    slider.minimumTrackTintColor = [UIColor colorWithRed:0.05 green:0.85 blue:0.75 alpha:1];
+    slider.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.soundsDemoView addSubview:slider];
+
+    UIButton *generate = [UIButton buttonWithType:UIButtonTypeSystem];
+    generate.backgroundColor = [UIColor colorWithRed:0.04 green:0.82 blue:0.65 alpha:1];
+    generate.layer.cornerRadius = 12;
+    generate.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBold];
+    [generate setTitle:NSLocalizedString(@"EZSounds.Generate", nil) forState:UIControlStateNormal];
+    [generate setTitleColor:UIColor.blackColor forState:UIControlStateNormal];
+    generate.userInteractionEnabled = NO;
+    generate.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.soundsDemoView addSubview:generate];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [description.topAnchor constraintEqualToAnchor:self.soundsDemoView.topAnchor constant:15], [description.leadingAnchor constraintEqualToAnchor:self.soundsDemoView.leadingAnchor constant:16], [description.trailingAnchor constraintEqualToAnchor:self.soundsDemoView.trailingAnchor constant:-16],
+        [prompt.topAnchor constraintEqualToAnchor:description.bottomAnchor constant:16], [prompt.leadingAnchor constraintEqualToAnchor:self.soundsDemoView.leadingAnchor constant:14], [prompt.trailingAnchor constraintEqualToAnchor:self.soundsDemoView.trailingAnchor constant:-14], [prompt.heightAnchor constraintEqualToConstant:48],
+        [wave.leadingAnchor constraintEqualToAnchor:prompt.leadingAnchor constant:12], [wave.centerYAnchor constraintEqualToAnchor:prompt.centerYAnchor], [wave.widthAnchor constraintEqualToConstant:24], [wave.heightAnchor constraintEqualToConstant:24],
+        [placeholder.leadingAnchor constraintEqualToAnchor:wave.trailingAnchor constant:9], [placeholder.centerYAnchor constraintEqualToAnchor:prompt.centerYAnchor],
+        [duration.topAnchor constraintEqualToAnchor:prompt.bottomAnchor constant:18], [duration.leadingAnchor constraintEqualToAnchor:self.soundsDemoView.leadingAnchor constant:16],
+        [slider.topAnchor constraintEqualToAnchor:duration.bottomAnchor constant:6], [slider.leadingAnchor constraintEqualToAnchor:self.soundsDemoView.leadingAnchor constant:14], [slider.trailingAnchor constraintEqualToAnchor:self.soundsDemoView.trailingAnchor constant:-14],
+        [generate.topAnchor constraintEqualToAnchor:slider.bottomAnchor constant:18], [generate.leadingAnchor constraintEqualToAnchor:self.soundsDemoView.leadingAnchor constant:14], [generate.trailingAnchor constraintEqualToAnchor:self.soundsDemoView.trailingAnchor constant:-14], [generate.heightAnchor constraintEqualToConstant:48],
+    ]];
+}
+
+- (void)buildFilesDemo {
+    self.filesDemoView = [UIView new];
+    self.filesDemoView.backgroundColor = [UIColor colorWithRed:0.06 green:0.05 blue:0.03 alpha:1];
+    self.filesDemoView.layer.cornerRadius = 22;
+    self.filesDemoView.layer.borderWidth = 1;
+    self.filesDemoView.layer.borderColor = [UIColor colorWithRed:1.0 green:0.72 blue:0.25 alpha:0.55].CGColor;
+    self.filesDemoView.hidden = YES;
+    self.filesDemoView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:self.filesDemoView];
+
+    UILabel *description = [self demoLabel:NSLocalizedString(@"EZTutorial.Files.Body", nil) color:[UIColor colorWithWhite:0.84 alpha:1] font:14];
+    description.textAlignment = NSTextAlignmentCenter;
+    [self.filesDemoView addSubview:description];
+
+    UIStackView *rows = [[UIStackView alloc] initWithArrangedSubviews:@[
+        [self navigationRowWithTitle:@"report.pdf" symbol:@"doc.text.fill"],
+        [self navigationRowWithTitle:@"sunset.png" symbol:@"photo.fill"],
+        [self navigationRowWithTitle:@"midnight-drive.mp3" symbol:@"music.note"],
+        [self navigationRowWithTitle:@"notes.txt" symbol:@"note.text"]
+    ]];
+    rows.axis = UILayoutConstraintAxisVertical;
+    rows.distribution = UIStackViewDistributionFillEqually;
+    rows.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.filesDemoView addSubview:rows];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [description.topAnchor constraintEqualToAnchor:self.filesDemoView.topAnchor constant:15], [description.leadingAnchor constraintEqualToAnchor:self.filesDemoView.leadingAnchor constant:16], [description.trailingAnchor constraintEqualToAnchor:self.filesDemoView.trailingAnchor constant:-16],
+        [rows.topAnchor constraintEqualToAnchor:description.bottomAnchor constant:14], [rows.leadingAnchor constraintEqualToAnchor:self.filesDemoView.leadingAnchor constant:12], [rows.trailingAnchor constraintEqualToAnchor:self.filesDemoView.trailingAnchor constant:-12], [rows.heightAnchor constraintEqualToConstant:176],
+    ]];
+}
+
 - (void)buildMemoriesDemo {
     self.memoriesDemoView = [UIView new];
     self.memoriesDemoView.backgroundColor = [UIColor colorWithRed:0.025 green:0.035 blue:0.085 alpha:1];
@@ -575,7 +754,7 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     gift.contentMode = UIViewContentModeScaleAspectFit;
     gift.translatesAutoresizingMaskIntoConstraints = NO;
     [free addSubview:gift];
-    NSString *freeCopy = [NSString stringWithFormat:@"%@\n%@", NSLocalizedString(@"EZTutorial.CoinStore.Next", nil), NSLocalizedString(@"EZTutorial.CoinStore.Bonus", nil)];
+    NSString *freeCopy = [NSString stringWithFormat:@"%@\n%@", NSLocalizedString(@"EZTutorial.CoinStore.Free", nil), NSLocalizedString(@"EZTutorial.CoinStore.Bonus", nil)];
     UILabel *freeText = [self demoLabel:freeCopy color:UIColor.whiteColor font:10];
     freeText.textAlignment = NSTextAlignmentLeft;
     [free addSubview:freeText];
@@ -612,12 +791,16 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     NSArray<NSString *> *titles = @[
         NSLocalizedString(@"EZTutorial.Welcome.Title", nil), NSLocalizedString(@"EZTutorial.Chat.Title", nil),
         NSLocalizedString(@"EZTutorial.Navigate.Title", nil), NSLocalizedString(@"EZTutorial.Gallery.Title", nil),
-        NSLocalizedString(@"EZTutorial.Detail.Title", nil), NSLocalizedString(@"EZTutorial.Memories.Title", nil), NSLocalizedString(@"EZTutorial.CoinStore.Title", nil)
+        NSLocalizedString(@"EZTutorial.Detail.Title", nil), NSLocalizedString(@"EZNav.Music", nil),
+        NSLocalizedString(@"EZNav.Sounds", nil), NSLocalizedString(@"EZNav.Files", nil),
+        NSLocalizedString(@"EZTutorial.Memories.Title", nil), NSLocalizedString(@"EZTutorial.CoinStore.Title", nil)
     ];
     NSArray<NSString *> *bodies = @[
         NSLocalizedString(@"EZTutorial.Welcome.Body", nil), NSLocalizedString(@"EZTutorial.Chat.Body", nil),
         NSLocalizedString(@"EZTutorial.Navigate.Body", nil), NSLocalizedString(@"EZTutorial.Gallery.Body", nil),
-        NSLocalizedString(@"EZTutorial.Detail.Body", nil), NSLocalizedString(@"EZTutorial.Memories.Body", nil), NSLocalizedString(@"EZTutorial.CoinStore.Body", nil)
+        NSLocalizedString(@"EZTutorial.Detail.Body", nil), NSLocalizedString(@"EZTutorial.Music.Body", nil),
+        NSLocalizedString(@"EZTutorial.Sounds.Body", nil), NSLocalizedString(@"EZTutorial.Files.Body", nil),
+        NSLocalizedString(@"EZTutorial.Memories.Body", nil), NSLocalizedString(@"EZTutorial.CoinStore.Body", nil)
     ];
     void (^changes)(void) = ^{
         self.titleLabel.text = titles[(NSUInteger)self.pageIndex];
@@ -631,9 +814,12 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
         BOOL isNavigationPage = self.pageIndex == 2;
         BOOL isGalleryPage = self.pageIndex == 3;
         BOOL isDetailPage = self.pageIndex == 4;
-        BOOL isMemoriesPage = self.pageIndex == 5;
-        BOOL isCoinStorePage = self.pageIndex == 6;
-        BOOL isDemoPage = isChatPage || isNavigationPage || isGalleryPage || isDetailPage || isMemoriesPage || isCoinStorePage;
+        BOOL isMusicPage = self.pageIndex == 5;
+        BOOL isSoundsPage = self.pageIndex == 6;
+        BOOL isFilesPage = self.pageIndex == 7;
+        BOOL isMemoriesPage = self.pageIndex == 8;
+        BOOL isCoinStorePage = self.pageIndex == 9;
+        BOOL isDemoPage = isChatPage || isNavigationPage || isGalleryPage || isDetailPage || isMusicPage || isSoundsPage || isFilesPage || isMemoriesPage || isCoinStorePage;
         self.feedbackButton.hidden = self.pageIndex != self.pageControl.numberOfPages - 1;
         self.heroIcon.hidden = isDemoPage;
         self.bodyLabel.hidden = isDemoPage;
@@ -641,6 +827,9 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
         self.navigationDemoView.hidden = !isNavigationPage;
         self.galleryDemoView.hidden = !isGalleryPage;
         self.detailDemoView.hidden = !isDetailPage;
+        self.musicDemoView.hidden = !isMusicPage;
+        self.soundsDemoView.hidden = !isSoundsPage;
+        self.filesDemoView.hidden = !isFilesPage;
         self.memoriesDemoView.hidden = !isMemoriesPage;
         self.coinStoreDemoView.hidden = !isCoinStorePage;
         self.standardTitleTopConstraint.active = !isDemoPage;
@@ -653,6 +842,12 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
         self.galleryDemoBottomConstraint.active = isGalleryPage;
         self.detailDemoTopConstraint.active = isDetailPage;
         self.detailDemoBottomConstraint.active = isDetailPage;
+        self.musicDemoTopConstraint.active = isMusicPage;
+        self.musicDemoBottomConstraint.active = isMusicPage;
+        self.soundsDemoTopConstraint.active = isSoundsPage;
+        self.soundsDemoBottomConstraint.active = isSoundsPage;
+        self.filesDemoTopConstraint.active = isFilesPage;
+        self.filesDemoBottomConstraint.active = isFilesPage;
         self.memoriesDemoTopConstraint.active = isMemoriesPage;
         self.memoriesDemoBottomConstraint.active = isMemoriesPage;
         self.coinStoreDemoTopConstraint.active = isCoinStorePage;

@@ -374,18 +374,18 @@
 "EZNav.RecentChats" = "최근 채팅";
 /* First-run tutorial */
 "EZTutorial.Skip" = "건너뛰기"; "EZTutorial.Back" = "뒤로"; "EZTutorial.Next" = "다음"; "EZTutorial.GetStarted" = "시작하기";
-"EZTutorial.Welcome.Title" = "EZCompleteUI에 오신 것을 환영합니다"; "EZTutorial.Welcome.Body" = "간단한 둘러보기를 통해 각 기능의 위치를 안내해 드립니다. 언제든 건너뛸 수 있습니다.";
-"EZTutorial.Chat.Title" = "채팅하고 만들기"; "EZTutorial.Chat.Body" = "상단에서 모델을 선택하세요. 클립으로 파일이나 사진을 첨부하고, 마이크로 받아쓰기하고, 지구본으로 웹 검색을 하고, 번개로 도우미의 직접 답변을 받을 수 있습니다. 전송을 누르면 요청이 시작됩니다.";
-"EZTutorial.Navigate.Title" = "메뉴와 채팅"; "EZTutorial.Navigate.Body" = "왼쪽 상단의 메뉴를 탭하면 갤러리, 음성 도구, Brain Rot, 메모리, 코인 스토어, 설정 및 최근 채팅에 접근할 수 있습니다. 거기서 검색하여 대화를 찾으세요.";
-"EZTutorial.Gallery.Title" = "사진 갤러리"; "EZTutorial.Gallery.Body" = "왼쪽 상단의 +를 탭하여 사진을 추가하세요. 핀치하여 그리드를 2열에서 5열로 조정할 수 있습니다. 선택을 사용하여 여러 사진을 공유하거나 삭제하세요.";
-"EZTutorial.Detail.Title" = "사진 세부 정보"; "EZTutorial.Detail.Body" = "질문하기를 누르면 이 이미지가 채팅으로 돌아갑니다. 아래에 편집 내용을 설명하거나, +를 사용하여 참조 이미지를 최대 4장까지 추가하고 하나의 새 창작물로 결합하세요."; "EZTutorial.Detail.Prompt" = "편집 내용을 설명하세요…"; "EZTutorial.Detail.Ask" = "질문하기"; "EZTutorial.Detail.Edit" = "AI로 편집";
+"EZTutorial.Welcome.Title" = "EZCompleteUI에 오신 것을 환영합니다"; "EZTutorial.Welcome.Body" = "모든 것이 어디 있는지 빠르게 둘러봅니다.";
+"EZTutorial.Chat.Title" = "채팅하고 만들기"; "EZTutorial.Chat.Body" = "모델을 고르고, 첨부·받아쓰기·검색 — 그리고 보내기.";
+"EZTutorial.Navigate.Title" = "메뉴와 채팅"; "EZTutorial.Navigate.Body" = "모든 것은 왼쪽 위 메뉴에 있습니다.";
+"EZTutorial.Gallery.Title" = "사진 갤러리"; "EZTutorial.Gallery.Body" = "+를 눌러 추가. 핀치로 크기 조절. 선택해서 공유하거나 삭제.";
+"EZTutorial.Detail.Title" = "사진 세부 정보"; "EZTutorial.Detail.Body" = "이 사진에 대해 묻거나, 편집 내용을 적어보세요."; "EZTutorial.Detail.Prompt" = "편집 내용을 설명하세요…"; "EZTutorial.Detail.Ask" = "질문하기"; "EZTutorial.Detail.Edit" = "AI로 편집";
 "EZTutorial.Tools.Title" = "메모리와 코인"; "EZTutorial.Tools.Body" = "메모리는 유용한 결과를 가까이에 보관합니다. 코인 스토어에서 요금제와 코인을 관리합니다. 잔액은 메인 화면에서 언제든 확인할 수 있습니다.";
-"EZTutorial.Memories.Title" = "메모리"; "EZTutorial.Memories.Body" = "저장된 메모리를 검색한 뒤 텍스트를 탭하여 편집하세요. 다시 탭하면 편집이 종료됩니다. 파란색 링크는 메모리가 만들어진 정확한 채팅을 열고, 첨부된 이미지는 사진 세부 정보를 엽니다."; "EZTutorial.Memories.Search" = "메모리 검색"; "EZTutorial.Memories.Source" = "원본 채팅 열기"; "EZTutorial.Memories.Editable" = "이 저장된 메모리를 탭하여 편집하세요.";
-"EZTutorial.CoinStore.Title" = "코인 스토어"; "EZTutorial.CoinStore.Body" = "오른쪽 상단의 사용 내역에는 모든 적립과 차감이 나열됩니다. 무료 코인은 하루에 네 번 받을 수 있으며, 준비되면 알림을 받을 수 있도록 알림을 허용하세요. 일부 프리미엄 모델과 기능은 구매해야 잠금 해제됩니다. PayPal 구독은 자동으로 적립되며, 일회성 충전도 이용할 수 있습니다."; "EZTutorial.CoinStore.Usage" = "사용 내역"; "EZTutorial.CoinStore.Free" = "무료 코인은 하루에 네 번 준비됩니다 • 알림 활성화"; "EZTutorial.CoinStore.Offer" = "1개 사면 1개 무료"; "EZTutorial.CoinStore.Select" = "시작할 준비가 되셨나요? 필요에 맞는 등급을 선택하세요.";
-"EZTutorial.CoinStore.Bonus" = "구독자는 받을 때마다 20 코인 • 요금제가 없으면 10 코인";
+"EZTutorial.Memories.Title" = "메모리"; "EZTutorial.Memories.Body" = "메모리를 눌러 편집하세요. 파란 링크는 그 메모리가 생긴 채팅을 다시 엽니다."; "EZTutorial.Memories.Search" = "메모리 검색"; "EZTutorial.Memories.Source" = "원본 채팅 열기"; "EZTutorial.Memories.Editable" = "이 저장된 메모리를 탭하여 편집하세요.";
+"EZTutorial.CoinStore.Title" = "코인 스토어"; "EZTutorial.CoinStore.Body" = "요금제, 충전, 잔액이 여기 있습니다."; "EZTutorial.CoinStore.Usage" = "사용 내역"; "EZTutorial.CoinStore.Free" = "무료 코인 — 알림 켜기"; "EZTutorial.CoinStore.Offer" = "1개 사면 1개 무료"; "EZTutorial.CoinStore.Select" = "맞는 요금제를 고르세요.";
+"EZTutorial.CoinStore.Bonus" = "요금제가 있으면 받을 때마다 10 • 없으면 5";
 "EZTutorial.CoinStore.Claim" = "무료 코인 받기"; "EZTutorial.Memories.Intro" = "메모리는 유용한 결과를 가까이에 보관합니다.";
 "EZTutorial.CoinStore.Next" = "다음: 6시간 00분"; "EZCoinStore.UsageLog" = "사용 내역";
-"EZTutorial.CoinStore.BodyTop" = "• 사용 내역을 사용하여 모든 적립과 차감을 확인하세요.\n\n• 무료 코인은 하루에 네 번 받을 수 있으며, 알림을 활성화하면 리마인더를 받을 수 있습니다."; "EZTutorial.CoinStore.BodyBottom" = "• 일부 프리미엄 모델과 기능은 구매해야 잠금 해제됩니다.";
+"EZTutorial.CoinStore.BodyTop" = "모든 적립과 차감 — 사용 내역에서 확인하세요."; "EZTutorial.CoinStore.BodyBottom" = "일부 프리미엄 모델은 구매해야 사용할 수 있습니다.";
 "EZGameMode.Title" = "게임 선택"; "EZGameMode.Maze" = "미로 모험"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "취소";
 "EZGameMode.Subtitle" = "플레이 방식을 선택하세요."; "EZGameMode.MazeDescription" = "맞춤 게임 에셋으로 생성된 미로를 탐험하세요."; "EZGameMode.RicochetDescription" = "음악, 픽업 아이템, MIDI와 함께 열린 아레나를 튀어 다니세요.";
 "EZThread.NewConversation" = "새 대화";
@@ -393,6 +393,7 @@
 "EZTutorial.Demo.ModelPicker" = "모델 선택기"; "EZTutorial.Demo.Model" = "모델: gpt-6-astra"; "EZTutorial.Demo.Controls" = "컨트롤"; "EZTutorial.Demo.Placeholder" = "메시지를 입력하세요…"; "EZTutorial.Demo.Send" = "전송";
 "EZTutorial.Feedback" = "아직 질문이 있거나 의견을 공유하고 싶으신가요? 여기를 탭하세요.";
 "EZTutorial.Menu.SampleChat" = "최근 대화";
+"EZTutorial.Music.Body" = "설명만 하면 — AI가 만들고 노래합니다."; "EZTutorial.Music.Prompt" = "노래를 설명해 보세요…"; "EZTutorial.Music.Create" = "노래 만들기"; "EZTutorial.Sounds.Body" = "설명할 수 있는 어떤 소리든 — 최대 30초."; "EZTutorial.Sounds.Prompt" = "소리를 설명해 보세요…"; "EZTutorial.Files.Body" = "앱이 만든 문서, 이미지, 노래 — 모두 한곳에.";
 "EZGallery.Title" = "사진 갤러리"; "EZGallery.Select" = "선택"; "EZGallery.Done" = "완료"; "EZGallery.SelectedCount" = "%lu개 선택됨"; "EZGallery.DeleteTitle" = "사진을 삭제할까요?"; "EZGallery.DeleteMessage" = "선택한 사진 %lu장을 영구 삭제할까요?"; "EZGallery.Delete" = "삭제"; "EZGallery.Cancel" = "취소";
 
 /* Image generation progress */
