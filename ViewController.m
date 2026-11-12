@@ -1097,6 +1097,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) NSDictionary *activeForgetPrompt;
 @property (nonatomic, strong) UIView *forgetPromptOverlay;
 - (BOOL)executeChatMemoryRequest:(NSDictionary *)memoryRequest threadID:(NSString *)threadID;
+- (NSArray<NSString *> *)ez_userReactionChoices;
+- (void)ez_applyUserReaction:(nullable NSString *)reaction toDisplayRow:(NSInteger)row;
 - (void)enqueueForgetPromptWithText:(NSString *)text entries:(NSArray<NSDictionary *> *)entries;
 - (void)presentNextForgetPromptIfPossible;
 - (void)resolveActiveForgetPromptConfirmed:(BOOL)confirmed;
@@ -1786,12 +1788,33 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
             if (text.length > 0) [self appendToChat:[NSString stringWithFormat:@"You: %@", text]];
         } else if ([role isEqualToString:@"assistant"]) {
             self.lastAIResponse = text;
+            // A user reaction stored on the context entry (see
+            // ez_applyUserReaction:toDisplayRow:) goes back onto the first
+            // display bubble this entry produces, so the badge survives
+            // thread switches. appendToChat can add several entries for one
+            // reply (code segments), so snapshot the count first and stamp
+            // only within the newly added range.
+            NSString *restoredReaction = [msg[@"reaction"] isKindOfClass:[NSString class]]
+                ? msg[@"reaction"] : nil;
+            NSUInteger displayCountBefore = self.displayMessages.count;
             if ([text containsString:@"```"]) {
                 NSMutableArray *cp = [NSMutableArray array];
                 NSString *processed = [self processReplyWithCodeBlocks:text savedPaths:cp isRestore:YES];
                 [self appendToChat:[NSString stringWithFormat:@"AI: %@", processed]];
             } else {
                 [self appendToChat:[NSString stringWithFormat:@"AI: %@", text]];
+            }
+            if (restoredReaction.length) {
+                for (NSUInteger di = displayCountBefore; di < self.displayMessages.count; di++) {
+                    NSDictionary *addedEntry = self.displayMessages[di];
+                    if (![addedEntry[@"role"] isEqualToString:@"assistant"]) continue;
+                    NSMutableDictionary *stampedEntry = [addedEntry mutableCopy];
+                    stampedEntry[@"reaction"] = restoredReaction;
+                    stampedEntry[@"reactionShared"] = [msg[@"reactionShared"] isKindOfClass:[NSNumber class]]
+                        ? msg[@"reactionShared"] : @NO;
+                    self.displayMessages[di] = stampedEntry;
+                    break;
+                }
             }
         } else if ([role isEqualToString:@"system"] &&
                    ([msg[@"isUserAuthoredSystemMessage"] boolValue] ||
@@ -4650,6 +4673,60 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         else        { [self showGenericThinkingStatus]; }
     });
 
+    // ── Pending user reactions ──────────────────────────────────────────────
+    // Reactions the user left on earlier assistant responses (stored on the
+    // chatContext entries by ez_applyUserReaction:toDisplayRow:) ride along
+    // with this turn exactly once: they are collected here, rendered as one
+    // note message inserted into the API copy of the context just before the
+    // new user message, and stamped reactionShared in the success handler
+    // below once the reply lands. Chat turns only — an image model never
+    // receives them (image sends don't build this payload anyway; the check
+    // also keeps a chat send from leaking them if routing ever changes), and
+    // transcription sends don't pass through here at all. A failed send
+    // leaves them pending for the next successful one.
+    NSArray<NSDictionary *> *pendingReactionEntries = @[];
+    BOOL reactionModelIsImage = [self isGptImage1Family:self.selectedModel] ||
+        [self.selectedModel isEqualToString:@"seahorse-image"];
+    if (!reactionModelIsImage) {
+        NSMutableArray<NSDictionary *> *pending = [NSMutableArray array];
+        NSMutableString *reactionNote = [NSMutableString string];
+        for (NSDictionary *contextEntry in self.chatContext) {
+            if (![contextEntry[@"role"] isEqualToString:@"assistant"]) continue;
+            NSString *pendingReaction = [contextEntry[@"reaction"] isKindOfClass:[NSString class]]
+                ? contextEntry[@"reaction"] : nil;
+            NSString *reactedContent = [contextEntry[@"content"] isKindOfClass:[NSString class]]
+                ? contextEntry[@"content"] : nil;
+            if (!pendingReaction.length || !reactedContent ||
+                [contextEntry[@"reactionShared"] boolValue]) continue;
+            [pending addObject:contextEntry];
+            // Snippet: the response's text with whitespace runs collapsed to
+            // single spaces, capped so a long reply can't bloat the note.
+            NSMutableArray<NSString *> *snippetWords = [NSMutableArray array];
+            for (NSString *word in [reactedContent componentsSeparatedByCharactersInSet:
+                     [NSCharacterSet whitespaceAndNewlineCharacterSet]]) {
+                if (word.length) [snippetWords addObject:word];
+            }
+            NSString *snippet = [snippetWords componentsJoinedByString:@" "];
+            if (snippet.length > 80) {
+                snippet = [[snippet substringToIndex:80] stringByAppendingString:@"\u2026"];
+            }
+            if (reactionNote.length) [reactionNote appendString:@"\n"];
+            [reactionNote appendFormat:@"[User reacted %@ to your earlier response: \"%@\"]",
+                pendingReaction, snippet];
+        }
+        if (pending.count) {
+            pendingReactionEntries = [pending copy];
+            // Insert into a copy — self.chatContext must never carry the
+            // note itself, or it would be re-sent (and saved) on every turn.
+            NSMutableArray *contextWithReactions = [cleanContext mutableCopy];
+            NSUInteger noteIndex = contextWithReactions.count > 0
+                ? contextWithReactions.count - 1 : 0;
+            [contextWithReactions insertObject:@{@"role": @"user", @"content": [reactionNote copy]}
+                                       atIndex:noteIndex];
+            cleanContext = [contextWithReactions copy];
+        }
+    }
+
     // Build ez-chat request body
     NSMutableDictionary *ezBody = [NSMutableDictionary dictionary];
     ezBody[@"model"]            = self.selectedModel;
@@ -4903,6 +4980,18 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             }
 
             [self appendToChat:[NSString stringWithFormat:@"AI: %@", displayReply]];
+
+            // The reaction note rode along with this turn and the model has
+            // now answered past it: stamp the delivered reactions shared so
+            // they are never sent twice, then let the save below persist
+            // both the reply and the stamps.
+            for (NSDictionary *pendingEntry in pendingReactionEntries) {
+                NSUInteger pendingIdx = [self.chatContext indexOfObjectIdenticalTo:pendingEntry];
+                if (pendingIdx == NSNotFound) continue;
+                NSMutableDictionary *sharedEntry = [self.chatContext[pendingIdx] mutableCopy];
+                sharedEntry[@"reactionShared"] = @YES;
+                self.chatContext[pendingIdx] = sharedEntry;
+            }
             [self saveActiveThread];
             [self checkReplyForLocalFilePaths:reply];
             [self updateCoinBalanceDisplay];
@@ -8808,8 +8897,17 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     NSIndexPath *indexPath = [self.chatTableView indexPathForCell:cell];
     if (!indexPath || (NSUInteger)indexPath.row >= self.displayMessages.count) return nil;
 
-    NSString *textToCopy = self.displayMessages[(NSUInteger)indexPath.row][@"text"];
+    NSDictionary *menuEntry = self.displayMessages[(NSUInteger)indexPath.row];
+    NSString *textToCopy = menuEntry[@"text"];
     if (textToCopy.length == 0) return nil;
+
+    // Captured at configuration time, like textToCopy: the row this menu
+    // belongs to, whether it is a model response, and the reaction that
+    // response already carries (if any).
+    NSInteger capturedRow = indexPath.row;
+    BOOL isAssistantEntry = [menuEntry[@"role"] isEqualToString:@"assistant"];
+    NSString *currentReaction = [menuEntry[@"reaction"] isKindOfClass:[NSString class]]
+        ? menuEntry[@"reaction"] : nil;
 
     return [UIContextMenuConfiguration configurationWithIdentifier:nil
                                                      previewProvider:nil
@@ -8821,8 +8919,113 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
             [UIPasteboard generalPasteboard].string = textToCopy;
             [self appendToChat:@"[System: Copied ✓]"];
         }];
-        return [UIMenu menuWithTitle:@"" children:@[copyAction]];
+        if (!isAssistantEntry) {
+            return [UIMenu menuWithTitle:@"" children:@[copyAction]];
+        }
+        // Model responses also offer reactions: one action per emoji from
+        // the same whitelist the helper's tapbacks use, the current one
+        // checkmarked. Picking the current one again clears it (handled in
+        // ez_applyUserReaction:toDisplayRow:).
+        NSMutableArray<UIAction *> *reactionActions = [NSMutableArray array];
+        for (NSString *emoji in [self ez_userReactionChoices]) {
+            UIAction *reactAction = [UIAction actionWithTitle:emoji
+                                                         image:nil
+                                                    identifier:nil
+                                                       handler:^(__kindof UIAction *action) {
+                [self ez_applyUserReaction:emoji toDisplayRow:capturedRow];
+            }];
+            reactAction.state = [emoji isEqualToString:currentReaction]
+                ? UIMenuElementStateOn : UIMenuElementStateOff;
+            [reactionActions addObject:reactAction];
+        }
+        NSMutableArray<UIMenuElement *> *children = [NSMutableArray array];
+        [children addObject:[UIMenu menuWithTitle:@"React" children:reactionActions]];
+        if (currentReaction.length) {
+            [children addObject:[UIAction actionWithTitle:@"Remove Reaction"
+                                                     image:[UIImage systemImageNamed:@"xmark.circle"]
+                                                identifier:nil
+                                                   handler:^(__kindof UIAction *action) {
+                [self ez_applyUserReaction:nil toDisplayRow:capturedRow];
+            }]];
+        }
+        [children addObject:copyAction];
+        return [UIMenu menuWithTitle:@"" children:children];
     }];
+}
+
+// ── User reactions on model responses ───────────────────────────────────────
+// The emoji set matches the helper tapbacks' whitelist exactly (see
+// statusStepsAndReactionFromReplyText:) so a response can carry either kind
+// of reaction and both render through the same badge.
+- (NSArray<NSString *> *)ez_userReactionChoices {
+    return @[@"👍", @"❤️", @"💡", @"😂", @"🤔", @"✨", @"🎉", @"🔥", @"💪", @"🙏", @"👀"];
+}
+
+/// Applies (or clears) the user's own reaction on the assistant bubble at the
+/// given display row: updates the display entry so the badge changes at once,
+/// then stamps the matching chatContext entry the same way and persists the
+/// thread — so the reaction survives relaunches and can ride along with the
+/// next chat turn (see the send path's pending-reactions block). Passing nil,
+/// or the emoji the entry already carries, clears the reaction.
+///
+/// Display entries and context entries are separate objects with no shared
+/// identity, so the context entry is found by text + ordinal: take this row's
+/// position (counting from 1) among assistant display entries whose text
+/// equals this entry's text, then stamp the context entry holding that same
+/// ordinal among assistant context entries whose string content equals the
+/// text. Identical repeated replies ("Yes.", "OK") therefore land on the
+/// right copy. When nothing matches — e.g. a reply whose display text was
+/// rewritten by code-block processing — the context stamp is skipped
+/// silently: the badge still shows for this session, it just won't be
+/// shared with the model or restored later.
+- (void)ez_applyUserReaction:(NSString *)reaction toDisplayRow:(NSInteger)row {
+    if (row < 0 || (NSUInteger)row >= self.displayMessages.count) return;
+    NSDictionary *entry = self.displayMessages[(NSUInteger)row];
+    if (![entry[@"role"] isEqualToString:@"assistant"]) return;
+
+    NSString *existing = [entry[@"reaction"] isKindOfClass:[NSString class]] ? entry[@"reaction"] : nil;
+    NSString *newReaction = (reaction.length && ![reaction isEqualToString:existing]) ? reaction : nil;
+
+    NSMutableDictionary *updated = [entry mutableCopy];
+    if (newReaction) {
+        updated[@"reaction"] = newReaction;
+        updated[@"reactionShared"] = @NO;
+    } else {
+        [updated removeObjectForKey:@"reaction"];
+        [updated removeObjectForKey:@"reactionShared"];
+    }
+    self.displayMessages[(NSUInteger)row] = updated;
+    [self.chatTableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:row inSection:0]]
+                              withRowAnimation:UITableViewRowAnimationFade];
+
+    NSString *text = entry[@"text"];
+    if (![text isKindOfClass:[NSString class]] || text.length == 0) return;
+    NSUInteger ordinal = 0;
+    for (NSUInteger i = 0; i <= (NSUInteger)row; i++) {
+        NSDictionary *candidate = self.displayMessages[i];
+        if ([candidate[@"role"] isEqualToString:@"assistant"] &&
+            [candidate[@"text"] isEqualToString:text]) ordinal++;
+    }
+    NSUInteger seen = 0;
+    for (NSUInteger i = 0; i < self.chatContext.count; i++) {
+        NSDictionary *contextEntry = self.chatContext[i];
+        if (![contextEntry[@"role"] isEqualToString:@"assistant"]) continue;
+        if (![contextEntry[@"content"] isKindOfClass:[NSString class]]) continue;
+        if (![contextEntry[@"content"] isEqualToString:text]) continue;
+        seen++;
+        if (seen != ordinal) continue;
+        NSMutableDictionary *stamped = [contextEntry mutableCopy];
+        if (newReaction) {
+            stamped[@"reaction"] = newReaction;
+            stamped[@"reactionShared"] = @NO;
+        } else {
+            [stamped removeObjectForKey:@"reaction"];
+            [stamped removeObjectForKey:@"reactionShared"];
+        }
+        self.chatContext[i] = stamped;
+        [self saveActiveThread];
+        break;
+    }
 }
 
 // ── Tap-to-expand for attachment bubbles ────────────────────────────────────
