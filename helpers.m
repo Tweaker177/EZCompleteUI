@@ -53,6 +53,7 @@ static NSString * const kSystemLogFileName     = @"ezui_system.log";   // rollin
 static NSString * const kHelperLogFileName     = @"ezui_helper.log";   // verbose helper decisions log
 static NSString * const kMemoryJSONFileName    = @"ezui_memory.json";   // current memory store (JSON format)
 static NSString * const kMemoryLegacyFileName  = @"ezui_memory.log";    // old plaintext format; migrated on first run
+static NSString * const kImportantMemoryJSONFileName = @"ezui_important_memories.json";  // explicit facts (Memory Summary store)
 static NSString * const kThreadsDirName        = @"EZThreads";          // sub-folder that holds one .json file per thread
 static NSString * const kAttachmentsDirName    = @"EZAttachments";      // sub-folder where user-uploaded files are copied
 static NSString * const kPhotoGalleryDirName   = @"EZPhotoGallery";     // image-only gallery storage
@@ -83,7 +84,8 @@ static NSString *EZThreadTitleFromUserMessage(NSString *text) {
 
     // Wrappers that bury the real words after a "[User message]" marker:
     // memory context and the validated-helper verification prompt.
-    if ([trimmed hasPrefix:@"[Possibly relevant memories:"] ||
+    if ([trimmed hasPrefix:@"[Important memories"] ||
+        [trimmed hasPrefix:@"[Possibly relevant memories:"] ||
         [trimmed hasPrefix:@"[Memories with possible relevance:"] ||
         [trimmed hasPrefix:@"[Validated helper answer"]) {
         NSRange marker = [trimmed rangeOfString:@"[User message]"
@@ -113,7 +115,8 @@ static NSString *EZThreadTitleFromUserMessage(NSString *text) {
 }
 
 static BOOL EZThreadTitleIsMemoryContext(NSString *title) {
-    return [title hasPrefix:@"[Possibly relevant memories:"] ||
+    return [title hasPrefix:@"[Important memories"] ||
+           [title hasPrefix:@"[Possibly relevant memories:"] ||
            [title hasPrefix:@"[Memories with possible relevance:"];
 }
 
@@ -997,6 +1000,13 @@ NSString *EZMemoryGetPath(void) {
     return [_documentsDirectory() stringByAppendingPathComponent:kMemoryJSONFileName];
 }
 
+// Returns the full path to the important-memories store file — the
+// separate store for facts saved explicitly through the chat memory
+// tool (the Settings "Memory Summary" list).
+NSString *EZImportantMemoryGetPath(void) {
+    return [_documentsDirectory() stringByAppendingPathComponent:kImportantMemoryJSONFileName];
+}
+
 // Returns the full path to the OLD plaintext memory log (pre-JSON era).
 // Only used by the migration function below.
 static NSString *_legacyMemoryLogPath(void) {
@@ -1089,14 +1099,13 @@ static void _migrateMemoryIfNeeded(void) {
            (unsigned long)migratedEntries.count);
 }
 
-// _loadMemoryEntries — private. Reads and parses the JSON memory file.
-// Runs migration first if needed. Returns a mutable array so callers can
-// append to it before passing to _saveMemoryEntries.
-// Returns an empty array (never nil) on any read/parse error.
-static NSMutableArray<NSDictionary *> *_loadMemoryEntries(void) {
-    _migrateMemoryIfNeeded();  // no-op after the first successful migration
-
-    NSData *fileData = [NSData dataWithContentsOfFile:EZMemoryGetPath() options:0 error:nil];
+// _loadEntriesAtPath — private. Reads and parses a JSON entry-store
+// file (either memory store — both share the entry shape). Returns a
+// mutable array so callers can append to it before passing to the
+// matching save. Returns an empty array (never nil) on any read or
+// parse error.
+static NSMutableArray<NSDictionary *> *_loadEntriesAtPath(NSString *path) {
+    NSData *fileData = [NSData dataWithContentsOfFile:path options:0 error:nil];
     if (!fileData) return [NSMutableArray array];  // file doesn't exist yet
 
     id parsed = [NSJSONSerialization JSONObjectWithData:fileData options:0 error:nil];
@@ -1113,10 +1122,17 @@ static NSMutableArray<NSDictionary *> *_loadMemoryEntries(void) {
     return out;
 }
 
-// _saveMemoryEntries — private. Serializes the array to pretty-printed JSON
-// and writes atomically. Logs errors but never throws — failure to save a
-// memory entry should never crash the app.
-static void _saveMemoryEntries(NSArray<NSDictionary *> *entries) {
+// _loadMemoryEntries — private. The summaries store: runs the legacy
+// plaintext migration first if needed, then loads ezui_memory.json.
+static NSMutableArray<NSDictionary *> *_loadMemoryEntries(void) {
+    _migrateMemoryIfNeeded();  // no-op after the first successful migration
+    return _loadEntriesAtPath(EZMemoryGetPath());
+}
+
+// _saveEntriesAtPath — private. Serializes the array to pretty-printed
+// JSON and writes it atomically to `path`. Logs errors but never
+// throws — failure to save a memory entry should never crash the app.
+static void _saveEntriesAtPath(NSArray<NSDictionary *> *entries, NSString *path) {
     NSError *serializeError = nil;
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:entries
                                                        options:NSJSONWritingPrettyPrinted
@@ -1127,10 +1143,89 @@ static void _saveMemoryEntries(NSArray<NSDictionary *> *entries) {
     }
 
     NSError *writeError = nil;
-    [jsonData writeToFile:EZMemoryGetPath() options:NSDataWritingAtomic error:&writeError];
+    [jsonData writeToFile:path options:NSDataWritingAtomic error:&writeError];
     if (writeError) {
         EZLogf(EZLogLevelError, @"MEMORY", @"Failed to write memory JSON: %@", writeError);
     }
+}
+
+// _saveMemoryEntries — private. The summaries store (ezui_memory.json).
+static void _saveMemoryEntries(NSArray<NSDictionary *> *entries) {
+    _saveEntriesAtPath(entries, EZMemoryGetPath());
+}
+
+// ── Important-memories store ─────────────────────────────────────────
+// Facts the user explicitly asked to remember (the chat update_memory
+// tool) live in their own file, ezui_important_memories.json — the
+// Settings "Memory Summary" list — separate from the automatic
+// summaries above. The entry shape is identical ({timestamp, summary,
+// chatKey, explicitFact}) so the forget matcher in Section 8 serves
+// this store unchanged. All access runs inside _fileWriteQueue, like
+// every other memory mutation; the load/save pair below must only be
+// called from inside a queue block.
+
+static NSString *const kEZImportantMemoryMigratedKey = @"EZImportantMemoryMigratedV1";
+
+// _migrateExplicitMemoriesIfNeededLocked — one-time move of the tool's
+// explicit entries out of the summaries store into the important
+// store. Before the split, EZCreateExplicitMemory wrote into
+// ezui_memory.json, so existing installs have explicitFact entries
+// mixed into their summaries. Each one moves across with every key
+// preserved, in order; the summaries file is rewritten without them.
+// Runs at most once (defaults flag); must be called inside
+// _fileWriteQueue.
+static void _migrateExplicitMemoriesIfNeededLocked(void) {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    if ([defaults boolForKey:kEZImportantMemoryMigratedKey]) return;
+
+    NSMutableArray<NSDictionary *> *summaries = _loadMemoryEntries();
+    NSMutableArray<NSDictionary *> *important =
+        _loadEntriesAtPath(EZImportantMemoryGetPath());
+    NSMutableArray<NSDictionary *> *kept =
+        [NSMutableArray arrayWithCapacity:summaries.count];
+    NSUInteger movedCount = 0;
+    for (NSDictionary *entry in summaries) {
+        NSString *fact = [entry isKindOfClass:[NSDictionary class]]
+            ? _safeString(entry[@"explicitFact"]) : @"";
+        if (fact.length > 0) {
+            [important addObject:entry];
+            movedCount++;
+        } else {
+            [kept addObject:entry];
+        }
+    }
+    if (movedCount > 0) {
+        _saveEntriesAtPath(important, EZImportantMemoryGetPath());
+        _saveMemoryEntries(kept);
+        EZLogf(EZLogLevelInfo, @"MEMORY",
+               @"Migrated %lu explicit facts to the important-memories store",
+               (unsigned long)movedCount);
+    }
+    [defaults setBool:YES forKey:kEZImportantMemoryMigratedKey];
+}
+
+// EZMigrateExplicitMemoriesIfNeeded — public entry point for the
+// migration above, for callers outside the file-write queue. (The
+// store functions run the locked variant inside their queue blocks.)
+void EZMigrateExplicitMemoriesIfNeeded(void) {
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:kEZImportantMemoryMigratedKey]) return;
+    dispatch_sync(_fileWriteQueue(), ^{
+        _migrateExplicitMemoriesIfNeededLocked();
+    });
+}
+
+// _loadImportantMemoryEntries — private. The important store: runs the
+// store-split migration first, then loads
+// ezui_important_memories.json. Must be called inside _fileWriteQueue
+// (the migration writes).
+static NSMutableArray<NSDictionary *> *_loadImportantMemoryEntries(void) {
+    _migrateExplicitMemoriesIfNeededLocked();
+    return _loadEntriesAtPath(EZImportantMemoryGetPath());
+}
+
+// _saveImportantMemoryEntries — private. The important store.
+static void _saveImportantMemoryEntries(NSArray<NSDictionary *> *entries) {
+    _saveEntriesAtPath(entries, EZImportantMemoryGetPath());
 }
 
 // EZMemoryLoadAll — public read-only access to the full memory store.
@@ -2198,7 +2293,7 @@ void analyzePromptForContext(NSString *userPrompt,
                                       chatKey, completion);
 }
 
-void analyzePromptForContextWithImages(NSString *userPrompt,
+static void _analyzePromptForContextWithImagesImpl(NSString *userPrompt,
                                        NSString * _Nullable memoryContext,
                                        NSArray<NSString *> * _Nullable imageDataURLs,
                                        NSString *jwtToken,
@@ -2632,6 +2727,53 @@ void analyzePromptForContextWithImages(NSString *userPrompt,
 }
 
 
+// ── Important memories: always-in-context injection ──────────────────
+// The triage pipeline above decides what relevance context a turn gets;
+// the important-memories block is not subject to that decision — the
+// user asked for those facts to be remembered ALWAYS. This wrapper is
+// the single choke point every analyze result passes through, so the
+// block rides every routing outcome that ends at the main model:
+//   • relevance-enriched prompt → the block is prepended before the
+//     relevance block, the two separated by a blank line;
+//   • bare prompt → "<block>\n\n[User message]\n<prompt>", the same
+//     wrapper shape the relevance block uses, so display and restore
+//     stripping treat both identically.
+// An empty important store leaves every prompt byte-identical to
+// before. (Direct-answer short-circuits never send finalPrompt to the
+// main model, so wrapping it on those paths is inert.)
+static EZContextResult *_resultByApplyingImportantMemories(EZContextResult *result,
+                                                           NSString *userPrompt) {
+    NSString *importantBlock = EZImportantMemoryContextBlock();
+    if (importantBlock.length == 0) return result;
+    NSString *finalPrompt = result.finalPrompt ?: @"";
+    if ([finalPrompt hasPrefix:importantBlock]) return result;  // already applied
+    if ([finalPrompt hasPrefix:@"[Possibly relevant memories:]"] ||
+        [finalPrompt hasPrefix:@"[Memories with possible relevance:"]) {
+        result.finalPrompt = [NSString stringWithFormat:@"%@\n\n%@", importantBlock, finalPrompt];
+    } else if ([finalPrompt isEqualToString:userPrompt]) {
+        result.finalPrompt = [NSString stringWithFormat:@"%@\n\n[User message]\n%@",
+                              importantBlock, userPrompt];
+    } else {
+        return result;  // unexpected shape — leave the prompt untouched
+    }
+    result.estimatedTokens += _estimateTokenCount(importantBlock) + 4;
+    return result;
+}
+
+void analyzePromptForContextWithImages(NSString *userPrompt,
+                                       NSString * _Nullable memoryContext,
+                                       NSArray<NSString *> * _Nullable imageDataURLs,
+                                       NSString *jwtToken,
+                                       NSString * _Nullable chatKey,
+                                       void (^completion)(EZContextResult *result)) {
+    _analyzePromptForContextWithImagesImpl(userPrompt, memoryContext, imageDataURLs,
+                                           jwtToken, chatKey,
+    ^(EZContextResult *result) {
+        completion(_resultByApplyingImportantMemories(result, userPrompt));
+    });
+}
+
+
 // ═════════════════════════════════════════════════════════════════════════════
 // SECTION 8 — MEMORY WRITE (EZCreateMemoryEntry)
 //
@@ -2711,12 +2853,13 @@ static BOOL _memoryEntryLooksDuplicate(NSDictionary *candidate, NSDictionary *ex
 //   filename generalization) so the model knows exactly what to avoid.
 // ── Forget registry ────────────────────────────────────────────────────────
 // EZForgetMemoryMatching removes entries that are already in the store,
-// but an automatic save for an earlier turn can still be in flight — its
-// summarizer runs asynchronously — and would append the forgotten fact
-// when it finishes. To close that race, every forget registers its
-// needle here with the time it ran. A pending save checks the registry
-// when it is ready to append: if a forget registered AFTER the save
-// started matches the summary, the append is dropped. A save that
+// but an explicit save can still be in flight when a forget lands, and
+// would append the forgotten fact when it finishes. To close that race,
+// every forget registers its needle here with the time it ran. A pending
+// explicit save checks the registry when it is ready to append: if a
+// forget registered AFTER the save started matches the fact, the append
+// is dropped. (Automatic summaries no longer consult the registry:
+// they live in the summaries store, which forgets do not target.) A save that
 // started after the forget is a new statement of the fact and is kept —
 // forgetting is not a permanent blocklist.
 // The registry lives in NSUserDefaults (a handful of short strings) and
@@ -2805,12 +2948,6 @@ static void EZCreateMemoryEntryInternal(NSString *userPrompt,
     NSCParameterAssert(userPrompt);
     NSCParameterAssert(assistantReply);
     NSCParameterAssert(jwtToken);
-
-    // When this save began. The summarizer below runs asynchronously, so
-    // a forget can land while it is still working; the append step uses
-    // this timestamp to decide whether such a forget invalidates the
-    // entry (see the forget registry above).
-    NSTimeInterval saveStartedAt = [NSDate date].timeIntervalSince1970;
 
     EZLog(EZLogLevelInfo, @"MEMORY", @"Creating summary...");
 
@@ -2916,17 +3053,12 @@ static void EZCreateMemoryEntryInternal(NSString *userPrompt,
         // file-write queue to prevent a race condition where two background threads
         // both read the "last entry" at the same time.
         __block BOOL didSkipDuplicate = NO;
-        __block BOOL didSkipForgotten = NO;
         dispatch_sync(_fileWriteQueue(), ^{
-            // Forget race: the user may have forgotten this fact while the
-            // summarizer was still running. If a forget registered after
-            // this save started matches the summary, drop the append —
-            // the fact stays forgotten.
-            if (_summaryMatchesForgetRegisteredAfter(summary, saveStartedAt)) {
-                didSkipForgotten = YES;
-                EZLog(EZLogLevelInfo, @"MEMORY", @"Skipped memory invalidated by a later forget");
-                return;
-            }
+            // No forget-registry check here: summaries and explicit
+            // facts live in separate stores now, and a forget targets
+            // the important store only. A summary that happens to
+            // restate a forgotten fact is acceptable by design — the
+            // fact itself stays out of the always-in-context block.
             NSMutableArray *allEntries = _loadMemoryEntries();
             NSDictionary   *lastEntry  = allEntries.lastObject;
             if ([lastEntry isKindOfClass:[NSDictionary class]] &&
@@ -2938,11 +3070,6 @@ static void EZCreateMemoryEntryInternal(NSString *userPrompt,
             [allEntries addObject:[newEntry copy]];
             _saveMemoryEntries(allEntries);
         });
-
-        if (didSkipForgotten) {
-            dispatch_async(dispatch_get_main_queue(), ^{ completion(nil); });
-            return;
-        }
 
         // Format the entry string for the completion callback.
         NSString *formattedEntry = [NSString stringWithFormat:@"[%@] [chatKey=%@]%@ %@",
@@ -3021,12 +3148,13 @@ void EZCreateSongMemory(NSString *userPrompt,
 // EZCreateExplicitMemory — stores a fact the user explicitly asked to
 // remember (via the chat update_memory tool) verbatim, with no
 // summarizer in between: what was asked to be kept is what is kept.
-// The fact is stored as the entry's summary (so recall, search and the
-// Memories screen treat it like any other memory) and again under
-// `explicitFact`, which is what makes a later forget matchable exactly
-// instead of by summary wording. An identical fact already in the store
-// is not duplicated. Runs on the same file-write queue as every other
-// memory write, so it cannot race the automatic per-turn saves.
+// The fact goes to the IMPORTANT-memories store (see
+// EZImportantMemoryGetPath), not the summaries store: it is stored as
+// the entry's summary and again under `explicitFact`, which is what
+// makes a later forget matchable exactly instead of by summary
+// wording. An identical fact already in the store is not duplicated.
+// Runs on the same file-write queue as every other memory write, so
+// it cannot race the automatic per-turn saves.
 void EZCreateExplicitMemory(NSString *fact,
                             NSString * _Nullable threadID,
                             void (^completion)(BOOL saved)) {
@@ -3051,7 +3179,7 @@ void EZCreateExplicitMemory(NSString *fact,
             EZLogf(EZLogLevelInfo, @"MEMORY", @"Explicit save dropped — invalidated by a later forget: %@", cleanFact);
             return;
         }
-        NSMutableArray<NSDictionary *> *allEntries = _loadMemoryEntries();
+        NSMutableArray<NSDictionary *> *allEntries = _loadImportantMemoryEntries();
         for (NSDictionary *existing in allEntries) {
             if (![existing isKindOfClass:[NSDictionary class]]) continue;
             NSString *prior = _safeString(existing[@"explicitFact"]);
@@ -3059,7 +3187,7 @@ void EZCreateExplicitMemory(NSString *fact,
             if ([prior isEqualToString:cleanFact]) return;  // already known
         }
         [allEntries addObject:newEntry];
-        _saveMemoryEntries(allEntries);
+        _saveImportantMemoryEntries(allEntries);
         didSave = YES;
     });
     EZLogf(EZLogLevelInfo, @"MEMORY", @"Explicit save %@: %@",
@@ -3068,11 +3196,13 @@ void EZCreateExplicitMemory(NSString *fact,
 }
 
 // EZForgetMemoryMatching — removes the entries an update_memory forget
-// refers to. Tool-saved facts match on their verbatim text; automatic
-// memories match on their summary text, so a forget lands when the
-// model's wording appears in the stored sentence. Matching is a plain
-// case-insensitive substring check — deterministic, and the Memories
-// screen remains the place the user can verify or undo by re-asking.
+// refers to, from the IMPORTANT-memories store only. Summaries are a
+// separate store and out of scope for forgets: one restating the fact
+// conversationally is acceptable — what the user asked to forget is
+// the standing fact, and it leaves the always-in-context block.
+// Matching is a plain case-insensitive substring check — deterministic,
+// and the Memory Summary screen remains the place the user can verify
+// or undo by re-asking.
 void EZForgetMemoryMatching(NSString *text,
                             void (^completion)(NSUInteger removed)) {
     NSString *needle = _normalizedForgetNeedle(text);
@@ -3087,14 +3217,14 @@ void EZForgetMemoryMatching(NSString *text,
         // _summaryMatchesForgetRegisteredAfter). Registering is what
         // makes the forget stick even when nothing is stored yet.
         _registerForgetNeedle(needle);
-        NSMutableArray<NSDictionary *> *allEntries = _loadMemoryEntries();
+        NSMutableArray<NSDictionary *> *allEntries = _loadImportantMemoryEntries();
         NSMutableArray<NSDictionary *> *kept =
             [NSMutableArray arrayWithCapacity:allEntries.count];
         for (NSDictionary *entry in allEntries) {
             if (_entryMatchesForgetNeedle(entry, needle)) removedCount++;
             else [kept addObject:entry];
         }
-        if (removedCount > 0) _saveMemoryEntries(kept);
+        if (removedCount > 0) _saveImportantMemoryEntries(kept);
     });
     EZLogf(EZLogLevelInfo, @"MEMORY", @"Forget '%@' removed %lu",
            text, (unsigned long)removedCount);
@@ -3109,7 +3239,7 @@ NSArray<NSDictionary *> *EZMemoryEntriesMatching(NSString *text) {
     if (needle.length == 0) return @[];
     NSMutableArray<NSDictionary *> *matches = [NSMutableArray array];
     dispatch_sync(_fileWriteQueue(), ^{
-        for (NSDictionary *entry in _loadMemoryEntries()) {
+        for (NSDictionary *entry in _loadImportantMemoryEntries()) {
             if (_entryMatchesForgetNeedle(entry, needle)) {
                 [matches addObject:[entry copy]];
             }
@@ -3134,6 +3264,107 @@ void EZUnregisterForgetNeedle(NSString *text) {
     NSString *needle = _normalizedForgetNeedle(text);
     if (needle.length == 0) return;
     dispatch_sync(_fileWriteQueue(), ^{ _unregisterForgetNeedle(needle); });
+}
+
+// ── Important memories: context block + Memory Summary CRUD ──────────
+// The public surface of the important store: the send path's context
+// block and the Settings Memory Summary screen's add / replace /
+// delete. All store access runs inside _fileWriteQueue and goes
+// through _loadImportantMemoryEntries, so the one-time store migration
+// has always run before any of these reads or writes.
+
+// EZImportantMemoryContextBlock — the always-in-context block prepended
+// to outgoing chat sends: a header line plus one "- <fact>" line per
+// stored fact, oldest first (file order). nil when the store is empty,
+// so sends stay byte-identical to a build without the feature.
+NSString * _Nullable EZImportantMemoryContextBlock(void) {
+    __block NSArray<NSDictionary *> *entries = nil;
+    dispatch_sync(_fileWriteQueue(), ^{
+        entries = [_loadImportantMemoryEntries() copy];
+    });
+    NSMutableArray<NSString *> *factLines = [NSMutableArray array];
+    for (NSDictionary *entry in entries) {
+        if (![entry isKindOfClass:[NSDictionary class]]) continue;
+        NSString *fact = _safeString(entry[@"explicitFact"]);
+        if (fact.length == 0) fact = _safeString(entry[@"summary"]);
+        if (fact.length > 0) [factLines addObject:fact];
+    }
+    if (factLines.count == 0) return nil;
+    NSMutableString *block = [NSMutableString stringWithString:
+        @"[Important memories — facts the user explicitly asked to always remember:]"];
+    for (NSString *fact in factLines) [block appendFormat:@"\n- %@", fact];
+    return [block copy];
+}
+
+// EZImportantMemoryLoadAll — every entry in file order (oldest first),
+// for the Memory Summary screen.
+NSArray<NSDictionary *> *EZImportantMemoryLoadAll(void) {
+    __block NSArray<NSDictionary *> *entries = nil;
+    dispatch_sync(_fileWriteQueue(), ^{
+        entries = [_loadImportantMemoryEntries() copy];
+    });
+    return entries;
+}
+
+// EZImportantMemoryAddFact — manual add from the Memory Summary
+// screen. Same acceptance rules as EZCreateExplicitMemory: trimmed,
+// non-empty, no identical duplicate.
+void EZImportantMemoryAddFact(NSString *fact) {
+    NSString *cleanFact = [fact stringByTrimmingCharactersInSet:
+        [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (cleanFact.length == 0) return;
+    dispatch_sync(_fileWriteQueue(), ^{
+        NSMutableArray<NSDictionary *> *allEntries = _loadImportantMemoryEntries();
+        for (NSDictionary *existing in allEntries) {
+            if (![existing isKindOfClass:[NSDictionary class]]) continue;
+            NSString *prior = _safeString(existing[@"explicitFact"]);
+            if (prior.length == 0) prior = _safeString(existing[@"summary"]);
+            if ([prior isEqualToString:cleanFact]) return;  // already known
+        }
+        [allEntries addObject:@{
+            @"timestamp":    _timestampForDisplay(),
+            @"summary":      cleanFact,
+            @"chatKey":      @"",
+            @"explicitFact": cleanFact,
+        }];
+        _saveImportantMemoryEntries(allEntries);
+    });
+    EZLogf(EZLogLevelInfo, @"MEMORY", @"Important memory added from Memory Summary: %@", cleanFact);
+}
+
+// EZImportantMemoryReplaceFactAtIndex — manual edit from the Memory
+// Summary screen. Updates BOTH the summary and explicitFact (the same
+// text for tool-saved facts) and keeps the original timestamp:
+// editing a fact does not make it a new fact.
+void EZImportantMemoryReplaceFactAtIndex(NSUInteger index, NSString *newFact) {
+    NSString *cleanFact = [newFact stringByTrimmingCharactersInSet:
+        [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (cleanFact.length == 0) return;
+    dispatch_sync(_fileWriteQueue(), ^{
+        NSMutableArray<NSDictionary *> *allEntries = _loadImportantMemoryEntries();
+        if (index >= allEntries.count) return;
+        NSMutableDictionary *updated = [allEntries[index] mutableCopy];
+        if (!updated) return;
+        updated[@"summary"]      = cleanFact;
+        updated[@"explicitFact"] = cleanFact;
+        allEntries[index] = updated;
+        _saveImportantMemoryEntries(allEntries);
+    });
+    EZLogf(EZLogLevelInfo, @"MEMORY", @"Important memory %lu edited from Memory Summary",
+           (unsigned long)index);
+}
+
+// EZImportantMemoryDeleteAtIndex — manual delete from the Memory
+// Summary screen (its Edit mode). Chat forgets go through
+// EZForgetMemoryMatching instead.
+void EZImportantMemoryDeleteAtIndex(NSUInteger index) {
+    dispatch_sync(_fileWriteQueue(), ^{
+        NSMutableArray<NSDictionary *> *allEntries = _loadImportantMemoryEntries();
+        if (index >= allEntries.count) return;
+        [allEntries removeObjectAtIndex:index];
+        _saveImportantMemoryEntries(allEntries);
+    });
+    EZLog(EZLogLevelInfo, @"MEMORY", @"Important memory deleted from Memory Summary");
 }
 
 static NSString *_attachmentDirectory(void) {

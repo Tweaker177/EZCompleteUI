@@ -112,7 +112,7 @@ void EZCreateSongMemory(NSString *userPrompt,
                         void (^completion)(NSString * _Nullable entry));
 
 /// Explicit fact save for the chat memory tool (update_memory): stores
-/// `fact` verbatim as a memory entry WITHOUT the summarizer, so what the
+/// `fact` verbatim as an important-memory entry WITHOUT the summarizer, so what the
 /// user asked to remember is exactly what is kept and later recalled.
 /// The entry also carries the fact under `explicitFact` so a later
 /// forget can match it exactly. completion reports whether a new entry
@@ -121,7 +121,7 @@ void EZCreateExplicitMemory(NSString *fact,
                             NSString * _Nullable threadID,
                             void (^completion)(BOOL saved));
 
-/// Forget counterpart: removes every memory entry whose stored fact
+/// Forget counterpart: removes every important-memory entry whose stored fact
 /// (explicitFact) or summary contains `text`, case-insensitive.
 /// completion reports how many entries were removed.
 void EZForgetMemoryMatching(NSString *text,
@@ -134,7 +134,7 @@ void EZForgetMemoryMatching(NSString *text,
 NSArray<NSDictionary *> *EZMemoryEntriesMatching(NSString *text);
 
 /// Registers `text`'s needle in the forget registry immediately, so an
-/// in-flight automatic save of the fact is invalidated even before any
+/// in-flight explicit save of the fact is invalidated even before any
 /// deletion happens. EZForgetMemoryMatching registers as part of the
 /// delete; the confirmation gate calls this up front, because the user
 /// may take time to decide and the fact must not resurrect meanwhile.
@@ -145,6 +145,43 @@ void EZRegisterForgetNeedle(NSString *text);
 /// exactly as it was before the request: nothing deleted, nothing
 /// blocked.
 void EZUnregisterForgetNeedle(NSString *text);
+
+/// ── Important memories (Memory Summary) ──────────────────────────────
+/// Facts saved through the chat memory tool live in their own store
+/// (ezui_important_memories.json), separate from the automatic per-turn
+/// summaries in ezui_memory.json: they are the user's standing "always
+/// remember this" list, shown and edited on the Settings → Memory
+/// Summary screen, and injected into every chat send as a block.
+
+/// Full path to the important-memories store file.
+NSString *EZImportantMemoryGetPath(void);
+
+/// One-time migration: moves every summaries entry carrying an
+/// `explicitFact` (saved by the memory tool before the stores split)
+/// into the important store, preserving order and all keys. Guarded by
+/// a defaults flag; safe to call repeatedly — the store functions run
+/// it automatically before first use.
+void EZMigrateExplicitMemoriesIfNeeded(void);
+
+/// The always-in-context block for outgoing chat sends: a header line
+/// plus one "- <fact>" line per stored fact, oldest first. nil when
+/// the important store is empty.
+NSString * _Nullable EZImportantMemoryContextBlock(void);
+
+/// All important-memory entries in file order (oldest first).
+NSArray<NSDictionary *> *EZImportantMemoryLoadAll(void);
+
+/// Appends a fact (trimmed; empty facts and identical duplicates are
+/// refused, mirroring EZCreateExplicitMemory).
+void EZImportantMemoryAddFact(NSString *fact);
+
+/// Replaces the fact at `index`, updating both its summary and
+/// explicitFact text; the original timestamp is kept. Out-of-range
+/// indices and empty replacements are no-ops.
+void EZImportantMemoryReplaceFactAtIndex(NSUInteger index, NSString *newFact);
+
+/// Removes the fact at `index`. Out-of-range indices are a no-op.
+void EZImportantMemoryDeleteAtIndex(NSUInteger index);
 
 NSString *loadMemoryContext(NSInteger maxEntries);
 NSArray<NSDictionary *> *EZMemoryLoadAll(void);

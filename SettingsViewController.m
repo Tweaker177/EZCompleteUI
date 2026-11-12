@@ -9,6 +9,7 @@
 
     #import "SettingsViewController.h"
     #import "MemoriesViewController.h"
+    #import "EZMemorySummaryViewController.h"
     #import "TextToSpeechViewController.h"
     #import "ElevenLabsCloneViewController.h"
     #import "SupportRequestViewController.h"
@@ -468,9 +469,9 @@
                   color:[UIColor systemGreenColor]
                  action:@selector(openMemoriesViewer)
                       y:&y w:w];
-        [self addButton:@"Clear All Memories"
-                  color:[UIColor systemOrangeColor]
-                 action:@selector(confirmClearMemories)
+        [self addButton:@"⭐ Memory Summary"
+                  color:[UIColor systemBlueColor]
+                 action:@selector(openMemorySummary)
                       y:&y w:w];
         [self addButton:@"View Helper Stats"
                   color:[UIColor systemIndigoColor]
@@ -877,21 +878,12 @@
         [self presentViewController:nav animated:YES completion:nil];
     }
 
-    - (void)confirmClearMemories {
-        UIAlertController *confirm = [UIAlertController
-            alertControllerWithTitle:@"Clear All Memories?"
-                             message:@"This deletes all saved conversation summaries. Cannot be undone."
-                      preferredStyle:UIAlertControllerStyleAlert];
-        [confirm addAction:[UIAlertAction actionWithTitle:@"Delete"
-                                                   style:UIAlertActionStyleDestructive
-                                                 handler:^(UIAlertAction *a) {
-            BOOL cleared   = clearMemoryLog();
-            NSString *msg  = cleared ? @"All memories cleared." : @"Error clearing memories.";
-            [self showAlert:@"Memory" message:msg];
-        }]];
-        [confirm addAction:[UIAlertAction actionWithTitle:@"Cancel"
-                                                   style:UIAlertActionStyleCancel handler:nil]];
-        [self presentViewController:confirm animated:YES completion:nil];
+    - (void)openMemorySummary {
+        EZMemorySummaryViewController *vc = [[EZMemorySummaryViewController alloc] init];
+        UINavigationController *nav = [[UINavigationController alloc]
+                                       initWithRootViewController:vc];
+        nav.modalPresentationStyle = UIModalPresentationFormSheet;
+        [self presentViewController:nav animated:YES completion:nil];
     }
 
     - (void)showHelperStats {

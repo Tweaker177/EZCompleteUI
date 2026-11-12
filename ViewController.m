@@ -1659,7 +1659,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
                 }
 
                 // Memory context is internal routing metadata, not a title.
-                if ([text hasPrefix:@"[Memories with possible relevance:"] ||
+                if ([text hasPrefix:@"[Important memories"] ||
+                    [text hasPrefix:@"[Memories with possible relevance:"] ||
                     [text hasPrefix:@"[Possibly relevant memories:"]) {
                     NSRange userMsgRange = [text rangeOfString:@"[User message]\n"];
                     if (userMsgRange.location != NSNotFound) {
@@ -1780,7 +1781,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         if (!text) continue;
 
         if ([role isEqualToString:@"user"]) {
-            if ([text hasPrefix:@"[Memories with possible relevance:]"]) {
+            if ([text hasPrefix:@"[Important memories"] ||
+                [text hasPrefix:@"[Memories with possible relevance:]"]) {
                 NSRange r = [text rangeOfString:@"[User message]\n"];
                 if (r.location != NSNotFound) text = [text substringFromIndex:r.location + r.length];
             }
@@ -4887,13 +4889,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         // Memory tool (ez-chat v1.13+): a memory_request is a side effect,
         // not a handoff — it is applied immediately and handling continues
-        // with the reply (or an image/music request) below. The turn's
-        // automatic memory is skipped for these turns: the explicit entry
-        // IS the memory, and a forget must never be summarized back into
-        // the store by the automatic path.
+        // with the reply (or an image/music request) below. Explicit
+        // facts live in the important-memories store, separate from the
+        // automatic summaries, so the turn's automatic summary below
+        // runs as normal — the two stores no longer compete over one
+        // list, and a forget can never be undone by a summary append.
         NSDictionary *memoryRequest = [json[@"memory_request"] isKindOfClass:[NSDictionary class]]
             ? json[@"memory_request"] : nil;
-        BOOL skipAutoMemory = (memoryRequest != nil);
         BOOL forgetPromptQueued = NO;
         if (memoryRequest) {
             forgetPromptQueued = [self executeChatMemoryRequest:memoryRequest threadID:capturedThreadID];
@@ -4997,14 +4999,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [self updateCoinBalanceDisplay];
         });
 
-        if (!skipAutoMemory) {
-            createMemoryFromCompletion(capturedPrompt ?: @"", reply, token, capturedThreadID,
-                                       capturedAttachments,
-            ^(NSString *entry) {
-                if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved %lu chars",
-                                  (unsigned long)entry.length);
-            });
-        }
+        createMemoryFromCompletion(capturedPrompt ?: @"", reply, token, capturedThreadID,
+                                   capturedAttachments,
+        ^(NSString *entry) {
+            if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved %lu chars",
+                              (unsigned long)entry.length);
+        });
     }] resume];
 }
 // ─────────────────────────────────────────────────────────────────────────────
