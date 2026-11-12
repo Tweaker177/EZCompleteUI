@@ -4,7 +4,34 @@ All notable changes to EZCompleteUI are documented here. Version numbers refer
 to the app/package version. Server-backed features also require their matching
 Supabase Edge Function deployments and migrations.
 
-## Unreleased
+## 7.2.3 — Upcoming
+
+### Chat and memory
+
+- React to model responses; reactions are saved with the conversation and
+  shared with the model on the next chat turn.
+- Ask chat to remember or forget information. Before removing matching saved
+  memories, the app shows the matches and asks for confirmation.
+- The admin coin ledger now shows the Fast Mode used for each chat alongside
+  its model.
+
+### Images and onboarding
+
+- Manage Seahorse ID and partner enrollments from Settings, including checking
+  their status, replacing an ID, and removing an enrollment.
+- When an image edit is rejected by the safety filter, the chat and gallery
+  editors can offer to retry with Seahorse.
+- Shortened and reorganized the first-run tutorial, added Music, Sounds, and
+  Files cards, and updated all 17 supported languages.
+
+### Slots
+
+- Free-spin rewards now name a randomly selected machine, and **Play Now**
+  opens that machine directly.
+- The slots room labels the biggest-hits board as today's hits, and Classic
+  slots shows the accumulated winnings for a free-spin run.
+
+## Earlier updates
 
 ### Chat models can create songs
 
