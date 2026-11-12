@@ -2913,6 +2913,87 @@ void EZCreateSongMemory(NSString *userPrompt,
                                 threadID, nil, songIDs, completion);
 }
 
+// EZCreateExplicitMemory — stores a fact the user explicitly asked to
+// remember (via the chat update_memory tool) verbatim, with no
+// summarizer in between: what was asked to be kept is what is kept.
+// The fact is stored as the entry's summary (so recall, search and the
+// Memories screen treat it like any other memory) and again under
+// `explicitFact`, which is what makes a later forget matchable exactly
+// instead of by summary wording. An identical fact already in the store
+// is not duplicated. Runs on the same file-write queue as every other
+// memory write, so it cannot race the automatic per-turn saves.
+void EZCreateExplicitMemory(NSString *fact,
+                            NSString * _Nullable threadID,
+                            void (^completion)(BOOL saved)) {
+    NSString *cleanFact = [fact stringByTrimmingCharactersInSet:
+        [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (cleanFact.length == 0) {
+        if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(NO); });
+        return;
+    }
+    NSDictionary *newEntry = @{
+        @"timestamp":    _timestampForDisplay(),
+        @"summary":      cleanFact,
+        @"chatKey":      threadID ?: @"",
+        @"explicitFact": cleanFact,
+    };
+    __block BOOL didSave = NO;
+    dispatch_sync(_fileWriteQueue(), ^{
+        NSMutableArray<NSDictionary *> *allEntries = _loadMemoryEntries();
+        for (NSDictionary *existing in allEntries) {
+            if (![existing isKindOfClass:[NSDictionary class]]) continue;
+            NSString *prior = _safeString(existing[@"explicitFact"]);
+            if (prior.length == 0) prior = _safeString(existing[@"summary"]);
+            if ([prior isEqualToString:cleanFact]) return;  // already known
+        }
+        [allEntries addObject:newEntry];
+        _saveMemoryEntries(allEntries);
+        didSave = YES;
+    });
+    EZLogf(EZLogLevelInfo, @"MEMORY", @"Explicit save %@: %@",
+           didSave ? @"ok" : @"duplicate", cleanFact);
+    if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(didSave); });
+}
+
+// EZForgetMemoryMatching — removes the entries an update_memory forget
+// refers to. Tool-saved facts match on their verbatim text; automatic
+// memories match on their summary text, so a forget lands when the
+// model's wording appears in the stored sentence. Matching is a plain
+// case-insensitive substring check — deterministic, and the Memories
+// screen remains the place the user can verify or undo by re-asking.
+void EZForgetMemoryMatching(NSString *text,
+                            void (^completion)(NSUInteger removed)) {
+    NSString *needle = [[text stringByTrimmingCharactersInSet:
+        [NSCharacterSet whitespaceAndNewlineCharacterSet]] lowercaseString];
+    // Models occasionally include the instruction verb itself.
+    if ([needle hasPrefix:@"forget "]) needle = [needle substringFromIndex:7];
+    if (needle.length == 0) {
+        if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(0); });
+        return;
+    }
+    __block NSUInteger removedCount = 0;
+    dispatch_sync(_fileWriteQueue(), ^{
+        NSMutableArray<NSDictionary *> *allEntries = _loadMemoryEntries();
+        NSMutableArray<NSDictionary *> *kept =
+            [NSMutableArray arrayWithCapacity:allEntries.count];
+        for (NSDictionary *entry in allEntries) {
+            BOOL match = NO;
+            if ([entry isKindOfClass:[NSDictionary class]]) {
+                NSString *factText = [_safeString(entry[@"explicitFact"]) lowercaseString];
+                NSString *summary  = [_safeString(entry[@"summary"]) lowercaseString];
+                match = (factText.length > 0 && [factText containsString:needle]) ||
+                        (summary.length  > 0 && [summary  containsString:needle]);
+            }
+            if (match) removedCount++;
+            else [kept addObject:entry];
+        }
+        if (removedCount > 0) _saveMemoryEntries(kept);
+    });
+    EZLogf(EZLogLevelInfo, @"MEMORY", @"Forget '%@' removed %lu",
+           text, (unsigned long)removedCount);
+    if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(removedCount); });
+}
+
 static NSString *_attachmentDirectory(void) {
     NSString *directory = [_documentsDirectory() stringByAppendingPathComponent:kAttachmentsDirName];
     [[NSFileManager defaultManager] createDirectoryAtPath:directory
