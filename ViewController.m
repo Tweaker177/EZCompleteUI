@@ -1093,7 +1093,13 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)persistImagePath:(NSString *)path prompt:(NSString *)prompt;
 - (void)performChatImageRequest:(NSDictionary *)imageRequest sourcePath:(NSString *)sourcePath;
 - (void)performChatMusicRequest:(NSDictionary *)musicRequest;
-- (void)executeChatMemoryRequest:(NSDictionary *)memoryRequest threadID:(NSString *)threadID;
+@property (nonatomic, strong) NSMutableArray<NSDictionary *> *pendingForgetPrompts;
+@property (nonatomic, strong) NSDictionary *activeForgetPrompt;
+@property (nonatomic, strong) UIView *forgetPromptOverlay;
+- (BOOL)executeChatMemoryRequest:(NSDictionary *)memoryRequest threadID:(NSString *)threadID;
+- (void)enqueueForgetPromptWithText:(NSString *)text entries:(NSArray<NSDictionary *> *)entries;
+- (void)presentNextForgetPromptIfPossible;
+- (void)resolveActiveForgetPromptConfirmed:(BOOL)confirmed;
 - (NSString *)ez_chatMusicSummaryForEvent:(NSDictionary *)event;
 - (void)callGptImage1:(NSString *)prompt model:(NSString *)imageModel;
 - (void)callSeahorseImage:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths;
@@ -4811,8 +4817,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         NSDictionary *memoryRequest = [json[@"memory_request"] isKindOfClass:[NSDictionary class]]
             ? json[@"memory_request"] : nil;
         BOOL skipAutoMemory = (memoryRequest != nil);
+        BOOL forgetPromptQueued = NO;
         if (memoryRequest) {
-            [self executeChatMemoryRequest:memoryRequest threadID:capturedThreadID];
+            forgetPromptQueued = [self executeChatMemoryRequest:memoryRequest threadID:capturedThreadID];
         }
 
         NSDictionary *imageRequest = [json[@"image_request"] isKindOfClass:[NSDictionary class]]
@@ -4865,7 +4872,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             // short local confirmation instead of an empty bubble.
             reply = ([memoryRequest[@"action"] isKindOfClass:[NSString class]] &&
                      [memoryRequest[@"action"] isEqualToString:@"forget"])
-                ? @"Done — I've forgotten that."
+                ? (forgetPromptQueued ? @"Okay — confirm the prompt to forget that."
+                                      : @"Done — I've forgotten that.")
                 : @"Got it — I'll remember that.";
         }
         if (!reply.length) {
@@ -8083,26 +8091,191 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     };
 }
 
-// Applies a memory_request returned by ez-chat (the update_memory tool):
-// saves the fact verbatim through EZCreateExplicitMemory, or removes the
-// matching entries through EZForgetMemoryMatching. Silent by design —
-// the Memories screen is where the user sees and manages the result, and
-// a failed memory write must never turn a good reply into an error.
-- (void)executeChatMemoryRequest:(NSDictionary *)memoryRequest threadID:(NSString *)threadID {
+// Applies a memory_request returned by ez-chat (the update_memory tool).
+// Saves go straight through EZCreateExplicitMemory, silently — they are
+// additive and the Memories screen is where the user manages them.
+// Forgets are gated (see the confirmation section below): the needle is
+// registered immediately, but stored entries are deleted only after the
+// user confirms the exact matches on an app-styled card. Returns YES
+// when a forget queued a confirmation prompt, so the caller can word
+// its empty-reply fallback truthfully.
+- (BOOL)executeChatMemoryRequest:(NSDictionary *)memoryRequest threadID:(NSString *)threadID {
     NSString *action = [memoryRequest[@"action"] isKindOfClass:[NSString class]] ? memoryRequest[@"action"] : @"";
     NSString *text   = [memoryRequest[@"text"] isKindOfClass:[NSString class]] ? memoryRequest[@"text"] : @"";
-    if (!text.length) return;
+    if (!text.length) return NO;
     if ([action isEqualToString:@"save"]) {
         EZCreateExplicitMemory(text, threadID, ^(BOOL saved) {
             EZLogf(EZLogLevelInfo, @"MEMORY", @"update_memory save %@: %@",
                    saved ? @"ok" : @"duplicate/empty", text);
         });
     } else if ([action isEqualToString:@"forget"]) {
+        // Register NOW: while the user decides, an in-flight automatic
+        // summary must not be able to resurrect the fact.
+        EZRegisterForgetNeedle(text);
+        NSArray<NSDictionary *> *matches = EZMemoryEntriesMatching(text);
+        if (matches.count == 0) {
+            // Nothing stored matches — nothing to delete and nothing to
+            // confirm. The registration alone makes the forget stick.
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"update_memory forget: no stored matches for '%@'; needle registered only", text);
+            return NO;
+        }
+        [self enqueueForgetPromptWithText:text entries:matches];
+        return YES;
+    }
+    return NO;
+}
+
+// ── Forget confirmation gate ─────────────────────────────────────────
+// A queued prompt holds {text, entries}: the forget's text and the exact
+// entries the dry run matched. One card is on screen at a time, and only
+// when the chat itself is visible with no other modal in the way —
+// otherwise the prompt waits for viewDidAppear. "Forget these" runs the
+// delete; "Keep" unregisters the needle, leaving the state exactly as
+// it was before the request.
+
+- (void)enqueueForgetPromptWithText:(NSString *)text entries:(NSArray<NSDictionary *> *)entries {
+    if (!self.pendingForgetPrompts) self.pendingForgetPrompts = [NSMutableArray array];
+    [self.pendingForgetPrompts addObject:@{ @"text": text, @"entries": entries }];
+    [self presentNextForgetPromptIfPossible];
+}
+
+- (void)presentNextForgetPromptIfPossible {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self presentNextForgetPromptIfPossible]; });
+        return;
+    }
+    if (self.activeForgetPrompt || self.forgetPromptOverlay) return;
+    if (self.pendingForgetPrompts.count == 0) return;
+    if (!self.isViewLoaded || !self.view.window || self.presentedViewController) return;
+
+    NSDictionary *prompt = self.pendingForgetPrompts.firstObject;
+    [self.pendingForgetPrompts removeObjectAtIndex:0];
+    self.activeForgetPrompt = prompt;
+    NSArray<NSDictionary *> *entries = prompt[@"entries"];
+
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+    overlay.backgroundColor = [UIColor colorWithWhite:0 alpha:0.65];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.alpha = 0;
+    [self.view addSubview:overlay];
+    self.forgetPromptOverlay = overlay;
+
+    UIView *card = [UIView new];
+    card.backgroundColor = [UIColor colorWithRed:0.07 green:0.06 blue:0.16 alpha:1.0];
+    card.layer.cornerRadius = 20;
+    card.layer.borderWidth = 1;
+    card.layer.borderColor = [UIColor colorWithRed:1.0 green:0.78 blue:0.10 alpha:0.85].CGColor;
+    card.translatesAutoresizingMaskIntoConstraints = NO;
+    card.transform = CGAffineTransformMakeScale(0.92, 0.92);
+    [overlay addSubview:card];
+
+    UIStackView *stack = [UIStackView new];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = 10;
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [card addSubview:stack];
+
+    UILabel *title = [UILabel new];
+    title.text = entries.count == 1 ? @"Forget this memory?"
+        : [NSString stringWithFormat:@"Forget these %lu memories?", (unsigned long)entries.count];
+    title.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold];
+    title.textColor = [UIColor colorWithRed:1.0 green:0.78 blue:0.10 alpha:1.0];
+    title.textAlignment = NSTextAlignmentCenter;
+    title.numberOfLines = 0;
+    [stack addArrangedSubview:title];
+
+    NSUInteger listed = MIN(entries.count, 5);
+    for (NSUInteger i = 0; i < listed; i++) {
+        NSDictionary *entry = entries[i];
+        NSString *line = [entry[@"summary"] isKindOfClass:[NSString class]] ? entry[@"summary"] : @"";
+        if (line.length == 0 && [entry[@"explicitFact"] isKindOfClass:[NSString class]]) {
+            line = entry[@"explicitFact"];
+        }
+        UILabel *label = [UILabel new];
+        label.text = [NSString stringWithFormat:@"• %@", line];
+        label.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
+        label.textColor = [UIColor colorWithWhite:0.92 alpha:1.0];
+        label.numberOfLines = 2;
+        [stack addArrangedSubview:label];
+    }
+    if (entries.count > listed) {
+        UILabel *more = [UILabel new];
+        more.text = [NSString stringWithFormat:@"+%lu more", (unsigned long)(entries.count - listed)];
+        more.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
+        more.textColor = [UIColor colorWithWhite:0.62 alpha:1.0];
+        [stack addArrangedSubview:more];
+    }
+
+    UIStackView *buttons = [UIStackView new];
+    buttons.axis = UILayoutConstraintAxisHorizontal;
+    buttons.spacing = 12;
+    buttons.distribution = UIStackViewDistributionFillEqually;
+
+    UIButton *keepButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    keepButton.backgroundColor = [UIColor colorWithWhite:1 alpha:0.12];
+    keepButton.layer.cornerRadius = 12;
+    keepButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+    [keepButton setTitle:@"Keep" forState:UIControlStateNormal];
+    [keepButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    [keepButton addTarget:self action:@selector(forgetPromptKeepTapped) forControlEvents:UIControlEventTouchUpInside];
+    [buttons addArrangedSubview:keepButton];
+
+    UIButton *forgetButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    forgetButton.backgroundColor = [UIColor colorWithRed:1.0 green:0.78 blue:0.10 alpha:1.0];
+    forgetButton.layer.cornerRadius = 12;
+    forgetButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
+    [forgetButton setTitle:@"Forget these" forState:UIControlStateNormal];
+    [forgetButton setTitleColor:UIColor.blackColor forState:UIControlStateNormal];
+    [forgetButton addTarget:self action:@selector(forgetPromptForgetTapped) forControlEvents:UIControlEventTouchUpInside];
+    [buttons addArrangedSubview:forgetButton];
+
+    [stack addArrangedSubview:buttons];
+
+    [NSLayoutConstraint activateConstraints:@[
+        [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor],
+        [card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:24],
+        [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-24],
+        [stack.topAnchor constraintEqualToAnchor:card.topAnchor constant:20],
+        [stack.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-20],
+        [stack.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20],
+        [stack.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20],
+        [keepButton.heightAnchor constraintEqualToConstant:46],
+        [forgetButton.heightAnchor constraintEqualToConstant:46],
+    ]];
+
+    [UIView animateWithDuration:0.28 delay:0 usingSpringWithDamping:0.82 initialSpringVelocity:0.4 options:0 animations:^{
+        overlay.alpha = 1;
+        card.transform = CGAffineTransformIdentity;
+    } completion:nil];
+}
+
+- (void)forgetPromptKeepTapped { [self resolveActiveForgetPromptConfirmed:NO]; }
+- (void)forgetPromptForgetTapped { [self resolveActiveForgetPromptConfirmed:YES]; }
+
+- (void)resolveActiveForgetPromptConfirmed:(BOOL)confirmed {
+    NSDictionary *prompt = self.activeForgetPrompt;
+    UIView *overlay = self.forgetPromptOverlay;
+    self.activeForgetPrompt = nil;
+    self.forgetPromptOverlay = nil;
+    if (overlay) {
+        [UIView animateWithDuration:0.18 animations:^{ overlay.alpha = 0; } completion:^(BOOL finished) {
+            [overlay removeFromSuperview];
+        }];
+    }
+    if (!prompt) return;
+    NSString *text = prompt[@"text"];
+    if (confirmed) {
         EZForgetMemoryMatching(text, ^(NSUInteger removed) {
-            EZLogf(EZLogLevelInfo, @"MEMORY", @"update_memory forget removed %lu matching '%@'",
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"update_memory forget (confirmed) removed %lu matching '%@'",
                    (unsigned long)removed, text);
         });
+    } else {
+        // Keep: roll the up-front registration back — nothing was
+        // deleted, and nothing stays blocked.
+        EZUnregisterForgetNeedle(text);
+        EZLogf(EZLogLevelInfo, @"MEMORY", @"update_memory forget declined by user for '%@'; registration rolled back", text);
     }
+    [self presentNextForgetPromptIfPossible];
 }
 
 - (void)performChatMusicRequest:(NSDictionary *)musicRequest {
@@ -8713,6 +8886,9 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 // (e.g. after the user dismisses a child modal during the same session).
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+    // A forget confirmation may have been held while the chat was off
+    // screen or covered by a modal; offer it now.
+    [self presentNextForgetPromptIfPossible];
     static BOOL termsCheckPerformed = NO;
     if (!termsCheckPerformed) {
         termsCheckPerformed = YES;
