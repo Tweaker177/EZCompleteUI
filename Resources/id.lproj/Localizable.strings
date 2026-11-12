@@ -374,18 +374,18 @@
 "EZNav.RecentChats" = "Chat Terbaru";
 /* First-run tutorial */
 "EZTutorial.Skip" = "Lewati"; "EZTutorial.Back" = "Kembali"; "EZTutorial.Next" = "Berikutnya"; "EZTutorial.GetStarted" = "Mulai";
-"EZTutorial.Welcome.Title" = "Selamat Datang di EZCompleteUI"; "EZTutorial.Welcome.Body" = "Tur singkat akan menunjukkan lokasi semuanya. Anda dapat melewatinya kapan saja.";
-"EZTutorial.Chat.Title" = "Chat dan buat"; "EZTutorial.Chat.Body" = "Pilih model di bagian atas. Gunakan klip kertas untuk melampirkan file atau foto, mikrofon untuk mendikte, globe untuk pencarian web, dan petir untuk jawaban pembantu langsung. Kirim memulai permintaan Anda.";
-"EZTutorial.Navigate.Title" = "Menu dan chat Anda"; "EZTutorial.Navigate.Body" = "Ketuk menu di kiri atas untuk Galeri, alat suara, Brain Rot, Memori, Toko Koin, Pengaturan, dan chat terbaru Anda. Gunakan pencarian di sana untuk menemukan percakapan.";
-"EZTutorial.Gallery.Title" = "Galeri Foto"; "EZTutorial.Gallery.Body" = "Ketuk + di kiri atas untuk menambahkan foto. Cubit untuk mengubah ukuran kisi dari 2 menjadi 5 kolom. Gunakan Pilih untuk membagikan atau menghapus beberapa foto.";
-"EZTutorial.Detail.Title" = "Detail Foto"; "EZTutorial.Detail.Body" = "Ajukan pertanyaan akan mengembalikan gambar ini ke chat. Jelaskan edit di bawah, atau gunakan + untuk menambahkan hingga empat gambar referensi dan menggabungkannya menjadi satu kreasi baru."; "EZTutorial.Detail.Prompt" = "Jelaskan edit Anda…"; "EZTutorial.Detail.Ask" = "Ajukan Pertanyaan"; "EZTutorial.Detail.Edit" = "Edit dengan AI";
+"EZTutorial.Welcome.Title" = "Selamat Datang di EZCompleteUI"; "EZTutorial.Welcome.Body" = "Tur singkat tentang di mana semua berada.";
+"EZTutorial.Chat.Title" = "Chat dan buat"; "EZTutorial.Chat.Body" = "Pilih model. Lampirkan, dikte, atau cari — lalu kirim.";
+"EZTutorial.Navigate.Title" = "Menu dan chat Anda"; "EZTutorial.Navigate.Body" = "Semua ada di menu, kiri atas.";
+"EZTutorial.Gallery.Title" = "Galeri Foto"; "EZTutorial.Gallery.Body" = "Ketuk + untuk menambah. Cubit untuk mengubah ukuran. Pilih untuk membagikan atau menghapus.";
+"EZTutorial.Detail.Title" = "Detail Foto"; "EZTutorial.Detail.Body" = "Tanyakan tentang foto ini, atau jelaskan editan."; "EZTutorial.Detail.Prompt" = "Jelaskan edit Anda…"; "EZTutorial.Detail.Ask" = "Ajukan Pertanyaan"; "EZTutorial.Detail.Edit" = "Edit dengan AI";
 "EZTutorial.Tools.Title" = "Memori dan koin"; "EZTutorial.Tools.Body" = "Memori menyimpan hasil yang berguna tetap dekat. Toko Koin mengelola paket dan koin. Saldo Anda selalu tersedia dari layar utama.";
-"EZTutorial.Memories.Title" = "Memori"; "EZTutorial.Memories.Body" = "Cari memori tersimpan, lalu ketuk teksnya untuk mengedit. Ketuk lagi untuk menutup pengeditan. Tautan biru membuka giliran chat persis tempat memori itu dibuat, dan gambar terlampir membuka Detail Foto."; "EZTutorial.Memories.Search" = "Cari memori"; "EZTutorial.Memories.Source" = "Buka giliran chat asli"; "EZTutorial.Memories.Editable" = "Ketuk memori tersimpan ini untuk mengeditnya.";
-"EZTutorial.CoinStore.Title" = "Toko Koin"; "EZTutorial.CoinStore.Body" = "Log penggunaan di kanan atas mencantumkan setiap kredit dan pengurangan. Kumpulkan koin gratis empat kali sehari; izinkan notifikasi untuk pengingat saat koin siap. Beberapa model dan fitur premium memerlukan pembelian untuk dibuka. Langganan PayPal dikreditkan secara otomatis, dan top up satu kali tersedia."; "EZTutorial.CoinStore.Usage" = "Log Penggunaan"; "EZTutorial.CoinStore.Free" = "Koin gratis siap empat kali sehari • Aktifkan pengingat"; "EZTutorial.CoinStore.Offer" = "BELI 1, DAPAT 1 GRATIS"; "EZTutorial.CoinStore.Select" = "Siap untuk memulai? Pilih tingkat yang sesuai dengan kebutuhan Anda.";
-"EZTutorial.CoinStore.Bonus" = "Pelanggan menerima 20 koin per klaim • 10 tanpa paket";
+"EZTutorial.Memories.Title" = "Memori"; "EZTutorial.Memories.Body" = "Ketuk memori untuk mengeditnya. Tautan biru membuka kembali chat asal memori itu."; "EZTutorial.Memories.Search" = "Cari memori"; "EZTutorial.Memories.Source" = "Buka giliran chat asli"; "EZTutorial.Memories.Editable" = "Ketuk memori tersimpan ini untuk mengeditnya.";
+"EZTutorial.CoinStore.Title" = "Toko Koin"; "EZTutorial.CoinStore.Body" = "Paket, isi ulang, dan saldo Anda."; "EZTutorial.CoinStore.Usage" = "Log Penggunaan"; "EZTutorial.CoinStore.Free" = "Koin gratis — aktifkan pengingat"; "EZTutorial.CoinStore.Offer" = "BELI 1, DAPAT 1 GRATIS"; "EZTutorial.CoinStore.Select" = "Pilih paket yang cocok untuk Anda.";
+"EZTutorial.CoinStore.Bonus" = "10 per klaim dengan paket • 5 tanpa paket";
 "EZTutorial.CoinStore.Claim" = "Klaim koin gratis"; "EZTutorial.Memories.Intro" = "Memori menyimpan hasil yang berguna tetap dekat.";
 "EZTutorial.CoinStore.Next" = "Berikutnya: 6j 00m"; "EZCoinStore.UsageLog" = "Log Penggunaan";
-"EZTutorial.CoinStore.BodyTop" = "• Gunakan Log Penggunaan untuk meninjau setiap kredit dan pengurangan.\n\n• Klaim koin gratis empat kali sehari, dan aktifkan notifikasi untuk pengingat."; "EZTutorial.CoinStore.BodyBottom" = "• Beberapa model dan fitur premium memerlukan pembelian untuk dibuka.";
+"EZTutorial.CoinStore.BodyTop" = "Setiap kredit dan pengurangan — di Log Penggunaan."; "EZTutorial.CoinStore.BodyBottom" = "Beberapa model premium perlu pembelian untuk dibuka.";
 "EZGameMode.Title" = "Pilih game"; "EZGameMode.Maze" = "Petualangan Labirin"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "Batal";
 "EZGameMode.Subtitle" = "Pilih cara Anda ingin bermain."; "EZGameMode.MazeDescription" = "Jelajahi labirin yang dihasilkan dengan aset game kustom Anda."; "EZGameMode.RicochetDescription" = "Memantul melalui arena terbuka dengan musik, pickup, dan MIDI.";
 "EZThread.NewConversation" = "Percakapan Baru";
@@ -393,6 +393,7 @@
 "EZTutorial.Demo.ModelPicker" = "Pemilih model"; "EZTutorial.Demo.Model" = "Model: gpt-6-astra"; "EZTutorial.Demo.Controls" = "Kontrol"; "EZTutorial.Demo.Placeholder" = "Ketik pesan…"; "EZTutorial.Demo.Send" = "Kirim";
 "EZTutorial.Feedback" = "Masih punya pertanyaan atau ingin berbagi masukan? Ketuk di sini.";
 "EZTutorial.Menu.SampleChat" = "Percakapan terbaru Anda";
+"EZTutorial.Music.Body" = "Jelaskan — AI menulis dan menyanyikannya."; "EZTutorial.Music.Prompt" = "Jelaskan lagu Anda…"; "EZTutorial.Music.Create" = "Buat Lagu"; "EZTutorial.Sounds.Body" = "Suara apa pun yang bisa Anda jelaskan — hingga 30 detik."; "EZTutorial.Sounds.Prompt" = "Jelaskan sebuah suara…"; "EZTutorial.Files.Body" = "Dokumen, gambar, dan lagu yang dibuat aplikasi — semua di satu tempat.";
 "EZGallery.Title" = "Galeri Foto"; "EZGallery.Select" = "Pilih"; "EZGallery.Done" = "Selesai"; "EZGallery.SelectedCount" = "%lu dipilih"; "EZGallery.DeleteTitle" = "Hapus Foto?"; "EZGallery.DeleteMessage" = "Hapus permanen %lu foto yang dipilih?"; "EZGallery.Delete" = "Hapus"; "EZGallery.Cancel" = "Batal";
 
 /* Image generation progress */

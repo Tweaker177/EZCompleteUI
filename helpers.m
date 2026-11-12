@@ -2709,6 +2709,90 @@ static BOOL _memoryEntryLooksDuplicate(NSDictionary *candidate, NSDictionary *ex
 //   GOOD/BAD EXAMPLES: The good example shows the verbatim input → output
 //   transformation. The bad example shows the most common failure (vague
 //   filename generalization) so the model knows exactly what to avoid.
+// ── Forget registry ────────────────────────────────────────────────────────
+// EZForgetMemoryMatching removes entries that are already in the store,
+// but an automatic save for an earlier turn can still be in flight — its
+// summarizer runs asynchronously — and would append the forgotten fact
+// when it finishes. To close that race, every forget registers its
+// needle here with the time it ran. A pending save checks the registry
+// when it is ready to append: if a forget registered AFTER the save
+// started matches the summary, the append is dropped. A save that
+// started after the forget is a new statement of the fact and is kept —
+// forgetting is not a permanent blocklist.
+// The registry lives in NSUserDefaults (a handful of short strings) and
+// is only read or written inside _fileWriteQueue blocks, like every
+// other memory-store mutation in this section.
+static NSString *const kEZMemoryForgetRegistryKey = @"EZMemoryForgetRegistry";
+static const NSUInteger kEZMemoryForgetRegistryCap = 100;
+
+static void _registerForgetNeedle(NSString *needle) {
+    if (needle.length == 0) return;
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSMutableArray *registry = [[defaults arrayForKey:kEZMemoryForgetRegistryKey] mutableCopy]
+        ?: [NSMutableArray array];
+    [registry addObject:@{ @"needle": needle,
+                           @"time": @([NSDate date].timeIntervalSince1970) }];
+    while (registry.count > kEZMemoryForgetRegistryCap) {
+        [registry removeObjectAtIndex:0];
+    }
+    [defaults setObject:registry forKey:kEZMemoryForgetRegistryKey];
+}
+
+static BOOL _summaryMatchesForgetRegisteredAfter(NSString *summary, NSTimeInterval saveStartedAt) {
+    if (summary.length == 0) return NO;
+    NSString *lowerSummary = [summary lowercaseString];
+    NSArray *registry = [[NSUserDefaults standardUserDefaults]
+        arrayForKey:kEZMemoryForgetRegistryKey];
+    for (id obj in registry) {
+        if (![obj isKindOfClass:[NSDictionary class]]) continue;
+        NSDictionary *entry = (NSDictionary *)obj;
+        NSTimeInterval forgetTime = [entry[@"time"] respondsToSelector:@selector(doubleValue)]
+            ? [entry[@"time"] doubleValue] : 0;
+        if (forgetTime < saveStartedAt) continue;  // forget predates this save: new statement, keep it
+        NSString *needle = _safeString(entry[@"needle"]);
+        if (needle.length > 0 && [lowerSummary containsString:needle]) return YES;
+    }
+    return NO;
+}
+
+// ── Shared forget matching ─────────────────────────────────────────────────
+// One normalization + one predicate serve every forget path — the delete
+// itself and the confirmation gate's dry run — so what the gate shows is
+// exactly what a confirmed forget removes.
+static NSString *_normalizedForgetNeedle(NSString *text) {
+    NSString *needle = [[text stringByTrimmingCharactersInSet:
+        [NSCharacterSet whitespaceAndNewlineCharacterSet]] lowercaseString];
+    // Models occasionally include the instruction verb itself.
+    if ([needle hasPrefix:@"forget "]) needle = [needle substringFromIndex:7];
+    return needle;
+}
+
+static BOOL _entryMatchesForgetNeedle(NSDictionary *entry, NSString *needle) {
+    if (![entry isKindOfClass:[NSDictionary class]] || needle.length == 0) return NO;
+    NSString *factText = [_safeString(entry[@"explicitFact"]) lowercaseString];
+    NSString *summary  = [_safeString(entry[@"summary"]) lowercaseString];
+    return (factText.length > 0 && [factText containsString:needle]) ||
+           (summary.length  > 0 && [summary  containsString:needle]);
+}
+
+// Removes every registry entry for this needle. Runs inside the
+// file-write queue like all registry access (see the registry above).
+static void _unregisterForgetNeedle(NSString *needle) {
+    if (needle.length == 0) return;
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSArray *registry = [defaults arrayForKey:kEZMemoryForgetRegistryKey];
+    if (registry.count == 0) return;
+    NSMutableArray *kept = [NSMutableArray arrayWithCapacity:registry.count];
+    for (id obj in registry) {
+        if ([obj isKindOfClass:[NSDictionary class]] &&
+            [_safeString(((NSDictionary *)obj)[@"needle"]) isEqualToString:needle]) continue;
+        [kept addObject:obj];
+    }
+    if (kept.count != registry.count) {
+        [defaults setObject:kept forKey:kEZMemoryForgetRegistryKey];
+    }
+}
+
 static void EZCreateMemoryEntryInternal(NSString *userPrompt,
                                         NSString *assistantReply,
                                         NSString *jwtToken,
@@ -2721,6 +2805,12 @@ static void EZCreateMemoryEntryInternal(NSString *userPrompt,
     NSCParameterAssert(userPrompt);
     NSCParameterAssert(assistantReply);
     NSCParameterAssert(jwtToken);
+
+    // When this save began. The summarizer below runs asynchronously, so
+    // a forget can land while it is still working; the append step uses
+    // this timestamp to decide whether such a forget invalidates the
+    // entry (see the forget registry above).
+    NSTimeInterval saveStartedAt = [NSDate date].timeIntervalSince1970;
 
     EZLog(EZLogLevelInfo, @"MEMORY", @"Creating summary...");
 
@@ -2826,7 +2916,17 @@ static void EZCreateMemoryEntryInternal(NSString *userPrompt,
         // file-write queue to prevent a race condition where two background threads
         // both read the "last entry" at the same time.
         __block BOOL didSkipDuplicate = NO;
+        __block BOOL didSkipForgotten = NO;
         dispatch_sync(_fileWriteQueue(), ^{
+            // Forget race: the user may have forgotten this fact while the
+            // summarizer was still running. If a forget registered after
+            // this save started matches the summary, drop the append —
+            // the fact stays forgotten.
+            if (_summaryMatchesForgetRegisteredAfter(summary, saveStartedAt)) {
+                didSkipForgotten = YES;
+                EZLog(EZLogLevelInfo, @"MEMORY", @"Skipped memory invalidated by a later forget");
+                return;
+            }
             NSMutableArray *allEntries = _loadMemoryEntries();
             NSDictionary   *lastEntry  = allEntries.lastObject;
             if ([lastEntry isKindOfClass:[NSDictionary class]] &&
@@ -2838,6 +2938,11 @@ static void EZCreateMemoryEntryInternal(NSString *userPrompt,
             [allEntries addObject:[newEntry copy]];
             _saveMemoryEntries(allEntries);
         });
+
+        if (didSkipForgotten) {
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(nil); });
+            return;
+        }
 
         // Format the entry string for the completion callback.
         NSString *formattedEntry = [NSString stringWithFormat:@"[%@] [chatKey=%@]%@ %@",
@@ -2925,6 +3030,7 @@ void EZCreateSongMemory(NSString *userPrompt,
 void EZCreateExplicitMemory(NSString *fact,
                             NSString * _Nullable threadID,
                             void (^completion)(BOOL saved)) {
+    NSTimeInterval saveStartedAt = [NSDate date].timeIntervalSince1970;
     NSString *cleanFact = [fact stringByTrimmingCharactersInSet:
         [NSCharacterSet whitespaceAndNewlineCharacterSet]];
     if (cleanFact.length == 0) {
@@ -2939,6 +3045,12 @@ void EZCreateExplicitMemory(NSString *fact,
     };
     __block BOOL didSave = NO;
     dispatch_sync(_fileWriteQueue(), ^{
+        // Same race as the automatic path: a forget that landed after
+        // this save's turn began wins over the append.
+        if (_summaryMatchesForgetRegisteredAfter(cleanFact, saveStartedAt)) {
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"Explicit save dropped — invalidated by a later forget: %@", cleanFact);
+            return;
+        }
         NSMutableArray<NSDictionary *> *allEntries = _loadMemoryEntries();
         for (NSDictionary *existing in allEntries) {
             if (![existing isKindOfClass:[NSDictionary class]]) continue;
@@ -2963,28 +3075,23 @@ void EZCreateExplicitMemory(NSString *fact,
 // screen remains the place the user can verify or undo by re-asking.
 void EZForgetMemoryMatching(NSString *text,
                             void (^completion)(NSUInteger removed)) {
-    NSString *needle = [[text stringByTrimmingCharactersInSet:
-        [NSCharacterSet whitespaceAndNewlineCharacterSet]] lowercaseString];
-    // Models occasionally include the instruction verb itself.
-    if ([needle hasPrefix:@"forget "]) needle = [needle substringFromIndex:7];
+    NSString *needle = _normalizedForgetNeedle(text);
     if (needle.length == 0) {
         if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(0); });
         return;
     }
     __block NSUInteger removedCount = 0;
     dispatch_sync(_fileWriteQueue(), ^{
+        // Register first: a save for an earlier turn may still be in
+        // flight, and its append step consults this registry (see
+        // _summaryMatchesForgetRegisteredAfter). Registering is what
+        // makes the forget stick even when nothing is stored yet.
+        _registerForgetNeedle(needle);
         NSMutableArray<NSDictionary *> *allEntries = _loadMemoryEntries();
         NSMutableArray<NSDictionary *> *kept =
             [NSMutableArray arrayWithCapacity:allEntries.count];
         for (NSDictionary *entry in allEntries) {
-            BOOL match = NO;
-            if ([entry isKindOfClass:[NSDictionary class]]) {
-                NSString *factText = [_safeString(entry[@"explicitFact"]) lowercaseString];
-                NSString *summary  = [_safeString(entry[@"summary"]) lowercaseString];
-                match = (factText.length > 0 && [factText containsString:needle]) ||
-                        (summary.length  > 0 && [summary  containsString:needle]);
-            }
-            if (match) removedCount++;
+            if (_entryMatchesForgetNeedle(entry, needle)) removedCount++;
             else [kept addObject:entry];
         }
         if (removedCount > 0) _saveMemoryEntries(kept);
@@ -2992,6 +3099,41 @@ void EZForgetMemoryMatching(NSString *text,
     EZLogf(EZLogLevelInfo, @"MEMORY", @"Forget '%@' removed %lu",
            text, (unsigned long)removedCount);
     if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(removedCount); });
+}
+
+// EZMemoryEntriesMatching — the confirmation gate's dry run: copies of
+// the entries a forget of `text` would remove. Read-only; the store and
+// the registry are both untouched.
+NSArray<NSDictionary *> *EZMemoryEntriesMatching(NSString *text) {
+    NSString *needle = _normalizedForgetNeedle(text);
+    if (needle.length == 0) return @[];
+    NSMutableArray<NSDictionary *> *matches = [NSMutableArray array];
+    dispatch_sync(_fileWriteQueue(), ^{
+        for (NSDictionary *entry in _loadMemoryEntries()) {
+            if (_entryMatchesForgetNeedle(entry, needle)) {
+                [matches addObject:[entry copy]];
+            }
+        }
+    });
+    return [matches copy];
+}
+
+// EZRegisterForgetNeedle — public, queue-wrapped registration for the
+// gate, which must register before the user decides (the delete itself
+// registers from inside its own queue block via _registerForgetNeedle).
+void EZRegisterForgetNeedle(NSString *text) {
+    NSString *needle = _normalizedForgetNeedle(text);
+    if (needle.length == 0) return;
+    dispatch_sync(_fileWriteQueue(), ^{ _registerForgetNeedle(needle); });
+}
+
+// EZUnregisterForgetNeedle — the gate's rollback when the user declines:
+// the registration is removed, so the state is exactly as it was before
+// the request.
+void EZUnregisterForgetNeedle(NSString *text) {
+    NSString *needle = _normalizedForgetNeedle(text);
+    if (needle.length == 0) return;
+    dispatch_sync(_fileWriteQueue(), ^{ _unregisterForgetNeedle(needle); });
 }
 
 static NSString *_attachmentDirectory(void) {

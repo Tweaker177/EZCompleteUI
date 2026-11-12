@@ -127,6 +127,25 @@ void EZCreateExplicitMemory(NSString *fact,
 void EZForgetMemoryMatching(NSString *text,
                             void (^completion)(NSUInteger removed));
 
+/// Dry run for the forget confirmation gate: returns copies of the
+/// entries a forget of `text` WOULD remove, changing nothing — no
+/// deletion, no registration. The gate shows these to the user so what
+/// they confirm is exactly what would go.
+NSArray<NSDictionary *> *EZMemoryEntriesMatching(NSString *text);
+
+/// Registers `text`'s needle in the forget registry immediately, so an
+/// in-flight automatic save of the fact is invalidated even before any
+/// deletion happens. EZForgetMemoryMatching registers as part of the
+/// delete; the confirmation gate calls this up front, because the user
+/// may take time to decide and the fact must not resurrect meanwhile.
+void EZRegisterForgetNeedle(NSString *text);
+
+/// Removes `text`'s needle from the forget registry — the rollback the
+/// gate runs when the user declines a forget, so the state ends up
+/// exactly as it was before the request: nothing deleted, nothing
+/// blocked.
+void EZUnregisterForgetNeedle(NSString *text);
+
 NSString *loadMemoryContext(NSInteger maxEntries);
 NSArray<NSDictionary *> *EZMemoryLoadAll(void);
 NSString *EZThreadSearchMemory(NSString *query, NSString *apiKey);

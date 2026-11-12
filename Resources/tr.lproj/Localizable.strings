@@ -374,18 +374,18 @@
 "EZNav.RecentChats" = "Son Sohbetler";
 /* First-run tutorial */
 "EZTutorial.Skip" = "Atla"; "EZTutorial.Back" = "Geri"; "EZTutorial.Next" = "İleri"; "EZTutorial.GetStarted" = "Başlayın";
-"EZTutorial.Welcome.Title" = "EZCompleteUI'ya Hoş Geldiniz"; "EZTutorial.Welcome.Body" = "Hızlı bir tur, her şeyin nerede olduğunu gösterecek. İstediğiniz zaman atlayabilirsiniz.";
-"EZTutorial.Chat.Title" = "Sohbet edin ve oluşturun"; "EZTutorial.Chat.Body" = "Üstten bir model seçin. Dosya veya fotoğraf eklemek için ataşı, dikte etmek için mikrofonu, web araması için küreyi ve doğrudan yardımcı yanıtlar için şimşeği kullanın. Gönder, isteğinizi başlatır.";
-"EZTutorial.Navigate.Title" = "Menünüz ve sohbetleriniz"; "EZTutorial.Navigate.Body" = "Galeri, ses araçları, Brain Rot, Anılar, Coin Mağazası, Ayarlar ve son sohbetleriniz için sol üstteki menüye dokunun. Bir konuşmayı bulmak için oradaki aramayı kullanın.";
-"EZTutorial.Gallery.Title" = "Fotoğraf Galerisi"; "EZTutorial.Gallery.Body" = "Fotoğraf eklemek için sol üstteki + simgesine dokunun. Izgarayı 2 ila 5 sütun arasında yeniden boyutlandırmak için kıstırma hareketi yapın. Birden fazla fotoğrafı paylaşmak veya silmek için Seç'i kullanın.";
-"EZTutorial.Detail.Title" = "Fotoğraf Ayrıntısı"; "EZTutorial.Detail.Body" = "Soru sor, bu görüntüyü sohbete döndürür. Aşağıda bir düzenleme anlatın veya en fazla dört referans görüntüsü ekleyip bunları tek bir yeni eserde birleştirmek için + simgesini kullanın."; "EZTutorial.Detail.Prompt" = "Düzenlemenizi anlatın…"; "EZTutorial.Detail.Ask" = "Soru Sor"; "EZTutorial.Detail.Edit" = "Yapay Zekâ ile Düzenle";
+"EZTutorial.Welcome.Title" = "EZCompleteUI'ya Hoş Geldiniz"; "EZTutorial.Welcome.Body" = "Her şeyin nerede olduğunu gösteren hızlı bir tur.";
+"EZTutorial.Chat.Title" = "Sohbet edin ve oluşturun"; "EZTutorial.Chat.Body" = "Bir model seçin. Ekleyin, dikte edin veya arayın — sonra gönderin.";
+"EZTutorial.Navigate.Title" = "Menünüz ve sohbetleriniz"; "EZTutorial.Navigate.Body" = "Her şey menüde, sol üstte.";
+"EZTutorial.Gallery.Title" = "Fotoğraf Galerisi"; "EZTutorial.Gallery.Body" = "Eklemek için +'ya dokunun. Boyutlandırmak için kıstırın. Paylaşmak veya silmek için Seç'i kullanın.";
+"EZTutorial.Detail.Title" = "Fotoğraf Ayrıntısı"; "EZTutorial.Detail.Body" = "Bu fotoğraf hakkında soru sorun veya bir düzenleme tarif edin."; "EZTutorial.Detail.Prompt" = "Düzenlemenizi anlatın…"; "EZTutorial.Detail.Ask" = "Soru Sor"; "EZTutorial.Detail.Edit" = "Yapay Zekâ ile Düzenle";
 "EZTutorial.Tools.Title" = "Anılar ve coinler"; "EZTutorial.Tools.Body" = "Anılar, yararlı sonuçları elinizin altında tutar. Coin Mağazası, planları ve coinleri yönetir. Bakiyeniz her zaman ana ekrandan görülebilir.";
-"EZTutorial.Memories.Title" = "Anılar"; "EZTutorial.Memories.Body" = "Kaydedilmiş anılarda arayın, ardından düzenlemek için metinlerine dokunun. Düzenlemeyi kapatmak için tekrar dokunun. Mavi bağlantı, oluşturulduğu tam sohbet dönüşünü açar ve ekli bir görüntü Fotoğraf Ayrıntısı'nı açar."; "EZTutorial.Memories.Search" = "Anılarda ara"; "EZTutorial.Memories.Source" = "Orijinal sohbet dönüşünü aç"; "EZTutorial.Memories.Editable" = "Düzenlemek için bu kaydedilmiş anıya dokunun.";
-"EZTutorial.CoinStore.Title" = "Coin Mağazası"; "EZTutorial.CoinStore.Body" = "Sağ üstteki kullanım günlüğü, her krediyi ve kesintiyi listeler. Ücretsiz coinleri günde dört kez toplayın; hazır olduklarında hatırlatma almak için bildirimlere izin verin. Bazı premium modeller ve özellikler, kilidi açmak için satın alma gerektirir. PayPal abonelikleri otomatik olarak kredilendirilir ve tek seferlik yüklemeler mevcuttur."; "EZTutorial.CoinStore.Usage" = "Kullanım Günlüğü"; "EZTutorial.CoinStore.Free" = "Ücretsiz coinler günde dört kez hazır • Hatırlatmaları etkinleştirin"; "EZTutorial.CoinStore.Offer" = "1 ALANA 1 BEDAVA"; "EZTutorial.CoinStore.Select" = "Başlamaya hazır mısınız? İhtiyaçlarınıza uyan seviyeyi seçin.";
-"EZTutorial.CoinStore.Bonus" = "Aboneler talep başına 20 coin alır • Plansız 10";
+"EZTutorial.Memories.Title" = "Anılar"; "EZTutorial.Memories.Body" = "Düzenlemek için bir anıya dokunun. Mavi bağlantı, anının geldiği sohbeti yeniden açar."; "EZTutorial.Memories.Search" = "Anılarda ara"; "EZTutorial.Memories.Source" = "Orijinal sohbet dönüşünü aç"; "EZTutorial.Memories.Editable" = "Düzenlemek için bu kaydedilmiş anıya dokunun.";
+"EZTutorial.CoinStore.Title" = "Coin Mağazası"; "EZTutorial.CoinStore.Body" = "Planlar, yüklemeler ve bakiyeniz."; "EZTutorial.CoinStore.Usage" = "Kullanım Günlüğü"; "EZTutorial.CoinStore.Free" = "Ücretsiz coinler — hatırlatıcıları açın"; "EZTutorial.CoinStore.Offer" = "1 ALANA 1 BEDAVA"; "EZTutorial.CoinStore.Select" = "Size uygun planı seçin.";
+"EZTutorial.CoinStore.Bonus" = "Planla talep başına 10 • plansız 5";
 "EZTutorial.CoinStore.Claim" = "Ücretsiz coinleri al"; "EZTutorial.Memories.Intro" = "Anılar, yararlı sonuçları elinizin altında tutar.";
 "EZTutorial.CoinStore.Next" = "Sonraki: 6 sa 00 dk"; "EZCoinStore.UsageLog" = "Kullanım Günlüğü";
-"EZTutorial.CoinStore.BodyTop" = "• Her krediyi ve kesintiyi incelemek için Kullanım Günlüğü'nü kullanın.\n\n• Ücretsiz coinleri günde dört kez alın ve hatırlatmalar için bildirimleri etkinleştirin."; "EZTutorial.CoinStore.BodyBottom" = "• Bazı premium modeller ve özellikler, kilidi açmak için satın alma gerektirir.";
+"EZTutorial.CoinStore.BodyTop" = "Her kredi ve kesinti — Kullanım Günlüğü'nde."; "EZTutorial.CoinStore.BodyBottom" = "Bazı premium modellerin kilidini açmak için satın alma gerekir.";
 "EZGameMode.Title" = "Bir oyun seçin"; "EZGameMode.Maze" = "Labirent Macerası"; "EZGameMode.Ricochet" = "Sekme Patlaması"; "EZGameMode.Cancel" = "İptal";
 "EZGameMode.Subtitle" = "Nasıl oynamak istediğinizi seçin."; "EZGameMode.MazeDescription" = "Özel oyun varlıklarınızla oluşturulmuş bir labirenti keşfedin."; "EZGameMode.RicochetDescription" = "Müzik, güçlendirmeler ve MIDI ile açık bir arenada sekin.";
 "EZThread.NewConversation" = "Yeni Konuşma";
@@ -393,6 +393,7 @@
 "EZTutorial.Demo.ModelPicker" = "Model seçici"; "EZTutorial.Demo.Model" = "Model: gpt-6-astra"; "EZTutorial.Demo.Controls" = "Kontroller"; "EZTutorial.Demo.Placeholder" = "Bir mesaj yazın…"; "EZTutorial.Demo.Send" = "Gönder";
 "EZTutorial.Feedback" = "Hâlâ sorularınız var mı veya geri bildirim paylaşmak mı istiyorsunuz? Buraya dokunun.";
 "EZTutorial.Menu.SampleChat" = "Son konuşmanız";
+"EZTutorial.Music.Body" = "Tarif edin — yapay zekâ yazıp söylesin."; "EZTutorial.Music.Prompt" = "Şarkınızı tarif edin…"; "EZTutorial.Music.Create" = "Şarkı Oluştur"; "EZTutorial.Sounds.Body" = "Tarif edebileceğiniz her ses — 30 saniyeye kadar."; "EZTutorial.Sounds.Prompt" = "Bir ses tarif edin…"; "EZTutorial.Files.Body" = "Uygulamanın oluşturduğu belgeler, resimler ve şarkılar — hepsi tek yerde.";
 "EZGallery.Title" = "Fotoğraf Galerisi"; "EZGallery.Select" = "Seç"; "EZGallery.Done" = "Bitti"; "EZGallery.SelectedCount" = "%lu seçildi"; "EZGallery.DeleteTitle" = "Fotoğraflar Silinsin mi?"; "EZGallery.DeleteMessage" = "Seçili %lu fotoğraf kalıcı olarak silinsin mi?"; "EZGallery.Delete" = "Sil"; "EZGallery.Cancel" = "İptal";
 
 /* Image generation progress */

@@ -338,18 +338,18 @@
 "EZNav.RecentChats" = "最近のチャット";
 /* First-run tutorial */
 "EZTutorial.Skip" = "スキップ"; "EZTutorial.Back" = "戻る"; "EZTutorial.Next" = "次へ"; "EZTutorial.GetStarted" = "始める";
-"EZTutorial.Welcome.Title" = "EZCompleteUI へようこそ"; "EZTutorial.Welcome.Body" = "短いツアーで各機能の場所をご案内します。いつでもスキップできます。";
-"EZTutorial.Chat.Title" = "チャットして作成"; "EZTutorial.Chat.Body" = "上部でモデルを選びます。クリップでファイルや写真を添付、マイクで音声入力、地球儀でWeb検索、稲妻で直接回答を有効にします。送信でリクエストを開始します。";
-"EZTutorial.Navigate.Title" = "メニューとチャット"; "EZTutorial.Navigate.Body" = "左上のメニューからギャラリー、音声ツール、Brain Rot、メモリー、コインストア、設定、最近のチャットを開けます。検索で会話を見つけられます。";
-"EZTutorial.Gallery.Title" = "フォトギャラリー"; "EZTutorial.Gallery.Body" = "左上の + で写真を追加します。ピンチでグリッドを2〜5列に変更できます。選択を使うと複数の写真を共有または削除できます。";
-"EZTutorial.Detail.Title" = "写真の詳細"; "EZTutorial.Detail.Body" = "質問すると、この画像をチャットに戻せます。下に編集内容を入力するか、+ で最大4枚の参照画像を追加して新しい作品に組み合わせます。"; "EZTutorial.Detail.Prompt" = "編集内容を入力…"; "EZTutorial.Detail.Ask" = "質問する"; "EZTutorial.Detail.Edit" = "AIで編集";
+"EZTutorial.Welcome.Title" = "EZCompleteUI へようこそ"; "EZTutorial.Welcome.Body" = "どこに何があるかの簡単なツアーです。";
+"EZTutorial.Chat.Title" = "チャットして作成"; "EZTutorial.Chat.Body" = "モデルを選んで、添付・音声入力・検索 — あとは送信。";
+"EZTutorial.Navigate.Title" = "メニューとチャット"; "EZTutorial.Navigate.Body" = "すべて左上のメニューにあります。";
+"EZTutorial.Gallery.Title" = "フォトギャラリー"; "EZTutorial.Gallery.Body" = "+ をタップして追加。ピンチでグリッドの大きさを変更。選択して共有や削除。";
+"EZTutorial.Detail.Title" = "写真の詳細"; "EZTutorial.Detail.Body" = "この写真について質問するか、編集内容を入力してください。"; "EZTutorial.Detail.Prompt" = "編集内容を入力…"; "EZTutorial.Detail.Ask" = "質問する"; "EZTutorial.Detail.Edit" = "AIで編集";
 "EZTutorial.Tools.Title" = "メモリーとコイン"; "EZTutorial.Tools.Body" = "メモリーには役立つ結果を保存できます。コインストアではプランとコインを管理します。残高はメイン画面からいつでも確認できます。";
-"EZTutorial.Memories.Title" = "メモリー"; "EZTutorial.Memories.Body" = "保存したメモリーを検索し、テキストをタップして編集します。もう一度タップすると編集を閉じます。青いリンクで作成元の正確なチャットターンを開き、添付画像で写真の詳細を開けます。"; "EZTutorial.Memories.Search" = "メモリーを検索"; "EZTutorial.Memories.Source" = "元のチャットターンを開く"; "EZTutorial.Memories.Editable" = "このメモリーをタップして編集";
-"EZTutorial.CoinStore.Title" = "コインストア"; "EZTutorial.CoinStore.Body" = "右上の利用ログにはすべての加算と差し引きが表示されます。無料コインは1日4回受け取れ、通知を許可すると準備できたときにお知らせします。一部のプレミアムモデルと機能は購入で解除されます。PayPalサブスクリプションは自動で付与され、1回限りのチャージも利用できます。"; "EZTutorial.CoinStore.Usage" = "利用ログ"; "EZTutorial.CoinStore.Free" = "無料コインは1日4回 • リマインダーを有効にする"; "EZTutorial.CoinStore.Offer" = "1つ買うと1つ無料"; "EZTutorial.CoinStore.Select" = "始める準備はできましたか？ニーズに合うプランを選びましょう。";
-"EZTutorial.CoinStore.Bonus" = "サブスク加入者は1回20コイン • プランなしは10コイン";
+"EZTutorial.Memories.Title" = "メモリー"; "EZTutorial.Memories.Body" = "メモリーをタップすると編集できます。青いリンクで元のチャットが開きます。"; "EZTutorial.Memories.Search" = "メモリーを検索"; "EZTutorial.Memories.Source" = "元のチャットターンを開く"; "EZTutorial.Memories.Editable" = "このメモリーをタップして編集";
+"EZTutorial.CoinStore.Title" = "コインストア"; "EZTutorial.CoinStore.Body" = "プラン、チャージ、残高はこちら。"; "EZTutorial.CoinStore.Usage" = "利用ログ"; "EZTutorial.CoinStore.Free" = "無料コイン — リマインダーをオンに"; "EZTutorial.CoinStore.Offer" = "1つ買うと1つ無料"; "EZTutorial.CoinStore.Select" = "合ったプランを選んでください。";
+"EZTutorial.CoinStore.Bonus" = "プランありは1回10コイン • なしは5コイン";
 "EZTutorial.CoinStore.Claim" = "無料コインを受け取る"; "EZTutorial.Memories.Intro" = "メモリーには役立つ結果を保存できます。";
 "EZTutorial.CoinStore.Next" = "次回: 6時間00分"; "EZCoinStore.UsageLog" = "利用ログ";
-"EZTutorial.CoinStore.BodyTop" = "• 利用ログではすべての加算と差し引きを確認できます。\n\n• 無料コインは1日4回受け取れ、通知を有効にするとリマインダーが届きます。"; "EZTutorial.CoinStore.BodyBottom" = "• 一部のプレミアムモデルと機能は購入で解除されます。";
+"EZTutorial.CoinStore.BodyTop" = "すべての加算と消費 — 利用ログで確認できます。"; "EZTutorial.CoinStore.BodyBottom" = "一部のプレミアムモデルは購入すると使えるようになります。";
 "EZGameMode.Title" = "ゲームを選択"; "EZGameMode.Maze" = "迷路アドベンチャー"; "EZGameMode.Ricochet" = "Ricochet Blast"; "EZGameMode.Cancel" = "キャンセル";
 "EZGameMode.Subtitle" = "遊び方を選択してください。"; "EZGameMode.MazeDescription" = "カスタムゲーム素材で生成された迷路を探索します。"; "EZGameMode.RicochetDescription" = "音楽、アイテム、MIDIとともにオープンアリーナを跳ね回ります。";
 "EZThread.NewConversation" = "新規チャット";
@@ -357,6 +357,7 @@
 "EZTutorial.Demo.ModelPicker" = "モデル選択"; "EZTutorial.Demo.Model" = "モデル: gpt-6-astra"; "EZTutorial.Demo.Controls" = "操作"; "EZTutorial.Demo.Placeholder" = "メッセージを入力…"; "EZTutorial.Demo.Send" = "送信";
 "EZTutorial.Feedback" = "質問やフィードバックがありますか？こちらをタップしてください。";
 "EZTutorial.Menu.SampleChat" = "最近の会話";
+"EZTutorial.Music.Body" = "説明するだけ — AIが作詞作曲して歌います。"; "EZTutorial.Music.Prompt" = "曲のイメージを入力…"; "EZTutorial.Music.Create" = "曲を作成"; "EZTutorial.Sounds.Body" = "説明できる音なら何でも — 最大30秒。"; "EZTutorial.Sounds.Prompt" = "音を説明してください…"; "EZTutorial.Files.Body" = "アプリが作ったドキュメント、画像、曲 — すべてここに。";
 "EZGallery.Title" = "フォトギャラリー"; "EZGallery.Select" = "選択"; "EZGallery.Done" = "完了"; "EZGallery.SelectedCount" = "%lu 件を選択"; "EZGallery.DeleteTitle" = "写真を削除しますか？"; "EZGallery.DeleteMessage" = "選択した %lu 枚の写真を完全に削除しますか？"; "EZGallery.Delete" = "削除"; "EZGallery.Cancel" = "キャンセル";
 
 
