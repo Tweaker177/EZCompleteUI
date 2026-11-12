@@ -1093,6 +1093,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)persistImagePath:(NSString *)path prompt:(NSString *)prompt;
 - (void)performChatImageRequest:(NSDictionary *)imageRequest sourcePath:(NSString *)sourcePath;
 - (void)performChatMusicRequest:(NSDictionary *)musicRequest;
+- (void)executeChatMemoryRequest:(NSDictionary *)memoryRequest threadID:(NSString *)threadID;
 - (NSString *)ez_chatMusicSummaryForEvent:(NSDictionary *)event;
 - (void)callGptImage1:(NSString *)prompt model:(NSString *)imageModel;
 - (void)callSeahorseImage:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths;
@@ -4658,6 +4659,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // Lets ez-chat offer the model its create_music tool. The server only ever
     // returns a music_request; it never generates or charges for a song.
     ezBody[@"music_tools"] = @YES;
+    // Lets ez-chat offer the model its update_memory tool. The server only
+    // ever returns a memory_request; the app applies it to the local memory
+    // store. No coins are involved.
+    ezBody[@"memory_tools"] = @YES;
     ezBody[@"image_source_available"] = @(capturedImageSource.length > 0);
     if (userPreferences.length > 0) ezBody[@"user_preferences"] = userPreferences;
     if (useWebSearch)           ezBody[@"web_search"] = @YES;
@@ -4797,6 +4802,19 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             return;
         }
 
+        // Memory tool (ez-chat v1.13+): a memory_request is a side effect,
+        // not a handoff — it is applied immediately and handling continues
+        // with the reply (or an image/music request) below. The turn's
+        // automatic memory is skipped for these turns: the explicit entry
+        // IS the memory, and a forget must never be summarized back into
+        // the store by the automatic path.
+        NSDictionary *memoryRequest = [json[@"memory_request"] isKindOfClass:[NSDictionary class]]
+            ? json[@"memory_request"] : nil;
+        BOOL skipAutoMemory = (memoryRequest != nil);
+        if (memoryRequest) {
+            [self executeChatMemoryRequest:memoryRequest threadID:capturedThreadID];
+        }
+
         NSDictionary *imageRequest = [json[@"image_request"] isKindOfClass:[NSDictionary class]]
             ? json[@"image_request"] : nil;
         if (imageRequest) {
@@ -4842,6 +4860,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
 
         NSString *reply = json[@"reply"];
+        if (!reply.length && memoryRequest) {
+            // The model's whole answer was the memory call. Give the turn a
+            // short local confirmation instead of an empty bubble.
+            reply = ([memoryRequest[@"action"] isKindOfClass:[NSString class]] &&
+                     [memoryRequest[@"action"] isEqualToString:@"forget"])
+                ? @"Done — I've forgotten that."
+                : @"Got it — I'll remember that.";
+        }
         if (!reply.length) {
             EZLogf(EZLogLevelError, @"API", @"No reply in ez-chat response: %@", json);
             [self handleAPIError:@"Unexpected response format"]; return;
@@ -4874,12 +4900,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [self updateCoinBalanceDisplay];
         });
 
-        createMemoryFromCompletion(capturedPrompt ?: @"", reply, token, capturedThreadID,
-                                   capturedAttachments,
-        ^(NSString *entry) {
-            if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved %lu chars",
-                              (unsigned long)entry.length);
-        });
+        if (!skipAutoMemory) {
+            createMemoryFromCompletion(capturedPrompt ?: @"", reply, token, capturedThreadID,
+                                       capturedAttachments,
+            ^(NSString *entry) {
+                if (entry) EZLogf(EZLogLevelInfo, @"MEMORY", @"Saved %lu chars",
+                                  (unsigned long)entry.length);
+            });
+        }
     }] resume];
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -8053,6 +8081,28 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
         @"durationSeconds": @(MAX(seconds, 0)),
         @"timestamp": event[@"timestamp"] ?: @"time unavailable",
     };
+}
+
+// Applies a memory_request returned by ez-chat (the update_memory tool):
+// saves the fact verbatim through EZCreateExplicitMemory, or removes the
+// matching entries through EZForgetMemoryMatching. Silent by design —
+// the Memories screen is where the user sees and manages the result, and
+// a failed memory write must never turn a good reply into an error.
+- (void)executeChatMemoryRequest:(NSDictionary *)memoryRequest threadID:(NSString *)threadID {
+    NSString *action = [memoryRequest[@"action"] isKindOfClass:[NSString class]] ? memoryRequest[@"action"] : @"";
+    NSString *text   = [memoryRequest[@"text"] isKindOfClass:[NSString class]] ? memoryRequest[@"text"] : @"";
+    if (!text.length) return;
+    if ([action isEqualToString:@"save"]) {
+        EZCreateExplicitMemory(text, threadID, ^(BOOL saved) {
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"update_memory save %@: %@",
+                   saved ? @"ok" : @"duplicate/empty", text);
+        });
+    } else if ([action isEqualToString:@"forget"]) {
+        EZForgetMemoryMatching(text, ^(NSUInteger removed) {
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"update_memory forget removed %lu matching '%@'",
+                   (unsigned long)removed, text);
+        });
+    }
 }
 
 - (void)performChatMusicRequest:(NSDictionary *)musicRequest {

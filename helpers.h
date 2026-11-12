@@ -111,6 +111,22 @@ void EZCreateSongMemory(NSString *userPrompt,
                         NSString * _Nullable entryID,
                         void (^completion)(NSString * _Nullable entry));
 
+/// Explicit fact save for the chat memory tool (update_memory): stores
+/// `fact` verbatim as a memory entry WITHOUT the summarizer, so what the
+/// user asked to remember is exactly what is kept and later recalled.
+/// The entry also carries the fact under `explicitFact` so a later
+/// forget can match it exactly. completion reports whether a new entry
+/// was written (NO when the fact was empty or already stored).
+void EZCreateExplicitMemory(NSString *fact,
+                            NSString * _Nullable threadID,
+                            void (^completion)(BOOL saved));
+
+/// Forget counterpart: removes every memory entry whose stored fact
+/// (explicitFact) or summary contains `text`, case-insensitive.
+/// completion reports how many entries were removed.
+void EZForgetMemoryMatching(NSString *text,
+                            void (^completion)(NSUInteger removed));
+
 NSString *loadMemoryContext(NSInteger maxEntries);
 NSArray<NSDictionary *> *EZMemoryLoadAll(void);
 NSString *EZThreadSearchMemory(NSString *query, NSString *apiKey);
