@@ -4,7 +4,7 @@ All notable changes to EZCompleteUI are documented here. Version numbers refer
 to the app/package version. Server-backed features also require their matching
 Supabase Edge Function deployments and migrations.
 
-## 7.2.5 — Upcoming
+## 7.2.5 — 2026-11-13
 
 ### Slots
 
@@ -12,6 +12,10 @@ Supabase Edge Function deployments and migrations.
   free spins, custom sound effects, and background ambience.
 - Added casino ambience to the slot machine picker, with gapless audio loops
   for the picker and Plunder Bay.
+- Added automatic bonus spins and flashing jackpot lights, a quick stop for
+  spinning reels, and new sound effects and celebrations in Plunder Bay.
+- Hardened audio loop setup so invalid sound files do not crash the picker or
+  game, and reduced the casino ambience file size.
 
 ### Chat and memory
 
