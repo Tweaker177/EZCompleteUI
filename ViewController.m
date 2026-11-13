@@ -6520,7 +6520,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [NSMutableDictionary dictionary];
 
         for (NSString *key in msg) {
-            if ([key hasPrefix:@"_"]) {
+            if ([key hasPrefix:@"_"] ||
+                [key isEqualToString:@"reaction"] ||
+                [key isEqualToString:@"reactionShared"]) {
                 continue;
             }
             clean[key] = msg[key];
