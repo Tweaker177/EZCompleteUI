@@ -25,7 +25,11 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 @property (nonatomic, strong) UILabel *balanceLabel, *bonusLabel, *messageLabel;
 @property (nonatomic, strong) UIButton *betButton, *spinButton, *maxButton;
 @property (nonatomic, strong) UIView *machineView, *bonusTint, *winOverlay;
-@property (nonatomic, strong) AVAudioPlayer *drumPlayer, *bellsPlayer, *coinsPlayer, *songPlayer, *ambiencePlayer;
+@property (nonatomic, strong) AVAudioPlayer *bellsPlayer, *coinsPlayer;
+@property (nonatomic, strong) AVAudioEngine *loopEngine;
+@property (nonatomic, strong) AVAudioPlayerNode *drumNode, *songNode, *ambienceNode;
+@property (nonatomic, strong) AVAudioMixerNode *drumMixer, *songMixer, *ambienceMixer;
+@property (nonatomic, strong) AVAudioPCMBuffer *drumBuffer, *songBuffer, *ambienceBuffer;
 @property (nonatomic, strong) AVAudioEngine *sfxEngine;
 @property (nonatomic, strong) AVAudioPlayerNode *boomNode;
 @property (nonatomic, strong) AVAudioUnitVarispeed *boomSpeed;
@@ -67,7 +71,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
 - (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (self.freeSpinsRemaining > 0) [self startBonusSong]; }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.songPlayer stop]; [self.ambiencePlayer stop]; [self.sfxEngine stop]; } }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
 - (void)openLounge { [self.navigationController pushViewController:[[BRSlotRoomViewController alloc] initWithRoomID:@"plunder-bay" title:NSLocalizedString(@"BRSlot.Plunder.LoungeTitle", nil)] animated:YES]; }
 
@@ -166,7 +170,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     self.machineView.layer.shadowOpacity = bonus ? .85 : 0;
     self.machineView.layer.shadowRadius = 18;
     self.machineView.layer.shadowOffset = CGSizeZero;
-    if (bonus) { [self stopAmbience]; [self startBonusSong]; } else { [self.songPlayer stop]; [self startAmbience]; }
+    if (bonus) { [self stopAmbience]; [self startBonusSong]; } else { [self.songNode pause]; [self startAmbience]; }
 }
 - (void)request:(NSDictionary *)payload completion:(void (^)(NSDictionary *, NSString *))completion {
     [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *authError) {
@@ -299,16 +303,42 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         [self.sfxEngine prepare];
     }
     NSURL *drumURL = [self soundURL:@"pb_drumroll"];
-    if (drumURL) { self.drumPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:drumURL error:nil]; self.drumPlayer.numberOfLoops = -1; self.drumPlayer.volume = .8; [self.drumPlayer prepareToPlay]; }
+    if (drumURL) { AVAudioPCMBuffer *b = nil; AVAudioMixerNode *m = nil; self.drumNode = [self plunderLoopNodeForURL:drumURL volume:.8 buffer:&b mixer:&m]; self.drumBuffer = b; self.drumMixer = m; }
     NSURL *bellsURL = [self soundURL:@"pb_bells"];
     if (bellsURL) { self.bellsPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:bellsURL error:nil]; self.bellsPlayer.volume = .9; [self.bellsPlayer prepareToPlay]; }
     NSURL *coinsURL = [self soundURL:@"pb_coins"];
     if (coinsURL) { self.coinsPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:coinsURL error:nil]; self.coinsPlayer.volume = .7; [self.coinsPlayer prepareToPlay]; }
     NSURL *ambienceURL = [self soundURL:@"pb_ambience"];
-    if (ambienceURL) { self.ambiencePlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:ambienceURL error:nil]; self.ambiencePlayer.numberOfLoops = -1; self.ambiencePlayer.volume = .55; [self.ambiencePlayer prepareToPlay]; }
+    if (ambienceURL) { AVAudioPCMBuffer *b = nil; AVAudioMixerNode *m = nil; self.ambienceNode = [self plunderLoopNodeForURL:ambienceURL volume:.55 buffer:&b mixer:&m]; self.ambienceBuffer = b; self.ambienceMixer = m; }
     NSURL *songURL = [self soundURL:@"pb_bonus_song"];
-    if (songURL) { self.songPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:songURL error:nil]; self.songPlayer.numberOfLoops = -1; self.songPlayer.volume = .32; self.songPlayer.delegate = self; [self.songPlayer prepareToPlay]; }
+    if (songURL) { AVAudioPCMBuffer *b = nil; AVAudioMixerNode *m = nil; self.songNode = [self plunderLoopNodeForURL:songURL volume:.32 buffer:&b mixer:&m]; self.songBuffer = b; self.songMixer = m; }
 }
+// Gapless loops: decode the whole file to a PCM buffer and schedule
+// it on a player node with BufferLoops. AVAudioPlayer looping
+// replays the compressed file's priming/padding samples as a silence
+// gap at every wrap (very audible on a continuous ambience); a PCM
+// buffer loops sample-accurately. Each loop gets its own mixer so the
+// volumes stay independent.
+- (AVAudioPlayerNode *)plunderLoopNodeForURL:(NSURL *)url volume:(float)volume buffer:(AVAudioPCMBuffer **)outBuffer mixer:(AVAudioMixerNode **)outMixer {
+    if (!url) return nil;
+    AVAudioFile *file = [[AVAudioFile alloc] initForReading:url error:nil];
+    if (!file || file.length == 0) return nil;
+    AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:file.processingFormat frameCapacity:(AVAudioFrameCount)file.length];
+    if (!buffer || ![file readIntoBuffer:buffer error:nil]) return nil;
+    if (!self.loopEngine) { self.loopEngine = [AVAudioEngine new]; [self.loopEngine prepare]; }
+    AVAudioPlayerNode *node = [AVAudioPlayerNode new];
+    AVAudioMixerNode *mixer = [AVAudioMixerNode new];
+    [self.loopEngine attachNode:node];
+    [self.loopEngine attachNode:mixer];
+    [self.loopEngine connect:node to:mixer format:file.processingFormat];
+    [self.loopEngine connect:mixer to:self.loopEngine.mainMixerNode format:file.processingFormat];
+    mixer.outputVolume = volume;
+    [node scheduleBuffer:buffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil];
+    if (outBuffer) *outBuffer = buffer;
+    if (outMixer) *outMixer = mixer;
+    return node;
+}
+- (void)plunderStartLoopNode:(AVAudioPlayerNode *)node { if (node && !node.isPlaying) { if (!self.loopEngine.isRunning) [self.loopEngine startAndReturnError:nil]; [node play]; } }
 - (void)playBoomAtStep:(NSInteger)step {
     if (!self.boomFile || !self.sfxEngine) return;
     if (!self.sfxEngine.running) [self.sfxEngine startAndReturnError:nil];
@@ -317,13 +347,13 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     [self.boomNode scheduleFile:self.boomFile atTime:nil completionHandler:nil];
     [self.boomNode play];
 }
-- (void)startDrumRoll { if (self.drumPlayer && !self.drumPlayer.isPlaying) { self.drumPlayer.currentTime = 0; [self.drumPlayer play]; } }
-- (void)stopDrumRoll { if (self.drumPlayer.isPlaying) [self.drumPlayer stop]; }
+- (void)startDrumRoll { if (!self.drumNode || !self.drumBuffer) return; [self.drumNode stop]; [self.drumNode scheduleBuffer:self.drumBuffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil]; [self plunderStartLoopNode:self.drumNode]; }
+- (void)stopDrumRoll { [self.drumNode stop]; }
 - (void)playBells { if (self.bellsPlayer) { self.bellsPlayer.currentTime = 0; [self.bellsPlayer play]; } }
 - (void)playCoins { if (self.coinsPlayer) { self.coinsPlayer.currentTime = 0; [self.coinsPlayer play]; } }
-- (void)startAmbience { if (self.inBonus || !self.view.window) return; if (self.ambiencePlayer && !self.ambiencePlayer.isPlaying) [self.ambiencePlayer play]; }
-- (void)stopAmbience { [self.ambiencePlayer pause]; }
-- (void)startBonusSong { if (self.songPlayer && !self.songPlayer.isPlaying) [self.songPlayer play]; }
+- (void)startAmbience { if (self.inBonus || !self.view.window) return; [self plunderStartLoopNode:self.ambienceNode]; }
+- (void)stopAmbience { [self.ambienceNode pause]; }
+- (void)startBonusSong { [self plunderStartLoopNode:self.songNode]; }
 - (void)showWin:(NSInteger)payout awarded:(NSInteger)awarded {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
     UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.03 green:.05 blue:.14 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
