@@ -4038,8 +4038,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         return;
     }
 
+    // Auto mode (PR #76): the server picks the chat model, so a stale
+    // non-chat pick still sitting in selectedModel (seahorse-image, an
+    // image model, dall-e-2-edit) must not divert this send into that
+    // model's flow. The model-specific branches below are explicit-pick only.
+    BOOL ezAutoEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"];
     // ── Legacy dall-e-2-edit fallback ────────────────────────────────────────
-    if ([self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
+    if (!ezAutoEnabled && [self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
         [self enterImageEditModeFromCurrentSelection];
         [self callImageEdit:text imagePath:self.pendingImagePaths.lastObject ?: self.lastImageLocalPath];
         [self.pendingImagePaths removeAllObjects];
@@ -4049,7 +4054,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // ── NSFW (Seahorse) generation ───────────────────────────────────────────
     // Photos attached to this message are treated as reference images and
     // go through the selfie check inside the Seahorse flow.
-    if ([self.selectedModel isEqualToString:@"seahorse-image"]) {
+    if (!ezAutoEnabled && [self.selectedModel isEqualToString:@"seahorse-image"]) {
         NSArray<NSString *> *referencePaths = [self.pendingImagePaths copy];
         [self.pendingImagePaths removeAllObjects];
         [self callSeahorseImage:text referencePaths:referencePaths];
@@ -4057,7 +4062,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
 
     // ── Image model intent check ──────────────────────────────────────────────
-    BOOL isImageModel = [self isGptImage1Family:self.selectedModel];
+    BOOL isImageModel = !ezAutoEnabled && [self isGptImage1Family:self.selectedModel];
     // Chat models now choose analysis/generation/editing with an actual tool
     // call. Keep the legacy classifier only for explicit image-model mode.
     if (isImageModel) {
