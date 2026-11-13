@@ -330,7 +330,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     NSURL *coinsURL = [self soundURL:@"pb_coins"];
     if (coinsURL) { self.coinsPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:coinsURL error:nil]; self.coinsPlayer.volume = .7; [self.coinsPlayer prepareToPlay]; }
     NSURL *whooshURL = [self soundURL:@"pb_whoosh"];
-    if (whooshURL) { self.whooshPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:whooshURL error:nil]; self.whooshPlayer.volume = .8; [self.whooshPlayer prepareToPlay]; }
+    if (whooshURL) { self.whooshPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:whooshURL error:nil]; self.whooshPlayer.volume = .6; [self.whooshPlayer prepareToPlay]; }
     NSURL *cannonURL = [[NSBundle mainBundle] URLForResource:@"pb_cannon" withExtension:@"caf" subdirectory:@"sounds"];
     if (!cannonURL) cannonURL = [[NSBundle mainBundle] URLForResource:@"pb_cannon" withExtension:@"caf"];
     if (!cannonURL) cannonURL = [self soundURL:@"pb_cannon"];
