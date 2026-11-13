@@ -25,7 +25,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 @property (nonatomic, strong) UILabel *balanceLabel, *bonusLabel, *messageLabel;
 @property (nonatomic, strong) UIButton *betButton, *spinButton, *maxButton;
 @property (nonatomic, strong) UIView *machineView, *bonusTint, *winOverlay;
-@property (nonatomic, strong) AVAudioPlayer *bellsPlayer, *coinsPlayer, *reelsPlayer, *whooshPlayer;
+@property (nonatomic, strong) AVAudioPlayer *bellsPlayer, *coinsPlayer, *reelsPlayer, *whooshPlayer, *cannonPlayer;
 @property (nonatomic, strong) AVAudioEngine *loopEngine;
 @property (nonatomic, strong) AVAudioPlayerNode *drumNode, *songNode, *ambienceNode;
 @property (nonatomic, strong) AVAudioMixerNode *drumMixer, *songMixer, *ambienceMixer;
@@ -249,6 +249,25 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         [EZEntitlementManager.shared applyKnownBalance:balance]; self.balanceLabel.text=[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
         NSMutableArray *winLines=[NSMutableArray array];
         for (NSDictionary *line in result[@"winning_lines"]) { if (![line isKindOfClass:NSDictionary.class]) continue; NSArray *rows=[line[@"rows"] isKindOfClass:NSArray.class]?line[@"rows"]:@[]; NSInteger matches=MIN([line[@"matches"] integerValue],5); NSMutableArray *coords=[NSMutableArray array]; for (NSInteger col=0;col<matches && col<(NSInteger)rows.count;col++) { NSInteger row=[rows[col] integerValue]; if (row>=0 && row<3) [coords addObject:@[@(col),@(row)]]; } if (coords.count) [winLines addObject:coords]; }
+        // Cannon celebration: a winning line paying 3+ cannons
+        // (wilds count toward the run) fires the cannon.
+        NSArray *settleColumns = result[@"reels"];
+        BOOL cannonLine = NO;
+        for (NSArray *coords in winLines) {
+            if (coords.count < 3) continue;
+            NSString *paySymbol = nil;
+            for (NSArray *coord in coords) {
+                id raw = settleColumns[[coord[0] integerValue]][[coord[1] integerValue]];
+                NSString *sym = [raw isKindOfClass:NSString.class] ? raw : nil;
+                if (sym && ![sym isEqualToString:@"wild"]) { paySymbol = sym; break; }
+            }
+            if (!paySymbol && coords.count < 5) {
+                NSArray *last = coords.lastObject; NSInteger nextCol = [last[0] integerValue] + 1;
+                if (nextCol < 5) { id raw = settleColumns[nextCol][[last[1] integerValue]]; if ([raw isKindOfClass:NSString.class] && ![raw isEqualToString:@"wild"]) paySymbol = raw; }
+            }
+            if ([paySymbol isEqualToString:@"cannon"]) { cannonLine = YES; break; }
+        }
+        if (cannonLine) [self playCannon];
         if (winLines.count) [self celebrateWinLines:winLines step:0 passes:(winLines.count<=2?3:winLines.count<=4?2:1) celebrationID:self.lineCelebrationID];
         self.messageLabel.text = awarded ? [NSString stringWithFormat:@"🧭 +%ld FREE SPINS! %@",(long)awarded,payout ? [NSString stringWithFormat:@"Won %ld coins",(long)payout] : @""] : payout ? [NSString stringWithFormat:@"🎉 Won %ld coins on %@ line%@",(long)payout,result[@"win_lines"],[result[@"win_lines"] integerValue]==1?@"":@"s"] : [result[@"was_free_spin"] boolValue] ? @"Free spin • no line win" : [NSString stringWithFormat:@"No win • −%@ coins",result[@"wager"]];
         self.messageLabel.textColor=(payout || awarded) ? UIColor.systemYellowColor : [UIColor colorWithWhite:.8 alpha:1];
@@ -312,6 +331,10 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     if (coinsURL) { self.coinsPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:coinsURL error:nil]; self.coinsPlayer.volume = .7; [self.coinsPlayer prepareToPlay]; }
     NSURL *whooshURL = [self soundURL:@"pb_whoosh"];
     if (whooshURL) { self.whooshPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:whooshURL error:nil]; self.whooshPlayer.volume = .8; [self.whooshPlayer prepareToPlay]; }
+    NSURL *cannonURL = [[NSBundle mainBundle] URLForResource:@"pb_cannon" withExtension:@"caf" subdirectory:@"sounds"];
+    if (!cannonURL) cannonURL = [[NSBundle mainBundle] URLForResource:@"pb_cannon" withExtension:@"caf"];
+    if (!cannonURL) cannonURL = [self soundURL:@"pb_cannon"];
+    if (cannonURL) { self.cannonPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:cannonURL error:nil]; self.cannonPlayer.volume = .9; [self.cannonPlayer prepareToPlay]; }
     NSURL *reelsURL = [[NSBundle mainBundle] URLForResource:@"pb_slot_reels" withExtension:@"caf" subdirectory:@"sounds"];
     if (!reelsURL) reelsURL = [[NSBundle mainBundle] URLForResource:@"pb_slot_reels" withExtension:@"caf"];
     if (!reelsURL) reelsURL = [self soundURL:@"pb_slot_reels"];
@@ -399,6 +422,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     [self.boomNode scheduleFile:self.boomFile atTime:nil completionHandler:nil];
     [self.boomNode play];
 }
+- (void)playCannon { if (self.cannonPlayer) { [self.cannonPlayer stop]; self.cannonPlayer.currentTime = 0; [self.cannonPlayer play]; } }
 - (void)playWhoosh { if (self.whooshPlayer) { [self.whooshPlayer stop]; self.whooshPlayer.currentTime = 0; [self.whooshPlayer play]; } }
 - (void)startReelsSound { if (self.reelsPlayer && !self.reelsPlayer.isPlaying) { self.reelsPlayer.currentTime = 0; [self.reelsPlayer play]; } }
 - (void)stopReelsSound { [self.reelsPlayer stop]; }
