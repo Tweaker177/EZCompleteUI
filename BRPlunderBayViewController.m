@@ -321,24 +321,68 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 // volumes stay independent.
 - (AVAudioPlayerNode *)plunderLoopNodeForURL:(NSURL *)url volume:(float)volume buffer:(AVAudioPCMBuffer **)outBuffer mixer:(AVAudioMixerNode **)outMixer {
     if (!url) return nil;
+    // A missing, corrupt or mislabeled sound file must never take the
+    // screen down: AVAudioFile / buffer creation throw on bad input
+    // where AVAudioPlayer simply returned nil. The whole build sits in
+    // @try — any failure leaves this loop silent, like every other
+    // sound hook, instead of crashing the machine on open.
+    @try {
     AVAudioFile *file = [[AVAudioFile alloc] initForReading:url error:nil];
     if (!file || file.length == 0) return nil;
-    AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:file.processingFormat frameCapacity:(AVAudioFrameCount)file.length];
-    if (!buffer || ![file readIntoBuffer:buffer error:nil]) return nil;
-    if (!self.loopEngine) { self.loopEngine = [AVAudioEngine new]; [self.loopEngine prepare]; }
+    AVAudioFormat *format = file.processingFormat;
+    if (!format || format.sampleRate <= 0 || format.channelCount == 0) return nil;
+    AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:format frameCapacity:(AVAudioFrameCount)file.length];
+    if (!buffer || ![file readIntoBuffer:buffer error:nil] || buffer.frameLength == 0) return nil;
+    // Trim trailing digital silence before looping: for VBR files
+    // without a packet table (AAC/MP3 in a .caf), the declared length
+    // can overstate the real audio and the decode zero-pads the tail,
+    // which then loops as a silent gap. Healthy files are untouched.
+    if (buffer.format.commonFormat == AVAudioPCMFormatFloat32 && !buffer.format.interleaved && buffer.floatChannelData) {
+        AVAudioFrameCount frames = buffer.frameLength;
+        float * const *channels = buffer.floatChannelData;
+        NSUInteger channelCount = buffer.format.channelCount;
+        while (frames > 0) {
+            BOOL silent = YES;
+            for (NSUInteger c = 0; c < channelCount; c++) {
+                if (fabsf(channels[c][frames - 1]) > 0.0005f) { silent = NO; break; }
+            }
+            if (!silent) break;
+            frames--;
+        }
+        buffer.frameLength = frames;
+    }
+    if (buffer.frameLength == 0) return nil;
+    // Ride the boom SFX engine when it exists: a second engine in
+    // this screen threw inside graph Initialize on open (crash log
+    // 2026-11-13). One engine per screen, and no prepare anywhere -
+    // start initializes the graph on first play.
+    AVAudioEngine *engine = self.sfxEngine;
+    if (!engine) { if (!self.loopEngine) self.loopEngine = [AVAudioEngine new]; engine = self.loopEngine; }
     AVAudioPlayerNode *node = [AVAudioPlayerNode new];
     AVAudioMixerNode *mixer = [AVAudioMixerNode new];
-    [self.loopEngine attachNode:node];
-    [self.loopEngine attachNode:mixer];
-    [self.loopEngine connect:node to:mixer format:file.processingFormat];
-    [self.loopEngine connect:mixer to:self.loopEngine.mainMixerNode format:file.processingFormat];
+    [engine attachNode:node];
+    [engine attachNode:mixer];
+    [engine connect:node to:mixer format:file.processingFormat];
+    [engine connect:mixer to:engine.mainMixerNode format:file.processingFormat];
     mixer.outputVolume = volume;
     [node scheduleBuffer:buffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil];
     if (outBuffer) *outBuffer = buffer;
     if (outMixer) *outMixer = mixer;
     return node;
+    } @catch (NSException *e) {
+        return nil;
+    }
 }
-- (void)plunderStartLoopNode:(AVAudioPlayerNode *)node { if (node && !node.isPlaying) { if (!self.loopEngine.isRunning) [self.loopEngine startAndReturnError:nil]; [node play]; } }
+- (void)plunderStartLoopNode:(AVAudioPlayerNode *)node {
+    if (!node || node.isPlaying) return;
+    @try {
+        AVAudioEngine *engine = self.sfxEngine ?: self.loopEngine;
+        if (engine && !engine.isRunning) [engine startAndReturnError:nil];
+        [node play];
+    } @catch (NSException *e) {
+        // A loop that cannot start stays silent; the game plays on.
+    }
+}
 - (void)playBoomAtStep:(NSInteger)step {
     if (!self.boomFile || !self.sfxEngine) return;
     if (!self.sfxEngine.running) [self.sfxEngine startAndReturnError:nil];
