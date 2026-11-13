@@ -36,8 +36,9 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 @property (nonatomic, strong) AVAudioFile *boomFile;
 @property (nonatomic, strong) NSArray<NSArray<NSString *> *> *preSpinBoard;
 @property (nonatomic) NSInteger betIndex, freeSpinsRemaining, freeSpinSessionTotal, scatterStep;
-@property (nonatomic) BOOL spinning, celebrating, inBonus, slamRequested, spinSettled;
+@property (nonatomic) BOOL spinning, celebrating, inBonus, slamRequested, spinSettled, bonusLightsRunning;
 @property (nonatomic, strong) NSDictionary *pendingSpinResult;
+@property (nonatomic) NSUInteger autoSpinToken;
 @property (nonatomic) NSUInteger animationID, lineCelebrationID;
 @end
 
@@ -71,8 +72,8 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     ];
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
-- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (self.freeSpinsRemaining > 0) [self startBonusSong]; }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
+- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (self.freeSpinsRemaining > 0) [self startBonusSong]; [self scheduleBonusAutoSpin]; }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; self.autoSpinToken++; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
 - (void)openLounge { [self.navigationController pushViewController:[[BRSlotRoomViewController alloc] initWithRoomID:@"plunder-bay" title:NSLocalizedString(@"BRSlot.Plunder.LoungeTitle", nil)] animated:YES]; }
 
@@ -163,6 +164,50 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     self.betButton.enabled = self.maxButton.enabled = self.freeSpinsRemaining == 0 && !self.spinning;
     [self applyBonusPresentation:self.freeSpinsRemaining > 0];
 }
+// Bonus light show: while free spins are live the cabinet flashes
+// like a jackpot light - border strobing gold/red, the gold glow
+// pulsing, and the dark reel tint breathing. Impossible to miss,
+// which is the point. Idempotent: applyBonusPresentation: runs on
+// every state refresh.
+- (void)startBonusLights {
+    if (self.bonusLightsRunning) return;
+    self.bonusLightsRunning = YES;
+    self.machineView.layer.borderWidth = 3;
+    self.machineView.layer.borderColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1].CGColor;
+    CABasicAnimation *border = [CABasicAnimation animationWithKeyPath:@"borderColor"];
+    border.fromValue = (id)[UIColor colorWithRed:1 green:.78 blue:.18 alpha:1].CGColor;
+    border.toValue = (id)[UIColor colorWithRed:1 green:.15 blue:.1 alpha:1].CGColor;
+    border.duration = .45; border.autoreverses = YES; border.repeatCount = HUGE_VALF;
+    [self.machineView.layer addAnimation:border forKey:@"bonusBorderFlash"];
+    CABasicAnimation *glow = [CABasicAnimation animationWithKeyPath:@"shadowOpacity"];
+    glow.fromValue = @(.3); glow.toValue = @(1.0); glow.duration = .45; glow.autoreverses = YES; glow.repeatCount = HUGE_VALF;
+    [self.machineView.layer addAnimation:glow forKey:@"bonusGlowPulse"];
+    CABasicAnimation *glowR = [CABasicAnimation animationWithKeyPath:@"shadowRadius"];
+    glowR.fromValue = @(12); glowR.toValue = @(32); glowR.duration = .45; glowR.autoreverses = YES; glowR.repeatCount = HUGE_VALF;
+    [self.machineView.layer addAnimation:glowR forKey:@"bonusGlowRadius"];
+    [UIView animateWithDuration:.45 delay:0 options:UIViewAnimationOptionRepeat|UIViewAnimationOptionAutoreverse|UIViewAnimationOptionAllowUserInteraction animations:^{ self.bonusTint.alpha = .08; } completion:nil];
+}
+- (void)stopBonusLights {
+    self.bonusLightsRunning = NO;
+    [self.machineView.layer removeAnimationForKey:@"bonusBorderFlash"];
+    [self.machineView.layer removeAnimationForKey:@"bonusGlowPulse"];
+    [self.machineView.layer removeAnimationForKey:@"bonusGlowRadius"];
+    self.machineView.layer.borderWidth = 0;
+    [self.bonusTint.layer removeAllAnimations];
+    self.bonusTint.alpha = 1;
+}
+// Free spins play themselves: after a settle (or upon returning to
+// the machine mid-bonus), the next bonus spin fires on its own after
+// a short beat while any remain. Leaving the screen cancels the
+// chain via the token.
+- (void)scheduleBonusAutoSpin {
+    if (self.freeSpinsRemaining == 0 || self.spinning) return;
+    NSUInteger token = ++self.autoSpinToken;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.15*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+        if (self.autoSpinToken != token || self.spinning || self.freeSpinsRemaining == 0 || !self.view.window) return;
+        [self spin];
+    });
+}
 - (void)applyBonusPresentation:(BOOL)bonus {
     self.inBonus = bonus;
     self.bonusTint.hidden = !bonus;
@@ -171,6 +216,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     self.machineView.layer.shadowOpacity = bonus ? .85 : 0;
     self.machineView.layer.shadowRadius = 18;
     self.machineView.layer.shadowOffset = CGSizeZero;
+    if (bonus) [self startBonusLights]; else [self stopBonusLights];
     if (bonus) { [self stopAmbience]; [self startBonusSong]; } else { [self.songNode pause]; [self startAmbience]; }
 }
 - (void)request:(NSDictionary *)payload completion:(void (^)(NSDictionary *, NSString *))completion {
@@ -318,6 +364,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=YES; [self updateBonusLabel];
         if (balance==0 && self.freeSpinsRemaining==0) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.5*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self showCoinStore]; });
         if (wasFreeSpin && self.freeSpinsRemaining==0 && self.freeSpinSessionTotal>0) { NSInteger total=self.freeSpinSessionTotal; self.freeSpinSessionTotal=0; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.75*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self showFreeSpinsComplete:total]; }); }
+        [self scheduleBonusAutoSpin];
 }
 - (void)clearLineHighlights { self.lineCelebrationID++; for (NSArray *col in self.reels) for (UIImageView *tile in col) { [tile.layer removeAllAnimations]; tile.transform=CGAffineTransformIdentity; tile.layer.borderWidth=0; tile.layer.borderColor=nil; } }
 - (void)celebrateWinLines:(NSArray *)lines step:(NSInteger)step passes:(NSInteger)passes celebrationID:(NSUInteger)celebrationID {
