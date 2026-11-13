@@ -165,8 +165,16 @@ static NSString * const kHelperDirectAnswersEnabledKey = @"HelperDirectAnswersEn
 /// Reload this preference for every prompt so a change in the input control
 /// takes effect on the very next triage pass.
 static NSInteger _triageUncertainTurnFetchCount(void) {
-    NSInteger count = [[NSUserDefaults standardUserDefaults]
-        integerForKey:kTriageUncertainTurnFetchKey];
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    // The automated depth (EZTriageLookBack, derived in ViewController
+    // from the server's history decisions) wins when present; the
+    // legacy manual TriageUncertainTurns value is the fallback for
+    // installs where the router has not supplied one.
+    if ([defaults objectForKey:@"EZTriageLookBack"] != nil) {
+        kTriageUncertainTurnFetch = MAX(0, MIN(15, [defaults integerForKey:@"EZTriageLookBack"]));
+        return kTriageUncertainTurnFetch;
+    }
+    NSInteger count = [defaults integerForKey:kTriageUncertainTurnFetchKey];
     kTriageUncertainTurnFetch = MAX(0, MIN(15, count));
     return kTriageUncertainTurnFetch;
 }
@@ -1376,7 +1384,32 @@ static NSInteger _memoryEntryLocalScore(NSDictionary *entry, NSString *query) {
 //
 // If the AI ranker call fails, falls back to the top 3 keyword results.
 // If apiKey is empty, falls back to loadMemoryContext(5) as a dumb fallback.
-NSString *EZThreadSearchMemory(NSString *searchQuery, NSString *jwtToken) {
+// ── Decisions memory budget ──────────────────────────────────────
+// EZMemoryBudget is stored by ViewController from ez-chat's context
+// hints (0 / 2 / 4 / 10). Absent = 4, today's standard depth. The cap
+// counts memory lines, not blank separators.
+static NSInteger _EZMemoryBudget(void) {
+    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    if ([d objectForKey:@"EZMemoryBudget"] == nil) return 4;
+    return MAX(0, [d integerForKey:@"EZMemoryBudget"]);
+}
+static NSString *_EZCapMemoryLines(NSString *block) {
+    if (!block) return @"";
+    NSInteger budget = _EZMemoryBudget();
+    if (budget == 0) return @"";
+    if (block.length == 0) return block;
+    NSArray<NSString *> *lines = [block componentsSeparatedByString:@"\n"];
+    NSMutableArray<NSString *> *memories = [NSMutableArray array];
+    for (NSString *line in lines) {
+        if ([line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]].length)
+            [memories addObject:line];
+    }
+    if ((NSInteger)memories.count <= budget) return block;
+    return [[memories subarrayWithRange:NSMakeRange(0, (NSUInteger)budget)]
+            componentsJoinedByString:@"\n"];
+}
+
+static NSString *_EZThreadSearchMemoryImpl(NSString *searchQuery, NSString *jwtToken) {
     NSArray<NSDictionary *> *allEntries = _loadMemoryEntries();
     if (allEntries.count == 0) {
         EZLog(EZLogLevelInfo, @"MEMORY", @"Search: memory store is empty");
@@ -1506,6 +1539,8 @@ NSString *EZThreadSearchMemory(NSString *searchQuery, NSString *jwtToken) {
     NSString *rankerUserMessage = [NSString stringWithFormat:@"Search query: \"%@\"\n\nMemory entries to rank:\n%@",
                                    searchQuery ?: @"", candidatesText];
 
+    rankerSystemPrompt = [rankerSystemPrompt stringByReplacingOccurrencesOfString:@"up to 3 entries"
+        withString:[NSString stringWithFormat:@"up to %ld entries", (long)MAX(1, _EZMemoryBudget())]];
     NSString *rankerResponse = _callHelperModelSync(rankerSystemPrompt,
                                                     rankerUserMessage,
                                                     nil,
@@ -1562,6 +1597,13 @@ NSString *EZThreadStoreDir(void) {
 // Converts a threadID into a safe file path by replacing characters that are
 // illegal or inconvenient in file names. Appends ".json" extension.
 //   "2025-04-14T09:30:00" → ".../EZThreads/2025-04-14T09-30-00.json"
+// Public entry point (helpers.h): the ranked block, capped to the
+// current Decisions memory budget. A budget of 0 returns @"" and the
+// callers treat that exactly like "no memories found".
+NSString *EZThreadSearchMemory(NSString *searchQuery, NSString *jwtToken) {
+    return _EZCapMemoryLines(_EZThreadSearchMemoryImpl(searchQuery, jwtToken));
+}
+
 static NSString *_threadFilePath(NSString *threadID) {
     NSString *safeFileName = [[threadID stringByReplacingOccurrencesOfString:@":" withString:@"-"]
                               stringByReplacingOccurrencesOfString:@" " withString:@"_"];
@@ -2270,6 +2312,8 @@ static NSDictionary * _Nullable _runMemoryRanker(NSString *userPrompt,
         @"User prompt: \"%@\"\n%@\nMemory entries:\n%@",
         userPrompt, contextSection, rankedMemories];
 
+    systemPrompt = [systemPrompt stringByReplacingOccurrencesOfString:@"up to 4 most relevant memory lines"
+        withString:[NSString stringWithFormat:@"up to %ld most relevant memory lines", (long)MAX(1, _EZMemoryBudget())]];
     NSString *rawResponse = _callHelperModelSync(systemPrompt, userMessage, imageDataURLs, jwtToken, 600);
     _logHelperAPICall(@"Stage3-Ranker", systemPrompt, userMessage, rawResponse,
                       @{@"ranked_memories": rankedMemories ?: @""});
@@ -2669,7 +2713,7 @@ static void _analyzePromptForContextWithImagesImpl(NSString *userPrompt,
         // ── SHORT-CIRCUIT D: Complex but memories are sufficient ──────────────
         // Inject the selected memories into the prompt and route to the main model.
         if ([rankerVerdict isEqualToString:@"COMPLEX"] || [rankerVerdict isEqualToString:@"SIMPLE"]) {
-            NSString *memoriesToUse  = selectedMems.length > 0 ? selectedMems : rankedMemories;
+            NSString *memoriesToUse  = _EZCapMemoryLines(selectedMems.length > 0 ? selectedMems : rankedMemories);
             _logHelperDecision(@"Stage3-ShortCircuit",
                                @"InjectMemories",
                                @{@"memories_to_use": memoriesToUse ?: @"",
@@ -2754,7 +2798,7 @@ static void _analyzePromptForContextWithImagesImpl(NSString *userPrompt,
 
             // Final fallback: no usable thread found. Inject whatever memories
             // we have and let the main model do its best with limited context.
-            NSString *memoriesToUse  = selectedMems.length > 0 ? selectedMems : rankedMemories;
+            NSString *memoriesToUse  = _EZCapMemoryLines(selectedMems.length > 0 ? selectedMems : rankedMemories);
             NSString *enrichedPrompt = [NSString stringWithFormat:
                 @"[Possibly relevant memories:]\n%@\n\n[User message]\n%@", memoriesToUse, userPrompt];
             result.tier            = EZRoutingTierMemory;

@@ -892,9 +892,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UIButton      *clearButton;
 /// Appears in input area when an image model is active — opens image parameter sheet.
 @property (nonatomic, strong) UIButton      *imageSettingsButton;
-/// Shows and edits the number of turns supplied to triage after UNCERTAIN.
-@property (nonatomic, strong) UILabel       *triageUncertainTurnsLabel;
-@property (nonatomic, strong) UIStepper     *triageUncertainTurnsStepper;
 @property (nonatomic, strong) UIButton      *dictateButton;
 @property (nonatomic, strong) UIButton      *webSearchButton;
 /// Lightning bolt: permits helper models to answer directly when enabled.
@@ -1120,7 +1117,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath
                model:(NSString *)imageModel preserveChatModel:(BOOL)preserveChatModel;
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath;
-- (void)triageUncertainTurnsChanged:(UIStepper *)sender;
 - (void)toggleHelperDirectAnswers;
 - (void)updateHelperDirectAnswersButton;
 - (void)callChatCompletionsWithRetryCount:(NSInteger)retryCount;
@@ -1705,7 +1701,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     [self.pendingFiles removeAllObjects];
     [self.pendingImagePaths removeAllObjects];
 
-    [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", self.selectedModel]
+    [self.modelButton setTitle:([[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"] ? @"Model: Auto" : [NSString stringWithFormat:@"Model: %@", self.selectedModel])
                       forState:UIControlStateNormal];
 
     // Rebuild display messages from saved context
@@ -2312,7 +2308,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     // Model picker button
     self.modelButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [self.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", self.selectedModel]
+    [self.modelButton setTitle:([[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"] ? @"Model: Auto" : [NSString stringWithFormat:@"Model: %@", self.selectedModel])
                       forState:UIControlStateNormal];
     [self.modelButton addTarget:self action:@selector(showModelPicker)
                 forControlEvents:UIControlEventTouchUpInside];
@@ -2408,32 +2404,11 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.imageSettingsButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.inputContainer addSubview:self.imageSettingsButton];
 
-    // Compact triage-turn control in the input container's upper-right.
-    // Its numeric label makes the stepper's current value visible at a glance.
-    self.triageUncertainTurnsLabel = [[UILabel alloc] init];
-    self.triageUncertainTurnsLabel.font =
-        [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightSemibold];
-    self.triageUncertainTurnsLabel.textAlignment = NSTextAlignmentRight;
-    self.triageUncertainTurnsLabel.textColor = [UIColor secondaryLabelColor];
-    self.triageUncertainTurnsLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.inputContainer addSubview:self.triageUncertainTurnsLabel];
-
-    NSInteger triageTurns = [[NSUserDefaults standardUserDefaults]
-        integerForKey:@"TriageUncertainTurns"];
-    triageTurns = MAX(0, MIN(15, triageTurns));
-    self.triageUncertainTurnsStepper = [[UIStepper alloc] init];
-    self.triageUncertainTurnsStepper.minimumValue = 0;
-    self.triageUncertainTurnsStepper.maximumValue = 15;
-    self.triageUncertainTurnsStepper.stepValue = 1;
-    self.triageUncertainTurnsStepper.value = MAX(0, MIN(15, triageTurns));
-    self.triageUncertainTurnsStepper.accessibilityLabel =
-        @"Turns for uncertain triage";
-    self.triageUncertainTurnsStepper.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.triageUncertainTurnsStepper addTarget:self
-                                         action:@selector(triageUncertainTurnsChanged:)
-                               forControlEvents:UIControlEventValueChanged];
-    [self.inputContainer addSubview:self.triageUncertainTurnsStepper];
-    self.triageUncertainTurnsLabel.text = [NSString stringWithFormat:@"%ld", (long)triageTurns];
+    // The old triage-turns stepper is gone: the depth now follows the
+    // server's context decisions automatically (see the EZHistoryBudget
+    // honoring in the send path and EZTriageLookBack in helpers.m). The
+    // legacy TriageUncertainTurns defaults key stays, inert, as the
+    // fallback for triage when no automated depth has been stored.
 
     self.containerBottomConstraint =
         [self.inputContainer.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor];
@@ -2458,13 +2433,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [self.imageSettingsButton.leadingAnchor constraintEqualToAnchor:self.modelButton.trailingAnchor constant:8],
         [self.imageSettingsButton.widthAnchor constraintEqualToConstant:32],
         [self.imageSettingsButton.heightAnchor constraintEqualToConstant:32],
-        [self.triageUncertainTurnsStepper.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
-        [self.triageUncertainTurnsStepper.centerYAnchor constraintEqualToAnchor:self.modelButton.centerYAnchor],
-        [self.triageUncertainTurnsLabel.trailingAnchor constraintEqualToAnchor:self.triageUncertainTurnsStepper.leadingAnchor constant:-4],
-        [self.triageUncertainTurnsLabel.centerYAnchor constraintEqualToAnchor:self.triageUncertainTurnsStepper.centerYAnchor],
-        [self.triageUncertainTurnsLabel.widthAnchor constraintEqualToConstant:24],
-        [self.modelButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.triageUncertainTurnsLabel.leadingAnchor constant:-6],
-        [self.imageSettingsButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.triageUncertainTurnsLabel.leadingAnchor constant:-6],
+        [self.modelButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
+        [self.imageSettingsButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
         [self.attachButton.leadingAnchor constraintEqualToAnchor:self.inputContainer.leadingAnchor constant:12],
         [self.attachButton.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
         [self.attachButton.widthAnchor constraintEqualToConstant:32],
@@ -2531,20 +2501,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     dismissTap.delegate = self;
     [self.view addGestureRecognizer:dismissTap];
     [self installThreadSelectionBar];
-}
-
-/// Persists the setting used by helpers.m when triage needs more conversation
-/// context. The helper reloads this value at the start of every prompt.
-- (void)triageUncertainTurnsChanged:(UIStepper *)sender {
-    NSInteger turns = MAX(0, MIN(15, (NSInteger)sender.value));
-    sender.value = turns;
-    self.triageUncertainTurnsLabel.text =
-        [NSString stringWithFormat:@"%ld", (long)turns];
-    self.triageUncertainTurnsLabel.accessibilityLabel =
-        [NSString stringWithFormat:@"%ld turns for uncertain triage", (long)turns];
-    [[NSUserDefaults standardUserDefaults] setInteger:turns
-                                               forKey:@"TriageUncertainTurns"];
-    EZLogf(EZLogLevelInfo, @"TRIAGE", @"Uncertain triage turn count set to %ld", (long)turns);
 }
 
 - (UIButton *)_iconButton:(NSString *)sfSymbol tint:(nullable UIColor *)tint action:(SEL)action {
@@ -4552,6 +4508,27 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         cleanContext = newestFirst.reverseObjectEnumerator.allObjects;
     }
 
+    // Decisions history budget: when the previous response's context
+    // hints stored EZHistoryBudget, keep the newest that many messages
+    // for this send. Image-bearing messages are always kept and do not
+    // count toward the budget — a picture the user sent is never the
+    // thing trimmed away. No stored budget = keep everything (today's
+    // behavior, and the fallback if the router is off).
+    if ([defaults objectForKey:@"EZHistoryBudget"] != nil) {
+        NSInteger historyBudget = [defaults integerForKey:@"EZHistoryBudget"];
+        if (historyBudget > 0 && (NSInteger)cleanContext.count > historyBudget) {
+            NSMutableArray *keptNewestFirst = [NSMutableArray array];
+            NSInteger counted = 0;
+            for (NSDictionary *message in cleanContext.reverseObjectEnumerator) {
+                BOOL imageBearing = [message[@"content"] isKindOfClass:[NSArray class]];
+                if (!imageBearing && counted >= historyBudget) continue;
+                [keptNewestFirst addObject:message];
+                if (!imageBearing) counted++;
+            }
+            cleanContext = keptNewestFirst.reverseObjectEnumerator.allObjects;
+        }
+    }
+
     // Token estimation: sum content character lengths across all messages,
     // then divide by 4 (standard ~4 chars/token heuristic).
     // Counting content characters (not serialized JSON bytes) avoids the
@@ -4742,7 +4719,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     // Build ez-chat request body
     NSMutableDictionary *ezBody = [NSMutableDictionary dictionary];
-    ezBody[@"model"]            = self.selectedModel;
+    ezBody[@"model"]            = [defaults boolForKey:@"EZAutoModelEnabled"] ? @"auto" : self.selectedModel;
+    ezBody[@"context_hints"]    = @YES;
     ezBody[@"messages"]         = cleanContext;
     ezBody[@"estimated_tokens"] = @(totalEstimate);
     ezBody[@"max_tokens"]        = @(maxCompletionTokens);
@@ -4980,6 +4958,34 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         if (!reply.length) {
             EZLogf(EZLogLevelError, @"API", @"No reply in ez-chat response: %@", json);
             [self handleAPIError:@"Unexpected response format"]; return;
+        }
+
+        // Decisions context hints (ez-chat v1.20+): a response that ran
+        // the context evaluation carries memory_budget (always) and
+        // history_budget (only when the decided depth is finite — its
+        // absence there means "full history"). Store them for the NEXT
+        // send and derive the triage look-back from the depth. A
+        // response with neither means the router did not run: clear
+        // back to the built-in defaults.
+        {
+            NSUserDefaults *hintDefaults = [NSUserDefaults standardUserDefaults];
+            id memoryBudget = json[@"memory_budget"];
+            if ([memoryBudget respondsToSelector:@selector(integerValue)]) {
+                [hintDefaults setInteger:[memoryBudget integerValue] forKey:@"EZMemoryBudget"];
+                id historyBudget = json[@"history_budget"];
+                if ([historyBudget respondsToSelector:@selector(integerValue)]) {
+                    NSInteger hb = [historyBudget integerValue];
+                    [hintDefaults setInteger:hb forKey:@"EZHistoryBudget"];
+                    [hintDefaults setInteger:(hb <= 6 ? 1 : 3) forKey:@"EZTriageLookBack"];
+                } else {
+                    [hintDefaults removeObjectForKey:@"EZHistoryBudget"];
+                    [hintDefaults setInteger:6 forKey:@"EZTriageLookBack"];
+                }
+            } else {
+                [hintDefaults removeObjectForKey:@"EZMemoryBudget"];
+                [hintDefaults removeObjectForKey:@"EZHistoryBudget"];
+                [hintDefaults removeObjectForKey:@"EZTriageLookBack"];
+            }
         }
 
         // Update balance from response
@@ -6921,6 +6927,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     EZModelPickerViewController *picker = [[EZModelPickerViewController alloc]
         initWithModels:self.models selectedModel:self.selectedModel];
     __weak typeof(self) ws = self;
+    picker.autoEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"];
+    picker.onAutoToggled = ^(BOOL enabled) {
+        [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:@"EZAutoModelEnabled"];
+        [ws.modelButton setTitle:enabled ? @"Model: Auto"
+                                         : [NSString stringWithFormat:@"Model: %@", ws.selectedModel]
+                        forState:UIControlStateNormal];
+        EZLogf(EZLogLevelInfo, @"APP", @"Auto model → %@", enabled ? @"on" : @"off");
+    };
     picker.onModelSelected = ^(NSString *model) {
         ws.selectedModel = model;
         [ws.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", model]
