@@ -3343,7 +3343,7 @@ static NSString *_forgetSnapshotIdentityKey(NSDictionary *entry) {
     NSString *fact = _safeString(entry[@"explicitFact"]);
     if (fact.length == 0) fact = _safeString(entry[@"summary"]);
     if (timestamp.length == 0 && fact.length == 0) return @"";
-    return [NSString stringWithFormat:@"%@\u001F%@", timestamp, fact];
+    return [NSString stringWithFormat:@"%@\x1F%@", timestamp, fact];
 }
 
 // EZForgetMemoryEntries — the confirmation gate's delete: removes
