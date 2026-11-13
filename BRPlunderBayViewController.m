@@ -38,6 +38,22 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 
 @implementation BRPlunderBayViewController
 
++ (UIImage *)plunderSymbolImage:(NSString *)symbol {
+    static NSMutableDictionary<NSString *, UIImage *> *cache;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ cache = [NSMutableDictionary dictionary]; });
+    if (cache[symbol]) return cache[symbol];
+    UIImage *image = [UIImage imageNamed:[NSString stringWithFormat:@"plunder_%@", symbol]];
+    if (!image) {
+        NSString *path = [[NSBundle mainBundle] pathForResource:[NSString stringWithFormat:@"plunder_%@", symbol] ofType:@"b64"];
+        NSData *encoded = path ? [NSData dataWithContentsOfFile:path] : nil;
+        NSData *jpeg = encoded ? [[NSData alloc] initWithBase64EncodedData:encoded options:NSDataBase64DecodingIgnoreUnknownCharacters] : nil;
+        image = jpeg ? [UIImage imageWithData:jpeg] : nil;
+    }
+    if (image) cache[symbol] = image;
+    return image;
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = NSLocalizedString(@"BRSlot.Plunder.Title", nil);
@@ -114,7 +130,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 - (void)setSymbol:(NSString *)symbol onTile:(UIImageView *)tile {
     tile.accessibilityIdentifier = symbol;
     [[tile viewWithTag:77] removeFromSuperview]; tile.image = nil;
-    UIImage *art = [UIImage imageNamed:[NSString stringWithFormat:@"plunder_%@", symbol]];
+    UIImage *art = [BRPlunderBayViewController plunderSymbolImage:symbol];
     if (art) { tile.image = art; tile.contentMode = UIViewContentModeScaleAspectFill; return; }
     UILabel *glyph = [UILabel new]; glyph.tag = 77; glyph.text = [[symbol substringToIndex:1] uppercaseString];
     glyph.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; glyph.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1];
