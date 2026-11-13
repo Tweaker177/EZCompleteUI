@@ -4811,7 +4811,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
            @"Outgoing request:\nPOST %@\nContent-Type: application/json\nAuthorization: [REDACTED]\nBody: %@",
            request.URL.absoluteString ?: @"<missing URL>", requestBody);
 
-    EZLogf(EZLogLevelInfo, @"API", @"→ ez-chat [%@]%@", self.selectedModel, useWebSearch ? @" +web" : @"");
+    // Under Auto the picker value is meaningless (Auto overrides it):
+    // log what was actually sent; the reply log below names the model
+    // the router selected.
+    EZLogf(EZLogLevelInfo, @"API", @"→ ez-chat [%@]%@", ezBody[@"model"] ?: self.selectedModel, useWebSearch ? @" +web" : @"");
     dispatch_async(dispatch_get_main_queue(), ^{ self.sendButton.enabled = NO; });
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:request
@@ -5019,6 +5022,16 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         id balanceObj = json[@"balance"];
         if (balanceObj && ![balanceObj isKindOfClass:[NSNull class]]) {
             [[EZEntitlementManager shared] applyKnownBalance:[balanceObj integerValue]];
+        }
+
+        // Name the model that actually answered when Auto picked it:
+        // the send line can only say "auto", and the picker value is a
+        // stale leftover (the Nov 13 Terra/Luna confusion).
+        if ([[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"]) {
+            NSString *modelUsed = [json[@"model_used"] isKindOfClass:[NSString class]] ? json[@"model_used"] : nil;
+            if (modelUsed.length) {
+                EZLogf(EZLogLevelInfo, @"API", @"← ez-chat [auto → %@]", modelUsed);
+            }
         }
 
         EZLogf(EZLogLevelInfo, @"API", @"Reply %lu chars", (unsigned long)reply.length);
