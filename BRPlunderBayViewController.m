@@ -321,10 +321,18 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 // volumes stay independent.
 - (AVAudioPlayerNode *)plunderLoopNodeForURL:(NSURL *)url volume:(float)volume buffer:(AVAudioPCMBuffer **)outBuffer mixer:(AVAudioMixerNode **)outMixer {
     if (!url) return nil;
+    // A missing, corrupt or mislabeled sound file must never take the
+    // screen down: AVAudioFile / buffer creation throw on bad input
+    // where AVAudioPlayer simply returned nil. The whole build sits in
+    // @try — any failure leaves this loop silent, like every other
+    // sound hook, instead of crashing the machine on open.
+    @try {
     AVAudioFile *file = [[AVAudioFile alloc] initForReading:url error:nil];
     if (!file || file.length == 0) return nil;
-    AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:file.processingFormat frameCapacity:(AVAudioFrameCount)file.length];
-    if (!buffer || ![file readIntoBuffer:buffer error:nil]) return nil;
+    AVAudioFormat *format = file.processingFormat;
+    if (!format || format.sampleRate <= 0 || format.channelCount == 0) return nil;
+    AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:format frameCapacity:(AVAudioFrameCount)file.length];
+    if (!buffer || ![file readIntoBuffer:buffer error:nil] || buffer.frameLength == 0) return nil;
     if (!self.loopEngine) { self.loopEngine = [AVAudioEngine new]; [self.loopEngine prepare]; }
     AVAudioPlayerNode *node = [AVAudioPlayerNode new];
     AVAudioMixerNode *mixer = [AVAudioMixerNode new];
@@ -337,6 +345,9 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     if (outBuffer) *outBuffer = buffer;
     if (outMixer) *outMixer = mixer;
     return node;
+    } @catch (NSException *e) {
+        return nil;
+    }
 }
 - (void)plunderStartLoopNode:(AVAudioPlayerNode *)node { if (node && !node.isPlaying) { if (!self.loopEngine.isRunning) [self.loopEngine startAndReturnError:nil]; [node play]; } }
 - (void)playBoomAtStep:(NSInteger)step {

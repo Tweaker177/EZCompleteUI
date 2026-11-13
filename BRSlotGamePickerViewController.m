@@ -45,10 +45,15 @@ typedef NS_ENUM(NSInteger, BRSlotPickerCardKind) { BRSlotPickerCardKindClassic, 
         // node. AVAudioPlayer looping replays a compressed file's
         // priming/padding samples as a silence gap at every wrap; a
         // PCM buffer scheduled with BufferLoops loops sample-accurately.
+        // Same rule as the machines: a bad sound file stays silent,
+        // it never crashes the picker (AVAudioFile throws on some
+        // corrupt/mislabeled inputs where AVAudioPlayer returned nil).
+        @try {
         AVAudioFile *file = [[AVAudioFile alloc] initForReading:url error:nil];
-        if (file && file.length > 0) {
-            AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:file.processingFormat frameCapacity:(AVAudioFrameCount)file.length];
-            if (buffer && [file readIntoBuffer:buffer error:nil]) {
+        AVAudioFormat *format = file.processingFormat;
+        if (file && file.length > 0 && format && format.sampleRate > 0 && format.channelCount > 0) {
+            AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:format frameCapacity:(AVAudioFrameCount)file.length];
+            if (buffer && [file readIntoBuffer:buffer error:nil] && buffer.frameLength > 0) {
                 self.casinoBuffer = buffer;
                 self.casinoEngine = [AVAudioEngine new];
                 self.casinoNode = [AVAudioPlayerNode new];
@@ -58,6 +63,8 @@ typedef NS_ENUM(NSInteger, BRSlotPickerCardKind) { BRSlotPickerCardKindClassic, 
                 [self.casinoNode scheduleBuffer:buffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil];
                 [self.casinoEngine prepare];
             }
+        }
+        } @catch (NSException *e) {
         }
     }
 }
