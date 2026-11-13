@@ -31,6 +31,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.5",
+          "buildVersion": "7.2.5",
+          "date": "2026-11-13",
+          "localizedDescription": "## What’s new since 7.2.4\n\n### Slots\n\n- Added **Plunder Bay**, a five-reel slot machine with pirate-themed symbols,\n  free spins, custom sound effects, and background ambience.\n- Added casino ambience to the slot machine picker, with gapless audio loops\n  for the picker and Plunder Bay.\n- Added automatic bonus spins and flashing jackpot lights, a quick stop for\n  spinning reels, and new sound effects and celebrations in Plunder Bay.\n- Hardened audio loop setup so invalid sound files do not crash the picker or\n  game, and reduced the casino ambience file size.\n\n### Chat and memory\n\n- Added an Auto model switch to the model picker and improved automatic chat\n  routing and context handling, including a fix for stale image-model picks.\n- Improved reaction persistence when restoring chats and cleared stale status\n  indicators. Reaction metadata is excluded from chat API messages.\n- Improved important-memory migration and the confirmation flow for\n  forgetting memories.\n\n### Audio\n\n- Sounds play when tapped instead of automatically playing through the\n  library; fixed a crash when saving a newly generated sound.\n- Sound, text-to-speech, and music files now use readable names based on their\n  display titles.\n\n## Downloads\n\n- **IPA:** `EZCompleteUI-7.2.5-release.ipa`\n- **Deb:** `com.i0stweak3r.ezcompleteui_7.2.5_iphoneos-arm64.deb`\n\nRequires iOS 15 or later. Online features require their corresponding services.",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.5/EZCompleteUI-7.2.5-release.ipa",
+          "size": 16366964,
+          "sha256": "63f1145744bc8c3fb43a38e7342d6adabdb7bede24a718d5832a2fcff9fbc432",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.4",
           "buildVersion": "7.2.4",
           "date": "2026-11-13",
