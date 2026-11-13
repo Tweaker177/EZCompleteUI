@@ -315,7 +315,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         self.boomFile = [[AVAudioFile alloc] initForReading:boomURL error:nil];
         self.sfxEngine = [AVAudioEngine new];
         self.boomNode = [AVAudioPlayerNode new];
-        self.boomNode.volume = .7;
+        self.boomNode.volume = .35;
         self.boomSpeed = [AVAudioUnitVarispeed new];
         [self.sfxEngine attachNode:self.boomNode];
         [self.sfxEngine attachNode:self.boomSpeed];
@@ -324,7 +324,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         [self.sfxEngine prepare];
     }
     NSURL *drumURL = [self soundURL:@"pb_drumroll"];
-    if (drumURL) { AVAudioPCMBuffer *b = nil; AVAudioMixerNode *m = nil; self.drumNode = [self plunderLoopNodeForURL:drumURL volume:.8 buffer:&b mixer:&m]; self.drumBuffer = b; self.drumMixer = m; }
+    if (drumURL) { AVAudioPCMBuffer *b = nil; AVAudioMixerNode *m = nil; self.drumNode = [self plunderLoopNodeForURL:drumURL volume:.8 gain:1.0 buffer:&b mixer:&m]; self.drumBuffer = b; self.drumMixer = m; }
     NSURL *bellsURL = [self soundURL:@"pb_bells"];
     if (bellsURL) { self.bellsPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:bellsURL error:nil]; self.bellsPlayer.volume = .9; [self.bellsPlayer prepareToPlay]; }
     NSURL *coinsURL = [self soundURL:@"pb_coins"];
@@ -340,9 +340,9 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     if (!reelsURL) reelsURL = [self soundURL:@"pb_slot_reels"];
     if (reelsURL) { self.reelsPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:reelsURL error:nil]; self.reelsPlayer.numberOfLoops = -1; self.reelsPlayer.volume = .7; [self.reelsPlayer prepareToPlay]; }
     NSURL *ambienceURL = [self soundURL:@"pb_ambience"];
-    if (ambienceURL) { AVAudioPCMBuffer *b = nil; AVAudioMixerNode *m = nil; self.ambienceNode = [self plunderLoopNodeForURL:ambienceURL volume:.85 buffer:&b mixer:&m]; self.ambienceBuffer = b; self.ambienceMixer = m; }
+    if (ambienceURL) { AVAudioPCMBuffer *b = nil; AVAudioMixerNode *m = nil; self.ambienceNode = [self plunderLoopNodeForURL:ambienceURL volume:1.0 gain:2.0 buffer:&b mixer:&m]; self.ambienceBuffer = b; self.ambienceMixer = m; }
     NSURL *songURL = [self soundURL:@"pb_bonus_song"];
-    if (songURL) { AVAudioPCMBuffer *b = nil; AVAudioMixerNode *m = nil; self.songNode = [self plunderLoopNodeForURL:songURL volume:.32 buffer:&b mixer:&m]; self.songBuffer = b; self.songMixer = m; }
+    if (songURL) { AVAudioPCMBuffer *b = nil; AVAudioMixerNode *m = nil; self.songNode = [self plunderLoopNodeForURL:songURL volume:.32 gain:1.0 buffer:&b mixer:&m]; self.songBuffer = b; self.songMixer = m; }
 }
 // Gapless loops: decode the whole file to a PCM buffer and schedule
 // it on a player node with BufferLoops. AVAudioPlayer looping
@@ -350,7 +350,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 // gap at every wrap (very audible on a continuous ambience); a PCM
 // buffer loops sample-accurately. Each loop gets its own mixer so the
 // volumes stay independent.
-- (AVAudioPlayerNode *)plunderLoopNodeForURL:(NSURL *)url volume:(float)volume buffer:(AVAudioPCMBuffer **)outBuffer mixer:(AVAudioMixerNode **)outMixer {
+- (AVAudioPlayerNode *)plunderLoopNodeForURL:(NSURL *)url volume:(float)volume gain:(float)gain buffer:(AVAudioPCMBuffer **)outBuffer mixer:(AVAudioMixerNode **)outMixer {
     if (!url) return nil;
     // A missing, corrupt or mislabeled sound file must never take the
     // screen down: AVAudioFile / buffer creation throw on bad input
@@ -381,6 +381,20 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
             frames--;
         }
         buffer.frameLength = frames;
+    }
+    // Decode-time gain for quiet source files (the ambience wash is
+    // mastered low, and a mixer alone caps at unity): scale the
+    // samples with a hard clamp so peaks cannot wrap.
+    if (gain != 1.0f && buffer.format.commonFormat == AVAudioPCMFormatFloat32 && !buffer.format.interleaved && buffer.floatChannelData) {
+        float * const *gch = buffer.floatChannelData;
+        NSUInteger gChannels = buffer.format.channelCount;
+        for (NSUInteger c = 0; c < gChannels; c++) {
+            float *samples = gch[c];
+            for (AVAudioFrameCount f = 0; f < buffer.frameLength; f++) {
+                float v = samples[f] * gain;
+                samples[f] = v > 1.0f ? 1.0f : (v < -1.0f ? -1.0f : v);
+            }
+        }
     }
     if (buffer.frameLength == 0) return nil;
     // Ride the boom SFX engine when it exists: a second engine in
