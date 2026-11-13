@@ -1689,6 +1689,9 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
 - (void)chatHistoryDidSelectThread:(EZChatThread *)thread {
     [self closeDrawer];
+    // No status state crosses threads: a banner/timer left over from
+    // the previous thread would otherwise render into this one.
+    [self hideStatusBanner];
     [self.chatContext removeAllObjects];
     [self.chatContext addObjectsFromArray:thread.chatContext];
     [self.displayMessages removeAllObjects];
@@ -1784,7 +1787,26 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
                 if (r.location != NSNotFound) text = [text substringFromIndex:r.location + r.length];
             }
             text = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-            if (text.length > 0) [self appendToChat:[NSString stringWithFormat:@"You: %@", text]];
+            if (text.length > 0) {
+                // A helper reaction stored on the context entry goes back
+                // onto the bubble this entry produces, so the badge
+                // survives thread switches — the same treatment user
+                // reactions get on assistant bubbles below.
+                NSString *restoredReaction = [msg[@"reaction"] isKindOfClass:[NSString class]]
+                    ? msg[@"reaction"] : nil;
+                NSUInteger displayCountBefore = self.displayMessages.count;
+                [self appendToChat:[NSString stringWithFormat:@"You: %@", text]];
+                if (restoredReaction.length) {
+                    for (NSUInteger di = displayCountBefore; di < self.displayMessages.count; di++) {
+                        NSDictionary *addedEntry = self.displayMessages[di];
+                        if (![addedEntry[@"role"] isEqualToString:@"user"]) continue;
+                        NSMutableDictionary *stampedEntry = [addedEntry mutableCopy];
+                        stampedEntry[@"reaction"] = restoredReaction;
+                        self.displayMessages[di] = stampedEntry;
+                        break;
+                    }
+                }
+            }
         } else if ([role isEqualToString:@"assistant"]) {
             self.lastAIResponse = text;
             // A user reaction stored on the context entry (see
@@ -6547,7 +6569,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [NSMutableDictionary dictionary];
 
         for (NSString *key in msg) {
-            if ([key hasPrefix:@"_"]) {
+            // reaction/reactionShared are local UI state: they ride the
+            // context entries so badges survive restores, and must never
+            // reach the API (an unlisted key 400s the whole send — the
+            // Nov 12 incident; the server whitelist is only a backstop).
+            if ([key hasPrefix:@"_"] ||
+                [key isEqualToString:@"reaction"] ||
+                [key isEqualToString:@"reactionShared"]) {
                 continue;
             }
             clean[key] = msg[key];
@@ -6893,6 +6921,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 }
 
 - (void)_resetConversation {
+    [self hideStatusBanner];
     [self.chatContext removeAllObjects];
     [self.displayMessages removeAllObjects];
     [self.chatTableView reloadData];
@@ -9365,6 +9394,32 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
                 [self.chatTableView reloadRowsAtIndexPaths:@[
                     [NSIndexPath indexPathForRow:capturedUserRow inSection:0]]
                     withRowAnimation:UITableViewRowAnimationFade];
+                // Persist the reaction on the matching chatContext entry
+                // too: displayMessages are rebuilt from chatContext on a
+                // thread restore, so a display-only stamp vanishes the
+                // moment the user leaves and returns. Match by ordinal
+                // among user text bubbles — the same correspondence the
+                // restore rebuild uses. Only the reaction key is stamped:
+                // the share-back machinery scans assistant entries only,
+                // and the API sanitizer strips this key, so a user entry
+                // carrying it is inert everywhere else.
+                NSInteger userOrdinal = -1;
+                for (NSInteger r = 0; r <= capturedUserRow; r++) {
+                    if ([self.displayMessages[(NSUInteger)r][@"role"] isEqualToString:@"user"]) userOrdinal++;
+                }
+                NSInteger seenUsers = -1;
+                for (NSUInteger ci = 0; ci < self.chatContext.count; ci++) {
+                    NSDictionary *ctxEntry = self.chatContext[ci];
+                    if (![ctxEntry[@"role"] isEqualToString:@"user"] ||
+                        ![ctxEntry[@"content"] isKindOfClass:[NSString class]]) continue;
+                    seenUsers++;
+                    if (seenUsers != userOrdinal) continue;
+                    NSMutableDictionary *stampedCtx = [ctxEntry mutableCopy];
+                    stampedCtx[@"reaction"] = reaction;
+                    self.chatContext[ci] = stampedCtx;
+                    [self saveActiveThread];
+                    break;
+                }
             }
         });
     }] resume];
@@ -9558,6 +9613,11 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 }
 - (void)hideStatusBanner {
     self.statusStepsGeneration++;
+    // A finished wait leaves no status text behind: the thinking cell
+    // renders thinkingStatusText verbatim, so without this the next
+    // send — in this thread or one restored later — opens with the
+    // previous message's last status line.
+    self.thinkingStatusText = nil;
     [self hideThinkingPlaceholder];
     self.statusBannerIsChatWait = NO;
     BOOL wasActive = self.statusBannerTimer != nil;
