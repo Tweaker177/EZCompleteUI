@@ -10,7 +10,8 @@ Supabase Edge Function deployments and migrations.
 
 - Added **Plunder Bay**, a five-reel slot machine with pirate-themed symbols,
   free spins, custom sound effects, and background ambience.
-- Added casino ambience to the slot machine picker.
+- Added casino ambience to the slot machine picker, with gapless audio loops
+  for the picker and Plunder Bay.
 
 ### Chat and memory
 
