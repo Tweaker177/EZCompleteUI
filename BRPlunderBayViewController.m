@@ -36,7 +36,8 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 @property (nonatomic, strong) AVAudioFile *boomFile;
 @property (nonatomic, strong) NSArray<NSArray<NSString *> *> *preSpinBoard;
 @property (nonatomic) NSInteger betIndex, freeSpinsRemaining, freeSpinSessionTotal, scatterStep;
-@property (nonatomic) BOOL spinning, celebrating, inBonus;
+@property (nonatomic) BOOL spinning, celebrating, inBonus, slamRequested, spinSettled;
+@property (nonatomic, strong) NSDictionary *pendingSpinResult;
 @property (nonatomic) NSUInteger animationID, lineCelebrationID;
 @end
 
@@ -188,8 +189,8 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     }];
 }
 - (void)spin {
-    if (self.spinning) return;
-    self.spinning = YES; self.spinButton.enabled = self.maxButton.enabled = NO; [self updateBonusLabel];
+    if (self.spinning) { [self slamStop]; return; }
+    self.spinning = YES; self.maxButton.enabled = NO; [self updateBonusLabel]; // spin button stays enabled: a second tap slam-stops the spin
     [self.winOverlay removeFromSuperview]; self.winOverlay=nil; self.celebrating=NO;
     [self clearLineHighlights];
     self.messageLabel.text = self.freeSpinsRemaining ? NSLocalizedString(@"BRSlot.Plunder.FreeSpin", nil) : NSLocalizedString(@"BRSlot.CheckingBalance", nil);
@@ -202,6 +203,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     }];
 }
 - (void)beginSpin {
+    self.slamRequested = NO; self.pendingSpinResult = nil; self.spinSettled = NO;
     self.messageLabel.text = NSLocalizedString(@"BRSlot.Spinning", nil); NSUInteger animationID = ++self.animationID;
     NSMutableArray *before = [NSMutableArray arrayWithCapacity:5];
     for (NSArray<UIImageView *> *column in self.reels) { NSMutableArray *symbols = [NSMutableArray arrayWithCapacity:3]; for (UIImageView *tile in column) [symbols addObject:tile.accessibilityIdentifier ?: @"hook"]; [before addObject:symbols]; }
@@ -217,16 +219,46 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 // at base pitch, every next one +3 semitones — and the second chest
 // starts the drum roll, which runs until the last column settles.
 // Three or more chests ring the bells into the bonus.
+// Slam stop: a second tap on Spin while a spin is running. If the
+// result is already revealing, jump straight to the settled board;
+// if it has not landed yet, the flag makes reveal: jump on entry.
+// The celebrations all still run (they live in settleSpin:) - only
+// the staged column landings and the drum roll are skipped.
+- (void)slamStop {
+    if (!self.spinning) return;
+    self.slamRequested = YES;
+    ++self.animationID; // freeze the shuffle ticks / staged blocks now
+    if (self.pendingSpinResult) [self jumpToSettledBoard];
+}
+- (void)jumpToSettledBoard {
+    NSDictionary *result = self.pendingSpinResult;
+    if (!result || self.spinSettled) return;
+    self.spinSettled = YES;
+    ++self.animationID;
+    [self stopDrumRoll]; [self stopReelsSound];
+    NSArray *columns = result[@"reels"];
+    for (NSInteger col=0;col<5;col++) for (NSInteger row=0;row<3;row++) {
+        NSString *sym = columns[col][row];
+        UIImageView *tile = self.reels[col][row];
+        [self setSymbol:sym onTile:tile];
+        if ([sym isEqualToString:@"scatter"]) { tile.layer.borderWidth = 3; tile.layer.borderColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1].CGColor; }
+    }
+    [self settleSpin:result];
+}
 - (void)reveal:(NSDictionary *)result {
     NSArray *columns = result[@"reels"];
     if (columns.count != 5) { [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
     for (NSArray *column in columns) if (![column isKindOfClass:NSArray.class] || column.count != 3) { [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
     self.preSpinBoard = nil;
-    ++self.animationID;
+    self.pendingSpinResult = result;
+    self.spinSettled = NO;
+    NSUInteger revealID = ++self.animationID;
     self.scatterStep = 0;
+    if (self.slamRequested) { [self jumpToSettledBoard]; return; }
     for (NSInteger col=0;col<5;col++) {
         NSArray *symbols=columns[col];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(col*.24*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+            if (self.animationID != revealID || self.spinSettled) return;
             for (NSInteger row=0;row<3;row++) [self setSymbol:symbols[row] onTile:self.reels[col][row]];
             for (NSInteger row=0;row<3;row++) {
                 if (![symbols[row] isEqualToString:@"scatter"]) continue;
@@ -240,6 +272,15 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         });
     }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.45*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+        if (self.animationID != revealID || self.spinSettled) return;
+        self.spinSettled = YES;
+        [self settleSpin:result];
+    });
+}
+// Everything after the reels land, shared by the timed reveal above
+// and the slam-stop jump: balances, win lines, and the celebrations
+// (bells, cannon, coins, win banner) all still run.
+- (void)settleSpin:(NSDictionary *)result {
         [self stopDrumRoll]; [self stopReelsSound];
         NSInteger payout=[result[@"payout"] integerValue],balance=[result[@"balance"] integerValue],awarded=[result[@"free_spins_awarded"] integerValue],scatters=[result[@"scatter_count"] integerValue];
         if (scatters >= 3) [self playBells];
@@ -273,10 +314,10 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         self.messageLabel.textColor=(payout || awarded) ? UIColor.systemYellowColor : [UIColor colorWithWhite:.8 alpha:1];
         if (payout > 0) [self playCoins];
         if (payout || awarded) [self showWin:payout awarded:awarded];
+        self.pendingSpinResult = nil;
         self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=YES; [self updateBonusLabel];
         if (balance==0 && self.freeSpinsRemaining==0) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.5*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self showCoinStore]; });
         if (wasFreeSpin && self.freeSpinsRemaining==0 && self.freeSpinSessionTotal>0) { NSInteger total=self.freeSpinSessionTotal; self.freeSpinSessionTotal=0; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.75*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self showFreeSpinsComplete:total]; }); }
-    });
 }
 - (void)clearLineHighlights { self.lineCelebrationID++; for (NSArray *col in self.reels) for (UIImageView *tile in col) { [tile.layer removeAllAnimations]; tile.transform=CGAffineTransformIdentity; tile.layer.borderWidth=0; tile.layer.borderColor=nil; } }
 - (void)celebrateWinLines:(NSArray *)lines step:(NSInteger)step passes:(NSInteger)passes celebrationID:(NSUInteger)celebrationID {
@@ -294,7 +335,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     UIColor *border=[UIColor colorWithRed:[rgb[0] doubleValue] green:[rgb[1] doubleValue] blue:[rgb[2] doubleValue] alpha:1];
     for (NSArray *coord in coords) { UIImageView *tile=self.reels[[coord[0] integerValue]][[coord[1] integerValue]]; tile.layer.borderWidth=3; tile.layer.borderColor=border.CGColor; if (!celebrate) continue; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)([coord[0] integerValue]*.13*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [UIView animateWithDuration:.22 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{ tile.transform=CGAffineTransformMakeScale(1.22,1.22); } completion:^(__unused BOOL done){ [UIView animateWithDuration:.5 delay:0 usingSpringWithDamping:.5 initialSpringVelocity:.35 options:0 animations:^{ tile.transform=CGAffineTransformIdentity; } completion:nil]; }]; }); }
 }
-- (void)finishWithError:(NSString *)message { ++self.animationID; [self stopDrumRoll]; [self stopReelsSound]; [self clearLineHighlights]; if (self.preSpinBoard.count == 5) { for (NSInteger col=0;col<5;col++) for (NSInteger row=0;row<3;row++) [self setSymbol:self.preSpinBoard[col][row] onTile:self.reels[col][row]]; self.preSpinBoard=nil; } self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=YES; [self updateBonusLabel]; self.messageLabel.text=message; self.messageLabel.textColor=UIColor.systemOrangeColor; }
+- (void)finishWithError:(NSString *)message { ++self.animationID; [self stopDrumRoll]; [self stopReelsSound]; self.pendingSpinResult = nil; self.slamRequested = NO; [self clearLineHighlights]; if (self.preSpinBoard.count == 5) { for (NSInteger col=0;col<5;col++) for (NSInteger row=0;row<3;row++) [self setSymbol:self.preSpinBoard[col][row] onTile:self.reels[col][row]]; self.preSpinBoard=nil; } self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=YES; [self updateBonusLabel]; self.messageLabel.text=message; self.messageLabel.textColor=UIColor.systemOrangeColor; }
 - (void)showCoinStore {
     if (self.presentedViewController) return;
     EZCoinStoreViewController *store=[EZCoinStoreViewController new]; store.showLowCoinsWarning=YES; store.triggeringFeatureName=NSLocalizedString(@"BRSlot.Plunder.StoreFeature", nil);
