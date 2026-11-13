@@ -27,7 +27,9 @@ typedef NS_ENUM(NSInteger, BRSlotPickerCardKind) { BRSlotPickerCardKindClassic, 
 
 @interface BRSlotGamePickerViewController () <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout>
 @property (nonatomic,strong) UICollectionView *collectionView;
-@property (nonatomic, strong) AVAudioPlayer *casinoPlayer;
+@property (nonatomic, strong) AVAudioEngine *casinoEngine;
+@property (nonatomic, strong) AVAudioPlayerNode *casinoNode;
+@property (nonatomic, strong) AVAudioPCMBuffer *casinoBuffer;
 @property (nonatomic,strong) NSArray<BRGameRecord *> *importableGames;
 @end
 
@@ -38,15 +40,34 @@ typedef NS_ENUM(NSInteger, BRSlotPickerCardKind) { BRSlotPickerCardKindClassic, 
     if (!url) url = [[NSBundle mainBundle] URLForResource:@"crowded_casino" withExtension:@"caf"];
     if (!url) url = [[NSBundle mainBundle] URLForResource:@"crowded_casino" withExtension:@"mp3" subdirectory:@"sounds"];
     if (!url) url = [[NSBundle mainBundle] URLForResource:@"crowded_casino" withExtension:@"mp3"];
-    if (url) { self.casinoPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:url error:nil]; self.casinoPlayer.numberOfLoops = -1; self.casinoPlayer.volume = .5; [self.casinoPlayer prepareToPlay]; }
+    if (url) {
+        // Gapless loop: decode the file to a PCM buffer on a player
+        // node. AVAudioPlayer looping replays a compressed file's
+        // priming/padding samples as a silence gap at every wrap; a
+        // PCM buffer scheduled with BufferLoops loops sample-accurately.
+        AVAudioFile *file = [[AVAudioFile alloc] initForReading:url error:nil];
+        if (file && file.length > 0) {
+            AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:file.processingFormat frameCapacity:(AVAudioFrameCount)file.length];
+            if (buffer && [file readIntoBuffer:buffer error:nil]) {
+                self.casinoBuffer = buffer;
+                self.casinoEngine = [AVAudioEngine new];
+                self.casinoNode = [AVAudioPlayerNode new];
+                [self.casinoEngine attachNode:self.casinoNode];
+                [self.casinoEngine connect:self.casinoNode to:self.casinoEngine.mainMixerNode format:file.processingFormat];
+                self.casinoEngine.mainMixerNode.outputVolume = .5;
+                [self.casinoNode scheduleBuffer:buffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil];
+                [self.casinoEngine prepare];
+            }
+        }
+    }
 }
 - (void)viewDidLoad { [super viewDidLoad]; [self setupCasinoAmbience]; self.title=NSLocalizedString(@"BRSlot.Picker.Title", nil); self.view.backgroundColor=[UIColor colorWithRed:.04 green:.02 blue:.09 alpha:1]; self.navigationItem.leftBarButtonItem=[[UIBarButtonItem alloc] initWithCustomView:[self navigationButton]]; self.importableGames=BRGameLibrary.shared.allRecords;
     UILabel *header=[UILabel new]; header.text=NSLocalizedString(@"BRSlot.Picker.Header", nil); header.font=[UIFont systemFontOfSize:28 weight:UIFontWeightBlack]; header.textColor=[UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; header.translatesAutoresizingMaskIntoConstraints=NO; [self.view addSubview:header];
     UILabel *detail=[UILabel new]; detail.text=NSLocalizedString(@"BRSlot.Picker.Detail", nil); detail.textColor=[UIColor colorWithWhite:.68 alpha:1]; detail.font=[UIFont systemFontOfSize:14 weight:UIFontWeightMedium]; detail.numberOfLines=2; detail.translatesAutoresizingMaskIntoConstraints=NO; [self.view addSubview:detail];
     UICollectionViewFlowLayout *layout=[UICollectionViewFlowLayout new]; layout.minimumLineSpacing=13; layout.minimumInteritemSpacing=13; layout.sectionInset=UIEdgeInsetsMake(12,18,24,18); self.collectionView=[[UICollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:layout]; self.collectionView.backgroundColor=UIColor.clearColor; self.collectionView.dataSource=self; self.collectionView.delegate=self; self.collectionView.alwaysBounceVertical=YES; self.collectionView.translatesAutoresizingMaskIntoConstraints=NO; [self.collectionView registerClass:BRSlotPickerCard.class forCellWithReuseIdentifier:@"SlotCard"]; [self.view addSubview:self.collectionView];
     [NSLayoutConstraint activateConstraints:@[[header.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:18],[header.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],[header.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],[detail.topAnchor constraintEqualToAnchor:header.bottomAnchor constant:6],[detail.leadingAnchor constraintEqualToAnchor:header.leadingAnchor],[detail.trailingAnchor constraintEqualToAnchor:header.trailingAnchor],[self.collectionView.topAnchor constraintEqualToAnchor:detail.bottomAnchor constant:10],[self.collectionView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],[self.collectionView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],[self.collectionView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor]]]; }
-- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; self.importableGames=BRGameLibrary.shared.allRecords; [self.collectionView reloadData]; if (self.casinoPlayer && !self.casinoPlayer.isPlaying) [self.casinoPlayer play]; }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self.casinoPlayer pause]; }
+- (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; self.importableGames=BRGameLibrary.shared.allRecords; [self.collectionView reloadData]; if (self.casinoNode && !self.casinoNode.isPlaying) { if (!self.casinoEngine.isRunning) [self.casinoEngine startAndReturnError:nil]; [self.casinoNode play]; } }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self.casinoNode pause]; }
 - (UIButton *)navigationButton { UIButton *button=[UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:NSLocalizedString(@"BRSlot.Picker.Back", nil) forState:UIControlStateNormal]; button.titleLabel.font=[UIFont systemFontOfSize:12 weight:UIFontWeightBlack]; button.tintColor=[UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; button.backgroundColor=[UIColor colorWithRed:.13 green:.05 blue:.23 alpha:.96]; button.layer.cornerRadius=9; button.layer.borderWidth=1; button.layer.borderColor=[UIColor colorWithRed:1 green:.78 blue:.18 alpha:.72].CGColor; button.contentEdgeInsets=UIEdgeInsetsMake(7,10,7,10); [button sizeToFit]; [button addTarget:self action:@selector(close) forControlEvents:UIControlEventTouchUpInside]; return button; }
 - (void)close { if (self.onReturnToBrainRotMenu) self.onReturnToBrainRotMenu(); else [self dismissViewControllerAnimated:YES completion:nil]; }
 - (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section { return 5+self.importableGames.count; }
