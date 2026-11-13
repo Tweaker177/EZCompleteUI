@@ -714,3 +714,19 @@
 
 /* EZSounds (edit) */
 "EZSounds.Edit" = "Edit";
+
+/* Plunder Bay */
+"BRSlot.Plunder.Title" = "Plunder Bay";
+"BRSlot.Plunder.Heading" = "☠ PLUNDER BAY ☠";
+"BRSlot.Plunder.Description" = "Twenty lines, one treasure chest. Three chests wake the bonus.";
+"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Chests pay anywhere — 3 or more start free spins with line wins ×3";
+"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld FREE SPINS LEFT — line wins ×3";
+"BRSlot.Plunder.FreeSpin" = "Free spin — no wager taken";
+"BRSlot.Plunder.BetValue" = "BET\n%ld";
+"BRSlot.Plunder.MaxBet" = "MAX BET\n100 + SPIN";
+"BRSlot.Plunder.NeedCoins" = "You need %ld coins for that bet.";
+"BRSlot.Plunder.SignIn" = "Please sign in to play Plunder Bay.";
+"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
+"BRSlot.Plunder.LoungeTitle" = "Plunder Bay Lounge";
+"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
+"BRSlot.Picker.Plunder.Detail" = "Five reels, twenty lines, a chest full of free spins. The pirate machine.";
