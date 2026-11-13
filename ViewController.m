@@ -1099,6 +1099,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (BOOL)executeChatMemoryRequest:(NSDictionary *)memoryRequest threadID:(NSString *)threadID;
 - (NSArray<NSString *> *)ez_userReactionChoices;
 - (void)ez_applyUserReaction:(nullable NSString *)reaction toDisplayRow:(NSInteger)row;
+- (void)ez_stampReactionEntriesShared:(NSArray<NSDictionary *> *)entries;
 - (void)enqueueForgetPromptWithText:(NSString *)text entries:(NSArray<NSDictionary *> *)entries;
 - (void)presentNextForgetPromptIfPossible;
 - (void)resolveActiveForgetPromptConfirmed:(BOOL)confirmed;
@@ -4715,6 +4716,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             if (reactionNote.length) [reactionNote appendString:@"\n"];
             [reactionNote appendFormat:@"[User reacted %@ to your earlier response: \"%@\"]",
                 pendingReaction, snippet];
+            // Cap: at most the first 3 pending reactions (oldest
+            // first) ride along. Anything beyond stays pending — and
+            // unstamped — for a later turn, so a backlog of reactions
+            // can't bloat one send.
+            if (pending.count >= 3) break;
         }
         if (pending.count) {
             pendingReactionEntries = [pending copy];
@@ -4726,6 +4732,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [contextWithReactions insertObject:@{@"role": @"user", @"content": [reactionNote copy]}
                                        atIndex:noteIndex];
             cleanContext = [contextWithReactions copy];
+            // The note was inserted after token estimation ran, so add
+            // its size to the total now — same ~4 chars/token basis as
+            // the input estimate — or a near-limit legacy send could
+            // run over budget while the estimate understates it.
+            totalEstimate += (NSInteger)(reactionNote.length / 4);
         }
     }
 
@@ -4915,6 +4926,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                     [self appendToChat:@"[System: Image request stopped because the conversation changed. Please resend it in the original chat.]"];
                     return;
                 }
+                // The reaction note rode along with the turn that
+                // produced this handoff: stamp it shared and persist,
+                // like the plain-reply path, so it isn't repeated on
+                // the next chat turn.
+                [self ez_stampReactionEntriesShared:pendingReactionEntries];
+                [self saveActiveThread];
                 [self performChatImageRequest:imageRequest sourcePath:capturedImageSource];
             });
             return;
@@ -4940,6 +4957,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                     [self.chatContext addObject:@{@"role": @"assistant", @"content": introReply}];
                     [self appendToChat:[NSString stringWithFormat:@"AI: %@", introReply]];
                 }
+                // Same reaction-note stamping as the plain-reply path:
+                // the note rode along with the turn that produced this
+                // handoff, so it must not repeat next turn.
+                [self ez_stampReactionEntriesShared:pendingReactionEntries];
+                [self saveActiveThread];
                 [self performChatMusicRequest:musicRequest];
             });
             return;
@@ -4987,13 +5009,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             // now answered past it: stamp the delivered reactions shared so
             // they are never sent twice, then let the save below persist
             // both the reply and the stamps.
-            for (NSDictionary *pendingEntry in pendingReactionEntries) {
-                NSUInteger pendingIdx = [self.chatContext indexOfObjectIdenticalTo:pendingEntry];
-                if (pendingIdx == NSNotFound) continue;
-                NSMutableDictionary *sharedEntry = [self.chatContext[pendingIdx] mutableCopy];
-                sharedEntry[@"reactionShared"] = @YES;
-                self.chatContext[pendingIdx] = sharedEntry;
-            }
+            [self ez_stampReactionEntriesShared:pendingReactionEntries];
             [self saveActiveThread];
             [self checkReplyForLocalFilePaths:reply];
             [self updateCoinBalanceDisplay];
@@ -6520,9 +6536,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             [NSMutableDictionary dictionary];
 
         for (NSString *key in msg) {
-            if ([key hasPrefix:@"_"] ||
-                [key isEqualToString:@"reaction"] ||
-                [key isEqualToString:@"reactionShared"]) {
+            if ([key hasPrefix:@"_"]) {
                 continue;
             }
             clean[key] = msg[key];
@@ -8200,13 +8214,17 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
                    saved ? @"ok" : @"duplicate/empty", text);
         });
     } else if ([action isEqualToString:@"forget"]) {
-        // Register NOW: while the user decides, an in-flight automatic
-        // summary must not be able to resurrect the fact.
+        // Register NOW: while the user decides, an in-flight save of
+        // the fact is held instead of appended, so the fact cannot
+        // resurrect before the decision lands.
         EZRegisterForgetNeedle(text);
         NSArray<NSDictionary *> *matches = EZMemoryEntriesMatching(text);
         if (matches.count == 0) {
             // Nothing stored matches — nothing to delete and nothing to
-            // confirm. The registration alone makes the forget stick.
+            // confirm, so no prompt ever appears and the forget
+            // concludes here as confirmed: the registration alone makes
+            // the forget stick, and any save it held is discarded.
+            EZResolveForgetNeedle(text, YES);
             EZLogf(EZLogLevelInfo, @"MEMORY", @"update_memory forget: no stored matches for '%@'; needle registered only", text);
             return NO;
         }
@@ -8356,14 +8374,24 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     if (!prompt) return;
     NSString *text = prompt[@"text"];
     if (confirmed) {
-        EZForgetMemoryMatching(text, ^(NSUInteger removed) {
-            EZLogf(EZLogLevelInfo, @"MEMORY", @"update_memory forget (confirmed) removed %lu matching '%@'",
+        // Delete exactly the entries the card showed (the dry-run
+        // snapshot), never a fresh match against the live store: an
+        // entry saved while this prompt waited was never the user's to
+        // confirm away, and it survives.
+        NSArray<NSDictionary *> *shownEntries = prompt[@"entries"];
+        EZForgetMemoryEntries(text, shownEntries, ^(NSUInteger removed) {
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"update_memory forget (confirmed) removed %lu shown entries matching '%@'",
                    (unsigned long)removed, text);
         });
+        // Any save this forget held back is discarded with it.
+        EZResolveForgetNeedle(text, YES);
     } else {
         // Keep: roll the up-front registration back — nothing was
         // deleted, and nothing stays blocked.
         EZUnregisterForgetNeedle(text);
+        // A save held by this forget is appended now that the fact
+        // stays.
+        EZResolveForgetNeedle(text, NO);
         EZLogf(EZLogLevelInfo, @"MEMORY", @"update_memory forget declined by user for '%@'; registration rolled back", text);
     }
     [self presentNextForgetPromptIfPossible];
@@ -8961,6 +8989,22 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
 // of reaction and both render through the same badge.
 - (NSArray<NSString *> *)ez_userReactionChoices {
     return @[@"👍", @"❤️", @"💡", @"😂", @"🤔", @"✨", @"🎉", @"🔥", @"💪", @"🙏", @"👀"];
+}
+
+/// Stamps the given pending-reaction entries reactionShared in
+/// self.chatContext (identity-matched, exactly as the send path
+/// collected them). Called on every successful chat-turn path — plain
+/// reply, image handoff, music handoff — once the turn that carried the
+/// reaction note has landed, so a delivered note is never sent twice.
+/// The caller persists with saveActiveThread.
+- (void)ez_stampReactionEntriesShared:(NSArray<NSDictionary *> *)entries {
+    for (NSDictionary *pendingEntry in entries) {
+        NSUInteger pendingIdx = [self.chatContext indexOfObjectIdenticalTo:pendingEntry];
+        if (pendingIdx == NSNotFound) continue;
+        NSMutableDictionary *sharedEntry = [self.chatContext[pendingIdx] mutableCopy];
+        sharedEntry[@"reactionShared"] = @YES;
+        self.chatContext[pendingIdx] = sharedEntry;
+    }
 }
 
 /// Applies (or clears) the user's own reaction on the assistant bubble at the
