@@ -25,7 +25,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 @property (nonatomic, strong) UILabel *balanceLabel, *bonusLabel, *messageLabel;
 @property (nonatomic, strong) UIButton *betButton, *spinButton, *maxButton;
 @property (nonatomic, strong) UIView *machineView, *bonusTint, *winOverlay;
-@property (nonatomic, strong) AVAudioPlayer *drumPlayer, *bellsPlayer, *coinsPlayer, *songPlayer;
+@property (nonatomic, strong) AVAudioPlayer *drumPlayer, *bellsPlayer, *coinsPlayer, *songPlayer, *ambiencePlayer;
 @property (nonatomic, strong) AVAudioEngine *sfxEngine;
 @property (nonatomic, strong) AVAudioPlayerNode *boomNode;
 @property (nonatomic, strong) AVAudioUnitVarispeed *boomSpeed;
@@ -67,7 +67,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
 - (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (self.freeSpinsRemaining > 0) [self startBonusSong]; }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.songPlayer stop]; [self.sfxEngine stop]; } }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.songPlayer stop]; [self.ambiencePlayer stop]; [self.sfxEngine stop]; } }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
 - (void)openLounge { [self.navigationController pushViewController:[[BRSlotRoomViewController alloc] initWithRoomID:@"plunder-bay" title:NSLocalizedString(@"BRSlot.Plunder.LoungeTitle", nil)] animated:YES]; }
 
@@ -166,7 +166,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     self.machineView.layer.shadowOpacity = bonus ? .85 : 0;
     self.machineView.layer.shadowRadius = 18;
     self.machineView.layer.shadowOffset = CGSizeZero;
-    if (bonus) [self startBonusSong]; else [self.songPlayer stop];
+    if (bonus) { [self stopAmbience]; [self startBonusSong]; } else { [self.songPlayer stop]; [self startAmbience]; }
 }
 - (void)request:(NSDictionary *)payload completion:(void (^)(NSDictionary *, NSString *))completion {
     [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *authError) {
@@ -304,6 +304,8 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     if (bellsURL) { self.bellsPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:bellsURL error:nil]; self.bellsPlayer.volume = .9; [self.bellsPlayer prepareToPlay]; }
     NSURL *coinsURL = [self soundURL:@"pb_coins"];
     if (coinsURL) { self.coinsPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:coinsURL error:nil]; self.coinsPlayer.volume = .7; [self.coinsPlayer prepareToPlay]; }
+    NSURL *ambienceURL = [self soundURL:@"pb_ambience"];
+    if (ambienceURL) { self.ambiencePlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:ambienceURL error:nil]; self.ambiencePlayer.numberOfLoops = -1; self.ambiencePlayer.volume = .55; [self.ambiencePlayer prepareToPlay]; }
     NSURL *songURL = [self soundURL:@"pb_bonus_song"];
     if (songURL) { self.songPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:songURL error:nil]; self.songPlayer.numberOfLoops = -1; self.songPlayer.volume = .32; self.songPlayer.delegate = self; [self.songPlayer prepareToPlay]; }
 }
@@ -319,6 +321,8 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 - (void)stopDrumRoll { if (self.drumPlayer.isPlaying) [self.drumPlayer stop]; }
 - (void)playBells { if (self.bellsPlayer) { self.bellsPlayer.currentTime = 0; [self.bellsPlayer play]; } }
 - (void)playCoins { if (self.coinsPlayer) { self.coinsPlayer.currentTime = 0; [self.coinsPlayer play]; } }
+- (void)startAmbience { if (self.inBonus || !self.view.window) return; if (self.ambiencePlayer && !self.ambiencePlayer.isPlaying) [self.ambiencePlayer play]; }
+- (void)stopAmbience { [self.ambiencePlayer pause]; }
 - (void)startBonusSong { if (self.songPlayer && !self.songPlayer.isPlaying) [self.songPlayer play]; }
 - (void)showWin:(NSInteger)payout awarded:(NSInteger)awarded {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
