@@ -25,7 +25,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 @property (nonatomic, strong) UILabel *balanceLabel, *bonusLabel, *messageLabel;
 @property (nonatomic, strong) UIButton *betButton, *spinButton, *maxButton;
 @property (nonatomic, strong) UIView *machineView, *bonusTint, *winOverlay;
-@property (nonatomic, strong) AVAudioPlayer *bellsPlayer, *coinsPlayer, *reelsPlayer;
+@property (nonatomic, strong) AVAudioPlayer *bellsPlayer, *coinsPlayer, *reelsPlayer, *whooshPlayer;
 @property (nonatomic, strong) AVAudioEngine *loopEngine;
 @property (nonatomic, strong) AVAudioPlayerNode *drumNode, *songNode, *ambienceNode;
 @property (nonatomic, strong) AVAudioMixerNode *drumMixer, *songMixer, *ambienceMixer;
@@ -71,7 +71,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
 - (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (self.freeSpinsRemaining > 0) [self startBonusSong]; }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
 - (void)openLounge { [self.navigationController pushViewController:[[BRSlotRoomViewController alloc] initWithRoomID:@"plunder-bay" title:NSLocalizedString(@"BRSlot.Plunder.LoungeTitle", nil)] animated:YES]; }
 
@@ -206,7 +206,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     NSMutableArray *before = [NSMutableArray arrayWithCapacity:5];
     for (NSArray<UIImageView *> *column in self.reels) { NSMutableArray *symbols = [NSMutableArray arrayWithCapacity:3]; for (UIImageView *tile in column) [symbols addObject:tile.accessibilityIdentifier ?: @"hook"]; [before addObject:symbols]; }
     self.preSpinBoard = before;
-    [self startReelsSound];
+    [self startReelsSound]; [self playWhoosh];
     for (NSInteger tick=0;tick<5;tick++) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(tick*.11*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (!self.spinning || self.animationID != animationID) return; for (NSArray *col in self.reels) for (UIImageView *tile in col) [self setSymbol:PlunderSymbols()[arc4random_uniform((uint32_t)PlunderSymbols().count)] onTile:tile]; });
     [self request:@{@"bet_coins":@(self.betCoins)} completion:^(NSDictionary *result, NSString *error) {
         if (error || ![result[@"reels"] isKindOfClass:NSArray.class]) { [self finishWithError:error ?: @"Spin failed; balance unchanged."]; [self refreshState]; if ([error.localizedLowercaseString containsString:@"insufficient"]) [self showCoinStore]; return; }
@@ -310,6 +310,8 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     if (bellsURL) { self.bellsPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:bellsURL error:nil]; self.bellsPlayer.volume = .9; [self.bellsPlayer prepareToPlay]; }
     NSURL *coinsURL = [self soundURL:@"pb_coins"];
     if (coinsURL) { self.coinsPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:coinsURL error:nil]; self.coinsPlayer.volume = .7; [self.coinsPlayer prepareToPlay]; }
+    NSURL *whooshURL = [self soundURL:@"pb_whoosh"];
+    if (whooshURL) { self.whooshPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:whooshURL error:nil]; self.whooshPlayer.volume = .8; [self.whooshPlayer prepareToPlay]; }
     NSURL *reelsURL = [[NSBundle mainBundle] URLForResource:@"pb_slot_reels" withExtension:@"caf" subdirectory:@"sounds"];
     if (!reelsURL) reelsURL = [[NSBundle mainBundle] URLForResource:@"pb_slot_reels" withExtension:@"caf"];
     if (!reelsURL) reelsURL = [self soundURL:@"pb_slot_reels"];
@@ -397,6 +399,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     [self.boomNode scheduleFile:self.boomFile atTime:nil completionHandler:nil];
     [self.boomNode play];
 }
+- (void)playWhoosh { if (self.whooshPlayer) { [self.whooshPlayer stop]; self.whooshPlayer.currentTime = 0; [self.whooshPlayer play]; } }
 - (void)startReelsSound { if (self.reelsPlayer && !self.reelsPlayer.isPlaying) { self.reelsPlayer.currentTime = 0; [self.reelsPlayer play]; } }
 - (void)stopReelsSound { [self.reelsPlayer stop]; }
 - (void)startDrumRoll { if (!self.drumNode || !self.drumBuffer) return; [self.drumNode stop]; [self.drumNode scheduleBuffer:self.drumBuffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil]; [self plunderStartLoopNode:self.drumNode]; }
