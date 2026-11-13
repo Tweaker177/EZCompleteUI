@@ -31,6 +31,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.3",
+          "buildVersion": "7.2.3",
+          "date": "2026-11-13",
+          "localizedDescription": "## What’s new since 7.2.0\n\n### Chat and memory\n\n- React to model responses; reactions are saved with the conversation and\n  shared with the model on the next chat turn.\n- Ask chat to remember or forget information. Before removing matching saved\n  memories, the app shows the matches and asks for confirmation.\n- Manage important memories in the new **Memory Summary** screen in Settings.\n  These memories are stored separately from automatic conversation summaries\n  and included in chat context.\n- The admin coin ledger now shows the Fast Mode used for each chat alongside\n  its model.\n\n### Images and onboarding\n\n- Manage Seahorse ID and partner enrollments from Settings, including checking\n  their status, replacing an ID, and removing an enrollment.\n- When an image edit is rejected by the safety filter, the chat and gallery\n  editors can offer to retry with Seahorse.\n- Shortened and reorganized the first-run tutorial, added Music, Sounds, and\n  Files cards, and updated all 17 supported languages.\n\n### Slots\n\n- Free-spin rewards now name a randomly selected machine, and **Play Now**\n  opens that machine directly.\n- The slots room labels the biggest-hits board as today's hits, and Classic\n  slots shows the accumulated winnings for a free-spin run.\n\n## Downloads\n\n- **IPA:** `EZCompleteUI-7.2.3-release.ipa`\n- **Deb:** `com.i0stweak3r.ezcompleteui_7.2.3_iphoneos-arm64.deb`\n\nRequires iOS 15 or later. Online features require their corresponding services.",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.3/EZCompleteUI-7.2.3-release.ipa",
+          "size": 12230388,
+          "sha256": "33e799ef2869cdc97d0983bd99c3295bc4317c96c05afa310117a8832e524eaa",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.0",
           "buildVersion": "7.2.0",
           "date": "2026-11-09",
