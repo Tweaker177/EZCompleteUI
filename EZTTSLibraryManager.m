@@ -19,6 +19,49 @@ static NSInteger  const kEZManifestVersion     = 1;
 static NSString * const kEZManifestKeyVersion  = @"version";
 static NSString * const kEZManifestKeyClips    = @"clips";
 
+/// The name a clip is displayed under everywhere: the user's custom
+/// title (metadata[@"title"], set by Rename) when there is one, else the
+/// prompt preview — the convention the TTS list renders by. Since
+/// 2026-11-13 this is also the clip's FILE name (app-wide user rule:
+/// what the list shows is what the file is called, so shares/exports
+/// never surface a generated tts_<stamp>_<id> name).
+static NSString *EZTTSDisplayNameForEntry(EZTTSManifestEntry *entry) {
+    NSString *custom = [entry.metadata[@"title"] isKindOfClass:NSString.class] ? entry.metadata[@"title"] : nil;
+    if (custom.length) return custom;
+    if (entry.preview.length) return entry.preview;
+    return entry.prompt.length ? entry.prompt : @"Clip";
+}
+
+/// Filesystem-safe form of a display name: path-hostile and control
+/// characters become spaces, runs of spaces collapse, capped at 60
+/// characters. Falls back to @"Clip" if nothing usable remains.
+static NSString *EZTTSSanitizedFileBase(NSString *name) {
+    NSString *trimmed = [name stringByTrimmingCharactersInSet:
+                         [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSCharacterSet *bad = [NSCharacterSet characterSetWithCharactersInString:@"/\\:?%*|\"<>"];
+    NSCharacterSet *control = [NSCharacterSet controlCharacterSet];
+    NSMutableString *clean = [NSMutableString stringWithCapacity:trimmed.length];
+    BOOL lastWasSpace = YES; // also strips leading spaces
+    for (NSUInteger i = 0; i < trimmed.length; i++) {
+        unichar c = [trimmed characterAtIndex:i];
+        if ([bad characterIsMember:c] || [control characterIsMember:c]) c = ' ';
+        if (c == ' ') {
+            if (lastWasSpace) continue;
+            lastWasSpace = YES;
+        } else {
+            lastWasSpace = NO;
+        }
+        [clean appendFormat:@"%C", c];
+    }
+    NSString *result = [clean stringByTrimmingCharactersInSet:
+                        [NSCharacterSet whitespaceCharacterSet]];
+    if (result.length > 60) {
+        result = [[result substringToIndex:60] stringByTrimmingCharactersInSet:
+                  [NSCharacterSet whitespaceCharacterSet]];
+    }
+    return result.length ? result : @"Clip";
+}
+
 static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description) {
     return [NSError errorWithDomain:EZTTSLibraryErrorDomain
                                 code:code
@@ -43,6 +86,13 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
 @property (nonatomic, strong) NSURL *waveformsDirectoryURL;
 @property (nonatomic, strong) NSURL *cacheDirectoryURL;
 @property (nonatomic, strong) NSURL *manifestFileURL;
+
+// File naming (ioQueue only): the unique on-disk filename for a
+// display name + extension. See EZSoundLibraryManager for the Sounds
+// twin of this rule.
+- (NSString *)uniqueFilenameForDisplayName:(NSString *)displayName
+                                 extension:(NSString *)extension
+                            excludingEntry:(nullable EZTTSManifestEntry *)excluded;
 
 @end
 
@@ -278,6 +328,35 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
                provider:provider model:model extension:extension metadata:nil completion:completion];
 }
 
+/// The first free filename for `displayName` + `extension`: the
+/// plain name, then " 2", " 3", ... A name is taken when another entry
+/// uses it or an (orphan) file already sits at that path — existing
+/// audio is never clobbered. The excluded entry's own current filename
+/// counts as free, so a no-op rename stays a no-op.
+- (NSString *)uniqueFilenameForDisplayName:(NSString *)displayName
+                                 extension:(NSString *)extension
+                            excludingEntry:(EZTTSManifestEntry *)excluded {
+    NSString *base = EZTTSSanitizedFileBase(displayName);
+    NSString *cleanExt = [extension hasPrefix:@"."] ? [extension substringFromIndex:1] : extension;
+    NSString *ext = cleanExt.length ? cleanExt : @"mp3";
+    NSFileManager *fm = [NSFileManager defaultManager];
+    for (NSInteger n = 1; ; n++) {
+        NSString *candidate = (n == 1)
+            ? [NSString stringWithFormat:@"%@.%@", base, ext]
+            : [NSString stringWithFormat:@"%@ %ld.%@", base, (long)n, ext];
+        if (excluded && [candidate isEqualToString:excluded.filename]) return candidate;
+        BOOL taken = NO;
+        for (EZTTSManifestEntry *other in self.entries) {
+            if (other != excluded && [other.filename isEqualToString:candidate]) { taken = YES; break; }
+        }
+        if (!taken) {
+            NSURL *url = [self.audioDirectoryURL URLByAppendingPathComponent:candidate isDirectory:NO];
+            if ([fm fileExistsAtPath:url.path]) taken = YES;
+        }
+        if (!taken) return candidate;
+    }
+}
+
 - (void)saveAudioData:(NSData *)audioData
                 prompt:(NSString *)prompt
              voiceName:(nullable NSString *)voiceName
@@ -302,8 +381,28 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
             return;
         }
 
-        NSString *filename = [self generateFilenameWithExtension:extension];
+        // Build the entry first: the file takes the clip's display
+        // name from birth (app-wide user rule, 2026-11-13) — what the
+        // list shows is what the file is called, so exports never
+        // surface a generated tts_<stamp>_<id> name. The filename is
+        // filled in below, once metadata is set and the name is final.
+        EZTTSManifestEntry *entry = [EZTTSManifestEntry entryWithProvider:provider
+                                                                  voiceName:voiceName
+                                                                    voiceID:voiceID
+                                                                      model:model
+                                                                     prompt:prompt
+                                                                   filename:@""
+                                                               relativePath:@""
+                                                                   duration:0
+                                                                 sampleRate:0
+                                                                   fileSize:0];
+        entry.metadata = metadata ?: @{};
+        NSString *filename = [self uniqueFilenameForDisplayName:EZTTSDisplayNameForEntry(entry)
+                                                      extension:extension
+                                                 excludingEntry:entry];
         NSString *relativePath = [NSString stringWithFormat:@"%@/%@", kEZAudioFolderName, filename];
+        entry.filename = filename;
+        entry.relativePath = relativePath;
         NSURL *destinationURL = [self.libraryRootURL URLByAppendingPathComponent:relativePath isDirectory:NO];
 
         NSError *writeError;
@@ -321,18 +420,9 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
         unsigned long long fileSize = 0;
         NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfItemAtPath:destinationURL.path error:nil];
         if (attrs) fileSize = [attrs fileSize];
-
-        EZTTSManifestEntry *entry = [EZTTSManifestEntry entryWithProvider:provider
-                                                                  voiceName:voiceName
-                                                                    voiceID:voiceID
-                                                                      model:model
-                                                                     prompt:prompt
-                                                                   filename:filename
-                                                               relativePath:relativePath
-                                                                   duration:duration
-                                                                 sampleRate:sampleRate
-                                                                   fileSize:fileSize];
-        entry.metadata = metadata ?: @{};
+        entry.duration = duration;
+        entry.sampleRate = sampleRate;
+        entry.fileSize = fileSize;
 
         [self.entries addObject:entry];
 
@@ -351,13 +441,6 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
         EZLogf(EZLogLevelInfo, @"TTSLibrary", @"Archived clip %@ (%@, %.2fs)", entry.uuid, entry.provider, entry.duration);
         dispatch_async(dispatch_get_main_queue(), ^{ completion(entry, nil); });
     });
-}
-
-- (NSString *)generateFilenameWithExtension:(NSString *)extension {
-    long long timestamp = (long long)[[NSDate date] timeIntervalSince1970];
-    NSString *shortUUID = [[[NSUUID UUID] UUIDString] substringToIndex:8];
-    NSString *cleanExt = [extension hasPrefix:@"."] ? [extension substringFromIndex:1] : extension;
-    return [NSString stringWithFormat:@"tts_%lld_%@.%@", timestamp, shortUUID, cleanExt];
 }
 
 /// Synchronous AVFoundation measurement. Always called from ioQueue (background), so
@@ -424,11 +507,71 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
                       title:(NSString *)title
                  completion:(nullable void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
 {
-    [self mutateEntryWithUUID:uuid completion:completion mutator:^(EZTTSManifestEntry *entry) {
-        NSMutableDictionary *meta = [entry.metadata mutableCopy] ?: [NSMutableDictionary dictionary];
+    // Rename gets its own flow instead of the shared mutate plumbing:
+    // the file takes the new display name in the same operation
+    // (app-wide user rule, 2026-11-13), and a file move has to roll
+    // back alongside the manifest if the persist fails — the shared
+    // mutator has no hook for that. Structure mirrors mutateEntry's.
+    dispatch_async(self.ioQueue, ^{
+        NSUInteger idx = [self.entries indexOfObjectPassingTest:^BOOL(EZTTSManifestEntry *e, NSUInteger i, BOOL *stop) {
+            return [e.uuid isEqualToString:uuid];
+        }];
+        if (idx == NSNotFound) {
+            NSError *err = EZLibraryError(EZTTSLibraryErrorCodeClipNotFound, @"No clip with that uuid.");
+            if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, err); });
+            return;
+        }
+        EZTTSManifestEntry *original = self.entries[idx];
+        EZTTSManifestEntry *mutated = [original copy];
+        NSMutableDictionary *meta = [mutated.metadata mutableCopy] ?: [NSMutableDictionary dictionary];
         meta[@"title"] = title;
-        entry.metadata = meta;
-    }];
+        mutated.metadata = meta;
+
+        NSString *oldFilename = original.filename;
+        NSString *oldRelativePath = original.relativePath;
+        NSString *ext = oldFilename.pathExtension.length ? oldFilename.pathExtension : @"mp3";
+        NSString *desired = [self uniqueFilenameForDisplayName:EZTTSDisplayNameForEntry(mutated)
+                                                     extension:ext
+                                                excludingEntry:original];
+        BOOL fileMoved = NO;
+        if (![desired isEqualToString:oldFilename]) {
+            NSURL *oldURL = [self absoluteURLForEntry:original];
+            mutated.filename = desired;
+            mutated.relativePath = [NSString stringWithFormat:@"%@/%@", kEZAudioFolderName, desired];
+            NSError *moveError;
+            if ([[NSFileManager defaultManager] moveItemAtURL:oldURL
+                                                        toURL:[self absoluteURLForEntry:mutated]
+                                                        error:&moveError]) {
+                fileMoved = YES;
+            } else {
+                // Keep the old filename rather than failing the rename
+                // over a file move — the title still saves.
+                EZLogf(EZLogLevelWarning, @"TTSLibrary",
+                       @"Could not rename file for %@: %@", uuid, moveError.localizedDescription);
+                mutated.filename = oldFilename;
+                mutated.relativePath = oldRelativePath;
+            }
+        }
+
+        self.entries[idx] = mutated;
+        NSError *persistError;
+        if (![self persistEntriesToDisk:self.entries error:&persistError]) {
+            self.entries[idx] = original; // roll back
+            if (fileMoved) {
+                NSURL *movedURL = [self absoluteURLForEntry:mutated];
+                mutated.filename = oldFilename;
+                mutated.relativePath = oldRelativePath;
+                [[NSFileManager defaultManager] moveItemAtURL:movedURL
+                                                        toURL:[self absoluteURLForEntry:mutated]
+                                                        error:nil];
+            }
+            if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, persistError); });
+            return;
+        }
+
+        [self refreshSnapshotLocked_NoLock:YES];
+        if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(mutated, nil); });
+    });
 }
 
 - (void)favoriteClipWithUUID:(NSString *)uuid
@@ -493,11 +636,14 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
         EZTTSManifestEntry *oldEntry = self.entries[idx];
         NSURL *oldFileURL = [self absoluteURLForEntry:oldEntry];
 
-        // Always write to a fresh filename rather than overwriting oldEntry's file
-        // directly — the new audio may be in a different container (e.g. normalizing
-        // writes .caf regardless of the original's format), so reusing the old filename
-        // could leave its extension mismatched with its actual contents.
-        NSString *filename = [self generateFilenameWithExtension:extension];
+        // Always write to a fresh file rather than overwriting
+        // oldEntry's file directly — the new audio may be in a
+        // different container (e.g. normalizing writes .caf regardless
+        // of the original's format), so the extension comes from the
+        // new audio while the name stays the clip's display name.
+        NSString *filename = [self uniqueFilenameForDisplayName:EZTTSDisplayNameForEntry(oldEntry)
+                                                      extension:extension
+                                                 excludingEntry:oldEntry];
         NSString *relativePath = [NSString stringWithFormat:@"%@/%@", kEZAudioFolderName, filename];
         NSURL *destinationURL = [self.libraryRootURL URLByAppendingPathComponent:relativePath isDirectory:NO];
 
@@ -538,7 +684,8 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
         // reasoning: a stray old file on disk is a smaller problem than any inconsistency
         // in what's reported back to the caller.
         NSError *deleteError;
-        if (![[NSFileManager defaultManager] removeItemAtURL:oldFileURL error:&deleteError]) {
+        if (![oldFileURL isEqual:destinationURL] &&
+            ![[NSFileManager defaultManager] removeItemAtURL:oldFileURL error:&deleteError]) {
             EZLogf(EZLogLevelWarning, @"TTSLibrary", @"Replaced audio for %@ but could not remove old file: %@", uuid, deleteError.localizedDescription);
         }
 

@@ -88,7 +88,22 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
     [self dismissViewControllerAnimated:YES completion:nil];
 }
 
+- (void)setAutoEnabledFromUI:(BOOL)on {
+    self.autoEnabled = on;
+    if (self.onAutoToggled) self.onAutoToggled(on);
+    [self.tableView reloadData];
+    if (on) [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)autoSwitchChanged:(UISwitch *)sender {
+    [self setAutoEnabledFromUI:sender.isOn];
+}
+
 - (void)selectModel:(NSString *)model {
+    if (self.autoEnabled) {
+        self.autoEnabled = NO;
+        if (self.onAutoToggled) self.onAutoToggled(NO);
+    }
     self.selectedModel = model;
     [self.tableView reloadData];
     if (self.onModelSelected) self.onModelSelected(model);
@@ -121,15 +136,17 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv {
-    return (NSInteger)EZModelSections().count;
+    return (NSInteger)EZModelSections().count + 1;
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
-    return EZModelSectionTitles()[(NSUInteger)section];
+    if (section == 0) return EZLocalized(@"EZModelPicker.AutoHeader");
+    return EZModelSectionTitles()[(NSUInteger)(section - 1)];
 }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
-    return (NSInteger)EZModelSections()[(NSUInteger)section].count;
+    if (section == 0) return 1;
+    return (NSInteger)EZModelSections()[(NSUInteger)(section - 1)].count;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
@@ -137,7 +154,22 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
     if (!cell) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"ModelCell"];
     }
-    NSString *model = EZModelSections()[(NSUInteger)ip.section][(NSUInteger)ip.row];
+    if (ip.section == 0) {
+        cell.textLabel.text            = EZLocalized(@"EZModelPicker.AutoTitle");
+        cell.textLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
+        cell.detailTextLabel.text      = EZLocalized(@"EZModelPicker.AutoDetail");
+        cell.detailTextLabel.font      = [UIFont systemFontOfSize:12];
+        cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
+        cell.accessoryType             = UITableViewCellAccessoryNone;
+        UISwitch *toggle = [[UISwitch alloc] init];
+        toggle.on = self.autoEnabled;
+        [toggle addTarget:self action:@selector(autoSwitchChanged:)
+         forControlEvents:UIControlEventValueChanged];
+        cell.accessoryView = toggle;
+        return cell;
+    }
+    NSString *model = EZModelSections()[(NSUInteger)(ip.section - 1)][(NSUInteger)ip.row];
+    cell.accessoryView             = nil;
     cell.textLabel.text            = model;
     cell.textLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     cell.detailTextLabel.text      = EZModelLabels()[model] ?: @"";
@@ -151,7 +183,11 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
-    NSString *model = EZModelSections()[(NSUInteger)ip.section][(NSUInteger)ip.row];
+    if (ip.section == 0) {
+        [self setAutoEnabledFromUI:!self.autoEnabled];
+        return;
+    }
+    NSString *model = EZModelSections()[(NSUInteger)(ip.section - 1)][(NSUInteger)ip.row];
     if (!EZModelRequiresSubscription(model)) {
         [self selectModel:model];
         return;

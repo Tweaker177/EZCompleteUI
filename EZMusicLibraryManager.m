@@ -30,6 +30,12 @@
 // Completion blocks waiting on a song that is currently downloading, keyed by
 // entry ID. Created on first use and only touched inside @synchronized(self).
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSMutableArray *> *pendingRetainCompletions;
+/// The unique relative path (folder/name.ext) for a display title.
+/// Call only on the archive queue.
+- (NSString *)uniquePathInFolder:(NSString *)folder
+                           title:(NSString *)title
+                       extension:(NSString *)extension
+                  excludingPath:(nullable NSString *)excludedPath;
 @end
 
 static NSString *EZMusicStyleLabel(NSString *prompt) {
@@ -47,6 +53,38 @@ static NSString *EZMusicStyleLabel(NSString *prompt) {
     NSString *label = [labelWords componentsJoinedByString:@" "];
     return label.length ? label : @"AI Music";
 }
+/// Filesystem-safe form of a display name: path-hostile and control
+/// characters become spaces, runs of spaces collapse, capped at 60
+/// characters. Falls back to @"Untitled" if nothing usable remains.
+/// Song and reference files are named by their display names
+/// (app-wide user rule, 2026-11-13) — never by ID strings.
+static NSString *EZMusicSanitizedFileBase(NSString *name) {
+    NSString *trimmed = [name stringByTrimmingCharactersInSet:
+                         [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSCharacterSet *bad = [NSCharacterSet characterSetWithCharactersInString:@"/\\:?%*|\"<>"];
+    NSCharacterSet *control = [NSCharacterSet controlCharacterSet];
+    NSMutableString *clean = [NSMutableString stringWithCapacity:trimmed.length];
+    BOOL lastWasSpace = YES; // also strips leading spaces
+    for (NSUInteger i = 0; i < trimmed.length; i++) {
+        unichar c = [trimmed characterAtIndex:i];
+        if ([bad characterIsMember:c] || [control characterIsMember:c]) c = ' ';
+        if (c == ' ') {
+            if (lastWasSpace) continue;
+            lastWasSpace = YES;
+        } else {
+            lastWasSpace = NO;
+        }
+        [clean appendFormat:@"%C", c];
+    }
+    NSString *result = [clean stringByTrimmingCharactersInSet:
+                        [NSCharacterSet whitespaceCharacterSet]];
+    if (result.length > 60) {
+        result = [[result substringToIndex:60] stringByTrimmingCharactersInSet:
+                  [NSCharacterSet whitespaceCharacterSet]];
+    }
+    return result.length ? result : @"Untitled";
+}
+
 static NSString * const kEZMusicSubmittedLyricsKey = @"EZMusicSubmittedLyricsByGeneration";
 
 @implementation EZMusicLibraryManager
@@ -54,6 +92,35 @@ static NSString * const kEZMusicSubmittedLyricsKey = @"EZMusicSubmittedLyricsByG
 - (instancetype)initPrivate { if ((self = [super init])) { _queue = dispatch_queue_create("com.ez.musiclibrary", DISPATCH_QUEUE_SERIAL); NSURL *docs = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject; _libraryRootURL = [docs URLByAppendingPathComponent:@"EZMusic" isDirectory:YES]; _songsURL = [_libraryRootURL URLByAppendingPathComponent:@"Songs" isDirectory:YES]; _referencesURL = [_libraryRootURL URLByAppendingPathComponent:@"References" isDirectory:YES]; _stagingURL = [_libraryRootURL URLByAppendingPathComponent:@"Staging" isDirectory:YES]; _manifestURL = [_libraryRootURL URLByAppendingPathComponent:@"Manifest.json"]; _items = [NSMutableArray array]; [self setup]; NSData *data = [NSData dataWithContentsOfURL:_manifestURL]; NSDictionary *manifest = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil; for (id item in [manifest[@"items"] isKindOfClass:NSArray.class] ? manifest[@"items"] : @[]) if ([item isKindOfClass:NSDictionary.class]) [_items addObject:item]; [self persist]; } return self; }
 - (void)setup { [NSFileManager.defaultManager createDirectoryAtURL:self.songsURL withIntermediateDirectories:YES attributes:nil error:nil]; [NSFileManager.defaultManager createDirectoryAtURL:self.referencesURL withIntermediateDirectories:YES attributes:nil error:nil]; [NSFileManager.defaultManager createDirectoryAtURL:self.stagingURL withIntermediateDirectories:YES attributes:nil error:nil]; }
 - (void)persist { NSData *data = [NSJSONSerialization dataWithJSONObject:@{ @"version": @1, @"items": self.items } options:NSJSONWritingPrettyPrinted error:nil]; [data writeToURL:self.manifestURL options:NSDataWritingAtomic error:nil]; }
+
+/// The first free path for `title` + `extension` inside `folder`: the
+/// plain name, then " 2", " 3", ... A name is taken when another
+/// manifest item points at it or an (orphan) file already sits there —
+/// existing audio is never clobbered. The excluded path (the item's
+/// own current file) counts as free, so a no-op rename stays a no-op.
+- (NSString *)uniquePathInFolder:(NSString *)folder
+                           title:(NSString *)title
+                       extension:(NSString *)extension
+                  excludingPath:(NSString *)excludedPath {
+    NSString *base = EZMusicSanitizedFileBase(title);
+    NSString *ext = extension.length ? extension : @"mp3";
+    for (NSInteger n = 1; ; n++) {
+        NSString *filename = (n == 1)
+            ? [NSString stringWithFormat:@"%@.%@", base, ext]
+            : [NSString stringWithFormat:@"%@ %ld.%@", base, (long)n, ext];
+        NSString *candidate = [folder stringByAppendingPathComponent:filename];
+        if (excludedPath && [candidate isEqual:excludedPath]) return candidate;
+        BOOL taken = NO;
+        for (NSDictionary *item in self.items) {
+            if ([item[@"path"] isEqual:candidate]) { taken = YES; break; }
+        }
+        if (!taken) {
+            NSURL *url = [self.libraryRootURL URLByAppendingPathComponent:candidate];
+            if ([NSFileManager.defaultManager fileExistsAtPath:url.path]) taken = YES;
+        }
+        if (!taken) return candidate;
+    }
+}
 - (NSDictionary *)localSongRecordForEntryID:(NSString *)entryID {
     if (entryID.length == 0) return nil;
     __block NSDictionary *record = nil;
@@ -186,6 +253,21 @@ static NSString * const kEZMusicCreatedSongCountKey = @"EZMusicCreatedSongCount"
         if (refreshedLyrics.length > 0) record[@"lyrics"] = refreshedLyrics;
         if ([entryCopy[@"prompt"] isKindOfClass:NSString.class]) record[@"style"] = EZMusicStyleLabel(entryCopy[@"prompt"]);
         if ([entryCopy[@"duration_actual_ms"] isKindOfClass:NSNumber.class]) record[@"duration_ms"] = entryCopy[@"duration_actual_ms"];
+        // If the title moved, the file moves with it (app-wide user
+        // rule, 2026-11-13): the on-disk name is the displayed name.
+        // A failed move keeps the old path — the metadata still saves.
+        NSString *currentPath = [record[@"path"] isKindOfClass:NSString.class] ? record[@"path"] : nil;
+        NSString *recordTitle = [record[@"title"] isKindOfClass:NSString.class] ? record[@"title"] : @"";
+        if (currentPath.length && recordTitle.length) {
+            NSString *desiredPath = [self uniquePathInFolder:@"Songs" title:recordTitle extension:@"mp3" excludingPath:currentPath];
+            if (![desiredPath isEqual:currentPath]) {
+                NSURL *from = [self.libraryRootURL URLByAppendingPathComponent:currentPath];
+                NSURL *to = [self.libraryRootURL URLByAppendingPathComponent:desiredPath];
+                if ([NSFileManager.defaultManager moveItemAtURL:from toURL:to error:nil]) {
+                    record[@"path"] = desiredPath;
+                }
+            }
+        }
         self.items[index] = record;
         [self persist];
     });
@@ -238,7 +320,17 @@ static NSString * const kEZMusicCreatedSongCountKey = @"EZMusicCreatedSongCount"
         // Keep the exact bytes downloaded from our music service.  The previous
         // MP3-to-WAV conversion was unnecessary for AVPlayer playback and could
         // fail on valid provider MP3s, silently leaving Songs empty.
-        NSString *path = [@"Songs" stringByAppendingPathComponent:[entryID stringByAppendingPathExtension:@"mp3"]];
+        //
+        // The file is named by the song's title (app-wide user rule,
+        // 2026-11-13), not by the entry ID — what the list shows is
+        // what the file is called, so shares/exports carry the name
+        // the user sees. On a re-archive the excluded path is the
+        // song's own current file, so an unchanged title keeps its
+        // name; a changed title lands at the new name and the old
+        // file is removed after the record persists.
+        NSString *songTitle = [entryCopy[@"title"] isKindOfClass:NSString.class] ? entryCopy[@"title"] : @"Untitled song";
+        NSString *oldPath = [existingRecord[@"path"] isKindOfClass:NSString.class] ? existingRecord[@"path"] : nil;
+        NSString *path = [self uniquePathInFolder:@"Songs" title:songTitle extension:@"mp3" excludingPath:oldPath];
         NSURL *destination = [self.libraryRootURL URLByAppendingPathComponent:path];
         [NSFileManager.defaultManager removeItemAtURL:destination error:nil];
         NSError *archiveError = nil;
@@ -251,7 +343,7 @@ static NSString * const kEZMusicCreatedSongCountKey = @"EZMusicCreatedSongCount"
             return;
         }
         NSMutableDictionary *record = [@{ @"kind": @"song", @"entry_id": entryID, @"path": path,
-            @"format": @"mp3", @"title": [entryCopy[@"title"] isKindOfClass:NSString.class] ? entryCopy[@"title"] : @"Untitled song",
+            @"format": @"mp3", @"title": songTitle,
             @"prompt": [entryCopy[@"prompt"] isKindOfClass:NSString.class] ? entryCopy[@"prompt"] : @"",
             @"style": EZMusicStyleLabel([entryCopy[@"prompt"] isKindOfClass:NSString.class] ? entryCopy[@"prompt"] : @""),
             @"lyrics": lyricsToSave,
@@ -264,6 +356,11 @@ static NSString * const kEZMusicCreatedSongCountKey = @"EZMusicCreatedSongCount"
         BOOL isNewSong = (existingIndex == NSNotFound);
         if (isNewSong) [self.items addObject:record]; else self.items[existingIndex] = record;
         [self persist];
+        if (oldPath.length && ![oldPath isEqual:path]) {
+            // The title changed since the last archive: the old-named
+            // file is superseded by the copy just made.
+            [NSFileManager.defaultManager removeItemAtURL:[self.libraryRootURL URLByAppendingPathComponent:oldPath] error:nil];
+        }
         if (isNewSong) {
             // Count every song the user actually ends up with — this drives
             // the one-free-song paywall (see createdSongCount). Deleting the
@@ -351,5 +448,5 @@ static NSString * const kEZMusicCreatedSongCountKey = @"EZMusicCreatedSongCount"
     [downloadTask resume];
 }
 
-- (void)archiveReferenceAtURL:(NSURL *)sourceURL sourceName:(NSString *)sourceName mode:(NSString *)mode { if (!sourceURL.isFileURL) return; dispatch_async(self.queue, ^{ [self setup]; NSString *identifier = NSUUID.UUID.UUIDString; NSString *ext = sourceURL.pathExtension.length ? sourceURL.pathExtension : @"m4a"; NSString *path = [@"References" stringByAppendingPathComponent:[[NSString stringWithFormat:@"reference_%@", identifier] stringByAppendingPathExtension:ext]]; NSURL *to = [self.libraryRootURL URLByAppendingPathComponent:path]; if (![NSFileManager.defaultManager copyItemAtURL:sourceURL toURL:to error:nil]) return; [self.items addObject:@{ @"kind": @"reference", @"id": identifier, @"path": path, @"source_name": sourceName ?: sourceURL.lastPathComponent ?: @"Reference", @"reference_mode": mode ?: @"style", @"added_at": @([[NSDate date] timeIntervalSince1970]) }]; [self persist]; }); }
+- (void)archiveReferenceAtURL:(NSURL *)sourceURL sourceName:(NSString *)sourceName mode:(NSString *)mode { if (!sourceURL.isFileURL) return; dispatch_async(self.queue, ^{ [self setup]; NSString *identifier = NSUUID.UUID.UUIDString; NSString *ext = sourceURL.pathExtension.length ? sourceURL.pathExtension : @"m4a"; NSString *referenceDisplayName = sourceName.length ? sourceName : (sourceURL.lastPathComponent ?: @"Reference"); NSString *path = [self uniquePathInFolder:@"References" title:referenceDisplayName.stringByDeletingPathExtension extension:ext excludingPath:nil]; NSURL *to = [self.libraryRootURL URLByAppendingPathComponent:path]; if (![NSFileManager.defaultManager copyItemAtURL:sourceURL toURL:to error:nil]) return; [self.items addObject:@{ @"kind": @"reference", @"id": identifier, @"path": path, @"source_name": sourceName ?: sourceURL.lastPathComponent ?: @"Reference", @"reference_mode": mode ?: @"style", @"added_at": @([[NSDate date] timeIntervalSince1970]) }]; [self persist]; }); }
 @end

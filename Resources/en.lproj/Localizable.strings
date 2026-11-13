@@ -1,6 +1,9 @@
 /* EZModelPickerViewController localization */
 
 "EZModelPicker.Title" = "Select Model";
+"EZModelPicker.AutoHeader" = "Automatic";
+"EZModelPicker.AutoTitle" = "Auto";
+"EZModelPicker.AutoDetail" = "Let the server pick the best model for each message. Picking a model below turns Auto off.";
 
 "EZModelSection.FrontierReasoning" = "Advanced Reasoning";
 "EZModelSection.GPT4Chat" = "GPT-4 Chat";
