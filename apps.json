@@ -31,6 +31,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.4",
+          "buildVersion": "7.2.4",
+          "date": "2026-11-13",
+          "localizedDescription": "## What’s new since 7.2.3\n\n- Fixed reaction metadata being included as unsupported fields in chat API requests.\n- Corrected slot leaderboard labels to describe the last 24 hours.\n\n## Downloads\n\n- **IPA:** `EZCompleteUI-7.2.4-release.ipa`\n- **Deb:** `com.i0stweak3r.ezcompleteui_7.2.4_iphoneos-arm64.deb`\n\nRequires iOS 15 or later.",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.4/EZCompleteUI-7.2.4-release.ipa",
+          "size": 12230100,
+          "sha256": "333d06d5e94e7a7b6ff6c96c165c181218f9abfa14553b39bcc212e1baedff0a",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.3",
           "buildVersion": "7.2.3",
           "date": "2026-11-13",

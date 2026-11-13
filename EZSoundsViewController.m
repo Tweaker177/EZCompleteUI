@@ -321,7 +321,13 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 @property (nonatomic, strong) UIView *createPanel;
 @property (nonatomic, strong) UITableView *libraryTable;
 @property (nonatomic, strong) UILabel *emptyLabel;
-@property (nonatomic, strong) UIButton *playAllButton;
+
+// Last player state the library rows were rendered for. The shared
+// player posts updates ~4x/second while playing; playerDidUpdate:
+// compares against these and reloads only when something visible
+// actually changed (and then only the affected rows).
+@property (nonatomic, copy) NSString *lastPlayerUUID;
+@property (nonatomic, assign) BOOL lastPlayerPlaying;
 
 @property (nonatomic, strong) UITextView *promptView;
 @property (nonatomic, strong) UILabel *promptPlaceholder;
@@ -663,20 +669,6 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     self.libraryTable.rowHeight = 64;
     [self.view addSubview:self.libraryTable];
 
-    self.playAllButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [self.playAllButton setTitle:NSLocalizedString(@"EZSounds.PlayAll", nil) forState:UIControlStateNormal];
-    [self.playAllButton setTitleColor:EZSoundsNeonCyan() forState:UIControlStateNormal];
-    self.playAllButton.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
-    [self.playAllButton addTarget:self action:@selector(playAllTapped) forControlEvents:UIControlEventTouchUpInside];
-    self.playAllButton.translatesAutoresizingMaskIntoConstraints = NO;
-    UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 40)];
-    [header addSubview:self.playAllButton];
-    [NSLayoutConstraint activateConstraints:@[
-        [self.playAllButton.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:16],
-        [self.playAllButton.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
-    ]];
-    self.libraryTable.tableHeaderView = header;
-
     self.emptyLabel = [[UILabel alloc] init];
     self.emptyLabel.text = NSLocalizedString(@"EZSounds.EmptyLibrary", nil);
     self.emptyLabel.textColor = EZSoundsNeonDimText();
@@ -939,7 +931,9 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
                 }
                 self.statusLabel.text = NSLocalizedString(@"EZSounds.Saved", nil);
                 [self reloadEntries];
-                [self playEntry:entry queueRest:NO];
+                // No autoplay (user rule, 2026-11-13): the new sound is
+                // in the library, ready — it plays only if its row is
+                // tapped, like every other sound.
                 self.tabControl.selectedSegmentIndex = EZSoundsTabLibrary;
                 [self tabChanged];
             }];
@@ -959,8 +953,6 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 
 - (void)reloadEntries {
     self.entries = [[EZSoundLibraryManager sharedManager] allSoundsSortedByDateDescending];
-    self.playAllButton.enabled = self.entries.count > 0;
-    self.playAllButton.alpha = self.entries.count > 0 ? 1.0 : 0.4;
     [self.libraryTable reloadData];
     if (self.tabControl.selectedSegmentIndex == EZSoundsTabLibrary) {
         self.emptyLabel.hidden = self.entries.count > 0;
@@ -981,38 +973,58 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
                                     playbackRate:rate];
 }
 
-- (void)playEntry:(EZSoundManifestEntry *)entry queueRest:(BOOL)queueRest {
+- (void)playEntry:(EZSoundManifestEntry *)entry {
+    // Tap-only playback (user rule, 2026-11-13): a sound plays only when
+    // its own row is tapped, and only that sound — nothing is queued
+    // behind it, so playback can never roll on into sounds the user
+    // didn't choose. Tapping the playing sound's row again is its stop
+    // control (togglePlayPause), and the row shows the pause icon and
+    // the pink current-item highlight while it plays.
     EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
     if ([player isCurrentItemWithIdentifier:[kEZSoundsPlayerIdentifierPrefix stringByAppendingString:entry.uuid]]) {
         [player togglePlayPause];
         return;
     }
     [player playItem:[self playerItemForEntry:entry]];
-    if (queueRest) {
-        NSUInteger idx = [self.entries indexOfObject:entry];
-        if (idx != NSNotFound && idx + 1 < self.entries.count) {
-            NSMutableArray<EZMediaPlayerItem *> *rest = [NSMutableArray array];
-            for (NSUInteger i = idx + 1; i < self.entries.count; i++) {
-                [rest addObject:[self playerItemForEntry:self.entries[i]]];
-            }
-            [player replaceUpNext:rest];
-        }
-    }
-}
-
-- (void)playAllTapped {
-    if (!self.entries.count) return;
-    NSMutableArray<EZMediaPlayerItem *> *items = [NSMutableArray array];
-    for (EZSoundManifestEntry *entry in self.entries) [items addObject:[self playerItemForEntry:entry]];
-    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
-    [player playItem:items.firstObject];
-    if (items.count > 1) {
-        [player replaceUpNext:[items subarrayWithRange:NSMakeRange(1, items.count - 1)]];
-    }
 }
 
 - (void)playerDidUpdate:(NSNotification *)note {
-    [self.libraryTable reloadData];
+    // The shared player posts this ~4x/second while anything plays.
+    // Reloading the whole table on every tick churns cells and swallows
+    // open swipe actions; the only rows whose appearance depends on
+    // player state are the previously-current and newly-current ones,
+    // and only when currency or play state actually changed.
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    NSString *currentUUID = nil;
+    NSString *identifier = player.currentItem.identifier;
+    if ([identifier hasPrefix:kEZSoundsPlayerIdentifierPrefix]) {
+        currentUUID = [identifier substringFromIndex:kEZSoundsPlayerIdentifierPrefix.length];
+    }
+    BOOL playing = currentUUID != nil &&
+        (player.state == EZMediaPlayerStatePlaying || player.state == EZMediaPlayerStateLoading);
+    if ((currentUUID == self.lastPlayerUUID || [currentUUID isEqualToString:self.lastPlayerUUID]) &&
+        playing == self.lastPlayerPlaying) {
+        return;
+    }
+    NSString *previousUUID = self.lastPlayerUUID;
+    self.lastPlayerUUID = currentUUID;
+    self.lastPlayerPlaying = playing;
+    if (!self.libraryTable) return;
+    NSMutableArray<NSIndexPath *> *rows = [NSMutableArray array];
+    [self.entries enumerateObjectsUsingBlock:^(EZSoundManifestEntry *entry, NSUInteger idx, BOOL *stop) {
+        if ((previousUUID && [entry.uuid isEqualToString:previousUUID]) ||
+            (currentUUID && [entry.uuid isEqualToString:currentUUID])) {
+            [rows addObject:[NSIndexPath indexPathForRow:(NSInteger)idx inSection:0]];
+        }
+    }];
+    if (rows.count) {
+        [self.libraryTable reloadRowsAtIndexPaths:rows
+                                  withRowAnimation:UITableViewRowAnimationNone];
+    } else if (previousUUID || currentUUID) {
+        // The (un)current sound isn't in this list (e.g. a TTS clip is
+        // loaded in the shared player): fall back to a full refresh.
+        [self.libraryTable reloadData];
+    }
 }
 
 - (BOOL)entryIsCurrent:(EZSoundManifestEntry *)entry {
@@ -1079,7 +1091,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:NO];
-    [self playEntry:self.entries[indexPath.row] queueRest:YES];
+    [self playEntry:self.entries[indexPath.row]];
     [tableView reloadData];
 }
 

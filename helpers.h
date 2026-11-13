@@ -127,6 +127,19 @@ void EZCreateExplicitMemory(NSString *fact,
 void EZForgetMemoryMatching(NSString *text,
                             void (^completion)(NSUInteger removed));
 
+/// Snapshot-scoped forget for the confirmation gate: removes exactly
+/// the entries in `entries` — the copies EZMemoryEntriesMatching
+/// returned when the prompt was built — and nothing else. An entry
+/// saved after the dry run survives even if it would match today.
+/// Entries are identified by the pair (timestamp, explicitFact),
+/// falling back to (timestamp, summary); snapshot entries that no
+/// longer exist are no-ops. Like EZForgetMemoryMatching, the needle
+/// is registered first so an in-flight save stays invalidated.
+/// completion reports how many entries were removed.
+void EZForgetMemoryEntries(NSString *text,
+                           NSArray<NSDictionary *> *entries,
+                           void (^completion)(NSUInteger removed));
+
 /// Dry run for the forget confirmation gate: returns copies of the
 /// entries a forget of `text` WOULD remove, changing nothing — no
 /// deletion, no registration. The gate shows these to the user so what
@@ -145,6 +158,18 @@ void EZRegisterForgetNeedle(NSString *text);
 /// exactly as it was before the request: nothing deleted, nothing
 /// blocked.
 void EZUnregisterForgetNeedle(NSString *text);
+
+/// Concludes a forget request for `text` by resolving any save the
+/// forget HELD back while the user decided (see EZCreateExplicitMemory:
+/// a save invalidated by a registered needle is now held, not dropped).
+/// forgotten=YES discards the held saves — confirmed forgets, and
+/// forgets that matched nothing stored (no prompt ever appears for
+/// those, so they conclude as confirmed). forgotten=NO appends each
+/// held save to its store through the normal append path, restoring
+/// exactly what the user chose to keep. Held saves live only in
+/// memory: if the app exits before resolution they are lost, exactly
+/// as the old drop behaved.
+void EZResolveForgetNeedle(NSString *text, BOOL forgotten);
 
 /// ── Important memories (Memory Summary) ──────────────────────────────
 /// Facts saved through the chat memory tool live in their own store

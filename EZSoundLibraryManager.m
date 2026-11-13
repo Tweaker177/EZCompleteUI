@@ -18,6 +18,49 @@ static NSInteger  const kEZManifestVersion   = 1;
 static NSString * const kEZManifestKeyVersion = @"version";
 static NSString * const kEZManifestKeyClips   = @"clips";
 
+/// The name a sound is displayed under everywhere: the user's custom
+/// title (metadata[@"title"], set by Rename) when there is one, else the
+/// prompt preview — the same rule EZSoundsViewController renders by.
+/// Since 2026-11-13 this is also the sound's FILE name (user rule: what
+/// the list shows is what the file is called, so shares/exports never
+/// surface a generated sound_<stamp>_<id> name).
+static NSString *EZSoundDisplayNameForEntry(EZSoundManifestEntry *entry) {
+    NSString *custom = [entry.metadata[@"title"] isKindOfClass:NSString.class] ? entry.metadata[@"title"] : nil;
+    if (custom.length) return custom;
+    if (entry.preview.length) return entry.preview;
+    return entry.prompt.length ? entry.prompt : @"Sound";
+}
+
+/// Filesystem-safe form of a display name: path-hostile and control
+/// characters become spaces, runs of spaces collapse, capped at 60
+/// characters. Falls back to @"Sound" if nothing usable remains.
+static NSString *EZSoundSanitizedFileBase(NSString *name) {
+    NSString *trimmed = [name stringByTrimmingCharactersInSet:
+                         [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSCharacterSet *bad = [NSCharacterSet characterSetWithCharactersInString:@"/\\:?%*|\"<>"];
+    NSCharacterSet *control = [NSCharacterSet controlCharacterSet];
+    NSMutableString *clean = [NSMutableString stringWithCapacity:trimmed.length];
+    BOOL lastWasSpace = YES; // also strips leading spaces
+    for (NSUInteger i = 0; i < trimmed.length; i++) {
+        unichar c = [trimmed characterAtIndex:i];
+        if ([bad characterIsMember:c] || [control characterIsMember:c]) c = ' ';
+        if (c == ' ') {
+            if (lastWasSpace) continue;
+            lastWasSpace = YES;
+        } else {
+            lastWasSpace = NO;
+        }
+        [clean appendFormat:@"%C", c];
+    }
+    NSString *result = [clean stringByTrimmingCharactersInSet:
+                        [NSCharacterSet whitespaceCharacterSet]];
+    if (result.length > 60) {
+        result = [[result substringToIndex:60] stringByTrimmingCharactersInSet:
+                  [NSCharacterSet whitespaceCharacterSet]];
+    }
+    return result.length ? result : @"Sound";
+}
+
 static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *description) {
     return [NSError errorWithDomain:EZSoundLibraryErrorDomain
                                 code:code
@@ -41,6 +84,14 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
 @property (nonatomic, strong) NSURL *audioDirectoryURL;
 @property (nonatomic, strong) NSURL *cacheDirectoryURL;
 @property (nonatomic, strong) NSURL *manifestFileURL;
+
+// File naming (ioQueue only): the unique on-disk filename for a display
+// name + extension, and the launch-time pass that renames existing
+// files to their display names.
+- (NSString *)uniqueFilenameForDisplayName:(NSString *)displayName
+                                 extension:(NSString *)extension
+                            excludingEntry:(nullable EZSoundManifestEntry *)excluded;
+- (void)reconcileFilenamesWithDisplayNames;
 
 @end
 
@@ -83,6 +134,7 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
         NSArray<EZSoundManifestEntry *> *loaded = [self loadOrCreateManifestWithError:&loadError];
         if (loaded) {
             [_entries addObjectsFromArray:loaded];
+            [self reconcileFilenamesWithDisplayNames];
             [self refreshSnapshotLocked_NoLock:NO];
         } else {
             EZLogf(EZLogLevelError, @"SoundLibrary", @"Failed to load manifest: %@", loadError.localizedDescription);
@@ -239,6 +291,91 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
     return nil;
 }
 
+#pragma mark - File naming (ioQueue only, except at init)
+
+/// The first free filename for `displayName` + `extension`: the plain
+/// name, then " 2", " 3", ... A name is taken when another entry uses
+/// it or an (orphan) file already sits at that path — existing audio is
+/// never clobbered. The excluded entry's own current filename counts as
+/// free, so a no-op rename stays a no-op.
+- (NSString *)uniqueFilenameForDisplayName:(NSString *)displayName
+                                 extension:(NSString *)extension
+                            excludingEntry:(EZSoundManifestEntry *)excluded {
+    NSString *base = EZSoundSanitizedFileBase(displayName);
+    NSString *ext = extension.length ? extension : @"mp3";
+    NSFileManager *fm = [NSFileManager defaultManager];
+    for (NSInteger n = 1; ; n++) {
+        NSString *candidate = (n == 1)
+            ? [NSString stringWithFormat:@"%@.%@", base, ext]
+            : [NSString stringWithFormat:@"%@ %ld.%@", base, (long)n, ext];
+        if (excluded && [candidate isEqualToString:excluded.filename]) return candidate;
+        BOOL taken = NO;
+        for (EZSoundManifestEntry *other in self.entries) {
+            if (other != excluded && [other.filename isEqualToString:candidate]) { taken = YES; break; }
+        }
+        if (!taken) {
+            NSURL *url = [self.audioDirectoryURL URLByAppendingPathComponent:candidate isDirectory:NO];
+            if ([fm fileExistsAtPath:url.path]) taken = YES;
+        }
+        if (!taken) return candidate;
+    }
+}
+
+/// Brings every existing file in line with the display-name rule:
+/// files saved before it (sound_<stamp>_<id>.mp3) are renamed to the
+/// name the list shows. Per file: a missing file or a failed move just
+/// leaves that sound as it was. If the manifest write fails after
+/// moves, every move is rolled back so disk and manifest never
+/// disagree.
+- (void)reconcileFilenamesWithDisplayNames {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSMutableArray<NSDictionary *> *moves = [NSMutableArray array];
+    for (EZSoundManifestEntry *entry in self.entries) {
+        NSString *ext = entry.filename.pathExtension.length ? entry.filename.pathExtension : @"mp3";
+        NSString *desired = [self uniqueFilenameForDisplayName:EZSoundDisplayNameForEntry(entry)
+                                                     extension:ext
+                                                excludingEntry:entry];
+        if ([desired isEqualToString:entry.filename]) continue;
+        NSURL *oldURL = [self absoluteURLForEntry:entry];
+        if (![fm fileExistsAtPath:oldURL.path]) continue;
+        NSString *oldFilename = entry.filename;
+        NSString *oldRelativePath = entry.relativePath;
+        entry.filename = desired;
+        entry.relativePath = [kEZAudioFolderName stringByAppendingPathComponent:desired];
+        NSError *moveError;
+        if (![fm moveItemAtURL:oldURL toURL:[self absoluteURLForEntry:entry] error:&moveError]) {
+            entry.filename = oldFilename;
+            entry.relativePath = oldRelativePath;
+            EZLogf(EZLogLevelWarning, @"SoundLibrary",
+                   @"Could not rename %@ to its display name: %@", oldFilename, moveError.localizedDescription);
+            continue;
+        }
+        [moves addObject:@{@"uuid": entry.uuid,
+                            @"oldFilename": oldFilename,
+                            @"oldRelativePath": oldRelativePath}];
+    }
+    if (!moves.count) return;
+    NSError *persistError;
+    if ([self persistEntriesToDisk:self.entries error:&persistError]) {
+        EZLogf(EZLogLevelInfo, @"SoundLibrary",
+               @"Renamed %lu sound file(s) to their display names", (unsigned long)moves.count);
+        return;
+    }
+    EZLogf(EZLogLevelError, @"SoundLibrary",
+           @"Display-name rename could not save the manifest (%@); rolling files back", persistError.localizedDescription);
+    for (NSDictionary *move in moves.reverseObjectEnumerator) {
+        for (EZSoundManifestEntry *entry in self.entries) {
+            if ([entry.uuid isEqualToString:move[@"uuid"]]) {
+                NSURL *current = [self absoluteURLForEntry:entry];
+                entry.filename = move[@"oldFilename"];
+                entry.relativePath = move[@"oldRelativePath"];
+                [fm moveItemAtURL:current toURL:[self absoluteURLForEntry:entry] error:nil];
+                break;
+            }
+        }
+    }
+}
+
 #pragma mark - Save
 
 - (void)saveAudioData:(NSData *)audioData
@@ -263,10 +400,30 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
             return;
         }
 
-        NSString *stamp = [NSString stringWithFormat:@"%.0f", [[NSDate date] timeIntervalSince1970]];
-        NSString *unique = [[[NSUUID UUID] UUIDString] substringToIndex:8];
-        NSString *filename = [NSString stringWithFormat:@"sound_%@_%@.%@", stamp, unique, extension];
+        // Build the entry first: the file takes the sound's display
+        // name from birth (user rule, 2026-11-13) — what the list shows
+        // is what the file is called, so shares/exports never surface a
+        // generated sound_<stamp>_<id> name. The filename is filled in
+        // below, once metadata is merged and the name is final.
+        EZSoundManifestEntry *entry = [EZSoundManifestEntry entryWithProvider:provider
+                                                                         model:model
+                                                                        prompt:prompt
+                                                                      filename:@""
+                                                                  relativePath:@""
+                                                                      duration:0
+                                                                    sampleRate:0
+                                                                      fileSize:(unsigned long long)audioData.length];
+        if (metadata.count) {
+            NSMutableDictionary *merged = [entry.metadata mutableCopy];
+            [merged addEntriesFromDictionary:metadata];
+            entry.metadata = merged;
+        }
+        NSString *filename = [self uniqueFilenameForDisplayName:EZSoundDisplayNameForEntry(entry)
+                                                      extension:extension
+                                                 excludingEntry:entry];
         NSString *relativePath = [kEZAudioFolderName stringByAppendingPathComponent:filename];
+        entry.filename = filename;
+        entry.relativePath = relativePath;
         NSURL *fileURL = [self.libraryRootURL URLByAppendingPathComponent:relativePath isDirectory:NO];
 
         NSError *writeError;
@@ -290,20 +447,9 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
             }
         }
         unsigned long long fileSize = (unsigned long long)audioData.length;
-
-        EZSoundManifestEntry *entry = [EZSoundManifestEntry entryWithProvider:provider
-                                                                         model:model
-                                                                        prompt:prompt
-                                                                      filename:filename
-                                                                  relativePath:relativePath
-                                                                      duration:duration
-                                                                    sampleRate:sampleRate
-                                                                      fileSize:fileSize];
-        if (metadata.count) {
-            NSMutableDictionary *merged = [entry.metadata mutableCopy];
-            [merged addEntriesFromDictionary:metadata];
-            entry.metadata = merged;
-        }
+        entry.duration = duration;
+        entry.sampleRate = sampleRate;
+        entry.fileSize = fileSize;
 
         [self.entries insertObject:entry atIndex:0];
         NSError *persistError;
@@ -395,9 +541,47 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
         if (trimmed.length) meta[@"title"] = trimmed;
         else [meta removeObjectForKey:@"title"];
         target.metadata = meta;
+
+        // The file takes the new display name too (user rule,
+        // 2026-11-13): rename in the list == rename on disk, so a share
+        // or export uses the name the user sees. A failed move keeps the
+        // old filename rather than failing the rename — the title still
+        // saves, and the launch-time reconcile retries the file later.
+        NSString *oldFilename = target.filename;
+        NSString *oldRelativePath = target.relativePath;
+        NSString *ext = oldFilename.pathExtension.length ? oldFilename.pathExtension : @"mp3";
+        NSString *desired = [self uniqueFilenameForDisplayName:EZSoundDisplayNameForEntry(target)
+                                                     extension:ext
+                                                excludingEntry:target];
+        BOOL fileMoved = NO;
+        if (![desired isEqualToString:oldFilename]) {
+            NSURL *oldURL = [self absoluteURLForEntry:target];
+            target.filename = desired;
+            target.relativePath = [kEZAudioFolderName stringByAppendingPathComponent:desired];
+            NSError *moveError;
+            if ([[NSFileManager defaultManager] moveItemAtURL:oldURL
+                                                        toURL:[self absoluteURLForEntry:target]
+                                                        error:&moveError]) {
+                fileMoved = YES;
+            } else {
+                EZLogf(EZLogLevelWarning, @"SoundLibrary",
+                       @"Could not rename file for %@: %@", uuid, moveError.localizedDescription);
+                target.filename = oldFilename;
+                target.relativePath = oldRelativePath;
+            }
+        }
+
         NSError *persistError;
         if (![self persistEntriesToDisk:self.entries error:&persistError]) {
             target.metadata = oldMetadata;
+            if (fileMoved) {
+                NSURL *movedURL = [self absoluteURLForEntry:target];
+                target.filename = oldFilename;
+                target.relativePath = oldRelativePath;
+                [[NSFileManager defaultManager] moveItemAtURL:movedURL
+                                                        toURL:[self absoluteURLForEntry:target]
+                                                        error:nil];
+            }
             if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, persistError); });
             return;
         }
@@ -423,13 +607,13 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
         }
         NSURL *oldFileURL = [self absoluteURLForEntry:target];
 
-        // Fresh filename, named exactly like a fresh save — the
+        // Fresh filename carrying the sound's display name — the
         // replacement may be in a different container than the
-        // original (edits export .caf / .m4a), so reusing the old
-        // filename could leave its extension lying about its contents.
-        NSString *stamp = [NSString stringWithFormat:@"%.0f", [[NSDate date] timeIntervalSince1970]];
-        NSString *unique = [[[NSUUID UUID] UUIDString] substringToIndex:8];
-        NSString *filename = [NSString stringWithFormat:@"sound_%@_%@.%@", stamp, unique, extension];
+        // original (edits export .caf / .m4a), so the extension comes
+        // from the new audio while the name stays the displayed one.
+        NSString *filename = [self uniqueFilenameForDisplayName:EZSoundDisplayNameForEntry(target)
+                                                      extension:extension
+                                                 excludingEntry:target];
         NSString *relativePath = [kEZAudioFolderName stringByAppendingPathComponent:filename];
         NSURL *destinationURL = [self.libraryRootURL URLByAppendingPathComponent:relativePath isDirectory:NO];
 
@@ -481,7 +665,8 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
         // stray file on disk is a smaller problem than reporting a
         // failure for an edit that actually landed.
         NSError *deleteError;
-        if (![[NSFileManager defaultManager] removeItemAtURL:oldFileURL error:&deleteError]) {
+        if (![oldFileURL isEqual:destinationURL] &&
+            ![[NSFileManager defaultManager] removeItemAtURL:oldFileURL error:&deleteError]) {
             EZLogf(EZLogLevelWarning, @"SoundLibrary", @"Replaced audio for %@ but could not remove old file: %@", uuid, deleteError.localizedDescription);
         }
         EZLogf(EZLogLevelInfo, @"SoundLibrary", @"Replaced audio in place for sound %@", uuid);

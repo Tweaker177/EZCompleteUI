@@ -1132,21 +1132,27 @@ static NSMutableArray<NSDictionary *> *_loadMemoryEntries(void) {
 // _saveEntriesAtPath — private. Serializes the array to pretty-printed
 // JSON and writes it atomically to `path`. Logs errors but never
 // throws — failure to save a memory entry should never crash the app.
-static void _saveEntriesAtPath(NSArray<NSDictionary *> *entries, NSString *path) {
+// Returns YES only when the file was actually written: most callers
+// ignore the result (a lost best-effort write is not worth surfacing),
+// but the store-split migration sequences two writes and must know
+// whether the first one landed before it touches the second file.
+static BOOL _saveEntriesAtPath(NSArray<NSDictionary *> *entries, NSString *path) {
     NSError *serializeError = nil;
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:entries
                                                        options:NSJSONWritingPrettyPrinted
                                                          error:&serializeError];
     if (serializeError || !jsonData) {
         EZLogf(EZLogLevelError, @"MEMORY", @"Failed to serialize entries: %@", serializeError);
-        return;
+        return NO;
     }
 
     NSError *writeError = nil;
-    [jsonData writeToFile:path options:NSDataWritingAtomic error:&writeError];
-    if (writeError) {
+    BOOL written = [jsonData writeToFile:path options:NSDataWritingAtomic error:&writeError];
+    if (!written || writeError) {
         EZLogf(EZLogLevelError, @"MEMORY", @"Failed to write memory JSON: %@", writeError);
+        return NO;
     }
+    return YES;
 }
 
 // _saveMemoryEntries — private. The summaries store (ezui_memory.json).
@@ -1172,8 +1178,16 @@ static NSString *const kEZImportantMemoryMigratedKey = @"EZImportantMemoryMigrat
 // ezui_memory.json, so existing installs have explicitFact entries
 // mixed into their summaries. Each one moves across with every key
 // preserved, in order; the summaries file is rewritten without them.
-// Runs at most once (defaults flag); must be called inside
-// _fileWriteQueue.
+// Runs inside _fileWriteQueue (see the caller contract below).
+//
+// Data safety: the important store is written FIRST, and the
+// summaries file is rewritten only once the facts are persisted
+// there. The migrated flag is set only after BOTH writes succeed —
+// on any failure both files and the flag are left untouched, so the
+// next launch retries instead of the facts being stranded in neither
+// file. A retry is safe: facts already present in the important store
+// (same explicitFact text) are not duplicated, and still leave the
+// summaries on the successful pass.
 static void _migrateExplicitMemoriesIfNeededLocked(void) {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if ([defaults boolForKey:kEZImportantMemoryMigratedKey]) return;
@@ -1181,6 +1195,14 @@ static void _migrateExplicitMemoriesIfNeededLocked(void) {
     NSMutableArray<NSDictionary *> *summaries = _loadMemoryEntries();
     NSMutableArray<NSDictionary *> *important =
         _loadEntriesAtPath(EZImportantMemoryGetPath());
+
+    NSMutableSet<NSString *> *existingFacts = [NSMutableSet set];
+    for (NSDictionary *entry in important) {
+        if (![entry isKindOfClass:[NSDictionary class]]) continue;
+        NSString *fact = _safeString(entry[@"explicitFact"]);
+        if (fact.length > 0) [existingFacts addObject:fact];
+    }
+
     NSMutableArray<NSDictionary *> *kept =
         [NSMutableArray arrayWithCapacity:summaries.count];
     NSUInteger movedCount = 0;
@@ -1188,15 +1210,26 @@ static void _migrateExplicitMemoriesIfNeededLocked(void) {
         NSString *fact = [entry isKindOfClass:[NSDictionary class]]
             ? _safeString(entry[@"explicitFact"]) : @"";
         if (fact.length > 0) {
-            [important addObject:entry];
-            movedCount++;
+            if (![existingFacts containsObject:fact]) {
+                [important addObject:entry];
+                [existingFacts addObject:fact];
+                movedCount++;
+            }
         } else {
             [kept addObject:entry];
         }
     }
-    if (movedCount > 0) {
-        _saveEntriesAtPath(important, EZImportantMemoryGetPath());
-        _saveMemoryEntries(kept);
+    if (movedCount > 0 || kept.count != summaries.count) {
+        if (!_saveEntriesAtPath(important, EZImportantMemoryGetPath())) {
+            EZLogf(EZLogLevelError, @"MEMORY",
+                   @"Explicit-fact migration: important-store write failed; summaries untouched, will retry next launch");
+            return;
+        }
+        if (!_saveEntriesAtPath(kept, EZMemoryGetPath())) {
+            EZLogf(EZLogLevelError, @"MEMORY",
+                   @"Explicit-fact migration: summaries rewrite failed after the facts were persisted; will retry next launch");
+            return;
+        }
         EZLogf(EZLogLevelInfo, @"MEMORY",
                @"Migrated %lu explicit facts to the important-memories store",
                (unsigned long)movedCount);
@@ -2317,13 +2350,29 @@ static void _analyzePromptForContextWithImagesImpl(NSString *userPrompt,
         result.finalPrompt         = userPrompt;
         result.estimatedTokens     = _estimateTokenCount(userPrompt);
 
+        // Direct answers are produced by the helper calls below (triage,
+        // validator, ranker) from the prompt they are handed — they never
+        // see finalPrompt, so the important-memories wrapper applied on
+        // the way out cannot reach them, and a short-circuited answer
+        // used to be generated without the user's standing facts. Hand
+        // those calls the prompt with the important block applied, in
+        // the same wrapper shape the main model receives, so a direct
+        // answer is produced with the facts in context. Everything that
+        // keys off the bare prompt (memory retrieval, the enriched
+        // finalPrompt) keeps using userPrompt unchanged.
+        NSString *importantBlockForHelpers = EZImportantMemoryContextBlock();
+        NSString *helperPrompt = importantBlockForHelpers.length > 0
+            ? [NSString stringWithFormat:@"%@\n\n[User message]\n%@",
+               importantBlockForHelpers, userPrompt]
+            : userPrompt;
+
         // recentTurnsText is populated if triage returns UNCERTAIN and we
         // fetch turns for re-evaluation. It's then re-used in Stage 3 so
         // the ranker has the same context the re-eval used.
         __block NSString *recentTurnsText = @"";
 
         // ── STAGE 1: TRIAGE ──────────────────────────────────────────────────
-        NSDictionary *triageResult = _runTriageHelper(userPrompt, nil, imageDataURLs, jwtToken);
+        NSDictionary *triageResult = _runTriageHelper(helperPrompt, nil, imageDataURLs, jwtToken);
 
         if (!triageResult) {
             // Helper call failed (no network, bad key, etc.) — safe fallback:
@@ -2368,7 +2417,7 @@ static void _analyzePromptForContextWithImagesImpl(NSString *userPrompt,
             confidence >= kDirectAnswerConfidenceThreshold &&
             directAnswer.length > 0 &&
             allowHelperDirectAnswers) {
-            NSDictionary *validatorResult = _runDirectAnswerValidator(userPrompt, directAnswer, imageDataURLs, jwtToken);
+            NSDictionary *validatorResult = _runDirectAnswerValidator(helperPrompt, directAnswer, imageDataURLs, jwtToken);
             BOOL validatorApproved = [validatorResult[@"is_valid"] respondsToSelector:@selector(boolValue)]
                 ? [validatorResult[@"is_valid"] boolValue] : NO;
             float validatorConfidence = [validatorResult[@"confidence"] respondsToSelector:@selector(floatValue)]
@@ -2426,7 +2475,7 @@ static void _analyzePromptForContextWithImagesImpl(NSString *userPrompt,
             EZLog(EZLogLevelInfo, @"TRIAGE", @"Stage 1b — UNCERTAIN, fetching recent turns for re-evaluation...");
             recentTurnsText = _formatRecentTurns(chatKey ?: @"", kTriageUncertainTurnFetch);
 
-            NSDictionary *reEvalResult = _runTriageHelper(userPrompt, recentTurnsText, imageDataURLs, jwtToken);
+            NSDictionary *reEvalResult = _runTriageHelper(helperPrompt, recentTurnsText, imageDataURLs, jwtToken);
 
             if (reEvalResult) {
                 // Overwrite all the stage-1 variables with the re-eval values.
@@ -2457,7 +2506,7 @@ static void _analyzePromptForContextWithImagesImpl(NSString *userPrompt,
                     confidence >= kDirectAnswerConfidenceThreshold &&
                     directAnswer.length > 0 &&
                     allowHelperDirectAnswers) {
-                    NSDictionary *validatorResult = _runDirectAnswerValidator(userPrompt, directAnswer, imageDataURLs, jwtToken);
+                    NSDictionary *validatorResult = _runDirectAnswerValidator(helperPrompt, directAnswer, imageDataURLs, jwtToken);
                     BOOL validatorApproved = [validatorResult[@"is_valid"] respondsToSelector:@selector(boolValue)]
                         ? [validatorResult[@"is_valid"] boolValue] : NO;
                     float validatorConfidence = [validatorResult[@"confidence"] respondsToSelector:@selector(floatValue)]
@@ -2551,7 +2600,7 @@ static void _analyzePromptForContextWithImagesImpl(NSString *userPrompt,
         // ── STAGE 3: MEMORY RANKER ───────────────────────────────────────────
         EZLog(EZLogLevelInfo, @"TRIAGE", @"Stage 3 — memory ranker...");
 
-        NSDictionary *rankerResult = _runMemoryRanker(userPrompt, recentTurnsText, rankedMemories, imageDataURLs, jwtToken);
+        NSDictionary *rankerResult = _runMemoryRanker(helperPrompt, recentTurnsText, rankedMemories, imageDataURLs, jwtToken);
 
         if (!rankerResult) {
             // Ranker call failed — inject all keyword-ranked memories as-is and
@@ -2740,7 +2789,9 @@ static void _analyzePromptForContextWithImagesImpl(NSString *userPrompt,
 //     stripping treat both identically.
 // An empty important store leaves every prompt byte-identical to
 // before. (Direct-answer short-circuits never send finalPrompt to the
-// main model, so wrapping it on those paths is inert.)
+// main model; the pipeline covers them separately by handing its
+// helper calls the prompt with the block applied — see helperPrompt
+// in _analyzePromptForContextWithImagesImpl.)
 static EZContextResult *_resultByApplyingImportantMemories(EZContextResult *result,
                                                            NSString *userPrompt) {
     NSString *importantBlock = EZImportantMemoryContextBlock();
@@ -2881,11 +2932,17 @@ static void _registerForgetNeedle(NSString *needle) {
     [defaults setObject:registry forKey:kEZMemoryForgetRegistryKey];
 }
 
-static BOOL _summaryMatchesForgetRegisteredAfter(NSString *summary, NSTimeInterval saveStartedAt) {
-    if (summary.length == 0) return NO;
+// Every registered needle that matches `summary` and was registered at
+// or after `saveStartedAt` — the forgets that invalidate a save begun
+// at that time. (A forget that predates the save does not block it:
+// the save is a new statement of the fact, not a resurrection.)
+static NSArray<NSString *> *_forgetNeedlesMatchingSummaryRegisteredAfter(NSString *summary,
+                                                                           NSTimeInterval saveStartedAt) {
+    if (summary.length == 0) return @[];
     NSString *lowerSummary = [summary lowercaseString];
     NSArray *registry = [[NSUserDefaults standardUserDefaults]
         arrayForKey:kEZMemoryForgetRegistryKey];
+    NSMutableArray<NSString *> *needles = [NSMutableArray array];
     for (id obj in registry) {
         if (![obj isKindOfClass:[NSDictionary class]]) continue;
         NSDictionary *entry = (NSDictionary *)obj;
@@ -2893,9 +2950,12 @@ static BOOL _summaryMatchesForgetRegisteredAfter(NSString *summary, NSTimeInterv
             ? [entry[@"time"] doubleValue] : 0;
         if (forgetTime < saveStartedAt) continue;  // forget predates this save: new statement, keep it
         NSString *needle = _safeString(entry[@"needle"]);
-        if (needle.length > 0 && [lowerSummary containsString:needle]) return YES;
+        if (needle.length > 0 && [lowerSummary containsString:needle] &&
+            ![needles containsObject:needle]) {
+            [needles addObject:needle];
+        }
     }
-    return NO;
+    return [needles copy];
 }
 
 // ── Shared forget matching ─────────────────────────────────────────────────
@@ -2934,6 +2994,37 @@ static void _unregisterForgetNeedle(NSString *needle) {
     if (kept.count != registry.count) {
         [defaults setObject:kept forKey:kEZMemoryForgetRegistryKey];
     }
+}
+
+// ── Held forget-blocked saves ──────────────────────────────────────────
+// A save that finishes while a forget for the same fact is registered
+// used to be dropped on the spot — even when the user then tapped Keep
+// on the confirmation card, the save was simply gone. Now the fully
+// built entry is HELD here instead, keyed by the blocking needle, and
+// EZResolveForgetNeedle settles it when the forget request concludes:
+// confirmed → discard; kept → append through the normal store path.
+// Records are {entry, store} — the store the save was headed for
+// ("important" for explicit facts; the summaries store is named too,
+// though automatic summaries never consult the registry and so are
+// never held). In-memory only, and only touched inside _fileWriteQueue
+// blocks: if the app exits while a prompt is up, held saves are lost —
+// the same outcome as the old drop, never a corrupted store.
+static NSMutableDictionary<NSString *, NSMutableArray<NSDictionary *> *> *_heldForgetBlockedEntries(void) {
+    static NSMutableDictionary<NSString *, NSMutableArray<NSDictionary *> *> *held = nil;
+    if (!held) held = [NSMutableDictionary dictionary];
+    return held;
+}
+
+// Must be called inside _fileWriteQueue.
+static void _holdForgetBlockedEntry(NSDictionary *entry, NSString *store, NSString *needle) {
+    if (needle.length == 0) return;
+    NSMutableDictionary *held = _heldForgetBlockedEntries();
+    NSMutableArray *records = held[needle];
+    if (!records) {
+        records = [NSMutableArray array];
+        held[needle] = records;
+    }
+    [records addObject:@{ @"entry": entry, @"store": store ?: @"important" }];
 }
 
 static void EZCreateMemoryEntryInternal(NSString *userPrompt,
@@ -3172,11 +3263,21 @@ void EZCreateExplicitMemory(NSString *fact,
         @"explicitFact": cleanFact,
     };
     __block BOOL didSave = NO;
+    __block BOOL didHold = NO;
     dispatch_sync(_fileWriteQueue(), ^{
-        // Same race as the automatic path: a forget that landed after
-        // this save's turn began wins over the append.
-        if (_summaryMatchesForgetRegisteredAfter(cleanFact, saveStartedAt)) {
-            EZLogf(EZLogLevelInfo, @"MEMORY", @"Explicit save dropped — invalidated by a later forget: %@", cleanFact);
+        // Forget race: a forget registered after this save started may
+        // invalidate the append. The entry is HELD under the blocking
+        // needle, not dropped — if the user confirms the forget it is
+        // discarded, and if they keep the memories it is appended then
+        // (see EZResolveForgetNeedle). Held entries live only in
+        // memory, so an app exit first loses the save exactly as the
+        // old drop did.
+        NSArray<NSString *> *blockingNeedles =
+            _forgetNeedlesMatchingSummaryRegisteredAfter(cleanFact, saveStartedAt);
+        if (blockingNeedles.count > 0) {
+            _holdForgetBlockedEntry(newEntry, @"important", blockingNeedles.firstObject);
+            didHold = YES;
+            EZLogf(EZLogLevelInfo, @"MEMORY", @"Explicit save held — forget decision pending: %@", cleanFact);
             return;
         }
         NSMutableArray<NSDictionary *> *allEntries = _loadImportantMemoryEntries();
@@ -3191,7 +3292,7 @@ void EZCreateExplicitMemory(NSString *fact,
         didSave = YES;
     });
     EZLogf(EZLogLevelInfo, @"MEMORY", @"Explicit save %@: %@",
-           didSave ? @"ok" : @"duplicate", cleanFact);
+           didSave ? @"ok" : (didHold ? @"held" : @"duplicate"), cleanFact);
     if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(didSave); });
 }
 
@@ -3214,7 +3315,7 @@ void EZForgetMemoryMatching(NSString *text,
     dispatch_sync(_fileWriteQueue(), ^{
         // Register first: a save for an earlier turn may still be in
         // flight, and its append step consults this registry (see
-        // _summaryMatchesForgetRegisteredAfter). Registering is what
+        // _forgetNeedlesMatchingSummaryRegisteredAfter). Registering is what
         // makes the forget stick even when nothing is stored yet.
         _registerForgetNeedle(needle);
         NSMutableArray<NSDictionary *> *allEntries = _loadImportantMemoryEntries();
@@ -3228,6 +3329,66 @@ void EZForgetMemoryMatching(NSString *text,
     });
     EZLogf(EZLogLevelInfo, @"MEMORY", @"Forget '%@' removed %lu",
            text, (unsigned long)removedCount);
+    if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(removedCount); });
+}
+
+// _forgetSnapshotIdentityKey — identifies a stored entry for the
+// snapshot-scoped delete below: the pair (timestamp, explicitFact),
+// falling back to (timestamp, summary) for entries without an explicit
+// fact. Neither half is unique alone — the timestamp is a per-second
+// display string and a fact's wording can legitimately repeat — but
+// together they pick out the exact entry the user was shown.
+static NSString *_forgetSnapshotIdentityKey(NSDictionary *entry) {
+    NSString *timestamp = _safeString(entry[@"timestamp"]);
+    NSString *fact = _safeString(entry[@"explicitFact"]);
+    if (fact.length == 0) fact = _safeString(entry[@"summary"]);
+    if (timestamp.length == 0 && fact.length == 0) return @"";
+    return [NSString stringWithFormat:@"%@\u001F%@", timestamp, fact];
+}
+
+// EZForgetMemoryEntries — the confirmation gate's delete: removes
+// exactly the entries in `snapshot` (the copies EZMemoryEntriesMatching
+// returned when the prompt was built), and nothing else. An entry saved
+// after the dry run is not in the snapshot and survives, even if the
+// needle would match it today; snapshot entries that no longer exist
+// are no-ops. Like EZForgetMemoryMatching, the needle is registered
+// first so an in-flight save of the fact stays invalidated.
+void EZForgetMemoryEntries(NSString *text,
+                           NSArray<NSDictionary *> *snapshot,
+                           void (^completion)(NSUInteger removed)) {
+    NSString *needle = _normalizedForgetNeedle(text);
+    __block NSUInteger removedCount = 0;
+    dispatch_sync(_fileWriteQueue(), ^{
+        if (needle.length > 0) _registerForgetNeedle(needle);
+        // Multiset of snapshot identities: two identical shown entries
+        // remove two stored entries, never more.
+        NSMutableDictionary<NSString *, NSNumber *> *wanted = [NSMutableDictionary dictionary];
+        for (NSDictionary *shown in snapshot) {
+            if (![shown isKindOfClass:[NSDictionary class]]) continue;
+            NSString *key = _forgetSnapshotIdentityKey(shown);
+            if (key.length == 0) continue;
+            wanted[key] = @([wanted[key] integerValue] + 1);
+        }
+        if (wanted.count > 0) {
+            NSMutableArray<NSDictionary *> *allEntries = _loadImportantMemoryEntries();
+            NSMutableArray<NSDictionary *> *kept =
+                [NSMutableArray arrayWithCapacity:allEntries.count];
+            for (NSDictionary *entry in allEntries) {
+                NSString *key = [entry isKindOfClass:[NSDictionary class]]
+                    ? _forgetSnapshotIdentityKey(entry) : @"";
+                NSInteger remaining = [wanted[key] integerValue];
+                if (key.length > 0 && remaining > 0) {
+                    wanted[key] = @(remaining - 1);
+                    removedCount++;
+                } else {
+                    [kept addObject:entry];
+                }
+            }
+            if (removedCount > 0) _saveImportantMemoryEntries(kept);
+        }
+    });
+    EZLogf(EZLogLevelInfo, @"MEMORY", @"Forget (confirmed) removed %lu shown entries for '%@'",
+           (unsigned long)removedCount, text);
     if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(removedCount); });
 }
 
@@ -3264,6 +3425,67 @@ void EZUnregisterForgetNeedle(NSString *text) {
     NSString *needle = _normalizedForgetNeedle(text);
     if (needle.length == 0) return;
     dispatch_sync(_fileWriteQueue(), ^{ _unregisterForgetNeedle(needle); });
+}
+
+// EZResolveForgetNeedle — settles the saves held for `text`'s needle
+// when its forget request concludes (see the held-saves note above and
+// the declaration in helpers.h). Public + queue-wrapped like the other
+// gate entry points; the gate calls it on confirm, on Keep, and on the
+// zero-match path where no prompt ever appears.
+void EZResolveForgetNeedle(NSString *text, BOOL forgotten) {
+    NSString *needle = _normalizedForgetNeedle(text);
+    if (needle.length == 0) return;
+    dispatch_sync(_fileWriteQueue(), ^{
+        NSArray<NSDictionary *> *held = [_heldForgetBlockedEntries()[needle] copy];
+        if (held.count == 0) return;
+        [_heldForgetBlockedEntries() removeObjectForKey:needle];
+        if (forgotten) {
+            EZLogf(EZLogLevelInfo, @"MEMORY",
+                   @"Forget confirmed: discarded %lu held save(s) for '%@'",
+                   (unsigned long)held.count, text);
+            return;
+        }
+        // Kept: append each held save to its target store through the
+        // normal load/append/save path, with the same duplicate guard
+        // its original save used — an identical fact already stored is
+        // not duplicated, and a summaries entry is checked against the
+        // store's last entry exactly like EZCreateMemoryEntryInternal.
+        NSMutableArray<NSDictionary *> *important = nil;
+        NSMutableArray<NSDictionary *> *summaries = nil;
+        BOOL importantDirty = NO, summariesDirty = NO;
+        for (NSDictionary *record in held) {
+            if (![record isKindOfClass:[NSDictionary class]]) continue;
+            NSDictionary *entry = [record[@"entry"] isKindOfClass:[NSDictionary class]]
+                ? record[@"entry"] : nil;
+            if (!entry) continue;
+            if ([_safeString(record[@"store"]) isEqualToString:@"summaries"]) {
+                if (!summaries) summaries = _loadMemoryEntries();
+                NSDictionary *lastEntry = summaries.lastObject;
+                if ([lastEntry isKindOfClass:[NSDictionary class]] &&
+                    _memoryEntryLooksDuplicate(entry, lastEntry)) continue;
+                [summaries addObject:entry];
+                summariesDirty = YES;
+            } else {
+                if (!important) important = _loadImportantMemoryEntries();
+                NSString *fact = _safeString(entry[@"explicitFact"]);
+                if (fact.length == 0) fact = _safeString(entry[@"summary"]);
+                BOOL duplicate = NO;
+                for (NSDictionary *existing in important) {
+                    if (![existing isKindOfClass:[NSDictionary class]]) continue;
+                    NSString *prior = _safeString(existing[@"explicitFact"]);
+                    if (prior.length == 0) prior = _safeString(existing[@"summary"]);
+                    if (fact.length > 0 && [prior isEqualToString:fact]) { duplicate = YES; break; }
+                }
+                if (duplicate) continue;
+                [important addObject:entry];
+                importantDirty = YES;
+            }
+        }
+        if (importantDirty) _saveImportantMemoryEntries(important);
+        if (summariesDirty) _saveMemoryEntries(summaries);
+        EZLogf(EZLogLevelInfo, @"MEMORY",
+               @"Forget declined: restored held save(s) for '%@'", text);
+    });
 }
 
 // ── Important memories: context block + Memory Summary CRUD ──────────
