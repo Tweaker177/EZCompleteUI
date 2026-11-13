@@ -403,13 +403,19 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
         // Build the entry first: the file takes the sound's display
         // name from birth (user rule, 2026-11-13) — what the list shows
         // is what the file is called, so shares/exports never surface a
-        // generated sound_<stamp>_<id> name. The filename is filled in
-        // below, once metadata is merged and the name is final.
+        // generated sound_<stamp>_<id> name. The final filename is
+        // assigned below, once metadata is merged and the name is
+        // final; until then the entry carries a non-empty placeholder,
+        // because the entry initializer asserts filename and
+        // relativePath are non-empty — passing @"" here crashed every
+        // save with an uncaught NSParameterAssert on this queue. The
+        // placeholder is replaced before the file is written and
+        // before the entry reaches the manifest, so it never surfaces.
         EZSoundManifestEntry *entry = [EZSoundManifestEntry entryWithProvider:provider
                                                                          model:model
                                                                         prompt:prompt
-                                                                      filename:@""
-                                                                  relativePath:@""
+                                                                      filename:@"pending"
+                                                                  relativePath:[kEZAudioFolderName stringByAppendingPathComponent:@"pending"]
                                                                       duration:0
                                                                     sampleRate:0
                                                                       fileSize:(unsigned long long)audioData.length];
