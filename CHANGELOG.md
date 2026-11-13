@@ -4,7 +4,37 @@ All notable changes to EZCompleteUI are documented here. Version numbers refer
 to the app/package version. Server-backed features also require their matching
 Supabase Edge Function deployments and migrations.
 
-## 7.2.3 — Upcoming
+## 7.2.5 — Upcoming
+
+### Slots
+
+- Added **Plunder Bay**, a five-reel slot machine with pirate-themed symbols,
+  free spins, custom sound effects, and background ambience.
+- Added casino ambience to the slot machine picker.
+
+### Chat and memory
+
+- Added an Auto model switch to the model picker and improved automatic chat
+  routing and context handling, including a fix for stale image-model picks.
+- Improved reaction persistence when restoring chats and cleared stale status
+  indicators. Reaction metadata is excluded from chat API messages.
+- Improved important-memory migration and the confirmation flow for
+  forgetting memories.
+
+### Audio
+
+- Sounds play when tapped instead of automatically playing through the
+  library; fixed a crash when saving a newly generated sound.
+- Sound, text-to-speech, and music files now use readable names based on their
+  display titles.
+
+## 7.2.4 — 2026-11-13
+
+- Fixed reaction metadata being included as unsupported fields in chat API
+  requests.
+- Corrected slot leaderboard labels to describe the last 24 hours.
+
+## 7.2.3 — 2026-11-12
 
 ### Chat and memory
 
