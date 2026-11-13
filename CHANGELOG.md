@@ -12,6 +12,9 @@ Supabase Edge Function deployments and migrations.
   shared with the model on the next chat turn.
 - Ask chat to remember or forget information. Before removing matching saved
   memories, the app shows the matches and asks for confirmation.
+- Manage important memories in the new **Memory Summary** screen in Settings.
+  These memories are stored separately from automatic conversation summaries
+  and included in chat context.
 - The admin coin ledger now shows the Fast Mode used for each chat alongside
   its model.
 
