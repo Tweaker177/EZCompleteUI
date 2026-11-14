@@ -3,7 +3,7 @@
 #import "EZEntitlementManager.h"
 #import "EZSupabaseConfig.h"
 #import "EZCoinStoreViewController.h"
-#import "BRSlotRoomViewController.h"
+#import "BRSlotChatBar.h"
 #import <AVFoundation/AVFoundation.h>
 
 // Plunder Bay — the client half of ez-plunder-spin. The server owns
@@ -23,6 +23,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 @interface BRPlunderBayViewController () <AVAudioPlayerDelegate>
 @property (nonatomic, strong) NSMutableArray<NSArray<UIImageView *> *> *reels;
 @property (nonatomic, strong) UILabel *balanceLabel, *bonusLabel, *messageLabel;
+@property (nonatomic, strong) BRSlotChatBar *chatBar;
 @property (nonatomic, strong) UIButton *betButton, *spinButton, *maxButton;
 @property (nonatomic, strong) UIView *machineView, *bonusTint, *winOverlay;
 @property (nonatomic, strong) AVAudioPlayer *bellsPlayer, *coinsPlayer, *reelsPlayer, *whooshPlayer, *cannonPlayer;
@@ -71,15 +72,13 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     self.betIndex = 1; // 20 coins
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:NSLocalizedString(@"BRSlot.Navigation.Back", nil) action:@selector(backTapped)]];
     self.navigationItem.rightBarButtonItems = @[
-        [[UIBarButtonItem alloc] initWithCustomView:[self navButton:NSLocalizedString(@"BRSlot.Navigation.Lounge", nil) action:@selector(openLounge)]],
         [[UIBarButtonItem alloc] initWithCustomView:[self navButton:NSLocalizedString(@"BRSlot.Navigation.Odds", nil) action:@selector(showOdds)]]
     ];
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
-- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (self.freeSpinsRemaining > 0) [self startBonusSong]; [self scheduleBonusAutoSpin]; }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; self.autoSpinToken++; [self stopAutoSpin]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
+- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (self.freeSpinsRemaining > 0) [self startBonusSong]; [self scheduleBonusAutoSpin]; if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"plunder-bay"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; } [self.chatBar start]; }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; self.autoSpinToken++; [self stopAutoSpin]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.chatBar stop]; [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
-- (void)openLounge { [self.navigationController pushViewController:[[BRSlotRoomViewController alloc] initWithRoomID:@"plunder-bay" title:NSLocalizedString(@"BRSlot.Plunder.LoungeTitle", nil)] animated:YES]; }
 
 - (UIButton *)navButton:(NSString *)title action:(SEL)action {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:title forState:UIControlStateNormal];
