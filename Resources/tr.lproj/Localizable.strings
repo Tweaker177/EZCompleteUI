@@ -297,7 +297,7 @@
 "ElevenLabsClone.UploadFailed" = "Yükleme başarısız oldu.";
 "ElevenLabsClone.CloneFailed" = "Klonlama Başarısız";
 "ElevenLabsClone.NoVoiceID" = "Yanıtta ses kimliği yok.";
-"ElevenLabsClone.SlotsUsedFormat" = "\\nKullanılan yuvalar: %ld / %ld";
+"ElevenLabsClone.SlotsUsedFormat" = "\nKullanılan yuvalar: %ld / %ld";
 "ElevenLabsClone.VoiceCloned" = "Ses Klonlandı";
 "ElevenLabsClone.VoiceClonedMessage" = "Ses Kimliği: %@%@";
 "ElevenLabsClone.CloneRetentionTitle" = "Klonunuzu Koruyun";
@@ -486,20 +486,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "Şu anda yerleşik slot görüntüsü kullanılıyor.";
 "BRSlot.Customizer.BuiltInPenny" = "Şu anda yerleşik Penny Slots görüntüsü kullanılıyor.";
 "BRSlot.Generation.Cost" = "Her oluşturma 3 EZ Coin tutar.";
-"BRSlot.Plunder.Title" = "Plunder Bay";
-"BRSlot.Plunder.Heading" = "☠  PLUNDER BAY  ☠";
-"BRSlot.Plunder.Description" = "Yirmi çizgi, bir hazine sandığı. Üç sandık bonusu uyandırır.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Sandıklar her yerde öder — 3 veya daha fazlası, çizgi kazançları ×3 olan ücretsiz dönüşleri başlatır";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld ÜCRETSİZ DÖNÜŞ KALDI — ÇİZGİ KAZANÇLARI ×3";
-"BRSlot.Plunder.FreeSpin" = "Ücretsiz dönüş — bahis alınmaz";
-"BRSlot.Plunder.BetValue" = "BAHİS\n%ld";
-"BRSlot.Plunder.MaxBet" = "MAKSİMUM BAHİS\n100 + DÖNDÜR";
-"BRSlot.Plunder.NeedCoins" = "Bu bahis için %ld coin gerekli.";
-"BRSlot.Plunder.SignIn" = "Plunder Bay oynamak için oturum açın.";
-"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
-"BRSlot.Plunder.LoungeTitle" = "Plunder Bay Salonu";
-"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
-"BRSlot.Picker.Plunder.Detail" = "Beş makara, yirmi çizgi, ücretsiz dönüşlerle dolu bir sandık. Korsan makinesi.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Şarkı sözleri";
@@ -728,3 +714,12 @@
 
 /* EZSounds (edit) */
 "EZSounds.Edit" = "Düzenle";
+/* Slot win results */
+"BRSlot.Win.LineResult" = "🎉 %3$ld çizgide %1$ld coin (%2$+ld) kazandın!";
+"BRSlot.Win.LineResultOne" = "🎉 %3$ld çizgide %1$ld coin (%2$+ld) kazandın!";
+"BRSlot.Win.LinesResult" = "🎉 %2$ld çizgide %1$ld coin kazandın";
+"BRSlot.Win.LinesResultOne" = "🎉 %2$ld çizgide %1$ld coin kazandın";
+"BRSlot.Win.Coins" = "%ld coin kazandın";
+"BRSlot.Win.FreeSpinsAward" = "+%ld ÜCRETSİZ DÖNÜŞ!";
+"BRSlot.Win.NoWin" = "Kazanç yok • −%ld coin";
+"BRSlot.Win.FreeSpinNoWin" = "Ücretsiz dönüş • çizgi kazancı yok";

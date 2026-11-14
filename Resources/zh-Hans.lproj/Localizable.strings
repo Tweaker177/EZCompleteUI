@@ -286,7 +286,7 @@
 "ElevenLabsClone.UploadFailed" = "上传失败。";
 "ElevenLabsClone.CloneFailed" = "克隆失败";
 "ElevenLabsClone.NoVoiceID" = "响应中没有声音 ID。";
-"ElevenLabsClone.SlotsUsedFormat" = "\\n已用名额：%ld / %ld";
+"ElevenLabsClone.SlotsUsedFormat" = "\n已用名额：%ld / %ld";
 "ElevenLabsClone.VoiceCloned" = "声音已克隆";
 "ElevenLabsClone.VoiceClonedMessage" = "声音 ID：%@%@";
 "ElevenLabsClone.UnnamedVoice" = "未命名声音";
@@ -394,7 +394,7 @@
 "BRSlot.Classic.Description" = "5 条支付线 • 服务器验证的结果";
 "BRSlot.Control.Lines" = "线路";
 "BRSlot.Control.BetPerLine" = "下注/投注线";
-"BRSlot.Classic.MaxBet" = "最大赌注\\n⚡ 25";
+"BRSlot.Classic.MaxBet" = "最大赌注\n⚡ 25";
 "BRSlot.Customize" = "自定义符号";
 "BRSlot.Control.Spin" = "⚡ 旋转";
 "BRSlot.Penny.Title" = "便士老虎机";
@@ -409,8 +409,8 @@
 "BRSlot.Customizer.PennyTitle" = "定制便士老虎机";
 "BRSlot.Customizer.PennySubtitle" = "点击符号可选择照片、文件或生成的图像。这里展示了当前的艺术。";
 "BRSlot.Customizer.ResetAll" = "↺ 重置所有艺术品";
-"BRSlot.Control.LinesValue" = "行\\n%ld";
-"BRSlot.Control.BetPerLineValue" = "下注/下注\\n🪙 %ld";
+"BRSlot.Control.LinesValue" = "行\n%ld";
+"BRSlot.Control.BetPerLineValue" = "下注/下注\n🪙 %ld";
 "BRSlot.Balance.Value" = "🪙 %ld EZ 硬币";
 "BRSlot.Classic.LoungeTitle" = "脑腐休息室";
 "BRSlot.Penny.LoungeTitle" = "便士老虎机休息室";
@@ -425,7 +425,7 @@
 "BRSlot.Classic.StoreFeature" = "您的 %ld 硬币老虎机赌注";
 "BRSlot.Spinning" = "旋转…";
 "BRSlot.Error.SessionExpired" = "您的登录会话已过期。";
-"BRSlot.Penny.MaxBet" = "最大赌注\\n⚡ 225";
+"BRSlot.Penny.MaxBet" = "最大赌注\n⚡ 225";
 "BRSlot.Penny.FreeSpin" = "自由旋转...";
 "BRSlot.Penny.NeedCoins" = "这次旋转需要 %ld 个硬币。";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ 还剩 %ld 个免费旋转 • 所有获胜 2×";
@@ -435,7 +435,7 @@
 "BRSlot.Pity.Title" = "😬 嗯，这很粗糙";
 "BRSlot.Pity.Body" = "那次跑步并没有如你所愿。房子里还有 %ld 个旋转。";
 "BRSlot.Pity.Action" = "我们走吧！ 🎰";
-"BRSlot.Win.Overlay" = "%@\\n+%ld 个硬币";
+"BRSlot.Win.Overlay" = "%@\n+%ld 个硬币";
 "BRSlot.Win.Jackpot" = "大奖！";
 "BRSlot.Win.Winner" = "优胜者！";
 "BRSlot.Lounge.SignIn" = "登录以加入休息室。";
@@ -445,20 +445,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "目前使用内置插槽图像。";
 "BRSlot.Customizer.BuiltInPenny" = "目前使用内置的 Penny Slots 图像。";
 "BRSlot.Generation.Cost" = "每一代花费 3 个 EZ 币。";
-"BRSlot.Plunder.Title" = "掠夺湾";
-"BRSlot.Plunder.Heading" = "☠掠夺湾☠";
-"BRSlot.Plunder.Description" = "二十条线，一个宝箱。三个宝箱唤醒奖励。";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ 宝箱任意位置赔付 — 3 个以上开启免费旋转，连线获胜 ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ 还剩 %ld 次免费旋转 — 连线获胜 ×3";
-"BRSlot.Plunder.FreeSpin" = "免费旋转 — 不扣除投注";
-"BRSlot.Plunder.BetValue" = "下注\n%ld";
-"BRSlot.Plunder.MaxBet" = "最大赌注\n100 + 旋转";
-"BRSlot.Plunder.NeedCoins" = "这次下注需要 %ld 个硬币。";
-"BRSlot.Plunder.SignIn" = "登录即可玩掠夺湾。";
-"BRSlot.Plunder.StoreFeature" = "掠夺湾";
-"BRSlot.Plunder.LoungeTitle" = "掠夺湾休息室";
-"BRSlot.Picker.Plunder.Title" = "掠夺湾";
-"BRSlot.Picker.Plunder.Detail" = "五个卷轴、二十条线、一整箱免费旋转。海盗老虎机。";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "歌曲歌词";
@@ -687,3 +673,12 @@
 
 /* EZSounds (edit) */
 "EZSounds.Edit" = "编辑";
+/* Slot win results */
+"BRSlot.Win.LineResult" = "🎉 在 %3$ld 条线上赢得 %1$ld 硬币（%2$+ld）!";
+"BRSlot.Win.LineResultOne" = "🎉 在 %3$ld 条线上赢得 %1$ld 硬币（%2$+ld）!";
+"BRSlot.Win.LinesResult" = "🎉 在 %2$ld 条线上赢得 %1$ld 硬币";
+"BRSlot.Win.LinesResultOne" = "🎉 在 %2$ld 条线上赢得 %1$ld 硬币";
+"BRSlot.Win.Coins" = "赢得 %ld 硬币";
+"BRSlot.Win.FreeSpinsAward" = "+%ld 次免费旋转!";
+"BRSlot.Win.NoWin" = "未中奖 • −%ld 硬币";
+"BRSlot.Win.FreeSpinNoWin" = "免费旋转 • 无中奖线";

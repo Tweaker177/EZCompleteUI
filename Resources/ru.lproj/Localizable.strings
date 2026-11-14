@@ -297,7 +297,7 @@
 "ElevenLabsClone.UploadFailed" = "Не удалось загрузить.";
 "ElevenLabsClone.CloneFailed" = "Ошибка клонирования";
 "ElevenLabsClone.NoVoiceID" = "В ответе отсутствует идентификатор голоса.";
-"ElevenLabsClone.SlotsUsedFormat" = "\\nИспользуемые слоты: %ld / %ld";
+"ElevenLabsClone.SlotsUsedFormat" = "\nИспользуемые слоты: %ld / %ld";
 "ElevenLabsClone.VoiceCloned" = "Голос клонирован";
 "ElevenLabsClone.VoiceClonedMessage" = "Идентификатор голоса: %@%@";
 "ElevenLabsClone.UnnamedVoice" = "Безымянный голос";
@@ -434,7 +434,7 @@
 "BRSlot.Classic.Description" = "Пять линий выплат • результаты, проверенные сервером";
 "BRSlot.Control.Lines" = "ЛИНИИ";
 "BRSlot.Control.BetPerLine" = "СТАВКА/ЛИНИЯ";
-"BRSlot.Classic.MaxBet" = "МАКС. СТАВКА\\n⚡ 25";
+"BRSlot.Classic.MaxBet" = "МАКС. СТАВКА\n⚡ 25";
 "BRSlot.Customize" = "Настройка символов";
 "BRSlot.Control.Spin" = "⚡ СПИН";
 "BRSlot.Penny.Title" = "Пенни Слоты";
@@ -449,8 +449,8 @@
 "BRSlot.Customizer.PennyTitle" = "Настройте пенни-слоты";
 "BRSlot.Customizer.PennySubtitle" = "Коснитесь символа, чтобы выбрать фотографию, файл или созданное изображение. Здесь показано современное искусство.";
 "BRSlot.Customizer.ResetAll" = "↺ Сбросить все иллюстрации";
-"BRSlot.Control.LinesValue" = "ЛИНИИ\\n%ld";
-"BRSlot.Control.BetPerLineValue" = "СТАВКА/ЛИНИЯ\\n🪙 %ld";
+"BRSlot.Control.LinesValue" = "ЛИНИИ\n%ld";
+"BRSlot.Control.BetPerLineValue" = "СТАВКА/ЛИНИЯ\n🪙 %ld";
 "BRSlot.Balance.Value" = "🪙 %ld монет EZ";
 "BRSlot.Classic.LoungeTitle" = "Мозговая гостиная";
 "BRSlot.Penny.LoungeTitle" = "Пенни Слоты Лаундж";
@@ -465,7 +465,7 @@
 "BRSlot.Classic.StoreFeature" = "ваша ставка %ld-coin в игровых автоматах";
 "BRSlot.Spinning" = "Вращение…";
 "BRSlot.Error.SessionExpired" = "Срок действия вашего сеанса входа истек.";
-"BRSlot.Penny.MaxBet" = "МАКС. СТАВКА\\n⚡ 225";
+"BRSlot.Penny.MaxBet" = "МАКС. СТАВКА\n⚡ 225";
 "BRSlot.Penny.FreeSpin" = "Бесплатное вращение…";
 "BRSlot.Penny.NeedCoins" = "Для этого вращения нужно %ld монет.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ ОСТАЛОСЬ %ld БЕСПЛАТНЫХ ВРАЩЕНИЙ • ВСЕ ВЫИГРЫШИ 2×";
@@ -475,7 +475,7 @@
 "BRSlot.Pity.Title" = "😬 Ну, это было жестко";
 "BRSlot.Pity.Body" = "Эта пробежка пошла не по твоему пути. Вот еще %ld вращений в казино.";
 "BRSlot.Pity.Action" = "Пойдем! 🎰";
-"BRSlot.Win.Overlay" = "%@\\n+%ld МОНЕТЫ";
+"BRSlot.Win.Overlay" = "%@\n+%ld МОНЕТЫ";
 "BRSlot.Win.Jackpot" = "ДЖЕКПОТ!";
 "BRSlot.Win.Winner" = "ПОБЕДИТЕЛЬ!";
 "BRSlot.Lounge.SignIn" = "Войдите, чтобы присоединиться к гостиной.";
@@ -485,20 +485,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "В настоящее время используется встроенный образ слота.";
 "BRSlot.Customizer.BuiltInPenny" = "В настоящее время используется встроенный образ Penny Slots.";
 "BRSlot.Generation.Cost" = "Каждое поколение стоит 3 монеты EZ.";
-"BRSlot.Plunder.Title" = "Пландер Бэй";
-"BRSlot.Plunder.Heading" = "☠ ПЛАНДЕР БЭЙ ☠";
-"BRSlot.Plunder.Description" = "Двадцать линий, один сундук с сокровищами. Три сундука пробуждают бонус.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Сундуки платят в любом месте — от 3 запускают бесплатные вращения с выигрышами по линиям ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ ОСТАЛОСЬ %ld БЕСПЛАТНЫХ ВРАЩЕНИЙ — ВЫИГРЫШИ ПО ЛИНИЯМ ×3";
-"BRSlot.Plunder.FreeSpin" = "Бесплатное вращение — ставка не списывается";
-"BRSlot.Plunder.BetValue" = "СТАВКА\n%ld";
-"BRSlot.Plunder.MaxBet" = "МАКС. СТАВКА\n100 + СПИН";
-"BRSlot.Plunder.NeedCoins" = "Для этой ставки нужно %ld монет.";
-"BRSlot.Plunder.SignIn" = "Войдите, чтобы играть в Plunder Bay.";
-"BRSlot.Plunder.StoreFeature" = "Пландер Бэй";
-"BRSlot.Plunder.LoungeTitle" = "Пландер Бэй Лаундж";
-"BRSlot.Picker.Plunder.Title" = "Пландер Бэй";
-"BRSlot.Picker.Plunder.Detail" = "Пять барабанов, двадцать линий, сундук, полный бесплатных вращений. Пиратский автомат.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Текст песни";
@@ -727,3 +713,12 @@
 
 /* EZSounds (edit) */
 "EZSounds.Edit" = "Изменить";
+/* Slot win results */
+"BRSlot.Win.LineResult" = "🎉 Выиграно %1$ld монет (%2$+ld) на %3$ld линиях!";
+"BRSlot.Win.LineResultOne" = "🎉 Выиграно %1$ld монет (%2$+ld) на %3$ld линии!";
+"BRSlot.Win.LinesResult" = "🎉 Выиграно %1$ld монет на %2$ld линиях";
+"BRSlot.Win.LinesResultOne" = "🎉 Выиграно %1$ld монет на %2$ld линии";
+"BRSlot.Win.Coins" = "Выигрыш: %ld монет";
+"BRSlot.Win.FreeSpinsAward" = "+%ld БЕСПЛАТНЫХ ВРАЩЕНИЙ!";
+"BRSlot.Win.NoWin" = "Нет выигрыша • −%ld монет";
+"BRSlot.Win.FreeSpinNoWin" = "Бесплатное вращение • нет выигрышных линий";

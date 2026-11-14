@@ -297,7 +297,7 @@
 "ElevenLabsClone.UploadFailed" = "업로드에 실패했습니다.";
 "ElevenLabsClone.CloneFailed" = "복제 실패";
 "ElevenLabsClone.NoVoiceID" = "응답에 음성 ID가 없습니다.";
-"ElevenLabsClone.SlotsUsedFormat" = "\\n사용된 슬롯: %ld / %ld";
+"ElevenLabsClone.SlotsUsedFormat" = "\n사용된 슬롯: %ld / %ld";
 "ElevenLabsClone.VoiceCloned" = "음성 복제 완료";
 "ElevenLabsClone.VoiceClonedMessage" = "음성 ID: %@%@";
 "ElevenLabsClone.CloneRetentionTitle" = "복제 음성 유지하기";
@@ -486,20 +486,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "현재 기본 제공 슬롯 이미지를 사용 중입니다.";
 "BRSlot.Customizer.BuiltInPenny" = "현재 기본 제공 페니 슬롯 이미지를 사용 중입니다.";
 "BRSlot.Generation.Cost" = "생성할 때마다 EZ 코인 3개가 필요합니다.";
-"BRSlot.Plunder.Title" = "플런더 베이";
-"BRSlot.Plunder.Heading" = "☠  플런더 베이  ☠";
-"BRSlot.Plunder.Description" = "20개 라인, 하나의 보물상자. 상자 3개가 보너스를 깨웁니다.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ 보물상자는 어디서든 지급 — 3개 이상이면 라인 당첨 3배인 무료 스핀 시작";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ 무료 스핀 %ld회 남음 • 라인 당첨 3배";
-"BRSlot.Plunder.FreeSpin" = "무료 스핀 — 베팅 차감 없음";
-"BRSlot.Plunder.BetValue" = "베팅\n%ld";
-"BRSlot.Plunder.MaxBet" = "최대 베팅\n100 + 스핀";
-"BRSlot.Plunder.NeedCoins" = "이 베팅에는 %ld 코인이 필요합니다.";
-"BRSlot.Plunder.SignIn" = "플런더 베이를 플레이하려면 로그인하세요.";
-"BRSlot.Plunder.StoreFeature" = "플런더 베이";
-"BRSlot.Plunder.LoungeTitle" = "플런더 베이 라운지";
-"BRSlot.Picker.Plunder.Title" = "플런더 베이";
-"BRSlot.Picker.Plunder.Detail" = "릴 5개, 라인 20개, 무료 스핀으로 가득 찬 보물상자. 해적 슬롯.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "노래 가사";
@@ -728,3 +714,12 @@
 
 /* EZSounds (edit) */
 "EZSounds.Edit" = "편집";
+/* Slot win results */
+"BRSlot.Win.LineResult" = "🎉 %3$ld개 라인에서 %1$ld 코인 (%2$+ld) 획득!";
+"BRSlot.Win.LineResultOne" = "🎉 %3$ld개 라인에서 %1$ld 코인 (%2$+ld) 획득!";
+"BRSlot.Win.LinesResult" = "🎉 %2$ld개 라인에서 %1$ld 코인 획득";
+"BRSlot.Win.LinesResultOne" = "🎉 %2$ld개 라인에서 %1$ld 코인 획득";
+"BRSlot.Win.Coins" = "%ld 코인 획득";
+"BRSlot.Win.FreeSpinsAward" = "+%ld 무료 스핀!";
+"BRSlot.Win.NoWin" = "당첨 없음 • −%ld 코인";
+"BRSlot.Win.FreeSpinNoWin" = "무료 스핀 • 라인 당첨 없음";

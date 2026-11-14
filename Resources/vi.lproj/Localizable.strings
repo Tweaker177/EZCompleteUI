@@ -286,7 +286,7 @@
 "ElevenLabsClone.UploadFailed" = "Tải lên thất bại.";
 "ElevenLabsClone.CloneFailed" = "Nhân bản thất bại";
 "ElevenLabsClone.NoVoiceID" = "Không có ID giọng nói trong phản hồi.";
-"ElevenLabsClone.SlotsUsedFormat" = "\\nĐã dùng: %ld / %ld chỗ";
+"ElevenLabsClone.SlotsUsedFormat" = "\nĐã dùng: %ld / %ld chỗ";
 "ElevenLabsClone.VoiceCloned" = "Đã nhân bản giọng nói";
 "ElevenLabsClone.VoiceClonedMessage" = "ID giọng nói: %@%@";
 "ElevenLabsClone.UnnamedVoice" = "Giọng nói chưa có tên";
@@ -394,7 +394,7 @@
 "BRSlot.Classic.Description" = "Năm dòng thanh toán • kết quả được máy chủ xác minh";
 "BRSlot.Control.Lines" = "DÒNG";
 "BRSlot.Control.BetPerLine" = "CƯỢC / DÒNG";
-"BRSlot.Classic.MaxBet" = "CƯỢC TỐI ĐA\\n⚡ 25";
+"BRSlot.Classic.MaxBet" = "CƯỢC TỐI ĐA\n⚡ 25";
 "BRSlot.Customize" = "Tùy chỉnh biểu tượng";
 "BRSlot.Control.Spin" = "⚡ QUAY";
 "BRSlot.Penny.Title" = "Máy đánh bạc xu";
@@ -409,8 +409,8 @@
 "BRSlot.Customizer.PennyTitle" = "Tùy chỉnh các khe Penny";
 "BRSlot.Customizer.PennySubtitle" = "Nhấn vào biểu tượng để chọn ảnh, tệp hoặc hình ảnh được tạo. Nghệ thuật hiện tại được thể hiện ở đây.";
 "BRSlot.Customizer.ResetAll" = "↺ Đặt lại tất cả tác phẩm nghệ thuật";
-"BRSlot.Control.LinesValue" = "DÒNG\\n%ld";
-"BRSlot.Control.BetPerLineValue" = "CƯỢC / DÒNG\\n🪙 %ld";
+"BRSlot.Control.LinesValue" = "DÒNG\n%ld";
+"BRSlot.Control.BetPerLineValue" = "CƯỢC / DÒNG\n🪙 %ld";
 "BRSlot.Balance.Value" = "🪙 %ld Tiền xu EZ";
 "BRSlot.Classic.LoungeTitle" = "Phòng chờ Brainrot";
 "BRSlot.Penny.LoungeTitle" = "Phòng chờ Penny Slots";
@@ -425,7 +425,7 @@
 "BRSlot.Classic.StoreFeature" = "Đặt cược Slots %ld-coin của bạn";
 "BRSlot.Spinning" = "Đang quay…";
 "BRSlot.Error.SessionExpired" = "Phiên đăng nhập của bạn đã hết hạn.";
-"BRSlot.Penny.MaxBet" = "CƯỢC TỐI ĐA\\n⚡ 225";
+"BRSlot.Penny.MaxBet" = "CƯỢC TỐI ĐA\n⚡ 225";
 "BRSlot.Penny.FreeSpin" = "Quay miễn phí…";
 "BRSlot.Penny.NeedCoins" = "Cần %ld xu cho vòng quay này.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld TRÒ CHƠI MIỄN PHÍ • TẤT CẢ CHIẾN THẮNG 2×";
@@ -435,7 +435,7 @@
 "BRSlot.Pity.Title" = "😬 Chà, điều đó thật khó khăn";
 "BRSlot.Pity.Body" = "Cuộc chạy đó đã không diễn ra theo cách của bạn. Đây là %ld vòng quay nữa về ngôi nhà.";
 "BRSlot.Pity.Action" = "Đi thôi! 🎰";
-"BRSlot.Win.Overlay" = "%@\\n+%ld XU";
+"BRSlot.Win.Overlay" = "%@\n+%ld XU";
 "BRSlot.Win.Jackpot" = "GIẢI ĐỘC ĐẮC!";
 "BRSlot.Win.Winner" = "NGƯỜI CHIẾN THẮNG!";
 "BRSlot.Lounge.SignIn" = "Đăng nhập để tham gia phòng chờ.";
@@ -445,20 +445,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "Hiện đang sử dụng hình ảnh khe tích hợp.";
 "BRSlot.Customizer.BuiltInPenny" = "Hiện đang sử dụng hình ảnh Penny Slots tích hợp.";
 "BRSlot.Generation.Cost" = "Mỗi thế hệ có giá 3 xu EZ.";
-"BRSlot.Plunder.Title" = "Plunder Bay";
-"BRSlot.Plunder.Heading" = "☠ Plunder Bay ☠";
-"BRSlot.Plunder.Description" = "Hai mươi dòng, một rương kho báu. Ba rương đánh thức vòng thưởng.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Rương trả thưởng ở mọi vị trí — 3 rương trở lên bắt đầu quay miễn phí với thắng dòng ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ CÒN %ld LƯỢT QUAY MIỄN PHÍ — THẮNG DÒNG ×3";
-"BRSlot.Plunder.FreeSpin" = "Quay miễn phí — không trừ cược";
-"BRSlot.Plunder.BetValue" = "CƯỢC\n%ld";
-"BRSlot.Plunder.MaxBet" = "CƯỢC TỐI ĐA\n100 + QUAY";
-"BRSlot.Plunder.NeedCoins" = "Cần %ld xu cho cược này.";
-"BRSlot.Plunder.SignIn" = "Đăng nhập để chơi Plunder Bay.";
-"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
-"BRSlot.Plunder.LoungeTitle" = "Phòng chờ Plunder Bay";
-"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
-"BRSlot.Picker.Plunder.Detail" = "Năm cuộn, hai mươi dòng, một rương đầy lượt quay miễn phí. Máy cướp biển.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Lời bài hát";
@@ -687,3 +673,12 @@
 
 /* EZSounds (edit) */
 "EZSounds.Edit" = "Chỉnh sửa";
+/* Slot win results */
+"BRSlot.Win.LineResult" = "🎉 Thắng %1$ld xu (%2$+ld) trên %3$ld dòng!";
+"BRSlot.Win.LineResultOne" = "🎉 Thắng %1$ld xu (%2$+ld) trên %3$ld dòng!";
+"BRSlot.Win.LinesResult" = "🎉 Thắng %1$ld xu trên %2$ld dòng";
+"BRSlot.Win.LinesResultOne" = "🎉 Thắng %1$ld xu trên %2$ld dòng";
+"BRSlot.Win.Coins" = "Thắng %ld xu";
+"BRSlot.Win.FreeSpinsAward" = "+%ld LƯỢT QUAY MIỄN PHÍ!";
+"BRSlot.Win.NoWin" = "Không thắng • −%ld xu";
+"BRSlot.Win.FreeSpinNoWin" = "Quay miễn phí • không có dòng thắng";

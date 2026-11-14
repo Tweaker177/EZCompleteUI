@@ -94,13 +94,13 @@
 
 "EZCoinStore.Tier.Basic" = "ขั้นพื้นฐาน";
 
-"EZCoinStore.Tier.BasicSubtitle" = "400 เหรียญ / เดือน\\nเหมาะสำหรับการใช้งานทั่วไป";
+"EZCoinStore.Tier.BasicSubtitle" = "400 เหรียญ / เดือน\nเหมาะสำหรับการใช้งานทั่วไป";
 
 "EZCoinStore.Tier.BasicPrice" = "$5 / เดือน";
 
 "EZCoinStore.Tier.Standard" = "มาตรฐาน";
 
-"EZCoinStore.Tier.StandardSubtitle" = "900 เหรียญ / เดือน\\nเหมาะสำหรับผู้ใช้ทั่วไป";
+"EZCoinStore.Tier.StandardSubtitle" = "900 เหรียญ / เดือน\nเหมาะสำหรับผู้ใช้ทั่วไป";
 
 "EZCoinStore.Tier.StandardPrice" = "$10 / เดือน";
 
@@ -108,7 +108,7 @@
 
 "EZCoinStore.Tier.Pro" = "โปร";
 
-"EZCoinStore.Tier.ProSubtitle" = "1,600 เหรียญ / เดือน\\nเหมาะสำหรับผู้ใช้รายวัน";
+"EZCoinStore.Tier.ProSubtitle" = "1,600 เหรียญ / เดือน\nเหมาะสำหรับผู้ใช้รายวัน";
 
 "EZCoinStore.Tier.ProPrice" = "$15 / เดือน";
 
@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "อัลตร้า";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 เหรียญ / เดือน\\nยินดีต้อนรับผู้ใช้ระดับสูง";
+"EZCoinStore.Tier.UltraSubtitle" = "2,500 เหรียญ / เดือน\nยินดีต้อนรับผู้ใช้ระดับสูง";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / เดือน";
 
@@ -124,11 +124,11 @@
 
 "EZCoinStore.TopUp.Starter" = "แพ็คเริ่มต้นเหรียญ";
 
-"EZCoinStore.TopUp.StarterSubtitle" = "400 เหรียญ ครั้งเดียว\\nไม่มีวันหมดอายุ";
+"EZCoinStore.TopUp.StarterSubtitle" = "400 เหรียญ ครั้งเดียว\nไม่มีวันหมดอายุ";
 
 "EZCoinStore.TopUp.Value" = "ชุดมูลค่าเหรียญ";
 
-"EZCoinStore.TopUp.ValueSubtitle" = "900 เหรียญ ครั้งเดียว\\nไม่มีวันหมดอายุ";
+"EZCoinStore.TopUp.ValueSubtitle" = "900 เหรียญ ครั้งเดียว\nไม่มีวันหมดอายุ";
 
 "EZCoinStore.Badge.Save10" = "ประหยัด 10%";
 
@@ -286,7 +286,7 @@
 "ElevenLabsClone.UploadFailed" = "การอัปโหลดล้มเหลว";
 "ElevenLabsClone.CloneFailed" = "โคลนล้มเหลว";
 "ElevenLabsClone.NoVoiceID" = "ไม่มีรหัสเสียงในการตอบกลับ";
-"ElevenLabsClone.SlotsUsedFormat" = "\\\\nช่องที่ใช้: %ld / %ld";
+"ElevenLabsClone.SlotsUsedFormat" = "\nช่องที่ใช้: %ld / %ld";
 "ElevenLabsClone.VoiceCloned" = "โคลนเสียง";
 "ElevenLabsClone.VoiceClonedMessage" = "รหัสเสียง: %@%@";
 "ElevenLabsClone.UnnamedVoice" = "เสียงที่ไม่มีชื่อ";
@@ -394,7 +394,7 @@
 "BRSlot.Classic.Description" = "ห้าช่องจ่ายเงิน • ผลลัพธ์ที่เซิร์ฟเวอร์ตรวจสอบแล้ว";
 "BRSlot.Control.Lines" = "เส้น";
 "BRSlot.Control.BetPerLine" = "เดิมพัน / ไลน์";
-"BRSlot.Classic.MaxBet" = "เดิมพันสูงสุด\\n⚡ 25";
+"BRSlot.Classic.MaxBet" = "เดิมพันสูงสุด\n⚡ 25";
 "BRSlot.Customize" = "ปรับแต่งสัญลักษณ์";
 "BRSlot.Control.Spin" = "⚡ หมุน";
 "BRSlot.Penny.Title" = "สล็อตเพนนี";
@@ -409,8 +409,8 @@
 "BRSlot.Customizer.PennyTitle" = "ปรับแต่งสล็อตเพนนี";
 "BRSlot.Customizer.PennySubtitle" = "แตะสัญลักษณ์เพื่อเลือกรูปภาพ ไฟล์ หรือรูปภาพที่สร้างขึ้น งานศิลปะปัจจุบันแสดงไว้ที่นี่";
 "BRSlot.Customizer.ResetAll" = "↺ รีเซ็ตงานศิลปะทั้งหมด";
-"BRSlot.Control.LinesValue" = "เส้น\\n%ld";
-"BRSlot.Control.BetPerLineValue" = "เดิมพัน / ไลน์\\n🪙 %ld";
+"BRSlot.Control.LinesValue" = "เส้น\n%ld";
+"BRSlot.Control.BetPerLineValue" = "เดิมพัน / ไลน์\n🪙 %ld";
 "BRSlot.Balance.Value" = "🪙 %ld เหรียญ EZ";
 "BRSlot.Classic.LoungeTitle" = "เบรนรอท เลานจ์";
 "BRSlot.Penny.LoungeTitle" = "เพนนีสล็อตเลานจ์";
@@ -425,7 +425,7 @@
 "BRSlot.Classic.StoreFeature" = "เดิมพันสล็อต %ld-coin ของคุณ";
 "BRSlot.Spinning" = "ปั่น…";
 "BRSlot.Error.SessionExpired" = "เซสชันการลงชื่อเข้าใช้ของคุณหมดอายุแล้ว";
-"BRSlot.Penny.MaxBet" = "เดิมพันสูงสุด\\n⚡ 225";
+"BRSlot.Penny.MaxBet" = "เดิมพันสูงสุด\n⚡ 225";
 "BRSlot.Penny.FreeSpin" = "หมุนฟรี…";
 "BRSlot.Penny.NeedCoins" = "ต้องการ %ld เหรียญสำหรับการหมุนครั้งนี้";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ % ld หมุนฟรีทางซ้าย • ชนะทั้งหมด 2 ×";
@@ -435,7 +435,7 @@
 "BRSlot.Pity.Title" = "😬 นั่นมันหยาบมาก";
 "BRSlot.Pity.Body" = "การวิ่งครั้งนั้นไม่เป็นไปตามที่คุณคิด นี่คือ %ld สปินเพิ่มเติมในบ้าน";
 "BRSlot.Pity.Action" = "ไปกันเลย! 🎰";
-"BRSlot.Win.Overlay" = "%@\\n+%ld เหรียญ";
+"BRSlot.Win.Overlay" = "%@\n+%ld เหรียญ";
 "BRSlot.Win.Jackpot" = "แจ็คพอต!";
 "BRSlot.Win.Winner" = "ผู้ชนะ!";
 "BRSlot.Lounge.SignIn" = "ลงชื่อเข้าใช้เพื่อเข้าร่วมห้องรับรอง";
@@ -445,20 +445,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "ขณะนี้ใช้ภาพสล็อตในตัว";
 "BRSlot.Customizer.BuiltInPenny" = "ขณะนี้ใช้รูปภาพ Penny Slots ในตัว";
 "BRSlot.Generation.Cost" = "แต่ละรุ่นมีราคา 3 เหรียญ EZ";
-"BRSlot.Plunder.Title" = "พลันเดอร์ เบย์";
-"BRSlot.Plunder.Heading" = "☠ พลันเดอร์ เบย์ ☠";
-"BRSlot.Plunder.Description" = "ยี่สิบไลน์ หนึ่งหีบสมบัติ หีบสามใบปลุกโบนัส";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ หีบสมบัติจ่ายทุกตำแหน่ง — 3 ใบขึ้นไปเริ่มหมุนฟรี ชนะตามไลน์ ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ เหลือ %ld หมุนฟรี — ชนะตามไลน์ ×3";
-"BRSlot.Plunder.FreeSpin" = "หมุนฟรี — ไม่หักเดิมพัน";
-"BRSlot.Plunder.BetValue" = "เดิมพัน\n%ld";
-"BRSlot.Plunder.MaxBet" = "เดิมพันสูงสุด\n100 + หมุน";
-"BRSlot.Plunder.NeedCoins" = "ต้องการ %ld เหรียญสำหรับการเดิมพันนี้";
-"BRSlot.Plunder.SignIn" = "ลงชื่อเข้าใช้เพื่อเล่นพลันเดอร์ เบย์";
-"BRSlot.Plunder.StoreFeature" = "พลันเดอร์ เบย์";
-"BRSlot.Plunder.LoungeTitle" = "พลันเดอร์ เบย์เลานจ์";
-"BRSlot.Picker.Plunder.Title" = "พลันเดอร์ เบย์";
-"BRSlot.Picker.Plunder.Detail" = "ห้าวงล้อ ยี่สิบไลน์ หีบที่เต็มไปด้วยหมุนฟรี เครื่องสล็อตโจรสลัด";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "เนื้อเพลง";
@@ -687,3 +673,12 @@
 
 /* EZSounds (edit) */
 "EZSounds.Edit" = "แก้ไข";
+/* Slot win results */
+"BRSlot.Win.LineResult" = "🎉 ชนะ %1$ld เหรียญ (%2$+ld) ใน %3$ld ไลน์!";
+"BRSlot.Win.LineResultOne" = "🎉 ชนะ %1$ld เหรียญ (%2$+ld) ใน %3$ld ไลน์!";
+"BRSlot.Win.LinesResult" = "🎉 ชนะ %1$ld เหรียญใน %2$ld ไลน์";
+"BRSlot.Win.LinesResultOne" = "🎉 ชนะ %1$ld เหรียญใน %2$ld ไลน์";
+"BRSlot.Win.Coins" = "ชนะ %ld เหรียญ";
+"BRSlot.Win.FreeSpinsAward" = "+%ld หมุนฟรี!";
+"BRSlot.Win.NoWin" = "ไม่ชนะ • −%ld เหรียญ";
+"BRSlot.Win.FreeSpinNoWin" = "หมุนฟรี • ไม่มีไลน์ชนะ";
