@@ -467,6 +467,7 @@
 "BRSlot.Spinning" = "旋轉中…";
 "BRSlot.Error.SessionExpired" = "你的登入工作階段已過期。";
 "BRSlot.Penny.MaxBet" = "最大投注\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "自動\n%ld";
 "BRSlot.Penny.FreeSpin" = "免費旋轉…";
 "BRSlot.Penny.NeedCoins" = "此次旋轉需要 %ld 金幣。";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ 剩餘 %ld 次免費旋轉 • 所有獎金 2 倍";

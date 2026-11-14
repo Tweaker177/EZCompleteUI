@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "घूम रहा है...";
 "BRSlot.Error.SessionExpired" = "आपका साइन-इन सत्र समाप्त हो गया है.";
 "BRSlot.Penny.MaxBet" = "अधिकतम शर्त\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "ऑटो\n%ld";
 "BRSlot.Penny.FreeSpin" = "फ्री स्पिन...";
 "BRSlot.Penny.NeedCoins" = "इस स्पिन के लिए %ld सिक्कों की आवश्यकता है।";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld निःशुल्क स्पिन शेष • सभी जीतें 2×";

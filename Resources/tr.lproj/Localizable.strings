@@ -467,6 +467,7 @@
 "BRSlot.Spinning" = "Döndürülüyor…";
 "BRSlot.Error.SessionExpired" = "Oturum açma süreniz doldu.";
 "BRSlot.Penny.MaxBet" = "MAKSİMUM BAHİS\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "OTO\n%ld";
 "BRSlot.Penny.FreeSpin" = "Ücretsiz dönüş…";
 "BRSlot.Penny.NeedCoins" = "Bu dönüş için %ld coin gerekli.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld ÜCRETSİZ DÖNÜŞ KALDI • TÜM KAZANÇLAR 2×";

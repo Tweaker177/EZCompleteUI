@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "スピニング…";
 "BRSlot.Error.SessionExpired" = "サインイン セッションの有効期限が切れました。";
 "BRSlot.Penny.MaxBet" = "最大ベット\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "オート\n%ld";
 "BRSlot.Penny.FreeSpin" = "フリースピン…";
 "BRSlot.Penny.NeedCoins" = "このスピンには %ld コインが必要です。";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld フリースピンが残っています • 全勝利 2 回";

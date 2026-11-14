@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "الغزل…";
 "BRSlot.Error.SessionExpired" = "لقد انتهت صلاحية جلسة تسجيل الدخول الخاصة بك.";
 "BRSlot.Penny.MaxBet" = "الحد الأقصى للرهان\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "تلقائي\n%ld";
 "BRSlot.Penny.FreeSpin" = "دورة مجانية…";
 "BRSlot.Penny.NeedCoins" = "تحتاج إلى %ld قطعة نقدية لهذه الدورة.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld دورات مجانية متبقية • كل الانتصارات 2×";

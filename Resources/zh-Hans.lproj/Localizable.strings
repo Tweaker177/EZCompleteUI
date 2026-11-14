@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "旋转…";
 "BRSlot.Error.SessionExpired" = "您的登录会话已过期。";
 "BRSlot.Penny.MaxBet" = "最大赌注\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "自动\n%ld";
 "BRSlot.Penny.FreeSpin" = "自由旋转...";
 "BRSlot.Penny.NeedCoins" = "这次旋转需要 %ld 个硬币。";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ 还剩 %ld 个免费旋转 • 所有获胜 2×";

@@ -467,6 +467,7 @@
 "BRSlot.Spinning" = "스핀 중…";
 "BRSlot.Error.SessionExpired" = "로그인 세션이 만료되었습니다.";
 "BRSlot.Penny.MaxBet" = "최대 베팅\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "자동\n%ld";
 "BRSlot.Penny.FreeSpin" = "무료 스핀…";
 "BRSlot.Penny.NeedCoins" = "이 스핀에는 %ld 코인이 필요합니다.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ 무료 스핀 %ld회 남음 • 모든 당첨 2배";

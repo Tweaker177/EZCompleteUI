@@ -448,6 +448,7 @@
 "BRSlot.Spinning" = "Girando…";
 "BRSlot.Error.SessionExpired" = "Su sesión de inicio de sesión ha caducado.";
 "BRSlot.Penny.MaxBet" = "APUESTA MÁXIMA\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "AUTO\n%ld";
 "BRSlot.Penny.FreeSpin" = "Giro gratis…";
 "BRSlot.Penny.NeedCoins" = "Necesito %ld monedas para este giro.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld GIROS GRATIS QUEDAN • TODAS LAS GANANCIAS 2×";

@@ -467,6 +467,7 @@
 "BRSlot.Spinning" = "Berputar…";
 "BRSlot.Error.SessionExpired" = "Sesi masuk Anda telah berakhir.";
 "BRSlot.Penny.MaxBet" = "TARUHAN MAKS\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "AUTO\n%ld";
 "BRSlot.Penny.FreeSpin" = "Putaran gratis…";
 "BRSlot.Penny.NeedCoins" = "Butuh %ld koin untuk putaran ini.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ SISA %ld PUTARAN GRATIS • SEMUA KEMENANGAN 2×";

@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "Đang quay…";
 "BRSlot.Error.SessionExpired" = "Phiên đăng nhập của bạn đã hết hạn.";
 "BRSlot.Penny.MaxBet" = "CƯỢC TỐI ĐA\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "TỰ ĐỘNG\n%ld";
 "BRSlot.Penny.FreeSpin" = "Quay miễn phí…";
 "BRSlot.Penny.NeedCoins" = "Cần %ld xu cho vòng quay này.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld TRÒ CHƠI MIỄN PHÍ • TẤT CẢ CHIẾN THẮNG 2×";

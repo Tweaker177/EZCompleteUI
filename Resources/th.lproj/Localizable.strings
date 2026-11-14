@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "ปั่น…";
 "BRSlot.Error.SessionExpired" = "เซสชันการลงชื่อเข้าใช้ของคุณหมดอายุแล้ว";
 "BRSlot.Penny.MaxBet" = "เดิมพันสูงสุด\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "ออโต้\n%ld";
 "BRSlot.Penny.FreeSpin" = "หมุนฟรี…";
 "BRSlot.Penny.NeedCoins" = "ต้องการ %ld เหรียญสำหรับการหมุนครั้งนี้";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ % ld หมุนฟรีทางซ้าย • ชนะทั้งหมด 2 ×";

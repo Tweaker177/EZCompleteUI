@@ -466,6 +466,7 @@
 "BRSlot.Spinning" = "Вращение…";
 "BRSlot.Error.SessionExpired" = "Срок действия вашего сеанса входа истек.";
 "BRSlot.Penny.MaxBet" = "МАКС. СТАВКА\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "АВТО\n%ld";
 "BRSlot.Penny.FreeSpin" = "Бесплатное вращение…";
 "BRSlot.Penny.NeedCoins" = "Для этого вращения нужно %ld монет.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ ОСТАЛОСЬ %ld БЕСПЛАТНЫХ ВРАЩЕНИЙ • ВСЕ ВЫИГРЫШИ 2×";

@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "Spinnen…";
 "BRSlot.Error.SessionExpired" = "Ihre Anmeldesitzung ist abgelaufen.";
 "BRSlot.Penny.MaxBet" = "MAX. EINSATZ\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "AUTO\n%ld";
 "BRSlot.Penny.FreeSpin" = "Freispiel…";
 "BRSlot.Penny.NeedCoins" = "Für diesen Spin werden %ld Münzen benötigt.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld FREISPIELE ÜBRIG • ALLE GEWINNE 2×";
