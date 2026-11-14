@@ -122,6 +122,9 @@ static UIImage *PennyEZCoinSymbolImage(void) {
 }
 - (void)buildUI {
     UIScrollView *scroll = [UIScrollView new]; scroll.translatesAutoresizingMaskIntoConstraints = NO; scroll.alwaysBounceVertical = YES; [self.view addSubview:scroll];
+    // Reserve room for the chat bar pinned over the bottom of this screen,
+    // so the last controls (Spin) can always scroll clear of it.
+    scroll.contentInset = UIEdgeInsetsMake(0, 0, 50, 0); scroll.scrollIndicatorInsets = scroll.contentInset;
     UIView *content = [UIView new]; content.translatesAutoresizingMaskIntoConstraints = NO; [scroll addSubview:content];
     UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Penny.Heading", nil); title.font = [UIFont systemFontOfSize:23 weight:UIFontWeightBlack]; title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .55; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; title.textAlignment = NSTextAlignmentCenter;
     self.balanceLabel = [UILabel new]; self.balanceLabel.text = NSLocalizedString(@"BRSlot.Balance.Loading", nil); self.balanceLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold]; self.balanceLabel.textColor = UIColor.whiteColor; self.balanceLabel.textAlignment = NSTextAlignmentCenter;
