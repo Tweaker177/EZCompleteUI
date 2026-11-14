@@ -5320,6 +5320,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 if (savedPaths.count > 0) {
                     [self appendImageGridToChat:[savedPaths copy]
                                          prompt:savedPrompt isError:NO errorText:nil];
+                    // The attached photos were spent on this generation.
+                    // Clear them here: the generate path never clears
+                    // pendingImagePaths (unlike edit/Seahorse/chat, which
+                    // clear after consuming them), so without this the
+                    // photos ride into the next send as vision attachments
+                    // and can steer a follow-up into editing the original
+                    // photo instead of the generated image.
+                    [self.pendingImagePaths removeAllObjects];
                 } else {
                     NSString *errMsg = @"Image generated but could not be saved.";
                     [self appendImageGridToChat:@[] prompt:savedPrompt isError:YES errorText:errMsg];
