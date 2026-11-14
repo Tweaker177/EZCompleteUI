@@ -467,6 +467,7 @@
 "BRSlot.Spinning" = "旋轉中…";
 "BRSlot.Error.SessionExpired" = "你的登入工作階段已過期。";
 "BRSlot.Penny.MaxBet" = "最大投注\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "自動\n%ld";
 "BRSlot.Penny.FreeSpin" = "免費旋轉…";
 "BRSlot.Penny.NeedCoins" = "此次旋轉需要 %ld 金幣。";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ 剩餘 %ld 次免費旋轉 • 所有獎金 2 倍";
@@ -723,14 +724,3 @@
 "BRSlot.Win.FreeSpinsAward" = "+%ld 次免費旋轉!";
 "BRSlot.Win.NoWin" = "未中獎 • −%ld 金幣";
 "BRSlot.Win.FreeSpinNoWin" = "免費旋轉 • 無中獎線";
-/* Plunder odds + slot winners */
-"BRSlot.Plunder.OddsText" = "掠奪灣賠付表\n\n全部 20 條線始終啟用。一條線上從左起連續 3、4 或 5 個符號按總投注的倍數賠付：\n\n👑 船長  4× / 16× / 80×\n⛵ 大帆船  3× / 12× / 60×\n🗺 地圖  2.5× / 8× / 40×\n💣 大炮  2× / 6× / 30×\n🦜 鸚鵡  1.5× / 5× / 25×\n⚓ 錨  1× / 4× / 20×\n🧭 羅盤  1× / 3× / 16×\n🍾 朗姆酒  1× / 2.5× / 12×\n🪙 金幣  1× / 2× / 10×\n🪝 鉤子  0.5× / 1.5× / 8×\n\n☠ 骷髏是百搭符號，可替代除寶箱外的所有符號。\n\n🧰 寶箱是分散符號 — 任意位置賠付並開啟獎勵：\n3 個寶箱：2× 您的投注 + 5–8 次免費旋轉\n4 個寶箱：8× 您的投注 + 14–16 次免費旋轉\n5 個寶箱：40× 您的投注 + 25–30 次免費旋轉\n一局棋盤上永遠不會出現超過 5 個寶箱。\n\n免費旋轉中，每次連線獎金賠付 ×3，寶箱賠付保持全額，寶箱還能再次觸發更多免費旋轉。\n\n理論長期 RTP 約為 94.4%，已透過按這些確切賠付表模擬 10,000,000 次旋轉驗證；獎勵大約每 158 次旋轉觸發一次。結果會有所不同。";
-"BRSlot.Lounge.WinningsTitle" = "老虎機贏獎";
-"BRSlot.Lounge.WinningsMine" = "您最近24小時: %@ 金幣 • 您的最高單次贏獎: %@ 金幣";
-"BRSlot.Lounge.WinningsTopTotals" = "最近24小時: 總額最高\n\n";
-"BRSlot.Lounge.WinningsNoWins" = "最近24小時尚無贏家 — 來做第一個。\n";
-"BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ 金幣\n";
-"BRSlot.Lounge.WinningsBiggestHits" = "\n最近24小時: 最高單次贏獎\n\n";
-"BRSlot.Lounge.WinningsNoHits" = "最近24小時尚無大額贏獎。\n";
-"BRSlot.Lounge.WinningsFooter" = "\n總額與最高單次贏獎統計最近24小時。僅計算伺服器結算的老虎機賠付。";
-"BRSlot.Lounge.PlayerFallback" = "玩家";

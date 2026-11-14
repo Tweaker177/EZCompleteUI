@@ -448,6 +448,7 @@
 "BRSlot.Spinning" = "Girando…";
 "BRSlot.Error.SessionExpired" = "Su sesión de inicio de sesión ha caducado.";
 "BRSlot.Penny.MaxBet" = "APUESTA MÁXIMA\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "AUTO\n%ld";
 "BRSlot.Penny.FreeSpin" = "Giro gratis…";
 "BRSlot.Penny.NeedCoins" = "Necesito %ld monedas para este giro.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld GIROS GRATIS QUEDAN • TODAS LAS GANANCIAS 2×";
@@ -704,14 +705,3 @@
 "BRSlot.Win.FreeSpinsAward" = "+%ld GIROS GRATIS!";
 "BRSlot.Win.NoWin" = "Sin premio • −%ld monedas";
 "BRSlot.Win.FreeSpinNoWin" = "Giro gratis • sin línea ganadora";
-/* Plunder odds + slot winners */
-"BRSlot.Plunder.OddsText" = "PAGOS DE PLUNDER BAY\n\nLas 20 líneas están siempre activas. 3, 4 o 5 símbolos consecutivos desde la izquierda en una línea pagan, como múltiplos de tu apuesta total:\n\n👑 Capitán  4× / 16× / 80×\n⛵ Galeón  3× / 12× / 60×\n🗺 Mapa  2.5× / 8× / 40×\n💣 Cañón  2× / 6× / 30×\n🦜 Loro  1.5× / 5× / 25×\n⚓ Ancla  1× / 4× / 20×\n🧭 Brújula  1× / 3× / 16×\n🍾 Ron  1× / 2.5× / 12×\n🪙 Doblón  1× / 2× / 10×\n🪝 Gancho  0.5× / 1.5× / 8×\n\n☠ La calavera es comodín y sustituye a todos los símbolos excepto el cofre.\n\n🧰 El cofre del tesoro es un scatter — paga en cualquier posición e inicia el bono:\n3 cofres: 2× tu apuesta + 5–8 giros gratis\n4 cofres: 8× tu apuesta + 14–16 giros gratis\n5 cofres: 40× tu apuesta + 25–30 giros gratis\nUn tablero nunca puede mostrar más de 5 cofres.\n\nEn los giros gratis, cada ganancia de línea paga ×3, los pagos del cofre se mantienen completos y los cofres pueden reactivar más giros gratis.\n\nEl RTP teórico a largo plazo es de aproximadamente 94.4%, verificado simulando 10,000,000 giros de estas tablas exactas; el bono se activa aproximadamente una vez cada 158 giros. Los resultados varían.";
-"BRSlot.Lounge.WinningsTitle" = "GANANCIAS DE TRAGAMONEDAS";
-"BRSlot.Lounge.WinningsMine" = "Tus últimas 24h: %@ monedas • Tu mayor premio: %@ monedas";
-"BRSlot.Lounge.WinningsTopTotals" = "ÚLTIMAS 24 HORAS: TOTALES MÁS ALTOS\n\n";
-"BRSlot.Lounge.WinningsNoWins" = "Aún no hay ganancias en las últimas 24 horas — sé el primero.\n";
-"BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ monedas\n";
-"BRSlot.Lounge.WinningsBiggestHits" = "\nÚLTIMAS 24 HORAS: MAYORES PREMIOS\n\n";
-"BRSlot.Lounge.WinningsNoHits" = "Aún no hay grandes premios en las últimas 24 horas.\n";
-"BRSlot.Lounge.WinningsFooter" = "\nLos totales y los mayores premios cubren las últimas 24 horas. Solo cuentan los pagos de tragamonedas liquidados por el servidor.";
-"BRSlot.Lounge.PlayerFallback" = "Jugador";

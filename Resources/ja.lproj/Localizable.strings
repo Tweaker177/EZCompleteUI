@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "スピニング…";
 "BRSlot.Error.SessionExpired" = "サインイン セッションの有効期限が切れました。";
 "BRSlot.Penny.MaxBet" = "最大ベット\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "オート\n%ld";
 "BRSlot.Penny.FreeSpin" = "フリースピン…";
 "BRSlot.Penny.NeedCoins" = "このスピンには %ld コインが必要です。";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld フリースピンが残っています • 全勝利 2 回";
@@ -682,14 +683,3 @@
 "BRSlot.Win.FreeSpinsAward" = "+%ld フリースピン!";
 "BRSlot.Win.NoWin" = "ハズレ • −%ld コイン";
 "BRSlot.Win.FreeSpinNoWin" = "フリースピン • ライン勝利なし";
-/* Plunder odds + slot winners */
-"BRSlot.Plunder.OddsText" = "プランダーベイ配当表\n\n全20ラインが常に有効です。ライン上で左から連続した3、4、5個のシンボルが、総ベットの倍数で配当されます：\n\n👑 キャプテン  4× / 16× / 80×\n⛵ ガレオン  3× / 12× / 60×\n🗺 地図  2.5× / 8× / 40×\n💣 大砲  2× / 6× / 30×\n🦜 オウム  1.5× / 5× / 25×\n⚓ 錨  1× / 4× / 20×\n🧭 コンパス  1× / 3× / 16×\n🍾 ラム  1× / 2.5× / 12×\n🪙 ダブロン  1× / 2× / 10×\n🪝 フック  0.5× / 1.5× / 8×\n\n☠ ドクロはワイルドで、宝箱以外のすべてのシンボルの代わりになります。\n\n🧰 宝箱はスキャッターです — どこでも配当され、ボーナスを開始します：\n宝箱3つ：ベットの2倍 ＋ フリースピン5–8回\n宝箱4つ：ベットの8倍 ＋ フリースピン14–16回\n宝箱5つ：ベットの40倍 ＋ フリースピン25–30回\nボードに宝箱が5つを超えて表示されることはありません。\n\nフリースピン中はすべてのライン勝利が×3で配当され、宝箱の配当は満額のまま、宝箱がさらにフリースピンを再開できます。\n\n理論上の長期RTPは約94.4%で、これらの表そのもので10,000,000スピンをシミュレーションして検証済みです。ボーナスは約158スピンに1回発動します。結果は変動します。";
-"BRSlot.Lounge.WinningsTitle" = "スロット勝利金";
-"BRSlot.Lounge.WinningsMine" = "過去24時間: %@ コイン • 最高勝利: %@ コイン";
-"BRSlot.Lounge.WinningsTopTotals" = "過去24時間: 合計トップ\n\n";
-"BRSlot.Lounge.WinningsNoWins" = "過去24時間の勝利はまだありません — 最初の一人になりましょう。\n";
-"BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ コイン\n";
-"BRSlot.Lounge.WinningsBiggestHits" = "\n過去24時間: 最大の勝利\n\n";
-"BRSlot.Lounge.WinningsNoHits" = "過去24時間の大きな勝利はまだありません。\n";
-"BRSlot.Lounge.WinningsFooter" = "\n合計と最大の勝利は過去24時間を対象としています。サーバーで精算されたスロットの配当のみがカウントされます。";
-"BRSlot.Lounge.PlayerFallback" = "プレイヤー";

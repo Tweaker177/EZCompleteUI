@@ -467,6 +467,7 @@
 "BRSlot.Spinning" = "Döndürülüyor…";
 "BRSlot.Error.SessionExpired" = "Oturum açma süreniz doldu.";
 "BRSlot.Penny.MaxBet" = "MAKSİMUM BAHİS\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "OTO\n%ld";
 "BRSlot.Penny.FreeSpin" = "Ücretsiz dönüş…";
 "BRSlot.Penny.NeedCoins" = "Bu dönüş için %ld coin gerekli.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld ÜCRETSİZ DÖNÜŞ KALDI • TÜM KAZANÇLAR 2×";
@@ -723,14 +724,3 @@
 "BRSlot.Win.FreeSpinsAward" = "+%ld ÜCRETSİZ DÖNÜŞ!";
 "BRSlot.Win.NoWin" = "Kazanç yok • −%ld coin";
 "BRSlot.Win.FreeSpinNoWin" = "Ücretsiz dönüş • çizgi kazancı yok";
-/* Plunder odds + slot winners */
-"BRSlot.Plunder.OddsText" = "PLUNDER BAY ÖDEMELERİ\n\nTüm 20 çizgi her zaman etkindir. Bir çizgide soldan ardışık 3, 4 veya 5 sembol, toplam bahsinizin katları olarak öder:\n\n👑 Kaptan  4× / 16× / 80×\n⛵ Kalyon  3× / 12× / 60×\n🗺 Harita  2.5× / 8× / 40×\n💣 Top  2× / 6× / 30×\n🦜 Papağan  1.5× / 5× / 25×\n⚓ Çapa  1× / 4× / 20×\n🧭 Pusula  1× / 3× / 16×\n🍾 Rom  1× / 2.5× / 12×\n🪙 Dublon  1× / 2× / 10×\n🪝 Kanca  0.5× / 1.5× / 8×\n\n☠ Kafatası wild sembolüdür ve sandık dışındaki her sembolün yerine geçer.\n\n🧰 Hazine sandığı bir scatter sembolüdür — her yerde öder ve bonusu başlatır:\n3 sandık: 2× bahsiniz + 5–8 ücretsiz dönüş\n4 sandık: 8× bahsiniz + 14–16 ücretsiz dönüş\n5 sandık: 40× bahsiniz + 25–30 ücretsiz dönüş\nBir pano asla 5'ten fazla sandık gösteremez.\n\nÜcretsiz dönüşlerde her çizgi kazancı ×3 öder, sandık ödemeleri tam kalır ve sandıklar daha fazla ücretsiz dönüşü yeniden tetikleyebilir.\n\nTeorik uzun vadeli RTP yaklaşık %94.4'tür; bu, bu tabloların aynısıyla 10,000,000 dönüş simüle edilerek doğrulanmıştır; bonus yaklaşık 158 dönüşte bir tetiklenir. Sonuçlar değişir.";
-"BRSlot.Lounge.WinningsTitle" = "SLOT KAZANÇLARI";
-"BRSlot.Lounge.WinningsMine" = "Son 24 saatin: %@ coin • En büyük kazancın: %@ coin";
-"BRSlot.Lounge.WinningsTopTotals" = "SON 24 SAAT: EN YÜKSEK TOPLAMLAR\n\n";
-"BRSlot.Lounge.WinningsNoWins" = "Son 24 saatte henüz kazanç yok — ilk sen ol.\n";
-"BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ coin\n";
-"BRSlot.Lounge.WinningsBiggestHits" = "\nSON 24 SAAT: EN BÜYÜK KAZANÇLAR\n\n";
-"BRSlot.Lounge.WinningsNoHits" = "Son 24 saatte henüz büyük kazanç yok.\n";
-"BRSlot.Lounge.WinningsFooter" = "\nToplamlar ve en büyük kazançlar son 24 saati kapsar. Yalnızca sunucuda sonuçlandırılan slot ödemeleri sayılır.";
-"BRSlot.Lounge.PlayerFallback" = "Oyuncu";
