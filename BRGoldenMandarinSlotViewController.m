@@ -47,6 +47,13 @@ static NSString *GMNum(NSInteger n) {
     return [formatter stringFromNumber:@(n)] ?: [NSString stringWithFormat:@"%ld", (long)n];
 }
 
+/// NSNull-safe JSON readers. The server should always send numbers and
+/// strings, but a null or mistyped value must fail closed, never crash on
+/// integerValue / boolValue (NSNull answers neither).
+static NSInteger GMInteger(id value) { return [value respondsToSelector:@selector(integerValue)] ? [value integerValue] : 0; }
+static BOOL GMBool(id value) { return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO; }
+static NSString *GMString(id value) { return [value isKindOfClass:NSString.class] && ((NSString *)value).length ? value : nil; }
+
 /// Random symbol for the blur. Hats only appear when `allowHat` so a stopped
 /// reel never shows a stray hat next to the real result.
 static int GMFiller(BOOL allowHat) {
@@ -736,7 +743,7 @@ static UIImage *GMParticleImage(BOOL coin) {
             NSInteger status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
             NSString *error = nil;
             if (networkError) error = networkError.localizedDescription;
-            else if (status < 200 || status >= 300) error = result[@"reason"] ?: result[@"error"] ?: GMLoc(@"BRSlot.GM.RequestFailed", @"The request failed. Your balance is unchanged.");
+            else if (status < 200 || status >= 300) error = GMString(result[@"reason"]) ?: GMString(result[@"error"]) ?: GMLoc(@"BRSlot.GM.RequestFailed", @"The request failed. Your balance is unchanged.");
             dispatch_async(dispatch_get_main_queue(), ^{ completion(result, error, status); });
         }] resume];
     }];
@@ -752,13 +759,13 @@ static UIImage *GMParticleImage(BOOL coin) {
     }];
     [self request:@{@"action": @"status"} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_leaving || self->_busy || !result || error) return;
-        self->_freeRemaining = [result[@"free_spins_remaining"] integerValue];
-        self->_pickPending = [result[@"pick_pending"] boolValue];
-        self->_bonusMult = [result[@"multiplier"] integerValue];
-        self->_bonusTotal = [result[@"bonus_total"] integerValue];
+        self->_freeRemaining = GMInteger(result[@"free_spins_remaining"]);
+        self->_pickPending = GMBool(result[@"pick_pending"]);
+        self->_bonusMult = GMInteger(result[@"multiplier"]);
+        self->_bonusTotal = GMInteger(result[@"bonus_total"]);
         if (self->_freeRemaining > 0) {
-            self->_bonusLines = MAX(1, MIN(GM_MAX_LINES, [result[@"lines"] integerValue]));
-            self->_bonusBet = [result[@"bet_per_line"] integerValue] ?: 1;
+            self->_bonusLines = MAX(1, MIN(GM_MAX_LINES, GMInteger(result[@"lines"])));
+            self->_bonusBet = GMInteger(result[@"bet_per_line"]) ?: 1;
             [self resumeBonus];
         } else {
             [self refreshLabels]; [self refreshBanner]; [self updateControls];
@@ -939,13 +946,13 @@ static UIImage *GMParticleImage(BOOL coin) {
     _reelsMoving = NO;
     NSDictionary *res = self.result;
     BOOL free = _spinFree;
-    NSInteger awarded = [res[@"free_spins_awarded"] integerValue];
-    NSInteger balance = [res[@"balance"] integerValue];
+    NSInteger awarded = GMInteger(res[@"free_spins_awarded"]);
+    NSInteger balance = GMInteger(res[@"balance"]);
     _lastAwarded = awarded;
-    _freeRemaining = [res[@"free_spins_remaining"] integerValue];
-    _pickPending = [res[@"pick_pending"] boolValue];
+    _freeRemaining = GMInteger(res[@"free_spins_remaining"]);
+    _pickPending = GMBool(res[@"pick_pending"]);
     if (free) {
-        _bonusTotal = [res[@"bonus_total"] integerValue];
+        _bonusTotal = GMInteger(res[@"bonus_total"]);
     } else if (awarded > 0) {
         _bonusLines = _lines; _bonusBet = [self betPerLine]; _bonusMult = 0; _bonusTotal = 0;
     }
@@ -1025,10 +1032,10 @@ static NSArray<UIColor *> *GMLineColors(void) {
 
 - (void)presentWinsThen:(dispatch_block_t)completion {
     NSDictionary *res = self.result;
-    NSInteger payout = [res[@"payout"] integerValue];
-    NSInteger balance = [res[@"balance"] integerValue];
-    NSInteger bet = [res[@"bet_per_line"] integerValue] ?: 1;
-    NSInteger lines = [res[@"lines"] integerValue] ?: 1;
+    NSInteger payout = GMInteger(res[@"payout"]);
+    NSInteger balance = GMInteger(res[@"balance"]);
+    NSInteger bet = GMInteger(res[@"bet_per_line"]) ?: 1;
+    NSInteger lines = GMInteger(res[@"lines"]) ?: 1;
     NSInteger fromBalance = _balance;
     _balance = balance;
     NSArray *winners = [res[@"winning_lines"] isKindOfClass:NSArray.class] ? res[@"winning_lines"] : @[];
@@ -1053,16 +1060,18 @@ static NSArray<UIColor *> *GMLineColors(void) {
         NSDictionary *line = winners[i];
         if (![line isKindOfClass:NSDictionary.class]) continue;
         NSArray *rows = [line[@"rows"] isKindOfClass:NSArray.class] ? line[@"rows"] : @[];
-        NSInteger matches = MIN(5, [line[@"matches"] integerValue]);
-        UIColor *color = palette[[line[@"index"] integerValue] % (NSInteger)palette.count];
+        NSInteger matches = MIN(5, MAX(0, GMInteger(line[@"matches"])));
+        NSInteger lineIndex = MAX(0, GMInteger(line[@"index"]));
+        UIColor *color = palette[lineIndex % (NSInteger)palette.count];
+        NSString *symbolName = [line[@"symbol"] isKindOfClass:NSString.class] ? line[@"symbol"] : @"";
         NSString *detail = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.WinLine", @"Line %ld · %ld× %@ · +%@"),
-                            (long)([line[@"index"] integerValue] + 1), (long)matches,
-                            [BRGoldenMandarinArt nameForSymbol:(GMSymbol)MAX(0, MIN(GMSymbolHat, (NSInteger)[GMSymbolNames() indexOfObject:line[@"symbol"] ?: @""]))],
-                            GMNum([line[@"coins"] integerValue])];
+                            (long)(lineIndex + 1), (long)matches,
+                            [BRGoldenMandarinArt nameForSymbol:(GMSymbol)MAX(0, MIN(GMSymbolHat, (NSInteger)[GMSymbolNames() indexOfObject:symbolName]))],
+                            GMNum(GMInteger(line[@"coins"]))];
         void (^show)(void) = ^{
             if (oneByOne) [self clearHighlights];
             for (NSInteger col = 0; col < matches && col < (NSInteger)rows.count; col++) {
-                NSInteger row = [rows[col] integerValue];
+                NSInteger row = GMInteger(rows[col]);
                 if (row >= 0 && row < GM_ROWS) [self lightCellAtReel:col row:row color:color pulse:oneByOne];
             }
             if (oneByOne) [self setMessage:detail highlight:YES];
@@ -1403,10 +1412,10 @@ static NSArray<UIColor *> *GMLineColors(void) {
 
 - (void)revealPick:(NSDictionary *)result identity:(NSInteger)identity {
     NSArray *cards = result[@"cards"];
-    NSInteger multiplier = [result[@"multiplier"] integerValue];
+    NSInteger multiplier = GMInteger(result[@"multiplier"]);
     for (NSInteger i = 0; i < 3; i++) {
         UILabel *value = (UILabel *)[self.pickCards[i] viewWithTag:3];
-        value.text = [NSString stringWithFormat:@"×%ld", (long)[cards[i] integerValue]];
+        value.text = [NSString stringWithFormat:@"×%ld", (long)GMInteger(cards[i])];
     }
     void (^flip)(UIView *, BOOL) = ^(UIView *card, BOOL dim) {
         [UIView transitionWithView:card duration:0.45 options:UIViewAnimationOptionTransitionFlipFromLeft animations:^{
