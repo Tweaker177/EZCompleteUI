@@ -206,7 +206,6 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = GMLoc(@"BRSlot.GM.Title", @"Golden Mandarin");
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
     _lines = [defaults objectForKey:kGMLinesKey] ? MAX(1, MIN(GM_MAX_LINES, [defaults integerForKey:kGMLinesKey])) : GM_MAX_LINES;
     _betIndex = [defaults objectForKey:kGMBetKey] ? MAX(0, MIN((NSInteger)GMBets().count - 1, [defaults integerForKey:kGMBetKey])) : 0;
