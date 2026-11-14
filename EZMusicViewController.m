@@ -803,7 +803,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         EZMusicText(@"EZMusic.Tab.Library", @"Library"),
         EZMusicText(@"EZMusic.Tab.Create", @"Create"),
     ]];
-    self.tabControl.selectedSegmentIndex = EZMusicTabCreate;
+    self.tabControl.selectedSegmentIndex = EZMusicTabLibrary;
     [self.tabControl addTarget:self action:@selector(tabChanged:) forControlEvents:UIControlEventValueChanged];
     self.navigationItem.titleView = self.tabControl;
 
@@ -821,7 +821,9 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
                                                            sourceName:self.referenceSourceName
                                                                 mode:@"source"];
     }
-    [self showTab:EZMusicTabCreate];
+    // Opens on Library: segmented pages default to the left segment (user rule,
+    // 2026-11-13); Create is reached by tapping its segment.
+    [self showTab:EZMusicTabLibrary];
 
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
     [center addObserver:self selector:@selector(keyboardWillChangeFrame:)
