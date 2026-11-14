@@ -286,7 +286,7 @@
 "ElevenLabsClone.UploadFailed" = "فشل الرفع.";
 "ElevenLabsClone.CloneFailed" = "فشل الاستنساخ";
 "ElevenLabsClone.NoVoiceID" = "لم يتم العثور على معرّف صوت في الاستجابة.";
-"ElevenLabsClone.SlotsUsedFormat" = "\\nالفتحات المستخدمة: %ld / %ld";
+"ElevenLabsClone.SlotsUsedFormat" = "\nالفتحات المستخدمة: %ld / %ld";
 "ElevenLabsClone.VoiceCloned" = "تم استنساخ الصوت";
 "ElevenLabsClone.VoiceClonedMessage" = "معرّف الصوت: %@%@";
 "ElevenLabsClone.UnnamedVoice" = "صوت بلا اسم";
@@ -394,7 +394,7 @@
 "BRSlot.Classic.Description" = "خمسة خطوط الدفع • نتائج التحقق من الخادم";
 "BRSlot.Control.Lines" = "خطوط";
 "BRSlot.Control.BetPerLine" = "الرهان / الخط";
-"BRSlot.Classic.MaxBet" = "الحد الأقصى للرهان\\n⚡ 25";
+"BRSlot.Classic.MaxBet" = "الحد الأقصى للرهان\n⚡ 25";
 "BRSlot.Customize" = "تخصيص الرموز";
 "BRSlot.Control.Spin" = "⚡ تدور";
 "BRSlot.Penny.Title" = "فتحات بيني";
@@ -409,8 +409,8 @@
 "BRSlot.Customizer.PennyTitle" = "تخصيص فتحات بيني";
 "BRSlot.Customizer.PennySubtitle" = "اضغط على رمز لاختيار صورة أو ملف أو صورة تم إنشاؤها. يظهر الفن الحالي هنا.";
 "BRSlot.Customizer.ResetAll" = "↺ إعادة تعيين كافة الأعمال الفنية";
-"BRSlot.Control.LinesValue" = "الخطوط\\n%ld";
-"BRSlot.Control.BetPerLineValue" = "الرهان / الخط\\n🪙 %ld";
+"BRSlot.Control.LinesValue" = "الخطوط\n%ld";
+"BRSlot.Control.BetPerLineValue" = "الرهان / الخط\n🪙 %ld";
 "BRSlot.Balance.Value" = "🪙 %ld عملات EZ";
 "BRSlot.Classic.LoungeTitle" = "صالة برينروت";
 "BRSlot.Penny.LoungeTitle" = "صالة فتحات بيني";
@@ -425,7 +425,7 @@
 "BRSlot.Classic.StoreFeature" = "الرهان الخاص بك على %ld من العملات المعدنية";
 "BRSlot.Spinning" = "الغزل…";
 "BRSlot.Error.SessionExpired" = "لقد انتهت صلاحية جلسة تسجيل الدخول الخاصة بك.";
-"BRSlot.Penny.MaxBet" = "الحد الأقصى للرهان\\n⚡ 225";
+"BRSlot.Penny.MaxBet" = "الحد الأقصى للرهان\n⚡ 225";
 "BRSlot.Penny.FreeSpin" = "دورة مجانية…";
 "BRSlot.Penny.NeedCoins" = "تحتاج إلى %ld قطعة نقدية لهذه الدورة.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld دورات مجانية متبقية • كل الانتصارات 2×";
@@ -435,7 +435,7 @@
 "BRSlot.Pity.Title" = "😬 حسنًا، كان ذلك قاسيًا";
 "BRSlot.Pity.Body" = "هذا السباق لم يسير في طريقك. إليك %ld من الدورات الإضافية في المنزل.";
 "BRSlot.Pity.Action" = "دعنا نذهب! 🎰";
-"BRSlot.Win.Overlay" = "%@\\n+%ld عملات معدنية";
+"BRSlot.Win.Overlay" = "%@\n+%ld عملات معدنية";
 "BRSlot.Win.Jackpot" = "الفوز بالجائزة الكبرى!";
 "BRSlot.Win.Winner" = "الفائز!";
 "BRSlot.Lounge.SignIn" = "قم بتسجيل الدخول للانضمام إلى الصالة.";
@@ -445,20 +445,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "تستخدم حاليا صورة الفتحة المضمنة.";
 "BRSlot.Customizer.BuiltInPenny" = "تستخدم حاليًا صورة Penny Slots المضمنة.";
 "BRSlot.Generation.Cost" = "كل جيل يكلف 3 عملات EZ.";
-"BRSlot.Plunder.Title" = "بلاندر باي";
-"BRSlot.Plunder.Heading" = "☠ بلاندر باي ☠";
-"BRSlot.Plunder.Description" = "عشرون خطًا، صندوق كنز واحد. ثلاثة صناديق توقظ المكافأة.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ الصناديق تدفع في أي مكان — 3 أو أكثر تبدأ دورات مجانية بأرباح خطوط ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld دورات مجانية متبقية — أرباح الخطوط ×3";
-"BRSlot.Plunder.FreeSpin" = "دورة مجانية — لا يتم أخذ رهان";
-"BRSlot.Plunder.BetValue" = "الرهان\n%ld";
-"BRSlot.Plunder.MaxBet" = "الحد الأقصى للرهان\n100 + تدور";
-"BRSlot.Plunder.NeedCoins" = "تحتاج إلى %ld قطعة نقدية لهذا الرهان.";
-"BRSlot.Plunder.SignIn" = "قم بتسجيل الدخول للعب بلاندر باي.";
-"BRSlot.Plunder.StoreFeature" = "بلاندر باي";
-"BRSlot.Plunder.LoungeTitle" = "صالة بلاندر باي";
-"BRSlot.Picker.Plunder.Title" = "بلاندر باي";
-"BRSlot.Picker.Plunder.Detail" = "خمس بكرات، عشرون خطًا، صندوق مليء بالدورات المجانية. آلة القراصنة.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "كلمات الأغنية";
@@ -687,3 +673,12 @@
 
 /* EZSounds (edit) */
 "EZSounds.Edit" = "تحرير";
+/* Slot win results */
+"BRSlot.Win.LineResult" = "🎉 ربحت %1$ld قطعة نقدية (%2$+ld) على %3$ld خطوط!";
+"BRSlot.Win.LineResultOne" = "🎉 ربحت %1$ld قطعة نقدية (%2$+ld) على %3$ld خط!";
+"BRSlot.Win.LinesResult" = "🎉 ربحت %1$ld قطعة نقدية على %2$ld خطوط";
+"BRSlot.Win.LinesResultOne" = "🎉 ربحت %1$ld قطعة نقدية على %2$ld خط";
+"BRSlot.Win.Coins" = "ربحت %ld قطعة نقدية";
+"BRSlot.Win.FreeSpinsAward" = "+%ld دورات مجانية!";
+"BRSlot.Win.NoWin" = "لا ربح • −%ld قطعة نقدية";
+"BRSlot.Win.FreeSpinNoWin" = "دورة مجانية • لا خطوط فائزة";

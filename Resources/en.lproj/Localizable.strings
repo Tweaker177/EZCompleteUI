@@ -300,7 +300,7 @@
 "ElevenLabsClone.UploadFailed" = "Upload failed.";
 "ElevenLabsClone.CloneFailed" = "Clone Failed";
 "ElevenLabsClone.NoVoiceID" = "No voice ID in response.";
-"ElevenLabsClone.SlotsUsedFormat" = "\\nSlots used: %ld / %ld";
+"ElevenLabsClone.SlotsUsedFormat" = "\nSlots used: %ld / %ld";
 "ElevenLabsClone.VoiceCloned" = "Voice Cloned";
 "ElevenLabsClone.VoiceClonedMessage" = "Voice ID: %@%@";
 "ElevenLabsClone.CloneRetentionTitle" = "Keep Your Clone";
@@ -733,3 +733,12 @@
 "BRSlot.Plunder.LoungeTitle" = "Plunder Bay Lounge";
 "BRSlot.Picker.Plunder.Title" = "Plunder Bay";
 "BRSlot.Picker.Plunder.Detail" = "Five reels, twenty lines, a chest full of free spins. The pirate machine.";
+/* Slot win results */
+"BRSlot.Win.LineResult" = "🎉 Won %1$ld coins (%2$+ld) on %3$ld lines!";
+"BRSlot.Win.LineResultOne" = "🎉 Won %1$ld coins (%2$+ld) on %3$ld line!";
+"BRSlot.Win.LinesResult" = "🎉 Won %1$ld coins on %2$ld lines";
+"BRSlot.Win.LinesResultOne" = "🎉 Won %1$ld coins on %2$ld line";
+"BRSlot.Win.Coins" = "Won %ld coins";
+"BRSlot.Win.FreeSpinsAward" = "+%ld FREE SPINS!";
+"BRSlot.Win.NoWin" = "No win • −%ld coins";
+"BRSlot.Win.FreeSpinNoWin" = "Free spin • no line win";

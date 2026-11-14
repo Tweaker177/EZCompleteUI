@@ -94,13 +94,13 @@
 
 "EZCoinStore.Tier.Basic" = "基本";
 
-"EZCoinStore.Tier.BasicSubtitle" = "400 コイン/月\\nカジュアルな使用に最適";
+"EZCoinStore.Tier.BasicSubtitle" = "400 コイン/月\nカジュアルな使用に最適";
 
 "EZCoinStore.Tier.BasicPrice" = "5ドル/月";
 
 "EZCoinStore.Tier.Standard" = "標準";
 
-"EZCoinStore.Tier.StandardSubtitle" = "900 コイン/月\\n通常のユーザーに最適";
+"EZCoinStore.Tier.StandardSubtitle" = "900 コイン/月\n通常のユーザーに最適";
 
 "EZCoinStore.Tier.StandardPrice" = "$10/月";
 
@@ -108,7 +108,7 @@
 
 "EZCoinStore.Tier.Pro" = "プロ";
 
-"EZCoinStore.Tier.ProSubtitle" = "1,600 コイン/月\\n毎日のユーザーに最適";
+"EZCoinStore.Tier.ProSubtitle" = "1,600 コイン/月\n毎日のユーザーに最適";
 
 "EZCoinStore.Tier.ProPrice" = "$15/月";
 
@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "ウルトラ";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 コイン / 月\\nパワー ユーザー歓迎";
+"EZCoinStore.Tier.UltraSubtitle" = "2,500 コイン / 月\nパワー ユーザー歓迎";
 
 "EZCoinStore.Tier.UltraPrice" = "$20/月";
 
@@ -124,11 +124,11 @@
 
 "EZCoinStore.TopUp.Starter" = "コインスターターパック";
 
-"EZCoinStore.TopUp.StarterSubtitle" = "400 コイン、1 回限り\\n期限切れになりません";
+"EZCoinStore.TopUp.StarterSubtitle" = "400 コイン、1 回限り\n期限切れになりません";
 
 "EZCoinStore.TopUp.Value" = "コインバリューパック";
 
-"EZCoinStore.TopUp.ValueSubtitle" = "900 コイン、1 回限り\\n期限切れになりません";
+"EZCoinStore.TopUp.ValueSubtitle" = "900 コイン、1 回限り\n期限切れになりません";
 
 "EZCoinStore.Badge.Save10" = "10％節約";
 
@@ -286,7 +286,7 @@
 "ElevenLabsClone.UploadFailed" = "アップロードに失敗しました。";
 "ElevenLabsClone.CloneFailed" = "クローン作成に失敗しました";
 "ElevenLabsClone.NoVoiceID" = "音声 ID が応答しません。";
-"ElevenLabsClone.SlotsUsedFormat" = "\\\\n使用されているスロット: %ld / %ld";
+"ElevenLabsClone.SlotsUsedFormat" = "\n使用されているスロット: %ld / %ld";
 "ElevenLabsClone.VoiceCloned" = "クローン化された音声";
 "ElevenLabsClone.VoiceClonedMessage" = "音声 ID: %@%@";
 "ElevenLabsClone.UnnamedVoice" = "名前のない声";
@@ -394,7 +394,7 @@
 "BRSlot.Classic.Description" = "5 つのペイライン • サーバー検証済みの結果";
 "BRSlot.Control.Lines" = "ライン";
 "BRSlot.Control.BetPerLine" = "ベット/ライン";
-"BRSlot.Classic.MaxBet" = "最大ベット\\n⚡ 25";
+"BRSlot.Classic.MaxBet" = "最大ベット\n⚡ 25";
 "BRSlot.Customize" = "シンボルをカスタマイズする";
 "BRSlot.Control.Spin" = "⚡スピン";
 "BRSlot.Penny.Title" = "ペニースロット";
@@ -409,8 +409,8 @@
 "BRSlot.Customizer.PennyTitle" = "ペニースロットのカスタマイズ";
 "BRSlot.Customizer.PennySubtitle" = "記号をタップして、写真、ファイル、または生成された画像を選択します。現在のアートはここに表示されます。";
 "BRSlot.Customizer.ResetAll" = "↺ すべてのアートワークをリセット";
-"BRSlot.Control.LinesValue" = "行\\n%ld";
-"BRSlot.Control.BetPerLineValue" = "ベット / ライン\\n🪙 %ld";
+"BRSlot.Control.LinesValue" = "行\n%ld";
+"BRSlot.Control.BetPerLineValue" = "ベット / ライン\n🪙 %ld";
 "BRSlot.Balance.Value" = "🪙 %ld EZ コイン";
 "BRSlot.Classic.LoungeTitle" = "ブレインロット ラウンジ";
 "BRSlot.Penny.LoungeTitle" = "ペニー スロッツ ラウンジ";
@@ -425,7 +425,7 @@
 "BRSlot.Classic.StoreFeature" = "%ldコインのスロットベット";
 "BRSlot.Spinning" = "スピニング…";
 "BRSlot.Error.SessionExpired" = "サインイン セッションの有効期限が切れました。";
-"BRSlot.Penny.MaxBet" = "最大ベット\\n⚡ 225";
+"BRSlot.Penny.MaxBet" = "最大ベット\n⚡ 225";
 "BRSlot.Penny.FreeSpin" = "フリースピン…";
 "BRSlot.Penny.NeedCoins" = "このスピンには %ld コインが必要です。";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld フリースピンが残っています • 全勝利 2 回";
@@ -435,7 +435,7 @@
 "BRSlot.Pity.Title" = "😬 まあ、それは大変でした";
 "BRSlot.Pity.Body" = "その走りは思い通りにならなかった。ハウスでさらに %ld 回スピンします。";
 "BRSlot.Pity.Action" = "さあ行こう！ 🎰";
-"BRSlot.Win.Overlay" = "%@\\n+%ld コイン";
+"BRSlot.Win.Overlay" = "%@\n+%ld コイン";
 "BRSlot.Win.Jackpot" = "ジャックポット！";
 "BRSlot.Win.Winner" = "勝者！";
 "BRSlot.Lounge.SignIn" = "ラウンジに参加するにはサインインしてください。";
@@ -445,20 +445,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "現在、内蔵スロットイメージを使用しています。";
 "BRSlot.Customizer.BuiltInPenny" = "現在、組み込みのペニー スロット イメージを使用しています。";
 "BRSlot.Generation.Cost" = "各世代には 3 EZ コインがかかります。";
-"BRSlot.Plunder.Title" = "プランダーベイ";
-"BRSlot.Plunder.Heading" = "☠プランダーベイ☠";
-"BRSlot.Plunder.Description" = "20ライン、1つの宝箱。宝箱3つでボーナス覚醒。";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ 宝箱はどこでも配当 — 3つ以上でライン勝利×3のフリースピン開始";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld フリースピンが残っています • ライン勝利 ×3";
-"BRSlot.Plunder.FreeSpin" = "フリースピン — ベットなし";
-"BRSlot.Plunder.BetValue" = "ベット\n%ld";
-"BRSlot.Plunder.MaxBet" = "最大ベット\n100 + スピン";
-"BRSlot.Plunder.NeedCoins" = "このベットには %ld コインが必要です。";
-"BRSlot.Plunder.SignIn" = "プランダーベイをプレイするにはサインインしてください。";
-"BRSlot.Plunder.StoreFeature" = "プランダーベイ";
-"BRSlot.Plunder.LoungeTitle" = "プランダーベイ ラウンジ";
-"BRSlot.Picker.Plunder.Title" = "プランダーベイ";
-"BRSlot.Picker.Plunder.Detail" = "5リール、20ライン、フリースピン満タンの宝箱。海賊スロット。";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "曲の歌詞";
@@ -687,3 +673,12 @@
 
 /* EZSounds (edit) */
 "EZSounds.Edit" = "編集";
+/* Slot win results */
+"BRSlot.Win.LineResult" = "🎉 %3$ldラインで %1$ld コイン（%2$+ld）獲得！";
+"BRSlot.Win.LineResultOne" = "🎉 %3$ldラインで %1$ld コイン（%2$+ld）獲得！";
+"BRSlot.Win.LinesResult" = "🎉 %2$ldラインで %1$ld コイン獲得";
+"BRSlot.Win.LinesResultOne" = "🎉 %2$ldラインで %1$ld コイン獲得";
+"BRSlot.Win.Coins" = "%ld コイン獲得";
+"BRSlot.Win.FreeSpinsAward" = "+%ld フリースピン!";
+"BRSlot.Win.NoWin" = "ハズレ • −%ld コイン";
+"BRSlot.Win.FreeSpinNoWin" = "フリースピン • ライン勝利なし";

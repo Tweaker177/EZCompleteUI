@@ -92,7 +92,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 - (UIButton *)control:(NSString *)title color:(UIColor *)color action:(SEL)action {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:title forState:UIControlStateNormal];
     [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal]; button.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
-    button.titleLabel.numberOfLines = 2; button.titleLabel.textAlignment = NSTextAlignmentCenter;
+    button.titleLabel.numberOfLines = 2; button.titleLabel.textAlignment = NSTextAlignmentCenter; button.titleLabel.adjustsFontSizeToFitWidth = YES; button.titleLabel.minimumScaleFactor = .5;
     button.backgroundColor = color; button.layer.cornerRadius = 13;
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; return button;
 }
@@ -356,7 +356,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         }
         if (cannonLine) [self playCannon];
         if (winLines.count) [self celebrateWinLines:winLines step:0 passes:(winLines.count<=2?3:winLines.count<=4?2:1) celebrationID:self.lineCelebrationID];
-        self.messageLabel.text = awarded ? [NSString stringWithFormat:@"🧭 +%ld FREE SPINS! %@",(long)awarded,payout ? [NSString stringWithFormat:@"Won %ld coins",(long)payout] : @""] : payout ? [NSString stringWithFormat:@"🎉 Won %ld coins on %@ line%@",(long)payout,result[@"win_lines"],[result[@"win_lines"] integerValue]==1?@"":@"s"] : [result[@"was_free_spin"] boolValue] ? @"Free spin • no line win" : [NSString stringWithFormat:@"No win • −%@ coins",result[@"wager"]];
+        self.messageLabel.text = awarded ? [NSString stringWithFormat:@"🧭 %@%@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.FreeSpinsAward", nil), (long)awarded], payout ? [NSString stringWithFormat:@" %@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.Coins", nil), (long)payout]] : @""] : payout ? [NSString stringWithFormat:NSLocalizedString([result[@"win_lines"] integerValue] == 1 ? @"BRSlot.Win.LinesResultOne" : @"BRSlot.Win.LinesResult", nil), (long)payout, [result[@"win_lines"] integerValue]] : [result[@"was_free_spin"] boolValue] ? NSLocalizedString(@"BRSlot.Win.FreeSpinNoWin", nil) : [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.NoWin", nil), (long)[result[@"wager"] integerValue]];
         self.messageLabel.textColor=(payout || awarded) ? UIColor.systemYellowColor : [UIColor colorWithWhite:.8 alpha:1];
         if (payout > 0) [self playCoins];
         if (payout || awarded) [self showWin:payout awarded:awarded];

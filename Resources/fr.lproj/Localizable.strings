@@ -286,7 +286,7 @@
 "ElevenLabsClone.UploadFailed" = "Échec du téléversement.";
 "ElevenLabsClone.CloneFailed" = "Échec du clonage";
 "ElevenLabsClone.NoVoiceID" = "Aucun ID de voix dans la réponse.";
-"ElevenLabsClone.SlotsUsedFormat" = "\\nEmplacements utilisés : %ld / %ld";
+"ElevenLabsClone.SlotsUsedFormat" = "\nEmplacements utilisés : %ld / %ld";
 "ElevenLabsClone.VoiceCloned" = "Voix clonée";
 "ElevenLabsClone.VoiceClonedMessage" = "ID de voix : %@%@";
 "ElevenLabsClone.UnnamedVoice" = "Voix sans nom";
@@ -416,7 +416,7 @@
 "BRSlot.Classic.Description" = "Cinq lignes de paiement • résultats vérifiés par le serveur";
 "BRSlot.Control.Lines" = "LIGNES";
 "BRSlot.Control.BetPerLine" = "PARI / LIGNE";
-"BRSlot.Classic.MaxBet" = "MISE MAXIMALE\\n⚡ 25";
+"BRSlot.Classic.MaxBet" = "MISE MAXIMALE\n⚡ 25";
 "BRSlot.Customize" = "Personnaliser les symboles";
 "BRSlot.Control.Spin" = "⚡ TOURNER";
 "BRSlot.Penny.Title" = "Machines à sous";
@@ -431,8 +431,8 @@
 "BRSlot.Customizer.PennyTitle" = "Personnalisez les machines à sous Penny";
 "BRSlot.Customizer.PennySubtitle" = "Appuyez sur un symbole pour choisir une photo, un fichier ou une image générée. L'art actuel est présenté ici.";
 "BRSlot.Customizer.ResetAll" = "↺ Réinitialiser toutes les illustrations";
-"BRSlot.Control.LinesValue" = "LIGNES\\n%ld";
-"BRSlot.Control.BetPerLineValue" = "PARI / LIGNE\\n🪙 %ld";
+"BRSlot.Control.LinesValue" = "LIGNES\n%ld";
+"BRSlot.Control.BetPerLineValue" = "PARI / LIGNE\n🪙 %ld";
 "BRSlot.Balance.Value" = "🪙 %ld Pièces EZ";
 "BRSlot.Classic.LoungeTitle" = "Salon Brainrot";
 "BRSlot.Penny.LoungeTitle" = "Salon des machines à sous Penny";
@@ -447,7 +447,7 @@
 "BRSlot.Classic.StoreFeature" = "votre mise %ld-coin sur les machines à sous";
 "BRSlot.Spinning" = "Tourner…";
 "BRSlot.Error.SessionExpired" = "Votre session de connexion a expiré.";
-"BRSlot.Penny.MaxBet" = "MISE MAXIMALE\\n⚡ 225";
+"BRSlot.Penny.MaxBet" = "MISE MAXIMALE\n⚡ 225";
 "BRSlot.Penny.FreeSpin" = "Tour gratuit…";
 "BRSlot.Penny.NeedCoins" = "Besoin de %ld pièces pour ce tour.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld TOURS GRATUITS GAUCHES • TOUS LES GAGNES 2×";
@@ -457,7 +457,7 @@
 "BRSlot.Pity.Title" = "😬 Eh bien, c'était dur";
 "BRSlot.Pity.Body" = "Cette course ne s'est pas déroulée dans votre sens. Voici %ld tours supplémentaires pour la maison.";
 "BRSlot.Pity.Action" = "Allons-y! 🎰";
-"BRSlot.Win.Overlay" = "%@\\n+%ld PIÈCES";
+"BRSlot.Win.Overlay" = "%@\n+%ld PIÈCES";
 "BRSlot.Win.Jackpot" = "JACKPOT !";
 "BRSlot.Win.Winner" = "GAGNANT!";
 "BRSlot.Lounge.SignIn" = "Connectez-vous pour rejoindre le salon.";
@@ -467,20 +467,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "J'utilise actuellement l'image de slot intégrée.";
 "BRSlot.Customizer.BuiltInPenny" = "J'utilise actuellement l'image Penny Slots intégrée.";
 "BRSlot.Generation.Cost" = "Chaque génération coûte 3 EZ Coins.";
-"BRSlot.Plunder.Title" = "Plunder Bay";
-"BRSlot.Plunder.Heading" = "☠ PLUNDER BAY ☠";
-"BRSlot.Plunder.Description" = "Vingt lignes, un coffre au trésor. Trois coffres réveillent le bonus.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Les coffres paient partout — 3 ou plus lancent les tours gratuits avec gains de ligne ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld TOURS GRATUITS RESTANTS — GAINS DE LIGNE ×3";
-"BRSlot.Plunder.FreeSpin" = "Tour gratuit — aucune mise prélevée";
-"BRSlot.Plunder.BetValue" = "MISE\n%ld";
-"BRSlot.Plunder.MaxBet" = "MISE MAXIMALE\n100 + TOURNER";
-"BRSlot.Plunder.NeedCoins" = "Besoin de %ld pièces pour cette mise.";
-"BRSlot.Plunder.SignIn" = "Connectez-vous pour jouer à Plunder Bay.";
-"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
-"BRSlot.Plunder.LoungeTitle" = "Salon Plunder Bay";
-"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
-"BRSlot.Picker.Plunder.Detail" = "Cinq rouleaux, vingt lignes, un coffre plein de tours gratuits. La machine pirate.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Paroles de la chanson";
@@ -709,3 +695,12 @@
 
 /* EZSounds (edit) */
 "EZSounds.Edit" = "Modifier";
+/* Slot win results */
+"BRSlot.Win.LineResult" = "🎉 Vous avez gagné %1$ld pièces (%2$+ld) sur %3$ld lignes !";
+"BRSlot.Win.LineResultOne" = "🎉 Vous avez gagné %1$ld pièces (%2$+ld) sur %3$ld ligne !";
+"BRSlot.Win.LinesResult" = "🎉 Vous avez gagné %1$ld pièces sur %2$ld lignes";
+"BRSlot.Win.LinesResultOne" = "🎉 Vous avez gagné %1$ld pièces sur %2$ld ligne";
+"BRSlot.Win.Coins" = "%ld pièces gagnées";
+"BRSlot.Win.FreeSpinsAward" = "+%ld TOURS GRATUITS !";
+"BRSlot.Win.NoWin" = "Aucun gain • −%ld pièces";
+"BRSlot.Win.FreeSpinNoWin" = "Tour gratuit • aucune ligne gagnante";
