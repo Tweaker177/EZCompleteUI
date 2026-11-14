@@ -154,7 +154,6 @@
       "appPermissions": {
         "entitlements": [],
         "privacy": {
-          "NSCameraUsageDescription": "EZCompleteUI uses the camera to take a one-time selfie for the NSFW image selfie check. The selfie stays on this device and is never uploaded.",
           "NSDocumentsFolderUsageDescription": "EZCompleteUI needs access to your files so you can attach documents, images, and audio to your chats.",
           "NSMicrophoneUsageDescription": "EZCompleteUI uses the microphone for voice dictation.",
           "NSPhotoLibraryAddUsageDescription": "EZCompleteUI saves AI-generated images to your Photo Library.",
