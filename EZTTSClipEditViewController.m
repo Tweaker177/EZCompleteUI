@@ -153,12 +153,19 @@ static UIColor *EZEditElectricBlue(void) {
                     completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion {
     if (self.soundEntry) {
         EZSoundManifestEntry *source = self.soundEntry;
+        // Carry the source's metadata onto the copy: its loop flag, custom
+        // title, and playback rate are properties of the sound, not of the
+        // file being replaced — dropping them (the old metadata:nil) made
+        // an edited looping sound stop looping on paper, a renamed sound
+        // fall back to its prompt, and a sped-up sound play at 1.0x.
+        // (coinsSpent / requestedSeconds ride along as provenance; nothing
+        // reads them back.)
         [[EZSoundLibraryManager sharedManager] saveAudioData:data
                                                         prompt:prompt
                                                       provider:source.provider
                                                          model:source.model
                                                      extension:extension
-                                                      metadata:nil
+                                                      metadata:source.metadata
                                                     completion:^(EZSoundManifestEntry *saved, NSError *error) {
             completion(saved ? [self mirrorEntryForSoundEntry:saved] : nil, error);
         }];
