@@ -4049,22 +4049,23 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         [self appendToChat:@"[System: Whisper is for audio transcription only — switched to gpt-4o for chat]"];
     }
 
+    // Auto mode (PR #76): the server picks the chat model, so a stale
+    // non-chat pick still sitting in selectedModel (seahorse-image, an
+    // image model, dall-e-2-edit) must not divert this send into that
+    // model's flow. The model-specific branches below are explicit-pick only.
+    BOOL ezAutoEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"];
     // ── Explicit image edit (a newly attached source image) ──────────────────
     // Edit mode remains visible after a completed edit, but it must not force
     // every later prompt into edit. Without a pending source image, let the
     // image-intent router below choose generate, edit, or reopen instead.
-    if ([self.selectedModel isEqualToString:@"gpt-image-1-edit"] &&
+    if (!ezAutoEnabled &&
+        [self.selectedModel isEqualToString:@"gpt-image-1-edit"] &&
         self.pendingImagePaths.count > 0) {
         [self callImageEdit:text imagePath:self.pendingImagePaths.lastObject ?: self.lastImageLocalPath];
         [self.pendingImagePaths removeAllObjects];
         return;
     }
 
-    // Auto mode (PR #76): the server picks the chat model, so a stale
-    // non-chat pick still sitting in selectedModel (seahorse-image, an
-    // image model, dall-e-2-edit) must not divert this send into that
-    // model's flow. The model-specific branches below are explicit-pick only.
-    BOOL ezAutoEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"];
     // ── Legacy dall-e-2-edit fallback ────────────────────────────────────────
     if (!ezAutoEnabled && [self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
         [self enterImageEditModeFromCurrentSelection];
@@ -4233,6 +4234,17 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 promptForMainModel = [NSString stringWithFormat:
                     @"[Validated helper answer — verify or update with web search:]\n%@\n\n[User message]\n%@",
                     result.shortCircuitAnswer, fullPrompt];
+                // The analyze wrapper prepended the always-in-context
+                // important-memories block to result.finalPrompt, but this
+                // branch rebuilds the prompt from fullPrompt — re-apply the
+                // block so a web-search turn still carries the user's
+                // standing facts (the restore/title stripping already
+                // handles the "[Important memories" prefix).
+                NSString *importantBlock = EZImportantMemoryContextBlock();
+                if (importantBlock.length > 0) {
+                    promptForMainModel = [NSString stringWithFormat:@"%@\n\n%@",
+                                          importantBlock, promptForMainModel];
+                }
                 if (self.chatContext.count > 0) [self.chatContext removeLastObject];
                 [self.chatContext addObject:@{ @"role": @"user", @"content": promptForMainModel }];
                 [self appendToChat:@"[System: Helper answer included for web verification ✓]"];
@@ -4692,8 +4704,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // transcription sends don't pass through here at all. A failed send
     // leaves them pending for the next successful one.
     NSArray<NSDictionary *> *pendingReactionEntries = @[];
-    BOOL reactionModelIsImage = [self isGptImage1Family:self.selectedModel] ||
-        [self.selectedModel isEqualToString:@"seahorse-image"];
+    // Under Auto the send goes out as a chat turn (model "auto"), so a
+    // stale image pick must not suppress the reaction share-back either.
+    BOOL reactionModelIsImage = ![[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"] &&
+        ([self isGptImage1Family:self.selectedModel] ||
+         [self.selectedModel isEqualToString:@"seahorse-image"]);
     if (!reactionModelIsImage) {
         NSMutableArray<NSDictionary *> *pending = [NSMutableArray array];
         NSMutableString *reactionNote = [NSMutableString string];
@@ -4715,7 +4730,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             }
             NSString *snippet = [snippetWords componentsJoinedByString:@" "];
             if (snippet.length > 80) {
-                snippet = [[snippet substringToIndex:80] stringByAppendingString:@"\u2026"];
+                // Cut on a composed-character boundary: a hard
+                // substringToIndex: can split a surrogate pair (emoji) and
+                // leave a lone surrogate, which NSJSONSerialization refuses
+                // — failing the whole send for one reaction note.
+                NSRange safeRange = [snippet rangeOfComposedCharacterSequencesForRange:NSMakeRange(0, 80)];
+                snippet = [[snippet substringWithRange:safeRange] stringByAppendingString:@"\u2026"];
             }
             if (reactionNote.length) [reactionNote appendString:@"\n"];
             [reactionNote appendFormat:@"[User reacted %@ to your earlier response: \"%@\"]",
@@ -5320,6 +5340,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 if (savedPaths.count > 0) {
                     [self appendImageGridToChat:[savedPaths copy]
                                          prompt:savedPrompt isError:NO errorText:nil];
+                    // The attached photos were spent on this generation.
+                    // Clear them here: the generate path never clears
+                    // pendingImagePaths (unlike edit/Seahorse/chat, which
+                    // clear after consuming them), so without this the
+                    // photos ride into the next send as vision attachments
+                    // and can steer a follow-up into editing the original
+                    // photo instead of the generated image.
+                    [self.pendingImagePaths removeAllObjects];
                 } else {
                     NSString *errMsg = @"Image generated but could not be saved.";
                     [self appendImageGridToChat:@[] prompt:savedPrompt isError:YES errorText:errMsg];

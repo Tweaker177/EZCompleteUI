@@ -20,6 +20,13 @@ static NSArray<NSString *> *PlunderSymbols(void) {
 }
 static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 
+// The spin payload is server JSON: any of these may be absent or
+// NSNull, and messaging integerValue/boolValue to NSNull crashes —
+// the same crash class as the Seahorse guards in PR #48. Numbers and
+// numeric strings read; anything else reads as 0 / NO.
+static NSInteger PlunderInteger(id value) { return [value respondsToSelector:@selector(integerValue)] ? [value integerValue] : 0; }
+static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO; }
+
 @interface BRPlunderBayViewController () <AVAudioPlayerDelegate>
 @property (nonatomic, strong) NSMutableArray<NSArray<UIImageView *> *> *reels;
 @property (nonatomic, strong) UILabel *balanceLabel, *bonusLabel, *messageLabel;
@@ -101,6 +108,9 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 }
 - (void)buildUI {
     UIScrollView *scroll = [UIScrollView new]; scroll.translatesAutoresizingMaskIntoConstraints = NO; scroll.alwaysBounceVertical = YES; [self.view addSubview:scroll];
+    // Reserve room for the chat bar pinned over the bottom of this screen,
+    // so the last controls (Spin) can always scroll clear of it.
+    scroll.contentInset = UIEdgeInsetsMake(0, 0, 50, 0); scroll.scrollIndicatorInsets = scroll.contentInset;
     UIView *content = [UIView new]; content.translatesAutoresizingMaskIntoConstraints = NO; [scroll addSubview:content];
     UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Plunder.Heading", nil); title.font = [UIFont systemFontOfSize:23 weight:UIFontWeightBlack]; title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .55; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; title.textAlignment = NSTextAlignmentCenter;
     self.balanceLabel = [UILabel new]; self.balanceLabel.text = NSLocalizedString(@"BRSlot.Balance.Loading", nil); self.balanceLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold]; self.balanceLabel.textColor = UIColor.whiteColor; self.balanceLabel.textAlignment = NSTextAlignmentCenter;
@@ -146,7 +156,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     [[tile viewWithTag:77] removeFromSuperview]; tile.image = nil;
     UIImage *art = [BRPlunderBayViewController plunderSymbolImage:symbol];
     if (art) { tile.image = art; tile.contentMode = UIViewContentModeScaleAspectFill; return; }
-    UILabel *glyph = [UILabel new]; glyph.tag = 77; glyph.text = [[symbol substringToIndex:1] uppercaseString];
+    UILabel *glyph = [UILabel new]; glyph.tag = 77; glyph.text = symbol.length ? [[symbol substringToIndex:1] uppercaseString] : @"?";
     glyph.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; glyph.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1];
     glyph.textAlignment = NSTextAlignmentCenter; glyph.frame = tile.bounds; glyph.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [tile addSubview:glyph];
 }
@@ -205,12 +215,16 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     [self request:@{@"action":@"status"} completion:^(NSDictionary *result, NSString *error) {
         if (self.spinning) return;
         if (error) { self.messageLabel.text = error; return; }
-        self.freeSpinsRemaining = [result[@"free_spins_remaining"] integerValue];
+        self.freeSpinsRemaining = PlunderInteger(result[@"free_spins_remaining"]);
         if (self.freeSpinsRemaining > 0) {
             NSInteger found = [PlunderBets() indexOfObject:result[@"bet_coins"]]; if (found != NSNotFound) self.betIndex = found;
             [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal];
         }
         [self updateBonusLabel];
+        // A fresh instance opened mid-bonus only learns the count here;
+        // viewDidAppear's schedule ran before it arrived, so resume the
+        // auto-spin chain from the status reply too.
+        [self scheduleBonusAutoSpin];
     }];
 }
 - (void)updateBonusLabel {
@@ -283,8 +297,19 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         [request setValue:[NSString stringWithFormat:@"Bearer %@",token] forHTTPHeaderField:@"Authorization"];
         request.HTTPBody = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
         [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) {
-            NSDictionary *result = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
-            dispatch_async(dispatch_get_main_queue(), ^{ completion(result, networkError.localizedDescription ?: result[@"reason"] ?: result[@"error"]); });
+            id json = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+            // A non-dictionary top level (or a reason/error that is
+            // NSNull, not a string) must never reach the callers as an
+            // object they message: beginSpin calls localizedLowercaseString
+            // on the error, and finishWithError hands it to a label.
+            NSDictionary *result = [json isKindOfClass:NSDictionary.class] ? json : nil;
+            NSString *errorText = networkError.localizedDescription;
+            if (!errorText && result) {
+                id reason = result[@"reason"];
+                if ([reason isKindOfClass:NSString.class]) errorText = reason;
+                else { id serverError = result[@"error"]; if ([serverError isKindOfClass:NSString.class]) errorText = serverError; }
+            }
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(result, errorText); });
         }] resume];
     }];
 }
@@ -357,7 +382,15 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 - (void)reveal:(NSDictionary *)result {
     NSArray *columns = result[@"reels"];
     if (columns.count != 5) { [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
-    for (NSArray *column in columns) if (![column isKindOfClass:NSArray.class] || column.count != 3) { [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
+    for (NSArray *column in columns) {
+        if (![column isKindOfClass:NSArray.class] || column.count != 3) { [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
+        // Every symbol must be a known string: a number, NSNull, or an
+        // unknown name would crash setSymbol (isEqualToString: /
+        // substringToIndex:) when the column lands — via the staged
+        // reveal and via the slam-stop jump, which both read this
+        // same validated result.
+        for (id symbol in column) if (![symbol isKindOfClass:NSString.class] || ![PlunderSymbols() containsObject:symbol]) { [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
+    }
     self.preSpinBoard = nil;
     self.pendingSpinResult = result;
     self.spinSettled = NO;
@@ -391,14 +424,15 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 // (bells, cannon, coins, win banner) all still run.
 - (void)settleSpin:(NSDictionary *)result {
         [self stopDrumRoll]; [self stopReelsSound];
-        NSInteger payout=[result[@"payout"] integerValue],balance=[result[@"balance"] integerValue],awarded=[result[@"free_spins_awarded"] integerValue],scatters=[result[@"scatter_count"] integerValue];
+        NSInteger payout=PlunderInteger(result[@"payout"]),balance=PlunderInteger(result[@"balance"]),awarded=PlunderInteger(result[@"free_spins_awarded"]),scatters=PlunderInteger(result[@"scatter_count"]);
         if (scatters >= 3) [self playBells];
-        self.freeSpinsRemaining=[result[@"free_spins_remaining"] integerValue]; [self updateBonusLabel];
-        BOOL wasFreeSpin=[result[@"was_free_spin"] boolValue];
+        self.freeSpinsRemaining=PlunderInteger(result[@"free_spins_remaining"]); [self updateBonusLabel];
+        BOOL wasFreeSpin=PlunderBool(result[@"was_free_spin"]);
         if (wasFreeSpin) self.freeSpinSessionTotal+=payout;
         [EZEntitlementManager.shared applyKnownBalance:balance]; self.knownBalance = balance; self.balanceChecked = YES; self.balanceLabel.text=[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
         NSMutableArray *winLines=[NSMutableArray array];
-        for (NSDictionary *line in result[@"winning_lines"]) { if (![line isKindOfClass:NSDictionary.class]) continue; NSArray *rows=[line[@"rows"] isKindOfClass:NSArray.class]?line[@"rows"]:@[]; NSInteger matches=MIN([line[@"matches"] integerValue],5); NSMutableArray *coords=[NSMutableArray array]; for (NSInteger col=0;col<matches && col<(NSInteger)rows.count;col++) { NSInteger row=[rows[col] integerValue]; if (row>=0 && row<3) [coords addObject:@[@(col),@(row)]]; } if (coords.count) [winLines addObject:coords]; }
+        NSArray *winningLines = [result[@"winning_lines"] isKindOfClass:NSArray.class] ? result[@"winning_lines"] : @[];
+        for (NSDictionary *line in winningLines) { if (![line isKindOfClass:NSDictionary.class]) continue; NSArray *rows=[line[@"rows"] isKindOfClass:NSArray.class]?line[@"rows"]:@[]; NSInteger matches=MIN(PlunderInteger(line[@"matches"]),5); NSMutableArray *coords=[NSMutableArray array]; for (NSInteger col=0;col<matches && col<(NSInteger)rows.count;col++) { NSInteger row=PlunderInteger(rows[col]); if (row>=0 && row<3) [coords addObject:@[@(col),@(row)]]; } if (coords.count) [winLines addObject:coords]; }
         // Cannon celebration: a winning line paying 3+ cannons
         // (wilds count toward the run) fires the cannon.
         NSArray *settleColumns = result[@"reels"];
@@ -419,7 +453,8 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         }
         if (cannonLine) [self playCannon];
         if (winLines.count) [self celebrateWinLines:winLines step:0 passes:(winLines.count<=2?3:winLines.count<=4?2:1) celebrationID:self.lineCelebrationID];
-        self.messageLabel.text = awarded ? [NSString stringWithFormat:@"🧭 %@%@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.FreeSpinsAward", nil), (long)awarded], payout ? [NSString stringWithFormat:@" %@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.Coins", nil), (long)payout]] : @""] : payout ? [NSString stringWithFormat:NSLocalizedString([result[@"win_lines"] integerValue] == 1 ? @"BRSlot.Win.LinesResultOne" : @"BRSlot.Win.LinesResult", nil), (long)payout, [result[@"win_lines"] integerValue]] : [result[@"was_free_spin"] boolValue] ? NSLocalizedString(@"BRSlot.Win.FreeSpinNoWin", nil) : [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.NoWin", nil), (long)[result[@"wager"] integerValue]];
+        NSInteger winLineCount = PlunderInteger(result[@"win_lines"]);
+        self.messageLabel.text = awarded ? [NSString stringWithFormat:@"🧭 %@%@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.FreeSpinsAward", nil), (long)awarded], payout ? [NSString stringWithFormat:@" %@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.Coins", nil), (long)payout]] : @""] : payout ? [NSString stringWithFormat:NSLocalizedString(winLineCount == 1 ? @"BRSlot.Win.LinesResultOne" : @"BRSlot.Win.LinesResult", nil), (long)payout, (long)winLineCount] : wasFreeSpin ? NSLocalizedString(@"BRSlot.Win.FreeSpinNoWin", nil) : [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.NoWin", nil), (long)PlunderInteger(result[@"wager"])];
         self.messageLabel.textColor=(payout || awarded) ? UIColor.systemYellowColor : [UIColor colorWithWhite:.8 alpha:1];
         if (payout > 0) [self playCoins];
         if (payout || awarded) [self showWin:payout awarded:awarded];
@@ -616,7 +651,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 - (void)showOdds {
     UIViewController *sheet=[UIViewController new]; sheet.view.backgroundColor=[UIColor colorWithRed:.03 green:.05 blue:.13 alpha:1]; sheet.modalPresentationStyle=UIModalPresentationPageSheet; sheet.sheetPresentationController.prefersGrabberVisible=YES; sheet.sheetPresentationController.detents=@[[UISheetPresentationControllerDetent mediumDetent],[UISheetPresentationControllerDetent largeDetent]];
     UITextView *text=[UITextView new]; text.editable=NO; text.selectable=NO; text.backgroundColor=UIColor.clearColor; text.textColor=UIColor.whiteColor; text.font=[UIFont monospacedSystemFontOfSize:14 weight:UIFontWeightMedium]; text.textContainerInset=UIEdgeInsetsMake(24,18,28,18); text.translatesAutoresizingMaskIntoConstraints=NO; [sheet.view addSubview:text];
-    text.text=@"PLUNDER BAY PAYOUTS\n\nAll 20 lines are always active. 3, 4, or 5 consecutive symbols from the left on a line pay, as multiples of your total bet:\n\n👑 Captain    4× / 16× / 80×\n⛵ Galleon    3× / 12× / 60×\n🗺 Map        2.5× / 8× / 40×\n💣 Cannon     2× / 6× / 30×\n🦜 Parrot     1.5× / 5× / 25×\n⚓ Anchor     1× / 4× / 20×\n🧭 Compass    1× / 3× / 16×\n🍾 Rum        1× / 2.5× / 12×\n🪙 Doubloon   1× / 2× / 10×\n🪝 Hook       0.5× / 1.5× / 8×\n\n☠ The skull is wild and substitutes for every symbol except the chest.\n\n🧰 The treasure chest is a scatter — it pays anywhere and starts the bonus:\n3 chests: 2× your bet + 5–8 free spins\n4 chests: 8× your bet + 14–16 free spins\n5 chests: 40× your bet + 25–30 free spins\nA board can never show more than 5 chests.\n\nIn free spins every line win pays ×3, chest pays stay full, and chests can retrigger more free spins.\n\nTheoretical long-run RTP is about 94.4%, verified by simulating 10,000,000 spins of these exact tables; the bonus triggers about once in 158 spins. Results vary.";
+    text.text=NSLocalizedString(@"BRSlot.Plunder.OddsText", nil);
     [NSLayoutConstraint activateConstraints:@[[text.topAnchor constraintEqualToAnchor:sheet.view.safeAreaLayoutGuide.topAnchor],[text.leadingAnchor constraintEqualToAnchor:sheet.view.leadingAnchor],[text.trailingAnchor constraintEqualToAnchor:sheet.view.trailingAnchor],[text.bottomAnchor constraintEqualToAnchor:sheet.view.safeAreaLayoutGuide.bottomAnchor]]];
     [self presentViewController:sheet animated:YES completion:nil];
 }
