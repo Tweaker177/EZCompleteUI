@@ -13,9 +13,9 @@
 #import "EZSupabaseConfig.h"
 
 // ── Share targets ────────────────────────────────────────────────────────────
-// AltStore: the source this app itself ships through (see ALTSTORE_SETUP.md).
-static NSString *const kEZAltStoreDeepLink =
-    @"altstore://source?url=https://raw.githubusercontent.com/Tweaker177/EZCompleteUI/main/apps.json";
+// ZeeSigner: the source this app ships through.
+static NSString *const kEZZeeSignerDeepLink =
+    @"zeesigner://source?url=https://raw.githubusercontent.com/Tweaker177/EZCompleteUI/main/apps.json";
 // Jailbreak: the YouRepo repo hosting the .deb.
 static NSString *const kEZJailbreakRepoURL = @"https://i0s-tweak3r-betas.yourepo.com/";
 
@@ -44,7 +44,7 @@ static NSString *const kEZPendingReferralKey     = @"EZPendingReferralCode";
 }
 
 + (NSString *)shareInstallLink {
-    return [self isJailbreakInstall] ? kEZJailbreakRepoURL : kEZAltStoreDeepLink;
+    return [self isJailbreakInstall] ? kEZJailbreakRepoURL : kEZZeeSignerDeepLink;
 }
 
 + (NSString *)shareMessageWithReferralCode:(NSString *)code {
@@ -56,7 +56,7 @@ static NSString *const kEZPendingReferralKey     = @"EZPendingReferralCode";
     if ([self isJailbreakInstall]) {
         [message appendFormat:@" Get it from this repo: %@", kEZJailbreakRepoURL];
     } else {
-        [message appendFormat:@" Add this source in AltStore to install it: %@", kEZAltStoreDeepLink];
+        [message appendFormat:@" Add this source in zeesigner to install it: %@", kEZZeeSignerDeepLink];
     }
     return [message copy];
 }

@@ -1,0 +1,3489 @@
+diff --git a/BRGoldenMandarinArt.h b/BRGoldenMandarinArt.h
+new file mode 100644
+index 0000000..f4581d2
+--- /dev/null
++++ b/BRGoldenMandarinArt.h
+@@ -0,0 +1,29 @@
++// BRGoldenMandarinArt.h
++// EZCompleteUI — Golden Mandarin (金帽福运) slot
++//
++// Every symbol is illustrated in code (CoreGraphics / UIBezierPath) on a 100x100
++// design grid, so the art stays sharp at any size and ships without image
++// files. Symbols are drawn on a transparent background.
++
++#import <UIKit/UIKit.h>
++#import "BRGoldenMandarinEngine.h"
++
++NS_ASSUME_NONNULL_BEGIN
++
++@interface BRGoldenMandarinArt : NSObject
++
++/// Cached, transparent-background illustration for a reel symbol.
+++ (UIImage *)imageForSymbol:(GMSymbol)symbol size:(CGSize)size;
++
++/// Short English name, e.g. "Paper Lantern".
+++ (NSString *)nameForSymbol:(GMSymbol)symbol;
++
++/// Face-down card for the hat shuffle bonus: red lacquer, gold border, 福.
+++ (UIImage *)cardBackWithSize:(CGSize)size;
++
++/// Drops cached images (call from didReceiveMemoryWarning).
+++ (void)purgeCache;
++
++@end
++
++NS_ASSUME_NONNULL_END
+diff --git a/BRGoldenMandarinArt.m b/BRGoldenMandarinArt.m
+new file mode 100644
+index 0000000..ef0925b
+--- /dev/null
++++ b/BRGoldenMandarinArt.m
+@@ -0,0 +1,634 @@
++// BRGoldenMandarinArt.m
++// EZCompleteUI — Golden Mandarin (金帽福运) slot
++//
++// Symbol illustrations drawn in code on a 100 x 100 grid. The set is a respectful
++// nod to traditional Chinese motifs: paper lantern (福), silk fan, bamboo, plum
++// blossom under a moon gate, koi, a jade bi disc, a gold yuanbao ingot, a
++// dragon, and the golden official's hat that serves as the scatter.
++
++#import "BRGoldenMandarinArt.h"
++
++#pragma mark - Drawing helpers
++
++static UIColor *HX(uint32_t hex, CGFloat alpha) {
++    return [UIColor colorWithRed:((hex >> 16) & 0xFF) / 255.0 green:((hex >> 8) & 0xFF) / 255.0 blue:(hex & 0xFF) / 255.0 alpha:alpha];
++}
++#define HEX(h) HX((h), 1.0)
++
++static CGGradientRef MakeGradient(NSArray<UIColor *> *colors) {
++    NSMutableArray *cg = [NSMutableArray arrayWithCapacity:colors.count];
++    for (UIColor *color in colors) [cg addObject:(__bridge id)color.CGColor];
++    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
++    CGGradientRef gradient = CGGradientCreateWithColors(space, (__bridge CFArrayRef)cg, NULL);
++    CGColorSpaceRelease(space);
++    return gradient; // caller releases
++}
++
++static void LinearFill(CGContextRef c, UIBezierPath *path, NSArray<UIColor *> *colors, CGPoint from, CGPoint to) {
++    CGContextSaveGState(c);
++    [path addClip];
++    CGGradientRef g = MakeGradient(colors);
++    CGContextDrawLinearGradient(c, g, from, to, kCGGradientDrawsBeforeStartLocation | kCGGradientDrawsAfterEndLocation);
++    CGGradientRelease(g);
++    CGContextRestoreGState(c);
++}
++
++static void RadialFill(CGContextRef c, UIBezierPath *path, NSArray<UIColor *> *colors, CGPoint center, CGFloat radius) {
++    CGContextSaveGState(c);
++    [path addClip];
++    CGGradientRef g = MakeGradient(colors);
++    CGContextDrawRadialGradient(c, g, center, 0, center, radius, kCGGradientDrawsAfterEndLocation);
++    CGGradientRelease(g);
++    CGContextRestoreGState(c);
++}
++
++static void Stroke(UIBezierPath *path, UIColor *color, CGFloat width) {
++    [color setStroke];
++    path.lineWidth = width;
++    path.lineCapStyle = kCGLineCapRound;
++    path.lineJoinStyle = kCGLineJoinRound;
++    [path stroke];
++}
++
++static void Fill(UIBezierPath *path, UIColor *color) { [color setFill]; [path fill]; }
++
++static UIBezierPath *Oval(CGFloat x, CGFloat y, CGFloat w, CGFloat h) { return [UIBezierPath bezierPathWithOvalInRect:CGRectMake(x, y, w, h)]; }
++static UIBezierPath *Disc(CGFloat cx, CGFloat cy, CGFloat r) { return Oval(cx - r, cy - r, r * 2, r * 2); }
++static UIBezierPath *RoundRect(CGFloat x, CGFloat y, CGFloat w, CGFloat h, CGFloat r) { return [UIBezierPath bezierPathWithRoundedRect:CGRectMake(x, y, w, h) cornerRadius:r]; }
++
++static void Line(CGFloat x1, CGFloat y1, CGFloat x2, CGFloat y2, UIColor *color, CGFloat width) {
++    UIBezierPath *p = [UIBezierPath bezierPath];
++    [p moveToPoint:CGPointMake(x1, y1)];
++    [p addLineToPoint:CGPointMake(x2, y2)];
++    Stroke(p, color, width);
++}
++
++static void DrawGlyph(NSString *text, CGRect rect, CGFloat size, UIColor *color) {
++    NSMutableParagraphStyle *style = [NSMutableParagraphStyle new];
++    style.alignment = NSTextAlignmentCenter;
++    NSDictionary *attrs = @{ NSFontAttributeName: [UIFont systemFontOfSize:size weight:UIFontWeightHeavy],
++                             NSForegroundColorAttributeName: color,
++                             NSParagraphStyleAttributeName: style };
++    CGSize textSize = [text sizeWithAttributes:attrs];
++    CGRect box = CGRectMake(rect.origin.x, rect.origin.y + (rect.size.height - textSize.height) / 2.0, rect.size.width, textSize.height);
++    [text drawInRect:box withAttributes:attrs];
++}
++
++/// Runs `body` with the context mirrored left-to-right about x = 50 when `mirrored`.
++static void WithMirror(CGContextRef c, BOOL mirrored, void (^body)(void)) {
++    CGContextSaveGState(c);
++    if (mirrored) { CGContextTranslateCTM(c, 100, 0); CGContextScaleCTM(c, -1, 1); }
++    body();
++    CGContextRestoreGState(c);
++}
++
++static void DrawSparkle(CGFloat cx, CGFloat cy, CGFloat r, UIColor *color) {
++    UIBezierPath *p = [UIBezierPath bezierPath];
++    [p moveToPoint:CGPointMake(cx, cy - r)];
++    [p addLineToPoint:CGPointMake(cx + r * .22, cy - r * .22)];
++    [p addLineToPoint:CGPointMake(cx + r, cy)];
++    [p addLineToPoint:CGPointMake(cx + r * .22, cy + r * .22)];
++    [p addLineToPoint:CGPointMake(cx, cy + r)];
++    [p addLineToPoint:CGPointMake(cx - r * .22, cy + r * .22)];
++    [p addLineToPoint:CGPointMake(cx - r, cy)];
++    [p addLineToPoint:CGPointMake(cx - r * .22, cy - r * .22)];
++    [p closePath];
++    Fill(p, color);
++}
++
++static void DrawBlossom(CGContextRef c, CGPoint center, CGFloat radius) {
++    for (int k = 0; k < 5; k++) {
++        CGFloat angle = -M_PI_2 + k * (2 * M_PI / 5);
++        CGPoint pc = CGPointMake(center.x + cos(angle) * radius * .55, center.y + sin(angle) * radius * .55);
++        UIBezierPath *petal = Disc(pc.x, pc.y, radius * .52);
++        RadialFill(c, petal, @[HEX(0xFFF4F7), HEX(0xFFB3C8), HEX(0xF27FA3)], pc, radius * .6);
++        Stroke([Disc(pc.x, pc.y, radius * .52) copy], HX(0xD9547E, .7), MAX(.4, radius * .05));
++    }
++    Fill(Disc(center.x, center.y, radius * .2), HEX(0xF5C842));
++    for (int k = 0; k < 6; k++) {
++        CGFloat angle = k * (M_PI / 3);
++        CGPoint tip = CGPointMake(center.x + cos(angle) * radius * .42, center.y + sin(angle) * radius * .42);
++        Line(center.x, center.y, tip.x, tip.y, HEX(0xB02A4A), MAX(.3, radius * .04));
++        Fill(Disc(tip.x, tip.y, radius * .06), HEX(0x7A1530));
++    }
++}
++
++static void DrawLeaf(CGContextRef c, CGPoint base, CGFloat length, CGFloat degrees, CGFloat width) {
++    CGContextSaveGState(c);
++    CGContextTranslateCTM(c, base.x, base.y);
++    CGContextRotateCTM(c, degrees * M_PI / 180.0);
++    UIBezierPath *leaf = [UIBezierPath bezierPath];
++    [leaf moveToPoint:CGPointZero];
++    [leaf addQuadCurveToPoint:CGPointMake(length, 0) controlPoint:CGPointMake(length * .5, -width)];
++    [leaf addQuadCurveToPoint:CGPointZero controlPoint:CGPointMake(length * .5, width)];
++    LinearFill(c, leaf, @[HEX(0x7BD36B), HEX(0x1F7A33)], CGPointMake(0, -width), CGPointMake(length, width));
++    Stroke([leaf copy], HX(0x0C4A20, .8), .6);
++    Line(0, 0, length * .88, 0, HX(0x0C4A20, .45), .5);
++    CGContextRestoreGState(c);
++}
++
++#pragma mark - Symbols
++
++static void DrawLantern(CGContextRef c) {
++    Line(50, 1, 50, 12, HEX(0xD9A21B), 2.4);
++    UIBezierPath *top = RoundRect(33, 11, 34, 9, 3);
++    LinearFill(c, top, @[HEX(0xFFE48F), HEX(0xB8820F)], CGPointMake(50, 11), CGPointMake(50, 20));
++    Stroke([top copy], HEX(0x7A5206), .8);
++
++    UIBezierPath *body = Oval(13, 19, 74, 62);
++    RadialFill(c, body, @[HEX(0xFF6A47), HEX(0xE0191F), HEX(0x8E0A12)], CGPointMake(40, 38), 56);
++    for (NSNumber *w in @[@54, @36, @18]) {
++        CGFloat ww = w.doubleValue;
++        Stroke(Oval(50 - ww / 2, 19, ww, 62), HX(0x6E0610, .55), 1.1);
++    }
++    Stroke([body copy], HEX(0x6E0610), 1.4);
++    Fill(Oval(22, 27, 14, 26), HX(0xFFFFFF, .22));
++    DrawGlyph(@"福", CGRectMake(28, 31, 44, 40), 34, HEX(0xFFD86B));
++
++    UIBezierPath *bottom = RoundRect(33, 80, 34, 8, 3);
++    LinearFill(c, bottom, @[HEX(0xFFE48F), HEX(0xB8820F)], CGPointMake(50, 80), CGPointMake(50, 88));
++    Stroke([bottom copy], HEX(0x7A5206), .8);
++    for (int i = -3; i <= 3; i++) Line(50 + i * 2.4, 88, 50 + i * 3.4, 99, (i % 2) ? HEX(0xE0191F) : HEX(0xF2C14E), 1.5);
++    Fill(Disc(50, 89, 2.6), HEX(0xF2C14E));
++}
++
++static void DrawFan(CGContextRef c) {
++    CGPoint pivot = CGPointMake(50, 84);
++    CGFloat outer = 66, inner = 15, spread = 47 * M_PI / 180.0;
++    CGFloat start = -M_PI_2 - spread, end = -M_PI_2 + spread;
++
++    UIBezierPath *face = [UIBezierPath bezierPath];
++    [face moveToPoint:CGPointMake(pivot.x + cos(start) * inner, pivot.y + sin(start) * inner)];
++    [face addLineToPoint:CGPointMake(pivot.x + cos(start) * outer, pivot.y + sin(start) * outer)];
++    [face addArcWithCenter:pivot radius:outer startAngle:start endAngle:end clockwise:YES];
++    [face addLineToPoint:CGPointMake(pivot.x + cos(end) * inner, pivot.y + sin(end) * inner)];
++    [face addArcWithCenter:pivot radius:inner startAngle:end endAngle:start clockwise:NO];
++    [face closePath];
++    LinearFill(c, face, @[HEX(0xE5303A), HEX(0x9B0F1D)], CGPointMake(50, 18), CGPointMake(50, 84));
++
++    // Gold ribs and a gilded rim.
++    for (int i = 0; i <= 8; i++) {
++        CGFloat a = start + i * (2 * spread / 8.0);
++        Line(pivot.x + cos(a) * inner, pivot.y + sin(a) * inner, pivot.x + cos(a) * (outer - 1), pivot.y + sin(a) * (outer - 1), HX(0xF2C14E, .85), 1.0);
++    }
++    UIBezierPath *rim = [UIBezierPath bezierPathWithArcCenter:pivot radius:outer - 2 startAngle:start endAngle:end clockwise:YES];
++    Stroke(rim, HEX(0xF2C14E), 2.2);
++    UIBezierPath *midArc = [UIBezierPath bezierPathWithArcCenter:pivot radius:outer * .56 startAngle:start + .06 endAngle:end - .06 clockwise:YES];
++    Stroke(midArc, HX(0xF2C14E, .8), 1.0);
++
++    // Plum blossoms painted on the paper.
++    DrawBlossom(c, CGPointMake(50, 84 - 47), 8.5);
++    DrawBlossom(c, CGPointMake(50 + cos(-M_PI_2 - .5) * 38, 84 + sin(-M_PI_2 - .5) * 38), 5.8);
++    DrawBlossom(c, CGPointMake(50 + cos(-M_PI_2 + .5) * 38, 84 + sin(-M_PI_2 + .5) * 38), 5.8);
++
++    // Outer guard sticks.
++    for (NSNumber *angle in @[@(start), @(end)]) {
++        CGFloat a = angle.doubleValue;
++        Line(pivot.x, pivot.y, pivot.x + cos(a) * (outer + 1.5), pivot.y + sin(a) * (outer + 1.5), HEX(0x6B3B12), 4.2);
++        Line(pivot.x, pivot.y, pivot.x + cos(a) * (outer + 1.5), pivot.y + sin(a) * (outer + 1.5), HEX(0xE1B73C), 2.4);
++    }
++    Fill(Disc(pivot.x, pivot.y, 3.6), HEX(0xF2C14E));
++    Stroke(Disc(pivot.x, pivot.y, 3.6), HEX(0x7A5206), .8);
++    Line(50, 88, 50, 94, HEX(0xE1B73C), 1.4);
++    for (int i = -2; i <= 2; i++) Line(50, 94, 50 + i * 2, 99.5, HEX(0xD4161E), 1.4);
++}
++
++static void DrawStalk(CGContextRef c, CGFloat x, CGFloat width, CGFloat top, CGFloat bottom, NSArray<NSNumber *> *nodes) {
++    UIBezierPath *stalk = RoundRect(x - width / 2, top, width, bottom - top, width / 2);
++    LinearFill(c, stalk, @[HEX(0x8FE184), HEX(0x3FAA4B), HEX(0x1C6A30)], CGPointMake(x - width / 2, 0), CGPointMake(x + width / 2, 0));
++    Stroke([stalk copy], HX(0x0C4A20, .8), .8);
++    for (NSNumber *node in nodes) {
++        CGFloat y = node.doubleValue;
++        UIBezierPath *ring = RoundRect(x - width / 2 - 1, y - 1.7, width + 2, 3.4, 1.7);
++        Fill(ring, HEX(0x1B5E2B));
++        Line(x - width / 2, y - 1.9, x + width / 2, y - 1.9, HX(0xC7F5BF, .6), .6);
++    }
++}
++
++static void DrawBamboo(CGContextRef c) {
++    DrawStalk(c, 31, 9, 18, 93, @[@34, @56, @76]);
++    DrawStalk(c, 68, 9, 14, 95, @[@30, @52, @74]);
++    DrawStalk(c, 50, 12, 5, 97, @[@22, @44, @66, @86]);
++    DrawLeaf(c, CGPointMake(31, 34), 25, -150, 6.5);
++    DrawLeaf(c, CGPointMake(31, 56), 22, -28, 6);
++    DrawLeaf(c, CGPointMake(68, 30), 25, -32, 6.5);
++    DrawLeaf(c, CGPointMake(68, 52), 22, -152, 6);
++    DrawLeaf(c, CGPointMake(50, 22), 26, -125, 7);
++    DrawLeaf(c, CGPointMake(50, 22), 26, -55, 7);
++    DrawLeaf(c, CGPointMake(50, 44), 24, 160, 6.5);
++    DrawLeaf(c, CGPointMake(50, 66), 22, 22, 6);
++}
++
++static void DrawPlum(CGContextRef c) {
++    // Moon gate backdrop.
++    UIBezierPath *moon = Disc(50, 50, 45);
++    RadialFill(c, moon, @[HEX(0x3A4D93), HEX(0x1D2A66), HEX(0x101845)], CGPointMake(40, 36), 62);
++    Stroke(Disc(50, 50, 45), HEX(0xE1B73C), 2.2);
++    Stroke(Disc(50, 50, 41.5), HX(0xF2C14E, .5), .7);
++
++    CGContextSaveGState(c);
++    [Disc(50, 50, 44) addClip];
++    UIBezierPath *branch = [UIBezierPath bezierPath];
++    [branch moveToPoint:CGPointMake(2, 90)];
++    [branch addCurveToPoint:CGPointMake(58, 54) controlPoint1:CGPointMake(24, 76) controlPoint2:CGPointMake(42, 78)];
++    [branch addCurveToPoint:CGPointMake(98, 20) controlPoint1:CGPointMake(70, 40) controlPoint2:CGPointMake(86, 40)];
++    Stroke([branch copy], HEX(0x4A2A16), 6.4);
++    Stroke(branch, HEX(0xA06E48), 4.2);
++    UIBezierPath *twigA = [UIBezierPath bezierPath];
++    [twigA moveToPoint:CGPointMake(58, 54)]; [twigA addCurveToPoint:CGPointMake(38, 28) controlPoint1:CGPointMake(58, 42) controlPoint2:CGPointMake(48, 34)];
++    Stroke(twigA, HEX(0xA06E48), 2.6);
++    UIBezierPath *twigB = [UIBezierPath bezierPath];
++    [twigB moveToPoint:CGPointMake(30, 77)]; [twigB addCurveToPoint:CGPointMake(22, 60) controlPoint1:CGPointMake(30, 70) controlPoint2:CGPointMake(26, 64)];
++    Stroke(twigB, HEX(0xA06E48), 2.2);
++    UIBezierPath *twigC = [UIBezierPath bezierPath];
++    [twigC moveToPoint:CGPointMake(78, 36)]; [twigC addCurveToPoint:CGPointMake(82, 20) controlPoint1:CGPointMake(78, 30) controlPoint2:CGPointMake(80, 24)];
++    Stroke(twigC, HEX(0xA06E48), 2.0);
++    DrawBlossom(c, CGPointMake(38, 28), 11);
++    DrawBlossom(c, CGPointMake(63, 52), 13.5);
++    DrawBlossom(c, CGPointMake(82, 20), 8.5);
++    DrawBlossom(c, CGPointMake(22, 60), 8.5);
++    Fill(Disc(50, 34, 2.4), HEX(0xFFB3C8)); Fill(Disc(74, 38, 2.2), HEX(0xFFB3C8)); Fill(Disc(40, 70, 2.2), HEX(0xFFB3C8));
++    CGContextRestoreGState(c);
++}
++
++static void DrawKoi(CGContextRef c) {
++    // Ripples.
++    for (int i = 0; i < 3; i++) {
++        CGFloat w = 94 - i * 18, h = 52 - i * 12;
++        Stroke(Oval(50 - w / 2, 56 - h / 2, w, h), HX(0x4FC3D9, .42 - i * .08), 1.4);
++    }
++    CGContextSaveGState(c);
++    CGContextTranslateCTM(c, 50, 50);
++    CGContextRotateCTM(c, -12 * M_PI / 180.0);
++    CGContextTranslateCTM(c, -50, -50);
++
++    UIBezierPath *tail = [UIBezierPath bezierPath];
++    [tail moveToPoint:CGPointMake(33, 47)];
++    [tail addCurveToPoint:CGPointMake(5, 24) controlPoint1:CGPointMake(22, 40) controlPoint2:CGPointMake(14, 34)];
++    [tail addCurveToPoint:CGPointMake(15, 48) controlPoint1:CGPointMake(6, 36) controlPoint2:CGPointMake(15, 42)];
++    [tail addCurveToPoint:CGPointMake(4, 74) controlPoint1:CGPointMake(15, 56) controlPoint2:CGPointMake(6, 64)];
++    [tail addCurveToPoint:CGPointMake(33, 50) controlPoint1:CGPointMake(16, 66) controlPoint2:CGPointMake(24, 56)];
++    [tail closePath];
++    LinearFill(c, tail, @[HX(0xFFB066, .95), HX(0xFF6A1A, .9)], CGPointMake(5, 24), CGPointMake(33, 74));
++    Stroke([tail copy], HX(0xB8400E, .8), .9);
++    for (int i = 0; i < 4; i++) Line(33, 48.5, 7 + i * 1.5, 30 + i * 14, HX(0xB8400E, .35), .6);
++
++    UIBezierPath *dorsal = [UIBezierPath bezierPath];
++    [dorsal moveToPoint:CGPointMake(64, 32)];
++    [dorsal addCurveToPoint:CGPointMake(40, 28) controlPoint1:CGPointMake(60, 15) controlPoint2:CGPointMake(46, 15)];
++    [dorsal addCurveToPoint:CGPointMake(64, 32) controlPoint1:CGPointMake(48, 30) controlPoint2:CGPointMake(56, 32)];
++    Fill(dorsal, HX(0xE5480C, .95));
++    Stroke([dorsal copy], HX(0xB8400E, .8), .8);
++
++    UIBezierPath *body = [UIBezierPath bezierPath];
++    [body moveToPoint:CGPointMake(88, 52)];
++    [body addCurveToPoint:CGPointMake(60, 31) controlPoint1:CGPointMake(86, 38) controlPoint2:CGPointMake(74, 30)];
++    [body addCurveToPoint:CGPointMake(30, 47) controlPoint1:CGPointMake(50, 32) controlPoint2:CGPointMake(40, 40)];
++    [body addCurveToPoint:CGPointMake(56, 73) controlPoint1:CGPointMake(36, 60) controlPoint2:CGPointMake(44, 72)];
++    [body addCurveToPoint:CGPointMake(88, 52) controlPoint1:CGPointMake(74, 75) controlPoint2:CGPointMake(88, 64)];
++    [body closePath];
++    LinearFill(c, body, @[HEX(0xFF9A3C), HEX(0xE5430B)], CGPointMake(60, 30), CGPointMake(60, 74));
++    CGContextSaveGState(c);
++    [body addClip];
++    Fill(Oval(42, 30, 30, 20), HX(0xFFFFFF, .93));
++    Fill(Oval(58, 36, 13, 10), HEX(0xE02A17));
++    Fill(Oval(30, 50, 14, 10), HX(0xFFFFFF, .9));
++    for (CGFloat x = 40; x < 90; x += 9) for (CGFloat y = 54; y < 76; y += 8) {
++        Stroke([UIBezierPath bezierPathWithArcCenter:CGPointMake(x + ((int)(y / 8) % 2) * 4, y) radius:4.5 startAngle:M_PI endAngle:2 * M_PI clockwise:YES], HX(0xFFFFFF, .28), .7);
++    }
++    CGContextRestoreGState(c);
++    Stroke([body copy], HEX(0x9B2A0C), 1.2);
++
++    UIBezierPath *pectoral = [UIBezierPath bezierPath];
++    [pectoral moveToPoint:CGPointMake(62, 62)];
++    [pectoral addCurveToPoint:CGPointMake(48, 80) controlPoint1:CGPointMake(66, 76) controlPoint2:CGPointMake(58, 84)];
++    [pectoral addCurveToPoint:CGPointMake(62, 62) controlPoint1:CGPointMake(54, 74) controlPoint2:CGPointMake(58, 68)];
++    Fill(pectoral, HX(0xFF7A26, .95));
++    Stroke([pectoral copy], HX(0xB8400E, .8), .8);
++
++    Fill(Disc(77, 46, 3.6), HEX(0xFFFFFF));
++    Fill(Disc(77.6, 46.2, 2.0), HEX(0x1A1A1A));
++    Fill(Disc(78.2, 45.4, .6), HEX(0xFFFFFF));
++    UIBezierPath *barbel = [UIBezierPath bezierPath];
++    [barbel moveToPoint:CGPointMake(86, 57)];
++    [barbel addCurveToPoint:CGPointMake(91, 72) controlPoint1:CGPointMake(93, 60) controlPoint2:CGPointMake(95, 67)];
++    Stroke(barbel, HEX(0xF2B040), 1.2);
++    CGContextRestoreGState(c);
++}
++
++static void DrawJade(CGContextRef c) {
++    // Gold bail and cord.
++    Stroke(Oval(44, 2, 12, 11), HEX(0xE1B73C), 2.4);
++    CGPoint center = CGPointMake(50, 48);
++    UIBezierPath *disc = [UIBezierPath bezierPath];
++    [disc appendPath:Disc(center.x, center.y, 33)];
++    [disc appendPath:Disc(center.x, center.y, 10.5)];
++    disc.usesEvenOddFillRule = YES;
++    RadialFill(c, disc, @[HEX(0xC4F7D6), HEX(0x5ACB98), HEX(0x1B8057), HEX(0x0F5B3D)], CGPointMake(38, 34), 62);
++    Stroke(Disc(center.x, center.y, 33), HEX(0xE1B73C), 2.6);
++    Stroke(Disc(center.x, center.y, 10.5), HEX(0xE1B73C), 1.8);
++    Stroke(Disc(center.x, center.y, 20), HX(0xFFFFFF, .3), .9);
++    Stroke(Disc(center.x, center.y, 27.5), HX(0xFFFFFF, .25), .8);
++    for (int i = 0; i < 12; i++) {
++        CGFloat a = i * (2 * M_PI / 12) + .13;
++        Fill(Disc(center.x + cos(a) * 15.5, center.y + sin(a) * 15.5, 1.3), HX(0xFFFFFF, .42));
++    }
++    for (int i = 0; i < 18; i++) {
++        CGFloat a = i * (2 * M_PI / 18);
++        Fill(Disc(center.x + cos(a) * 24, center.y + sin(a) * 24, 1.5), HX(0xFFFFFF, .32));
++    }
++    Stroke([UIBezierPath bezierPathWithArcCenter:center radius:29.5 startAngle:200 * M_PI / 180 endAngle:255 * M_PI / 180 clockwise:YES], HX(0xFFFFFF, .55), 1.6);
++
++    // Red knot and tassel.
++    UIBezierPath *knot = [UIBezierPath bezierPath];
++    [knot moveToPoint:CGPointMake(50, 80)]; [knot addLineToPoint:CGPointMake(55, 85)]; [knot addLineToPoint:CGPointMake(50, 90)]; [knot addLineToPoint:CGPointMake(45, 85)]; [knot closePath];
++    Fill(knot, HEX(0xD4161E)); Stroke([knot copy], HEX(0xF2C14E), .9);
++    for (int i = -3; i <= 3; i++) Line(50 + i * 1.4, 90, 50 + i * 2.6, 99, HEX(0xD4161E), 1.3);
++}
++
++static void DrawIngot(CGContextRef c) {
++    UIBezierPath *base = [UIBezierPath bezierPath];
++    [base moveToPoint:CGPointMake(15, 54)]; [base addLineToPoint:CGPointMake(85, 54)];
++    [base addLineToPoint:CGPointMake(73, 84)]; [base addLineToPoint:CGPointMake(27, 84)]; [base closePath];
++    LinearFill(c, base, @[HEX(0xE9B52A), HEX(0x9A6A08)], CGPointMake(50, 54), CGPointMake(50, 84));
++    Stroke([base copy], HEX(0x7A4F00), 1.3);
++    DrawGlyph(@"福", CGRectMake(34, 56, 32, 26), 17, HEX(0x8E1414));
++
++    UIBezierPath *top = [UIBezierPath bezierPath];
++    [top moveToPoint:CGPointMake(3, 36)];
++    [top addCurveToPoint:CGPointMake(50, 62) controlPoint1:CGPointMake(8, 54) controlPoint2:CGPointMake(30, 62)];
++    [top addCurveToPoint:CGPointMake(97, 36) controlPoint1:CGPointMake(70, 62) controlPoint2:CGPointMake(92, 54)];
++    [top addCurveToPoint:CGPointMake(63, 30) controlPoint1:CGPointMake(86, 42) controlPoint2:CGPointMake(70, 38)];
++    [top addCurveToPoint:CGPointMake(37, 30) controlPoint1:CGPointMake(58, 18) controlPoint2:CGPointMake(42, 18)];
++    [top addCurveToPoint:CGPointMake(3, 36) controlPoint1:CGPointMake(30, 38) controlPoint2:CGPointMake(14, 42)];
++    [top closePath];
++    LinearFill(c, top, @[HEX(0xFFF3AE), HEX(0xF5C033), HEX(0xC48A0E)], CGPointMake(50, 18), CGPointMake(50, 62));
++    Stroke([top copy], HEX(0x8A5A00), 1.3);
++    Stroke(Oval(40, 24, 20, 9), HX(0xFFFFFF, .5), 1.0);
++    UIBezierPath *shine = [UIBezierPath bezierPath];
++    [shine moveToPoint:CGPointMake(12, 40)]; [shine addCurveToPoint:CGPointMake(40, 54) controlPoint1:CGPointMake(16, 48) controlPoint2:CGPointMake(28, 53)];
++    Stroke(shine, HX(0xFFFFFF, .55), 1.5);
++    DrawSparkle(88, 18, 7, HX(0xFFF6C4, .95));
++    DrawSparkle(12, 20, 5, HX(0xFFF6C4, .9));
++}
++
++static void DrawDragonHalf(CGContextRef c, BOOL layer) {
++    if (layer == 0) {
++        // Mane flames.
++        for (int i = 0; i < 3; i++) {
++            CGFloat y0 = 72 - i * 17;
++            UIBezierPath *flame = [UIBezierPath bezierPath];
++            [flame moveToPoint:CGPointMake(36, y0)];
++            [flame addCurveToPoint:CGPointMake(7 + i * 2, y0 - 26) controlPoint1:CGPointMake(14, y0 - 2) controlPoint2:CGPointMake(4 + i * 3, y0 - 12)];
++            [flame addCurveToPoint:CGPointMake(36, y0 - 16) controlPoint1:CGPointMake(15 + i * 2, y0 - 20) controlPoint2:CGPointMake(24, y0 - 20)];
++            [flame closePath];
++            LinearFill(c, flame, @[HEX(0xFFB02E), HEX(0xE0231F)], CGPointMake(36, y0 - 10), CGPointMake(6, y0 - 22));
++            Stroke([flame copy], HX(0x8E0A12, .8), .8);
++        }
++        // Whiskers.
++        UIBezierPath *w1 = [UIBezierPath bezierPath];
++        [w1 moveToPoint:CGPointMake(35, 60)];
++        [w1 addCurveToPoint:CGPointMake(12, 38) controlPoint1:CGPointMake(18, 62) controlPoint2:CGPointMake(8, 52)];
++        [w1 addCurveToPoint:CGPointMake(10, 12) controlPoint1:CGPointMake(15, 28) controlPoint2:CGPointMake(8, 22)];
++        UIBezierPath *w2 = [UIBezierPath bezierPath];
++        [w2 moveToPoint:CGPointMake(36, 70)];
++        [w2 addCurveToPoint:CGPointMake(8, 90) controlPoint1:CGPointMake(22, 80) controlPoint2:CGPointMake(10, 76)];
++        for (UIBezierPath *w in @[w1, w2]) { Stroke([w copy], HEX(0x8A5A00), 4.4); Stroke(w, HEX(0xF7CF58), 2.6); }
++        // Horn.
++        UIBezierPath *horn = [UIBezierPath bezierPath];
++        [horn moveToPoint:CGPointMake(39, 30)];
++        [horn addCurveToPoint:CGPointMake(14, 9) controlPoint1:CGPointMake(35, 16) controlPoint2:CGPointMake(25, 8)];
++        [horn addCurveToPoint:CGPointMake(34, 40) controlPoint1:CGPointMake(23, 16) controlPoint2:CGPointMake(28, 28)];
++        [horn closePath];
++        LinearFill(c, horn, @[HEX(0xFFF6D0), HEX(0xD9A21B)], CGPointMake(30, 10), CGPointMake(34, 40));
++        Stroke([horn copy], HEX(0x8A5A00), .9);
++        // Cheek fin.
++        UIBezierPath *fin = [UIBezierPath bezierPath];
++        [fin moveToPoint:CGPointMake(30, 52)];
++        [fin addCurveToPoint:CGPointMake(10, 68) controlPoint1:CGPointMake(18, 52) controlPoint2:CGPointMake(12, 60)];
++        [fin addCurveToPoint:CGPointMake(30, 64) controlPoint1:CGPointMake(18, 68) controlPoint2:CGPointMake(24, 66)];
++        [fin closePath];
++        LinearFill(c, fin, @[HEX(0xF7CF58), HEX(0x2AA58A)], CGPointMake(10, 60), CGPointMake(30, 58));
++        Stroke([fin copy], HEX(0x063C34), .8);
++    } else {
++        // Brow and eye.
++        Stroke([UIBezierPath bezierPathWithArcCenter:CGPointMake(39, 43) radius:11 startAngle:200 * M_PI / 180 endAngle:300 * M_PI / 180 clockwise:YES], HEX(0x063C34), 2.8);
++        UIBezierPath *eye = [UIBezierPath bezierPath];
++        [eye moveToPoint:CGPointMake(30, 45)];
++        [eye addCurveToPoint:CGPointMake(47, 45) controlPoint1:CGPointMake(34, 36) controlPoint2:CGPointMake(43, 37)];
++        [eye addCurveToPoint:CGPointMake(30, 45) controlPoint1:CGPointMake(42, 50) controlPoint2:CGPointMake(35, 50)];
++        [eye closePath];
++        LinearFill(c, eye, @[HEX(0xFFE56A), HEX(0xFF9A1F)], CGPointMake(38, 38), CGPointMake(38, 50));
++        Fill(Oval(36.4, 40.6, 4, 7.6), HEX(0x140A00));
++        Fill(Disc(36.6, 41.4, 1.0), HEX(0xFFFFFF));
++        Stroke([eye copy], HEX(0x2A1A00), .9);
++        // Fang.
++        UIBezierPath *fang = [UIBezierPath bezierPath];
++        [fang moveToPoint:CGPointMake(41, 76)]; [fang addLineToPoint:CGPointMake(43.2, 84)]; [fang addLineToPoint:CGPointMake(46, 77.5)]; [fang closePath];
++        Fill(fang, HEX(0xFFFFFF)); Stroke([fang copy], HEX(0x6B6B6B), .5);
++    }
++}
++
++static void DrawDragon(CGContextRef c) {
++    UIBezierPath *halo = Disc(50, 50, 49);
++    RadialFill(c, halo, @[HX(0xFFD34A, .6), HX(0xFF8A1F, .0)], CGPointMake(50, 50), 49);
++
++    WithMirror(c, NO, ^{ DrawDragonHalf(c, 0); });
++    WithMirror(c, YES, ^{ DrawDragonHalf(c, 0); });
++
++    UIBezierPath *head = [UIBezierPath bezierPath];
++    [head moveToPoint:CGPointMake(50, 16)];
++    [head addCurveToPoint:CGPointMake(74, 48) controlPoint1:CGPointMake(66, 16) controlPoint2:CGPointMake(76, 30)];
++    [head addCurveToPoint:CGPointMake(60, 82) controlPoint1:CGPointMake(73, 60) controlPoint2:CGPointMake(66, 72)];
++    [head addCurveToPoint:CGPointMake(40, 82) controlPoint1:CGPointMake(56, 88) controlPoint2:CGPointMake(44, 88)];
++    [head addCurveToPoint:CGPointMake(26, 48) controlPoint1:CGPointMake(34, 72) controlPoint2:CGPointMake(27, 60)];
++    [head addCurveToPoint:CGPointMake(50, 16) controlPoint1:CGPointMake(24, 30) controlPoint2:CGPointMake(34, 16)];
++    [head closePath];
++    RadialFill(c, head, @[HEX(0x58D9A8), HEX(0x1C9272), HEX(0x0B4F45)], CGPointMake(50, 34), 52);
++    Stroke([head copy], HEX(0x063C34), 1.5);
++    for (NSArray *pt in @[@[@40, @30], @[@50, @27], @[@60, @30], @[@45, @36], @[@55, @36], @[@35, @40], @[@65, @40]]) {
++        Stroke([UIBezierPath bezierPathWithArcCenter:CGPointMake([pt[0] doubleValue], [pt[1] doubleValue]) radius:3.6 startAngle:M_PI endAngle:2 * M_PI clockwise:YES], HX(0xFFFFFF, .2), .8);
++    }
++    // Ruby on the brow.
++    Fill(Disc(50, 22.5, 4.2), HEX(0xF2C14E));
++    RadialFill(c, Disc(50, 22.5, 3.2), @[HEX(0xFF9A9A), HEX(0xC20F1F)], CGPointMake(49, 21.5), 4);
++
++    WithMirror(c, NO, ^{ DrawDragonHalf(c, 1); });
++    WithMirror(c, YES, ^{ DrawDragonHalf(c, 1); });
++
++    // Muzzle.
++    UIBezierPath *muzzle = Oval(35, 56, 30, 22);
++    RadialFill(c, muzzle, @[HEX(0x9AF0CD), HEX(0x35B091), HEX(0x167A62)], CGPointMake(46, 62), 24);
++    Stroke([muzzle copy], HEX(0x063C34), 1.1);
++    Fill(Oval(41.2, 60.6, 4.4, 3.4), HEX(0x063C34));
++    Fill(Oval(54.4, 60.6, 4.4, 3.4), HEX(0x063C34));
++    UIBezierPath *mouth = [UIBezierPath bezierPath];
++    [mouth moveToPoint:CGPointMake(38, 72)];
++    [mouth addCurveToPoint:CGPointMake(62, 72) controlPoint1:CGPointMake(45, 77) controlPoint2:CGPointMake(55, 77)];
++    Stroke(mouth, HEX(0x063C34), 1.4);
++
++    // Pearl.
++    RadialFill(c, Disc(50, 92, 6), @[HEX(0xFFFFFF), HEX(0xFFE48F), HEX(0xE1A21B)], CGPointMake(48.5, 90), 8);
++    Stroke(Disc(50, 92, 6), HX(0x8A5A00, .8), .7);
++}
++
++static void DrawHat(CGContextRef c) {
++    // Glow behind the scatter.
++    RadialFill(c, Disc(50, 50, 50), @[HX(0xFFF1A0, .9), HX(0xFFC83A, .55), HX(0xFF9A1F, 0)], CGPointMake(50, 50), 50);
++    CGContextSaveGState(c);
++    CGContextTranslateCTM(c, 0, 14);
++
++    Fill(Oval(24, 56, 52, 7), HX(0x000000, .22));
++
++    // Wings.
++    for (int side = 0; side < 2; side++) {
++        WithMirror(c, side == 1, ^{
++            CGContextSaveGState(c);
++            CGContextTranslateCTM(c, 38, 45);
++            CGContextRotateCTM(c, -13 * M_PI / 180.0);
++            CGContextTranslateCTM(c, -38, -45);
++            UIBezierPath *wing = RoundRect(3, 40, 37, 9.5, 4.7);
++            LinearFill(c, wing, @[HEX(0xFFF0A0), HEX(0xE0A41F), HEX(0xA9730A)], CGPointMake(3, 40), CGPointMake(3, 49.5));
++            Stroke([wing copy], HEX(0x7A5206), .9);
++            Line(8, 44.8, 34, 44.8, HX(0x7A5206, .4), .6);
++            Fill(Disc(7.4, 44.7, 2.4), HEX(0xD4161E));
++            Stroke(Disc(7.4, 44.7, 2.4), HEX(0xF7CF58), .6);
++            CGContextRestoreGState(c);
++        });
++    }
++
++    // Crimson band with gold trim.
++    UIBezierPath *band = RoundRect(27, 43, 46, 14, 3.2);
++    LinearFill(c, band, @[HEX(0xEB4343), HEX(0x8E0F18)], CGPointMake(50, 43), CGPointMake(50, 57));
++    Stroke([band copy], HEX(0x7A5206), .9);
++    Line(28.5, 45.2, 71.5, 45.2, HEX(0xF7CF58), 1.2);
++    Line(28.5, 54.8, 71.5, 54.8, HEX(0xF7CF58), 1.2);
++    for (int i = 0; i < 5; i++) if (i != 2) Fill(Disc(34 + i * 8, 50, 1.7), HEX(0xF7CF58));
++    RadialFill(c, Disc(50, 50, 3.6), @[HEX(0xFFB4B4), HEX(0xC20F1F)], CGPointMake(49, 49), 4.5);
++    Stroke(Disc(50, 50, 3.6), HEX(0xF7CF58), 1.0);
++
++    // Dome.
++    UIBezierPath *dome = [UIBezierPath bezierPath];
++    [dome moveToPoint:CGPointMake(30, 44)];
++    [dome addCurveToPoint:CGPointMake(70, 44) controlPoint1:CGPointMake(28, 16) controlPoint2:CGPointMake(72, 16)];
++    [dome closePath];
++    LinearFill(c, dome, @[HEX(0xFFF6B8), HEX(0xF0B92C), HEX(0xB57A0B)], CGPointMake(40, 18), CGPointMake(62, 44));
++    Stroke([dome copy], HEX(0x7A5206), 1.0);
++    for (NSNumber *dx in @[@-14, @-7, @0, @7, @14]) {
++        UIBezierPath *rib = [UIBezierPath bezierPath];
++        [rib moveToPoint:CGPointMake(50, 19)];
++        [rib addCurveToPoint:CGPointMake(50 + dx.doubleValue * 1.2, 44) controlPoint1:CGPointMake(50 + dx.doubleValue * .35, 24) controlPoint2:CGPointMake(50 + dx.doubleValue * 1.1, 32)];
++        Stroke(rib, HX(0x7A5206, .45), .8);
++    }
++    Stroke([UIBezierPath bezierPathWithArcCenter:CGPointMake(50, 40) radius:14 startAngle:200 * M_PI / 180 endAngle:250 * M_PI / 180 clockwise:YES], HX(0xFFFFFF, .6), 1.6);
++
++    // Red silk tassel over the dome.
++    for (int k = -6; k <= 6; k++) {
++        UIBezierPath *strand = [UIBezierPath bezierPath];
++        [strand moveToPoint:CGPointMake(50, 17)];
++        [strand addCurveToPoint:CGPointMake(50 + k * 3.4, 43.5) controlPoint1:CGPointMake(50 + k * 4.2, 20) controlPoint2:CGPointMake(50 + k * 5.4, 31)];
++        Stroke(strand, HX(0xD4161E, .8), .9);
++    }
++
++    // Finial.
++    RadialFill(c, Disc(50, 16, 5), @[HEX(0xFFF6B8), HEX(0xE0A41F), HEX(0x9A6A08)], CGPointMake(48.5, 14.5), 7);
++    Stroke(Disc(50, 16, 5), HEX(0x7A5206), .8);
++    RadialFill(c, Disc(50, 10.5, 3.2), @[HEX(0xFFB4B4), HEX(0xC20F1F)], CGPointMake(49, 9.5), 4);
++    Stroke(Disc(50, 10.5, 3.2), HEX(0xF7CF58), .8);
++    CGContextRestoreGState(c);
++
++    DrawSparkle(12, 20, 7, HX(0xFFFFFF, .95));
++    DrawSparkle(89, 24, 8, HX(0xFFFFFF, .95));
++    DrawSparkle(84, 86, 5, HX(0xFFF6C4, .9));
++    DrawSparkle(16, 82, 5.5, HX(0xFFF6C4, .9));
++}
++
++#pragma mark - Public API
++
++static NSCache<NSString *, UIImage *> *ArtCache(void) {
++    static NSCache *cache;
++    static dispatch_once_t once;
++    dispatch_once(&once, ^{ cache = [NSCache new]; cache.countLimit = 40; });
++    return cache;
++}
++
++@implementation BRGoldenMandarinArt
++
+++ (NSString *)nameForSymbol:(GMSymbol)symbol {
++    switch (symbol) {
++        case GMSymbolLantern: return @"Paper Lantern";
++        case GMSymbolFan: return @"Silk Fan";
++        case GMSymbolBamboo: return @"Bamboo";
++        case GMSymbolPlum: return @"Plum Blossom";
++        case GMSymbolKoi: return @"Koi";
++        case GMSymbolJade: return @"Jade Bi";
++        case GMSymbolIngot: return @"Gold Ingot";
++        case GMSymbolDragon: return @"Dragon";
++        case GMSymbolHat: return @"Golden Hat";
++        default: return @"";
++    }
++}
++
+++ (UIImage *)imageForSymbol:(GMSymbol)symbol size:(CGSize)size {
++    if (symbol < 0 || symbol >= GMSymbolCount || size.width < 1 || size.height < 1) return nil;
++    NSString *key = [NSString stringWithFormat:@"s%d-%.0fx%.0f", (int)symbol, size.width, size.height];
++    UIImage *cached = [ArtCache() objectForKey:key];
++    if (cached) return cached;
++    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
++    UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
++        CGContextRef c = ctx.CGContext;
++        CGContextScaleCTM(c, size.width / 100.0, size.height / 100.0);
++        switch (symbol) {
++            case GMSymbolLantern: DrawLantern(c); break;
++            case GMSymbolFan: DrawFan(c); break;
++            case GMSymbolBamboo: DrawBamboo(c); break;
++            case GMSymbolPlum: DrawPlum(c); break;
++            case GMSymbolKoi: DrawKoi(c); break;
++            case GMSymbolJade: DrawJade(c); break;
++            case GMSymbolIngot: DrawIngot(c); break;
++            case GMSymbolDragon: DrawDragon(c); break;
++            case GMSymbolHat: DrawHat(c); break;
++            default: break;
++        }
++    }];
++    [ArtCache() setObject:image forKey:key];
++    return image;
++}
++
+++ (UIImage *)cardBackWithSize:(CGSize)size {
++    NSString *key = [NSString stringWithFormat:@"card-%.0fx%.0f", size.width, size.height];
++    UIImage *cached = [ArtCache() objectForKey:key];
++    if (cached) return cached;
++    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
++    UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
++        CGContextRef c = ctx.CGContext;
++        CGContextScaleCTM(c, size.width / 100.0, size.height / 140.0);
++        UIBezierPath *card = RoundRect(1.5, 1.5, 97, 137, 10);
++        LinearFill(c, card, @[HEX(0xC8141E), HEX(0x7A0A14)], CGPointMake(50, 0), CGPointMake(50, 140));
++        // Overlapping-wave pattern bands.
++        CGContextSaveGState(c);
++        [card addClip];
++        for (int band = 0; band < 2; band++) {
++            CGFloat baseY = band == 0 ? 10 : 104;
++            for (int row = 0; row < 4; row++) for (int col = -1; col < 8; col++) {
++                CGFloat cx = col * 14 + (row % 2) * 7 + 8, cy = baseY + row * 6.5;
++                Stroke([UIBezierPath bezierPathWithArcCenter:CGPointMake(cx, cy + 7) radius:7 startAngle:M_PI endAngle:2 * M_PI clockwise:YES], HX(0xF2C14E, .38), .8);
++            }
++        }
++        CGContextRestoreGState(c);
++        Stroke(RoundRect(4.5, 4.5, 91, 131, 8), HEX(0xF2C14E), 2.2);
++        Stroke(RoundRect(8, 8, 84, 124, 6), HX(0xF2C14E, .55), .8);
++        UIBezierPath *medal = Disc(50, 70, 26);
++        RadialFill(c, medal, @[HEX(0xE5303A), HEX(0x8E0F18)], CGPointMake(44, 62), 32);
++        Stroke(Disc(50, 70, 26), HEX(0xF2C14E), 2.0);
++        Stroke(Disc(50, 70, 21.5), HX(0xF2C14E, .6), .8);
++        DrawGlyph(@"福", CGRectMake(26, 46, 48, 48), 38, HEX(0xFFD86B));
++        for (NSArray *pt in @[@[@16, @70], @[@84, @70]]) DrawSparkle([pt[0] doubleValue], [pt[1] doubleValue], 4.5, HX(0xFFE48F, .9));
++    }];
++    [ArtCache() setObject:image forKey:key];
++    return image;
++}
++
+++ (void)purgeCache { [ArtCache() removeAllObjects]; }
++
++@end
+diff --git a/BRGoldenMandarinAudio.h b/BRGoldenMandarinAudio.h
+new file mode 100644
+index 0000000..2d9d6fa
+--- /dev/null
++++ b/BRGoldenMandarinAudio.h
+@@ -0,0 +1,65 @@
++// BRGoldenMandarinAudio.h
++// EZCompleteUI — Golden Mandarin (金帽福运) slot
++//
++// All music and sound effects are synthesized in code (no audio files):
++// plucked-string theme (D-major pentatonic, guzheng/pipa flavored), bamboo
++// flute, taiko, temple blocks, gongs and bells. The scatter notes climb a
++// pentatonic scale, a drum roll builds from the second hat, and five hats
++// trigger an alarm-and-bells celebration.
++
++#import <Foundation/Foundation.h>
++
++NS_ASSUME_NONNULL_BEGIN
++
++@interface BRGoldenMandarinAudio : NSObject
++
++/// YES once every sound has been synthesized and the engine is running.
++@property (nonatomic, readonly) BOOL ready;
++/// Mutes/unmutes everything without tearing the engine down.
++@property (nonatomic, assign) BOOL muted;
++/// Called on the main queue when synthesis finishes.
++@property (nonatomic, copy, nullable) dispatch_block_t onReady;
++
++/// Starts background synthesis and brings up the audio engine. Safe to call
++/// more than once.
++- (void)prepare;
++/// Stops everything and releases the engine.
++- (void)shutdown;
++/// Restarts the engine (and the music, if it was playing) after the app comes
++/// back from the background or another app took the audio session.
++- (void)resume;
++
++// Music
++- (void)startThemeBonus:(BOOL)bonus;
++- (void)stopTheme;
++/// Lowers the music so effects and the drum roll read clearly.
++- (void)duckTheme:(BOOL)duck;
++
++// Reels
++- (void)playSpinStart;
++- (void)playReelStop:(NSInteger)reelIndex;
++
++// Scatter build-up
++/// 0...4. Same bell each time, one pentatonic step higher per hat.
++- (void)playScatterNoteAtIndex:(NSInteger)index;
++/// level 1...3. Call again with a higher level as more hats land.
++- (void)startDrumRollLevel:(NSInteger)level;
++- (void)stopDrumRoll;
++- (void)playCrash;
++- (void)playBonusFanfare;
++/// Five hats: siren, ringing bells, taiko and gongs (about 5 seconds).
++- (void)playAlarmCelebration;
++- (void)playNearMissSigh;
++
++// Wins
++/// ratio = payout / total bet.
++- (void)playWinForPayoutRatio:(double)ratio;
++
++// Hat shuffle bonus
++- (void)playCardFlip;
++- (void)playCardPick;
++- (void)playMultiplierReveal:(NSInteger)multiplier;
++
++@end
++
++NS_ASSUME_NONNULL_END
+diff --git a/BRGoldenMandarinAudio.m b/BRGoldenMandarinAudio.m
+new file mode 100644
+index 0000000..6b93e78
+--- /dev/null
++++ b/BRGoldenMandarinAudio.m
+@@ -0,0 +1,612 @@
++// BRGoldenMandarinAudio.m
++// EZCompleteUI — Golden Mandarin (金帽福运) slot
++
++#import "BRGoldenMandarinAudio.h"
++#import <AVFoundation/AVFoundation.h>
++#include <math.h>
++#include <stdlib.h>
++#include <string.h>
++
++static const double kSR = 44100.0;
++static const int kVoiceCount = 8;
++
++#pragma mark - Synthesis primitives (plain C, run on a background queue)
++
++typedef struct { uint64_t s; } BRNoise;
++static inline float NoiseNext(BRNoise *n) {
++    n->s ^= n->s << 13; n->s ^= n->s >> 7; n->s ^= n->s << 17;
++    return (float)((n->s >> 40) & 0xFFFFFF) / 8388607.5f - 1.0f;
++}
++static inline double MidiHz(double midi) { return 440.0 * pow(2.0, (midi - 69.0) / 12.0); }
++
++typedef struct { float *data; NSInteger frames; BRNoise noise; } BRTrack;
++
++static BRTrack TrackMake(double seconds) {
++    BRTrack t; t.frames = (NSInteger)(seconds * kSR);
++    t.data = (float *)calloc((size_t)t.frames, sizeof(float));
++    t.noise.s = 0x2545F4914F6CDD1DULL;
++    return t;
++}
++
++/// Plucked string by additive synthesis: exact pitch, brighter attack, upper
++/// partials dying faster. `tau` is the fundamental's decay time in seconds.
++static void AddPluck(BRTrack *t, double start, double freq, double amp, double tau, int harmonics, double dur) {
++    NSInteger s0 = (NSInteger)(start * kSR);
++    NSInteger n = (NSInteger)(dur * kSR);
++    if (s0 < 0 || s0 >= t->frames) return;
++    if (s0 + n > t->frames) n = t->frames - s0;
++    for (int h = 1; h <= harmonics; h++) {
++        double f = freq * h * (1.0 + 0.0003 * h * h);
++        if (f > 12000) break;
++        double a = amp / pow(h, 1.15);
++        double rate = (1.0 / tau) * (1.0 + 0.9 * (h - 1));
++        double w = 2.0 * M_PI * f / kSR;
++        double ph = 0.3 * h;
++        double decay = exp(-rate / kSR), level = 1.0;
++        for (NSInteger i = 0; i < n; i++) {
++            double env = level * (i < 90 ? (double)i / 90.0 : 1.0);
++            t->data[s0 + i] += (float)(sin(ph + w * i) * a * env);
++            level *= decay;
++        }
++    }
++    for (NSInteger i = 0; i < 160 && s0 + i < t->frames; i++)                  // finger click
++        t->data[s0 + i] += NoiseNext(&t->noise) * (float)(amp * 0.18 * exp(-(double)i / 40.0));
++}
++
++/// Struck bell: inharmonic partials with a slow shimmer.
++static void AddBell(BRTrack *t, double start, double freq, double amp, double decay) {
++    static const double ratio[5] = { 1.0, 2.756, 5.404, 8.933, 13.34 };
++    static const double gain[5]  = { 1.0, 0.55, 0.32, 0.20, 0.10 };
++    NSInteger s0 = (NSInteger)(start * kSR);
++    NSInteger n = (NSInteger)(decay * 1.6 * kSR);
++    if (s0 < 0 || s0 >= t->frames) return;
++    if (s0 + n > t->frames) n = t->frames - s0;
++    for (int p = 0; p < 5; p++) {
++        double f = freq * ratio[p];
++        if (f > 14000) break;
++        double w = 2.0 * M_PI * f / kSR;
++        double w2 = 2.0 * M_PI * (f + 0.7 + p * 0.4) / kSR;
++        double d = decay / (1.0 + p * 0.85);
++        double step = exp(-1.0 / (kSR * d)), level = 1.0;
++        for (NSInteger i = 0; i < n; i++) {
++            double env = level * (i < 40 ? (double)i / 40.0 : 1.0);
++            t->data[s0 + i] += (float)((sin(w * i) * 0.65 + sin(w2 * i) * 0.35) * amp * gain[p] * env);
++            level *= step;
++        }
++    }
++    for (NSInteger i = 0; i < 300 && s0 + i < t->frames; i++) {               // sparkle on the strike
++        double e = exp(-(double)i / 70.0);
++        t->data[s0 + i] += NoiseNext(&t->noise) * (float)(amp * 0.22 * e);
++    }
++}
++
++static void AddGong(BRTrack *t, double start, double freq, double amp, double decay) {
++    static const double ratio[6] = { 1.0, 1.47, 2.09, 2.56, 3.34, 4.04 };
++    static const double gain[6]  = { 1.0, 0.7, 0.55, 0.5, 0.35, 0.3 };
++    NSInteger s0 = (NSInteger)(start * kSR);
++    NSInteger n = (NSInteger)(decay * 1.4 * kSR);
++    if (s0 < 0 || s0 >= t->frames) return;
++    if (s0 + n > t->frames) n = t->frames - s0;
++    for (int p = 0; p < 6; p++) {
++        double w = 2.0 * M_PI * freq * ratio[p] / kSR;
++        double d = decay / (1.0 + p * 0.35);
++        double step = exp(-1.0 / (kSR * d)), level = 1.0;
++        for (NSInteger i = 0; i < n; i++) {
++            double time = (double)i / kSR;
++            double env = level * (i < 600 ? (double)i / 600.0 : 1.0);
++            double wobble = 1.0 + 0.0018 * sin(2.0 * M_PI * 2.3 * time + p);
++            t->data[s0 + i] += (float)(sin(w * i * wobble) * amp * gain[p] * env * 0.5);
++            level *= step;
++        }
++    }
++    double lp = 0;                                                             // crash wash
++    for (NSInteger i = 0; i < n / 2 && s0 + i < t->frames; i++) {
++        float x = NoiseNext(&t->noise);
++        lp += 0.35 * (x - lp);
++        t->data[s0 + i] += (float)((x - lp) * amp * 0.28 * exp(-(double)i / (kSR * decay * 0.28)));
++    }
++}
++
++static void AddTom(BRTrack *t, double start, double freq, double amp, double dur) {
++    NSInteger s0 = (NSInteger)(start * kSR);
++    NSInteger n = (NSInteger)(dur * kSR);
++    if (s0 < 0 || s0 >= t->frames) return;
++    if (s0 + n > t->frames) n = t->frames - s0;
++    double phase = 0;
++    for (NSInteger i = 0; i < n; i++) {
++        double time = (double)i / kSR;
++        double f = freq * (1.0 + 0.9 * exp(-time / 0.035));
++        phase += 2.0 * M_PI * f / kSR;
++        double env = exp(-time / (dur * 0.33)) * (i < 30 ? (double)i / 30.0 : 1.0);
++        t->data[s0 + i] += (float)(sin(phase) * amp * env);
++    }
++    for (NSInteger i = 0; i < 140 && s0 + i < t->frames; i++)
++        t->data[s0 + i] += NoiseNext(&t->noise) * (float)(amp * 0.3 * exp(-(double)i / 30.0));
++}
++
++static void AddWood(BRTrack *t, double start, double freq, double amp) {
++    NSInteger s0 = (NSInteger)(start * kSR);
++    NSInteger n = (NSInteger)(0.09 * kSR);
++    if (s0 < 0 || s0 >= t->frames) return;
++    if (s0 + n > t->frames) n = t->frames - s0;
++    double w1 = 2.0 * M_PI * freq / kSR, w2 = 2.0 * M_PI * freq * 1.52 / kSR;
++    for (NSInteger i = 0; i < n; i++) {
++        double env = exp(-(double)i / (kSR * 0.018)) * (i < 20 ? (double)i / 20.0 : 1.0);
++        t->data[s0 + i] += (float)((sin(w1 * i) * 0.8 + sin(w2 * i) * 0.3) * amp * env);
++        if (i < 110) t->data[s0 + i] += NoiseNext(&t->noise) * (float)(amp * 0.25 * exp(-(double)i / 25.0));
++    }
++}
++
++/// High-passed noise burst — snare/hat/whoosh building block.
++static void AddNoise(BRTrack *t, double start, double dur, double amp, double tau, double hpAlpha) {
++    NSInteger s0 = (NSInteger)(start * kSR);
++    NSInteger n = (NSInteger)(dur * kSR);
++    if (s0 < 0 || s0 >= t->frames) return;
++    if (s0 + n > t->frames) n = t->frames - s0;
++    double lp = 0;
++    for (NSInteger i = 0; i < n; i++) {
++        float x = NoiseNext(&t->noise);
++        lp += hpAlpha * (x - lp);
++        double env = exp(-(double)i / (kSR * tau)) * (i < 20 ? (double)i / 20.0 : 1.0);
++        t->data[s0 + i] += (float)((x - lp) * amp * env);
++    }
++}
++
++/// Rising filtered-noise whoosh for the spin start.
++static void AddWhoosh(BRTrack *t, double start, double dur, double amp) {
++    NSInteger s0 = (NSInteger)(start * kSR);
++    NSInteger n = (NSInteger)(dur * kSR);
++    if (s0 < 0 || s0 >= t->frames) return;
++    if (s0 + n > t->frames) n = t->frames - s0;
++    double lp = 0;
++    for (NSInteger i = 0; i < n; i++) {
++        double p = (double)i / n;
++        double a = 0.02 + 0.5 * p * p;                                         // cutoff opens
++        lp += a * (NoiseNext(&t->noise) - lp);
++        double env = sin(M_PI * MIN(1.0, p * 1.15)) * (1.0 - 0.3 * p);
++        t->data[s0 + i] += (float)(lp * amp * env * 3.0);
++    }
++}
++
++/// Bamboo-flute-like breathy tone with vibrato that blooms after the attack.
++static void AddFlute(BRTrack *t, double start, double freq, double amp, double dur) {
++    NSInteger s0 = (NSInteger)(start * kSR);
++    NSInteger n = (NSInteger)(dur * kSR);
++    if (s0 < 0 || s0 >= t->frames) return;
++    if (s0 + n > t->frames) n = t->frames - s0;
++    double phase = 0, breath = 0;
++    for (NSInteger i = 0; i < n; i++) {
++        double time = (double)i / kSR;
++        double vib = 1.0 + 0.0045 * sin(2.0 * M_PI * 5.2 * time) * MIN(1.0, time / 0.25);
++        phase += 2.0 * M_PI * freq * vib / kSR;
++        double att = MIN(1.0, time / 0.06), rel = MIN(1.0, (dur - time) / 0.14);
++        double env = att * MAX(0.0, rel);
++        breath += 0.12 * (NoiseNext(&t->noise) - breath);
++        double tone = sin(phase) + 0.32 * sin(2 * phase) + 0.09 * sin(3 * phase);
++        t->data[s0 + i] += (float)((tone * 0.6 + breath * 0.5) * amp * env);
++    }
++}
++
++/// Two-tone electronic alarm, gated like a bank alarm.
++static void AddSiren(BRTrack *t, double start, double dur, double amp) {
++    NSInteger s0 = (NSInteger)(start * kSR);
++    NSInteger n = (NSInteger)(dur * kSR);
++    if (s0 < 0 || s0 >= t->frames) return;
++    if (s0 + n > t->frames) n = t->frames - s0;
++    double phase = 0;
++    for (NSInteger i = 0; i < n; i++) {
++        double time = (double)i / kSR;
++        int hi = ((int)(time / 0.16)) % 2 == 0;
++        double f = hi ? 1046.5 : 784.0;
++        phase += 2.0 * M_PI * f / kSR;
++        double tone = sin(phase) + 0.33 * sin(3 * phase) + 0.2 * sin(5 * phase);
++        double gate = fmod(time, 0.16) / 0.16;
++        double env = MIN(1.0, gate * 14.0) * MIN(1.0, (1.0 - gate) * 10.0 + 0.35);
++        double fade = MIN(1.0, time / 0.05) * MIN(1.0, (dur - time) / 0.4);
++        t->data[s0 + i] += (float)(tone * amp * env * fade * 0.55);
++    }
++}
++
++/// Feedback comb for a little room around the music.
++static void AddEcho(BRTrack *t, double delaySec, float feedback) {
++    NSInteger d = (NSInteger)(delaySec * kSR);
++    for (NSInteger i = d; i < t->frames; i++) t->data[i] += feedback * t->data[i - d];
++}
++
++static void FoldTail(BRTrack *t, NSInteger loopFrames) {
++    for (NSInteger i = 0; i + loopFrames < t->frames && i < loopFrames; i++) t->data[i] += t->data[loopFrames + i];
++}
++
++static void Normalize(BRTrack *t, float peak) {
++    float m = 0;
++    for (NSInteger i = 0; i < t->frames; i++) m = MAX(m, fabsf(t->data[i]));
++    if (m < 1e-6f) return;
++    float g = peak / m;
++    for (NSInteger i = 0; i < t->frames; i++) t->data[i] *= g;
++}
++
++static AVAudioPCMBuffer *BufferFromTrack(BRTrack *t, AVAudioFormat *fmt, NSInteger frames) {
++    if (frames > t->frames) frames = t->frames;
++    AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:fmt frameCapacity:(AVAudioFrameCount)frames];
++    buffer.frameLength = (AVAudioFrameCount)frames;
++    memcpy(buffer.floatChannelData[0], t->data, (size_t)frames * sizeof(float));
++    free(t->data); t->data = NULL;
++    return buffer;
++}
++
++#pragma mark - Composition
++
++typedef struct { double pos; int midi; double dur; } NoteEv;
++
++// Quirky 8-bar hook in D major pentatonic (D E F# A B). Positions are in eighth notes.
++static const NoteEv kMelody[] = {
++    {0,69,1},{1,71,1},{2,74,2},{4,71,1},{5,69,1},{6,66,2},
++    {8,69,1},{9,66,1},{10,64,2},{12,66,1},{13,69,1},{14,71,2},
++    {16,74,1},{17,76,1},{18,78,2},{20,76,1},{21,74,1},{22,71,2},
++    {24,69,1},{25,71,1},{26,69,1},{27,66,1},{28,64,4},
++    {32,69,1},{33,71,1},{34,74,2},{36,78,1},{37,76,1},{38,74,2},
++    {40,71,1},{41,74,1},{42,71,1},{43,69,1},{44,66,2},{46,64,1},{47,66,1},
++    {48,69,2},{50,74,1},{51,71,1},{52,69,2},{54,66,1},{55,64,1},
++    {56,62,2},{58,64,1},{59,66,1},{60,69,3}
++};
++static const NoteEv kGrace[] = { {1.7,71,0.3}, {17.7,76,0.3}, {33.7,71,0.3}, {49.7,71,0.3} };
++static const NoteEv kFlute[] = { {28,76,4}, {44,74,2}, {60,78,3} };
++static const int kBassRoot[8] = { 38, 38, 33, 35, 38, 40, 33, 33 };
++
++static AVAudioPCMBuffer *RenderTheme(AVAudioFormat *fmt, BOOL bonus) {
++    double bpm = bonus ? 138.0 : 112.0;
++    int transpose = bonus ? 5 : 0;
++    double eighth = 60.0 / bpm / 2.0;
++    NSInteger loopFrames = (NSInteger)(64 * eighth * kSR);
++    BRTrack t = TrackMake(64 * eighth + 2.5);
++
++    for (size_t i = 0; i < sizeof(kMelody) / sizeof(kMelody[0]); i++) {
++        NoteEv e = kMelody[i];
++        double accent = ((int)e.pos % 4 == 0) ? 1.0 : 0.78;
++        AddPluck(&t, e.pos * eighth, MidiHz(e.midi + transpose), 0.34 * accent, bonus ? 0.4 : 0.55, 9, 1.3);
++    }
++    for (size_t i = 0; i < sizeof(kGrace) / sizeof(kGrace[0]); i++)
++        AddPluck(&t, kGrace[i].pos * eighth, MidiHz(kGrace[i].midi + transpose), 0.2, 0.2, 6, 0.25);
++    for (size_t i = 0; i < sizeof(kFlute) / sizeof(kFlute[0]); i++)
++        AddFlute(&t, kFlute[i].pos * eighth, MidiHz(kFlute[i].midi + 12 + transpose), 0.2, kFlute[i].dur * eighth);
++
++    for (int bar = 0; bar < 8; bar++) {
++        double b0 = bar * 8;
++        double root = MidiHz(kBassRoot[bar] + transpose);
++        AddPluck(&t, b0 * eighth, root, 0.55, 0.5, 4, 0.9);
++        AddPluck(&t, (b0 + 4) * eighth, root, 0.42, 0.45, 4, 0.8);
++        AddPluck(&t, (b0 + 7) * eighth, root * 1.5, 0.22, 0.25, 3, 0.4);
++        AddTom(&t, b0 * eighth, 74, 0.8, 0.28);
++        AddTom(&t, (b0 + 4) * eighth, 74, 0.6, 0.24);
++        if (bonus) { AddTom(&t, (b0 + 2) * eighth, 96, 0.35, 0.16); AddTom(&t, (b0 + 6) * eighth, 96, 0.35, 0.16); }
++        AddWood(&t, (b0 + 2) * eighth, 880, 0.3);
++        AddWood(&t, (b0 + 5) * eighth, 660, 0.26);
++        AddWood(&t, (b0 + 7) * eighth, 1040, 0.22);
++        if (bonus) for (int k = 1; k < 8; k += 2) AddNoise(&t, (b0 + k) * eighth, 0.05, 0.09, 0.012, 0.25);
++        if (bar % 4 == 0) AddBell(&t, b0 * eighth, MidiHz(86 + transpose), 0.07, 1.2);
++    }
++    AddEcho(&t, 0.19, 0.24f);
++    FoldTail(&t, loopFrames);
++    Normalize(&t, 0.85f);
++    return BufferFromTrack(&t, fmt, loopFrames);
++}
++
++#pragma mark - Effects
++
++static AVAudioPCMBuffer *RenderSpinStart(AVAudioFormat *fmt) {
++    BRTrack t = TrackMake(0.6);
++    AddWhoosh(&t, 0, 0.5, 0.55);
++    AddTom(&t, 0, 88, 0.6, 0.22);
++    AddWood(&t, 0.02, 1200, 0.3);
++    Normalize(&t, 0.8f);
++    return BufferFromTrack(&t, fmt, t.frames);
++}
++
++static AVAudioPCMBuffer *RenderReelStop(AVAudioFormat *fmt, int index) {
++    BRTrack t = TrackMake(0.25);
++    AddWood(&t, 0, 620 + index * 45, 0.8);
++    AddTom(&t, 0, 95, 0.7, 0.14);
++    Normalize(&t, 0.75f);
++    return BufferFromTrack(&t, fmt, t.frames);
++}
++
++static AVAudioPCMBuffer *RenderScatterNote(AVAudioFormat *fmt, double freq) {
++    BRTrack t = TrackMake(2.2);
++    AddBell(&t, 0, freq, 0.7, 0.8);
++    AddBell(&t, 0.0, freq * 2.0, 0.22, 0.5);                                   // octave shimmer
++    AddPluck(&t, 0, freq * 0.5, 0.3, 0.3, 5, 0.6);                             // warm body
++    AddNoise(&t, 0, 0.12, 0.2, 0.025, 0.12);
++    AddEcho(&t, 0.14, 0.22f);
++    Normalize(&t, 0.9f);
++    return BufferFromTrack(&t, fmt, t.frames);
++}
++
++static AVAudioPCMBuffer *RenderDrumRoll(AVAudioFormat *fmt, int hitsPerSecond) {
++    double loopSec = 0.5;
++    BRTrack t = TrackMake(loopSec + 0.2);
++    int hits = (int)round(hitsPerSecond * loopSec);
++    for (int i = 0; i < hits; i++) {
++        double when = (double)i / hits * loopSec;
++        double accent = (i % 4 == 0) ? 1.0 : (i % 2 == 0 ? 0.8 : 0.65);
++        AddNoise(&t, when, 0.06, 0.55 * accent, 0.02, 0.28);
++        AddTom(&t, when, 150, 0.42 * accent, 0.09);
++    }
++    NSInteger loopFrames = (NSInteger)(loopSec * kSR);
++    FoldTail(&t, loopFrames);
++    Normalize(&t, 0.8f);
++    return BufferFromTrack(&t, fmt, loopFrames);
++}
++
++static AVAudioPCMBuffer *RenderCrash(AVAudioFormat *fmt) {
++    BRTrack t = TrackMake(3.4);
++    AddGong(&t, 0, 196, 0.8, 2.2);
++    AddNoise(&t, 0, 1.4, 0.4, 0.5, 0.08);
++    AddTom(&t, 0, 60, 0.8, 0.4);
++    AddEcho(&t, 0.21, 0.25f);
++    Normalize(&t, 0.92f);
++    return BufferFromTrack(&t, fmt, t.frames);
++}
++
++static AVAudioPCMBuffer *RenderFanfare(AVAudioFormat *fmt) {
++    BRTrack t = TrackMake(3.6);
++    static const int run[] = { 62, 64, 66, 69, 71, 74, 76, 78, 81, 83 };
++    for (int i = 0; i < 10; i++) AddPluck(&t, i * 0.075, MidiHz(run[i]), 0.42, 0.5, 9, 1.0);
++    double hit = 0.85;
++    for (int n = 0; n < 3; n++) {
++        static const int chord[3] = { 74, 78, 81 };
++        AddPluck(&t, hit, MidiHz(chord[n]), 0.4, 0.8, 9, 1.8);
++        AddBell(&t, hit, MidiHz(chord[n] + 12), 0.25, 1.0);
++    }
++    AddGong(&t, hit, 220, 0.7, 2.0);
++    AddTom(&t, hit, 70, 0.9, 0.4);
++    AddEcho(&t, 0.17, 0.26f);
++    Normalize(&t, 0.9f);
++    return BufferFromTrack(&t, fmt, t.frames);
++}
++
++static AVAudioPCMBuffer *RenderAlarm(AVAudioFormat *fmt) {
++    BRTrack t = TrackMake(6.2);
++    static const int bellMidi[6] = { 84, 86, 88, 91, 93, 96 };                 // C6 D6 E6 G6 A6 C7
++    AddGong(&t, 0, 175, 0.9, 2.6);
++    AddSiren(&t, 0.1, 4.4, 0.5);
++    BRNoise pick = { 0x9E3779B97F4A7C15ULL };
++    int idx = 0;
++    for (double when = 0.15; when < 4.5; when += 0.085) {
++        uint32_t r = (uint32_t)((NoiseNext(&pick) + 1.0f) * 3.0f);
++        idx = (idx + 1 + (int)(r % 2)) % 6;
++        AddBell(&t, when, MidiHz(bellMidi[idx]), 0.3, 0.45);
++    }
++    for (double when = 0.0; when < 4.4; when += 0.3) AddTom(&t, when, 70, 0.55, 0.22);
++    AddGong(&t, 2.2, 196, 0.7, 2.0);
++    AddGong(&t, 4.4, 147, 0.85, 2.4);
++    AddEcho(&t, 0.23, 0.22f);
++    Normalize(&t, 0.92f);
++    return BufferFromTrack(&t, fmt, t.frames);
++}
++
++static AVAudioPCMBuffer *RenderNearMiss(AVAudioFormat *fmt) {
++    BRTrack t = TrackMake(1.8);
++    static const int notes[3] = { 81, 78, 74 };
++    for (int i = 0; i < 3; i++) AddPluck(&t, i * 0.2, MidiHz(notes[i]), 0.38, 0.35, 7, 0.9);
++    AddTom(&t, 0.55, 80, 0.4, 0.3);
++    Normalize(&t, 0.7f);
++    return BufferFromTrack(&t, fmt, t.frames);
++}
++
++/// Pentatonic arpeggio; `count` plucks climbing D major pentatonic from D5.
++static AVAudioPCMBuffer *RenderWin(AVAudioFormat *fmt, int count, BOOL gong) {
++    static const int degrees[14] = { 74, 76, 78, 81, 83, 86, 88, 90, 93, 95, 98, 100, 102, 105 };
++    BRTrack t = TrackMake(count * 0.075 + 2.4);
++    for (int i = 0; i < count && i < 14; i++) {
++        AddPluck(&t, i * 0.075, MidiHz(degrees[i] - 12), 0.38, 0.45, 8, 0.9);
++        if (i >= count - 3) AddBell(&t, i * 0.075, MidiHz(degrees[i]), 0.16, 0.5);
++    }
++    if (gong) AddGong(&t, count * 0.075, 233, 0.55, 1.6);
++    AddEcho(&t, 0.15, 0.22f);
++    Normalize(&t, 0.85f);
++    return BufferFromTrack(&t, fmt, t.frames);
++}
++
++static AVAudioPCMBuffer *RenderCardFlip(AVAudioFormat *fmt) {
++    BRTrack t = TrackMake(0.3);
++    AddNoise(&t, 0, 0.12, 0.35, 0.04, 0.2);
++    AddWood(&t, 0.05, 1500, 0.45);
++    Normalize(&t, 0.7f);
++    return BufferFromTrack(&t, fmt, t.frames);
++}
++
++static AVAudioPCMBuffer *RenderCardPick(AVAudioFormat *fmt) {
++    BRTrack t = TrackMake(1.2);
++    AddBell(&t, 0, MidiHz(88), 0.6, 0.5);
++    AddWood(&t, 0, 900, 0.5);
++    Normalize(&t, 0.8f);
++    return BufferFromTrack(&t, fmt, t.frames);
++}
++
++static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
++    BRTrack t = TrackMake(bells * 0.14 + 2.6);
++    static const int notes[5] = { 84, 88, 91, 93, 96 };
++    for (int i = 0; i < bells; i++) AddBell(&t, i * 0.14, MidiHz(notes[i]), 0.55, 0.7);
++    if (bells >= 5) {
++        AddGong(&t, bells * 0.14, 196, 0.8, 2.0);
++        for (int i = 0; i < 8; i++) AddPluck(&t, 0.7 + i * 0.06, MidiHz(74 + (int[]){0,2,4,7,9,12,14,16}[i]), 0.3, 0.5, 8, 0.8);
++    }
++    AddEcho(&t, 0.16, 0.25f);
++    Normalize(&t, 0.9f);
++    return BufferFromTrack(&t, fmt, t.frames);
++}
++
++#pragma mark - Player
++
++@interface BRGoldenMandarinAudio ()
++@property (nonatomic, strong) AVAudioEngine *engine;
++@property (nonatomic, strong) AVAudioFormat *format;
++@property (nonatomic, strong) NSArray<AVAudioPlayerNode *> *voices;
++@property (nonatomic, strong) AVAudioPlayerNode *themeNode, *rollNode;
++@property (nonatomic, strong) NSDictionary<NSString *, AVAudioPCMBuffer *> *buffers;
++@property (nonatomic) NSInteger voiceCursor;
++@property (nonatomic) BOOL ready, preparing, themeWanted, themeBonus, ducked;
++@property (nonatomic) NSInteger rollLevel;
++@end
++
++@implementation BRGoldenMandarinAudio
++
++- (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; [self shutdown]; }
++
++- (void)prepare {
++    if (self.ready || self.preparing) return;
++    self.preparing = YES;
++    self.format = [[AVAudioFormat alloc] initWithCommonFormat:AVAudioPCMFormatFloat32 sampleRate:kSR channels:1 interleaved:NO];
++    AVAudioFormat *fmt = self.format;
++    __weak typeof(self) weakSelf = self;
++    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
++        NSMutableDictionary *b = [NSMutableDictionary dictionary];
++        b[@"theme"] = RenderTheme(fmt, NO);
++        b[@"bonusTheme"] = RenderTheme(fmt, YES);
++        b[@"spin"] = RenderSpinStart(fmt);
++        for (int i = 0; i < 5; i++) b[[NSString stringWithFormat:@"stop%d", i]] = RenderReelStop(fmt, i);
++        static const int scatterMidi[5] = { 84, 86, 88, 91, 93 };              // C6 D6 E6 G6 A6
++        for (int i = 0; i < 5; i++) b[[NSString stringWithFormat:@"scatter%d", i]] = RenderScatterNote(fmt, MidiHz(scatterMidi[i]));
++        static const int rolls[3] = { 14, 20, 28 };
++        for (int i = 0; i < 3; i++) b[[NSString stringWithFormat:@"roll%d", i + 1]] = RenderDrumRoll(fmt, rolls[i]);
++        b[@"crash"] = RenderCrash(fmt);
++        b[@"fanfare"] = RenderFanfare(fmt);
++        b[@"alarm"] = RenderAlarm(fmt);
++        b[@"nearMiss"] = RenderNearMiss(fmt);
++        b[@"winSmall"] = RenderWin(fmt, 4, NO);
++        b[@"winMedium"] = RenderWin(fmt, 8, YES);
++        b[@"winBig"] = RenderWin(fmt, 14, YES);
++        b[@"flip"] = RenderCardFlip(fmt);
++        b[@"pick"] = RenderCardPick(fmt);
++        b[@"reveal2"] = RenderReveal(fmt, 2);
++        b[@"reveal3"] = RenderReveal(fmt, 3);
++        b[@"reveal5"] = RenderReveal(fmt, 5);
++        dispatch_async(dispatch_get_main_queue(), ^{
++            __strong typeof(weakSelf) self = weakSelf;
++            if (!self || !self.preparing) return;
++            self.buffers = b;
++            [self buildEngine];
++            self.preparing = NO;
++            if (!self.engine) return;
++            self.ready = YES;
++            if (self.themeWanted) [self startThemeBonus:self.themeBonus];
++            if (self.onReady) self.onReady();
++        });
++    });
++}
++
++- (void)buildEngine {
++    AVAudioEngine *engine = [AVAudioEngine new];
++    NSMutableArray *voices = [NSMutableArray array];
++    for (int i = 0; i < kVoiceCount; i++) {
++        AVAudioPlayerNode *node = [AVAudioPlayerNode new];
++        [engine attachNode:node];
++        [engine connect:node to:engine.mainMixerNode format:self.format];
++        [voices addObject:node];
++    }
++    self.themeNode = [AVAudioPlayerNode new];
++    self.rollNode = [AVAudioPlayerNode new];
++    for (AVAudioPlayerNode *node in @[self.themeNode, self.rollNode]) {
++        [engine attachNode:node];
++        [engine connect:node to:engine.mainMixerNode format:self.format];
++    }
++    self.themeNode.volume = 0.3;
++    self.rollNode.volume = 0.55;
++    engine.mainMixerNode.outputVolume = self.muted ? 0 : 1;
++    self.voices = voices;
++    self.engine = engine;
++    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(engineConfigurationChanged:) name:AVAudioEngineConfigurationChangeNotification object:engine];
++    [engine prepare];
++    NSError *error = nil;
++    if (![engine startAndReturnError:&error]) { self.engine = nil; self.voices = nil; }
++}
++
++- (void)engineConfigurationChanged:(NSNotification *)note {
++    if (!self.engine) return;
++    NSError *error = nil;
++    if (!self.engine.isRunning) [self.engine startAndReturnError:&error];
++    if (self.engine.isRunning && self.themeWanted) [self startThemeBonus:self.themeBonus];
++}
++
++- (void)resume { [self engineConfigurationChanged:nil]; }
++
++- (void)shutdown {
++    self.preparing = NO; self.ready = NO; self.themeWanted = NO;
++    [[NSNotificationCenter defaultCenter] removeObserver:self];
++    [self.themeNode stop]; [self.rollNode stop];
++    for (AVAudioPlayerNode *node in self.voices) [node stop];
++    [self.engine stop];
++    self.engine = nil; self.voices = nil; self.themeNode = nil; self.rollNode = nil;
++}
++
++- (void)setMuted:(BOOL)muted { _muted = muted; self.engine.mainMixerNode.outputVolume = muted ? 0 : 1; }
++
++- (void)playName:(NSString *)name volume:(float)volume {
++    AVAudioPCMBuffer *buffer = self.buffers[name];
++    if (!self.ready || !buffer || !self.engine.isRunning || !self.voices.count) return;
++    AVAudioPlayerNode *node = self.voices[(NSUInteger)(self.voiceCursor++ % (NSInteger)self.voices.count)];
++    node.volume = volume;
++    [node scheduleBuffer:buffer atTime:nil options:AVAudioPlayerNodeBufferInterrupts completionHandler:nil];
++    [node play];
++}
++
++#pragma mark Music
++
++- (void)startThemeBonus:(BOOL)bonus {
++    self.themeWanted = YES; self.themeBonus = bonus;
++    AVAudioPCMBuffer *buffer = self.buffers[bonus ? @"bonusTheme" : @"theme"];
++    if (!self.ready || !buffer || !self.engine.isRunning) return;
++    [self.themeNode stop];
++    self.themeNode.volume = self.ducked ? 0.1 : 0.3;
++    [self.themeNode scheduleBuffer:buffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil];
++    [self.themeNode play];
++}
++
++- (void)stopTheme { self.themeWanted = NO; [self.themeNode stop]; }
++
++- (void)duckTheme:(BOOL)duck {
++    self.ducked = duck;
++    self.themeNode.volume = duck ? 0.1 : 0.3;
++}
++
++#pragma mark Effects
++
++- (void)playSpinStart { [self playName:@"spin" volume:0.7]; }
++- (void)playReelStop:(NSInteger)reelIndex { [self playName:[NSString stringWithFormat:@"stop%ld", (long)MAX(0, MIN(4, reelIndex))] volume:0.7]; }
++- (void)playScatterNoteAtIndex:(NSInteger)index { [self playName:[NSString stringWithFormat:@"scatter%ld", (long)MAX(0, MIN(4, index))] volume:1.0]; }
++
++- (void)startDrumRollLevel:(NSInteger)level {
++    level = MAX(1, MIN(3, level));
++    AVAudioPCMBuffer *buffer = self.buffers[[NSString stringWithFormat:@"roll%ld", (long)level]];
++    if (!self.ready || !buffer || !self.engine.isRunning) return;
++    self.rollLevel = level;
++    [self duckTheme:YES];
++    [self.rollNode stop];
++    self.rollNode.volume = 0.42 + 0.2 * level;
++    [self.rollNode scheduleBuffer:buffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil];
++    [self.rollNode play];
++}
++
++- (void)stopDrumRoll {
++    self.rollLevel = 0;
++    [self.rollNode stop];
++    [self duckTheme:NO];
++}
++
++- (void)playCrash { [self playName:@"crash" volume:1.0]; }
++- (void)playBonusFanfare { [self playName:@"fanfare" volume:1.0]; }
++- (void)playAlarmCelebration { [self playName:@"alarm" volume:1.0]; }
++- (void)playNearMissSigh { [self playName:@"nearMiss" volume:0.7]; }
++
++- (void)playWinForPayoutRatio:(double)ratio {
++    if (ratio <= 0) return;
++    [self playName:(ratio >= 25 ? @"winBig" : ratio >= 6 ? @"winMedium" : @"winSmall") volume:0.85];
++}
++
++- (void)playCardFlip { [self playName:@"flip" volume:0.8]; }
++- (void)playCardPick { [self playName:@"pick" volume:0.9]; }
++- (void)playMultiplierReveal:(NSInteger)multiplier {
++    [self playName:(multiplier >= 5 ? @"reveal5" : multiplier == 3 ? @"reveal3" : @"reveal2") volume:1.0];
++}
++
++@end
+diff --git a/BRGoldenMandarinEngine.c b/BRGoldenMandarinEngine.c
+new file mode 100644
+index 0000000..9b757e8
+--- /dev/null
++++ b/BRGoldenMandarinEngine.c
+@@ -0,0 +1,163 @@
++// BRGoldenMandarinEngine.c
++// EZCompleteUI — Golden Mandarin (金帽福运) slot. See the header for the rules.
++//
++// NOTE: the server (GoldenMandarinServer/ez-golden-mandarin-spin.index.ts) is
++// the authority for every real spin. This file is the reference the edge
++// function was ported from, and the app uses it only for the pay table
++// shown to the player. Keep the tables below identical to the TypeScript.
++
++#include "BRGoldenMandarinEngine.h"
++#include <string.h>
++
++#ifdef __APPLE__
++#include <stdlib.h>
++#endif
++
++// ── Paylines ────────────────────────────────────────────────────────────────
++// Row used on each of the five reels, 0 = top, 1 = middle, 2 = bottom.
++static const int kPaylines[GM_MAX_LINES][GM_REELS] = {
++    {1,1,1,1,1},   // 1  middle
++    {0,0,0,0,0},   // 2  top
++    {2,2,2,2,2},   // 3  bottom
++    {0,1,2,1,0},   // 4  V
++    {2,1,0,1,2},   // 5  inverted V
++    {0,0,1,2,2},   // 6  descending step
++    {2,2,1,0,0},   // 7  ascending step
++    {1,0,0,0,1},   // 8  top cup
++    {1,2,2,2,1}    // 9  bottom cup
++};
++
++int GMPaylineRow(int line, int reel) {
++    if (line < 0 || line >= GM_MAX_LINES || reel < 0 || reel >= GM_REELS) return 1;
++    return kPaylines[line][reel];
++}
++
++// ── Symbol weights (per cell, scatter handled separately) ───────────────────
++//                                      lantern fan bamboo plum koi jade ingot dragon
++static const int kWeights[GMSymbolHat] = { 26,    22,  19,    16,  12,  8,    5,    3 };
++
++// Probability of a hat on any given cell, in 1/10000ths. 307 makes the
++// bonus (3+ hats anywhere) trigger about once every 100 spins.
++#ifndef GM_SCATTER_PER_10000
++#define GM_SCATTER_PER_10000 307
++#endif
++
++// ── Paytable: pays in line bets for 3 / 4 / 5 of a kind ─────────────────────
++static const int kPay[GMSymbolHat][3] = {
++    /* lantern */ {  11,   30,   98 },
++    /* fan     */ {  15,   41,  125 },
++    /* bamboo  */ {  20,   55,  160 },
++    /* plum    */ {  26,   75,  213 },
++    /* koi     */ {  41,  123,  338 },
++    /* jade    */ {  69,  214,  640 },
++    /* ingot   */ { 129,  405, 1290 },
++    /* dragon  */ { 258,  854, 3200 }
++};
++
++int GMPayoutUnits(int symbol, int matches) {
++    if (symbol < 0 || symbol >= GMSymbolHat || matches < 3 || matches > 5) return 0;
++    return kPay[symbol][matches - 3];
++}
++
++uint32_t GMDefaultRandom(uint32_t upper, void *context) {
++    (void)context;
++    if (upper <= 1) return 0;
++#ifdef __APPLE__
++    return arc4random_uniform(upper);
++#else
++    static uint64_t s = 0x9E3779B97F4A7C15ULL;
++    s ^= s << 13; s ^= s >> 7; s ^= s << 17;
++    return (uint32_t)((s >> 11) % upper);
++#endif
++}
++
++static int RandomPlainSymbol(GMRandomFn rng, void *ctx) {
++    int total = 0;
++    for (int i = 0; i < GMSymbolHat; i++) total += kWeights[i];
++    int roll = (int)rng((uint32_t)total, ctx);
++    for (int i = 0; i < GMSymbolHat; i++) {
++        if (roll < kWeights[i]) return i;
++        roll -= kWeights[i];
++    }
++    return GMSymbolLantern;
++}
++
++void GMGenerateSpin(GMSpinResult *out, int activeLines, bool freeSpin,
++                    GMRandomFn rng, void *ctx) {
++    (void)freeSpin;
++    if (!rng) rng = GMDefaultRandom;
++    memset(out, 0, sizeof(*out));
++    if (activeLines < 1) activeLines = 1;
++    if (activeLines > GM_MAX_LINES) activeLines = GM_MAX_LINES;
++    out->activeLines = activeLines;
++    for (int line = 0; line < GM_MAX_LINES; line++) out->lineSymbol[line] = -1;
++
++    // 1. Fill the board. A hat may land on any cell, including several rows
++    //    of the same reel.
++    int hatCells[GM_REELS * GM_ROWS][2];
++    int hats = 0;
++    for (int r = 0; r < GM_REELS; r++) {
++        for (int row = 0; row < GM_ROWS; row++) {
++            if ((int)rng(10000, ctx) < GM_SCATTER_PER_10000) {
++                out->grid[r][row] = GMSymbolHat;
++                hatCells[hats][0] = r; hatCells[hats][1] = row; hats++;
++            } else {
++                out->grid[r][row] = RandomPlainSymbol(rng, ctx);
++            }
++        }
++    }
++
++    // 2. Enforce the board-wide cap of five hats. Surplus hats are chosen at
++    //    random and turned into ordinary symbols.
++    while (hats > GM_MAX_SCATTERS) {
++        int pick = (int)rng((uint32_t)hats, ctx);
++        out->grid[hatCells[pick][0]][hatCells[pick][1]] = RandomPlainSymbol(rng, ctx);
++        hatCells[pick][0] = hatCells[hats - 1][0];
++        hatCells[pick][1] = hatCells[hats - 1][1];
++        hats--;
++    }
++    out->scatterCount = hats;
++    for (int i = 0; i < hats; i++) out->scatterPerReel[hatCells[i][0]]++;
++
++    // 3. Score the active lines. Hats are scatters, so they never form or
++    //    extend a line.
++    for (int line = 0; line < activeLines; line++) {
++        int first = out->grid[0][GMPaylineRow(line, 0)];
++        if (first == GMSymbolHat) continue;
++        int run = 1;
++        for (int reel = 1; reel < GM_REELS; reel++) {
++            int s = out->grid[reel][GMPaylineRow(line, reel)];
++            if (s != first) break;
++            run++;
++        }
++        int pay = GMPayoutUnits(first, run);
++        if (pay > 0) {
++            out->lineSymbol[line] = first;
++            out->lineMatches[line] = run;
++            out->linePayUnits[line] = pay;
++            out->totalPayUnits += pay;
++            out->winningLineCount++;
++        }
++    }
++
++    out->freeSpinsAwarded = GMFreeSpinsForScatters(out->scatterCount, rng, ctx);
++}
++
++int GMFreeSpinsForScatters(int scatterCount, GMRandomFn rng, void *ctx) {
++    if (!rng) rng = GMDefaultRandom;
++    switch (scatterCount) {
++        case 3: return 5  + (int)rng(4, ctx);   // 5...8
++        case 4: return 14 + (int)rng(3, ctx);   // 14...16
++        case 5: return 25 + (int)rng(6, ctx);   // 25...30
++        default: return 0;
++    }
++}
++
++void GMShuffleMultiplierCards(int cards[3], GMRandomFn rng, void *ctx) {
++    if (!rng) rng = GMDefaultRandom;
++    cards[0] = 2; cards[1] = 3; cards[2] = 5;
++    for (int i = 2; i > 0; i--) {                       // Fisher-Yates
++        int j = (int)rng((uint32_t)(i + 1), ctx);
++        int t = cards[i]; cards[i] = cards[j]; cards[j] = t;
++    }
++}
+diff --git a/BRGoldenMandarinEngine.h b/BRGoldenMandarinEngine.h
+new file mode 100644
+index 0000000..d369085
+--- /dev/null
++++ b/BRGoldenMandarinEngine.h
+@@ -0,0 +1,89 @@
++// BRGoldenMandarinEngine.h
++// EZCompleteUI — Golden Mandarin (金帽福运) slot
++//
++// Pure-C outcome engine: no Foundation/UIKit, so the exact same logic can be
++// compiled in the app, in a command-line simulation, or ported to a server
++// function. It decides reels, line wins, scatters, and free-spin awards. It
++// never touches balances; the caller owns money.
++//
++// Rules (match the design brief):
++//  - 5 reels x 3 rows, up to 9 paylines, wins pay left-to-right from reel 1
++//    for 3, 4 or 5 matching symbols.
++//  - Golden Hat is the scatter. It can land on any row of any reel (up to all
++//    three rows of a reel) but the board NEVER holds more than 5 in total.
++//  - 3 hats = 5-8 free spins, 4 hats = 14-16, 5 hats = 25-30 (random in range).
++//  - Free spins pay every line win times a x2 / x3 / x5 multiplier that the
++//    player chooses from the three-card shuffle.
++
++#ifndef BRGoldenMandarinEngine_h
++#define BRGoldenMandarinEngine_h
++
++#include <stdint.h>
++#include <stdbool.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#define GM_REELS 5
++#define GM_ROWS 3
++#define GM_MAX_LINES 9
++#define GM_MAX_SCATTERS 5
++#define GM_MAX_FREE_SPINS_BANKED 100
++
++typedef enum {
++    GMSymbolLantern = 0,
++    GMSymbolFan,
++    GMSymbolBamboo,
++    GMSymbolPlum,
++    GMSymbolKoi,
++    GMSymbolJade,
++    GMSymbolIngot,
++    GMSymbolDragon,
++    GMSymbolHat,          // scatter
++    GMSymbolCount
++} GMSymbol;
++
++/// Uniform random integer in [0, upper). `upper` is always > 0.
++typedef uint32_t (*GMRandomFn)(uint32_t upper, void *context);
++
++typedef struct {
++    int grid[GM_REELS][GM_ROWS];      // grid[reel][row], row 0 = top
++    int scatterCount;                 // 0...GM_MAX_SCATTERS
++    int scatterPerReel[GM_REELS];     // hats landing on each reel
++    int activeLines;                  // lines that were played
++    int lineSymbol[GM_MAX_LINES];     // winning symbol, or -1
++    int lineMatches[GM_MAX_LINES];    // 3/4/5, or 0
++    int linePayUnits[GM_MAX_LINES];   // pay in "line bets", before multiplier
++    int winningLineCount;
++    int totalPayUnits;                // sum of linePayUnits (before multiplier)
++    int freeSpinsAwarded;             // 0 unless scatterCount >= 3
++} GMSpinResult;
++
++/// Row (0...2) each reel uses on payline `line` (0...8).
++int GMPaylineRow(int line, int reel);
++
++/// Pay, in line bets, for `matches` (3...5) of `symbol`; 0 otherwise.
++int GMPayoutUnits(int symbol, int matches);
++
++/// Generates one spin. `freeSpin` is currently informational (the same reels
++/// are used in the bonus) but is kept so a server can vary it later.
++void GMGenerateSpin(GMSpinResult *out, int activeLines, bool freeSpin,
++                    GMRandomFn rng, void *context);
++
++/// 3 -> 5...8, 4 -> 14...16, 5 -> 25...30, anything else -> 0.
++int GMFreeSpinsForScatters(int scatterCount, GMRandomFn rng, void *context);
++
++/// Fills `cards[3]` with a random permutation of {2, 3, 5}: the hidden
++/// multipliers behind the three shuffled cards. cards[i] is what the player
++/// wins by picking card i, so every card is a one-in-three chance of each.
++void GMShuffleMultiplierCards(int cards[3], GMRandomFn rng, void *context);
++
++/// Default RNG: arc4random_uniform on Apple platforms, xorshift elsewhere.
++uint32_t GMDefaultRandom(uint32_t upper, void *context);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* BRGoldenMandarinEngine_h */
+diff --git a/BRGoldenMandarinSlotViewController.h b/BRGoldenMandarinSlotViewController.h
+new file mode 100644
+index 0000000..fbb0f93
+--- /dev/null
++++ b/BRGoldenMandarinSlotViewController.h
+@@ -0,0 +1,15 @@
++#import <UIKit/UIKit.h>
++
++NS_ASSUME_NONNULL_BEGIN
++
++/// Golden Mandarin (金帽福运): five reels, nine paylines, golden-hat scatters
++/// that open a three-card pick, and free spins with a x2 / x3 / x5 multiplier.
++///
++/// The client half of the `ez-golden-mandarin-spin` edge function (see
++/// GoldenMandarinServer/). The server owns every reel, payout, free-spin
++/// award, the multiplier pick and all EZ Coins; this screen renders what it is
++/// told. Symbols and sound are generated in code, so there are no asset files.
++@interface BRGoldenMandarinSlotViewController : UIViewController
++@end
++
++NS_ASSUME_NONNULL_END
+diff --git a/BRGoldenMandarinSlotViewController.m b/BRGoldenMandarinSlotViewController.m
+new file mode 100644
+index 0000000..97a0357
+--- /dev/null
++++ b/BRGoldenMandarinSlotViewController.m
+@@ -0,0 +1,1507 @@
++// BRGoldenMandarinSlotViewController.m
++// EZCompleteUI — Golden Mandarin (金帽福运)
++//
++// Client half of the `ez-golden-mandarin-spin` edge function. The server owns
++// the reels, every payout, the free-spin award roll, the x2/x3/x5 card pick and
++// all EZ Coins; this screen renders what it is told and stages the drama:
++//   - reels blur while the request is in flight, then land left to right
++//   - each golden hat that lands rings the same bell one pentatonic step higher
++//   - from the second hat a drum roll builds, and the remaining reels slow down
++//   - five hats fire an alarm with ringing bells, confetti and a shaking cabinet
++//   - 3+ hats open a three-card pick; the server decides what each card hides
++//   - free spins then play themselves with every win multiplied
++// All art and sound are generated in code (BRGoldenMandarinArt / Audio).
++
++#import "BRGoldenMandarinSlotViewController.h"
++#import "BRGoldenMandarinEngine.h"
++#import "BRGoldenMandarinArt.h"
++#import "BRGoldenMandarinAudio.h"
++#import "EZAuthManager.h"
++#import "EZEntitlementManager.h"
++#import "EZSupabaseConfig.h"
++#import "EZCoinStoreViewController.h"
++
++#define GMLoc(key, en) NSLocalizedStringWithDefaultValue(key, nil, NSBundle.mainBundle, en, nil)
++
++static NSString *const kGMMutedKey = @"BRGoldenMandarinMuted";
++static NSString *const kGMLinesKey = @"BRGoldenMandarinLines";
++static NSString *const kGMBetKey = @"BRGoldenMandarinBetIndex";
++static const NSInteger kGMLoopPeriod = 8;        // cells in the seamless blur loop
++static const CGFloat kGMLoopSpeed = 22.0;        // cells per second while blurring
++
++static NSArray<NSNumber *> *GMBets(void) { return @[@1, @5, @10, @15, @25]; }
++static NSArray<NSString *> *GMSymbolNames(void) {
++    return @[@"lantern", @"fan", @"bamboo", @"plum", @"koi", @"jade", @"ingot", @"dragon", @"hat"];
++}
++
++static UIColor *GMC(uint32_t hex) {
++    return [UIColor colorWithRed:((hex >> 16) & 0xFF) / 255.0 green:((hex >> 8) & 0xFF) / 255.0 blue:(hex & 0xFF) / 255.0 alpha:1];
++}
++static UIColor *GMGold(void) { return GMC(0xF2C14E); }
++
++static NSString *GMNum(NSInteger n) {
++    static NSNumberFormatter *formatter;
++    static dispatch_once_t once;
++    dispatch_once(&once, ^{ formatter = [NSNumberFormatter new]; formatter.numberStyle = NSNumberFormatterDecimalStyle; });
++    return [formatter stringFromNumber:@(n)] ?: [NSString stringWithFormat:@"%ld", (long)n];
++}
++
++/// Random symbol for the blur. Hats only appear when `allowHat` so a stopped
++/// reel never shows a stray hat next to the real result.
++static int GMFiller(BOOL allowHat) {
++    if (allowHat && arc4random_uniform(18) == 0) return GMSymbolHat;
++    return (int)arc4random_uniform(GMSymbolHat);
++}
++
++static UIImage *GMParticleImage(BOOL coin) {
++    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
++    format.scale = 2;
++    CGSize size = CGSizeMake(18, 18);
++    return [[[UIGraphicsImageRenderer alloc] initWithSize:size format:format] imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
++        if (coin) {   // a Chinese cash coin: gold disc with a square hole
++            UIBezierPath *path = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(1, 1, 16, 16)];
++            [path appendPath:[UIBezierPath bezierPathWithRect:CGRectMake(6.5, 6.5, 5, 5)]];
++            path.usesEvenOddFillRule = YES;
++            [GMGold() setFill]; [path fill];
++            [GMC(0x9A6A08) setStroke]; path.lineWidth = 1; [path stroke];
++        } else {      // a red-and-gold paper diamond
++            UIBezierPath *path = [UIBezierPath bezierPath];
++            [path moveToPoint:CGPointMake(9, 1)]; [path addLineToPoint:CGPointMake(15, 9)];
++            [path addLineToPoint:CGPointMake(9, 17)]; [path addLineToPoint:CGPointMake(3, 9)]; [path closePath];
++            [GMC(0xD4161E) setFill]; [path fill];
++            [GMGold() setStroke]; path.lineWidth = 1.2; [path stroke];
++        }
++    }];
++}
++
++#pragma mark - Gradient view
++
++@interface GMGradientView : UIView
++@property (nonatomic, readonly) CAGradientLayer *gradientLayer;
++@end
++@implementation GMGradientView
+++ (Class)layerClass { return [CAGradientLayer class]; }
++- (CAGradientLayer *)gradientLayer { return (CAGradientLayer *)self.layer; }
++@end
++
++#pragma mark - Pay table sheet
++
++@interface GMPaytableViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
++@property (nonatomic, strong) UITableView *table;
++@end
++
++@implementation GMPaytableViewController
++
++- (void)viewDidLoad {
++    [super viewDidLoad];
++    self.view.backgroundColor = GMC(0x1A0509);
++    UISheetPresentationController *sheet = self.sheetPresentationController;
++    if (sheet) {
++        sheet.detents = @[UISheetPresentationControllerDetent.mediumDetent, UISheetPresentationControllerDetent.largeDetent];
++        sheet.prefersGrabberVisible = YES;
++    }
++    UILabel *title = [UILabel new];
++    title.translatesAutoresizingMaskIntoConstraints = NO;
++    title.text = GMLoc(@"BRSlot.GM.Pays.Title", @"Golden Mandarin Pays");
++    title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightHeavy];
++    title.textColor = GMGold();
++    title.textAlignment = NSTextAlignmentCenter;
++    [self.view addSubview:title];
++
++    self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
++    self.table.translatesAutoresizingMaskIntoConstraints = NO;
++    self.table.backgroundColor = UIColor.clearColor;
++    self.table.separatorColor = [GMGold() colorWithAlphaComponent:.25];
++    self.table.dataSource = self;
++    self.table.delegate = self;
++    self.table.allowsSelection = NO;
++    self.table.rowHeight = 62;
++    UILabel *footer = [UILabel new];
++    footer.numberOfLines = 0;
++    footer.textColor = [UIColor colorWithWhite:1 alpha:.82];
++    footer.font = [UIFont systemFontOfSize:13];
++    footer.text = GMLoc(@"BRSlot.GM.Pays.Rules",
++        @"HOW TO PLAY\n\n• 9 paylines. Matching symbols pay left to right from reel 1: 3, 4 or 5 in a row. Prizes multiply your bet per line.\n• Golden Hats are scatters and pay anywhere. A spin never shows more than five.\n• 3 hats = 5–8 free spins, 4 hats = 14–16, 5 hats = 25–30.\n• Before free spins begin, pick one of three face-down cards. It hides ×2, ×3 or ×5, and that multiplies every line win in the bonus.\n• Hats during free spins add more spins (up to 100 banked).\n• Free spins cost nothing. Spins and payouts are decided on the server.");
++    CGSize fit = [footer sizeThatFits:CGSizeMake(UIScreen.mainScreen.bounds.size.width - 40, CGFLOAT_MAX)];
++    UIView *wrap = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 100, fit.height + 40)];
++    footer.frame = CGRectMake(20, 12, UIScreen.mainScreen.bounds.size.width - 40, fit.height);
++    [wrap addSubview:footer];
++    self.table.tableFooterView = wrap;
++    [self.view addSubview:self.table];
++
++    UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
++    [NSLayoutConstraint activateConstraints:@[
++        [title.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:18],
++        [title.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:16],
++        [title.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
++        [self.table.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:10],
++        [self.table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
++        [self.table.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
++        [self.table.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor],
++    ]];
++}
++
++- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return GMSymbolCount; }
++
++- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
++    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"pay"];
++    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"pay"];
++    GMSymbol symbol = (GMSymbol)(GMSymbolCount - 1 - path.row);   // hat first, then dragon down to lantern
++    cell.backgroundColor = UIColor.clearColor;
++    cell.imageView.image = [BRGoldenMandarinArt imageForSymbol:symbol size:CGSizeMake(46, 46)];
++    cell.textLabel.textColor = GMGold();
++    cell.textLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
++    cell.detailTextLabel.textColor = [UIColor colorWithWhite:1 alpha:.85];
++    cell.detailTextLabel.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightRegular];
++    cell.detailTextLabel.numberOfLines = 2;
++    cell.textLabel.text = [BRGoldenMandarinArt nameForSymbol:symbol];
++    if (symbol == GMSymbolHat) {
++        cell.detailTextLabel.text = GMLoc(@"BRSlot.GM.Pays.Hat", @"Scatter · 3 = 5–8 free spins · 4 = 14–16 · 5 = 25–30");
++    } else {
++        cell.detailTextLabel.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Pays.Row", @"3×  %ld    4×  %ld    5×  %ld   (× bet per line)"),
++                                     (long)GMPayoutUnits(symbol, 3), (long)GMPayoutUnits(symbol, 4), (long)GMPayoutUnits(symbol, 5)];
++    }
++    return cell;
++}
++
++@end
++
++#pragma mark - Main screen
++
++@interface BRGoldenMandarinSlotViewController ()
++@property (nonatomic, strong) BRGoldenMandarinAudio *audio;
++@property (nonatomic, strong) GMGradientView *background;
++@property (nonatomic, strong) UIScrollView *scroll;
++@property (nonatomic, strong) UILabel *balanceLabel, *winLabel, *bannerLabel, *messageLabel, *totalBetLabel;
++@property (nonatomic, strong) UIView *machine;
++@property (nonatomic, strong) NSMutableArray<UIView *> *reelViews;
++@property (nonatomic, strong) NSMutableArray<UIView *> *strips;
++@property (nonatomic, strong) NSMutableArray<NSMutableArray<UIImageView *> *> *stripCells;
++@property (nonatomic, strong) NSMutableArray<NSMutableArray<UIView *> *> *highlights;
++@property (nonatomic, strong) UIButton *linesButton, *betButton, *maxButton, *spinButton, *soundButton;
++@property (nonatomic, strong) UIView *celebrationOverlay, *summaryOverlay, *pickOverlay;
++@property (nonatomic, strong) NSDictionary *result;
++// Card pick
++@property (nonatomic, strong) NSMutableArray<UIView *> *pickCards;      // by identity 0...2
++@property (nonatomic, strong) NSMutableArray<UIView *> *pickSlots;      // card in each slot, left to right
++@property (nonatomic, strong) UILabel *pickTitle, *pickSubtitle, *pickPrompt;
++@end
++
++@implementation BRGoldenMandarinSlotViewController {
++    int _grid[GM_REELS][GM_ROWS];       // the result being revealed
++    int _board[GM_REELS][GM_ROWS];      // what the reels currently show
++    int _hatsOnReel[GM_REELS];
++    int _hatTotal;
++    CGPoint _slotCenters[3];
++    NSInteger _lines, _betIndex;
++    NSInteger _balance;                 // what the label shows
++    NSInteger _freeRemaining, _bonusMult, _bonusTotal, _bonusLines, _bonusBet, _lastAwarded, _spinWager;
++    BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving;
++    NSUInteger _epoch;
++    NSTimeInterval _celebrationEnd;
++    CGFloat _cellSize;
++}
++
++#pragma mark Lifecycle
++
++- (void)viewDidLoad {
++    [super viewDidLoad];
++    self.title = GMLoc(@"BRSlot.GM.Title", @"Golden Mandarin");
++    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
++    _lines = [defaults objectForKey:kGMLinesKey] ? MAX(1, MIN(GM_MAX_LINES, [defaults integerForKey:kGMLinesKey])) : GM_MAX_LINES;
++    _betIndex = [defaults objectForKey:kGMBetKey] ? MAX(0, MIN((NSInteger)GMBets().count - 1, [defaults integerForKey:kGMBetKey])) : 0;
++    _bonusLines = _lines;
++    _bonusBet = GMBets()[_betIndex].integerValue;
++    self.reelViews = [NSMutableArray array];
++    self.strips = [NSMutableArray array];
++    self.stripCells = [NSMutableArray array];
++    self.highlights = [NSMutableArray array];
++    for (int r = 0; r < GM_REELS; r++) for (int row = 0; row < GM_ROWS; row++) _board[r][row] = GMFiller(NO);
++
++    [self buildUI];
++    self.audio = [BRGoldenMandarinAudio new];
++    self.audio.muted = [defaults boolForKey:kGMMutedKey];
++    [self.audio prepare];
++    [self refreshSoundButton];
++    [self refreshLabels];
++    [self updateControls];
++    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appDidBecomeActive) name:UIApplicationDidBecomeActiveNotification object:nil];
++}
++
++- (void)dealloc {
++    [[NSNotificationCenter defaultCenter] removeObserver:self];
++    [self.audio shutdown];
++}
++
++- (void)viewDidLayoutSubviews {
++    [super viewDidLayoutSubviews];
++    self.background.frame = self.view.bounds;
++    [self layoutReelsIfNeeded];
++}
++
++- (void)viewDidAppear:(BOOL)animated {
++    [super viewDidAppear:animated];
++    _leaving = NO;
++    [self.audio startThemeBonus:_bonusMode];
++    [self refreshState];
++}
++
++- (void)viewWillDisappear:(BOOL)animated {
++    [super viewWillDisappear:animated];
++    if (self.isMovingFromParentViewController || self.isBeingDismissed) {
++        _leaving = YES;
++        _epoch++;
++        [self.audio shutdown];
++        [self.machine.layer removeAllAnimations];
++        for (UIView *overlay in @[self.celebrationOverlay ?: [NSNull null], self.summaryOverlay ?: [NSNull null], self.pickOverlay ?: [NSNull null]]) {
++            if ([overlay isKindOfClass:UIView.class]) [overlay removeFromSuperview];
++        }
++    }
++}
++
++- (void)didReceiveMemoryWarning {
++    [super didReceiveMemoryWarning];
++    [BRGoldenMandarinArt purgeCache];
++}
++
++- (void)appDidBecomeActive {
++    if (self.view.window && !_leaving) [self.audio resume];
++}
++
++- (void)backTapped {
++    if (self.navigationController) [self.navigationController popViewControllerAnimated:YES];
++    else [self dismissViewControllerAnimated:YES completion:nil];
++}
++
++/// Runs `block` after `delay` unless the screen has been left in the meantime.
++- (void)after:(NSTimeInterval)delay do:(dispatch_block_t)block {
++    NSUInteger epoch = _epoch;
++    __weak typeof(self) weakSelf = self;
++    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(MAX(0, delay) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
++        __strong typeof(weakSelf) strongSelf = weakSelf;
++        if (!strongSelf || strongSelf->_epoch != epoch || strongSelf->_leaving) return;
++        block();
++    });
++}
++
++- (void)haptic:(UIImpactFeedbackStyle)style {
++    UIImpactFeedbackGenerator *generator = [[UIImpactFeedbackGenerator alloc] initWithStyle:style];
++    [generator impactOccurred];
++}
++
++#pragma mark UI construction
++
++- (UIButton *)navButton:(NSString *)title action:(SEL)action {
++    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
++    [button setTitle:title forState:UIControlStateNormal];
++    button.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack];
++    button.tintColor = GMGold();
++    button.backgroundColor = [GMC(0x5A0B14) colorWithAlphaComponent:.96];
++    button.layer.cornerRadius = 9;
++    button.layer.borderWidth = 1;
++    button.layer.borderColor = [GMGold() colorWithAlphaComponent:.72].CGColor;
++    button.contentEdgeInsets = UIEdgeInsetsMake(7, 10, 7, 10);
++    [button sizeToFit];
++    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
++    return button;
++}
++
++- (UIButton *)controlButton:(NSString *)title color:(UIColor *)color action:(SEL)action {
++    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
++    button.translatesAutoresizingMaskIntoConstraints = NO;
++    button.titleLabel.numberOfLines = 2;
++    button.titleLabel.textAlignment = NSTextAlignmentCenter;
++    button.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightHeavy];
++    [button setTitle:title forState:UIControlStateNormal];
++    [button setTitleColor:GMGold() forState:UIControlStateNormal];
++    [button setTitleColor:[UIColor colorWithWhite:1 alpha:.4] forState:UIControlStateDisabled];
++    button.backgroundColor = color;
++    button.layer.cornerRadius = 14;
++    button.layer.borderWidth = 1.5;
++    button.layer.borderColor = [GMGold() colorWithAlphaComponent:.8].CGColor;
++    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
++    return button;
++}
++
++- (UIView *)statBlockCaption:(NSString *)caption value:(UILabel *)value alignment:(NSTextAlignment)alignment {
++    UILabel *cap = [UILabel new];
++    cap.text = caption;
++    cap.font = [UIFont systemFontOfSize:10 weight:UIFontWeightHeavy];
++    cap.textColor = [GMGold() colorWithAlphaComponent:.8];
++    cap.textAlignment = alignment;
++    value.font = [UIFont monospacedDigitSystemFontOfSize:19 weight:UIFontWeightHeavy];
++    value.textColor = UIColor.whiteColor;
++    value.textAlignment = alignment;
++    value.adjustsFontSizeToFitWidth = YES;
++    value.minimumScaleFactor = .6;
++    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[cap, value]];
++    stack.axis = UILayoutConstraintAxisVertical;
++    stack.spacing = 1;
++    return stack;
++}
++
++- (void)buildUI {
++    self.view.backgroundColor = GMC(0x12030A);
++    self.background = [[GMGradientView alloc] initWithFrame:self.view.bounds];
++    self.background.userInteractionEnabled = NO;
++    self.background.gradientLayer.colors = @[(id)GMC(0x3B0610).CGColor, (id)GMC(0x12030A).CGColor];
++    [self.view insertSubview:self.background atIndex:0];
++
++    self.navigationItem.hidesBackButton = YES;
++    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:GMLoc(@"BRSlot.Picker.Back", @"‹  BRAINROT") action:@selector(backTapped)]];
++    UIButton *pays = [self navButton:GMLoc(@"BRSlot.GM.Pays", @"PAYS") action:@selector(showPays)];
++    self.soundButton = [self navButton:@"🔊" action:@selector(toggleSound)];
++    self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithCustomView:self.soundButton],
++                                                [[UIBarButtonItem alloc] initWithCustomView:pays]];
++
++    self.scroll = [UIScrollView new];
++    self.scroll.translatesAutoresizingMaskIntoConstraints = NO;
++    self.scroll.alwaysBounceVertical = NO;
++    [self.view addSubview:self.scroll];
++    UIView *content = [UIView new];
++    content.translatesAutoresizingMaskIntoConstraints = NO;
++    [self.scroll addSubview:content];
++
++    UILabel *title = [UILabel new];
++    title.translatesAutoresizingMaskIntoConstraints = NO;
++    title.textAlignment = NSTextAlignmentCenter;
++    title.attributedText = [[NSAttributedString alloc] initWithString:@"金帽福运" attributes:@{
++        NSFontAttributeName: [UIFont systemFontOfSize:34 weight:UIFontWeightHeavy],
++        NSForegroundColorAttributeName: GMGold(), NSKernAttributeName: @6}];
++    title.layer.shadowColor = GMC(0xFF8A1F).CGColor;
++    title.layer.shadowOpacity = .7; title.layer.shadowRadius = 10; title.layer.shadowOffset = CGSizeZero;
++    UILabel *subtitle = [UILabel new];
++    subtitle.translatesAutoresizingMaskIntoConstraints = NO;
++    subtitle.textAlignment = NSTextAlignmentCenter;
++    subtitle.attributedText = [[NSAttributedString alloc] initWithString:@"GOLDEN MANDARIN" attributes:@{
++        NSFontAttributeName: [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy],
++        NSForegroundColorAttributeName: [UIColor colorWithRed:1 green:.96 blue:.86 alpha:.85], NSKernAttributeName: @4}];
++
++    self.balanceLabel = [UILabel new];
++    self.winLabel = [UILabel new];
++    UIView *balanceBlock = [self statBlockCaption:GMLoc(@"BRSlot.GM.Balance", @"BALANCE") value:self.balanceLabel alignment:NSTextAlignmentLeft];
++    UIView *winBlock = [self statBlockCaption:GMLoc(@"BRSlot.GM.Win", @"WIN") value:self.winLabel alignment:NSTextAlignmentRight];
++    UIStackView *info = [[UIStackView alloc] initWithArrangedSubviews:@[balanceBlock, winBlock]];
++    info.translatesAutoresizingMaskIntoConstraints = NO;
++    info.distribution = UIStackViewDistributionFillEqually;
++
++    self.bannerLabel = [UILabel new];
++    self.bannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
++    self.bannerLabel.numberOfLines = 2;
++    self.bannerLabel.textAlignment = NSTextAlignmentCenter;
++    self.bannerLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy];
++    self.bannerLabel.textColor = GMGold();
++    self.bannerLabel.backgroundColor = [GMC(0x7A0A12) colorWithAlphaComponent:.9];
++    self.bannerLabel.layer.cornerRadius = 12;
++    self.bannerLabel.layer.borderWidth = 1;
++    self.bannerLabel.layer.borderColor = [GMGold() colorWithAlphaComponent:.6].CGColor;
++    self.bannerLabel.clipsToBounds = YES;
++
++    // Cabinet
++    self.machine = [UIView new];
++    self.machine.translatesAutoresizingMaskIntoConstraints = NO;
++    self.machine.backgroundColor = GMC(0x4A0810);
++    self.machine.layer.cornerRadius = 22;
++    self.machine.layer.borderWidth = 4;
++    self.machine.layer.borderColor = GMGold().CGColor;
++    self.machine.layer.shadowColor = GMC(0xFFB02E).CGColor;
++    self.machine.layer.shadowRadius = 18;
++    self.machine.layer.shadowOffset = CGSizeZero;
++    self.machine.layer.shadowOpacity = 0;
++    UIStackView *reelStack = [UIStackView new];
++    reelStack.translatesAutoresizingMaskIntoConstraints = NO;
++    reelStack.axis = UILayoutConstraintAxisHorizontal;
++    reelStack.distribution = UIStackViewDistributionFillEqually;
++    reelStack.spacing = 4;
++    [self.machine addSubview:reelStack];
++    for (int r = 0; r < GM_REELS; r++) {
++        UIView *reel = [UIView new];
++        reel.clipsToBounds = YES;
++        reel.layer.cornerRadius = 6;
++        reel.layer.borderWidth = 1;
++        reel.layer.borderColor = [GMGold() colorWithAlphaComponent:.6].CGColor;
++        GMGradientView *paper = [[GMGradientView alloc] initWithFrame:CGRectZero];
++        paper.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++        paper.gradientLayer.colors = @[(id)GMC(0xFFF8E7).CGColor, (id)GMC(0xF1DFB5).CGColor];
++        [reel addSubview:paper];
++        UIView *strip = [UIView new];
++        [reel addSubview:strip];
++        NSMutableArray<UIView *> *marks = [NSMutableArray array];
++        for (int row = 0; row < GM_ROWS; row++) {
++            UIView *mark = [UIView new];
++            mark.hidden = YES;
++            mark.userInteractionEnabled = NO;
++            mark.layer.borderWidth = 3;
++            mark.layer.cornerRadius = 8;
++            [reel addSubview:mark];
++            [marks addObject:mark];
++        }
++        GMGradientView *shade = [[GMGradientView alloc] initWithFrame:CGRectZero];
++        shade.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++        shade.userInteractionEnabled = NO;
++        shade.gradientLayer.colors = @[(id)[UIColor colorWithWhite:0 alpha:.38].CGColor, (id)[UIColor colorWithWhite:0 alpha:0].CGColor,
++                                       (id)[UIColor colorWithWhite:0 alpha:0].CGColor, (id)[UIColor colorWithWhite:0 alpha:.38].CGColor];
++        shade.gradientLayer.locations = @[@0, @.22, @.78, @1];
++        [reel addSubview:shade];
++        [reelStack addArrangedSubview:reel];
++        [reel.heightAnchor constraintEqualToAnchor:reel.widthAnchor multiplier:3.0].active = YES;
++        [self.reelViews addObject:reel];
++        [self.strips addObject:strip];
++        [self.stripCells addObject:[NSMutableArray array]];
++        [self.highlights addObject:marks];
++    }
++
++    self.messageLabel = [UILabel new];
++    self.messageLabel.translatesAutoresizingMaskIntoConstraints = NO;
++    self.messageLabel.numberOfLines = 2;
++    self.messageLabel.textAlignment = NSTextAlignmentCenter;
++    self.messageLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
++    self.messageLabel.textColor = [UIColor colorWithWhite:.85 alpha:1];
++    self.totalBetLabel = [UILabel new];
++    self.totalBetLabel.translatesAutoresizingMaskIntoConstraints = NO;
++    self.totalBetLabel.textAlignment = NSTextAlignmentCenter;
++    self.totalBetLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightHeavy];
++    self.totalBetLabel.textColor = [GMGold() colorWithAlphaComponent:.85];
++
++    UIColor *deepRed = GMC(0x6E0A14);
++    self.linesButton = [self controlButton:@"" color:deepRed action:@selector(cycleLines)];
++    self.betButton = [self controlButton:@"" color:deepRed action:@selector(cycleBet)];
++    self.maxButton = [self controlButton:@"" color:GMC(0x8A5A00) action:@selector(maxBet)];
++    UIStackView *controls = [[UIStackView alloc] initWithArrangedSubviews:@[self.linesButton, self.betButton, self.maxButton]];
++    controls.translatesAutoresizingMaskIntoConstraints = NO;
++    controls.axis = UILayoutConstraintAxisHorizontal;
++    controls.distribution = UIStackViewDistributionFillEqually;
++    controls.spacing = 10;
++    self.spinButton = [self controlButton:GMLoc(@"BRSlot.GM.Spin", @"SPIN") color:GMC(0xC8141E) action:@selector(spinTapped)];
++    self.spinButton.titleLabel.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
++    self.spinButton.layer.borderWidth = 2.5;
++
++    [content addSubview:title]; [content addSubview:subtitle]; [content addSubview:info]; [content addSubview:self.bannerLabel];
++    [content addSubview:self.machine]; [content addSubview:self.messageLabel]; [content addSubview:self.totalBetLabel];
++    [content addSubview:controls]; [content addSubview:self.spinButton];
++
++    UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
++    [NSLayoutConstraint activateConstraints:@[
++        [self.scroll.topAnchor constraintEqualToAnchor:safe.topAnchor],
++        [self.scroll.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor],
++        [self.scroll.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
++        [self.scroll.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
++        [content.topAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.topAnchor],
++        [content.bottomAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.bottomAnchor],
++        [content.leadingAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.leadingAnchor],
++        [content.trailingAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.trailingAnchor],
++        [content.widthAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.widthAnchor],
++
++        [title.topAnchor constraintEqualToAnchor:content.topAnchor constant:6],
++        [title.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
++        [title.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
++        [subtitle.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:0],
++        [subtitle.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
++        [subtitle.trailingAnchor constraintEqualToAnchor:title.trailingAnchor],
++        [info.topAnchor constraintEqualToAnchor:subtitle.bottomAnchor constant:10],
++        [info.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:22],
++        [info.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-22],
++        [self.bannerLabel.topAnchor constraintEqualToAnchor:info.bottomAnchor constant:10],
++        [self.bannerLabel.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
++        [self.bannerLabel.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
++        [self.bannerLabel.heightAnchor constraintEqualToConstant:40],
++        [self.machine.topAnchor constraintEqualToAnchor:self.bannerLabel.bottomAnchor constant:12],
++        [self.machine.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:14],
++        [self.machine.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-14],
++        [reelStack.topAnchor constraintEqualToAnchor:self.machine.topAnchor constant:12],
++        [reelStack.bottomAnchor constraintEqualToAnchor:self.machine.bottomAnchor constant:-12],
++        [reelStack.leadingAnchor constraintEqualToAnchor:self.machine.leadingAnchor constant:12],
++        [reelStack.trailingAnchor constraintEqualToAnchor:self.machine.trailingAnchor constant:-12],
++        [self.messageLabel.topAnchor constraintEqualToAnchor:self.machine.bottomAnchor constant:10],
++        [self.messageLabel.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:18],
++        [self.messageLabel.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-18],
++        [self.messageLabel.heightAnchor constraintGreaterThanOrEqualToConstant:36],
++        [self.totalBetLabel.topAnchor constraintEqualToAnchor:self.messageLabel.bottomAnchor constant:2],
++        [self.totalBetLabel.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:18],
++        [self.totalBetLabel.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-18],
++        [controls.topAnchor constraintEqualToAnchor:self.totalBetLabel.bottomAnchor constant:8],
++        [controls.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
++        [controls.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
++        [controls.heightAnchor constraintEqualToConstant:52],
++        [self.spinButton.topAnchor constraintEqualToAnchor:controls.bottomAnchor constant:10],
++        [self.spinButton.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
++        [self.spinButton.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
++        [self.spinButton.heightAnchor constraintEqualToConstant:56],
++        [self.spinButton.bottomAnchor constraintEqualToAnchor:content.bottomAnchor constant:-18],
++    ]];
++    [self refreshBanner];
++}
++
++#pragma mark Reel layout
++
++- (void)layoutReelsIfNeeded {
++    if (self.reelViews.count != GM_REELS) return;
++    CGFloat width = self.reelViews[0].bounds.size.width;
++    if (width < 10 || _reelsMoving) return;
++    if (_stripsBuilt && fabs(width - _cellSize) < 0.5) return;
++    _cellSize = width;
++    _stripsBuilt = YES;
++    for (NSInteger r = 0; r < GM_REELS; r++) {
++        [self configureStripForReel:r final:_board[r] old:_board[r] fillers:0];
++        for (NSInteger row = 0; row < GM_ROWS; row++) {
++            self.highlights[r][row].frame = CGRectInset(CGRectMake(0, row * width, width, width), 2, 2);
++        }
++    }
++}
++
++/// Strip layout, top to bottom: [buffer][final 3][K fillers][old 3]. At rest the
++/// strip sits one cell up, showing the final three. A spin starts with the old
++/// three showing and slides down to the final three.
++- (void)configureStripForReel:(NSInteger)reel final:(const int *)fin old:(const int *)old fillers:(NSInteger)K {
++    UIView *strip = self.strips[reel];
++    NSMutableArray<UIImageView *> *cells = self.stripCells[reel];
++    CGFloat s = _cellSize, inset = s * 0.05;
++    CGSize imageSize = CGSizeMake(s - 2 * inset, s - 2 * inset);
++    NSInteger total = 4 + K + 3;
++    while ((NSInteger)cells.count < total) {
++        UIImageView *view = [UIImageView new];
++        view.contentMode = UIViewContentModeScaleAspectFit;
++        [strip addSubview:view];
++        [cells addObject:view];
++    }
++    for (NSInteger i = 0; i < (NSInteger)cells.count; i++) {
++        UIImageView *cell = cells[i];
++        if (i >= total) { cell.hidden = YES; continue; }
++        cell.hidden = NO;
++        cell.transform = CGAffineTransformIdentity;
++        cell.frame = CGRectMake(inset, i * s + inset, imageSize.width, imageSize.height);
++        int symbol;
++        if (i == 0) symbol = GMFiller(NO);
++        else if (i <= 3) symbol = fin[i - 1];
++        else if (i < 4 + K) symbol = GMFiller(YES);
++        else symbol = old[i - (4 + K)];
++        cell.image = [BRGoldenMandarinArt imageForSymbol:(GMSymbol)symbol size:imageSize];
++    }
++    strip.frame = CGRectMake(0, -s, s, total * s);
++}
++
++/// Seamless blur: a repeating pattern slid by exactly one period, forever, until
++/// the result arrives.
++- (void)startReelLoops {
++    _reelsMoving = YES;
++    CGFloat s = _cellSize, inset = s * 0.05;
++    CGSize imageSize = CGSizeMake(s - 2 * inset, s - 2 * inset);
++    NSInteger P = kGMLoopPeriod, total = P + 3;
++    for (NSInteger r = 0; r < GM_REELS; r++) {
++        UIView *strip = self.strips[r];
++        NSMutableArray<UIImageView *> *cells = self.stripCells[r];
++        int pattern[kGMLoopPeriod];
++        for (NSInteger i = 0; i < P; i++) pattern[i] = GMFiller(NO);
++        while ((NSInteger)cells.count < total) {
++            UIImageView *view = [UIImageView new];
++            view.contentMode = UIViewContentModeScaleAspectFit;
++            [strip addSubview:view];
++            [cells addObject:view];
++        }
++        for (NSInteger i = 0; i < (NSInteger)cells.count; i++) {
++            UIImageView *cell = cells[i];
++            if (i >= total) { cell.hidden = YES; continue; }
++            cell.hidden = NO;
++            cell.transform = CGAffineTransformIdentity;
++            cell.frame = CGRectMake(inset, i * s + inset, imageSize.width, imageSize.height);
++            cell.image = [BRGoldenMandarinArt imageForSymbol:(GMSymbol)pattern[i % P] size:imageSize];
++        }
++        strip.frame = CGRectMake(0, -(CGFloat)P * s, s, total * s);
++        CABasicAnimation *loop = [CABasicAnimation animationWithKeyPath:@"transform.translation.y"];
++        loop.fromValue = @0;
++        loop.toValue = @((CGFloat)P * s);
++        loop.duration = P / kGMLoopSpeed;
++        loop.repeatCount = HUGE_VALF;
++        loop.timeOffset = r * 0.06;
++        loop.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
++        [strip.layer addAnimation:loop forKey:@"gmLoop"];
++    }
++}
++
++- (void)stopReelLoops {
++    for (UIView *strip in self.strips) [strip.layer removeAnimationForKey:@"gmLoop"];
++}
++
++#pragma mark State and labels
++
++- (NSInteger)betPerLine { return GMBets()[_betIndex].integerValue; }
++
++- (void)refreshLabels {
++    self.balanceLabel.text = [NSString stringWithFormat:GMLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)_balance];
++    NSInteger lines = _bonusMode ? _bonusLines : _lines, bet = _bonusMode ? _bonusBet : [self betPerLine];
++    self.linesButton.titleLabel.text = nil;
++    [self.linesButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.Lines", @"LINES\n%ld"), (long)lines] forState:UIControlStateNormal];
++    [self.betButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.Bet", @"BET / LINE\n%ld"), (long)bet] forState:UIControlStateNormal];
++    [self.maxButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(GM_MAX_LINES * GMBets().lastObject.integerValue)] forState:UIControlStateNormal];
++    self.totalBetLabel.text = _bonusMode ? GMLoc(@"BRSlot.GM.FreeNoWager", @"FREE SPINS — NO WAGER TAKEN")
++        : [NSString stringWithFormat:GMLoc(@"BRSlot.GM.TotalBet", @"TOTAL BET  %ld COINS"), (long)(lines * bet)];
++}
++
++- (void)refreshBanner {
++    if (_bonusMode) {
++        NSString *mult = _bonusMult > 0 ? [NSString stringWithFormat:@"%ld", (long)_bonusMult] : @"?";
++        self.bannerLabel.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, GMNum(_bonusTotal)];
++        self.bannerLabel.textColor = GMC(0xFFE48F);
++    } else {
++        self.bannerLabel.text = GMLoc(@"BRSlot.GM.Hint", @"3+ GOLDEN HATS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5");
++        self.bannerLabel.textColor = GMGold();
++    }
++}
++
++- (void)setMessage:(NSString *)text highlight:(BOOL)highlight {
++    self.messageLabel.text = text;
++    self.messageLabel.textColor = highlight ? GMC(0xFFD86B) : [UIColor colorWithWhite:.85 alpha:1];
++}
++
++- (void)updateControls {
++    BOOL idle = !_busy && !_bonusMode && _freeRemaining == 0;
++    for (UIButton *button in @[self.linesButton, self.betButton, self.maxButton, self.spinButton]) {
++        button.enabled = idle;
++        button.alpha = idle ? 1 : 0.5;
++    }
++    [self.spinButton setTitle:_bonusMode ? GMLoc(@"BRSlot.GM.FreeSpinsButton", @"FREE SPINS") : GMLoc(@"BRSlot.GM.Spin", @"SPIN") forState:UIControlStateNormal];
++}
++
++- (void)cycleLines {
++    if (_busy || _bonusMode) return;
++    _lines = _lines % GM_MAX_LINES + 1;
++    [NSUserDefaults.standardUserDefaults setInteger:_lines forKey:kGMLinesKey];
++    [self refreshLabels];
++}
++
++- (void)cycleBet {
++    if (_busy || _bonusMode) return;
++    _betIndex = (_betIndex + 1) % (NSInteger)GMBets().count;
++    [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:kGMBetKey];
++    [self refreshLabels];
++}
++
++- (void)maxBet {
++    if (_busy || _bonusMode) return;
++    _lines = GM_MAX_LINES;
++    _betIndex = (NSInteger)GMBets().count - 1;
++    [self refreshLabels];
++    [self spinTapped];
++}
++
++- (void)toggleSound {
++    self.audio.muted = !self.audio.muted;
++    [NSUserDefaults.standardUserDefaults setBool:self.audio.muted forKey:kGMMutedKey];
++    [self refreshSoundButton];
++}
++
++- (void)refreshSoundButton {
++    [self.soundButton setTitle:self.audio.muted ? @"🔇" : @"🔊" forState:UIControlStateNormal];
++    [self.soundButton sizeToFit];
++}
++
++- (void)showPays {
++    GMPaytableViewController *pays = [GMPaytableViewController new];
++    pays.modalPresentationStyle = UIModalPresentationPageSheet;
++    [self presentViewController:pays animated:YES completion:nil];
++}
++
++- (void)showCoinStore {
++    if (self.presentedViewController) return;
++    EZCoinStoreViewController *store = [EZCoinStoreViewController new];
++    store.showLowCoinsWarning = YES;
++    store.triggeringFeatureName = GMLoc(@"BRSlot.GM.StoreFeature", @"Golden Mandarin");
++    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:store];
++    nav.modalPresentationStyle = UIModalPresentationPageSheet;
++    [self presentViewController:nav animated:YES completion:nil];
++}
++
++#pragma mark Server
++
++- (void)request:(NSDictionary *)payload completion:(void (^)(NSDictionary *result, NSString *error, NSInteger status))completion {
++    [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *authError) {
++        if (!token) {
++            dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, GMLoc(@"BRSlot.GM.SignIn", @"Please sign in to play Golden Mandarin."), 401); });
++            return;
++        }
++        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/ez-golden-mandarin-spin"]]];
++        request.HTTPMethod = @"POST";
++        request.timeoutInterval = 25;
++        [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
++        [request setValue:EZSupabaseAnonKey forHTTPHeaderField:@"apikey"];
++        [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
++        request.HTTPBody = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
++        [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) {
++            NSDictionary *result = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
++            if (![result isKindOfClass:NSDictionary.class]) result = nil;
++            NSInteger status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
++            NSString *error = nil;
++            if (networkError) error = networkError.localizedDescription;
++            else if (status < 200 || status >= 300) error = result[@"reason"] ?: result[@"error"] ?: GMLoc(@"BRSlot.GM.RequestFailed", @"The request failed. Your balance is unchanged.");
++            dispatch_async(dispatch_get_main_queue(), ^{ completion(result, error, status); });
++        }] resume];
++    }];
++}
++
++/// Syncs balance and any in-progress bonus, and resumes it if the player left
++/// mid-way (including a card pick that was never made).
++- (void)refreshState {
++    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
++        if (self->_busy) return;
++        self->_balance = balance;
++        [self refreshLabels];
++    }];
++    [self request:@{@"action": @"status"} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
++        if (self->_leaving || self->_busy || !result || error) return;
++        self->_freeRemaining = [result[@"free_spins_remaining"] integerValue];
++        self->_pickPending = [result[@"pick_pending"] boolValue];
++        self->_bonusMult = [result[@"multiplier"] integerValue];
++        self->_bonusTotal = [result[@"bonus_total"] integerValue];
++        if (self->_freeRemaining > 0) {
++            self->_bonusLines = MAX(1, MIN(GM_MAX_LINES, [result[@"lines"] integerValue]));
++            self->_bonusBet = [result[@"bet_per_line"] integerValue] ?: 1;
++            [self resumeBonus];
++        } else {
++            [self refreshLabels]; [self refreshBanner]; [self updateControls];
++        }
++    }];
++}
++
++- (void)resumeBonus {
++    if (_busy || _freeRemaining <= 0) return;
++    _busy = YES;
++    [self enterBonusMode];
++    [self setMessage:GMLoc(@"BRSlot.GM.Resuming", @"Resuming your free spins…") highlight:YES];
++    if (_pickPending) [self after:0.8 do:^{ [self presentCardPick]; }];
++    else [self after:1.0 do:^{ [self beginSpinFree:YES]; }];
++}
++
++#pragma mark Spinning
++
++- (void)spinTapped {
++    if (_busy || _bonusMode || _freeRemaining > 0) return;
++    NSInteger wager = _lines * [self betPerLine];
++    _busy = YES;
++    [self updateControls];
++    [self setMessage:GMLoc(@"BRSlot.CheckingBalance", @"Checking EZ Coins…") highlight:NO];
++    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
++        if (self->_leaving) return;
++        self->_balance = balance;
++        [self refreshLabels];
++        if (balance < wager) {
++            self->_busy = NO;
++            [self updateControls];
++            [self setMessage:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.NeedCoins", @"You need %ld coins for that bet."), (long)wager] highlight:NO];
++            [self showCoinStore];
++            return;
++        }
++        [self beginSpinFree:NO];
++    }];
++}
++
++- (void)beginSpinFree:(BOOL)free {
++    _busy = YES;
++    _spinFree = free;
++    [self updateControls];
++    [self clearHighlights];
++    NSInteger lines = free ? _bonusLines : _lines;
++    NSInteger bet = free ? _bonusBet : [self betPerLine];
++    _spinWager = free ? 0 : lines * bet;
++    if (free) { _freeRemaining = MAX(0, _freeRemaining - 1); }
++    else { _balance -= _spinWager; }
++    self.winLabel.text = @"0";
++    [self refreshLabels];
++    [self refreshBanner];
++    [self setMessage:GMLoc(@"BRSlot.Spinning", @"Spinning…") highlight:NO];
++    [self startReelLoops];
++    [self.audio playSpinStart];
++    [self haptic:UIImpactFeedbackStyleMedium];
++
++    NSUInteger epoch = _epoch;
++    [self request:@{@"lines": @(lines), @"bet_per_line": @(bet)} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
++        if (self->_epoch != epoch || self->_leaving) return;
++        if (error || ![self parseResult:result]) {
++            [self failSpin:error ?: GMLoc(@"BRSlot.GM.BadResponse", @"Unexpected response. Your balance is unchanged.") status:status];
++            return;
++        }
++        [self revealResult:result];
++    }];
++}
++
++- (void)failSpin:(NSString *)message status:(NSInteger)status {
++    [self stopReelLoops];
++    _reelsMoving = NO;
++    [self.audio stopDrumRoll];
++    _stripsBuilt = NO;
++    [self layoutReelsIfNeeded];                 // puts the previous board back
++    _busy = NO;
++    [self updateControls];
++    [self setMessage:message highlight:NO];
++    self.messageLabel.textColor = UIColor.systemOrangeColor;
++    [self refreshState];                        // the server may have settled; re-sync
++    if (status == 402) [self showCoinStore];
++    if (_freeRemaining > 0 || _bonusMode) _busy = NO;
++}
++
++- (BOOL)parseResult:(NSDictionary *)result {
++    NSArray *reels = result[@"reels"];
++    if (![reels isKindOfClass:NSArray.class] || reels.count != GM_REELS) return NO;
++    int grid[GM_REELS][GM_ROWS], perReel[GM_REELS] = {0}, hats = 0;
++    for (NSInteger c = 0; c < GM_REELS; c++) {
++        NSArray *column = reels[c];
++        if (![column isKindOfClass:NSArray.class] || column.count != GM_ROWS) return NO;
++        for (NSInteger row = 0; row < GM_ROWS; row++) {
++            if (![column[row] isKindOfClass:NSString.class]) return NO;
++            NSUInteger index = [GMSymbolNames() indexOfObject:column[row]];
++            if (index == NSNotFound) return NO;
++            grid[c][row] = (int)index;
++            if (index == GMSymbolHat) { perReel[c]++; hats++; }
++        }
++    }
++    memcpy(_grid, grid, sizeof(grid));
++    memcpy(_hatsOnReel, perReel, sizeof(perReel));
++    _hatTotal = hats;
++    return YES;
++}
++
++/// Lands the reels left to right. Once two hats are showing, every remaining
++/// reel takes longer so the drum roll has time to build.
++- (void)revealResult:(NSDictionary *)result {
++    self.result = result;
++    [self stopReelLoops];
++    CGFloat s = _cellSize;
++    double stopAt[GM_REELS];
++    double t = 0.7;
++    int hatsBefore = 0;
++    for (int r = 0; r < GM_REELS; r++) {
++        if (r > 0) {
++            t += 0.30;
++            if (hatsBefore >= 2 && hatsBefore < GM_MAX_SCATTERS) t += 0.65;
++        }
++        stopAt[r] = t;
++        hatsBefore += _hatsOnReel[r];
++    }
++    NSUInteger epoch = _epoch;
++    for (NSInteger r = 0; r < GM_REELS; r++) {
++        NSInteger K = MAX(6, lround(stopAt[r] * 11.0));
++        [self configureStripForReel:r final:_grid[r] old:_board[r] fillers:K];
++        UIView *strip = self.strips[r];
++        CGRect start = CGRectMake(0, -(CGFloat)(4 + K) * s, s, strip.frame.size.height);
++        CGRect end = CGRectMake(0, -s, s, start.size.height);
++        CGRect over = CGRectOffset(end, 0, s * 0.12);
++        strip.frame = start;
++        [UIView animateWithDuration:stopAt[r] delay:r * 0.035 options:UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionAllowUserInteraction animations:^{
++            strip.frame = over;
++        } completion:^(BOOL finished) {
++            [UIView animateWithDuration:0.12 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{ strip.frame = end; } completion:nil];
++            if (self->_epoch != epoch || self->_leaving) return;
++            [self reelDidStop:r];
++        }];
++    }
++}
++
++- (void)reelDidStop:(NSInteger)reel {
++    for (int row = 0; row < GM_ROWS; row++) _board[reel][row] = _grid[reel][row];
++    int before = 0;
++    for (int r = 0; r < reel; r++) before += _hatsOnReel[r];
++    int here = _hatsOnReel[reel];
++    int total = before + here;
++    [self.audio playReelStop:reel];
++    [self haptic:here ? UIImpactFeedbackStyleHeavy : UIImpactFeedbackStyleLight];
++
++    // Same bell for every hat, one pentatonic step higher each time.
++    int k = 0;
++    for (int row = 0; row < GM_ROWS; row++) {
++        if (_grid[reel][row] != GMSymbolHat) continue;
++        NSInteger noteIndex = before + k;
++        NSInteger rowCopy = row;
++        [self after:0.05 + k * 0.17 do:^{
++            [self.audio playScatterNoteAtIndex:noteIndex];
++            [self pulseHatAtReel:reel row:rowCopy];
++        }];
++        k++;
++    }
++    // The drum roll starts with the second hat and grows with each one after.
++    if (total >= 2 && total < GM_MAX_SCATTERS && reel < GM_REELS - 1) {
++        NSInteger level = MIN(3, total - 1);
++        [self after:(here ? 0.3 + here * 0.1 : 0) do:^{ [self.audio startDrumRollLevel:level]; }];
++    }
++    if (total == GM_MAX_SCATTERS && here > 0) {
++        [self.audio stopDrumRoll];
++        [self after:0.3 + here * 0.17 do:^{ [self celebrateHats:GM_MAX_SCATTERS]; }];
++    }
++    if (reel == GM_REELS - 1) {
++        [self after:(here ? 0.45 + here * 0.17 : 0.3) do:^{ [self finishSpin]; }];
++    }
++}
++
++- (void)finishSpin {
++    [self.audio stopDrumRoll];
++    _reelsMoving = NO;
++    NSDictionary *res = self.result;
++    BOOL free = _spinFree;
++    NSInteger awarded = [res[@"free_spins_awarded"] integerValue];
++    NSInteger balance = [res[@"balance"] integerValue];
++    _lastAwarded = awarded;
++    _freeRemaining = [res[@"free_spins_remaining"] integerValue];
++    _pickPending = [res[@"pick_pending"] boolValue];
++    if (free) {
++        _bonusTotal = [res[@"bonus_total"] integerValue];
++    } else if (awarded > 0) {
++        _bonusLines = _lines; _bonusBet = [self betPerLine]; _bonusMult = 0; _bonusTotal = 0;
++    }
++    [EZEntitlementManager.shared applyKnownBalance:balance];
++
++    NSTimeInterval wait = 0;
++    if (awarded > 0 && _hatTotal < GM_MAX_SCATTERS) {
++        if (_hatTotal >= 4) [self.audio playCrash];
++        [self.audio playBonusFanfare];
++        [self celebrateHats:_hatTotal];
++    } else if (_hatTotal == 2) {
++        [self.audio playNearMissSigh];
++    }
++    wait = MAX(0, _celebrationEnd - CACurrentMediaTime());
++    [self after:wait + 0.15 do:^{
++        [self presentWinsThen:^{ [self afterSpin]; }];
++    }];
++}
++
++- (void)afterSpin {
++    BOOL triggered = _lastAwarded > 0;
++    if (_spinFree) {
++        if (_freeRemaining > 0) {
++            if (triggered) {
++                [self setMessage:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.MoreSpins", @"+%ld MORE FREE SPINS!"), (long)_lastAwarded] highlight:YES];
++            }
++            [self refreshBanner];
++            [self after:triggered ? 1.7 : 0.9 do:^{ [self beginSpinFree:YES]; }];
++        } else {
++            [self showSummary];
++        }
++        return;
++    }
++    if (triggered) {
++        [self highlightHatsSticky];
++        [self enterBonusMode];
++        [self after:0.7 do:^{ [self presentCardPick]; }];
++        return;
++    }
++    _busy = NO;
++    [self updateControls];
++    if (_balance <= 0) [self after:0.5 do:^{ [self showCoinStore]; }];
++}
++
++#pragma mark Wins and highlights
++
++static NSArray<UIColor *> *GMLineColors(void) {
++    return @[GMC(0xFFD60A), GMC(0x30D158), GMC(0x64D2FF), GMC(0xFF453A), GMC(0xBF5AF2), GMC(0xFF9F0A), GMC(0x5E5CE6), GMC(0xFF375F), GMC(0xA7F432)];
++}
++
++- (void)clearHighlights {
++    for (NSInteger r = 0; r < GM_REELS; r++) {
++        for (UIView *mark in self.highlights[r]) { mark.hidden = YES; [mark.layer removeAllAnimations]; }
++        for (UIImageView *cell in self.stripCells[r]) { [cell.layer removeAllAnimations]; cell.transform = CGAffineTransformIdentity; }
++    }
++}
++
++- (void)lightCellAtReel:(NSInteger)reel row:(NSInteger)row color:(UIColor *)color pulse:(BOOL)pulse {
++    UIView *mark = self.highlights[reel][row];
++    mark.hidden = NO;
++    mark.layer.borderColor = color.CGColor;
++    mark.backgroundColor = [color colorWithAlphaComponent:.22];
++    if (pulse) {
++        CABasicAnimation *fade = [CABasicAnimation animationWithKeyPath:@"opacity"];
++        fade.fromValue = @1; fade.toValue = @0.45; fade.duration = 0.4; fade.autoreverses = YES; fade.repeatCount = HUGE_VALF;
++        [mark.layer addAnimation:fade forKey:@"gmPulse"];
++        UIImageView *cell = self.stripCells[reel][1 + row];
++        [UIView animateWithDuration:0.18 animations:^{ cell.transform = CGAffineTransformMakeScale(1.1, 1.1); }];
++    }
++}
++
++- (void)highlightHatsSticky {
++    for (NSInteger r = 0; r < GM_REELS; r++)
++        for (NSInteger row = 0; row < GM_ROWS; row++)
++            if (_grid[r][row] == GMSymbolHat) [self lightCellAtReel:r row:row color:GMGold() pulse:YES];
++}
++
++- (void)presentWinsThen:(dispatch_block_t)completion {
++    NSDictionary *res = self.result;
++    NSInteger payout = [res[@"payout"] integerValue];
++    NSInteger balance = [res[@"balance"] integerValue];
++    NSInteger bet = [res[@"bet_per_line"] integerValue] ?: 1;
++    NSInteger lines = [res[@"lines"] integerValue] ?: 1;
++    NSInteger fromBalance = _balance;
++    _balance = balance;
++    NSArray *winners = [res[@"winning_lines"] isKindOfClass:NSArray.class] ? res[@"winning_lines"] : @[];
++    if (payout <= 0) {
++        [self refreshLabels];
++        [self setMessage:_spinFree ? GMLoc(@"BRSlot.GM.FreeNoWin", @"Free spin · no win")
++                                   : [NSString stringWithFormat:GMLoc(@"BRSlot.GM.NoWin", @"No win · −%ld coins"), (long)_spinWager] highlight:NO];
++        [self after:_spinFree ? 0.5 : 0.2 do:completion];
++        return;
++    }
++    [self.audio playWinForPayoutRatio:(double)payout / (double)MAX(1, lines * bet)];
++    [self countLabel:self.winLabel from:0 to:payout duration:0.9 formatter:^NSString *(NSInteger v) { return GMNum(v); }];
++    [self countLabel:self.balanceLabel from:fromBalance to:balance duration:0.9 formatter:^NSString *(NSInteger v) {
++        return [NSString stringWithFormat:GMLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)v];
++    }];
++    [self setMessage:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.WonCoins", @"Won %ld coins!"), (long)payout] highlight:YES];
++
++    NSArray<UIColor *> *palette = GMLineColors();
++    NSTimeInterval per = _spinFree ? 0.75 : 1.0;
++    BOOL oneByOne = winners.count <= 3;
++    for (NSUInteger i = 0; i < winners.count; i++) {
++        NSDictionary *line = winners[i];
++        if (![line isKindOfClass:NSDictionary.class]) continue;
++        NSArray *rows = [line[@"rows"] isKindOfClass:NSArray.class] ? line[@"rows"] : @[];
++        NSInteger matches = MIN(5, [line[@"matches"] integerValue]);
++        UIColor *color = palette[[line[@"index"] integerValue] % (NSInteger)palette.count];
++        NSString *detail = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.WinLine", @"Line %ld · %ld× %@ · +%@"),
++                            (long)([line[@"index"] integerValue] + 1), (long)matches,
++                            [BRGoldenMandarinArt nameForSymbol:(GMSymbol)MAX(0, MIN(GMSymbolHat, (NSInteger)[GMSymbolNames() indexOfObject:line[@"symbol"] ?: @""]))],
++                            GMNum([line[@"coins"] integerValue])];
++        void (^show)(void) = ^{
++            if (oneByOne) [self clearHighlights];
++            for (NSInteger col = 0; col < matches && col < (NSInteger)rows.count; col++) {
++                NSInteger row = [rows[col] integerValue];
++                if (row >= 0 && row < GM_ROWS) [self lightCellAtReel:col row:row color:color pulse:oneByOne];
++            }
++            if (oneByOne) [self setMessage:detail highlight:YES];
++        };
++        if (oneByOne) [self after:i * per do:show]; else show();
++    }
++    if (!oneByOne) {
++        for (UIView *mark in [self.highlights valueForKeyPath:@"@unionOfArrays.self"]) (void)mark;
++    }
++    NSTimeInterval total = oneByOne ? MAX(1.2, winners.count * per + 0.3) : 1.8;
++    [self after:total do:^{
++        if (self->_lastAwarded <= 0) [self clearHighlights];   // keep hats lit if a bonus follows
++        else { [self clearHighlights]; }
++        completion();
++    }];
++}
++
++- (void)countLabel:(UILabel *)label from:(NSInteger)from to:(NSInteger)to duration:(NSTimeInterval)duration formatter:(NSString *(^)(NSInteger))formatter {
++    NSInteger steps = MAX(1, (NSInteger)(duration * 30));
++    for (NSInteger i = 1; i <= steps; i++) {
++        double p = (double)i / steps, eased = 1 - (1 - p) * (1 - p);
++        NSInteger value = from + (NSInteger)llround((to - from) * eased);
++        [self after:duration * p do:^{ label.text = formatter(value); }];
++    }
++}
++
++#pragma mark Hat effects
++
++- (void)pulseHatAtReel:(NSInteger)reel row:(NSInteger)row {
++    CGFloat s = _cellSize;
++    UIView *reelView = self.reelViews[reel];
++    CGRect slot = [reelView convertRect:CGRectMake(0, row * s, s, s) toView:self.machine];
++    CGRect frame = CGRectInset(slot, s * 0.05, s * 0.05);
++    UIImageView *copy = [[UIImageView alloc] initWithImage:[BRGoldenMandarinArt imageForSymbol:GMSymbolHat size:frame.size]];
++    copy.frame = frame;
++    copy.layer.shadowColor = GMC(0xFFD86B).CGColor;
++    copy.layer.shadowOpacity = 1; copy.layer.shadowRadius = 14; copy.layer.shadowOffset = CGSizeZero;
++    UIView *ring = [[UIView alloc] initWithFrame:CGRectMake(0, 0, slot.size.width, slot.size.width)];
++    ring.center = CGPointMake(CGRectGetMidX(slot), CGRectGetMidY(slot));
++    ring.layer.cornerRadius = slot.size.width / 2;
++    ring.layer.borderWidth = 3;
++    ring.layer.borderColor = GMC(0xFFD86B).CGColor;
++    [self.machine addSubview:ring];
++    [self.machine addSubview:copy];
++    [UIView animateWithDuration:0.16 animations:^{ copy.transform = CGAffineTransformMakeScale(1.4, 1.4); } completion:^(BOOL f) {
++        [UIView animateWithDuration:0.28 delay:0 usingSpringWithDamping:0.5 initialSpringVelocity:0 options:0 animations:^{ copy.transform = CGAffineTransformIdentity; } completion:^(BOOL f2) {
++            [UIView animateWithDuration:0.2 animations:^{ copy.alpha = 0; } completion:^(BOOL f3) { [copy removeFromSuperview]; }];
++        }];
++    }];
++    [UIView animateWithDuration:0.6 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
++        ring.transform = CGAffineTransformMakeScale(2.6, 2.6);
++        ring.alpha = 0;
++    } completion:^(BOOL f) { [ring removeFromSuperview]; }];
++}
++
++/// 3 or 4 hats: banner and a short confetti burst. 5 hats: alarm, flashing
++/// light, shaking cabinet, swinging bells and a long confetti shower.
++- (void)celebrateHats:(NSInteger)hats {
++    NSTimeInterval duration = hats >= 5 ? 5.4 : hats == 4 ? 3.8 : 3.2;
++    NSTimeInterval end = CACurrentMediaTime() + duration;
++    if (end < _celebrationEnd - 0.2) return;           // already celebrating something bigger
++    _celebrationEnd = end;
++    if (hats >= 5) [self.audio playAlarmCelebration];
++    UINotificationFeedbackGenerator *generator = [UINotificationFeedbackGenerator new];
++    [generator notificationOccurred:UINotificationFeedbackTypeSuccess];
++
++    [self.celebrationOverlay removeFromSuperview];
++    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
++    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++    overlay.userInteractionEnabled = NO;
++    [self.view addSubview:overlay];
++    self.celebrationOverlay = overlay;
++    CGFloat width = overlay.bounds.size.width;
++
++    UILabel *main = [UILabel new];
++    main.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Hats", @"%ld GOLDEN HATS!"), (long)hats];
++    main.font = [UIFont systemFontOfSize:hats >= 5 ? 40 : 34 weight:UIFontWeightBlack];
++    main.textColor = GMC(0xFFE48F);
++    main.textAlignment = NSTextAlignmentCenter;
++    main.layer.shadowColor = GMC(0xD4161E).CGColor;
++    main.layer.shadowOpacity = 1; main.layer.shadowRadius = 8; main.layer.shadowOffset = CGSizeZero;
++    main.frame = CGRectMake(0, 0, width, 50);
++    UILabel *sub = [UILabel new];
++    sub.text = GMLoc(@"BRSlot.GM.HatsSub", @"金帽 · FREE SPINS UNLOCKED");
++    sub.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
++    sub.textColor = UIColor.whiteColor;
++    sub.textAlignment = NSTextAlignmentCenter;
++    sub.frame = CGRectMake(0, 48, width, 22);
++    UIView *banner = [[UIView alloc] initWithFrame:CGRectMake(0, 0, width, 76)];
++    banner.backgroundColor = [GMC(0x4A0810) colorWithAlphaComponent:.9];
++    banner.center = CGPointMake(width / 2, CGRectGetMidY([self.machine convertRect:self.machine.bounds toView:self.view]));
++    [banner addSubview:main]; [banner addSubview:sub];
++    [overlay addSubview:banner];
++    banner.transform = CGAffineTransformMakeScale(0.3, 0.3);
++    banner.alpha = 0;
++    [UIView animateWithDuration:0.45 delay:0 usingSpringWithDamping:0.55 initialSpringVelocity:0.8 options:0 animations:^{
++        banner.transform = CGAffineTransformIdentity; banner.alpha = 1;
++    } completion:^(BOOL f) {
++        [UIView animateWithDuration:0.35 delay:0 options:UIViewAnimationOptionRepeat | UIViewAnimationOptionAutoreverse | UIViewAnimationOptionAllowUserInteraction animations:^{
++            banner.transform = CGAffineTransformMakeScale(1.05, 1.05);
++        } completion:nil];
++    }];
++
++    if (hats >= 5) {
++        UIView *flash = [[UIView alloc] initWithFrame:overlay.bounds];
++        flash.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++        flash.alpha = 0.3;
++        flash.backgroundColor = GMC(0xFF2A2A);
++        [overlay insertSubview:flash atIndex:0];
++        CABasicAnimation *strobe = [CABasicAnimation animationWithKeyPath:@"backgroundColor"];
++        strobe.fromValue = (id)GMC(0xFF2A2A).CGColor; strobe.toValue = (id)GMC(0xFFC83A).CGColor;
++        strobe.duration = 0.18; strobe.autoreverses = YES; strobe.repeatCount = HUGE_VALF;
++        [flash.layer addAnimation:strobe forKey:@"gmStrobe"];
++
++        CABasicAnimation *shake = [CABasicAnimation animationWithKeyPath:@"transform.translation.x"];
++        shake.fromValue = @-5; shake.toValue = @5; shake.duration = 0.05; shake.autoreverses = YES; shake.repeatCount = HUGE_VALF;
++        [self.machine.layer addAnimation:shake forKey:@"gmShake"];
++        [self after:duration do:^{ [self.machine.layer removeAnimationForKey:@"gmShake"]; }];
++
++        CGFloat top = self.view.safeAreaInsets.top + 6;
++        NSArray<NSNumber *> *xs = @[@(28), @(width - 28), @(width * 0.3), @(width * 0.7)];
++        for (NSUInteger i = 0; i < xs.count; i++) {
++            UILabel *bell = [UILabel new];
++            bell.text = @"🔔";
++            bell.font = [UIFont systemFontOfSize:i < 2 ? 46 : 38];
++            [bell sizeToFit];
++            bell.layer.anchorPoint = CGPointMake(0.5, 0);
++            bell.center = CGPointMake(xs[i].doubleValue, top + (i < 2 ? 0 : 8));
++            [overlay addSubview:bell];
++            CABasicAnimation *swing = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
++            swing.fromValue = @-0.5; swing.toValue = @0.5; swing.duration = 0.2 + 0.03 * i; swing.autoreverses = YES; swing.repeatCount = HUGE_VALF;
++            [bell.layer addAnimation:swing forKey:@"gmSwing"];
++        }
++        [self startConfettiIn:overlay duration:4.2 intensity:1.0];
++    } else {
++        [self startConfettiIn:overlay duration:1.6 intensity:0.5];
++    }
++
++    [self after:duration do:^{
++        [UIView animateWithDuration:0.35 animations:^{ overlay.alpha = 0; } completion:^(BOOL f) { [overlay removeFromSuperview]; }];
++    }];
++}
++
++- (void)startConfettiIn:(UIView *)host duration:(NSTimeInterval)duration intensity:(CGFloat)intensity {
++    CAEmitterLayer *emitter = [CAEmitterLayer layer];
++    emitter.frame = host.bounds;
++    emitter.emitterPosition = CGPointMake(host.bounds.size.width / 2, -12);
++    emitter.emitterSize = CGSizeMake(host.bounds.size.width, 2);
++    emitter.emitterShape = kCAEmitterLayerLine;
++    emitter.renderMode = kCAEmitterLayerUnordered;
++    NSMutableArray *cells = [NSMutableArray array];
++    for (NSNumber *coin in @[@YES, @NO]) {
++        CAEmitterCell *cell = [CAEmitterCell emitterCell];
++        cell.contents = (id)GMParticleImage(coin.boolValue).CGImage;
++        cell.birthRate = 12 * intensity;
++        cell.lifetime = 5.5;
++        cell.velocity = 170; cell.velocityRange = 70;
++        cell.emissionLongitude = M_PI_2; cell.emissionRange = M_PI / 5;
++        cell.yAcceleration = 260;
++        cell.spin = 2.5; cell.spinRange = 4;
++        cell.scale = 0.55; cell.scaleRange = 0.25;
++        [cells addObject:cell];
++    }
++    emitter.emitterCells = cells;
++    [host.layer addSublayer:emitter];
++    [self after:duration do:^{ emitter.birthRate = 0; }];
++    [self after:duration + 5.6 do:^{ [emitter removeFromSuperlayer]; }];
++}
++
++#pragma mark Bonus mode
++
++- (void)enterBonusMode {
++    _bonusMode = YES;
++    [self refreshLabels];
++    [self refreshBanner];
++    [self updateControls];
++    [UIView animateWithDuration:0.4 animations:^{
++        self.machine.layer.borderColor = GMC(0xFFE066).CGColor;
++        self.machine.backgroundColor = GMC(0x7A0A12);
++    }];
++    self.machine.layer.shadowOpacity = 0.85;
++    self.background.gradientLayer.colors = @[(id)GMC(0x7A0A12).CGColor, (id)GMC(0x2A0508).CGColor];
++    [self.audio startThemeBonus:YES];
++}
++
++- (void)exitBonusMode {
++    _bonusMode = NO;
++    [UIView animateWithDuration:0.4 animations:^{
++        self.machine.layer.borderColor = GMGold().CGColor;
++        self.machine.backgroundColor = GMC(0x4A0810);
++    }];
++    self.machine.layer.shadowOpacity = 0;
++    self.background.gradientLayer.colors = @[(id)GMC(0x3B0610).CGColor, (id)GMC(0x12030A).CGColor];
++    [self.audio startThemeBonus:NO];
++    [self refreshLabels];
++    [self refreshBanner];
++    [self updateControls];
++}
++
++#pragma mark Card pick
++
++- (UIView *)makeCardAtIdentity:(NSInteger)identity size:(CGSize)size {
++    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, size.width, size.height)];
++    card.tag = identity;
++    UIImageView *back = [[UIImageView alloc] initWithImage:[BRGoldenMandarinArt cardBackWithSize:size]];
++    back.frame = card.bounds;
++    back.tag = 1;
++    UIView *front = [[UIView alloc] initWithFrame:card.bounds];
++    front.tag = 2;
++    front.hidden = YES;
++    front.layer.cornerRadius = 10;
++    front.layer.borderWidth = 3;
++    front.layer.borderColor = GMGold().CGColor;
++    front.clipsToBounds = YES;
++    GMGradientView *gold = [[GMGradientView alloc] initWithFrame:card.bounds];
++    gold.gradientLayer.colors = @[(id)GMC(0xFFF3AE).CGColor, (id)GMC(0xE9B52A).CGColor, (id)GMC(0xB07A0C).CGColor];
++    [front addSubview:gold];
++    UILabel *value = [[UILabel alloc] initWithFrame:front.bounds];
++    value.tag = 3;
++    value.textAlignment = NSTextAlignmentCenter;
++    value.font = [UIFont systemFontOfSize:size.width * 0.5 weight:UIFontWeightBlack];
++    value.textColor = GMC(0x8E0F18);
++    value.adjustsFontSizeToFitWidth = YES;
++    [front addSubview:value];
++    [card addSubview:back];
++    [card addSubview:front];
++    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(cardTapped:)];
++    [card addGestureRecognizer:tap];
++    return card;
++}
++
++- (void)presentCardPick {
++    [self.pickOverlay removeFromSuperview];
++    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
++    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++    overlay.backgroundColor = [UIColor colorWithRed:.06 green:.01 blue:.03 alpha:.9];
++    overlay.alpha = 0;
++    [self.view addSubview:overlay];
++    self.pickOverlay = overlay;
++    _pickEnabled = NO; _pickInFlight = NO;
++    CGFloat width = overlay.bounds.size.width, height = overlay.bounds.size.height;
++
++    NSInteger spins = MAX(1, _freeRemaining);
++    self.pickTitle = [[UILabel alloc] initWithFrame:CGRectMake(16, height * 0.16, width - 32, 44)];
++    self.pickTitle.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Pick.Title", @"%ld FREE SPINS"), (long)spins];
++    self.pickTitle.font = [UIFont systemFontOfSize:34 weight:UIFontWeightBlack];
++    self.pickTitle.textColor = GMC(0xFFE48F);
++    self.pickTitle.textAlignment = NSTextAlignmentCenter;
++    self.pickSubtitle = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(self.pickTitle.frame), width - 32, 30)];
++    self.pickSubtitle.text = @"选择一张牌";
++    self.pickSubtitle.font = [UIFont systemFontOfSize:22 weight:UIFontWeightHeavy];
++    self.pickSubtitle.textColor = GMGold();
++    self.pickSubtitle.textAlignment = NSTextAlignmentCenter;
++    self.pickPrompt = [[UILabel alloc] initWithFrame:CGRectMake(24, CGRectGetMaxY(self.pickSubtitle.frame) + 6, width - 48, 44)];
++    self.pickPrompt.numberOfLines = 2;
++    self.pickPrompt.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
++    self.pickPrompt.textColor = [UIColor colorWithWhite:1 alpha:.88];
++    self.pickPrompt.textAlignment = NSTextAlignmentCenter;
++    self.pickPrompt.text = GMLoc(@"BRSlot.GM.Pick.Shuffling", @"Shuffling…");
++    [overlay addSubview:self.pickTitle]; [overlay addSubview:self.pickSubtitle]; [overlay addSubview:self.pickPrompt];
++
++    CGFloat cardWidth = MIN(104, (width - 72) / 3), cardHeight = cardWidth * 1.4;
++    self.pickCards = [NSMutableArray array];
++    self.pickSlots = [NSMutableArray array];
++    for (NSInteger i = 0; i < 3; i++) {
++        _slotCenters[i] = CGPointMake(width / 2 + (i - 1) * (cardWidth + 14), height * 0.55);
++        UIView *card = [self makeCardAtIdentity:i size:CGSizeMake(cardWidth, cardHeight)];
++        card.center = CGPointMake(_slotCenters[i].x, -cardHeight);
++        [overlay addSubview:card];
++        [self.pickCards addObject:card];
++        [self.pickSlots addObject:card];
++        [UIView animateWithDuration:0.5 delay:0.12 * i usingSpringWithDamping:0.7 initialSpringVelocity:0 options:0 animations:^{
++            card.center = self->_slotCenters[i];
++        } completion:nil];
++    }
++    [UIView animateWithDuration:0.3 animations:^{ overlay.alpha = 1; }];
++    [self.audio playBonusFanfare];
++    [self after:1.1 do:^{ [self shuffleStep:0 of:11]; }];
++}
++
++/// Theatrical shuffle: the server decides what each card hides only when one
++/// is picked, so the shuffle changes nothing about the odds.
++- (void)shuffleStep:(NSInteger)step of:(NSInteger)total {
++    if (!self.pickOverlay) return;
++    if (step >= total) {
++        _pickEnabled = YES;
++        self.pickPrompt.text = GMLoc(@"BRSlot.GM.Pick.Prompt", @"Pick a card. One hides your multiplier for every free spin.");
++        return;
++    }
++    NSInteger a = arc4random_uniform(3);
++    NSInteger b = (a + 1 + arc4random_uniform(2)) % 3;
++    UIView *cardA = self.pickSlots[a], *cardB = self.pickSlots[b];
++    self.pickSlots[a] = cardB;
++    self.pickSlots[b] = cardA;
++    NSTimeInterval duration = 0.34 - 0.18 * ((double)step / MAX(1, total - 1));
++    CGPoint ca = _slotCenters[a], cb = _slotCenters[b];
++    CGPoint mid = CGPointMake((ca.x + cb.x) / 2, (ca.y + cb.y) / 2);
++    [self.pickOverlay bringSubviewToFront:cardA];
++    [self.audio playCardFlip];
++    [UIView animateKeyframesWithDuration:duration delay:0 options:UIViewKeyframeAnimationOptionCalculationModeLinear animations:^{
++        [UIView addKeyframeWithRelativeStartTime:0 relativeDuration:0.5 animations:^{
++            cardA.center = CGPointMake(mid.x, mid.y - 30);
++            cardB.center = CGPointMake(mid.x, mid.y + 30);
++        }];
++        [UIView addKeyframeWithRelativeStartTime:0.5 relativeDuration:0.5 animations:^{
++            cardA.center = cb;
++            cardB.center = ca;
++        }];
++    } completion:^(BOOL finished) {
++        if (self->_leaving) return;
++        [self shuffleStep:step + 1 of:total];
++    }];
++}
++
++- (void)cardTapped:(UITapGestureRecognizer *)tap {
++    if (!_pickEnabled || _pickInFlight || !tap.view) return;
++    _pickInFlight = YES;
++    NSInteger identity = tap.view.tag;
++    [self.audio playCardPick];
++    [self haptic:UIImpactFeedbackStyleMedium];
++    self.pickPrompt.text = GMLoc(@"BRSlot.GM.Pick.Wait", @"Opening…");
++    [self request:@{@"action": @"pick", @"card": @(identity)} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
++        if (self->_leaving) return;
++        NSArray *cards = result[@"cards"];
++        if (error || ![cards isKindOfClass:NSArray.class] || cards.count != 3) {
++            self->_pickInFlight = NO;
++            if (status == 409) {                 // nothing to pick; re-sync and close
++                [self closePickOverlayThen:^{ self->_busy = NO; [self refreshState]; }];
++                return;
++            }
++            self.pickPrompt.text = GMLoc(@"BRSlot.GM.Pick.Retry", @"Couldn't reach the server. Tap a card to try again.");
++            return;
++        }
++        self->_pickEnabled = NO;
++        [self revealPick:result identity:identity];
++    }];
++}
++
++- (void)revealPick:(NSDictionary *)result identity:(NSInteger)identity {
++    NSArray *cards = result[@"cards"];
++    NSInteger multiplier = [result[@"multiplier"] integerValue];
++    for (NSInteger i = 0; i < 3; i++) {
++        UILabel *value = (UILabel *)[self.pickCards[i] viewWithTag:3];
++        value.text = [NSString stringWithFormat:@"×%ld", (long)[cards[i] integerValue]];
++    }
++    void (^flip)(UIView *, BOOL) = ^(UIView *card, BOOL dim) {
++        [UIView transitionWithView:card duration:0.45 options:UIViewAnimationOptionTransitionFlipFromLeft animations:^{
++            [card viewWithTag:1].hidden = YES;
++            [card viewWithTag:2].hidden = NO;
++        } completion:nil];
++        if (dim) [UIView animateWithDuration:0.3 delay:0.3 options:0 animations:^{ card.alpha = 0.5; } completion:nil];
++    };
++    UIView *picked = self.pickCards[identity];
++    [self.pickOverlay bringSubviewToFront:picked];
++    flip(picked, NO);
++    [UIView animateWithDuration:0.45 animations:^{ picked.transform = CGAffineTransformMakeScale(1.18, 1.18); }];
++    [self.audio playMultiplierReveal:multiplier];
++    self.pickPrompt.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Pick.Result", @"Your multiplier: ×%ld"), (long)multiplier];
++    self.pickPrompt.textColor = GMC(0xFFE48F);
++    self.pickPrompt.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
++    NSTimeInterval delay = 0.8;
++    for (NSInteger i = 0; i < 3; i++) {
++        if (i == identity) continue;
++        UIView *card = self.pickCards[i];
++        [self after:delay do:^{ flip(card, YES); }];
++        delay += 0.35;
++    }
++    _bonusMult = multiplier;
++    _pickPending = NO;
++    [self after:delay + 1.1 do:^{
++        [self closePickOverlayThen:^{
++            [self refreshBanner];
++            [self setMessage:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.BonusStart", @"×%ld free spins begin!"), (long)multiplier] highlight:YES];
++            [self after:0.9 do:^{ [self beginSpinFree:YES]; }];
++        }];
++    }];
++}
++
++- (void)closePickOverlayThen:(dispatch_block_t)completion {
++    UIView *overlay = self.pickOverlay;
++    [UIView animateWithDuration:0.35 animations:^{ overlay.alpha = 0; } completion:^(BOOL finished) {
++        [overlay removeFromSuperview];
++        if (self.pickOverlay == overlay) self.pickOverlay = nil;
++        if (!self->_leaving) completion();
++    }];
++}
++
++#pragma mark Bonus summary
++
++- (void)showSummary {
++    NSInteger total = _bonusTotal, mult = _bonusMult;
++    [self.summaryOverlay removeFromSuperview];
++    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
++    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++    overlay.backgroundColor = [UIColor colorWithRed:.06 green:.01 blue:.03 alpha:.88];
++    overlay.alpha = 0;
++    [self.view addSubview:overlay];
++    self.summaryOverlay = overlay;
++    CGFloat width = overlay.bounds.size.width, height = overlay.bounds.size.height;
++
++    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, height * 0.30, width - 32, 44)];
++    title.text = GMLoc(@"BRSlot.GM.Summary.Title", @"FREE SPINS COMPLETE");
++    title.font = [UIFont systemFontOfSize:26 weight:UIFontWeightBlack];
++    title.textColor = GMC(0xFFE48F);
++    title.textAlignment = NSTextAlignmentCenter;
++    UILabel *sub = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(title.frame) + 4, width - 32, 24)];
++    sub.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Summary.Sub", @"×%ld  ·  TOTAL WIN"), (long)MAX(1, mult)];
++    sub.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
++    sub.textColor = GMGold();
++    sub.textAlignment = NSTextAlignmentCenter;
++    UILabel *amount = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(sub.frame) + 10, width - 32, 64)];
++    amount.text = [NSString stringWithFormat:@"🪙 %@", GMNum(0)];
++    amount.font = [UIFont monospacedDigitSystemFontOfSize:48 weight:UIFontWeightBlack];
++    amount.textColor = UIColor.whiteColor;
++    amount.textAlignment = NSTextAlignmentCenter;
++    amount.adjustsFontSizeToFitWidth = YES;
++    UILabel *hint = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(amount.frame) + 12, width - 32, 20)];
++    hint.text = GMLoc(@"BRSlot.GM.Summary.Tap", @"Tap to continue");
++    hint.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
++    hint.textColor = [UIColor colorWithWhite:1 alpha:.6];
++    hint.textAlignment = NSTextAlignmentCenter;
++    [overlay addSubview:title]; [overlay addSubview:sub]; [overlay addSubview:amount]; [overlay addSubview:hint];
++    [overlay addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dismissSummary)]];
++    [UIView animateWithDuration:0.35 animations:^{ overlay.alpha = 1; }];
++    if (total > 0) {
++        [self.audio playWinForPayoutRatio:30];
++        [self countLabel:amount from:0 to:total duration:1.4 formatter:^NSString *(NSInteger v) { return [NSString stringWithFormat:@"🪙 %@", GMNum(v)]; }];
++        [self startConfettiIn:overlay duration:2.4 intensity:0.7];
++    }
++    [self after:5.0 do:^{ [self dismissSummary]; }];
++}
++
++- (void)dismissSummary {
++    UIView *overlay = self.summaryOverlay;
++    if (!overlay) return;
++    self.summaryOverlay = nil;
++    [UIView animateWithDuration:0.3 animations:^{ overlay.alpha = 0; } completion:^(BOOL finished) { [overlay removeFromSuperview]; }];
++    _bonusMult = 0; _bonusTotal = 0; _freeRemaining = 0; _pickPending = NO;
++    [self exitBonusMode];
++    _busy = NO;
++    [self updateControls];
++    [self setMessage:GMLoc(@"BRSlot.GM.Idle", @"Match 3 or more symbols from the left on a payline.") highlight:NO];
++    [self refreshState];
++}
++
++@end
+diff --git a/BRSlotGamePickerViewController.m b/BRSlotGamePickerViewController.m
+index 410d89d..8c89e5b 100644
+--- a/BRSlotGamePickerViewController.m
++++ b/BRSlotGamePickerViewController.m
+@@ -2,11 +2,13 @@
+ #import "BRSlotMachineViewController.h"
+ #import "BRPennySlotViewController.h"
+ #import "BRPlunderBayViewController.h"
++#import "BRGoldenMandarinSlotViewController.h"
++#import "BRGoldenMandarinArt.h"
+ #import "BRGameLibrary.h"
+ #import "BRGamePickerViewController.h"
+ #import <AVFoundation/AVFoundation.h>
+ 
+-typedef NS_ENUM(NSInteger, BRSlotPickerCardKind) { BRSlotPickerCardKindClassic, BRSlotPickerCardKindPenny, BRSlotPickerCardKindPlunder, BRSlotPickerCardKindCreate, BRSlotPickerCardKindCommunity, BRSlotPickerCardKindSaved };
++typedef NS_ENUM(NSInteger, BRSlotPickerCardKind) { BRSlotPickerCardKindClassic, BRSlotPickerCardKindPenny, BRSlotPickerCardKindPlunder, BRSlotPickerCardKindGolden, BRSlotPickerCardKindCreate, BRSlotPickerCardKindCommunity, BRSlotPickerCardKindSaved };
+ 
+ @interface BRSlotPickerCard : UICollectionViewCell
+ - (void)configureWithTitle:(NSString *)title premise:(NSString *)premise image:(UIImage *)image kind:(BRSlotPickerCardKind)kind;
+@@ -22,7 +24,7 @@ typedef NS_ENUM(NSInteger, BRSlotPickerCardKind) { BRSlotPickerCardKindClassic,
+     _premiseLabel=[UILabel new]; _premiseLabel.textColor=[UIColor colorWithWhite:.70 alpha:1]; _premiseLabel.font=[UIFont systemFontOfSize:12 weight:UIFontWeightMedium]; _premiseLabel.numberOfLines=3; _premiseLabel.translatesAutoresizingMaskIntoConstraints=NO; [self.contentView addSubview:_premiseLabel];
+     [NSLayoutConstraint activateConstraints:@[[_art.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],[_art.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],[_art.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor],[_art.heightAnchor constraintEqualToAnchor:self.contentView.heightAnchor multiplier:.53],[_artFallback.topAnchor constraintEqualToAnchor:_art.topAnchor],[_artFallback.leadingAnchor constraintEqualToAnchor:_art.leadingAnchor],[_artFallback.trailingAnchor constraintEqualToAnchor:_art.trailingAnchor],[_artFallback.bottomAnchor constraintEqualToAnchor:_art.bottomAnchor],[_fallbackIcon.centerXAnchor constraintEqualToAnchor:_artFallback.centerXAnchor],[_fallbackIcon.centerYAnchor constraintEqualToAnchor:_artFallback.centerYAnchor],[_fallbackIcon.widthAnchor constraintEqualToAnchor:_artFallback.heightAnchor multiplier:.52],[_fallbackIcon.heightAnchor constraintEqualToAnchor:_artFallback.heightAnchor multiplier:.52],[_titleLabel.topAnchor constraintEqualToAnchor:_art.bottomAnchor constant:10],[_titleLabel.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:12],[_titleLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-12],[_premiseLabel.topAnchor constraintEqualToAnchor:_titleLabel.bottomAnchor constant:4],[_premiseLabel.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],[_premiseLabel.trailingAnchor constraintEqualToAnchor:_titleLabel.trailingAnchor],[_premiseLabel.bottomAnchor constraintLessThanOrEqualToAnchor:self.contentView.bottomAnchor constant:-9]]]; return self; }
+ - (void)prepareForReuse { [super prepareForReuse]; _art.image=nil; _art.hidden=NO; _artFallback.hidden=NO; }
+-- (void)configureWithTitle:(NSString *)title premise:(NSString *)premise image:(UIImage *)image kind:(BRSlotPickerCardKind)kind { _titleLabel.text=title; _premiseLabel.text=premise; _art.image=image; _art.hidden=(image==nil); _artFallback.hidden=(image!=nil); UIColor *color=kind==BRSlotPickerCardKindPlunder?[UIColor colorWithRed:.04 green:.09 blue:.22 alpha:1]:kind==BRSlotPickerCardKindPenny?[UIColor colorWithRed:.20 green:.36 blue:.24 alpha:1]:kind==BRSlotPickerCardKindCommunity?[UIColor colorWithRed:.23 green:.10 blue:.42 alpha:1]:kind==BRSlotPickerCardKindCreate?[UIColor colorWithRed:.05 green:.34 blue:.38 alpha:1]:[UIColor colorWithRed:.36 green:.10 blue:.42 alpha:1]; _artFallback.backgroundColor=color; NSString *symbol=kind==BRSlotPickerCardKindCommunity?@"person.3.fill":kind==BRSlotPickerCardKindCreate?@"paintpalette.fill":@"7.circle.fill"; _fallbackIcon.image=kind==BRSlotPickerCardKindPenny?[UIImage imageNamed:@"EZCoin"]:kind==BRSlotPickerCardKindPlunder?[BRPlunderBayViewController plunderSymbolImage:@"scatter"]:[UIImage systemImageNamed:symbol]; _fallbackIcon.tintColor=[UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; }
++- (void)configureWithTitle:(NSString *)title premise:(NSString *)premise image:(UIImage *)image kind:(BRSlotPickerCardKind)kind { _titleLabel.text=title; _premiseLabel.text=premise; _art.image=image; _art.hidden=(image==nil); _artFallback.hidden=(image!=nil); UIColor *color=kind==BRSlotPickerCardKindGolden?[UIColor colorWithRed:.42 green:.04 blue:.07 alpha:1]:kind==BRSlotPickerCardKindPlunder?[UIColor colorWithRed:.04 green:.09 blue:.22 alpha:1]:kind==BRSlotPickerCardKindPenny?[UIColor colorWithRed:.20 green:.36 blue:.24 alpha:1]:kind==BRSlotPickerCardKindCommunity?[UIColor colorWithRed:.23 green:.10 blue:.42 alpha:1]:kind==BRSlotPickerCardKindCreate?[UIColor colorWithRed:.05 green:.34 blue:.38 alpha:1]:[UIColor colorWithRed:.36 green:.10 blue:.42 alpha:1]; _artFallback.backgroundColor=color; NSString *symbol=kind==BRSlotPickerCardKindCommunity?@"person.3.fill":kind==BRSlotPickerCardKindCreate?@"paintpalette.fill":@"7.circle.fill"; _fallbackIcon.image=kind==BRSlotPickerCardKindPenny?[UIImage imageNamed:@"EZCoin"]:kind==BRSlotPickerCardKindGolden?[BRGoldenMandarinArt imageForSymbol:GMSymbolHat size:CGSizeMake(180,180)]:kind==BRSlotPickerCardKindPlunder?[BRPlunderBayViewController plunderSymbolImage:@"scatter"]:[UIImage systemImageNamed:symbol]; _fallbackIcon.tintColor=[UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; }
+ @end
+ 
+ @interface BRSlotGamePickerViewController () <UICollectionViewDataSource, UICollectionViewDelegateFlowLayout>
+@@ -95,9 +97,9 @@ typedef NS_ENUM(NSInteger, BRSlotPickerCardKind) { BRSlotPickerCardKindClassic,
+ - (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self.casinoNode pause]; }
+ - (UIButton *)navigationButton { UIButton *button=[UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:NSLocalizedString(@"BRSlot.Picker.Back", nil) forState:UIControlStateNormal]; button.titleLabel.font=[UIFont systemFontOfSize:12 weight:UIFontWeightBlack]; button.tintColor=[UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; button.backgroundColor=[UIColor colorWithRed:.13 green:.05 blue:.23 alpha:.96]; button.layer.cornerRadius=9; button.layer.borderWidth=1; button.layer.borderColor=[UIColor colorWithRed:1 green:.78 blue:.18 alpha:.72].CGColor; button.contentEdgeInsets=UIEdgeInsetsMake(7,10,7,10); [button sizeToFit]; [button addTarget:self action:@selector(close) forControlEvents:UIControlEventTouchUpInside]; return button; }
+ - (void)close { if (self.onReturnToBrainRotMenu) self.onReturnToBrainRotMenu(); else [self dismissViewControllerAnimated:YES completion:nil]; }
+-- (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section { return 5+self.importableGames.count; }
+-- (BRSlotPickerCardKind)kindAtIndex:(NSInteger)index { return index<5 ? index : BRSlotPickerCardKindSaved; }
+-- (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)path { BRSlotPickerCard *cell=[collectionView dequeueReusableCellWithReuseIdentifier:@"SlotCard" forIndexPath:path]; BRSlotPickerCardKind kind=[self kindAtIndex:path.item]; if (kind==BRSlotPickerCardKindClassic) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Classic.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Classic.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPenny) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Penny.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Penny.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPlunder) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Plunder.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Plunder.Detail", nil) image:[BRPlunderBayViewController plunderSymbolImage:@"scatter"] kind:kind]; else if (kind==BRSlotPickerCardKindCreate) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Create.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Create.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindCommunity) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Community.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Community.Detail", nil) image:nil kind:kind]; else { BRGameRecord *record=self.importableGames[path.item-5]; [cell configureWithTitle:record.themeTitle.length?record.themeTitle:NSLocalizedString(@"BRSlot.Picker.Saved.Title", nil) premise:record.premise.length?record.premise:NSLocalizedString(@"BRSlot.Picker.Saved.Detail", nil) image:record.backgroundImage kind:kind]; } return cell; }
++- (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section { return 6+self.importableGames.count; }
++- (BRSlotPickerCardKind)kindAtIndex:(NSInteger)index { return index<6 ? index : BRSlotPickerCardKindSaved; }
++- (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)path { BRSlotPickerCard *cell=[collectionView dequeueReusableCellWithReuseIdentifier:@"SlotCard" forIndexPath:path]; BRSlotPickerCardKind kind=[self kindAtIndex:path.item]; if (kind==BRSlotPickerCardKindClassic) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Classic.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Classic.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPenny) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Penny.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Penny.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPlunder) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Plunder.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Plunder.Detail", nil) image:[BRPlunderBayViewController plunderSymbolImage:@"scatter"] kind:kind]; else if (kind==BRSlotPickerCardKindGolden) [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Golden.Title", nil, NSBundle.mainBundle, @"Golden Mandarin 金帽福运", nil) premise:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Golden.Detail", nil, NSBundle.mainBundle, @"Five reels, nine lines. Golden hats open a card pick and ×2, ×3 or ×5 free spins.", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindCreate) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Create.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Create.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindCommunity) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Community.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Community.Detail", nil) image:nil kind:kind]; else { BRGameRecord *record=self.importableGames[path.item-6]; [cell configureWithTitle:record.themeTitle.length?record.themeTitle:NSLocalizedString(@"BRSlot.Picker.Saved.Title", nil) premise:record.premise.length?record.premise:NSLocalizedString(@"BRSlot.Picker.Saved.Detail", nil) image:record.backgroundImage kind:kind]; } return cell; }
+ - (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)layout sizeForItemAtIndexPath:(NSIndexPath *)path { CGFloat width=floor((CGRectGetWidth(collectionView.bounds)-49)/2.0); return CGSizeMake(MAX(142,width),238); }
+-- (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)path { BRSlotPickerCardKind kind=[self kindAtIndex:path.item]; if (kind==BRSlotPickerCardKindPenny) { [self.navigationController pushViewController:[BRPennySlotViewController new] animated:YES]; return; } if (kind==BRSlotPickerCardKindPlunder) { [self.navigationController pushViewController:[BRPlunderBayViewController new] animated:YES]; return; } if (kind==BRSlotPickerCardKindCommunity) { BRGamePickerViewController *community=[BRGamePickerViewController new]; community.startsOnCommunityTab=YES; __weak typeof(self) weakSelf=self; community.onSlotThemeSelection=^(BRGameRecord *record) { __strong typeof(weakSelf) self=weakSelf; if (self) [self.navigationController pushViewController:[[BRSlotMachineViewController alloc] initWithBrainRotGameRecord:record] animated:YES]; }; community.modalPresentationStyle=UIModalPresentationFullScreen; [self presentViewController:community animated:YES completion:nil]; return; } BRSlotMachineViewController *slots=kind==BRSlotPickerCardKindSaved?[[BRSlotMachineViewController alloc] initWithBrainRotGameRecord:self.importableGames[path.item-5]]:[BRSlotMachineViewController new]; if (kind==BRSlotPickerCardKindCreate) slots.title=NSLocalizedString(@"BRSlot.Picker.NewGame", nil); [self.navigationController pushViewController:slots animated:YES]; }
++- (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)path { BRSlotPickerCardKind kind=[self kindAtIndex:path.item]; if (kind==BRSlotPickerCardKindPenny) { [self.navigationController pushViewController:[BRPennySlotViewController new] animated:YES]; return; } if (kind==BRSlotPickerCardKindPlunder) { [self.navigationController pushViewController:[BRPlunderBayViewController new] animated:YES]; return; } if (kind==BRSlotPickerCardKindGolden) { [self.navigationController pushViewController:[BRGoldenMandarinSlotViewController new] animated:YES]; return; } if (kind==BRSlotPickerCardKindCommunity) { BRGamePickerViewController *community=[BRGamePickerViewController new]; community.startsOnCommunityTab=YES; __weak typeof(self) weakSelf=self; community.onSlotThemeSelection=^(BRGameRecord *record) { __strong typeof(weakSelf) self=weakSelf; if (self) [self.navigationController pushViewController:[[BRSlotMachineViewController alloc] initWithBrainRotGameRecord:record] animated:YES]; }; community.modalPresentationStyle=UIModalPresentationFullScreen; [self presentViewController:community animated:YES completion:nil]; return; } BRSlotMachineViewController *slots=kind==BRSlotPickerCardKindSaved?[[BRSlotMachineViewController alloc] initWithBrainRotGameRecord:self.importableGames[path.item-6]]:[BRSlotMachineViewController new]; if (kind==BRSlotPickerCardKindCreate) slots.title=NSLocalizedString(@"BRSlot.Picker.NewGame", nil); [self.navigationController pushViewController:slots animated:YES]; }
+ @end
+diff --git a/GoldenMandarinServer/README.md b/GoldenMandarinServer/README.md
+new file mode 100644
+index 0000000..522019c
+--- /dev/null
++++ b/GoldenMandarinServer/README.md
+@@ -0,0 +1,46 @@
++# Golden Mandarin — server side
++
++The app never decides an outcome. These two pieces do, exactly like Plunder Bay.
++
++## Deploy (in this order)
++
++1. **SQL** — paste `golden_mandarin_slot.sql` into the Supabase SQL editor and run it.
++   It creates `ez_golden_mandarin_bonus` and two RPCs, and locks the RPCs so only
++   the service role can call them.
++2. **Edge function** — create a function named **`ez-golden-mandarin-spin`** and paste
++   `ez-golden-mandarin-spin.index.ts` as its `index.ts`. Leave "Verify JWT" at its
++   default, same as `ez-plunder-spin`.
++
++The app calls `/functions/v1/ez-golden-mandarin-spin`. Until both are deployed the
++game opens but spins report an error and no coins move.
++
++## Protocol
++
++| Request | Result |
++|---|---|
++| `{"action":"status"}` | `free_spins_remaining, lines, bet_per_line, multiplier, pick_pending, bonus_total` |
++| `{"lines":1-9, "bet_per_line":1/5/10/15/25}` | one spin (a free spin automatically if any remain) |
++| `{"action":"pick","card":0-2}` | `multiplier, cards[3], picked` — the server decides what each card hides |
++
++Errors: `402` not enough coins, `409` state changed / pick required, `400` bad wager.
++
++## Rules enforced on the server
++
++- 5 reels x 3 rows, 9 paylines, wins pay left to right for 3, 4 or 5 matching symbols.
++- Golden hat = scatter. Never more than 5 on a board.
++- 3 / 4 / 5 hats = 5-8 / 14-16 / 25-30 free spins, rolled in the RPC.
++- Before the first free spin the player picks one of three cards: x2, x3 or x5 multiplies
++  every free-spin line win. A retrigger adds spins and keeps the multiplier.
++- At most 100 free spins banked.
++
++## Odds (9 lines, simulated)
++
++- Bonus (3+ hats): about **1 spin in 100**.
++- Total payback about **90.6%** (base game ~71.7%, free spins ~18.9%).
++- Tuning knobs, kept identical in `BRGoldenMandarinEngine.c` and the edge function:
++  `HAT_PER_10000` (bonus frequency) and `PAYS` (payback). Re-simulate after any change.
++
++## Ledger name
++
++Rows are written with `feature = 'brainrot_golden_mandarin_slots'`. If `coin_transactions`
++or `ez_usage_log` have a CHECK constraint on `feature`, add that value to it.
+diff --git a/GoldenMandarinServer/golden_mandarin_slot.sql b/GoldenMandarinServer/golden_mandarin_slot.sql
+new file mode 100644
+index 0000000..1726ea8
+--- /dev/null
++++ b/GoldenMandarinServer/golden_mandarin_slot.sql
+@@ -0,0 +1,201 @@
++-- Golden Mandarin (金帽福运) — server side, part 1 of 2: table + RPCs.
++-- Run this in the Supabase SQL editor, then deploy ez-golden-mandarin-spin
++-- (see README.md in this folder). Modeled on play_ez_plunder_slot_spin.
++--
++-- Money rules, all enforced here and never by the caller:
++--   * wager = lines x bet_per_line on a paid spin, 0 on a free spin
++--   * free-spin line wins are multiplied by the multiplier STORED on the
++--     bonus row (the caller sends only the base payout)
++--   * the free-spin award (5-8 / 14-16 / 25-30 for 3 / 4 / 5 hats) is rolled
++--     here, in range, so a caller can never invent an award
++--   * the multiplier (x2 / x3 / x5) is set once, by pick_..._multiplier, and
++--     free spins are refused until it has been picked
++--   * banked free spins are capped at 100
++
++create table if not exists public.ez_golden_mandarin_bonus (
++  user_id       uuid primary key references auth.users(id) on delete cascade,
++  remaining     integer     not null default 0 check (remaining between 0 and 100),
++  lines         integer     not null default 9 check (lines between 1 and 9),
++  bet_per_line  integer     not null default 1 check (bet_per_line in (1, 5, 10, 15, 25)),
++  multiplier    integer     not null default 0 check (multiplier in (0, 2, 3, 5)),
++  pick_pending  boolean     not null default false,
++  bonus_total   integer     not null default 0,
++  updated_at    timestamptz not null default now()
++);
++
++-- Only the service role (the edge function) touches this table.
++alter table public.ez_golden_mandarin_bonus enable row level security;
++
++create or replace function public.play_ez_golden_mandarin_spin(
++  p_user_id uuid,
++  p_lines integer,
++  p_bet_per_line integer,
++  p_free_spin boolean,
++  p_base_payout integer,
++  p_scatter_count integer,
++  p_reels jsonb,
++  p_win_lines integer,
++  p_ip_address text default null
++) returns jsonb
++language plpgsql
++security definer
++set search_path to 'public', 'auth'
++as $function$
++declare
++  v_balance integer;
++  v_stake_balance integer;
++  v_email text;
++  v_remaining integer;
++  v_lines integer;
++  v_bet integer;
++  v_mult integer;
++  v_pending boolean;
++  v_bonus_total integer;
++  v_new_remaining integer;
++  v_total_bet integer;
++  v_wager integer;
++  v_payout integer;
++  v_awarded integer := 0;
++  v_report_total integer;
++  v_applied_mult integer := 0;
++  v_result text;
++begin
++  -- 3,200 is the largest single-line pay (5 dragons) in line bets.
++  if p_lines not between 1 and 9
++     or p_bet_per_line not in (1, 5, 10, 15, 25)
++     or p_base_payout < 0
++     or p_base_payout > p_lines * p_bet_per_line * 3200
++     or p_win_lines not between 0 and p_lines
++     or p_scatter_count not between 0 and 5
++     or jsonb_typeof(p_reels) <> 'array' or jsonb_array_length(p_reels) <> 5
++  then raise exception 'Invalid golden mandarin spin'; end if;
++
++  -- Lock the account first, then its bonus row, for consistent concurrency.
++  select coins_balance into v_balance from subscriptions where user_id = p_user_id for update;
++  if v_balance is null then raise exception 'Slot account unavailable'; end if;
++  insert into ez_golden_mandarin_bonus (user_id) values (p_user_id) on conflict (user_id) do nothing;
++  select remaining, lines, bet_per_line, multiplier, pick_pending, bonus_total
++    into v_remaining, v_lines, v_bet, v_mult, v_pending, v_bonus_total
++  from ez_golden_mandarin_bonus where user_id = p_user_id for update;
++
++  if p_free_spin <> (v_remaining > 0) then
++    raise exception 'Free spin state changed; refresh and try again';
++  end if;
++  if p_free_spin then
++    if v_pending or v_mult not in (2, 3, 5) then
++      raise exception 'Free spin multiplier not chosen; state changed, refresh and try again';
++    end if;
++    if p_lines <> v_lines or p_bet_per_line <> v_bet then
++      raise exception 'Free spin bet changed; refresh and try again';
++    end if;
++  end if;
++
++  v_total_bet := p_lines * p_bet_per_line;
++  v_wager := case when p_free_spin then 0 else v_total_bet end;
++  if v_balance < v_wager then raise exception 'Insufficient EZ Coins'; end if;
++
++  v_applied_mult := case when p_free_spin then v_mult else 1 end;
++  v_payout := p_base_payout * v_applied_mult;
++
++  v_awarded := case p_scatter_count
++    when 3 then 5 + floor(random() * 4)::int     -- 5..8
++    when 4 then 14 + floor(random() * 3)::int    -- 14..16
++    when 5 then 25 + floor(random() * 6)::int    -- 25..30
++    else 0 end;
++
++  v_stake_balance := v_balance - v_wager;
++  v_balance := v_stake_balance + v_payout;
++
++  v_new_remaining := v_remaining - case when p_free_spin then 1 else 0 end;
++  v_awarded := least(v_awarded, 100 - v_new_remaining);   -- bank at most 100
++  v_new_remaining := v_new_remaining + v_awarded;
++
++  if p_free_spin then v_bonus_total := v_bonus_total + v_payout; end if;
++
++  -- A paid spin that wins free spins opens the bonus: remember the wager
++  -- and require the card pick before the first free spin.
++  if not p_free_spin and v_awarded > 0 then
++    v_lines := p_lines; v_bet := p_bet_per_line;
++    v_mult := 0; v_pending := true; v_bonus_total := 0;
++  end if;
++  v_report_total := v_bonus_total;
++
++  update subscriptions set coins_balance = v_balance where user_id = p_user_id;
++  update ez_golden_mandarin_bonus set
++    remaining    = v_new_remaining,
++    lines        = v_lines,
++    bet_per_line = v_bet,
++    multiplier   = case when v_new_remaining = 0 then 0 else v_mult end,
++    pick_pending = case when v_new_remaining = 0 then false else v_pending end,
++    bonus_total  = case when v_new_remaining = 0 then 0 else v_bonus_total end,
++    updated_at   = now()
++  where user_id = p_user_id;
++
++  select email into v_email from auth.users where id = p_user_id;
++  v_result := format(E'%s | %s | %s | %s | %s\n%s | %s | %s | %s | %s\n%s | %s | %s | %s | %s\nWinning lines: %s • Golden hats: %s • Free spins +%s, %s left',
++    p_reels->0->>0, p_reels->1->>0, p_reels->2->>0, p_reels->3->>0, p_reels->4->>0,
++    p_reels->0->>1, p_reels->1->>1, p_reels->2->>1, p_reels->3->>1, p_reels->4->>1,
++    p_reels->0->>2, p_reels->1->>2, p_reels->2->>2, p_reels->3->>2, p_reels->4->>2,
++    p_win_lines, p_scatter_count, v_awarded, v_new_remaining);
++
++  if v_wager > 0 then
++    insert into coin_transactions (user_id, amount, direction, feature, description, balance_after, ip_address)
++    values (p_user_id, v_wager, 'debit', 'brainrot_golden_mandarin_slots',
++      format(E'Golden Mandarin stake: %s coins\n%s', v_wager, v_result), v_stake_balance, p_ip_address);
++  end if;
++  if v_payout > 0 then
++    insert into coin_transactions (user_id, amount, direction, feature, description, balance_after, ip_address)
++    values (p_user_id, v_payout, 'credit', 'brainrot_golden_mandarin_slots',
++      format(E'Golden Mandarin %spayout: %s coins\n%s', case when p_free_spin then 'free-spin ' else '' end, v_payout, v_result), v_balance, p_ip_address);
++  end if;
++  insert into ez_usage_log (user_id, user_email, feature, model, prompt, coins_charged, quantity, running_balance, api_cost_usd, status, ip_address)
++  values (p_user_id, v_email, 'brainrot_golden_mandarin_slots', '5 reels · 9 paylines',
++    format(E'%s\n%s\nPayout: %s coins', case when p_free_spin then format('Free spin • line wins x%s', v_applied_mult) else format('Stake: %s coins', v_wager) end, v_result, v_payout),
++    v_wager, 1, v_stake_balance, 0, 'complete', p_ip_address);
++
++  return jsonb_build_object(
++    'balance', v_balance,
++    'payout', v_payout,
++    'wager', v_wager,
++    'multiplier', case when p_free_spin then v_applied_mult else 0 end,
++    'free_spins_remaining', v_new_remaining,
++    'free_spins_awarded', v_awarded,
++    'pick_pending', (v_new_remaining > 0 and v_pending),
++    'bonus_total', v_report_total);
++end;
++$function$;
++
++-- Sets the bonus multiplier exactly once. The edge function rolls which
++-- card hides which multiplier; this only commits the chosen value.
++create or replace function public.pick_ez_golden_mandarin_multiplier(
++  p_user_id uuid,
++  p_multiplier integer
++) returns jsonb
++language plpgsql
++security definer
++set search_path to 'public', 'auth'
++as $function$
++declare
++  v_remaining integer;
++  v_pending boolean;
++begin
++  if p_multiplier not in (2, 3, 5) then raise exception 'Invalid multiplier'; end if;
++  select remaining, pick_pending into v_remaining, v_pending
++  from ez_golden_mandarin_bonus where user_id = p_user_id for update;
++  if v_remaining is null or v_remaining <= 0 or not v_pending then
++    raise exception 'No multiplier pick pending';
++  end if;
++  update ez_golden_mandarin_bonus
++    set multiplier = p_multiplier, pick_pending = false, updated_at = now()
++  where user_id = p_user_id;
++  return jsonb_build_object('multiplier', p_multiplier, 'free_spins_remaining', v_remaining);
++end;
++$function$;
++
++-- These move coins. Without this, PostgREST would let any signed-in user
++-- call them directly with a made-up payout. Only the edge function (service
++-- role) may execute them.
++revoke all on function public.play_ez_golden_mandarin_spin(uuid, integer, integer, boolean, integer, integer, jsonb, integer, text) from public, anon, authenticated;
++grant execute on function public.play_ez_golden_mandarin_spin(uuid, integer, integer, boolean, integer, integer, jsonb, integer, text) to service_role;
++revoke all on function public.pick_ez_golden_mandarin_multiplier(uuid, integer) from public, anon, authenticated;
++grant execute on function public.pick_ez_golden_mandarin_multiplier(uuid, integer) to service_role;
+diff --git a/Makefile b/Makefile
+index 293d766..ff81a9e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -9,7 +9,7 @@ include $(THEOS)/makefiles/common.mk
+ 
+ APPLICATION_NAME = EZCompleteUI
+ 
+-EZCompleteUI_FILES = main.m AppDelegate.m helpers.m ViewController+EZTopButtons.m ViewController+EZKeepAwake.m ViewController.m EZFirstRunTutorialViewController.m EZModelPickerViewController.m EZImageSettingsViewController.m EZAttachMenuViewController.m ChatHistoryViewController.m SettingsViewController.m MemoriesViewController.m EZMemorySummaryViewController.m EZKeyVault.m SupportRequestViewController.m TextToSpeechViewController.m ElevenLabsCloneViewController.m iCarousel.m ViewController+EZTitleResolver.m UIViewController+EZViewDidLayoutSwizzle.m WaveformView.m EZAuthManager.m EZEntitlementManager.m EZReferralManager.m LoginViewController.m HelperLogViewController.m SystemLogViewController.m EZBubbleCell.m EZSystemCell.m EZCodeBlockCell.m EZCoinStoreViewController.m EZCoinPotView.m EZPhotoGalleryViewController.m EZPhotoGalleryAnalysisService.m EZImageGridCell.m EZCoinUsageViewController.m BRGameModel.m BrainRotViewController.m BRGameView.m BRGameModePickerViewController.m BRRicochetGameModel.m BRRicochetGameView.m BRRicochetViewController.m BRRicochetHighScoresViewController.m BRSynthEngine.m BRSmartKeyboardView.m EZTermsAcceptanceViewController.m EZPoliciesViewController.m BRGameLibrary.m BRGamePickerViewController.m BRCustomGameCreatorViewController.m BRAssetSourceSheetViewController.m BRTextInputSheetViewController.m BRGameResultViewController.m BRAssetGenerationSheetViewController.m BRRemoteImageLoader.m EZTTSLibraryManager.m EZTTSManifestEntry.m EZSoundManifestEntry.m EZSoundLibraryManager.m EZSoundsViewController.m EZTTSLibraryViewController.m EZTTSLibraryClipCell.m EZTTSClipEditViewController.m EZTTSVoiceService.m EZVoicePickerViewController.m EZWaveformRangeSelector.m BRCommunityAdminViewController.m EZSupabaseConfig.m EZCoinLedgerViewController.m EZPhotoGalleryAnalysisService.m EZImageAttachmentPreparer.m BRSlotMachineViewController.m BRSlotGamePickerViewController.m BRPennySlotViewController.m BRPlunderBayViewController.m BRSlotRoomViewController.m EZMusicService.m EZMusicViewController.m EZMusicLibraryManager.m EZMusicBubbleCell.m EZMediaPlayerManager.m EZMusicArtworkService.m EZFileItem.m EZFileExplorerViewController.m EZFileInfoViewController.m EZInsuranceFilePreviewViewController.m EZTextFileEditorViewController.m EZArchiveService.m SSZipArchive/SSZipArchive.m SSZipArchive/minizip/mz_compat.c SSZipArchive/minizip/mz_crypt.c SSZipArchive/minizip/mz_crypt_apple.c SSZipArchive/minizip/mz_os.c SSZipArchive/minizip/mz_os_posix.c SSZipArchive/minizip/mz_strm.c SSZipArchive/minizip/mz_strm_buf.c SSZipArchive/minizip/mz_strm_mem.c SSZipArchive/minizip/mz_strm_os_posix.c SSZipArchive/minizip/mz_strm_pkcrypt.c SSZipArchive/minizip/mz_strm_split.c SSZipArchive/minizip/mz_strm_wzaes.c SSZipArchive/minizip/mz_strm_zlib.c SSZipArchive/minizip/mz_zip.c SSZipArchive/minizip/mz_zip_rw.c
++EZCompleteUI_FILES = main.m AppDelegate.m helpers.m ViewController+EZTopButtons.m ViewController+EZKeepAwake.m ViewController.m EZFirstRunTutorialViewController.m EZModelPickerViewController.m EZImageSettingsViewController.m EZAttachMenuViewController.m ChatHistoryViewController.m SettingsViewController.m MemoriesViewController.m EZMemorySummaryViewController.m EZKeyVault.m SupportRequestViewController.m TextToSpeechViewController.m ElevenLabsCloneViewController.m iCarousel.m ViewController+EZTitleResolver.m UIViewController+EZViewDidLayoutSwizzle.m WaveformView.m EZAuthManager.m EZEntitlementManager.m EZReferralManager.m LoginViewController.m HelperLogViewController.m SystemLogViewController.m EZBubbleCell.m EZSystemCell.m EZCodeBlockCell.m EZCoinStoreViewController.m EZCoinPotView.m EZPhotoGalleryViewController.m EZPhotoGalleryAnalysisService.m EZImageGridCell.m EZCoinUsageViewController.m BRGameModel.m BrainRotViewController.m BRGameView.m BRGameModePickerViewController.m BRRicochetGameModel.m BRRicochetGameView.m BRRicochetViewController.m BRRicochetHighScoresViewController.m BRSynthEngine.m BRSmartKeyboardView.m EZTermsAcceptanceViewController.m EZPoliciesViewController.m BRGameLibrary.m BRGamePickerViewController.m BRCustomGameCreatorViewController.m BRAssetSourceSheetViewController.m BRTextInputSheetViewController.m BRGameResultViewController.m BRAssetGenerationSheetViewController.m BRRemoteImageLoader.m EZTTSLibraryManager.m EZTTSManifestEntry.m EZSoundManifestEntry.m EZSoundLibraryManager.m EZSoundsViewController.m EZTTSLibraryViewController.m EZTTSLibraryClipCell.m EZTTSClipEditViewController.m EZTTSVoiceService.m EZVoicePickerViewController.m EZWaveformRangeSelector.m BRCommunityAdminViewController.m EZSupabaseConfig.m EZCoinLedgerViewController.m EZPhotoGalleryAnalysisService.m EZImageAttachmentPreparer.m BRSlotMachineViewController.m BRSlotGamePickerViewController.m BRPennySlotViewController.m BRPlunderBayViewController.m BRGoldenMandarinSlotViewController.m BRGoldenMandarinArt.m BRGoldenMandarinAudio.m BRGoldenMandarinEngine.c BRSlotRoomViewController.m EZMusicService.m EZMusicViewController.m EZMusicLibraryManager.m EZMusicBubbleCell.m EZMediaPlayerManager.m EZMusicArtworkService.m EZFileItem.m EZFileExplorerViewController.m EZFileInfoViewController.m EZInsuranceFilePreviewViewController.m EZTextFileEditorViewController.m EZArchiveService.m SSZipArchive/SSZipArchive.m SSZipArchive/minizip/mz_compat.c SSZipArchive/minizip/mz_crypt.c SSZipArchive/minizip/mz_crypt_apple.c SSZipArchive/minizip/mz_os.c SSZipArchive/minizip/mz_os_posix.c SSZipArchive/minizip/mz_strm.c SSZipArchive/minizip/mz_strm_buf.c SSZipArchive/minizip/mz_strm_mem.c SSZipArchive/minizip/mz_strm_os_posix.c SSZipArchive/minizip/mz_strm_pkcrypt.c SSZipArchive/minizip/mz_strm_split.c SSZipArchive/minizip/mz_strm_wzaes.c SSZipArchive/minizip/mz_strm_zlib.c SSZipArchive/minizip/mz_zip.c SSZipArchive/minizip/mz_zip_rw.c
+ 
+ EZCompleteUI_FRAMEWORKS = UIKit Foundation AVFoundation CoreMIDI Speech QuickLook \
+ UniformTypeIdentifiers PDFKit QuickLookThumbnailing Security PhotosUI QuartzCore SafariServices ImageIO UserNotifications MediaPlayer AVKit Vision
+diff --git a/Resources/en.lproj/Localizable.strings b/Resources/en.lproj/Localizable.strings
+index 91f03be..7f783de 100644
+--- a/Resources/en.lproj/Localizable.strings
++++ b/Resources/en.lproj/Localizable.strings
+@@ -733,6 +733,8 @@
+ "BRSlot.Plunder.LoungeTitle" = "Plunder Bay Lounge";
+ "BRSlot.Picker.Plunder.Title" = "Plunder Bay";
+ "BRSlot.Picker.Plunder.Detail" = "Five reels, twenty lines, a chest full of free spins. The pirate machine.";
++"BRSlot.Picker.Golden.Title" = "Golden Mandarin 金帽福运";
++"BRSlot.Picker.Golden.Detail" = "Five reels, nine lines. Golden hats open a card pick and ×2, ×3 or ×5 free spins.";
+ /* Slot win results */
+ "BRSlot.Win.LineResult" = "🎉 Won %1$ld coins (%2$+ld) on %3$ld lines!";
+ "BRSlot.Win.LineResultOne" = "🎉 Won %1$ld coins (%2$+ld) on %3$ld line!";

@@ -19,7 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (BOOL)isJailbreakInstall;
 
 /// The install link matching this install type: the YouRepo repo address
-/// for jailbreak installs, the one-tap AltStore source link for IPAs.
+/// for jailbreak installs, the ZeeSigner source link for IPAs.
 + (NSString *)shareInstallLink;
 
 /// Share-sheet text: the 200-coin offer, the user's referral code when
