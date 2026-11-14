@@ -467,6 +467,20 @@
 "BRSlot.Customizer.BuiltInClassic" = "Atualmente usando a imagem de slot integrada.";
 "BRSlot.Customizer.BuiltInPenny" = "Atualmente usando a imagem interna do Penny Slots.";
 "BRSlot.Generation.Cost" = "Cada geração custa 3 moedas EZ.";
+"BRSlot.Plunder.Title" = "Plunder Bay";
+"BRSlot.Plunder.Heading" = "☠ PLUNDER BAY ☠";
+"BRSlot.Plunder.Description" = "Vinte linhas, um baú do tesouro. Três baús despertam o bônus.";
+"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Baús pagam em qualquer lugar — 3 ou mais iniciam rodadas grátis com ganhos de linha ×3";
+"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld RODADAS GRÁTIS RESTANTES — GANHOS DE LINHA ×3";
+"BRSlot.Plunder.FreeSpin" = "Rodada grátis — nenhuma aposta cobrada";
+"BRSlot.Plunder.BetValue" = "APOSTA\n%ld";
+"BRSlot.Plunder.MaxBet" = "APOSTA MÁXIMA\n100 + GIRAR";
+"BRSlot.Plunder.NeedCoins" = "Precisa de %ld moedas para esta aposta.";
+"BRSlot.Plunder.SignIn" = "Faça login para jogar Plunder Bay.";
+"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
+"BRSlot.Plunder.LoungeTitle" = "Salão Plunder Bay";
+"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
+"BRSlot.Picker.Plunder.Detail" = "Cinco rolos, vinte linhas, um baú cheio de rodadas grátis. A máquina pirata.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Letra da música";

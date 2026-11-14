@@ -445,6 +445,20 @@
 "BRSlot.Customizer.BuiltInClassic" = "تستخدم حاليا صورة الفتحة المضمنة.";
 "BRSlot.Customizer.BuiltInPenny" = "تستخدم حاليًا صورة Penny Slots المضمنة.";
 "BRSlot.Generation.Cost" = "كل جيل يكلف 3 عملات EZ.";
+"BRSlot.Plunder.Title" = "بلاندر باي";
+"BRSlot.Plunder.Heading" = "☠ بلاندر باي ☠";
+"BRSlot.Plunder.Description" = "عشرون خطًا، صندوق كنز واحد. ثلاثة صناديق توقظ المكافأة.";
+"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ الصناديق تدفع في أي مكان — 3 أو أكثر تبدأ دورات مجانية بأرباح خطوط ×3";
+"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld دورات مجانية متبقية — أرباح الخطوط ×3";
+"BRSlot.Plunder.FreeSpin" = "دورة مجانية — لا يتم أخذ رهان";
+"BRSlot.Plunder.BetValue" = "الرهان\n%ld";
+"BRSlot.Plunder.MaxBet" = "الحد الأقصى للرهان\n100 + تدور";
+"BRSlot.Plunder.NeedCoins" = "تحتاج إلى %ld قطعة نقدية لهذا الرهان.";
+"BRSlot.Plunder.SignIn" = "قم بتسجيل الدخول للعب بلاندر باي.";
+"BRSlot.Plunder.StoreFeature" = "بلاندر باي";
+"BRSlot.Plunder.LoungeTitle" = "صالة بلاندر باي";
+"BRSlot.Picker.Plunder.Title" = "بلاندر باي";
+"BRSlot.Picker.Plunder.Detail" = "خمس بكرات، عشرون خطًا، صندوق مليء بالدورات المجانية. آلة القراصنة.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "كلمات الأغنية";
