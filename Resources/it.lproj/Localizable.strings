@@ -445,6 +445,20 @@
 "BRSlot.Customizer.BuiltInClassic" = "Attualmente utilizzo l'immagine dello slot integrata.";
 "BRSlot.Customizer.BuiltInPenny" = "Attualmente utilizzo l'immagine incorporata di Penny Slots.";
 "BRSlot.Generation.Cost" = "Ogni generazione costa 3 monete EZ.";
+"BRSlot.Plunder.Title" = "Plunder Bay";
+"BRSlot.Plunder.Heading" = "☠PLUNDER BAY☠";
+"BRSlot.Plunder.Description" = "Venti linee, un forziere del tesoro. Tre forzieri risvegliano il bonus.";
+"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ I forzieri pagano ovunque — 3 o più avviano giri gratuiti con vincite di linea ×3";
+"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld GIRI GRATUITI RIMANENTI — VINCITE DI LINEA ×3";
+"BRSlot.Plunder.FreeSpin" = "Giro gratuito — nessuna puntata prelevata";
+"BRSlot.Plunder.BetValue" = "PUNTATA\n%ld";
+"BRSlot.Plunder.MaxBet" = "PUNTATA MASSIMA\n100 + GIRA";
+"BRSlot.Plunder.NeedCoins" = "Hai bisogno di %ld monete per questa puntata.";
+"BRSlot.Plunder.SignIn" = "Accedi per giocare a Plunder Bay.";
+"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
+"BRSlot.Plunder.LoungeTitle" = "Sala Plunder Bay";
+"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
+"BRSlot.Picker.Plunder.Detail" = "Cinque rulli, venti linee, un forziere pieno di giri gratuiti. La slot pirata.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Testo del brano";
