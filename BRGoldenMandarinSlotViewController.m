@@ -13,6 +13,7 @@
 // All art and sound are generated in code (BRGoldenMandarinArt / Audio).
 
 #import "BRGoldenMandarinSlotViewController.h"
+#import "BRSlotChatBar.h"
 #import "BRGoldenMandarinEngine.h"
 #import "BRGoldenMandarinArt.h"
 #import "BRGoldenMandarinAudio.h"
@@ -170,6 +171,7 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 @interface BRGoldenMandarinSlotViewController ()
 @property (nonatomic, strong) BRGoldenMandarinAudio *audio;
+@property (nonatomic, strong) BRSlotChatBar *chatBar;
 @property (nonatomic, strong) GMGradientView *background;
 @property (nonatomic, strong) UIScrollView *scroll;
 @property (nonatomic, strong) UILabel *balanceLabel, *winLabel, *bannerLabel, *messageLabel, *totalBetLabel;
@@ -243,6 +245,8 @@ static UIImage *GMParticleImage(BOOL coin) {
     _leaving = NO;
     [self.audio startThemeBonus:_bonusMode];
     [self refreshState];
+    if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"golden-mandarin"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; }
+    [self.chatBar start];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -251,6 +255,7 @@ static UIImage *GMParticleImage(BOOL coin) {
         _leaving = YES;
         _epoch++;
         [self.audio shutdown];
+        [self.chatBar stop];
         [self.machine.layer removeAllAnimations];
         for (UIView *overlay in @[self.celebrationOverlay ?: [NSNull null], self.summaryOverlay ?: [NSNull null], self.pickOverlay ?: [NSNull null]]) {
             if ([overlay isKindOfClass:UIView.class]) [overlay removeFromSuperview];

@@ -5,7 +5,7 @@
 #import "EZCoinStoreViewController.h"
 #import "BRAssetSourceSheetViewController.h"
 #import "BRAssetGenerationSheetViewController.h"
-#import "BRSlotRoomViewController.h"
+#import "BRSlotChatBar.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <AVFoundation/AVFoundation.h>
 
@@ -68,6 +68,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
 @interface BRPennySlotViewController () <AVAudioPlayerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate, UIDocumentPickerDelegate>
 @property (nonatomic, strong) NSMutableArray<NSArray<UIImageView *> *> *reels;
 @property (nonatomic, strong) UILabel *balanceLabel, *bonusLabel, *messageLabel;
+@property (nonatomic, strong) BRSlotChatBar *chatBar;
 @property (nonatomic, strong) UIButton *linesButton, *betButton, *spinButton, *maxButton;
 @property (nonatomic, strong) UIButton *customizeButton;
 @property (nonatomic, strong) AVAudioPlayer *musicPlayer, *lossPlayer;
@@ -92,15 +93,13 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     self.customImages = [self loadCustomImages];
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:NSLocalizedString(@"BRSlot.Navigation.Back", nil) action:@selector(backTapped)]];
     self.navigationItem.rightBarButtonItems = @[
-        [[UIBarButtonItem alloc] initWithCustomView:[self navButton:NSLocalizedString(@"BRSlot.Navigation.Lounge", nil) action:@selector(openLounge)]],
         [[UIBarButtonItem alloc] initWithCustomView:[self navButton:NSLocalizedString(@"BRSlot.Navigation.Odds", nil) action:@selector(showOdds)]]
     ];
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
-- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (!self.musicPlayer.isPlaying) [self playTheme:@"brainrot-theme1"]; }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; if (self.isMovingFromParentViewController) [self.musicPlayer stop]; }
+- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (!self.musicPlayer.isPlaying) [self playTheme:@"brainrot-theme1"]; if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"ezcoin-penny"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; } [self.chatBar start]; }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; if (self.isMovingFromParentViewController) { [self.musicPlayer stop]; [self.chatBar stop]; } }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
-- (void)openLounge { [self.navigationController pushViewController:[[BRSlotRoomViewController alloc] initWithRoomID:@"ezcoin-penny" title:NSLocalizedString(@"BRSlot.Penny.LoungeTitle", nil)] animated:YES]; }
 
 - (UIButton *)navButton:(NSString *)title action:(SEL)action {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:title forState:UIControlStateNormal];

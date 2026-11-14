@@ -5,7 +5,7 @@
 #import "EZCoinStoreViewController.h"
 #import "BRAssetSourceSheetViewController.h"
 #import "BRAssetGenerationSheetViewController.h"
-#import "BRSlotRoomViewController.h"
+#import "BRSlotChatBar.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
@@ -95,6 +95,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
 @interface BRSlotMachineViewController () <UIImagePickerControllerDelegate, UINavigationControllerDelegate, UIDocumentPickerDelegate, AVAudioPlayerDelegate>
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIImageView *> *> *reels;
 @property (nonatomic, strong) UILabel *balanceLabel;
+@property (nonatomic, strong) BRSlotChatBar *chatBar;
 @property (nonatomic, strong) UILabel *messageLabel;
 @property (nonatomic, strong) UILabel *betLabel;
 @property (nonatomic, strong) UIButton *spinButton;
@@ -153,7 +154,6 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
     self.customImages = self.importedThemeImages.count ? self.importedThemeImages : [self loadCustomImages];
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self slotNavigationButtonWithTitle:NSLocalizedString(@"BRSlot.Navigation.Back", nil) action:@selector(backTapped)]];
     self.navigationItem.rightBarButtonItems = @[
-        [[UIBarButtonItem alloc] initWithCustomView:[self slotNavigationButtonWithTitle:NSLocalizedString(@"BRSlot.Navigation.Lounge", nil) action:@selector(openLounge)]],
         [[UIBarButtonItem alloc] initWithCustomView:[self slotNavigationButtonWithTitle:NSLocalizedString(@"BRSlot.Navigation.Odds", nil) action:@selector(showOdds)]]
     ];
     [self buildUI];
@@ -162,7 +162,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
     [self updateFreeSpinsUI];
 }
 
-- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; if (!self.musicPlayer.isPlaying) [self playTheme:@"brainrot-theme1"]; [self refreshProgressiveJackpot]; [self refreshBalance]; }
+- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; if (!self.musicPlayer.isPlaying) [self playTheme:@"brainrot-theme1"]; [self refreshProgressiveJackpot]; [self refreshBalance]; if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"brainrot-classic"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; } [self.chatBar start]; }
 - (void)viewDidLayoutSubviews { [super viewDidLayoutSubviews];
     // Keep the game usable on short safe areas (including Display Zoom or a
     // tweak that reduces usable height) without changing tall-device layout.
@@ -176,7 +176,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
         self.machineTrailingConstraint.constant = -inset;
     }
 }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearWinningLineHighlights]; if (self.isMovingFromParentViewController || self.navigationController.isBeingDismissed) { [self.musicPlayer stop]; self.musicPlayer = nil; } }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearWinningLineHighlights]; if (self.isMovingFromParentViewController || self.navigationController.isBeingDismissed) { [self.musicPlayer stop]; self.musicPlayer = nil; [self.chatBar stop]; } }
 
 - (void)buildUI {
     if (self.importedRoomImage) { UIImageView *room = [[UIImageView alloc] initWithImage:self.importedRoomImage]; room.frame = self.view.bounds; room.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight; room.contentMode = UIViewContentModeScaleAspectFill; room.alpha = .22; [self.view insertSubview:room atIndex:0]; }
@@ -222,7 +222,6 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
 
 - (UIButton *)slotNavigationButtonWithTitle:(NSString *)title action:(SEL)action { UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:title forState:UIControlStateNormal]; [button setTitleColor:[UIColor colorWithRed:1 green:.79 blue:.18 alpha:1] forState:UIControlStateNormal]; button.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack]; button.backgroundColor = [UIColor colorWithRed:.18 green:.06 blue:.29 alpha:1]; button.layer.cornerRadius = 10; button.layer.borderWidth = 1; button.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.14 alpha:1].CGColor; button.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10); [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; [button sizeToFit]; button.frame = CGRectMake(0, 0, MAX(53, CGRectGetWidth(button.bounds) + 20), 32); return button; }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
-- (void)openLounge { [self.navigationController pushViewController:[[BRSlotRoomViewController alloc] initWithRoomID:@"brainrot-classic" title:NSLocalizedString(@"BRSlot.Classic.LoungeTitle", nil)] animated:YES]; }
 
 - (void)refreshBalance { [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) { self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil), (long)balance]; }]; [self refreshProgressiveJackpot]; }
 - (void)refreshProgressiveJackpot { if (!EZAuthManager.shared.isLoggedIn) return; [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *error) { if (!token) return; NSMutableURLRequest *r = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/ez-slot-spin"]]]; r.HTTPMethod = @"POST"; [r setValue:@"application/json" forHTTPHeaderField:@"Content-Type"]; [r setValue:EZSupabaseAnonKey forHTTPHeaderField:@"apikey"]; [r setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"]; r.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{ @"action": @"jackpot_status" } options:0 error:nil]; [[[NSURLSession sharedSession] dataTaskWithRequest:r completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) { NSDictionary *json = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil; dispatch_async(dispatch_get_main_queue(), ^{ id amount = json[@"progressive_jackpot"]; if ([amount isKindOfClass:NSNumber.class] && [amount integerValue] > 0) [self updateProgressiveBanner:[amount integerValue]]; self.freeSpinsRemaining = [json[@"free_spins_remaining"] integerValue]; [self updateFreeSpinsUI]; }); }] resume]; }]; }
