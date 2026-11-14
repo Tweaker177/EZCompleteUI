@@ -359,6 +359,9 @@ static UIImage *GMParticleImage(BOOL coin) {
                                                 [[UIBarButtonItem alloc] initWithCustomView:pays]];
 
     self.scroll = [UIScrollView new];
+    // Reserve room for the chat bar pinned over the bottom of this screen,
+    // so the last controls (Spin) can always scroll clear of it.
+    self.scroll.contentInset = UIEdgeInsetsMake(0, 0, 50, 0); self.scroll.scrollIndicatorInsets = self.scroll.contentInset;
     self.scroll.translatesAutoresizingMaskIntoConstraints = NO;
     self.scroll.alwaysBounceVertical = NO;
     [self.view addSubview:self.scroll];
