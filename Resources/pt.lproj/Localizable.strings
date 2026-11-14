@@ -467,20 +467,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "Atualmente usando a imagem de slot integrada.";
 "BRSlot.Customizer.BuiltInPenny" = "Atualmente usando a imagem interna do Penny Slots.";
 "BRSlot.Generation.Cost" = "Cada geração custa 3 moedas EZ.";
-"BRSlot.Plunder.Title" = "Plunder Bay";
-"BRSlot.Plunder.Heading" = "☠ PLUNDER BAY ☠";
-"BRSlot.Plunder.Description" = "Vinte linhas, um baú do tesouro. Três baús despertam o bônus.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Baús pagam em qualquer lugar — 3 ou mais iniciam rodadas grátis com ganhos de linha ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld RODADAS GRÁTIS RESTANTES — GANHOS DE LINHA ×3";
-"BRSlot.Plunder.FreeSpin" = "Rodada grátis — nenhuma aposta cobrada";
-"BRSlot.Plunder.BetValue" = "APOSTA\n%ld";
-"BRSlot.Plunder.MaxBet" = "APOSTA MÁXIMA\n100 + GIRAR";
-"BRSlot.Plunder.NeedCoins" = "Precisa de %ld moedas para esta aposta.";
-"BRSlot.Plunder.SignIn" = "Faça login para jogar Plunder Bay.";
-"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
-"BRSlot.Plunder.LoungeTitle" = "Salão Plunder Bay";
-"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
-"BRSlot.Picker.Plunder.Detail" = "Cinco rolos, vinte linhas, um baú cheio de rodadas grátis. A máquina pirata.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Letra da música";
@@ -718,3 +704,14 @@
 "BRSlot.Win.FreeSpinsAward" = "+%ld RODADAS GRÁTIS!";
 "BRSlot.Win.NoWin" = "Sem ganho • −%ld moedas";
 "BRSlot.Win.FreeSpinNoWin" = "Rodada grátis • nenhuma linha vencedora";
+/* Plunder odds + slot winners */
+"BRSlot.Plunder.OddsText" = "PAGAMENTOS PLUNDER BAY\n\nTodas as 20 linhas estão sempre ativas. 3, 4 ou 5 símbolos consecutivos da esquerda em uma linha pagam, como múltiplos da sua aposta total:\n\n👑 Capitão  4× / 16× / 80×\n⛵ Galeão  3× / 12× / 60×\n🗺 Mapa  2.5× / 8× / 40×\n💣 Canhão  2× / 6× / 30×\n🦜 Papagaio  1.5× / 5× / 25×\n⚓ Âncora  1× / 4× / 20×\n🧭 Bússola  1× / 3× / 16×\n🍾 Rum  1× / 2.5× / 12×\n🪙 Dobrão  1× / 2× / 10×\n🪝 Gancho  0.5× / 1.5× / 8×\n\n☠ A caveira é curinga e substitui todos os símbolos, exceto o baú.\n\n🧰 O baú do tesouro é um scatter — paga em qualquer lugar e inicia o bônus:\n3 baús: 2× sua aposta + 5–8 rodadas grátis\n4 baús: 8× sua aposta + 14–16 rodadas grátis\n5 baús: 40× sua aposta + 25–30 rodadas grátis\nUm tabuleiro nunca pode mostrar mais de 5 baús.\n\nNas rodadas grátis, cada ganho de linha paga ×3, os pagamentos do baú permanecem integrais e os baús podem reativar mais rodadas grátis.\n\nO RTP teórico de longo prazo é de cerca de 94.4%, verificado simulando 10,000,000 rodadas destas tabelas exatas; o bônus é acionado cerca de uma vez a cada 158 rodadas. Os resultados variam.";
+"BRSlot.Lounge.WinningsTitle" = "PRÊMIOS DAS SLOTS";
+"BRSlot.Lounge.WinningsMine" = "Suas últimas 24h: %@ moedas • Seu maior prêmio: %@ moedas";
+"BRSlot.Lounge.WinningsTopTotals" = "ÚLTIMAS 24 HORAS: MAIORES TOTAIS\n\n";
+"BRSlot.Lounge.WinningsNoWins" = "Nenhum ganho nas últimas 24 horas ainda — seja o primeiro.\n";
+"BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ moedas\n";
+"BRSlot.Lounge.WinningsBiggestHits" = "\nÚLTIMAS 24 HORAS: MAIORES PRÊMIOS\n\n";
+"BRSlot.Lounge.WinningsNoHits" = "Nenhum grande prêmio nas últimas 24 horas ainda.\n";
+"BRSlot.Lounge.WinningsFooter" = "\nTotais e maiores prêmios cobrem as últimas 24 horas. Só contam pagamentos de slots liquidados pelo servidor.";
+"BRSlot.Lounge.PlayerFallback" = "Jogador";

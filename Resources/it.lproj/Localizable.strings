@@ -445,20 +445,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "Attualmente utilizzo l'immagine dello slot integrata.";
 "BRSlot.Customizer.BuiltInPenny" = "Attualmente utilizzo l'immagine incorporata di Penny Slots.";
 "BRSlot.Generation.Cost" = "Ogni generazione costa 3 monete EZ.";
-"BRSlot.Plunder.Title" = "Plunder Bay";
-"BRSlot.Plunder.Heading" = "☠PLUNDER BAY☠";
-"BRSlot.Plunder.Description" = "Venti linee, un forziere del tesoro. Tre forzieri risvegliano il bonus.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ I forzieri pagano ovunque — 3 o più avviano giri gratuiti con vincite di linea ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld GIRI GRATUITI RIMANENTI — VINCITE DI LINEA ×3";
-"BRSlot.Plunder.FreeSpin" = "Giro gratuito — nessuna puntata prelevata";
-"BRSlot.Plunder.BetValue" = "PUNTATA\n%ld";
-"BRSlot.Plunder.MaxBet" = "PUNTATA MASSIMA\n100 + GIRA";
-"BRSlot.Plunder.NeedCoins" = "Hai bisogno di %ld monete per questa puntata.";
-"BRSlot.Plunder.SignIn" = "Accedi per giocare a Plunder Bay.";
-"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
-"BRSlot.Plunder.LoungeTitle" = "Sala Plunder Bay";
-"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
-"BRSlot.Picker.Plunder.Detail" = "Cinque rulli, venti linee, un forziere pieno di giri gratuiti. La slot pirata.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Testo del brano";
@@ -696,3 +682,14 @@
 "BRSlot.Win.FreeSpinsAward" = "+%ld GIRI GRATUITI!";
 "BRSlot.Win.NoWin" = "Nessuna vincita • −%ld monete";
 "BRSlot.Win.FreeSpinNoWin" = "Giro gratuito • nessuna linea vincente";
+/* Plunder odds + slot winners */
+"BRSlot.Plunder.OddsText" = "PAGAMENTI PLUNDER BAY\n\nTutte le 20 linee sono sempre attive. 3, 4 o 5 simboli consecutivi da sinistra su una linea pagano, come multipli della tua puntata totale:\n\n👑 Capitano  4× / 16× / 80×\n⛵ Galeone  3× / 12× / 60×\n🗺 Mappa  2.5× / 8× / 40×\n💣 Cannone  2× / 6× / 30×\n🦜 Pappagallo  1.5× / 5× / 25×\n⚓ Ancora  1× / 4× / 20×\n🧭 Bussola  1× / 3× / 16×\n🍾 Rum  1× / 2.5× / 12×\n🪙 Doblone  1× / 2× / 10×\n🪝 Gancio  0.5× / 1.5× / 8×\n\n☠ Il teschio è un jolly e sostituisce ogni simbolo tranne il forziere.\n\n🧰 Il forziere del tesoro è uno scatter — paga ovunque e avvia il bonus:\n3 forzieri: 2× la tua puntata + 5–8 giri gratuiti\n4 forzieri: 8× la tua puntata + 14–16 giri gratuiti\n5 forzieri: 40× la tua puntata + 25–30 giri gratuiti\nUn pannello non può mai mostrare più di 5 forzieri.\n\nNei giri gratuiti ogni vincita di linea paga ×3, i pagamenti del forziere restano pieni e i forzieri possono riattivare altri giri gratuiti.\n\nL'RTP teorico a lungo termine è di circa 94.4%, verificato simulando 10,000,000 giri di queste tabelle esatte; il bonus si attiva circa una volta ogni 158 giri. I risultati variano.";
+"BRSlot.Lounge.WinningsTitle" = "VINCITE SLOT";
+"BRSlot.Lounge.WinningsMine" = "Le tue ultime 24h: %@ monete • La tua vincita migliore: %@ monete";
+"BRSlot.Lounge.WinningsTopTotals" = "ULTIME 24 ORE: TOTALI MIGLIORI\n\n";
+"BRSlot.Lounge.WinningsNoWins" = "Nessuna vincita nelle ultime 24 ore — sii il primo.\n";
+"BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ monete\n";
+"BRSlot.Lounge.WinningsBiggestHits" = "\nULTIME 24 ORE: VINCITE PIÙ GRANDI\n\n";
+"BRSlot.Lounge.WinningsNoHits" = "Nessuna grande vincita nelle ultime 24 ore.\n";
+"BRSlot.Lounge.WinningsFooter" = "\nTotali e vincite più grandi coprono le ultime 24 ore. Contano solo i pagamenti slot liquidati dal server.";
+"BRSlot.Lounge.PlayerFallback" = "Giocatore";
