@@ -211,7 +211,7 @@
     void (^done)(BOOL) = ^(BOOL finished) {
         self.collapsedView.hidden = expanded;
         self.expandedView.hidden = !expanded;
-        if (expanded) [self scrollToBottomAnimated:NO];
+        if (expanded) { [self.table reloadData]; [self scrollToBottomAnimated:NO]; }
     };
     if (animated) [UIView animateWithDuration:.28 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:changes completion:done];
     else { changes(); done(YES); }
@@ -229,8 +229,14 @@
 }
 
 - (void)scrollToBottomAnimated:(BOOL)animated {
-    if (!self.messages.count) return;
-    [self.table scrollToRowAtIndexPath:[NSIndexPath indexPathForRow:self.messages.count inSection:0] atScrollPosition:UITableViewScrollPositionBottom animated:animated];
+    // Scroll only to a row the table currently knows about: polls land
+    // while the bar is collapsed and update messages without a reload, so
+    // the newest message can be past the table's row count — and
+    // scrollToRowAtIndexPath: throws for a row the table does not have.
+    NSInteger rows = [self.table numberOfRowsInSection:0];
+    if (rows == 0) return;
+    NSInteger row = MIN((NSInteger)self.messages.count, rows - 1);
+    [self.table scrollToRowAtIndexPath:[NSIndexPath indexPathForRow:row inSection:0] atScrollPosition:UITableViewScrollPositionBottom animated:animated];
 }
 
 - (void)request:(NSDictionary *)body completion:(void (^)(NSDictionary *, NSString *))completion {
