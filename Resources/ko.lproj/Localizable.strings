@@ -486,20 +486,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "현재 기본 제공 슬롯 이미지를 사용 중입니다.";
 "BRSlot.Customizer.BuiltInPenny" = "현재 기본 제공 페니 슬롯 이미지를 사용 중입니다.";
 "BRSlot.Generation.Cost" = "생성할 때마다 EZ 코인 3개가 필요합니다.";
-"BRSlot.Plunder.Title" = "플런더 베이";
-"BRSlot.Plunder.Heading" = "☠  플런더 베이  ☠";
-"BRSlot.Plunder.Description" = "20개 라인, 하나의 보물상자. 상자 3개가 보너스를 깨웁니다.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ 보물상자는 어디서든 지급 — 3개 이상이면 라인 당첨 3배인 무료 스핀 시작";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ 무료 스핀 %ld회 남음 • 라인 당첨 3배";
-"BRSlot.Plunder.FreeSpin" = "무료 스핀 — 베팅 차감 없음";
-"BRSlot.Plunder.BetValue" = "베팅\n%ld";
-"BRSlot.Plunder.MaxBet" = "최대 베팅\n100 + 스핀";
-"BRSlot.Plunder.NeedCoins" = "이 베팅에는 %ld 코인이 필요합니다.";
-"BRSlot.Plunder.SignIn" = "플런더 베이를 플레이하려면 로그인하세요.";
-"BRSlot.Plunder.StoreFeature" = "플런더 베이";
-"BRSlot.Plunder.LoungeTitle" = "플런더 베이 라운지";
-"BRSlot.Picker.Plunder.Title" = "플런더 베이";
-"BRSlot.Picker.Plunder.Detail" = "릴 5개, 라인 20개, 무료 스핀으로 가득 찬 보물상자. 해적 슬롯.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "노래 가사";
@@ -737,3 +723,14 @@
 "BRSlot.Win.FreeSpinsAward" = "+%ld 무료 스핀!";
 "BRSlot.Win.NoWin" = "당첨 없음 • −%ld 코인";
 "BRSlot.Win.FreeSpinNoWin" = "무료 스핀 • 라인 당첨 없음";
+/* Plunder odds + slot winners */
+"BRSlot.Plunder.OddsText" = "플런더 베이 지급표\n\n20개 라인이 항상 활성화됩니다. 한 라인에서 왼쪽부터 연속된 3, 4, 5개의 심볼이 총 베팅의 배수로 지급됩니다:\n\n👑 선장  4× / 16× / 80×\n⛵ 갤리온  3× / 12× / 60×\n🗺 지도  2.5× / 8× / 40×\n💣 대포  2× / 6× / 30×\n🦜 앵무새  1.5× / 5× / 25×\n⚓ 닻  1× / 4× / 20×\n🧭 나침반  1× / 3× / 16×\n🍾 럼  1× / 2.5× / 12×\n🪙 더블룬  1× / 2× / 10×\n🪝 갈고리  0.5× / 1.5× / 8×\n\n☠ 해골은 와일드이며 보물상자를 제외한 모든 심볼을 대체합니다.\n\n🧰 보물상자는 스캐터입니다 — 어디서든 지급되고 보너스를 시작합니다:\n상자 3개: 베팅의 2배 + 무료 스핀 5–8회\n상자 4개: 베팅의 8배 + 무료 스핀 14–16회\n상자 5개: 베팅의 40배 + 무료 스핀 25–30회\n보드에는 상자가 5개를 초과해 표시될 수 없습니다.\n\n무료 스핀에서는 모든 라인 당첨이 3배로 지급되고, 상자 지급은 전액 유지되며, 상자가 무료 스핀을 추가로 재시작할 수 있습니다.\n\n이론적 장기 RTP는 약 94.4%이며, 이 정확한 표로 10,000,000회 스핀을 시뮬레이션해 검증되었습니다. 보너스는 약 158회 스핀마다 한 번씩 발동합니다. 결과는 달라질 수 있습니다.";
+"BRSlot.Lounge.WinningsTitle" = "슬롯 당첨";
+"BRSlot.Lounge.WinningsMine" = "최근 24시간: %@ 코인 • 최고 당첨: %@ 코인";
+"BRSlot.Lounge.WinningsTopTotals" = "최근 24시간: 최고 총액\n\n";
+"BRSlot.Lounge.WinningsNoWins" = "최근 24시간 동안 아직 당첨이 없습니다 — 첫 번째가 되어보세요.\n";
+"BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ 코인\n";
+"BRSlot.Lounge.WinningsBiggestHits" = "\n최근 24시간: 최대 당첨\n\n";
+"BRSlot.Lounge.WinningsNoHits" = "최근 24시간 동안 아직 큰 당첨이 없습니다.\n";
+"BRSlot.Lounge.WinningsFooter" = "\n총액과 최대 당첨은 최근 24시간을 기준으로 합니다. 서버에서 정산된 슬롯 지급만 집계됩니다.";
+"BRSlot.Lounge.PlayerFallback" = "플레이어";
