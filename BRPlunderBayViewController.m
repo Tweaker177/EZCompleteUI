@@ -39,6 +39,10 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 @property (nonatomic) BOOL spinning, celebrating, inBonus, slamRequested, spinSettled, bonusLightsRunning;
 @property (nonatomic, strong) NSDictionary *pendingSpinResult;
 @property (nonatomic) NSUInteger autoSpinToken;
+@property (nonatomic, strong) UIButton *autoButton;
+@property (nonatomic) NSInteger autoSpinChoice, autoSpinsRemaining, knownBalance;
+@property (nonatomic) BOOL balanceChecked, autoSpinActive, autoSpinFromDriver;
+@property (nonatomic) NSUInteger autoSpinPaidToken;
 @property (nonatomic) NSUInteger animationID, lineCelebrationID;
 @end
 
@@ -73,7 +77,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
 - (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (self.freeSpinsRemaining > 0) [self startBonusSong]; [self scheduleBonusAutoSpin]; }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; self.autoSpinToken++; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; self.autoSpinToken++; [self stopAutoSpin]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController) { [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
 - (void)openLounge { [self.navigationController pushViewController:[[BRSlotRoomViewController alloc] initWithRoomID:@"plunder-bay" title:NSLocalizedString(@"BRSlot.Plunder.LoungeTitle", nil)] animated:YES]; }
 
@@ -116,7 +120,12 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     self.messageLabel = [UILabel new]; self.messageLabel.text = NSLocalizedString(@"BRSlot.Plunder.Description", nil); self.messageLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold]; self.messageLabel.textColor = [UIColor colorWithWhite:.85 alpha:1]; self.messageLabel.textAlignment = NSTextAlignmentCenter; self.messageLabel.numberOfLines = 2;
     self.betButton = [self control:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil), (long)self.betCoins] color:[UIColor colorWithRed:.08 green:.34 blue:.52 alpha:1] action:@selector(cycleBet)];
     self.maxButton = [self control:NSLocalizedString(@"BRSlot.Plunder.MaxBet", nil) color:[UIColor colorWithRed:.45 green:.28 blue:.08 alpha:1] action:@selector(maxBet)];
-    UIStackView *controls = [[UIStackView alloc] initWithArrangedSubviews:@[self.betButton, self.maxButton]]; controls.axis = UILayoutConstraintAxisHorizontal; controls.distribution = UIStackViewDistributionFillEqually; controls.spacing = 8;
+    self.autoSpinChoice = 5;
+    self.autoButton = [self control:[self autoButtonTitle] color:[UIColor colorWithRed:.16 green:.42 blue:.30 alpha:1] action:@selector(autoButtonTapped)];
+    UILongPressGestureRecognizer *autoHold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(autoButtonHeld:)];
+    autoHold.minimumPressDuration = 0.4;
+    [self.autoButton addGestureRecognizer:autoHold];
+    UIStackView *controls = [[UIStackView alloc] initWithArrangedSubviews:@[self.betButton, self.maxButton, self.autoButton]]; controls.axis = UILayoutConstraintAxisHorizontal; controls.distribution = UIStackViewDistributionFillEqually; controls.spacing = 8;
     self.spinButton = [self control:NSLocalizedString(@"BRSlot.Control.Spin", nil) color:[UIColor colorWithRed:.72 green:.10 blue:.16 alpha:1] action:@selector(spin)]; self.spinButton.titleLabel.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBlack];
     for (UIView *view in @[title, self.balanceLabel, self.bonusLabel, self.machineView, self.messageLabel, controls, self.spinButton]) { view.translatesAutoresizingMaskIntoConstraints = NO; [content addSubview:view]; }
     [NSLayoutConstraint activateConstraints:@[
@@ -143,11 +152,57 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     glyph.textAlignment = NSTextAlignmentCenter; glyph.frame = tile.bounds; glyph.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [tile addSubview:glyph];
 }
 - (NSInteger)betCoins { return PlunderBets()[self.betIndex].integerValue; }
-- (void)cycleBet { if (self.spinning || self.freeSpinsRemaining) return; self.betIndex = (self.betIndex+1)%PlunderBets().count; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; }
-- (void)maxBet { if (self.spinning) return; if (self.freeSpinsRemaining == 0) { self.betIndex = (NSInteger)PlunderBets().count-1; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; } [self spin]; }
+- (void)cycleBet { if (self.spinning || self.freeSpinsRemaining) return; self.betIndex = (self.betIndex+1)%PlunderBets().count; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; [self checkBalanceSilently]; }
+- (void)maxBet { if (self.spinning) return; if (self.freeSpinsRemaining == 0) { self.betIndex = (NSInteger)PlunderBets().count-1; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; [self checkBalanceSilently]; } [self spin]; }
+// Silent balance verification: refreshes the cached balance the spin path
+// trusts. Runs on screen entry paths and whenever the bet changes; never
+// blocks a spin and never puts a "checking" message on screen.
+- (void)checkBalanceSilently {
+    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+        if (self.spinning) return;
+        self.knownBalance = balance; self.balanceChecked = YES;
+        self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
+    }];
+}
+// Auto spin: tap the button to cycle how many (5 / 10 / 15 / 30), hold it to
+// fire. While a run is active the button shows the spins left; tapping Spin
+// (or the auto button) stops the run. A bonus pauses the run — the free
+// spins play out on their own auto-spin and the paid run resumes after.
+- (NSString *)autoButtonTitle { return [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.AutoButton", nil), (long)(self.autoSpinActive ? self.autoSpinsRemaining : self.autoSpinChoice)]; }
+- (void)updateAutoButton { [self.autoButton setTitle:[self autoButtonTitle] forState:UIControlStateNormal]; }
+- (void)autoButtonTapped {
+    if (self.autoSpinActive) { [self stopAutoSpin]; return; }
+    NSInteger choices[4] = {5, 10, 15, 30};
+    NSInteger idx = 0; for (NSInteger i = 0; i < 4; i++) if (choices[i] == self.autoSpinChoice) idx = i;
+    self.autoSpinChoice = choices[(idx + 1) % 4];
+    [self updateAutoButton];
+}
+- (void)autoButtonHeld:(UILongPressGestureRecognizer *)gesture {
+    if (gesture.state != UIGestureRecognizerStateBegan) return;
+    if (self.autoSpinActive || self.spinning || self.freeSpinsRemaining > 0) return;
+    self.autoSpinActive = YES; self.autoSpinsRemaining = self.autoSpinChoice; [self updateAutoButton];
+    [self fireAutoSpin];
+}
+- (void)fireAutoSpin {
+    if (!self.autoSpinActive) return;
+    if (self.autoSpinsRemaining <= 0) { [self stopAutoSpin]; return; }
+    self.autoSpinsRemaining--; [self updateAutoButton];
+    self.autoSpinFromDriver = YES;
+    [self spin];
+}
+- (void)stopAutoSpin { self.autoSpinActive = NO; self.autoSpinsRemaining = 0; self.autoSpinPaidToken++; [self updateAutoButton]; }
+- (void)schedulePaidAutoSpin {
+    if (!self.autoSpinActive || self.spinning || self.freeSpinsRemaining > 0) return;
+    if (self.autoSpinsRemaining <= 0) { [self stopAutoSpin]; return; }
+    NSUInteger token = ++self.autoSpinPaidToken;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.45*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+        if (self.autoSpinPaidToken != token || !self.autoSpinActive || self.spinning || self.freeSpinsRemaining > 0 || !self.view.window) return;
+        [self fireAutoSpin];
+    });
+}
 
 - (void)refreshState {
-    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) { if (!self.spinning) self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance]; }];
+    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) { if (!self.spinning) { self.knownBalance = balance; self.balanceChecked = YES; self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance]; } }];
     [self request:@{@"action":@"status"} completion:^(NSDictionary *result, NSString *error) {
         if (self.spinning) return;
         if (error) { self.messageLabel.text = error; return; }
@@ -236,13 +291,22 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 }
 - (void)spin {
     if (self.spinning) { [self slamStop]; return; }
+    if (self.autoSpinActive && !self.autoSpinFromDriver && self.freeSpinsRemaining == 0) { [self stopAutoSpin]; return; }
+    self.autoSpinFromDriver = NO;
     self.spinning = YES; self.maxButton.enabled = NO; [self updateBonusLabel]; // spin button stays enabled: a second tap slam-stops the spin
     [self.winOverlay removeFromSuperview]; self.winOverlay=nil; self.celebrating=NO;
     [self clearLineHighlights];
-    self.messageLabel.text = self.freeSpinsRemaining ? NSLocalizedString(@"BRSlot.Plunder.FreeSpin", nil) : NSLocalizedString(@"BRSlot.CheckingBalance", nil);
-    if (self.freeSpinsRemaining > 0) { [self beginSpin]; return; }
+    if (self.freeSpinsRemaining > 0) { self.messageLabel.text = NSLocalizedString(@"BRSlot.Plunder.FreeSpin", nil); [self beginSpin]; return; }
     NSInteger wager = self.betCoins;
+    if (self.balanceChecked) {
+        // Balance was verified after the last spin, on the last bet change, or on
+        // screen entry, and coins only move through spins settled on this screen —
+        // trust the cache and fire immediately instead of waiting on a round trip.
+        if (self.knownBalance < wager) { [self finishWithError:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.NeedCoins", nil),(long)wager]]; [self showCoinStore]; return; }
+        [self beginSpin]; return;
+    }
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+        self.knownBalance = balance; self.balanceChecked = YES;
         self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
         if (balance < wager) { [self finishWithError:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.NeedCoins", nil),(long)wager]]; [self showCoinStore]; return; }
         [self beginSpin];
@@ -333,7 +397,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         self.freeSpinsRemaining=[result[@"free_spins_remaining"] integerValue]; [self updateBonusLabel];
         BOOL wasFreeSpin=[result[@"was_free_spin"] boolValue];
         if (wasFreeSpin) self.freeSpinSessionTotal+=payout;
-        [EZEntitlementManager.shared applyKnownBalance:balance]; self.balanceLabel.text=[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
+        [EZEntitlementManager.shared applyKnownBalance:balance]; self.knownBalance = balance; self.balanceChecked = YES; self.balanceLabel.text=[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
         NSMutableArray *winLines=[NSMutableArray array];
         for (NSDictionary *line in result[@"winning_lines"]) { if (![line isKindOfClass:NSDictionary.class]) continue; NSArray *rows=[line[@"rows"] isKindOfClass:NSArray.class]?line[@"rows"]:@[]; NSInteger matches=MIN([line[@"matches"] integerValue],5); NSMutableArray *coords=[NSMutableArray array]; for (NSInteger col=0;col<matches && col<(NSInteger)rows.count;col++) { NSInteger row=[rows[col] integerValue]; if (row>=0 && row<3) [coords addObject:@[@(col),@(row)]]; } if (coords.count) [winLines addObject:coords]; }
         // Cannon celebration: a winning line paying 3+ cannons
@@ -364,7 +428,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
         self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=YES; [self updateBonusLabel];
         if (balance==0 && self.freeSpinsRemaining==0) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.5*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self showCoinStore]; });
         if (wasFreeSpin && self.freeSpinsRemaining==0 && self.freeSpinSessionTotal>0) { NSInteger total=self.freeSpinSessionTotal; self.freeSpinSessionTotal=0; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.75*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self showFreeSpinsComplete:total]; }); }
-        [self scheduleBonusAutoSpin];
+        [self scheduleBonusAutoSpin]; [self schedulePaidAutoSpin];
 }
 - (void)clearLineHighlights { self.lineCelebrationID++; for (NSArray *col in self.reels) for (UIImageView *tile in col) { [tile.layer removeAllAnimations]; tile.transform=CGAffineTransformIdentity; tile.layer.borderWidth=0; tile.layer.borderColor=nil; } }
 - (void)celebrateWinLines:(NSArray *)lines step:(NSInteger)step passes:(NSInteger)passes celebrationID:(NSUInteger)celebrationID {
@@ -382,7 +446,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
     UIColor *border=[UIColor colorWithRed:[rgb[0] doubleValue] green:[rgb[1] doubleValue] blue:[rgb[2] doubleValue] alpha:1];
     for (NSArray *coord in coords) { UIImageView *tile=self.reels[[coord[0] integerValue]][[coord[1] integerValue]]; tile.layer.borderWidth=3; tile.layer.borderColor=border.CGColor; if (!celebrate) continue; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)([coord[0] integerValue]*.13*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [UIView animateWithDuration:.22 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{ tile.transform=CGAffineTransformMakeScale(1.22,1.22); } completion:^(__unused BOOL done){ [UIView animateWithDuration:.5 delay:0 usingSpringWithDamping:.5 initialSpringVelocity:.35 options:0 animations:^{ tile.transform=CGAffineTransformIdentity; } completion:nil]; }]; }); }
 }
-- (void)finishWithError:(NSString *)message { ++self.animationID; [self stopDrumRoll]; [self stopReelsSound]; self.pendingSpinResult = nil; self.slamRequested = NO; [self clearLineHighlights]; if (self.preSpinBoard.count == 5) { for (NSInteger col=0;col<5;col++) for (NSInteger row=0;row<3;row++) [self setSymbol:self.preSpinBoard[col][row] onTile:self.reels[col][row]]; self.preSpinBoard=nil; } self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=YES; [self updateBonusLabel]; self.messageLabel.text=message; self.messageLabel.textColor=UIColor.systemOrangeColor; }
+- (void)finishWithError:(NSString *)message { ++self.animationID; self.balanceChecked = NO; [self stopAutoSpin]; [self stopDrumRoll]; [self stopReelsSound]; self.pendingSpinResult = nil; self.slamRequested = NO; [self clearLineHighlights]; if (self.preSpinBoard.count == 5) { for (NSInteger col=0;col<5;col++) for (NSInteger row=0;row<3;row++) [self setSymbol:self.preSpinBoard[col][row] onTile:self.reels[col][row]]; self.preSpinBoard=nil; } self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=YES; [self updateBonusLabel]; self.messageLabel.text=message; self.messageLabel.textColor=UIColor.systemOrangeColor; }
 - (void)showCoinStore {
     if (self.presentedViewController) return;
     EZCoinStoreViewController *store=[EZCoinStoreViewController new]; store.showLowCoinsWarning=YES; store.triggeringFeatureName=NSLocalizedString(@"BRSlot.Plunder.StoreFeature", nil);
@@ -536,14 +600,14 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 - (void)stopAmbience { [self.ambienceNode pause]; }
 - (void)startBonusSong { [self plunderStartLoopNode:self.songNode]; }
 - (void)showWin:(NSInteger)payout awarded:(NSInteger)awarded {
-    UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
+    UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; [self.winOverlay removeFromSuperview]; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
     UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.03 green:.05 blue:.14 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
     UILabel *text=[UILabel new]; text.text=awarded ? [NSString stringWithFormat:@"🧭 %ld FREE SPINS%@",(long)awarded,payout?[NSString stringWithFormat:@"  +%ld COINS",(long)payout]:@""] : [NSString stringWithFormat:@"WINNER!  +%ld COINS",(long)payout]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
     [self coinWave:overlay];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(3.2*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (self.winOverlay==overlay) { self.celebrating=NO; [overlay removeFromSuperview]; self.winOverlay=nil; } });
 }
 - (void)showFreeSpinsComplete:(NSInteger)total {
-    UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
+    UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; [self.winOverlay removeFromSuperview]; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
     UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.03 green:.05 blue:.14 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
     UILabel *text=[UILabel new]; text.text=[NSString stringWithFormat:@"⚓ FREE SPINS COMPLETE!\nTOTAL WON  +%ld COINS",(long)total]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
     [self coinWave:overlay];

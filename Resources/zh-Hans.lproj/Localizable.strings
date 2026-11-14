@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "旋转…";
 "BRSlot.Error.SessionExpired" = "您的登录会话已过期。";
 "BRSlot.Penny.MaxBet" = "最大赌注\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "自动\n%ld";
 "BRSlot.Penny.FreeSpin" = "自由旋转...";
 "BRSlot.Penny.NeedCoins" = "这次旋转需要 %ld 个硬币。";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ 还剩 %ld 个免费旋转 • 所有获胜 2×";
@@ -445,20 +446,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "目前使用内置插槽图像。";
 "BRSlot.Customizer.BuiltInPenny" = "目前使用内置的 Penny Slots 图像。";
 "BRSlot.Generation.Cost" = "每一代花费 3 个 EZ 币。";
-"BRSlot.Plunder.Title" = "掠夺湾";
-"BRSlot.Plunder.Heading" = "☠掠夺湾☠";
-"BRSlot.Plunder.Description" = "二十条线，一个宝箱。三个宝箱唤醒奖励。";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ 宝箱任意位置赔付 — 3 个以上开启免费旋转，连线获胜 ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ 还剩 %ld 次免费旋转 — 连线获胜 ×3";
-"BRSlot.Plunder.FreeSpin" = "免费旋转 — 不扣除投注";
-"BRSlot.Plunder.BetValue" = "下注\n%ld";
-"BRSlot.Plunder.MaxBet" = "最大赌注\n100 + 旋转";
-"BRSlot.Plunder.NeedCoins" = "这次下注需要 %ld 个硬币。";
-"BRSlot.Plunder.SignIn" = "登录即可玩掠夺湾。";
-"BRSlot.Plunder.StoreFeature" = "掠夺湾";
-"BRSlot.Plunder.LoungeTitle" = "掠夺湾休息室";
-"BRSlot.Picker.Plunder.Title" = "掠夺湾";
-"BRSlot.Picker.Plunder.Detail" = "五个卷轴、二十条线、一整箱免费旋转。海盗老虎机。";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "歌曲歌词";
@@ -505,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "稍后";
 "EZCoinStore.FreeSpins.MessageClassic" = "您在经典老虎机赢得了 %ld 次免费旋转！";
 "EZCoinStore.FreeSpins.MessagePenny" = "您在便士老虎机赢得了 %ld 次免费旋转！";
+"EZCoinStore.FreeSpins.MessagePlunder" = "您在掠夺湾赢得了 %ld 次免费旋转！";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "无法完成此操作。";

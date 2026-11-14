@@ -466,6 +466,7 @@
 "BRSlot.Spinning" = "Вращение…";
 "BRSlot.Error.SessionExpired" = "Срок действия вашего сеанса входа истек.";
 "BRSlot.Penny.MaxBet" = "МАКС. СТАВКА\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "АВТО\n%ld";
 "BRSlot.Penny.FreeSpin" = "Бесплатное вращение…";
 "BRSlot.Penny.NeedCoins" = "Для этого вращения нужно %ld монет.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ ОСТАЛОСЬ %ld БЕСПЛАТНЫХ ВРАЩЕНИЙ • ВСЕ ВЫИГРЫШИ 2×";
@@ -485,20 +486,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "В настоящее время используется встроенный образ слота.";
 "BRSlot.Customizer.BuiltInPenny" = "В настоящее время используется встроенный образ Penny Slots.";
 "BRSlot.Generation.Cost" = "Каждое поколение стоит 3 монеты EZ.";
-"BRSlot.Plunder.Title" = "Пландер Бэй";
-"BRSlot.Plunder.Heading" = "☠ ПЛАНДЕР БЭЙ ☠";
-"BRSlot.Plunder.Description" = "Двадцать линий, один сундук с сокровищами. Три сундука пробуждают бонус.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Сундуки платят в любом месте — от 3 запускают бесплатные вращения с выигрышами по линиям ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ ОСТАЛОСЬ %ld БЕСПЛАТНЫХ ВРАЩЕНИЙ — ВЫИГРЫШИ ПО ЛИНИЯМ ×3";
-"BRSlot.Plunder.FreeSpin" = "Бесплатное вращение — ставка не списывается";
-"BRSlot.Plunder.BetValue" = "СТАВКА\n%ld";
-"BRSlot.Plunder.MaxBet" = "МАКС. СТАВКА\n100 + СПИН";
-"BRSlot.Plunder.NeedCoins" = "Для этой ставки нужно %ld монет.";
-"BRSlot.Plunder.SignIn" = "Войдите, чтобы играть в Plunder Bay.";
-"BRSlot.Plunder.StoreFeature" = "Пландер Бэй";
-"BRSlot.Plunder.LoungeTitle" = "Пландер Бэй Лаундж";
-"BRSlot.Picker.Plunder.Title" = "Пландер Бэй";
-"BRSlot.Picker.Plunder.Detail" = "Пять барабанов, двадцать линий, сундук, полный бесплатных вращений. Пиратский автомат.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Текст песни";
@@ -545,6 +532,7 @@
 "EZCoinStore.FreeSpins.Later" = "Позже";
 "EZCoinStore.FreeSpins.MessageClassic" = "Вы выиграли %ld бесплатных вращений на автоматах Classic!";
 "EZCoinStore.FreeSpins.MessagePenny" = "Вы выиграли %ld бесплатных вращений на автоматах Penny!";
+"EZCoinStore.FreeSpins.MessagePlunder" = "Вы выиграли %ld бесплатных вращений в Пландер Бэй!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "Не удалось завершить действие.";

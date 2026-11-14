@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "Đang quay…";
 "BRSlot.Error.SessionExpired" = "Phiên đăng nhập của bạn đã hết hạn.";
 "BRSlot.Penny.MaxBet" = "CƯỢC TỐI ĐA\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "TỰ ĐỘNG\n%ld";
 "BRSlot.Penny.FreeSpin" = "Quay miễn phí…";
 "BRSlot.Penny.NeedCoins" = "Cần %ld xu cho vòng quay này.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld TRÒ CHƠI MIỄN PHÍ • TẤT CẢ CHIẾN THẮNG 2×";
@@ -445,20 +446,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "Hiện đang sử dụng hình ảnh khe tích hợp.";
 "BRSlot.Customizer.BuiltInPenny" = "Hiện đang sử dụng hình ảnh Penny Slots tích hợp.";
 "BRSlot.Generation.Cost" = "Mỗi thế hệ có giá 3 xu EZ.";
-"BRSlot.Plunder.Title" = "Plunder Bay";
-"BRSlot.Plunder.Heading" = "☠ Plunder Bay ☠";
-"BRSlot.Plunder.Description" = "Hai mươi dòng, một rương kho báu. Ba rương đánh thức vòng thưởng.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Rương trả thưởng ở mọi vị trí — 3 rương trở lên bắt đầu quay miễn phí với thắng dòng ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ CÒN %ld LƯỢT QUAY MIỄN PHÍ — THẮNG DÒNG ×3";
-"BRSlot.Plunder.FreeSpin" = "Quay miễn phí — không trừ cược";
-"BRSlot.Plunder.BetValue" = "CƯỢC\n%ld";
-"BRSlot.Plunder.MaxBet" = "CƯỢC TỐI ĐA\n100 + QUAY";
-"BRSlot.Plunder.NeedCoins" = "Cần %ld xu cho cược này.";
-"BRSlot.Plunder.SignIn" = "Đăng nhập để chơi Plunder Bay.";
-"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
-"BRSlot.Plunder.LoungeTitle" = "Phòng chờ Plunder Bay";
-"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
-"BRSlot.Picker.Plunder.Detail" = "Năm cuộn, hai mươi dòng, một rương đầy lượt quay miễn phí. Máy cướp biển.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Lời bài hát";
@@ -505,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "Để sau";
 "EZCoinStore.FreeSpins.MessageClassic" = "Bạn thắng %ld vòng quay miễn phí tại Máy Classic!";
 "EZCoinStore.FreeSpins.MessagePenny" = "Bạn thắng %ld vòng quay miễn phí tại Máy Penny!";
+"EZCoinStore.FreeSpins.MessagePlunder" = "Bạn thắng %ld vòng quay miễn phí tại Plunder Bay!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "Không thể hoàn tất hành động.";

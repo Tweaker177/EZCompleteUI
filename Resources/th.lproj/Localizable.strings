@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "ปั่น…";
 "BRSlot.Error.SessionExpired" = "เซสชันการลงชื่อเข้าใช้ของคุณหมดอายุแล้ว";
 "BRSlot.Penny.MaxBet" = "เดิมพันสูงสุด\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "ออโต้\n%ld";
 "BRSlot.Penny.FreeSpin" = "หมุนฟรี…";
 "BRSlot.Penny.NeedCoins" = "ต้องการ %ld เหรียญสำหรับการหมุนครั้งนี้";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ % ld หมุนฟรีทางซ้าย • ชนะทั้งหมด 2 ×";
@@ -445,20 +446,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "ขณะนี้ใช้ภาพสล็อตในตัว";
 "BRSlot.Customizer.BuiltInPenny" = "ขณะนี้ใช้รูปภาพ Penny Slots ในตัว";
 "BRSlot.Generation.Cost" = "แต่ละรุ่นมีราคา 3 เหรียญ EZ";
-"BRSlot.Plunder.Title" = "พลันเดอร์ เบย์";
-"BRSlot.Plunder.Heading" = "☠ พลันเดอร์ เบย์ ☠";
-"BRSlot.Plunder.Description" = "ยี่สิบไลน์ หนึ่งหีบสมบัติ หีบสามใบปลุกโบนัส";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ หีบสมบัติจ่ายทุกตำแหน่ง — 3 ใบขึ้นไปเริ่มหมุนฟรี ชนะตามไลน์ ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ เหลือ %ld หมุนฟรี — ชนะตามไลน์ ×3";
-"BRSlot.Plunder.FreeSpin" = "หมุนฟรี — ไม่หักเดิมพัน";
-"BRSlot.Plunder.BetValue" = "เดิมพัน\n%ld";
-"BRSlot.Plunder.MaxBet" = "เดิมพันสูงสุด\n100 + หมุน";
-"BRSlot.Plunder.NeedCoins" = "ต้องการ %ld เหรียญสำหรับการเดิมพันนี้";
-"BRSlot.Plunder.SignIn" = "ลงชื่อเข้าใช้เพื่อเล่นพลันเดอร์ เบย์";
-"BRSlot.Plunder.StoreFeature" = "พลันเดอร์ เบย์";
-"BRSlot.Plunder.LoungeTitle" = "พลันเดอร์ เบย์เลานจ์";
-"BRSlot.Picker.Plunder.Title" = "พลันเดอร์ เบย์";
-"BRSlot.Picker.Plunder.Detail" = "ห้าวงล้อ ยี่สิบไลน์ หีบที่เต็มไปด้วยหมุนฟรี เครื่องสล็อตโจรสลัด";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "เนื้อเพลง";
@@ -505,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "ไว้ทีหลัง";
 "EZCoinStore.FreeSpins.MessageClassic" = "คุณชนะฟรีสปิน %ld ครั้งที่สล็อต Classic!";
 "EZCoinStore.FreeSpins.MessagePenny" = "คุณชนะฟรีสปิน %ld ครั้งที่สล็อต Penny!";
+"EZCoinStore.FreeSpins.MessagePlunder" = "คุณชนะฟรีสปิน %ld ครั้งที่พลันเดอร์ เบย์!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "ไม่สามารถดำเนินการให้เสร็จได้";

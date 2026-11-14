@@ -98,6 +98,7 @@
 #import "BRSlotMachineViewController.h"
 
 #import "BRPennySlotViewController.h"
+#import "BRPlunderBayViewController.h"
 
 // ── Safe JSON value helpers ───────────────────────────────────────────────────
 
@@ -643,7 +644,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, assign) NSInteger  pendingClaimSpins; // Free spins awarded alongside a coins claim (spins_added in the claim response); celebrated once the coin celebration is dismissed
 
-@property (nonatomic, copy)   NSString        *pendingClaimSpinsMachine; // Server-suggested machine for the pending claim spins (claim response spins_machine: "classic" or "penny"); nil = no suggestion (older server) — celebration keeps the original copy and Play Now opens the Classic slot
+@property (nonatomic, copy)   NSString        *pendingClaimSpinsMachine; // Server-suggested machine for the pending claim spins (claim response spins_machine: "classic", "penny" or "plunder"); nil = no suggestion (older server) — celebration keeps the original copy and Play Now opens the Classic slot
 
 @property (nonatomic, assign) NSInteger  dailyCoinsPendingAmount; // 10 or 15 depending on membership; from server
 
@@ -1775,7 +1776,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         forHTTPHeaderField:@"Authorization"];
 
-    claimRequest.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{} options:0 error:nil];
+    claimRequest.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{@"spins_machines": @[@"classic", @"penny", @"plunder"]} options:0 error:nil];
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:claimRequest
 
@@ -2655,6 +2656,12 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     }
 
+    if ([machine isEqualToString:@"plunder"]) {
+
+        return [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.MessagePlunder", @"Free spins celebration message naming Plunder Bay"), (long)count];
+
+    }
+
     if ([machine isEqualToString:@"classic"]) {
 
         return [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.MessageClassic", @"Free spins celebration message naming the Classic Slots"), (long)count];
@@ -3110,7 +3117,9 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 // (older server). The suggestion is consumed either way. The spins
 
-// themselves stay in the shared pool — this only chooses where the
+// themselves land in that machine's own pool server-side —
+
+// this only chooses where the
 
 // player is taken to play them.
 
@@ -3120,15 +3129,25 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.pendingClaimSpinsMachine = nil;
 
-    if (![machine isEqualToString:@"penny"]) {
+    UIViewController *slot = nil;
+
+    if ([machine isEqualToString:@"penny"]) {
+
+        slot = [BRPennySlotViewController new];
+
+    } else if ([machine isEqualToString:@"plunder"]) {
+
+        slot = [BRPlunderBayViewController new];
+
+    }
+
+    if (!slot) {
 
         [self openFirstBrainrotSlot];
 
         return;
 
     }
-
-    BRPennySlotViewController *slot = [BRPennySlotViewController new];
 
     if (self.navigationController) {
 

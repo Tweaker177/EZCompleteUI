@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "Spinnen…";
 "BRSlot.Error.SessionExpired" = "Ihre Anmeldesitzung ist abgelaufen.";
 "BRSlot.Penny.MaxBet" = "MAX. EINSATZ\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "AUTO\n%ld";
 "BRSlot.Penny.FreeSpin" = "Freispiel…";
 "BRSlot.Penny.NeedCoins" = "Für diesen Spin werden %ld Münzen benötigt.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld FREISPIELE ÜBRIG • ALLE GEWINNE 2×";
@@ -445,20 +446,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "Derzeit wird das integrierte Slot-Image verwendet.";
 "BRSlot.Customizer.BuiltInPenny" = "Derzeit wird das integrierte Penny Slots-Image verwendet.";
 "BRSlot.Generation.Cost" = "Jede Generation kostet 3 EZ-Münzen.";
-"BRSlot.Plunder.Title" = "Plunder Bay";
-"BRSlot.Plunder.Heading" = "☠ PLUNDER BAY ☠";
-"BRSlot.Plunder.Description" = "Zwanzig Linien, eine Schatztruhe. Drei Truhen wecken den Bonus.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Truhen zahlen überall — ab 3 starten Freispiele mit Liniengewinnen ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld FREISPIELE ÜBRIG — LINIENGEWINNE ×3";
-"BRSlot.Plunder.FreeSpin" = "Freispiel — kein Einsatz abgezogen";
-"BRSlot.Plunder.BetValue" = "EINSATZ\n%ld";
-"BRSlot.Plunder.MaxBet" = "MAX. EINSATZ\n100 + DREHEN";
-"BRSlot.Plunder.NeedCoins" = "Für diesen Einsatz werden %ld Münzen benötigt.";
-"BRSlot.Plunder.SignIn" = "Melden Sie sich an, um Plunder Bay zu spielen.";
-"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
-"BRSlot.Plunder.LoungeTitle" = "Plunder Bay Lounge";
-"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
-"BRSlot.Picker.Plunder.Detail" = "Fünf Walzen, zwanzig Linien, eine Truhe voller Freispiele. Der Piratenautomat.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Songtext";
@@ -505,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "Später";
 "EZCoinStore.FreeSpins.MessageClassic" = "Du hast %ld Freispiele an den Classic Slots gewonnen!";
 "EZCoinStore.FreeSpins.MessagePenny" = "Du hast %ld Freispiele an den Penny Slots gewonnen!";
+"EZCoinStore.FreeSpins.MessagePlunder" = "Du hast %ld Freispiele in Plunder Bay gewonnen!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "Die Aktion konnte nicht abgeschlossen werden.";

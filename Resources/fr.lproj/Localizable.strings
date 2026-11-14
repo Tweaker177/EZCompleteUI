@@ -448,6 +448,7 @@
 "BRSlot.Spinning" = "Tourner…";
 "BRSlot.Error.SessionExpired" = "Votre session de connexion a expiré.";
 "BRSlot.Penny.MaxBet" = "MISE MAXIMALE\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "AUTO\n%ld";
 "BRSlot.Penny.FreeSpin" = "Tour gratuit…";
 "BRSlot.Penny.NeedCoins" = "Besoin de %ld pièces pour ce tour.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld TOURS GRATUITS GAUCHES • TOUS LES GAGNES 2×";
@@ -467,20 +468,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "J'utilise actuellement l'image de slot intégrée.";
 "BRSlot.Customizer.BuiltInPenny" = "J'utilise actuellement l'image Penny Slots intégrée.";
 "BRSlot.Generation.Cost" = "Chaque génération coûte 3 EZ Coins.";
-"BRSlot.Plunder.Title" = "Plunder Bay";
-"BRSlot.Plunder.Heading" = "☠ PLUNDER BAY ☠";
-"BRSlot.Plunder.Description" = "Vingt lignes, un coffre au trésor. Trois coffres réveillent le bonus.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Les coffres paient partout — 3 ou plus lancent les tours gratuits avec gains de ligne ×3";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld TOURS GRATUITS RESTANTS — GAINS DE LIGNE ×3";
-"BRSlot.Plunder.FreeSpin" = "Tour gratuit — aucune mise prélevée";
-"BRSlot.Plunder.BetValue" = "MISE\n%ld";
-"BRSlot.Plunder.MaxBet" = "MISE MAXIMALE\n100 + TOURNER";
-"BRSlot.Plunder.NeedCoins" = "Besoin de %ld pièces pour cette mise.";
-"BRSlot.Plunder.SignIn" = "Connectez-vous pour jouer à Plunder Bay.";
-"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
-"BRSlot.Plunder.LoungeTitle" = "Salon Plunder Bay";
-"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
-"BRSlot.Picker.Plunder.Detail" = "Cinq rouleaux, vingt lignes, un coffre plein de tours gratuits. La machine pirate.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Paroles de la chanson";
@@ -527,6 +514,7 @@
 "EZCoinStore.FreeSpins.Later" = "Plus tard";
 "EZCoinStore.FreeSpins.MessageClassic" = "Vous avez gagné %ld tours gratuits sur les machines Classic !";
 "EZCoinStore.FreeSpins.MessagePenny" = "Vous avez gagné %ld tours gratuits sur les machines Penny !";
+"EZCoinStore.FreeSpins.MessagePlunder" = "Vous avez gagné %ld tours gratuits sur Plunder Bay !";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "L'action n'a pas pu être terminée.";

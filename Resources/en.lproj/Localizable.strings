@@ -470,6 +470,7 @@
 "BRSlot.Spinning" = "Spinning…";
 "BRSlot.Error.SessionExpired" = "Your sign-in session has expired.";
 "BRSlot.Penny.MaxBet" = "MAX BET\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "AUTO\n%ld";
 "BRSlot.Penny.FreeSpin" = "Free spin…";
 "BRSlot.Penny.NeedCoins" = "Need %ld coins for this spin.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld FREE SPINS LEFT • ALL WINS 2×";
@@ -535,6 +536,7 @@
 "EZCoinStore.FreeSpins.Later" = "Later";
 "EZCoinStore.FreeSpins.MessageClassic" = "You won %ld free spins on the Classic Slots!";
 "EZCoinStore.FreeSpins.MessagePenny" = "You won %ld free spins on the Penny Slots!";
+"EZCoinStore.FreeSpins.MessagePlunder" = "You won %ld free spins on Plunder Bay!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "The action couldn't be completed.";

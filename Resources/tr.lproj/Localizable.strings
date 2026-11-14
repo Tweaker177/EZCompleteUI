@@ -467,6 +467,7 @@
 "BRSlot.Spinning" = "Döndürülüyor…";
 "BRSlot.Error.SessionExpired" = "Oturum açma süreniz doldu.";
 "BRSlot.Penny.MaxBet" = "MAKSİMUM BAHİS\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "OTO\n%ld";
 "BRSlot.Penny.FreeSpin" = "Ücretsiz dönüş…";
 "BRSlot.Penny.NeedCoins" = "Bu dönüş için %ld coin gerekli.";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld ÜCRETSİZ DÖNÜŞ KALDI • TÜM KAZANÇLAR 2×";
@@ -486,20 +487,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "Şu anda yerleşik slot görüntüsü kullanılıyor.";
 "BRSlot.Customizer.BuiltInPenny" = "Şu anda yerleşik Penny Slots görüntüsü kullanılıyor.";
 "BRSlot.Generation.Cost" = "Her oluşturma 3 EZ Coin tutar.";
-"BRSlot.Plunder.Title" = "Plunder Bay";
-"BRSlot.Plunder.Heading" = "☠  PLUNDER BAY  ☠";
-"BRSlot.Plunder.Description" = "Yirmi çizgi, bir hazine sandığı. Üç sandık bonusu uyandırır.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Sandıklar her yerde öder — 3 veya daha fazlası, çizgi kazançları ×3 olan ücretsiz dönüşleri başlatır";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld ÜCRETSİZ DÖNÜŞ KALDI — ÇİZGİ KAZANÇLARI ×3";
-"BRSlot.Plunder.FreeSpin" = "Ücretsiz dönüş — bahis alınmaz";
-"BRSlot.Plunder.BetValue" = "BAHİS\n%ld";
-"BRSlot.Plunder.MaxBet" = "MAKSİMUM BAHİS\n100 + DÖNDÜR";
-"BRSlot.Plunder.NeedCoins" = "Bu bahis için %ld coin gerekli.";
-"BRSlot.Plunder.SignIn" = "Plunder Bay oynamak için oturum açın.";
-"BRSlot.Plunder.StoreFeature" = "Plunder Bay";
-"BRSlot.Plunder.LoungeTitle" = "Plunder Bay Salonu";
-"BRSlot.Picker.Plunder.Title" = "Plunder Bay";
-"BRSlot.Picker.Plunder.Detail" = "Beş makara, yirmi çizgi, ücretsiz dönüşlerle dolu bir sandık. Korsan makinesi.";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "Şarkı sözleri";
@@ -546,6 +533,7 @@
 "EZCoinStore.FreeSpins.Later" = "Sonra";
 "EZCoinStore.FreeSpins.MessageClassic" = "Classic Slots'ta %ld ücretsiz dönüş kazandınız!";
 "EZCoinStore.FreeSpins.MessagePenny" = "Penny Slots'ta %ld ücretsiz dönüş kazandınız!";
+"EZCoinStore.FreeSpins.MessagePlunder" = "Plunder Bay'de %ld ücretsiz dönüş kazandınız!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "İşlem tamamlanamadı.";

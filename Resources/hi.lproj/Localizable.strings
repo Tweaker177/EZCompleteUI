@@ -426,6 +426,7 @@
 "BRSlot.Spinning" = "घूम रहा है...";
 "BRSlot.Error.SessionExpired" = "आपका साइन-इन सत्र समाप्त हो गया है.";
 "BRSlot.Penny.MaxBet" = "अधिकतम शर्त\n⚡ 225";
+"BRSlot.Plunder.AutoButton" = "ऑटो\n%ld";
 "BRSlot.Penny.FreeSpin" = "फ्री स्पिन...";
 "BRSlot.Penny.NeedCoins" = "इस स्पिन के लिए %ld सिक्कों की आवश्यकता है।";
 "BRSlot.Penny.FreeSpinsRemaining" = "⚡ %ld निःशुल्क स्पिन शेष • सभी जीतें 2×";
@@ -445,20 +446,6 @@
 "BRSlot.Customizer.BuiltInClassic" = "वर्तमान में अंतर्निर्मित स्लॉट छवि का उपयोग किया जा रहा है।";
 "BRSlot.Customizer.BuiltInPenny" = "वर्तमान में अंतर्निहित पेनी स्लॉट छवि का उपयोग किया जा रहा है।";
 "BRSlot.Generation.Cost" = "प्रत्येक पीढ़ी की लागत 3 ईज़ी सिक्के हैं।";
-"BRSlot.Plunder.Title" = "प्लंडर बे";
-"BRSlot.Plunder.Heading" = "☠ प्लंडर बे ☠";
-"BRSlot.Plunder.Description" = "बीस लाइनें, एक ख़ज़ाने का चेस्ट। तीन चेस्ट बोनस को जगाते हैं।";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ चेस्ट कहीं भी भुगतान करते हैं — 3 या अधिक से लाइन जीत ×3 के साथ मुफ़्त स्पिन शुरू होते हैं";
-"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld निःशुल्क स्पिन शेष — लाइन जीत ×3";
-"BRSlot.Plunder.FreeSpin" = "मुफ़्त स्पिन — कोई शर्त नहीं ली गई";
-"BRSlot.Plunder.BetValue" = "शर्त\n%ld";
-"BRSlot.Plunder.MaxBet" = "अधिकतम शर्त\n100 + स्पिन";
-"BRSlot.Plunder.NeedCoins" = "इस शर्त के लिए %ld सिक्कों की आवश्यकता है।";
-"BRSlot.Plunder.SignIn" = "प्लंडर बे खेलने के लिए साइन इन करें।";
-"BRSlot.Plunder.StoreFeature" = "प्लंडर बे";
-"BRSlot.Plunder.LoungeTitle" = "प्लंडर बे लाउंज";
-"BRSlot.Picker.Plunder.Title" = "प्लंडर बे";
-"BRSlot.Picker.Plunder.Detail" = "पाँच रील, बीस लाइनें, मुफ़्त स्पिन से भरा एक चेस्ट। समुद्री लुटेरों की मशीन।";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "गाने के बोल";
@@ -505,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "बाद में";
 "EZCoinStore.FreeSpins.MessageClassic" = "आपने Classic Slots पर %ld मुफ़्त स्पिन जीते!";
 "EZCoinStore.FreeSpins.MessagePenny" = "आपने Penny Slots पर %ld मुफ़्त स्पिन जीते!";
+"EZCoinStore.FreeSpins.MessagePlunder" = "आपने प्लंडर बे पर %ld मुफ़्त स्पिन जीते!";
 
 // File explorer
 "EZFileExplorer.ActionFailed" = "कार्रवाई पूरी नहीं हो सकी.";
