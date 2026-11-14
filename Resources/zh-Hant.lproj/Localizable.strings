@@ -486,6 +486,20 @@
 "BRSlot.Customizer.BuiltInClassic" = "目前使用內建的老虎機圖片。";
 "BRSlot.Customizer.BuiltInPenny" = "目前使用內建的便士老虎機圖片。";
 "BRSlot.Generation.Cost" = "每次生成需 3 EZ 金幣。";
+"BRSlot.Plunder.Title" = "掠奪灣";
+"BRSlot.Plunder.Heading" = "☠  掠奪灣  ☠";
+"BRSlot.Plunder.Description" = "二十條線，一個寶箱。三個寶箱喚醒獎勵。";
+"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ 寶箱任意位置賠付 — 3 個以上開啟免費旋轉，連線獎金 ×3";
+"BRSlot.Plunder.FreeSpinsRemaining" = "⚓ 剩餘 %ld 次免費旋轉 — 連線獎金 ×3";
+"BRSlot.Plunder.FreeSpin" = "免費旋轉 — 不扣除投注";
+"BRSlot.Plunder.BetValue" = "投注\n%ld";
+"BRSlot.Plunder.MaxBet" = "最大投注\n100 + 旋轉";
+"BRSlot.Plunder.NeedCoins" = "此投注需要 %ld 金幣。";
+"BRSlot.Plunder.SignIn" = "登入以遊玩掠奪灣。";
+"BRSlot.Plunder.StoreFeature" = "掠奪灣";
+"BRSlot.Plunder.LoungeTitle" = "掠奪灣休息室";
+"BRSlot.Picker.Plunder.Title" = "掠奪灣";
+"BRSlot.Picker.Plunder.Detail" = "五個捲軸、二十條線、一整箱免費旋轉。海盜老虎機。";
 
 /* Added 2026-10-25: music, chat paywall, memory player, free spins */
 "EZMusic.A11y.Lyrics" = "歌曲歌詞";

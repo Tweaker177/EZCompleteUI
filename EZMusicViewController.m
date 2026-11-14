@@ -822,8 +822,10 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
                                                                 mode:@"source"];
     }
     // Opens on Library: segmented pages default to the left segment (user rule,
-    // 2026-11-13); Create is reached by tapping its segment.
-    [self showTab:EZMusicTabLibrary];
+    // 2026-11-13) — unless this screen was opened with an audio reference to
+    // create from (e.g. TTS "Add Music"), which is an in-flow action like
+    // Remix and still lands on Create with the reference loaded.
+    [self showTab:(self.referenceURL.isFileURL ? EZMusicTabCreate : EZMusicTabLibrary)];
 
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
     [center addObserver:self selector:@selector(keyboardWillChangeFrame:)
