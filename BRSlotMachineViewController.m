@@ -125,6 +125,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
 @property (nonatomic) BOOL progressiveBannerAnimating;
 @property (nonatomic, strong) NSDictionary<NSString *, UIImage *> *importedThemeImages;
 @property (nonatomic, strong) UIImage *importedRoomImage;
+@property (nonatomic, copy) NSString *importedThemeTitle;
 @end
 
 @implementation BRSlotMachineViewController
@@ -139,14 +140,14 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
         [images addEntriesFromDictionary:record.customAssetImages ?: @{}];
         _importedThemeImages = images;
         _importedRoomImage = record.backgroundImage;
-        self.title = record.themeTitle.length ? [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Classic.ThemeTitle", nil), record.themeTitle] : NSLocalizedString(@"BRSlot.Classic.CommunityTitle", nil);
+        _importedThemeTitle = [record.themeTitle copy];
     }
     return self;
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = NSLocalizedString(@"BRSlot.Classic.Title", nil);
+    // One title per page: the big in-view heading is this screen's only title; no nav-bar duplicate.
     self.view.backgroundColor = [UIColor colorWithRed:0.045 green:0.025 blue:0.09 alpha:1];
     self.activeLineCount = 5; self.betPerLine = 1;
     self.customImages = self.importedThemeImages.count ? self.importedThemeImages : [self loadCustomImages];
@@ -179,8 +180,8 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
 
 - (void)buildUI {
     if (self.importedRoomImage) { UIImageView *room = [[UIImageView alloc] initWithImage:self.importedRoomImage]; room.frame = self.view.bounds; room.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight; room.contentMode = UIViewContentModeScaleAspectFill; room.alpha = .22; [self.view insertSubview:room atIndex:0]; }
-    UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Classic.Heading", nil);
-    title.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1];
+    UILabel *title = [UILabel new]; title.text = self.importedThemeTitle.length ? [NSString stringWithFormat:@"\U0001F9E0  %@  \U0001F9E0", self.importedThemeTitle.uppercaseString] : NSLocalizedString(@"BRSlot.Classic.Heading", nil);
+    title.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .55; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1];
     title.textAlignment = NSTextAlignmentCenter; title.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:title];
     self.balanceLabel = [UILabel new]; self.balanceLabel.text = NSLocalizedString(@"BRSlot.Balance.Loading", nil); self.balanceLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold]; self.balanceLabel.textColor = UIColor.whiteColor; self.balanceLabel.textAlignment = NSTextAlignmentCenter; self.balanceLabel.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:self.balanceLabel];
     self.jackpotBanner = [UIView new]; self.jackpotBanner.backgroundColor = [UIColor colorWithRed:.52 green:.08 blue:.34 alpha:1]; self.jackpotBanner.layer.cornerRadius = 10; self.jackpotBanner.layer.borderWidth = 1; self.jackpotBanner.layer.borderColor = [UIColor colorWithRed:1 green:.76 blue:.14 alpha:.9].CGColor; self.jackpotBanner.clipsToBounds = YES; self.jackpotBanner.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:self.jackpotBanner];

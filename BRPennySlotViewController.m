@@ -86,7 +86,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = NSLocalizedString(@"BRSlot.Penny.Title", nil);
+    // One title per page: the big in-view heading is this screen's only title; no nav-bar duplicate.
     self.view.backgroundColor = [UIColor colorWithRed:.045 green:.02 blue:.10 alpha:1];
     self.lines = 9; self.betIndex = 0;
     self.customImages = [self loadCustomImages];
@@ -124,7 +124,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
 - (void)buildUI {
     UIScrollView *scroll = [UIScrollView new]; scroll.translatesAutoresizingMaskIntoConstraints = NO; scroll.alwaysBounceVertical = YES; [self.view addSubview:scroll];
     UIView *content = [UIView new]; content.translatesAutoresizingMaskIntoConstraints = NO; [scroll addSubview:content];
-    UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Penny.Heading", nil); title.font = [UIFont systemFontOfSize:23 weight:UIFontWeightBlack]; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; title.textAlignment = NSTextAlignmentCenter;
+    UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Penny.Heading", nil); title.font = [UIFont systemFontOfSize:23 weight:UIFontWeightBlack]; title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .55; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; title.textAlignment = NSTextAlignmentCenter;
     self.balanceLabel = [UILabel new]; self.balanceLabel.text = NSLocalizedString(@"BRSlot.Balance.Loading", nil); self.balanceLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold]; self.balanceLabel.textColor = UIColor.whiteColor; self.balanceLabel.textAlignment = NSTextAlignmentCenter;
     self.bonusLabel = [UILabel new]; self.bonusLabel.text = NSLocalizedString(@"BRSlot.Penny.ScatterReward", nil); self.bonusLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; self.bonusLabel.textColor = [UIColor colorWithRed:1 green:.83 blue:.3 alpha:1]; self.bonusLabel.textAlignment = NSTextAlignmentCenter; self.bonusLabel.numberOfLines = 2; self.bonusLabel.backgroundColor = [UIColor colorWithRed:.4 green:.09 blue:.3 alpha:1]; self.bonusLabel.layer.cornerRadius = 10; self.bonusLabel.clipsToBounds = YES;
     UIView *machine = [UIView new]; machine.backgroundColor = [UIColor colorWithRed:.29 green:.08 blue:.42 alpha:1]; machine.layer.cornerRadius = 21; machine.layer.borderWidth = 3; machine.layer.borderColor = [UIColor colorWithRed:1 green:.71 blue:.12 alpha:1].CGColor;
