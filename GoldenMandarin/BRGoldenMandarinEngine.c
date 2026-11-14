@@ -36,10 +36,10 @@ int GMPaylineRow(int line, int reel) {
 //                                      lantern fan bamboo plum koi jade ingot dragon
 static const int kWeights[GMSymbolHat] = { 26,    22,  19,    16,  12,  8,    5,    3 };
 
-// Probability of a hat on any given cell, in 1/10000ths. 307 makes the
-// bonus (3+ hats anywhere) trigger about once every 100 spins.
+// Probability of a hat on any given cell, in 1/10000ths. 336 makes the
+// bonus (3+ hats anywhere) trigger about once every 78 spins.
 #ifndef GM_SCATTER_PER_10000
-#define GM_SCATTER_PER_10000 307
+#define GM_SCATTER_PER_10000 336
 #endif
 
 // ── Paytable: pays in line bets for 3 / 4 / 5 of a kind ─────────────────────
