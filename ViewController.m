@@ -4233,6 +4233,17 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 promptForMainModel = [NSString stringWithFormat:
                     @"[Validated helper answer — verify or update with web search:]\n%@\n\n[User message]\n%@",
                     result.shortCircuitAnswer, fullPrompt];
+                // The analyze wrapper prepended the always-in-context
+                // important-memories block to result.finalPrompt, but this
+                // branch rebuilds the prompt from fullPrompt — re-apply the
+                // block so a web-search turn still carries the user's
+                // standing facts (the restore/title stripping already
+                // handles the "[Important memories" prefix).
+                NSString *importantBlock = EZImportantMemoryContextBlock();
+                if (importantBlock.length > 0) {
+                    promptForMainModel = [NSString stringWithFormat:@"%@\n\n%@",
+                                          importantBlock, promptForMainModel];
+                }
                 if (self.chatContext.count > 0) [self.chatContext removeLastObject];
                 [self.chatContext addObject:@{ @"role": @"user", @"content": promptForMainModel }];
                 [self appendToChat:@"[System: Helper answer included for web verification ✓]"];
@@ -4715,7 +4726,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             }
             NSString *snippet = [snippetWords componentsJoinedByString:@" "];
             if (snippet.length > 80) {
-                snippet = [[snippet substringToIndex:80] stringByAppendingString:@"\u2026"];
+                // Cut on a composed-character boundary: a hard
+                // substringToIndex: can split a surrogate pair (emoji) and
+                // leave a lone surrogate, which NSJSONSerialization refuses
+                // — failing the whole send for one reaction note.
+                NSRange safeRange = [snippet rangeOfComposedCharacterSequencesForRange:NSMakeRange(0, 80)];
+                snippet = [[snippet substringWithRange:safeRange] stringByAppendingString:@"\u2026"];
             }
             if (reactionNote.length) [reactionNote appendString:@"\n"];
             [reactionNote appendFormat:@"[User reacted %@ to your earlier response: \"%@\"]",
