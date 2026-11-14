@@ -62,7 +62,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = NSLocalizedString(@"BRSlot.Plunder.Title", nil);
+    // One title per page: the big in-view heading is this screen's only title; no nav-bar duplicate.
     self.view.backgroundColor = [UIColor colorWithRed:.02 green:.04 blue:.10 alpha:1];
     self.betIndex = 1; // 20 coins
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:NSLocalizedString(@"BRSlot.Navigation.Back", nil) action:@selector(backTapped)]];
@@ -99,7 +99,7 @@ static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
 - (void)buildUI {
     UIScrollView *scroll = [UIScrollView new]; scroll.translatesAutoresizingMaskIntoConstraints = NO; scroll.alwaysBounceVertical = YES; [self.view addSubview:scroll];
     UIView *content = [UIView new]; content.translatesAutoresizingMaskIntoConstraints = NO; [scroll addSubview:content];
-    UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Plunder.Heading", nil); title.font = [UIFont systemFontOfSize:23 weight:UIFontWeightBlack]; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; title.textAlignment = NSTextAlignmentCenter;
+    UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Plunder.Heading", nil); title.font = [UIFont systemFontOfSize:23 weight:UIFontWeightBlack]; title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .55; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; title.textAlignment = NSTextAlignmentCenter;
     self.balanceLabel = [UILabel new]; self.balanceLabel.text = NSLocalizedString(@"BRSlot.Balance.Loading", nil); self.balanceLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold]; self.balanceLabel.textColor = UIColor.whiteColor; self.balanceLabel.textAlignment = NSTextAlignmentCenter;
     self.bonusLabel = [UILabel new]; self.bonusLabel.text = NSLocalizedString(@"BRSlot.Plunder.ScatterReward", nil); self.bonusLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; self.bonusLabel.textColor = [UIColor colorWithRed:1 green:.83 blue:.3 alpha:1]; self.bonusLabel.textAlignment = NSTextAlignmentCenter; self.bonusLabel.numberOfLines = 2; self.bonusLabel.backgroundColor = [UIColor colorWithRed:.05 green:.16 blue:.28 alpha:1]; self.bonusLabel.layer.cornerRadius = 10; self.bonusLabel.clipsToBounds = YES;
     self.machineView = [UIView new]; self.machineView.backgroundColor = [UIColor colorWithRed:.05 green:.09 blue:.22 alpha:1]; self.machineView.layer.cornerRadius = 21; self.machineView.layer.borderWidth = 3; self.machineView.layer.borderColor = [UIColor colorWithRed:1 green:.71 blue:.12 alpha:1].CGColor;
