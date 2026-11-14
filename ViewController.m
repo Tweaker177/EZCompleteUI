@@ -4049,22 +4049,23 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         [self appendToChat:@"[System: Whisper is for audio transcription only — switched to gpt-4o for chat]"];
     }
 
+    // Auto mode (PR #76): the server picks the chat model, so a stale
+    // non-chat pick still sitting in selectedModel (seahorse-image, an
+    // image model, dall-e-2-edit) must not divert this send into that
+    // model's flow. The model-specific branches below are explicit-pick only.
+    BOOL ezAutoEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"];
     // ── Explicit image edit (a newly attached source image) ──────────────────
     // Edit mode remains visible after a completed edit, but it must not force
     // every later prompt into edit. Without a pending source image, let the
     // image-intent router below choose generate, edit, or reopen instead.
-    if ([self.selectedModel isEqualToString:@"gpt-image-1-edit"] &&
+    if (!ezAutoEnabled &&
+        [self.selectedModel isEqualToString:@"gpt-image-1-edit"] &&
         self.pendingImagePaths.count > 0) {
         [self callImageEdit:text imagePath:self.pendingImagePaths.lastObject ?: self.lastImageLocalPath];
         [self.pendingImagePaths removeAllObjects];
         return;
     }
 
-    // Auto mode (PR #76): the server picks the chat model, so a stale
-    // non-chat pick still sitting in selectedModel (seahorse-image, an
-    // image model, dall-e-2-edit) must not divert this send into that
-    // model's flow. The model-specific branches below are explicit-pick only.
-    BOOL ezAutoEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"];
     // ── Legacy dall-e-2-edit fallback ────────────────────────────────────────
     if (!ezAutoEnabled && [self.selectedModel isEqualToString:@"dall-e-2-edit"]) {
         [self enterImageEditModeFromCurrentSelection];
@@ -4692,8 +4693,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // transcription sends don't pass through here at all. A failed send
     // leaves them pending for the next successful one.
     NSArray<NSDictionary *> *pendingReactionEntries = @[];
-    BOOL reactionModelIsImage = [self isGptImage1Family:self.selectedModel] ||
-        [self.selectedModel isEqualToString:@"seahorse-image"];
+    // Under Auto the send goes out as a chat turn (model "auto"), so a
+    // stale image pick must not suppress the reaction share-back either.
+    BOOL reactionModelIsImage = ![[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"] &&
+        ([self isGptImage1Family:self.selectedModel] ||
+         [self.selectedModel isEqualToString:@"seahorse-image"]);
     if (!reactionModelIsImage) {
         NSMutableArray<NSDictionary *> *pending = [NSMutableArray array];
         NSMutableString *reactionNote = [NSMutableString string];
