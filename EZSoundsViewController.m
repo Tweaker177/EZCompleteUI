@@ -409,11 +409,11 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 
 - (void)buildUI {
     // Segmented tabs — Library on the left, Create on the right, and the
-    // screen opens on Create (same arrangement as the Music screen).
+    // screen opens on Library - segmented pages default to the left segment (user rule, 2026-11-13).
     self.tabControl = [[UISegmentedControl alloc] initWithItems:@[
         NSLocalizedString(@"EZSounds.LibraryTab", nil),
         NSLocalizedString(@"EZSounds.CreateTab", nil)]];
-    self.tabControl.selectedSegmentIndex = EZSoundsTabCreate;
+    self.tabControl.selectedSegmentIndex = EZSoundsTabLibrary;
     self.tabControl.translatesAutoresizingMaskIntoConstraints = NO;
     self.tabControl.backgroundColor = EZSoundsNeonPanel();
     self.tabControl.selectedSegmentTintColor = EZSoundsNeonViolet();
