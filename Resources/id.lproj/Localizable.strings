@@ -836,3 +836,5 @@
 "BRSlot.Picker.Phoenix.Detail" = "Lima gulungan, dua puluh lima garis. Topi emas membuka pilihan kartu dan putaran gratis ×2, ×3, atau ×5.";
 "BRSlot.Lounge.WinningsMostChips" = "KOIN TERBANYAK: TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "Belum ada pemimpin koin.\n";
+"BRSlot.GM.AutoButton" = "AUTO\n%ld";
+"BRSlot.PP.AutoButton" = "AUTO\n%ld";

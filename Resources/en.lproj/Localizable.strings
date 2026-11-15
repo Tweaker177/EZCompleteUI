@@ -841,3 +841,5 @@
 "BRSlot.PP.WonCoins" = "Won %ld coins!";
 "BRSlot.Lounge.WinningsMostChips" = "MOST CHIPS: TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "No chip leaders yet.\n";
+"BRSlot.GM.AutoButton" = "AUTO\n%ld";
+"BRSlot.PP.AutoButton" = "AUTO\n%ld";

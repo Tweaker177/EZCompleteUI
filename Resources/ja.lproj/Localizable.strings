@@ -795,3 +795,5 @@
 "BRSlot.Picker.Phoenix.Detail" = "リール5本、ライン25本。金の帽子でカード選択と ×2、×3、×5 のフリースピンが開きます。";
 "BRSlot.Lounge.WinningsMostChips" = "コイン最多: トップ5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "コインリーダーはまだいません。\n";
+"BRSlot.GM.AutoButton" = "オート\n%ld";
+"BRSlot.PP.AutoButton" = "オート\n%ld";

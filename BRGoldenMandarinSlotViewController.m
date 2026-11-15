@@ -187,7 +187,7 @@ static UIImage *GMParticleImage(BOOL coin) {
 @property (nonatomic, strong) NSMutableArray<UIView *> *strips;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIImageView *> *> *stripCells;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIView *> *> *highlights;
-@property (nonatomic, strong) UIButton *linesButton, *betButton, *maxButton, *spinButton, *soundButton;
+@property (nonatomic, strong) UIButton *linesButton, *betButton, *autoButton, *spinButton, *soundButton;
 @property (nonatomic, strong) UIView *celebrationOverlay, *summaryOverlay, *pickOverlay;
 @property (nonatomic, strong) NSDictionary *result;
 // Card pick
@@ -207,6 +207,9 @@ static UIImage *GMParticleImage(BOOL coin) {
     BOOL _balanceChecked;               // _balance verified by the server (entry, settle, or bet change)
     NSInteger _freeRemaining, _bonusMult, _bonusTotal, _bonusLines, _bonusBet, _lastAwarded, _spinWager;
     BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving;
+    NSInteger _autoSpinChoice, _autoSpinsRemaining;
+    BOOL _autoSpinActive, _autoFromDriver;
+    NSUInteger _autoSpinToken;
     NSUInteger _epoch;
     NSTimeInterval _celebrationEnd;
     CGFloat _cellSize;
@@ -262,6 +265,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     if (self.isMovingFromParentViewController || self.isBeingDismissed) {
         _leaving = YES;
         _epoch++;
+        [self stopAutoSpin];
         [self.audio shutdown];
         [self.chatBar stop];
         [self.machine.layer removeAllAnimations];
@@ -481,8 +485,12 @@ static UIImage *GMParticleImage(BOOL coin) {
     UIColor *deepRed = GMC(0x6E0A14);
     self.linesButton = [self controlButton:@"" color:deepRed action:@selector(cycleLines)];
     self.betButton = [self controlButton:@"" color:deepRed action:@selector(cycleBet)];
-    self.maxButton = [self controlButton:@"" color:GMC(0x8A5A00) action:@selector(maxBet)];
-    UIStackView *controls = [[UIStackView alloc] initWithArrangedSubviews:@[self.linesButton, self.betButton, self.maxButton]];
+    self.autoButton = [self controlButton:@"" color:GMC(0x14532D) action:@selector(autoButtonTapped)];
+    UILongPressGestureRecognizer *autoHold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(autoButtonHeld:)];
+    autoHold.minimumPressDuration = 0.4;
+    [self.autoButton addGestureRecognizer:autoHold];
+    _autoSpinChoice = 5;
+    UIStackView *controls = [[UIStackView alloc] initWithArrangedSubviews:@[self.linesButton, self.betButton, self.autoButton]];
     controls.translatesAutoresizingMaskIntoConstraints = NO;
     controls.axis = UILayoutConstraintAxisHorizontal;
     controls.distribution = UIStackViewDistributionFillEqually;
@@ -647,7 +655,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.linesButton.titleLabel.text = nil;
     [self.linesButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.Lines", @"LINES\n%ld"), (long)lines] forState:UIControlStateNormal];
     [self.betButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.Bet", @"BET / LINE\n%ld"), (long)bet] forState:UIControlStateNormal];
-    [self.maxButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(GM_MAX_LINES * GMBets().lastObject.integerValue)] forState:UIControlStateNormal];
+    [self.autoButton setTitle:[self autoButtonTitle] forState:UIControlStateNormal];
     self.totalBetLabel.text = _bonusMode ? GMLoc(@"BRSlot.GM.FreeNoWager", @"FREE SPINS — NO WAGER TAKEN")
         : [NSString stringWithFormat:GMLoc(@"BRSlot.GM.TotalBet", @"TOTAL BET  %ld COINS"), (long)(lines * bet)];
 }
@@ -670,7 +678,7 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 - (void)updateControls {
     BOOL idle = !_busy && !_bonusMode && _freeRemaining == 0;
-    for (UIButton *button in @[self.linesButton, self.betButton, self.maxButton, self.spinButton]) {
+    for (UIButton *button in @[self.linesButton, self.betButton, self.spinButton]) {
         button.enabled = idle;
         button.alpha = idle ? 1 : 0.5;
     }
@@ -693,13 +701,48 @@ static UIImage *GMParticleImage(BOOL coin) {
     [self checkBalanceSilently];
 }
 
-- (void)maxBet {
-    if (_busy || _bonusMode) return;
-    _lines = GM_MAX_LINES;
-    _betIndex = (NSInteger)GMBets().count - 1;
-    [self refreshLabels];
-    [self checkBalanceSilently];
+// Auto spin: tap the button to cycle how many (5 / 10 / 15 / 30), hold it
+// to fire. While a run is active the button shows the spins left; tapping
+// Spin (or the auto button) stops the run. A bonus pauses the run — the
+// free spins play out on their own chain and the paid run resumes after
+// the summary. An error or running out of coins ends the run.
+- (NSString *)autoButtonTitle { return [NSString stringWithFormat:GMLoc(@"BRSlot.GM.AutoButton", @"AUTO\n%ld"), (long)(_autoSpinActive ? _autoSpinsRemaining : _autoSpinChoice)]; }
+- (void)updateAutoButton { [self.autoButton setTitle:[self autoButtonTitle] forState:UIControlStateNormal]; }
+- (void)autoButtonTapped {
+    if (_autoSpinActive) { [self stopAutoSpin]; return; }
+    NSInteger choices[4] = {5, 10, 15, 30};
+    NSInteger idx = 0; for (NSInteger i = 0; i < 4; i++) if (choices[i] == _autoSpinChoice) idx = i;
+    _autoSpinChoice = choices[(idx + 1) % 4];
+    [self updateAutoButton];
+}
+- (void)autoButtonHeld:(UILongPressGestureRecognizer *)gesture {
+    if (gesture.state != UIGestureRecognizerStateBegan) return;
+    if (_autoSpinActive || _busy || _bonusMode || _freeRemaining > 0) return;
+    _autoSpinActive = YES; _autoSpinsRemaining = _autoSpinChoice; [self updateAutoButton];
+    [self fireAutoSpin];
+}
+- (void)fireAutoSpin {
+    if (!_autoSpinActive) return;
+    if (_autoSpinsRemaining <= 0) { [self stopAutoSpin]; return; }
+    NSInteger wager = _lines * [self betPerLine];
+    if (_balanceChecked && _balance < wager) {
+        [self setMessage:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.NeedCoins", @"You need %ld coins for that bet."), (long)wager] highlight:NO];
+        [self stopAutoSpin];
+        return;
+    }
+    _autoSpinsRemaining--; [self updateAutoButton];
+    _autoFromDriver = YES;
     [self spinTapped];
+}
+- (void)stopAutoSpin { _autoSpinActive = NO; _autoSpinsRemaining = 0; _autoSpinToken++; [self updateAutoButton]; }
+- (void)schedulePaidAutoSpin {
+    if (!_autoSpinActive || _busy || _bonusMode || _freeRemaining > 0 || _pickPending) return;
+    if (_autoSpinsRemaining <= 0) { [self stopAutoSpin]; return; }
+    NSUInteger token = ++_autoSpinToken;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (self->_autoSpinToken != token || !self->_autoSpinActive || self->_busy || self->_bonusMode || self->_freeRemaining > 0 || self->_pickPending || self->_leaving || !self.view.window) return;
+        [self fireAutoSpin];
+    });
 }
 // Silent balance verification: refreshes the cached balance the spin path
 // trusts. Runs on screen entry and whenever the bet changes; never blocks
@@ -805,6 +848,8 @@ static UIImage *GMParticleImage(BOOL coin) {
 #pragma mark Spinning
 
 - (void)spinTapped {
+    if (_autoSpinActive && !_autoFromDriver) { [self stopAutoSpin]; return; }
+    _autoFromDriver = NO;
     if (_busy || _bonusMode || _freeRemaining > 0) return;
     NSInteger wager = _lines * [self betPerLine];
     if (_balanceChecked) {
@@ -867,6 +912,7 @@ static UIImage *GMParticleImage(BOOL coin) {
 }
 
 - (void)failSpin:(NSString *)message status:(NSInteger)status {
+    [self stopAutoSpin];
     _balanceChecked = NO;
     [self stopReelLoops];
     _reelsMoving = NO;
@@ -1027,6 +1073,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     }
     _busy = NO;
     [self updateControls];
+    [self schedulePaidAutoSpin];
     if (_balance <= 0) [self after:0.5 do:^{ [self showCoinStore]; }];
 }
 
@@ -1563,6 +1610,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
     [self exitBonusMode];
     _busy = NO;
     [self updateControls];
+    [self schedulePaidAutoSpin];
     [self setMessage:GMLoc(@"BRSlot.GM.Idle", @"Match 3 or more symbols from the left on a payline.") highlight:NO];
     [self refreshState];
 }

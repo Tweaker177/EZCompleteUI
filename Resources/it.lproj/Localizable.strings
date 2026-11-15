@@ -795,3 +795,5 @@
 "BRSlot.Picker.Phoenix.Detail" = "Cinque rulli, venticinque linee. I cappelli dorati aprono una scelta di carta e giri gratuiti ×2, ×3 o ×5.";
 "BRSlot.Lounge.WinningsMostChips" = "PIÙ MONETE: TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "Ancora nessun leader in monete.\n";
+"BRSlot.GM.AutoButton" = "AUTO\n%ld";
+"BRSlot.PP.AutoButton" = "AUTO\n%ld";

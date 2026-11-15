@@ -795,3 +795,5 @@
 "BRSlot.Picker.Phoenix.Detail" = "Năm cuộn, hai mươi lăm dòng. Mũ vàng mở lựa chọn lá bài và quay miễn phí ×2, ×3 hoặc ×5.";
 "BRSlot.Lounge.WinningsMostChips" = "NHIỀU XU NHẤT: TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "Chưa có người dẫn đầu về xu.\n";
+"BRSlot.GM.AutoButton" = "TỰ ĐỘNG\n%ld";
+"BRSlot.PP.AutoButton" = "TỰ ĐỘNG\n%ld";

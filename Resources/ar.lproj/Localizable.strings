@@ -795,3 +795,5 @@
 "BRSlot.Picker.Phoenix.Detail" = "خمس بكرات وخمسة وعشرون خطًا. القبعات الذهبية تفتح اختيار بطاقة ولفات مجانية ×2 أو ×3 أو ×5.";
 "BRSlot.Lounge.WinningsMostChips" = "أعلى الأرصدة: أفضل 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "لا توجد أرصدة عالية بعد.\n";
+"BRSlot.GM.AutoButton" = "تلقائي\n%ld";
+"BRSlot.PP.AutoButton" = "تلقائي\n%ld";

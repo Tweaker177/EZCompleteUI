@@ -836,3 +836,5 @@
 "BRSlot.Picker.Phoenix.Detail" = "Beş makara, yirmi beş hat. Altın şapkalar bir kart seçimi ve ×2, ×3 veya ×5 ücretsiz dönüş açar.";
 "BRSlot.Lounge.WinningsMostChips" = "EN ÇOK COIN: TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "Henüz coin lideri yok.\n";
+"BRSlot.GM.AutoButton" = "OTO\n%ld";
+"BRSlot.PP.AutoButton" = "OTO\n%ld";
