@@ -109,6 +109,8 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
 @property (nonatomic) NSInteger activeLineCount;
 @property (nonatomic) NSInteger betPerLine;
 @property (nonatomic) BOOL spinning;
+@property (nonatomic) NSInteger knownBalance;
+@property (nonatomic) BOOL balanceChecked;
 @property (nonatomic) NSInteger freeSpinsRemaining;
 @property (nonatomic) NSInteger freeSpinSessionTotal; // Coins won across the current free-spin run, summed client-side from each free spin's own payout (the figure the ledger credits), mirroring the Penny machine. The server's free_spins_batch_total is NOT used: it can carry value from outside the run (a previous batch / the triggering spin), overstating the total.
 @property (nonatomic, copy) NSString *pendingImageSymbol;
@@ -223,7 +225,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
 - (UIButton *)slotNavigationButtonWithTitle:(NSString *)title action:(SEL)action { UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:title forState:UIControlStateNormal]; [button setTitleColor:[UIColor colorWithRed:1 green:.79 blue:.18 alpha:1] forState:UIControlStateNormal]; button.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack]; button.backgroundColor = [UIColor colorWithRed:.18 green:.06 blue:.29 alpha:1]; button.layer.cornerRadius = 10; button.layer.borderWidth = 1; button.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.14 alpha:1].CGColor; button.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10); [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; [button sizeToFit]; button.frame = CGRectMake(0, 0, MAX(53, CGRectGetWidth(button.bounds) + 20), 32); return button; }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
 
-- (void)refreshBalance { [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) { self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil), (long)balance]; }]; [self refreshProgressiveJackpot]; }
+- (void)refreshBalance { [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) { if (!self.spinning) { self.knownBalance = balance; self.balanceChecked = YES; } self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil), (long)balance]; }]; [self refreshProgressiveJackpot]; }
 - (void)refreshProgressiveJackpot { if (!EZAuthManager.shared.isLoggedIn) return; [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *error) { if (!token) return; NSMutableURLRequest *r = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/ez-slot-spin"]]]; r.HTTPMethod = @"POST"; [r setValue:@"application/json" forHTTPHeaderField:@"Content-Type"]; [r setValue:EZSupabaseAnonKey forHTTPHeaderField:@"apikey"]; [r setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"]; r.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{ @"action": @"jackpot_status" } options:0 error:nil]; [[[NSURLSession sharedSession] dataTaskWithRequest:r completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) { NSDictionary *json = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil; dispatch_async(dispatch_get_main_queue(), ^{ id amount = json[@"progressive_jackpot"]; if ([amount isKindOfClass:NSNumber.class] && [amount integerValue] > 0) [self updateProgressiveBanner:[amount integerValue]]; self.freeSpinsRemaining = [json[@"free_spins_remaining"] integerValue]; [self updateFreeSpinsUI]; }); }] resume]; }]; }
 - (void)updateFreeSpinsUI {
     if (self.freeSpinsRemaining > 0) {
@@ -238,9 +240,20 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
 }
 - (void)updateProgressiveBanner:(NSInteger)amount { if (amount <= 0) return; self.pendingProgressiveJackpot = amount; if (!self.progressiveBannerAnimating) { self.progressiveJackpot = amount; [self startProgressiveBannerCycle]; } }
 - (void)startProgressiveBannerCycle { if (self.jackpotBanner.bounds.size.width < 2) { dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self startProgressiveBannerCycle]; }); return; } self.progressiveBannerAnimating = YES; if (self.pendingProgressiveJackpot > 0) self.progressiveJackpot = self.pendingProgressiveJackpot; self.jackpotBannerLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Classic.Jackpot", nil), (long)self.progressiveJackpot]; [self.jackpotBannerLabel sizeToFit]; self.jackpotBannerLabel.transform = CGAffineTransformIdentity; CGFloat distance = self.jackpotBanner.bounds.size.width + self.jackpotBannerLabel.bounds.size.width; self.jackpotBannerLabel.center = CGPointMake(self.jackpotBanner.bounds.size.width + self.jackpotBannerLabel.bounds.size.width / 2, 15); [self refreshProgressiveJackpot]; [UIView animateWithDuration:MAX(7, distance / 30) delay:0 options:UIViewAnimationOptionCurveLinear animations:^{ self.jackpotBannerLabel.transform = CGAffineTransformMakeTranslation(-distance, 0); } completion:^(BOOL finished) { if (!finished) return; [self startProgressiveBannerCycle]; }]; }
-- (void)cycleLines { if (self.spinning) return; self.activeLineCount = self.activeLineCount % 5 + 1; [self setLinesButtonTitle]; }
-- (void)cycleBetPerLine { if (self.spinning) return; self.betPerLine = self.betPerLine % 5 + 1; [self setPerLineButtonTitle:self.perLineButton]; }
-- (void)maxBet { if (self.spinning) return; self.activeLineCount = 5; self.betPerLine = 5; [self setLinesButtonTitle]; [self setPerLineButtonTitle:self.perLineButton]; [self spin]; }
+- (void)cycleLines { if (self.spinning) return; self.activeLineCount = self.activeLineCount % 5 + 1; [self setLinesButtonTitle]; [self checkBalanceSilently]; }
+- (void)cycleBetPerLine { if (self.spinning) return; self.betPerLine = self.betPerLine % 5 + 1; [self setPerLineButtonTitle:self.perLineButton]; [self checkBalanceSilently]; }
+- (void)maxBet { if (self.spinning) return; self.activeLineCount = 5; self.betPerLine = 5; [self setLinesButtonTitle]; [self setPerLineButtonTitle:self.perLineButton]; [self checkBalanceSilently]; [self spin]; }
+
+// Silent balance verification: refreshes the cached balance the spin path
+// trusts. Runs on screen entry paths and whenever the bet changes; never
+// blocks a spin and never puts a "checking" message on screen.
+- (void)checkBalanceSilently {
+    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+        if (self.spinning) return;
+        self.knownBalance = balance; self.balanceChecked = YES;
+        self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil), (long)balance];
+    }];
+}
 
 - (void)spin {
     if (self.spinning) return; if (!EZAuthManager.shared.isLoggedIn) { [self alert:NSLocalizedString(@"BRSlot.Error.SignInTitle", nil) message:NSLocalizedString(@"BRSlot.Error.SignInToSpin", nil)]; return; }
@@ -250,12 +263,26 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
         [self beginConfirmedSpinWithWager:0];
         return;
     }
-    // Verify the account balance before animating anything. The Edge Function
-    // still enforces this atomically, but this prevents a misleading "spin"
+    // Balance fast path (mirrors Plunder Bay): a balance verified on entry,
+    // after the last settled spin, or on the last bet change is trusted, so
+    // the spin fires immediately. The Edge Function still enforces the
+    // balance atomically; the cache only prevents a misleading "spin"
     // animation when the selected wager cannot be placed in the first place.
-    self.spinning = YES; self.spinButton.enabled = NO; self.customizeButton.enabled = NO; self.messageLabel.text = NSLocalizedString(@"BRSlot.CheckingBalance", nil);
     NSInteger wager = self.currentWager;
+    if (self.balanceChecked) {
+        if (self.knownBalance < wager) {
+            self.messageLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Classic.NeedCoins", nil), (long)wager];
+            self.messageLabel.textColor = [UIColor systemOrangeColor];
+            [self presentCoinStoreForSlotWager:wager balance:self.knownBalance];
+            return;
+        }
+        self.spinning = YES; self.spinButton.enabled = NO; self.customizeButton.enabled = NO;
+        [self beginConfirmedSpinWithWager:wager];
+        return;
+    }
+    self.spinning = YES; self.spinButton.enabled = NO; self.customizeButton.enabled = NO;
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+        self.knownBalance = balance; self.balanceChecked = YES;
         self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil), (long)balance];
         if (balance < wager) {
             self.spinning = NO; self.spinButton.enabled = YES; self.customizeButton.enabled = YES;
@@ -303,7 +330,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
         BOOL isFreeSpin = [json[@"is_free_spin"] boolValue];
         if (isFreeSpin) self.freeSpinSessionTotal += payout;
         if (isFreeSpin) { self.freeSpinsRemaining = [json[@"free_spins_remaining"] integerValue]; [self updateFreeSpinsUI]; }
-        [self highlightWinningLines:json[@"winning_lines"]]; [EZEntitlementManager.shared applyKnownBalance:balance]; self.balanceLabel.text = [NSString stringWithFormat:@"🪙 %ld EZ Coins", (long)balance]; long winLineCount = json[@"win_lines"] ? [json[@"win_lines"] integerValue] : 1; self.messageLabel.text = payout > 0 ? [NSString stringWithFormat:NSLocalizedString(winLineCount == 1 ? @"BRSlot.Win.LineResultOne" : @"BRSlot.Win.LineResult", nil), (long)payout, (long)net, winLineCount] : [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.NoWin", nil), (long)self.currentWager]; self.messageLabel.textColor = payout > 0 ? [UIColor colorWithRed:.3 green:1 blue:.58 alpha:1] : [UIColor colorWithWhite:.8 alpha:1]; if (payout > 0) { [self playTheme:@"brainrot-theme2"]; [self eruptCoinsForPayout:payout jackpot:jackpot]; } else { [self playLossSound]; [self playTheme:@"brainrot-theme1"]; }
+        [self highlightWinningLines:json[@"winning_lines"]]; [EZEntitlementManager.shared applyKnownBalance:balance]; self.knownBalance = balance; self.balanceChecked = YES; self.balanceLabel.text = [NSString stringWithFormat:@"🪙 %ld EZ Coins", (long)balance]; long winLineCount = json[@"win_lines"] ? [json[@"win_lines"] integerValue] : 1; self.messageLabel.text = payout > 0 ? [NSString stringWithFormat:NSLocalizedString(winLineCount == 1 ? @"BRSlot.Win.LineResultOne" : @"BRSlot.Win.LineResult", nil), (long)payout, (long)net, winLineCount] : [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.NoWin", nil), (long)self.currentWager]; self.messageLabel.textColor = payout > 0 ? [UIColor colorWithRed:.3 green:1 blue:.58 alpha:1] : [UIColor colorWithWhite:.8 alpha:1]; if (payout > 0) { [self playTheme:@"brainrot-theme2"]; [self eruptCoinsForPayout:payout jackpot:jackpot]; } else { [self playLossSound]; [self playTheme:@"brainrot-theme1"]; }
         if ([json[@"pity_bonus_granted"] boolValue]) { NSInteger pitySpins = [json[@"pity_spins"] integerValue]; dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self presentPitySpinsPopupWithCount:pitySpins]; }); }
         else if (isFreeSpin && self.freeSpinsRemaining == 0 && self.freeSpinSessionTotal > 0) { NSInteger total = self.freeSpinSessionTotal; self.freeSpinSessionTotal = 0; dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(.75 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self celebrateCompletedFreeSpinsWithTotal:total]; }); }
         self.spinning = NO; self.spinButton.enabled = YES; self.customizeButton.enabled = YES; }); }
@@ -518,7 +545,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
     [self stopWinCelebration];
     [self playTheme:@"brainrot-theme1"];
 }
-- (void)finishWithError:(NSString *)message { self.spinning = NO; self.spinButton.enabled = YES; self.customizeButton.enabled = YES; self.messageLabel.text = message; [self refreshBalance]; }
+- (void)finishWithError:(NSString *)message { self.balanceChecked = NO; self.spinning = NO; self.spinButton.enabled = YES; self.customizeButton.enabled = YES; self.messageLabel.text = message; [self refreshBalance]; }
 
 - (void)setSymbol:(NSString *)symbol onView:(UIImageView *)view { view.accessibilityIdentifier = symbol; UIImage *custom = self.customImages[symbol]; if (custom) { [[view viewWithTag:77] removeFromSuperview]; view.image = custom; return; } view.image = nil; UILabel *old = [view viewWithTag:77]; [old removeFromSuperview]; UILabel *label = [UILabel new]; label.tag = 77; label.text = BRSlotFallbackSymbols()[symbol] ?: @"?"; label.font = [UIFont systemFontOfSize:[symbol isEqual:@"seven"] ? 52 : 38 weight:UIFontWeightBlack]; label.textColor = [symbol isEqual:@"seven"] ? [UIColor redColor] : [UIColor colorWithRed:.18 green:.1 blue:.28 alpha:1]; label.textAlignment = NSTextAlignmentCenter; label.frame = view.bounds; label.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight; [view addSubview:label]; }
 
