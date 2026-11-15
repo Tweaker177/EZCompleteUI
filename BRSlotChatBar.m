@@ -8,7 +8,7 @@
 static BOOL BRChatBool(id value) { return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO; }
 static NSInteger BRChatInteger(id value) { return [value respondsToSelector:@selector(integerValue)] ? [value integerValue] : 0; }
 static NSString *BRChatString(id value) { return [value isKindOfClass:NSString.class] ? value : nil; }
-static NSNumber *BRChatNumber(id value) { return [value isKindOfClass:NSNSNumber.class] ? value : @0; }
+static NSNumber *BRChatNumber(id value) { return [value isKindOfClass:NSNumber.class] ? value : @0; }
 static NSDictionary *BRChatDictionary(id value) { return [value isKindOfClass:NSDictionary.class] ? value : @{}; }
 // Avatars show at 34pt: cap the upload at 512px so a full-resolution
 // library photo doesn't become a multi-MB base64 JSON body that times out
