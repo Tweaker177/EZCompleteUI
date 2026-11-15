@@ -99,6 +99,7 @@
 
 #import "BRPennySlotViewController.h"
 #import "BRPlunderBayViewController.h"
+#import "BRPhoenixPavilionSlotViewController.h"
 
 // ── Safe JSON value helpers ───────────────────────────────────────────────────
 
@@ -644,7 +645,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, assign) NSInteger  pendingClaimSpins; // Free spins awarded alongside a coins claim (spins_added in the claim response); celebrated once the coin celebration is dismissed
 
-@property (nonatomic, copy)   NSString        *pendingClaimSpinsMachine; // Server-suggested machine for the pending claim spins (claim response spins_machine: "classic", "penny" or "plunder"); nil = no suggestion (older server) — celebration keeps the original copy and Play Now opens the Classic slot
+@property (nonatomic, copy)   NSString        *pendingClaimSpinsMachine; // Server-suggested machine for the pending claim spins (claim response spins_machine: "classic", "penny", "plunder" or "phoenix"); nil = no suggestion (older server) — celebration keeps the original copy and Play Now opens the Classic slot
 
 @property (nonatomic, assign) NSInteger  dailyCoinsPendingAmount; // 10 or 15 depending on membership; from server
 
@@ -1776,7 +1777,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         forHTTPHeaderField:@"Authorization"];
 
-    claimRequest.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{@"spins_machines": @[@"classic", @"penny", @"plunder"]} options:0 error:nil];
+    claimRequest.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{@"spins_machines": @[@"classic", @"penny", @"plunder", @"phoenix"]} options:0 error:nil];
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:claimRequest
 
@@ -2662,6 +2663,12 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     }
 
+    if ([machine isEqualToString:@"phoenix"]) {
+
+        return [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.MessagePhoenix", @"Free spins celebration message naming Phoenix Pavilion"), (long)count];
+
+    }
+
     if ([machine isEqualToString:@"classic"]) {
 
         return [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.FreeSpins.MessageClassic", @"Free spins celebration message naming the Classic Slots"), (long)count];
@@ -3097,8 +3104,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (self.navigationController) {
 
-        self.navigationController.modalInPresentation = YES; // Pin: a swipe down must not dismiss the game (or this sheet under it) mid-session
-
         [self.navigationController pushViewController:slot animated:YES];
 
     } else {
@@ -3106,8 +3111,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:slot];
 
         nav.modalPresentationStyle = UIModalPresentationPageSheet;
-
-        nav.modalInPresentation = YES; // Pin: a swipe down must not dismiss the game mid-session
 
         [self presentViewController:nav animated:YES completion:nil];
 
@@ -3143,6 +3146,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         slot = [BRPlunderBayViewController new];
 
+    } else if ([machine isEqualToString:@"phoenix"]) {
+
+        slot = [BRPhoenixPavilionSlotViewController new];
+
     }
 
     if (!slot) {
@@ -3155,8 +3162,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (self.navigationController) {
 
-        self.navigationController.modalInPresentation = YES; // Pin: a swipe down must not dismiss the game (or this sheet under it) mid-session
-
         [self.navigationController pushViewController:slot animated:YES];
 
     } else {
@@ -3164,8 +3169,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:slot];
 
         nav.modalPresentationStyle = UIModalPresentationPageSheet;
-
-        nav.modalInPresentation = YES; // Pin: a swipe down must not dismiss the game mid-session
 
         [self presentViewController:nav animated:YES completion:nil];
 
