@@ -834,3 +834,5 @@
 "BRSlot.PP.WonCoins" = "贏得 %ld 金幣！";
 "BRSlot.Picker.Phoenix.Title" = "鳳凰閣";
 "BRSlot.Picker.Phoenix.Detail" = "五個轉軸，二十五條線。金帽開啟選牌和 ×2、×3 或 ×5 免費旋轉。";
+"BRSlot.Lounge.WinningsMostChips" = "金幣最多: 前5名\n\n";
+"BRSlot.Lounge.WinningsNoChips" = "暫無金幣領先者。\n";

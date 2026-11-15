@@ -839,3 +839,5 @@
 "BRSlot.PP.Win" = "WIN";
 "BRSlot.PP.WinLine" = "Line %ld · %ld× %@ · +%@";
 "BRSlot.PP.WonCoins" = "Won %ld coins!";
+"BRSlot.Lounge.WinningsMostChips" = "MOST CHIPS: TOP 5\n\n";
+"BRSlot.Lounge.WinningsNoChips" = "No chip leaders yet.\n";

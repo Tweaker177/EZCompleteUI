@@ -793,3 +793,5 @@
 "BRSlot.PP.WonCoins" = "赢得 %ld 金币！";
 "BRSlot.Picker.Phoenix.Title" = "凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "五个转轴，二十五条线。金帽开启选牌和 ×2、×3 或 ×5 免费旋转。";
+"BRSlot.Lounge.WinningsMostChips" = "硬币最多: 前5名\n\n";
+"BRSlot.Lounge.WinningsNoChips" = "暂无硬币领先者。\n";

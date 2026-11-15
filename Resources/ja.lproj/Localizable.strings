@@ -793,3 +793,5 @@
 "BRSlot.PP.WonCoins" = "%ld コイン獲得！";
 "BRSlot.Picker.Phoenix.Title" = "フェニックスパビリオン 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "リール5本、ライン25本。金の帽子でカード選択と ×2、×3、×5 のフリースピンが開きます。";
+"BRSlot.Lounge.WinningsMostChips" = "コイン最多: トップ5\n\n";
+"BRSlot.Lounge.WinningsNoChips" = "コインリーダーはまだいません。\n";

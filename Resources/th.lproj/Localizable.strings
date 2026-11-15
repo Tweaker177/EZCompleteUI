@@ -793,3 +793,5 @@
 "BRSlot.PP.WonCoins" = "ชนะ %ld เหรียญ!";
 "BRSlot.Picker.Phoenix.Title" = "ฟีนิกซ์ พาวิลเลียน 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "ห้าวงล้อ ยี่สิบห้าไลน์ หมวกทองเปิดการเลือกการ์ดและฟรีสปิน ×2, ×3 หรือ ×5";
+"BRSlot.Lounge.WinningsMostChips" = "เหรียญมากที่สุด: 5 อันดับแรก\n\n";
+"BRSlot.Lounge.WinningsNoChips" = "ยังไม่มีผู้นำเหรียญ\n";
