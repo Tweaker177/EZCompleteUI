@@ -3097,6 +3097,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (self.navigationController) {
 
+        self.navigationController.modalInPresentation = YES; // Pin: a swipe down must not dismiss the game (or this sheet under it) mid-session
+
         [self.navigationController pushViewController:slot animated:YES];
 
     } else {
@@ -3104,6 +3106,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:slot];
 
         nav.modalPresentationStyle = UIModalPresentationPageSheet;
+
+        nav.modalInPresentation = YES; // Pin: a swipe down must not dismiss the game mid-session
 
         [self presentViewController:nav animated:YES completion:nil];
 
@@ -3151,6 +3155,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (self.navigationController) {
 
+        self.navigationController.modalInPresentation = YES; // Pin: a swipe down must not dismiss the game (or this sheet under it) mid-session
+
         [self.navigationController pushViewController:slot animated:YES];
 
     } else {
@@ -3158,6 +3164,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:slot];
 
         nav.modalPresentationStyle = UIModalPresentationPageSheet;
+
+        nav.modalInPresentation = YES; // Pin: a swipe down must not dismiss the game mid-session
 
         [self presentViewController:nav animated:YES completion:nil];
 
