@@ -24,4 +24,14 @@
 /// Stops polling. Call when the hosting screen is popped or dismissed.
 - (void)stop;
 
+/// Presents the daily winners board on the host view controller (the
+/// expanded lounge's old Wins button, now on the game picker). Works on
+/// a bar that was never attached or started.
+- (void)showWinnersBoard;
+
+/// Presents the lounge profile editor on the host view controller (the
+/// expanded lounge's old profile button, now on the game picker),
+/// loading the saved profile first if this bar has not seen it yet.
+- (void)showProfileEditor;
+
 @end
