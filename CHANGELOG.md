@@ -4,6 +4,32 @@ All notable changes to EZCompleteUI are documented here. Version numbers refer
 to the app/package version. Server-backed features also require their matching
 Supabase Edge Function deployments and migrations.
 
+## 7.2.7 — 2026-11-14
+
+### Slots
+
+- Added **Golden Mandarin**, a five-reel slot machine with nine paylines,
+  free spins and a bonus multiplier pick, localized in all 17 languages.
+- Added an expandable in-machine chat bar across the slot machines.
+- Added configurable auto-spin to Plunder Bay, improved the slot picker,
+  localized game instructions and winnings, and fixed several display and
+  response-handling issues.
+- Slot sounds can now mix with music already playing. Fixed a crash when
+  expanding the slot chat bar.
+
+### Chat, images and audio
+
+- Improved Auto model routing, preserved important memories during web
+  searches, and fixed reaction handling and stale image attachments.
+- Reduced memory use when cropping ID photos to prevent upload crashes.
+- Edited speech clips retain their title, playback rate and loop setting.
+  Music and Sounds open to their libraries, while adding music to speech
+  opens music creation.
+- Changed the sideloaded app's referral share link to ZeeSigner.
+
+Golden Mandarin spins require the corresponding server function and database
+setup.
+
 ## 7.2.5 — 2026-11-13
 
 ### Slots
