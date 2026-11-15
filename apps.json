@@ -31,6 +31,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.7",
+          "buildVersion": "7.2.7",
+          "date": "2026-11-15",
+          "localizedDescription": "## What’s new since 7.2.5\n\n### Slots\n\n- Added **Golden Mandarin**, a five-reel slot machine with nine paylines,\n  free spins and a bonus multiplier pick, localized in all 17 languages.\n- Added an expandable in-machine chat bar across the slot machines.\n- Added configurable auto-spin to Plunder Bay, improved the slot picker,\n  localized game instructions and winnings, and fixed several display and\n  response-handling issues.\n- Slot sounds can now mix with music already playing. Fixed a crash when\n  expanding the slot chat bar.\n\n### Chat, images and audio\n\n- Improved Auto model routing, preserved important memories during web\n  searches, and fixed reaction handling and stale image attachments.\n- Reduced memory use when cropping ID photos to prevent upload crashes.\n- Edited speech clips retain their title, playback rate and loop setting.\n  Music and Sounds open to their libraries, while adding music to speech\n  opens music creation.\n- Changed the sideloaded app's referral share link to ZeeSigner.\n\nGolden Mandarin spins require the corresponding server function and database\nsetup.\n\n## Downloads\n\n- **IPA:** `EZCompleteUI-7.2.7-release.ipa`\n- **Deb:** `com.i0stweak3r.ezcompleteui_7.2.7_iphoneos-arm64.deb`\n\nRequires iOS 15 or later.",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.7/EZCompleteUI-7.2.7-release.ipa",
+          "size": 16556624,
+          "sha256": "6016312c14eee3a34a6db33c367249849b2990bba34a887e6cb3b111f0402ea4",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.5",
           "buildVersion": "7.2.5",
           "date": "2026-11-13",
