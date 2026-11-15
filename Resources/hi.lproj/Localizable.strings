@@ -793,3 +793,5 @@
 "BRSlot.PP.WonCoins" = "%ld सिक्के जीते!";
 "BRSlot.Picker.Phoenix.Title" = "फीनिक्स पैविलियन 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "पाँच रील, पच्चीस लाइनें. सुनहरी टोपियाँ कार्ड चयन और ×2, ×3 या ×5 मुफ़्त स्पिन खोलती हैं.";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "आपने फीनिक्स पैविलियन पर %ld मुफ़्त स्पिन जीते!";
+"BRSlot.PP.FreeSpinsLeftClaim" = "मुफ़्त स्पिन  %ld बचे  ·  जीते %@";

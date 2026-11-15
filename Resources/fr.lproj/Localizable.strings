@@ -815,3 +815,5 @@
 "BRSlot.PP.WonCoins" = "%ld pièces gagnées !";
 "BRSlot.Picker.Phoenix.Title" = "Phoenix Pavilion 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "Cinq rouleaux, vingt-cinq lignes. Les chapeaux dorés ouvrent un choix de carte et des tours gratuits ×2, ×3 ou ×5.";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Vous avez gagné %ld tours gratuits sur Phoenix Pavilion !";
+"BRSlot.PP.FreeSpinsLeftClaim" = "TOURS GRATUITS  RESTANT %ld  ·  GAGNÉ %@";

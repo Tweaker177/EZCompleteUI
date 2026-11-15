@@ -834,3 +834,5 @@
 "BRSlot.PP.WonCoins" = "코인 %ld개 획득!";
 "BRSlot.Picker.Phoenix.Title" = "피닉스 파빌리온 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "릴 5개, 라인 25개. 황금 모자가 카드 선택과 ×2, ×3, ×5 프리스핀을 엽니다.";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "피닉스 파빌리온에서 무료 스핀 %ld회를 획득했습니다!";
+"BRSlot.PP.FreeSpinsLeftClaim" = "프리스핀  %ld 남음  ·  획득 %@";

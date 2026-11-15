@@ -793,3 +793,5 @@
 "BRSlot.PP.WonCoins" = "فزت بـ %ld عملة!";
 "BRSlot.Picker.Phoenix.Title" = "فينيكس بافيليون 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "خمس بكرات وخمسة وعشرون خطًا. القبعات الذهبية تفتح اختيار بطاقة ولفات مجانية ×2 أو ×3 أو ×5.";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "لقد فزت بـ %ld لفات مجانية على فينيكس بافيليون!";
+"BRSlot.PP.FreeSpinsLeftClaim" = "لفات مجانية  تبقى %ld  ·  الفوز %@";

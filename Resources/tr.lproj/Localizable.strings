@@ -834,3 +834,5 @@
 "BRSlot.PP.WonCoins" = "%ld jeton kazandınız!";
 "BRSlot.Picker.Phoenix.Title" = "Phoenix Pavilion 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "Beş makara, yirmi beş hat. Altın şapkalar bir kart seçimi ve ×2, ×3 veya ×5 ücretsiz dönüş açar.";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Phoenix Pavilion'de %ld ücretsiz dönüş kazandınız!";
+"BRSlot.PP.FreeSpinsLeftClaim" = "ÜCRETSİZ DÖNÜŞ  %ld KALDI  ·  KAZANILAN %@";

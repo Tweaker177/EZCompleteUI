@@ -793,3 +793,5 @@
 "BRSlot.PP.WonCoins" = "Hai vinto %ld monete!";
 "BRSlot.Picker.Phoenix.Title" = "Phoenix Pavilion 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "Cinque rulli, venticinque linee. I cappelli dorati aprono una scelta di carta e giri gratuiti ×2, ×3 o ×5.";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Hai vinto %ld giri gratuiti a Phoenix Pavilion!";
+"BRSlot.PP.FreeSpinsLeftClaim" = "GIRI GRATUITI  RIMASTI %ld  ·  VINTO %@";

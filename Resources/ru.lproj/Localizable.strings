@@ -833,3 +833,5 @@
 "BRSlot.PP.WonCoins" = "Выигрыш %ld монет!";
 "BRSlot.Picker.Phoenix.Title" = "Феникс Павильон 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "Пять барабанов, двадцать пять линий. Золотые шляпы открывают выбор карты и бесплатные вращения ×2, ×3 или ×5.";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Вы выиграли %ld бесплатных вращений в Феникс Павильон!";
+"BRSlot.PP.FreeSpinsLeftClaim" = "БЕСПЛАТНЫХ ВРАЩЕНИЙ  ОСТАЛОСЬ %ld  ·  ВЫИГРЫШ %@";

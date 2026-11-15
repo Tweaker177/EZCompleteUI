@@ -834,3 +834,5 @@
 "BRSlot.PP.WonCoins" = "贏得 %ld 金幣！";
 "BRSlot.Picker.Phoenix.Title" = "鳳凰閣";
 "BRSlot.Picker.Phoenix.Detail" = "五個轉軸，二十五條線。金帽開啟選牌和 ×2、×3 或 ×5 免費旋轉。";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "您在鳳凰閣贏得了 %ld 次免費旋轉！";
+"BRSlot.PP.FreeSpinsLeftClaim" = "免費旋轉  剩餘 %ld  ·  已贏 %@";

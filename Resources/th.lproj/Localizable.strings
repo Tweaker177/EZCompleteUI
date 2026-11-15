@@ -793,3 +793,5 @@
 "BRSlot.PP.WonCoins" = "ชนะ %ld เหรียญ!";
 "BRSlot.Picker.Phoenix.Title" = "ฟีนิกซ์ พาวิลเลียน 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "ห้าวงล้อ ยี่สิบห้าไลน์ หมวกทองเปิดการเลือกการ์ดและฟรีสปิน ×2, ×3 หรือ ×5";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "คุณชนะฟรีสปิน %ld ครั้งที่ฟีนิกซ์ พาวิลเลียน!";
+"BRSlot.PP.FreeSpinsLeftClaim" = "ฟรีสปิน  เหลือ %ld  ·  ชนะแล้ว %@";

@@ -839,3 +839,5 @@
 "BRSlot.PP.Win" = "WIN";
 "BRSlot.PP.WinLine" = "Line %ld · %ld× %@ · +%@";
 "BRSlot.PP.WonCoins" = "Won %ld coins!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "You won %ld free spins on Phoenix Pavilion!";
+"BRSlot.PP.FreeSpinsLeftClaim" = "FREE SPINS  %ld LEFT  ·  WON %@";
