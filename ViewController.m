@@ -5,9 +5,13 @@
 //   - Chat models can now speak and create sounds, through the same
 //     handoff pattern as songs. The app tells ez-chat it supports both
 //     tools (sound_tools / tts_tools: YES). When the model calls
-//     speak_text, ez-chat returns a "tts_request" (text + language) and
-//     -performChatTTSRequest: speaks it with the device voice — for
-//     pronunciations and read-aloud requests, no button press needed.
+//     speak_text, ez-chat returns a "tts_request" (text + language +
+//     engine) and -performChatTTSRequest: speaks it with the user's
+//     ElevenLabs voice — for pronunciations and read-aloud requests, no
+//     button press needed. The free Apple voice is used only when the
+//     request says engine "apple" (the user explicitly asked for it /
+//     to save coins), when no ElevenLabs voice is configured, or when
+//     ElevenLabs fails — every fallback silent.
 //     It is a side effect like the memory request: it fires alongside
 //     whatever reply or handoff the turn also carries, and a
 //     speak-only turn uses the spoken text as its bubble. When the
@@ -1110,6 +1114,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)performChatImageRequest:(NSDictionary *)imageRequest sourcePath:(NSString *)sourcePath;
 - (void)performChatMusicRequest:(NSDictionary *)musicRequest;
 - (void)performChatTTSRequest:(NSDictionary *)ttsRequest;
+- (void)speakChatTextWithApple:(NSString *)text language:(NSString *)language;
+- (void)speakChatTextWithElevenLabs:(NSString *)text voiceID:(NSString *)voiceID language:(NSString *)language;
 - (void)performChatSoundRequest:(NSDictionary *)soundRequest;
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *pendingForgetPrompts;
 @property (nonatomic, strong) NSDictionary *activeForgetPrompt;
@@ -3589,22 +3595,47 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self.speechSynthesizer speakUtterance:u];
 }
 
-/// Speaks a tts_request returned by ez-chat (the speak_text tool) with the
-/// device voice — speakWithApple:'s synthesizer, except the request may
-/// carry the language of the text, so a Spanish word is spoken with a
-/// Spanish voice. Runs on the main queue; empty or overlong text is
-/// dropped silently, never an error the user sees.
+/// Speaks a tts_request returned by ez-chat (the speak_text tool).
+/// Engine rule (user, 2026-11-15): always the user's ElevenLabs voice —
+/// the same ez-elevenlabs "tts" call speakLastResponse makes, at the
+/// same server price (1 coin per 50 characters) — EXCEPT the Apple
+/// voice when (a) the request says engine "apple" (the model sets that
+/// only when the user explicitly asked for the free voice / to save
+/// coins), (b) no ElevenLabs voice is configured, or (c) ElevenLabs
+/// fails for any reason. Every fallback is silent: the words still get
+/// spoken, just in the other voice, with no error line and no alert.
+/// The request's language picks the Apple voice on the fallback path;
+/// ElevenLabs voices are multilingual and take language from the text.
+/// Empty or overlong text is dropped silently.
 - (void)performChatTTSRequest:(NSDictionary *)ttsRequest {
     NSString *text = [ttsRequest[@"text"] isKindOfClass:[NSString class]]
         ? [ttsRequest[@"text"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
     if (!text.length || text.length > 1000) return;
     NSString *language = [ttsRequest[@"language"] isKindOfClass:[NSString class]] ? ttsRequest[@"language"] : nil;
+    NSString *engine = [ttsRequest[@"engine"] isKindOfClass:[NSString class]] ? ttsRequest[@"engine"] : @"elevenlabs";
+    if ([engine isEqualToString:@"apple"]) {
+        [self speakChatTextWithApple:text language:language];
+        return;
+    }
+    NSString *voiceID = [[NSUserDefaults standardUserDefaults] stringForKey:@"elevenVoiceID"];
+    if (!voiceID.length) {
+        [self speakChatTextWithApple:text language:language];
+        return;
+    }
+    [self speakChatTextWithElevenLabs:text voiceID:voiceID language:language];
+}
+
+/// The Apple-voice leg of a chat speak request — speakWithApple: with
+/// the request's language, on the main queue. Also stops any ElevenLabs
+/// playback in flight so the two voices never overlap.
+- (void)speakChatTextWithApple:(NSString *)text language:(NSString *)language {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSError *sessionError = nil;
         if (!EZActivatePlaybackAudioSession(&sessionError)) {
             EZLogf(EZLogLevelError, @"TTS", @"Could not activate chat TTS audio session: %@", sessionError.localizedDescription);
             return;
         }
+        if (self.audioPlayer.isPlaying) [self.audioPlayer stop];
         if (self.speechSynthesizer.isSpeaking)
             [self.speechSynthesizer stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
         AVSpeechUtterance *u = [AVSpeechUtterance speechUtteranceWithString:text];
@@ -3613,6 +3644,76 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         u.rate  = AVSpeechUtteranceDefaultSpeechRate;
         [self.speechSynthesizer speakUtterance:u];
     });
+}
+
+/// The ElevenLabs leg of a chat speak request — the same edge call as
+/// speakWithElevenLabsEdge:voiceID:, except every failure (network,
+/// 402, non-200, undecodable audio, playback failure) falls back to
+/// the Apple voice silently instead of posting chat lines or a coin
+/// alert: the user asked for speech, not a dialog.
+- (void)speakChatTextWithElevenLabs:(NSString *)text voiceID:(NSString *)voiceID language:(NSString *)language {
+    NSString *jwt = [EZAuthManager shared].accessToken;
+    if (!jwt.length) {
+        [self speakChatTextWithApple:text language:language];
+        return;
+    }
+    NSInteger charCount = (NSInteger)text.length;
+    NSURL *edgeURL = [NSURL URLWithString:@"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-elevenlabs"];
+    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:edgeURL];
+    req.HTTPMethod = @"POST";
+    req.timeoutInterval = 220;
+    [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [req setValue:[NSString stringWithFormat:@"Bearer %@", jwt] forHTTPHeaderField:@"Authorization"];
+    req.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
+        @"action":     @"tts",
+        @"text":       text,
+        @"voice_id":   voiceID,
+        @"model_id":   kElevenLabsTTSModelID,
+        @"char_count": @(charCount),
+    } options:0 error:nil];
+    __weak typeof(self) weakSelf = self;
+    [[[NSURLSession sharedSession] dataTaskWithRequest:req
+        completionHandler:^(NSData *responseData, NSURLResponse *response, NSError *networkError) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
+        NSDictionary *json = responseData.length ? [NSJSONSerialization JSONObjectWithData:responseData options:0 error:nil] : nil;
+        if (![json isKindOfClass:NSDictionary.class]) json = nil;
+        NSString *audioB64 = [json[@"audio_b64"] isKindOfClass:NSString.class] ? json[@"audio_b64"] : nil;
+        NSData *audioData = (!networkError && http.statusCode == 200 && audioB64.length)
+            ? [[NSData alloc] initWithBase64EncodedString:audioB64 options:NSDataBase64DecodingIgnoreUnknownCharacters] : nil;
+        if (!audioData.length) {
+            EZLogf(EZLogLevelError, @"TTS", @"Chat ElevenLabs TTS failed (HTTP %ld) — Apple voice fallback", (long)http.statusCode);
+            [strongSelf speakChatTextWithApple:text language:language];
+            return;
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSError *sessionError = nil;
+            if (!EZActivatePlaybackAudioSession(&sessionError)) {
+                EZLogf(EZLogLevelError, @"TTS", @"Could not activate chat ElevenLabs playback session: %@", sessionError.localizedDescription);
+                [strongSelf speakChatTextWithApple:text language:language];
+                return;
+            }
+            if (strongSelf.speechSynthesizer.isSpeaking)
+                [strongSelf.speechSynthesizer stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+            NSError *playerErr = nil;
+            strongSelf.audioPlayer = [[AVAudioPlayer alloc] initWithData:audioData error:&playerErr];
+            if (playerErr) {
+                EZLogf(EZLogLevelError, @"TTS", @"Chat ElevenLabs player error: %@", playerErr.localizedDescription);
+                [strongSelf speakChatTextWithApple:text language:language];
+                return;
+            }
+            [strongSelf.audioPlayer prepareToPlay];
+            if (![strongSelf.audioPlayer play]) {
+                EZLog(EZLogLevelError, @"TTS", @"Chat ElevenLabs playback refused — Apple voice fallback");
+                [strongSelf speakChatTextWithApple:text language:language];
+                return;
+            }
+            [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(__unused NSInteger balance) {
+                [strongSelf updateCoinBalanceDisplay];
+            }];
+        });
+    }] resume];
 }
 
 // ── speakWithElevenLabs:key:voiceID: — COMMENTED OUT (user API key path) ────
@@ -4850,8 +4951,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // where the sound is priced and charged.
     ezBody[@"sound_tools"] = @YES;
     // Lets ez-chat offer the model its speak_text tool. The server only
-    // ever returns a tts_request; the app speaks it with the device voice.
-    // No coins are involved.
+    // ever returns a tts_request; the app speaks it with the user's
+    // ElevenLabs voice (server-priced), with the free Apple voice as
+    // the on-error / on-request fallback.
     ezBody[@"tts_tools"] = @YES;
     ezBody[@"image_source_available"] = @(capturedImageSource.length > 0);
     if (userPreferences.length > 0) ezBody[@"user_preferences"] = userPreferences;
