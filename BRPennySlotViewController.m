@@ -98,7 +98,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
 - (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (!self.musicPlayer.isPlaying) [self playTheme:@"brainrot-theme1"]; if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"ezcoin-penny"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; } [self.chatBar start]; }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; if (self.isMovingFromParentViewController) { [self.musicPlayer stop]; [self.chatBar stop]; } }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [self clearLineHighlights]; if (self.isMovingFromParentViewController || self.navigationController.isBeingDismissed) { [self.musicPlayer stop]; [self.chatBar stop]; } }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
 
 - (UIButton *)navButton:(NSString *)title action:(SEL)action {
