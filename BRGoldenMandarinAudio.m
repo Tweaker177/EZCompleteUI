@@ -496,6 +496,11 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 }
 
 - (void)buildEngine {
+    // Match the other slot machines (PR #114): Playback + MixWithOthers so
+    // the theme layers over music already playing instead of taking over
+    // the session. GM never set a category, so on a fresh launch it ran
+    // under the SoloAmbient default and silenced other audio.
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
     AVAudioEngine *engine = [AVAudioEngine new];
     NSMutableArray *voices = [NSMutableArray array];
     for (int i = 0; i < kVoiceCount; i++) {
