@@ -204,6 +204,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     CGPoint _slotCenters[3];
     NSInteger _lines, _betIndex;
     NSInteger _balance;                 // what the label shows
+    BOOL _balanceChecked;               // _balance verified by the server (entry, settle, or bet change)
     NSInteger _freeRemaining, _bonusMult, _bonusTotal, _bonusLines, _bonusBet, _lastAwarded, _spinWager;
     BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving;
     NSUInteger _epoch;
@@ -681,6 +682,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     _lines = _lines % GM_MAX_LINES + 1;
     [NSUserDefaults.standardUserDefaults setInteger:_lines forKey:kGMLinesKey];
     [self refreshLabels];
+    [self checkBalanceSilently];
 }
 
 - (void)cycleBet {
@@ -688,6 +690,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     _betIndex = (_betIndex + 1) % (NSInteger)GMBets().count;
     [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:kGMBetKey];
     [self refreshLabels];
+    [self checkBalanceSilently];
 }
 
 - (void)maxBet {
@@ -695,8 +698,21 @@ static UIImage *GMParticleImage(BOOL coin) {
     _lines = GM_MAX_LINES;
     _betIndex = (NSInteger)GMBets().count - 1;
     [self refreshLabels];
+    [self checkBalanceSilently];
     [self spinTapped];
 }
+// Silent balance verification: refreshes the cached balance the spin path
+// trusts. Runs on screen entry and whenever the bet changes; never blocks
+// a spin and never puts a "checking" message on screen.
+- (void)checkBalanceSilently {
+    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+        if (self->_busy || self->_leaving) return;
+        self->_balance = balance;
+        self->_balanceChecked = YES;
+        [self refreshLabels];
+    }];
+}
+
 
 - (void)toggleSound {
     self.audio.muted = !self.audio.muted;
@@ -758,6 +774,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
         if (self->_busy) return;
         self->_balance = balance;
+        self->_balanceChecked = YES;
         [self refreshLabels];
     }];
     [self request:@{@"action": @"status"} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
@@ -790,12 +807,24 @@ static UIImage *GMParticleImage(BOOL coin) {
 - (void)spinTapped {
     if (_busy || _bonusMode || _freeRemaining > 0) return;
     NSInteger wager = _lines * [self betPerLine];
+    if (_balanceChecked) {
+        // Balance was verified on entry, after the last settled spin, or on
+        // the last bet change — trust the cache and fire immediately
+        // instead of waiting on a round trip.
+        if (_balance < wager) {
+            [self setMessage:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.NeedCoins", @"You need %ld coins for that bet."), (long)wager] highlight:NO];
+            [self showCoinStore];
+            return;
+        }
+        [self beginSpinFree:NO];
+        return;
+    }
     _busy = YES;
     [self updateControls];
-    [self setMessage:GMLoc(@"BRSlot.CheckingBalance", @"Checking EZ Coins…") highlight:NO];
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
         if (self->_leaving) return;
         self->_balance = balance;
+        self->_balanceChecked = YES;
         [self refreshLabels];
         if (balance < wager) {
             self->_busy = NO;
@@ -838,6 +867,7 @@ static UIImage *GMParticleImage(BOOL coin) {
 }
 
 - (void)failSpin:(NSString *)message status:(NSInteger)status {
+    _balanceChecked = NO;
     [self stopReelLoops];
     _reelsMoving = NO;
     [self.audio stopDrumRoll];
@@ -1041,6 +1071,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
     NSInteger lines = GMInteger(res[@"lines"]) ?: 1;
     NSInteger fromBalance = _balance;
     _balance = balance;
+    _balanceChecked = YES;
     NSArray *winners = [res[@"winning_lines"] isKindOfClass:NSArray.class] ? res[@"winning_lines"] : @[];
     if (payout <= 0) {
         [self refreshLabels];

@@ -76,9 +76,9 @@ static UIImage *PennyEZCoinSymbolImage(void) {
 @property (nonatomic, strong) NSArray<NSArray<NSString *> *> *preSpinBoard;
 @property (nonatomic, copy) NSString *pendingImageSymbol;
 @property (nonatomic, copy) NSDictionary<NSString *, UIImage *> *customImages;
-@property (nonatomic) NSInteger lines, betIndex, freeSpinsRemaining;
+@property (nonatomic) NSInteger lines, betIndex, freeSpinsRemaining, knownBalance;
 @property (nonatomic) NSInteger freeSpinSessionTotal; // Coins won across the current free-spin run; celebrated when the run ends, mirroring the Classic machine
-@property (nonatomic) BOOL spinning, celebrating;
+@property (nonatomic) BOOL spinning, celebrating, balanceChecked;
 @property (nonatomic) NSUInteger animationID;
 @property (nonatomic) NSUInteger lineCelebrationID;
 @end
@@ -172,9 +172,20 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     glyph.textAlignment = NSTextAlignmentCenter; glyph.frame = tile.bounds; glyph.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [tile addSubview:glyph];
 }
 - (NSInteger)betPerLine { return PennyBets()[self.betIndex].integerValue; }
-- (void)cycleLines { if (self.spinning || self.freeSpinsRemaining) return; self.lines = self.lines%9+1; [self.linesButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Control.LinesValue", nil),(long)self.lines] forState:UIControlStateNormal]; }
-- (void)cycleBet { if (self.spinning || self.freeSpinsRemaining) return; self.betIndex = (self.betIndex+1)%PennyBets().count; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Control.BetPerLineValue", nil),(long)self.betPerLine] forState:UIControlStateNormal]; }
-- (void)maxBet { if (self.spinning) return; if (self.freeSpinsRemaining == 0) { self.lines=9; self.betIndex=PennyBets().count-1; [self.linesButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Control.LinesValue", nil),(long)self.lines] forState:UIControlStateNormal]; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Control.BetPerLineValue", nil),(long)self.betPerLine] forState:UIControlStateNormal]; } [self spin]; }
+- (void)cycleLines { if (self.spinning || self.freeSpinsRemaining) return; self.lines = self.lines%9+1; [self.linesButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Control.LinesValue", nil),(long)self.lines] forState:UIControlStateNormal]; [self checkBalanceSilently]; }
+- (void)cycleBet { if (self.spinning || self.freeSpinsRemaining) return; self.betIndex = (self.betIndex+1)%PennyBets().count; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Control.BetPerLineValue", nil),(long)self.betPerLine] forState:UIControlStateNormal]; [self checkBalanceSilently]; }
+- (void)maxBet { if (self.spinning) return; if (self.freeSpinsRemaining == 0) { self.lines=9; self.betIndex=PennyBets().count-1; [self.linesButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Control.LinesValue", nil),(long)self.lines] forState:UIControlStateNormal]; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Control.BetPerLineValue", nil),(long)self.betPerLine] forState:UIControlStateNormal]; } [self checkBalanceSilently]; [self spin]; }
+
+// Silent balance verification: refreshes the cached balance the spin path
+// trusts. Runs on screen entry paths and whenever the bet changes; never
+// blocks a spin and never puts a "checking" message on screen.
+- (void)checkBalanceSilently {
+    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+        if (self.spinning) return;
+        self.knownBalance = balance; self.balanceChecked = YES;
+        self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
+    }];
+}
 
 - (void)customize {
     if (self.spinning) return;
@@ -210,7 +221,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
 - (void)generateImageForPrompt:(NSString *)prompt completion:(void (^)(UIImage *, NSString *))completion { if (!prompt.length) { completion(nil,@"Describe the symbol you want to create."); return; } [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *authError) { if (!token) { completion(nil,@"Please sign in to generate an image."); return; } NSURL *url=[NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/br-ai"]]; NSMutableURLRequest *request=[NSMutableURLRequest requestWithURL:url]; request.HTTPMethod=@"POST"; request.timeoutInterval=70; [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"]; [request setValue:EZSupabaseAnonKey forHTTPHeaderField:@"apikey"]; [request setValue:[NSString stringWithFormat:@"Bearer %@",token] forHTTPHeaderField:@"Authorization"]; request.HTTPBody=[NSJSONSerialization dataWithJSONObject:@{ @"action":@"generate_workshop_asset", @"slot":@"player", @"prompt":[prompt stringByAppendingString:@"\nCreate a bold isolated five-reel slot-machine symbol. No text, background, floor, border, or shadow. Transparent PNG."], @"output_format":@"png", @"background":@"transparent", @"require_transparent_png":@YES } options:0 error:nil]; [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) { NSDictionary *json=data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil; dispatch_async(dispatch_get_main_queue(), ^{ if (networkError) { completion(nil,@"Network error — please try again."); return; } NSHTTPURLResponse *http=(NSHTTPURLResponse *)response; if (http.statusCode==402) { completion(nil,@"Not enough EZ Coins to generate this image."); return; } NSData *png=[json[@"b64_json"] isKindOfClass:NSString.class] ? [[NSData alloc] initWithBase64EncodedString:json[@"b64_json"] options:0] : nil; UIImage *image=[UIImage imageWithData:png]; completion(image,image ? nil : (json[@"error"] ?: @"Image generation failed.")); }); }] resume]; }]; }
 
 - (void)refreshState {
-    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) { if (!self.spinning) self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance]; }];
+    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) { if (!self.spinning) { self.knownBalance = balance; self.balanceChecked = YES; self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance]; } }];
     [self request:@{@"action":@"status"} completion:^(NSDictionary *result, NSString *error) {
         if (self.spinning) return;
         if (error) { self.messageLabel.text = error; return; }
@@ -244,10 +255,18 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     self.spinning = YES; self.spinButton.enabled = self.maxButton.enabled = self.customizeButton.enabled = NO; [self updateBonusLabel];
     [self.winOverlay removeFromSuperview]; self.winOverlay=nil; self.celebrating=NO; [self playTheme:@"brainrot-theme1"];
     [self clearLineHighlights];
-    self.messageLabel.text = self.freeSpinsRemaining ? NSLocalizedString(@"BRSlot.Penny.FreeSpin", nil) : NSLocalizedString(@"BRSlot.CheckingBalance", nil);
-    if (self.freeSpinsRemaining > 0) { [self beginSpin]; return; }
+    if (self.freeSpinsRemaining > 0) { self.messageLabel.text = NSLocalizedString(@"BRSlot.Penny.FreeSpin", nil); [self beginSpin]; return; }
     NSInteger wager = self.lines*self.betPerLine;
+    if (self.balanceChecked) {
+        // Balance was verified on entry, after the last settled spin, or on
+        // the last bet change — trust the cache and fire immediately
+        // instead of waiting on a round trip.
+        if (self.knownBalance < wager) { [self finishWithError:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Penny.NeedCoins", nil),(long)wager]]; [self showCoinStore]; return; }
+        [self beginSpin];
+        return;
+    }
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+        self.knownBalance = balance; self.balanceChecked = YES;
         self.balanceLabel.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
         if (balance < wager) { [self finishWithError:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Penny.NeedCoins", nil),(long)wager]]; [self showCoinStore]; return; }
         [self beginSpin];
@@ -279,7 +298,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
         self.freeSpinsRemaining=[result[@"free_spins_remaining"] integerValue]; [self updateBonusLabel];
         BOOL wasFreeSpin=[result[@"was_free_spin"] boolValue];
         if (wasFreeSpin) self.freeSpinSessionTotal+=payout;
-        [EZEntitlementManager.shared applyKnownBalance:balance]; self.balanceLabel.text=[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
+        [EZEntitlementManager.shared applyKnownBalance:balance]; self.knownBalance = balance; self.balanceChecked = YES; self.balanceLabel.text=[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Balance.Value", nil),(long)balance];
         [self clearLineHighlights];
         NSMutableArray *winLines=[NSMutableArray array];
         for (NSDictionary *line in result[@"winning_lines"]) { if (![line isKindOfClass:NSDictionary.class]) continue; NSArray *rows=[line[@"rows"] isKindOfClass:NSArray.class]?line[@"rows"]:@[]; NSInteger matches=MIN([line[@"matches"] integerValue],5); NSMutableArray *coords=[NSMutableArray array]; for (NSInteger col=0;col<matches && col<(NSInteger)rows.count;col++) { NSInteger row=[rows[col] integerValue]; if (row>=0 && row<3) [coords addObject:@[@(col),@(row)]]; } if (coords.count) [winLines addObject:coords]; }
@@ -312,7 +331,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     UIColor *tint=[UIColor colorWithRed:[rgb[0] doubleValue]*.28+.72 green:[rgb[1] doubleValue]*.28+.72 blue:[rgb[2] doubleValue]*.28+.72 alpha:1];
     for (NSArray *coord in coords) { UIImageView *tile=self.reels[[coord[0] integerValue]][[coord[1] integerValue]]; tile.layer.borderWidth=3; tile.layer.borderColor=border.CGColor; tile.backgroundColor=tint; if (!celebrate) continue; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)([coord[0] integerValue]*.13*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [UIView animateWithDuration:.22 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{ tile.transform=CGAffineTransformMakeScale(1.22,1.22); } completion:^(__unused BOOL done){ [UIView animateWithDuration:.5 delay:0 usingSpringWithDamping:.5 initialSpringVelocity:.35 options:0 animations:^{ tile.transform=CGAffineTransformIdentity; } completion:nil]; }]; }); }
 }
-- (void)finishWithError:(NSString *)message { ++self.animationID; [self clearLineHighlights]; if (self.preSpinBoard.count == 5) { for (NSInteger col=0;col<5;col++) for (NSInteger row=0;row<3;row++) [self setSymbol:self.preSpinBoard[col][row] onTile:self.reels[col][row]]; self.preSpinBoard=nil; } self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=self.customizeButton.enabled=YES; [self updateBonusLabel]; self.messageLabel.text=message; self.messageLabel.textColor=UIColor.systemOrangeColor; }
+- (void)finishWithError:(NSString *)message { ++self.animationID; self.balanceChecked = NO; [self clearLineHighlights]; if (self.preSpinBoard.count == 5) { for (NSInteger col=0;col<5;col++) for (NSInteger row=0;row<3;row++) [self setSymbol:self.preSpinBoard[col][row] onTile:self.reels[col][row]]; self.preSpinBoard=nil; } self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=self.customizeButton.enabled=YES; [self updateBonusLabel]; self.messageLabel.text=message; self.messageLabel.textColor=UIColor.systemOrangeColor; }
 - (void)showCoinStore {
     if (self.presentedViewController) return;
     EZCoinStoreViewController *store=[EZCoinStoreViewController new]; store.showLowCoinsWarning=YES; store.triggeringFeatureName=NSLocalizedString(@"BRSlot.Penny.StoreFeature", nil);
