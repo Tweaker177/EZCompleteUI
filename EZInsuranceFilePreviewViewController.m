@@ -52,6 +52,8 @@ static const CGFloat kNotesCardHeight = 120;
     self.view.backgroundColor = [UIColor blackColor];
 
     UILabel *titleLabel = [[UILabel alloc] init];
+    titleLabel.adjustsFontSizeToFitWidth = YES;
+    titleLabel.minimumScaleFactor = 0.5;
     titleLabel.text = self.previewTitle;
     titleLabel.textColor = [UIColor whiteColor];
     titleLabel.font = [UIFont boldSystemFontOfSize:17];
@@ -123,6 +125,8 @@ static const CGFloat kNotesCardHeight = 120;
     [self.view addSubview:card];
 
     UILabel *header = [[UILabel alloc] init];
+    header.adjustsFontSizeToFitWidth = YES;
+    header.minimumScaleFactor = 0.5;
     header.text = @"NOTES";
     header.font = [UIFont boldSystemFontOfSize:11];
     header.textColor = [UIColor colorWithWhite:1.0 alpha:0.55];
@@ -225,6 +229,8 @@ static const CGFloat kNotesCardHeight = 120;
     icon.translatesAutoresizingMaskIntoConstraints = NO;
 
     UILabel *label = [[UILabel alloc] init];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.text = @"Couldn't load preview";
     label.textColor = [UIColor colorWithWhite:1.0 alpha:0.6];
     label.font = [UIFont systemFontOfSize:15];

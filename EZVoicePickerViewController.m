@@ -58,6 +58,8 @@ static char kEZVoicePreviewVoiceKey;
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
 
     self.emptyStateLabel = [[UILabel alloc] init];
+    self.emptyStateLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyStateLabel.minimumScaleFactor = 0.5;
     self.emptyStateLabel.text = @"No voices found.";
     self.emptyStateLabel.textColor = [UIColor secondaryLabelColor];
     self.emptyStateLabel.textAlignment = NSTextAlignmentCenter;

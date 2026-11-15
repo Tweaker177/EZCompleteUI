@@ -58,12 +58,16 @@ static UIColor *EZTTSNeonDimText(void)    { return [UIColor colorWithRed:0.66 gr
         [self.contentView addSubview:_favoriteButton];
 
         _titleLabel = [[UILabel alloc] init];
+        _titleLabel.adjustsFontSizeToFitWidth = YES;
+        _titleLabel.minimumScaleFactor = 0.5;
         _titleLabel.font = [UIFont boldSystemFontOfSize:18];
         _titleLabel.textColor = EZTTSNeonText();
         _titleLabel.numberOfLines = 1;
         [self.contentView addSubview:_titleLabel];
 
         _subtitleLabel = [[UILabel alloc] init];
+        _subtitleLabel.adjustsFontSizeToFitWidth = YES;
+        _subtitleLabel.minimumScaleFactor = 0.5;
         _subtitleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightRegular];
         _subtitleLabel.textColor = EZTTSNeonDimText();
         _subtitleLabel.numberOfLines = 1;

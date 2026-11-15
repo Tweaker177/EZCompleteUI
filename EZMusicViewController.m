@@ -362,6 +362,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     ]];
 
     _titleLabel = [[UILabel alloc] init];
+    _titleLabel.adjustsFontSizeToFitWidth = YES;
+    _titleLabel.minimumScaleFactor = 0.5;
     _titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
     _titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
     _titleLabel.adjustsFontForContentSizeCategory = YES;
@@ -369,6 +371,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [self.contentView addSubview:_titleLabel];
 
     _detailLabel = [[UILabel alloc] init];
+    _detailLabel.adjustsFontSizeToFitWidth = YES;
+    _detailLabel.minimumScaleFactor = 0.5;
     _detailLabel.translatesAutoresizingMaskIntoConstraints = NO;
     _detailLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     _detailLabel.adjustsFontForContentSizeCategory = YES;
@@ -872,6 +876,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
 - (UILabel *)sectionHeaderLabelWithText:(NSString *)text {
     UILabel *label = [[UILabel alloc] init];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
     label.textColor = [UIColor secondaryLabelColor];
     label.text = [text uppercaseString];
@@ -912,6 +918,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [self.promptContainer addSubview:self.promptTextView];
 
     self.promptPlaceholderLabel = [[UILabel alloc] init];
+    self.promptPlaceholderLabel.adjustsFontSizeToFitWidth = YES;
+    self.promptPlaceholderLabel.minimumScaleFactor = 0.5;
     self.promptPlaceholderLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.promptPlaceholderLabel.font = [UIFont systemFontOfSize:16];
     self.promptPlaceholderLabel.textColor = [UIColor placeholderTextColor];
@@ -922,6 +930,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [self.promptContainer addSubview:self.promptPlaceholderLabel];
 
     self.characterCountLabel = [[UILabel alloc] init];
+    self.characterCountLabel.adjustsFontSizeToFitWidth = YES;
+    self.characterCountLabel.minimumScaleFactor = 0.5;
     self.characterCountLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.characterCountLabel.font = [UIFont systemFontOfSize:12];
     self.characterCountLabel.textColor = [UIColor secondaryLabelColor];
@@ -983,6 +993,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [self.referenceModeControl addTarget:self action:@selector(referenceModeChanged:) forControlEvents:UIControlEventValueChanged];
     [stack addArrangedSubview:self.referenceModeControl];
     self.referenceDetailLabel = [[UILabel alloc] init];
+    self.referenceDetailLabel.adjustsFontSizeToFitWidth = YES;
+    self.referenceDetailLabel.minimumScaleFactor = 0.5;
     self.referenceDetailLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     self.referenceDetailLabel.textColor = [UIColor secondaryLabelColor];
     self.referenceDetailLabel.numberOfLines = 0;
@@ -1012,6 +1024,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
     // ── Instrumental ─────────────────────────────────────────────────────────
     UILabel *instrumentalLabel = [[UILabel alloc] init];
+    instrumentalLabel.adjustsFontSizeToFitWidth = YES;
+    instrumentalLabel.minimumScaleFactor = 0.5;
     instrumentalLabel.font = [UIFont systemFontOfSize:16];
     instrumentalLabel.text = EZMusicText(@"EZMusic.Instrumental", @"Instrumental only (no vocals)");
     instrumentalLabel.numberOfLines = 0;
@@ -1028,6 +1042,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     // ── Length ───────────────────────────────────────────────────────────────
     UILabel *lengthHeader = [self sectionHeaderLabelWithText:EZMusicText(@"EZMusic.Length.Header", @"Length")];
     self.durationValueLabel = [[UILabel alloc] init];
+    self.durationValueLabel.adjustsFontSizeToFitWidth = YES;
+    self.durationValueLabel.minimumScaleFactor = 0.5;
     self.durationValueLabel.font = [UIFont monospacedDigitSystemFontOfSize:15 weight:UIFontWeightSemibold];
     self.durationValueLabel.textAlignment = NSTextAlignmentRight;
     UIStackView *lengthRow = [[UIStackView alloc] initWithArrangedSubviews:@[lengthHeader, self.durationValueLabel]];
@@ -1055,6 +1071,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
     // ── Quote and Generate ───────────────────────────────────────────────────
     self.quoteLabel = [[UILabel alloc] init];
+    self.quoteLabel.adjustsFontSizeToFitWidth = YES;
+    self.quoteLabel.minimumScaleFactor = 0.5;
     self.quoteLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     self.quoteLabel.numberOfLines = 0;
     self.quoteLabel.textAlignment = NSTextAlignmentCenter;
@@ -1083,6 +1101,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [stack addArrangedSubview:actions];
 
     self.statusLabel = [[UILabel alloc] init];
+    self.statusLabel.adjustsFontSizeToFitWidth = YES;
+    self.statusLabel.minimumScaleFactor = 0.5;
     self.statusLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     self.statusLabel.textColor = [UIColor secondaryLabelColor];
     self.statusLabel.numberOfLines = 0;
@@ -1091,6 +1111,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [stack addArrangedSubview:self.statusLabel];
 
     UILabel *footnote = [[UILabel alloc] init];
+    footnote.adjustsFontSizeToFitWidth = YES;
+    footnote.minimumScaleFactor = 0.5;
     footnote.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     footnote.textColor = [UIColor tertiaryLabelColor];
     footnote.numberOfLines = 0;
@@ -1117,6 +1139,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         [self.videoSoundtrackButton.heightAnchor constraintEqualToConstant:48].active = YES;
         [stack addArrangedSubview:self.videoSoundtrackButton];
         UILabel *videoDetail = [[UILabel alloc] init];
+        videoDetail.adjustsFontSizeToFitWidth = YES;
+        videoDetail.minimumScaleFactor = 0.5;
         videoDetail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
         videoDetail.textColor = UIColor.secondaryLabelColor;
         videoDetail.numberOfLines = 0;
@@ -1166,6 +1190,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.libraryTable.refreshControl = self.libraryRefreshControl;
 
     self.emptyStateLabel = [[UILabel alloc] init];
+    self.emptyStateLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyStateLabel.minimumScaleFactor = 0.5;
     self.emptyStateLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     self.emptyStateLabel.textColor = [UIColor secondaryLabelColor];
     self.emptyStateLabel.textAlignment = NSTextAlignmentCenter;
@@ -1186,6 +1212,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 76)];
     header.backgroundColor = [UIColor secondarySystemBackgroundColor];
     UILabel *title = [[UILabel alloc] init];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.translatesAutoresizingMaskIntoConstraints = NO;
     title.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
     title.numberOfLines = 1;
@@ -1193,6 +1221,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.playlistTitleLabel = title;
 
     UILabel *detail = [[UILabel alloc] init];
+    detail.adjustsFontSizeToFitWidth = YES;
+    detail.minimumScaleFactor = 0.5;
     detail.translatesAutoresizingMaskIntoConstraints = NO;
     detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     detail.textColor = UIColor.secondaryLabelColor;
@@ -1455,8 +1485,12 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     card.layer.cornerRadius = 22;
     [overlay addSubview:card];
     BOOL videoMode = self.pickingVideoSoundtrack;
-    UILabel *title = [[UILabel alloc] init]; title.text = videoMode ? @"Compose music for video" : @"Add an audio reference"; title.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold]; title.translatesAutoresizingMaskIntoConstraints = NO;
-    UILabel *detail = [[UILabel alloc] init]; detail.text = videoMode ? @"The video’s visuals guide a new soundtrack." : @"Choose an audio clip to guide or include in a song."; detail.textColor = UIColor.secondaryLabelColor; detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.translatesAutoresizingMaskIntoConstraints = NO;
+    UILabel *title = [[UILabel alloc] init];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5; title.text = videoMode ? @"Compose music for video" : @"Add an audio reference"; title.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold]; title.translatesAutoresizingMaskIntoConstraints = NO;
+    UILabel *detail = [[UILabel alloc] init];
+    detail.adjustsFontSizeToFitWidth = YES;
+    detail.minimumScaleFactor = 0.5; detail.text = videoMode ? @"The video’s visuals guide a new soundtrack." : @"Choose an audio clip to guide or include in a song."; detail.textColor = UIColor.secondaryLabelColor; detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:title]; [card addSubview:detail];
     UIStackView *choices = [[UIStackView alloc] init]; choices.translatesAutoresizingMaskIntoConstraints = NO; choices.axis = UILayoutConstraintAxisVertical; choices.spacing = 10; [card addSubview:choices];
     NSArray *rows = videoMode
@@ -1465,8 +1499,12 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     for (NSArray *row in rows) {
         UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; button.tag = [rows indexOfObject:row]; button.backgroundColor = UIColor.secondarySystemBackgroundColor; button.layer.cornerRadius = 14; button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft; button.contentEdgeInsets = UIEdgeInsetsMake(10, 14, 10, 14); [button addTarget:self action:@selector(referenceSourceChosen:) forControlEvents:UIControlEventTouchUpInside];
         UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:row[2]]]; icon.tintColor = UIColor.systemPurpleColor; icon.translatesAutoresizingMaskIntoConstraints = NO;
-        UILabel *name = [[UILabel alloc] init]; name.text = row[0]; name.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
-        UILabel *sub = [[UILabel alloc] init]; sub.text = row[1]; sub.textColor = UIColor.secondaryLabelColor; sub.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+        UILabel *name = [[UILabel alloc] init];
+        name.adjustsFontSizeToFitWidth = YES;
+        name.minimumScaleFactor = 0.5; name.text = row[0]; name.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+        UILabel *sub = [[UILabel alloc] init];
+        sub.adjustsFontSizeToFitWidth = YES;
+        sub.minimumScaleFactor = 0.5; sub.text = row[1]; sub.textColor = UIColor.secondaryLabelColor; sub.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
         UIStackView *labels = [[UIStackView alloc] initWithArrangedSubviews:@[name, sub]]; labels.axis = UILayoutConstraintAxisVertical; labels.spacing = 2;
         UIStackView *line = [[UIStackView alloc] initWithArrangedSubviews:@[icon, labels]]; line.userInteractionEnabled = NO; line.axis = UILayoutConstraintAxisHorizontal; line.alignment = UIStackViewAlignmentCenter; line.spacing = 12; [button addSubview:line]; line.translatesAutoresizingMaskIntoConstraints = NO;
         [NSLayoutConstraint activateConstraints:@[[line.leadingAnchor constraintEqualToAnchor:button.leadingAnchor constant:14], [line.trailingAnchor constraintEqualToAnchor:button.trailingAnchor constant:-14], [line.topAnchor constraintEqualToAnchor:button.topAnchor constant:10], [line.bottomAnchor constraintEqualToAnchor:button.bottomAnchor constant:-10], [icon.widthAnchor constraintEqualToConstant:28]]];
@@ -1572,9 +1610,15 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     UIView *card = [UIView new]; card.translatesAutoresizingMaskIntoConstraints = NO; card.backgroundColor = UIColor.systemBackgroundColor; card.layer.cornerRadius = 22; [overlay addSubview:card];
     UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem]; closeButton.translatesAutoresizingMaskIntoConstraints = NO; [closeButton setImage:[UIImage systemImageNamed:@"xmark.circle.fill"] forState:UIControlStateNormal]; closeButton.tintColor = UIColor.secondaryLabelColor; [card addSubview:closeButton];
     [closeButton addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; }] forControlEvents:UIControlEventTouchUpInside];
-    UILabel *title = [UILabel new]; title.translatesAutoresizingMaskIntoConstraints = NO; title.text = @"Choose a 2-minute reference"; title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold]; [card addSubview:title];
-    UILabel *detail = [UILabel new]; detail.translatesAutoresizingMaskIntoConstraints = NO; detail.numberOfLines = 0; detail.textColor = UIColor.secondaryLabelColor; detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.text = @"References longer than two minutes are rejected before generation. Pick the part of this song you want to use."; [card addSubview:detail];
-    UILabel *range = [UILabel new]; range.translatesAutoresizingMaskIntoConstraints = NO; range.textAlignment = NSTextAlignmentCenter; range.font = [UIFont monospacedDigitSystemFontOfSize:15 weight:UIFontWeightSemibold]; [card addSubview:range];
+    UILabel *title = [UILabel new];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5; title.translatesAutoresizingMaskIntoConstraints = NO; title.text = @"Choose a 2-minute reference"; title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold]; [card addSubview:title];
+    UILabel *detail = [UILabel new];
+    detail.adjustsFontSizeToFitWidth = YES;
+    detail.minimumScaleFactor = 0.5; detail.translatesAutoresizingMaskIntoConstraints = NO; detail.numberOfLines = 0; detail.textColor = UIColor.secondaryLabelColor; detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.text = @"References longer than two minutes are rejected before generation. Pick the part of this song you want to use."; [card addSubview:detail];
+    UILabel *range = [UILabel new];
+    range.adjustsFontSizeToFitWidth = YES;
+    range.minimumScaleFactor = 0.5; range.translatesAutoresizingMaskIntoConstraints = NO; range.textAlignment = NSTextAlignmentCenter; range.font = [UIFont monospacedDigitSystemFontOfSize:15 weight:UIFontWeightSemibold]; [card addSubview:range];
     UISlider *slider = [UISlider new]; slider.translatesAutoresizingMaskIntoConstraints = NO; slider.minimumValue = 0; slider.maximumValue = MAX(0, duration - kEZMusicMaximumReferenceSeconds); [card addSubview:slider];
     void (^refresh)(void) = ^{ range.text = [NSString stringWithFormat:@"%.0f:%02.0f – %.0f:%02.0f", floor(slider.value / 60), fmod(slider.value, 60), floor((slider.value + 120) / 60), fmod(slider.value + 120, 60)]; };
     [slider addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { refresh(); }] forControlEvents:UIControlEventValueChanged]; refresh();
@@ -3023,8 +3067,12 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     UIView *card = [UIView new]; card.translatesAutoresizingMaskIntoConstraints = NO; card.backgroundColor = UIColor.systemBackgroundColor; card.layer.cornerRadius = 22; [overlay addSubview:card];
     UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem]; closeButton.translatesAutoresizingMaskIntoConstraints = NO; [closeButton setImage:[UIImage systemImageNamed:@"xmark.circle.fill"] forState:UIControlStateNormal]; closeButton.tintColor = UIColor.secondaryLabelColor; [card addSubview:closeButton];
     [closeButton addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; }] forControlEvents:UIControlEventTouchUpInside];
-    UILabel *heading = [UILabel new]; heading.translatesAutoresizingMaskIntoConstraints = NO; heading.text = title; heading.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold]; heading.numberOfLines = 0; [card addSubview:heading];
-    UILabel *body = [UILabel new]; body.translatesAutoresizingMaskIntoConstraints = NO; body.text = message; body.textColor = UIColor.secondaryLabelColor; body.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; body.numberOfLines = 0; [card addSubview:body];
+    UILabel *heading = [UILabel new];
+    heading.adjustsFontSizeToFitWidth = YES;
+    heading.minimumScaleFactor = 0.5; heading.translatesAutoresizingMaskIntoConstraints = NO; heading.text = title; heading.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold]; heading.numberOfLines = 0; [card addSubview:heading];
+    UILabel *body = [UILabel new];
+    body.adjustsFontSizeToFitWidth = YES;
+    body.minimumScaleFactor = 0.5; body.translatesAutoresizingMaskIntoConstraints = NO; body.text = message; body.textColor = UIColor.secondaryLabelColor; body.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; body.numberOfLines = 0; [card addSubview:body];
     UIButton *dismiss = [UIButton buttonWithType:UIButtonTypeSystem]; dismiss.translatesAutoresizingMaskIntoConstraints = NO; [dismiss setTitle:primaryTitle ?: EZMusicText(@"EZMusic.OK", @"OK") forState:UIControlStateNormal]; dismiss.backgroundColor = UIColor.systemPurpleColor; dismiss.tintColor = UIColor.whiteColor; dismiss.layer.cornerRadius = 12; [card addSubview:dismiss];
     [dismiss addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; if (primaryHandler) primaryHandler(); }] forControlEvents:UIControlEventTouchUpInside];
     [NSLayoutConstraint activateConstraints:@[[card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:28], [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-28], [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor], [closeButton.topAnchor constraintEqualToAnchor:card.topAnchor constant:12], [closeButton.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-12], [closeButton.widthAnchor constraintEqualToConstant:28], [closeButton.heightAnchor constraintEqualToConstant:28], [heading.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [heading.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [heading.trailingAnchor constraintEqualToAnchor:closeButton.leadingAnchor constant:-8], [body.topAnchor constraintEqualToAnchor:heading.bottomAnchor constant:9], [body.leadingAnchor constraintEqualToAnchor:heading.leadingAnchor], [body.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [dismiss.topAnchor constraintEqualToAnchor:body.bottomAnchor constant:22], [dismiss.leadingAnchor constraintEqualToAnchor:heading.leadingAnchor], [dismiss.trailingAnchor constraintEqualToAnchor:body.trailingAnchor], [dismiss.heightAnchor constraintEqualToConstant:46], [dismiss.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18]]];
@@ -3044,6 +3092,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     toast.layer.cornerRadius = 18;
     toast.alpha = 0;
     UILabel *label = [[UILabel alloc] init];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.translatesAutoresizingMaskIntoConstraints = NO;
     label.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
     label.textColor = [UIColor whiteColor];
@@ -3090,6 +3140,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     spinner.translatesAutoresizingMaskIntoConstraints = NO;
     [spinner startAnimating];
     UILabel *label = [[UILabel alloc] init];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.translatesAutoresizingMaskIntoConstraints = NO;
     label.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
     label.textAlignment = NSTextAlignmentCenter;

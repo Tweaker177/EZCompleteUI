@@ -178,6 +178,8 @@ static NSString * const kEZElevenLabsURL         =
 
     // ---- Noise switch ----
     UILabel *noiseLbl = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w - 60, 24)];
+    noiseLbl.adjustsFontSizeToFitWidth = YES;
+    noiseLbl.minimumScaleFactor = 0.5;
     noiseLbl.text = NSLocalizedString(@"ElevenLabsClone.RemoveNoise", @"Noise removal switch label");
     noiseLbl.font = [UIFont systemFontOfSize:13];
     [self.scrollView addSubview:noiseLbl];
@@ -208,6 +210,8 @@ static NSString * const kEZElevenLabsURL         =
 
     // ---- Timer ----
     self.timerLabel = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w, 22)];
+    self.timerLabel.adjustsFontSizeToFitWidth = YES;
+    self.timerLabel.minimumScaleFactor = 0.5;
     self.timerLabel.text = @"00:00";
     self.timerLabel.font =
         [UIFont monospacedDigitSystemFontOfSize:16 weight:UIFontWeightMedium];
@@ -305,6 +309,8 @@ static NSString * const kEZElevenLabsURL         =
 
     // ---- "My Cloned Voices" header ----
     UILabel *voicesHeader = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w - 100, 24)];
+    voicesHeader.adjustsFontSizeToFitWidth = YES;
+    voicesHeader.minimumScaleFactor = 0.5;
     voicesHeader.text = NSLocalizedString(@"ElevenLabsClone.MyVoices", @"Cloned voices section title");
     voicesHeader.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
     [self.scrollView addSubview:voicesHeader];
@@ -342,6 +348,8 @@ static NSString * const kEZElevenLabsURL         =
 
 - (UILabel *)makeSectionLabel:(NSString *)text frame:(CGRect)frame {
     UILabel *l = [[UILabel alloc] initWithFrame:frame];
+    l.adjustsFontSizeToFitWidth = YES;
+    l.minimumScaleFactor = 0.5;
     l.text = text;
     l.font = [UIFont systemFontOfSize:11 weight:UIFontWeightSemibold];
     l.textColor = [UIColor secondaryLabelColor];
@@ -1206,6 +1214,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     if (self.myVoices.count == 0) {
         UILabel *empty = [[UILabel alloc] initWithFrame:CGRectMake(m, y, w, 52)];
+        empty.adjustsFontSizeToFitWidth = YES;
+        empty.minimumScaleFactor = 0.5;
         empty.text = NSLocalizedString(@"ElevenLabsClone.NoClonedVoices", @"Empty cloned voices list message");
         empty.font = [UIFont systemFontOfSize:13];
         empty.textColor = [UIColor secondaryLabelColor];
@@ -1233,6 +1243,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         if (visibleCount < self.myVoices.count) {
             UILabel *moreLabel = [[UILabel alloc] initWithFrame:CGRectMake(m, y + 4, w, 18)];
+            moreLabel.adjustsFontSizeToFitWidth = YES;
+            moreLabel.minimumScaleFactor = 0.5;
             moreLabel.text = [NSString stringWithFormat:NSLocalizedString(@"ElevenLabsClone.ShowingVoicesFormat", @"Visible cloned voices count format"),
                               (unsigned long)visibleCount,
                               (unsigned long)self.myVoices.count];
@@ -1275,6 +1287,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     UILabel *nameLbl = [[UILabel alloc]
         initWithFrame:CGRectMake(m, 7, vw - m * 2 - delW - 8, 20)];
+    nameLbl.adjustsFontSizeToFitWidth = YES;
+    nameLbl.minimumScaleFactor = 0.5;
     nameLbl.text = name;
     nameLbl.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     nameLbl.numberOfLines = 1;
@@ -1287,6 +1301,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         : voiceID;
     UILabel *detailLbl = [[UILabel alloc]
         initWithFrame:CGRectMake(m, 29, vw - m * 2 - delW - 8, 16)];
+    detailLbl.adjustsFontSizeToFitWidth = YES;
+    detailLbl.minimumScaleFactor = 0.5;
     detailLbl.text = cat.length
         ? [NSString stringWithFormat:@"%@  ·  %@", shortID, cat]
         : shortID;

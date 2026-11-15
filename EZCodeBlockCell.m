@@ -125,6 +125,8 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
     [container addSubview:header];
 
     _langLabel                  = [[UILabel alloc] init];
+    _langLabel.adjustsFontSizeToFitWidth = YES;
+    _langLabel.minimumScaleFactor = 0.5;
     _langLabel.font             = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightMedium];
     _langLabel.textColor        = [UIColor colorWithRed:0.6 green:0.8 blue:1.0 alpha:1.0];
     _langLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -195,6 +197,8 @@ static NSCache<NSString *, UIImage *> *EZCodeBlockThumbCache(void) {
     [container addSubview:_thumbButton];
 
     _thumbBadge = [[UILabel alloc] init];
+    _thumbBadge.adjustsFontSizeToFitWidth = YES;
+    _thumbBadge.minimumScaleFactor = 0.5;
     _thumbBadge.font              = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
     _thumbBadge.textColor         = [UIColor whiteColor];
     _thumbBadge.backgroundColor   = [UIColor systemTealColor];

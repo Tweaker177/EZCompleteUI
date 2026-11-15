@@ -70,6 +70,8 @@ NSString *const EZCurrentTermsVersion = @"2026-09-18";
 
     // ── App icon / emoji header ───────────────────────────────────────────────
     UILabel *iconLabel      = [UILabel new];
+    iconLabel.adjustsFontSizeToFitWidth = YES;
+    iconLabel.minimumScaleFactor = 0.5;
     iconLabel.text          = @"📋";
     iconLabel.font          = [UIFont systemFontOfSize:48];
     iconLabel.textAlignment = NSTextAlignmentCenter;
@@ -78,6 +80,8 @@ NSString *const EZCurrentTermsVersion = @"2026-09-18";
 
     // ── Title ─────────────────────────────────────────────────────────────────
     UILabel *titleLabel      = [UILabel new];
+    titleLabel.adjustsFontSizeToFitWidth = YES;
+    titleLabel.minimumScaleFactor = 0.5;
     titleLabel.text          = @"Terms & Privacy Updated";
     titleLabel.font          = [UIFont systemFontOfSize:22 weight:UIFontWeightBold];
     titleLabel.textColor     = [UIColor labelColor];
@@ -87,6 +91,8 @@ NSString *const EZCurrentTermsVersion = @"2026-09-18";
 
     // ── Summary body ──────────────────────────────────────────────────────────
     UILabel *bodyLabel      = [UILabel new];
+    bodyLabel.adjustsFontSizeToFitWidth = YES;
+    bodyLabel.minimumScaleFactor = 0.5;
     bodyLabel.numberOfLines = 0;
     bodyLabel.textAlignment = NSTextAlignmentCenter;
     bodyLabel.textColor     = [UIColor secondaryLabelColor];

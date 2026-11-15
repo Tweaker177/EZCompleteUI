@@ -152,6 +152,8 @@ typedef NS_ENUM(NSInteger, EZEditorReadOnlyReason) {
     self.bannerView.translatesAutoresizingMaskIntoConstraints = NO;
     self.bannerView.backgroundColor = [UIColor secondarySystemBackgroundColor];
     self.bannerLabel = [[UILabel alloc] init];
+    self.bannerLabel.adjustsFontSizeToFitWidth = YES;
+    self.bannerLabel.minimumScaleFactor = 0.5;
     self.bannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.bannerLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     self.bannerLabel.textColor = [UIColor secondaryLabelColor];
@@ -177,6 +179,8 @@ typedef NS_ENUM(NSInteger, EZEditorReadOnlyReason) {
     [self.view addSubview:self.textView];
 
     self.countLabel = [[UILabel alloc] init];
+    self.countLabel.adjustsFontSizeToFitWidth = YES;
+    self.countLabel.minimumScaleFactor = 0.5;
     self.countLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.countLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleCaption1];
     self.countLabel.textColor = [UIColor secondaryLabelColor];

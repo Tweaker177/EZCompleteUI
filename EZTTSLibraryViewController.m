@@ -90,6 +90,8 @@ static UIColor *EZTTSNeonDimText(void)    { return [UIColor colorWithRed:0.66 gr
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
 
     self.emptyStateLabel = [[UILabel alloc] init];
+    self.emptyStateLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyStateLabel.minimumScaleFactor = 0.5;
     self.emptyStateLabel.text = @"No archived clips yet — generate something to see it here.";
     self.emptyStateLabel.textColor = EZTTSNeonDimText();
     self.emptyStateLabel.font = [UIFont systemFontOfSize:15];

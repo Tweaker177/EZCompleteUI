@@ -306,6 +306,8 @@ static CGFloat const kIGCCardPad     = 16.0;  // left/right margin from cell edg
 
         // Prompt label
         self.promptLabel = [[UILabel alloc] init];
+        self.promptLabel.adjustsFontSizeToFitWidth = YES;
+        self.promptLabel.minimumScaleFactor = 0.5;
         self.promptLabel.font          = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
         self.promptLabel.textColor     = [UIColor colorWithWhite:0.55 alpha:1];
         self.promptLabel.numberOfLines = 2;
@@ -321,6 +323,8 @@ static CGFloat const kIGCCardPad     = 16.0;  // left/right margin from cell edg
         [self.cardView addSubview:self.errorIcon];
 
         self.errorLabel = [[UILabel alloc] init];
+        self.errorLabel.adjustsFontSizeToFitWidth = YES;
+        self.errorLabel.minimumScaleFactor = 0.5;
         self.errorLabel.font          = [UIFont systemFontOfSize:13 weight:UIFontWeightRegular];
         self.errorLabel.textColor     = [UIColor colorWithRed:1.0 green:0.45 blue:0.3 alpha:1.0];
         self.errorLabel.numberOfLines = 3;
@@ -578,6 +582,8 @@ static CGFloat const kIGCCardPad     = 16.0;  // left/right margin from cell edg
         [_bubbleView addSubview:_thumbView];
 
         _label = [[UILabel alloc] init];
+        _label.adjustsFontSizeToFitWidth = YES;
+        _label.minimumScaleFactor = 0.5;
         _label.text      = @"📎 Attached";
         _label.font      = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
         _label.textColor = [UIColor colorWithWhite:1.0 alpha:0.85];

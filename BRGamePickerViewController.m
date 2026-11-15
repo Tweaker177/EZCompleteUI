@@ -312,6 +312,8 @@ typedef NS_ENUM(NSInteger, BRSavedGameCellShareState) {
 
     // Theme title
     self.titleLabel               = [[UILabel alloc] init];
+    self.titleLabel.adjustsFontSizeToFitWidth = YES;
+    self.titleLabel.minimumScaleFactor = 0.5;
     self.titleLabel.font          = [UIFont monospacedSystemFontOfSize:15 weight:UIFontWeightBold];
     self.titleLabel.textColor     = [UIColor whiteColor];
     self.titleLabel.numberOfLines = 2;
@@ -321,6 +323,8 @@ typedef NS_ENUM(NSInteger, BRSavedGameCellShareState) {
 
     // Date label
     self.dateLabel           = [[UILabel alloc] init];
+    self.dateLabel.adjustsFontSizeToFitWidth = YES;
+    self.dateLabel.minimumScaleFactor = 0.5;
     self.dateLabel.font      = [UIFont monospacedSystemFontOfSize:10 weight:UIFontWeightRegular];
     self.dateLabel.textColor = [UIColor colorWithWhite:0.7 alpha:1.0];
     self.dateLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -475,6 +479,8 @@ typedef NS_ENUM(NSInteger, BRSavedGameCellShareState) {
     self.contentView.layer.borderWidth   = 1.5;
 
     UILabel *plusLabel      = [[UILabel alloc] init];
+    plusLabel.adjustsFontSizeToFitWidth = YES;
+    plusLabel.minimumScaleFactor = 0.5;
     plusLabel.text          = @"✚";
     plusLabel.font          = [UIFont systemFontOfSize:40 weight:UIFontWeightLight];
     plusLabel.textColor     = [UIColor systemYellowColor];
@@ -483,6 +489,8 @@ typedef NS_ENUM(NSInteger, BRSavedGameCellShareState) {
     [self.contentView addSubview:plusLabel];
 
     UILabel *textLabel      = [[UILabel alloc] init];
+    textLabel.adjustsFontSizeToFitWidth = YES;
+    textLabel.minimumScaleFactor = 0.5;
     textLabel.text          = @"NEW GAME";
     textLabel.font          = [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightBold];
     textLabel.textColor     = [UIColor systemYellowColor];
@@ -491,6 +499,8 @@ typedef NS_ENUM(NSInteger, BRSavedGameCellShareState) {
     [self.contentView addSubview:textLabel];
 
     UILabel *subLabel      = [[UILabel alloc] init];
+    subLabel.adjustsFontSizeToFitWidth = YES;
+    subLabel.minimumScaleFactor = 0.5;
     subLabel.text          = @"Workshop Builder";
     subLabel.font          = [UIFont monospacedSystemFontOfSize:10 weight:UIFontWeightRegular];
     subLabel.textColor     = [UIColor colorWithWhite:0.55 alpha:1.0];
@@ -557,6 +567,8 @@ typedef NS_ENUM(NSInteger, BRSavedGameCellShareState) {
     [self.contentView.layer addSublayer:self.gradientLayer];
 
     self.titleLabel               = [[UILabel alloc] init];
+    self.titleLabel.adjustsFontSizeToFitWidth = YES;
+    self.titleLabel.minimumScaleFactor = 0.5;
     self.titleLabel.font          = [UIFont monospacedSystemFontOfSize:15 weight:UIFontWeightBold];
     self.titleLabel.textColor     = [UIColor whiteColor];
     self.titleLabel.numberOfLines = 2;
@@ -674,6 +686,8 @@ typedef NS_ENUM(NSInteger, BRPickerTab) {
 
     // ── Header ────────────────────────────────────────────────────────────────
     UILabel *headerLabel      = [[UILabel alloc] init];
+    headerLabel.adjustsFontSizeToFitWidth = YES;
+    headerLabel.minimumScaleFactor = 0.5;
     headerLabel.text          = @"🕹  BRAINROT";
     headerLabel.font          = [UIFont monospacedSystemFontOfSize:26 weight:UIFontWeightBold];
     headerLabel.textColor     = [UIColor systemYellowColor];
@@ -682,6 +696,8 @@ typedef NS_ENUM(NSInteger, BRPickerTab) {
     [self.view addSubview:headerLabel];
 
     UILabel *subHeader      = [[UILabel alloc] init];
+    subHeader.adjustsFontSizeToFitWidth = YES;
+    subHeader.minimumScaleFactor = 0.5;
     subHeader.text          = @"Choose a world or generate a new one";
     subHeader.font          = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightRegular];
     subHeader.textColor     = [UIColor colorWithWhite:0.55 alpha:1.0];

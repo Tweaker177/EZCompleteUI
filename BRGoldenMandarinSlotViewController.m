@@ -109,6 +109,8 @@ static UIImage *GMParticleImage(BOOL coin) {
         sheet.prefersGrabberVisible = YES;
     }
     UILabel *title = [UILabel new];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.translatesAutoresizingMaskIntoConstraints = NO;
     title.text = GMLoc(@"BRSlot.GM.Pays.Title", @"Golden Mandarin Pays");
     title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightHeavy];
@@ -125,6 +127,8 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.table.allowsSelection = NO;
     self.table.rowHeight = 62;
     UILabel *footer = [UILabel new];
+    footer.adjustsFontSizeToFitWidth = YES;
+    footer.minimumScaleFactor = 0.5;
     footer.numberOfLines = 0;
     footer.textColor = [UIColor colorWithWhite:1 alpha:.82];
     footer.font = [UIFont systemFontOfSize:13];
@@ -337,6 +341,8 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 - (UIView *)statBlockCaption:(NSString *)caption value:(UILabel *)value alignment:(NSTextAlignment)alignment {
     UILabel *cap = [UILabel new];
+    cap.adjustsFontSizeToFitWidth = YES;
+    cap.minimumScaleFactor = 0.5;
     cap.text = caption;
     cap.font = [UIFont systemFontOfSize:10 weight:UIFontWeightHeavy];
     cap.textColor = [GMGold() colorWithAlphaComponent:.8];
@@ -378,6 +384,8 @@ static UIImage *GMParticleImage(BOOL coin) {
     [self.scroll addSubview:content];
 
     UILabel *title = [UILabel new];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.translatesAutoresizingMaskIntoConstraints = NO;
     title.textAlignment = NSTextAlignmentCenter;
     title.attributedText = [[NSAttributedString alloc] initWithString:@"金帽福运" attributes:@{
@@ -386,6 +394,8 @@ static UIImage *GMParticleImage(BOOL coin) {
     title.layer.shadowColor = GMC(0xFF8A1F).CGColor;
     title.layer.shadowOpacity = .7; title.layer.shadowRadius = 10; title.layer.shadowOffset = CGSizeZero;
     UILabel *subtitle = [UILabel new];
+    subtitle.adjustsFontSizeToFitWidth = YES;
+    subtitle.minimumScaleFactor = 0.5;
     subtitle.translatesAutoresizingMaskIntoConstraints = NO;
     subtitle.textAlignment = NSTextAlignmentCenter;
     subtitle.attributedText = [[NSAttributedString alloc] initWithString:@"GOLDEN MANDARIN" attributes:@{
@@ -393,7 +403,11 @@ static UIImage *GMParticleImage(BOOL coin) {
         NSForegroundColorAttributeName: [UIColor colorWithRed:1 green:.96 blue:.86 alpha:.85], NSKernAttributeName: @4}];
 
     self.balanceLabel = [UILabel new];
+    self.balanceLabel.adjustsFontSizeToFitWidth = YES;
+    self.balanceLabel.minimumScaleFactor = 0.5;
     self.winLabel = [UILabel new];
+    self.winLabel.adjustsFontSizeToFitWidth = YES;
+    self.winLabel.minimumScaleFactor = 0.5;
     UIView *balanceBlock = [self statBlockCaption:GMLoc(@"BRSlot.GM.Balance", @"BALANCE") value:self.balanceLabel alignment:NSTextAlignmentLeft];
     UIView *winBlock = [self statBlockCaption:GMLoc(@"BRSlot.GM.Win", @"WIN") value:self.winLabel alignment:NSTextAlignmentRight];
     UIStackView *info = [[UIStackView alloc] initWithArrangedSubviews:@[balanceBlock, winBlock]];
@@ -401,6 +415,8 @@ static UIImage *GMParticleImage(BOOL coin) {
     info.distribution = UIStackViewDistributionFillEqually;
 
     self.bannerLabel = [UILabel new];
+    self.bannerLabel.adjustsFontSizeToFitWidth = YES;
+    self.bannerLabel.minimumScaleFactor = 0.5;
     self.bannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.bannerLabel.numberOfLines = 2;
     self.bannerLabel.textAlignment = NSTextAlignmentCenter;
@@ -467,12 +483,16 @@ static UIImage *GMParticleImage(BOOL coin) {
     }
 
     self.messageLabel = [UILabel new];
+    self.messageLabel.adjustsFontSizeToFitWidth = YES;
+    self.messageLabel.minimumScaleFactor = 0.5;
     self.messageLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.messageLabel.numberOfLines = 2;
     self.messageLabel.textAlignment = NSTextAlignmentCenter;
     self.messageLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
     self.messageLabel.textColor = [UIColor colorWithWhite:.85 alpha:1];
     self.totalBetLabel = [UILabel new];
+    self.totalBetLabel.adjustsFontSizeToFitWidth = YES;
+    self.totalBetLabel.minimumScaleFactor = 0.5;
     self.totalBetLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.totalBetLabel.textAlignment = NSTextAlignmentCenter;
     self.totalBetLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightHeavy];
@@ -1181,6 +1201,8 @@ static NSArray<UIColor *> *GMLineColors(void) {
     CGFloat width = overlay.bounds.size.width;
 
     UILabel *main = [UILabel new];
+    main.adjustsFontSizeToFitWidth = YES;
+    main.minimumScaleFactor = 0.5;
     main.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Hats", @"%ld GOLDEN HATS!"), (long)hats];
     main.font = [UIFont systemFontOfSize:hats >= 5 ? 40 : 34 weight:UIFontWeightBlack];
     main.textColor = GMC(0xFFE48F);
@@ -1189,6 +1211,8 @@ static NSArray<UIColor *> *GMLineColors(void) {
     main.layer.shadowOpacity = 1; main.layer.shadowRadius = 8; main.layer.shadowOffset = CGSizeZero;
     main.frame = CGRectMake(0, 0, width, 50);
     UILabel *sub = [UILabel new];
+    sub.adjustsFontSizeToFitWidth = YES;
+    sub.minimumScaleFactor = 0.5;
     sub.text = GMLoc(@"BRSlot.GM.HatsSub", @"金帽 · FREE SPINS UNLOCKED");
     sub.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
     sub.textColor = UIColor.whiteColor;
@@ -1229,6 +1253,8 @@ static NSArray<UIColor *> *GMLineColors(void) {
         NSArray<NSNumber *> *xs = @[@(28), @(width - 28), @(width * 0.3), @(width * 0.7)];
         for (NSUInteger i = 0; i < xs.count; i++) {
             UILabel *bell = [UILabel new];
+            bell.adjustsFontSizeToFitWidth = YES;
+            bell.minimumScaleFactor = 0.5;
             bell.text = @"🔔";
             bell.font = [UIFont systemFontOfSize:i < 2 ? 46 : 38];
             [bell sizeToFit];
@@ -1350,16 +1376,22 @@ static NSArray<UIColor *> *GMLineColors(void) {
 
     NSInteger spins = MAX(1, _freeRemaining);
     self.pickTitle = [[UILabel alloc] initWithFrame:CGRectMake(16, height * 0.16, width - 32, 44)];
+    self.pickTitle.adjustsFontSizeToFitWidth = YES;
+    self.pickTitle.minimumScaleFactor = 0.5;
     self.pickTitle.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Pick.Title", @"%ld FREE SPINS"), (long)spins];
     self.pickTitle.font = [UIFont systemFontOfSize:34 weight:UIFontWeightBlack];
     self.pickTitle.textColor = GMC(0xFFE48F);
     self.pickTitle.textAlignment = NSTextAlignmentCenter;
     self.pickSubtitle = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(self.pickTitle.frame), width - 32, 30)];
+    self.pickSubtitle.adjustsFontSizeToFitWidth = YES;
+    self.pickSubtitle.minimumScaleFactor = 0.5;
     self.pickSubtitle.text = @"选择一张牌";
     self.pickSubtitle.font = [UIFont systemFontOfSize:22 weight:UIFontWeightHeavy];
     self.pickSubtitle.textColor = GMGold();
     self.pickSubtitle.textAlignment = NSTextAlignmentCenter;
     self.pickPrompt = [[UILabel alloc] initWithFrame:CGRectMake(24, CGRectGetMaxY(self.pickSubtitle.frame) + 6, width - 48, 44)];
+    self.pickPrompt.adjustsFontSizeToFitWidth = YES;
+    self.pickPrompt.minimumScaleFactor = 0.5;
     self.pickPrompt.numberOfLines = 2;
     self.pickPrompt.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
     self.pickPrompt.textColor = [UIColor colorWithWhite:1 alpha:.88];
@@ -1523,11 +1555,15 @@ static NSArray<UIColor *> *GMLineColors(void) {
     CGFloat width = overlay.bounds.size.width, height = overlay.bounds.size.height;
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, height * 0.30, width - 32, 44)];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.text = GMLoc(@"BRSlot.GM.Summary.Title", @"FREE SPINS COMPLETE");
     title.font = [UIFont systemFontOfSize:26 weight:UIFontWeightBlack];
     title.textColor = GMC(0xFFE48F);
     title.textAlignment = NSTextAlignmentCenter;
     UILabel *sub = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(title.frame) + 4, width - 32, 24)];
+    sub.adjustsFontSizeToFitWidth = YES;
+    sub.minimumScaleFactor = 0.5;
     sub.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Summary.Sub", @"×%ld  ·  TOTAL WIN"), (long)MAX(1, mult)];
     sub.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
     sub.textColor = GMGold();
@@ -1539,6 +1575,8 @@ static NSArray<UIColor *> *GMLineColors(void) {
     amount.textAlignment = NSTextAlignmentCenter;
     amount.adjustsFontSizeToFitWidth = YES;
     UILabel *hint = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(amount.frame) + 12, width - 32, 20)];
+    hint.adjustsFontSizeToFitWidth = YES;
+    hint.minimumScaleFactor = 0.5;
     hint.text = GMLoc(@"BRSlot.GM.Summary.Tap", @"Tap to continue");
     hint.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
     hint.textColor = [UIColor colorWithWhite:1 alpha:.6];

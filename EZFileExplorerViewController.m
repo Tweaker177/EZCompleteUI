@@ -239,6 +239,8 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
     [self.view addSubview:self.spinner];
 
     self.emptyLabel = [[UILabel alloc] init];
+    self.emptyLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyLabel.minimumScaleFactor = 0.5;
     self.emptyLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.emptyLabel.textColor = [UIColor secondaryLabelColor];
     self.emptyLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
@@ -1378,6 +1380,8 @@ handler:^(__kindof UIAction *a) {
 - (void)ez_setupSelectionToolbar {
     if (!self.selectionCountItem) {
         self.selectionCountLabel = [[UILabel alloc] init];
+        self.selectionCountLabel.adjustsFontSizeToFitWidth = YES;
+        self.selectionCountLabel.minimumScaleFactor = 0.5;
         self.selectionCountLabel.font =
             [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
         self.selectionCountLabel.textColor = [UIColor secondaryLabelColor];
@@ -1786,6 +1790,8 @@ handler:^(__kindof UIAction *a) {
     card.layer.cornerRadius = 14;
 
     self.progressTitleLabel = [[UILabel alloc] init];
+    self.progressTitleLabel.adjustsFontSizeToFitWidth = YES;
+    self.progressTitleLabel.minimumScaleFactor = 0.5;
     self.progressTitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.progressTitleLabel.font =
         [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
@@ -1793,6 +1799,8 @@ handler:^(__kindof UIAction *a) {
     self.progressTitleLabel.textAlignment = NSTextAlignmentCenter;
 
     self.progressEntryLabel = [[UILabel alloc] init];
+    self.progressEntryLabel.adjustsFontSizeToFitWidth = YES;
+    self.progressEntryLabel.minimumScaleFactor = 0.5;
     self.progressEntryLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.progressEntryLabel.font =
         [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];

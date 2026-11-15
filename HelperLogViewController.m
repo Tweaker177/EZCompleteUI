@@ -112,6 +112,8 @@
 
     // ── Top row: level badge + tag + timestamp ────────────────────────────────
     _levelBadge = [[UILabel alloc] init];
+    _levelBadge.adjustsFontSizeToFitWidth = YES;
+    _levelBadge.minimumScaleFactor = 0.5;
     _levelBadge.font              = [UIFont monospacedSystemFontOfSize:11 weight:UIFontWeightBold];
     _levelBadge.textColor         = [UIColor whiteColor];
     _levelBadge.textAlignment     = NSTextAlignmentCenter;
@@ -121,12 +123,16 @@
     [card addSubview:_levelBadge];
 
     _tagLabel = [[UILabel alloc] init];
+    _tagLabel.adjustsFontSizeToFitWidth = YES;
+    _tagLabel.minimumScaleFactor = 0.5;
     _tagLabel.font      = [UIFont monospacedSystemFontOfSize:11 weight:UIFontWeightSemibold];
     _tagLabel.textColor = [UIColor secondaryLabelColor];
     _tagLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:_tagLabel];
 
     _timestampLabel = [[UILabel alloc] init];
+    _timestampLabel.adjustsFontSizeToFitWidth = YES;
+    _timestampLabel.minimumScaleFactor = 0.5;
     _timestampLabel.font      = [UIFont monospacedSystemFontOfSize:11 weight:UIFontWeightRegular];
     _timestampLabel.textColor = [UIColor tertiaryLabelColor];
     _timestampLabel.textAlignment = NSTextAlignmentRight;
@@ -151,6 +157,8 @@
     [card addSubview:_thumbButton];
 
     _thumbBadge = [[UILabel alloc] init];
+    _thumbBadge.adjustsFontSizeToFitWidth = YES;
+    _thumbBadge.minimumScaleFactor = 0.5;
     _thumbBadge.font              = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
     _thumbBadge.textColor         = [UIColor whiteColor];
     _thumbBadge.backgroundColor   = [UIColor systemTealColor];
@@ -636,6 +644,8 @@ static NSString * const kLogEmptyCellID = @"EZLogEmptyCell";
 
 - (void)setupEmptyLabel {
     self.emptyLabel = [[UILabel alloc] init];
+    self.emptyLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyLabel.minimumScaleFactor = 0.5;
     self.emptyLabel.text          = @"Log file is empty.";
     self.emptyLabel.textAlignment = NSTextAlignmentCenter;
     self.emptyLabel.textColor     = [UIColor secondaryLabelColor];
@@ -1089,6 +1099,8 @@ static NSString * const kLogEmptyCellID = @"EZLogEmptyCell";
     [header addSubview:stripe];
 
     UILabel *label = [[UILabel alloc] init];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.font          = [UIFont systemFontOfSize:12 weight:UIFontWeightBold];
     label.textColor      = color;
     label.numberOfLines  = 1;
@@ -1208,6 +1220,8 @@ didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
 - (void)showToast:(NSString *)message {
     dispatch_async(dispatch_get_main_queue(), ^{
         UILabel *toast           = [[UILabel alloc] init];
+        toast.adjustsFontSizeToFitWidth = YES;
+        toast.minimumScaleFactor = 0.5;
         toast.text               = message;
         toast.font               = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
         toast.textColor          = [UIColor whiteColor];

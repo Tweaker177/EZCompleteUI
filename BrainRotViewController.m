@@ -330,6 +330,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
     [self.view addSubview:self.bannerContainerView];
 
     self.bannerLabel = [[UILabel alloc] init];
+    self.bannerLabel.adjustsFontSizeToFitWidth = YES;
+    self.bannerLabel.minimumScaleFactor = 0.5;
     self.bannerLabel.font            = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightBold];
     self.bannerLabel.textColor       = [UIColor systemYellowColor];
     self.bannerLabel.backgroundColor = [UIColor clearColor];
@@ -340,6 +342,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
 
     // ── Compact HUD (one line: hearts + score + item count) ───────────────────
     self.hudLabel = [[UILabel alloc] init];
+    self.hudLabel.adjustsFontSizeToFitWidth = YES;
+    self.hudLabel.minimumScaleFactor = 0.5;
     self.hudLabel.font          = [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightBold];
     self.hudLabel.textColor     = [UIColor whiteColor];
     self.hudLabel.textAlignment = NSTextAlignmentCenter;
@@ -503,6 +507,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
 
     // Phase 1 — small status text
     self.loadingPhaseLabel = [UILabel new];
+    self.loadingPhaseLabel.adjustsFontSizeToFitWidth = YES;
+    self.loadingPhaseLabel.minimumScaleFactor = 0.5;
     self.loadingPhaseLabel.text          = @"Creating your game…";
     self.loadingPhaseLabel.font          = [UIFont monospacedSystemFontOfSize:13 weight:UIFontWeightRegular];
     self.loadingPhaseLabel.textColor     = [UIColor colorWithWhite:0.55 alpha:1.0];
@@ -512,6 +518,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
 
     // Phase 2 — big theme title
     self.storyTitleLabel = [UILabel new];
+    self.storyTitleLabel.adjustsFontSizeToFitWidth = YES;
+    self.storyTitleLabel.minimumScaleFactor = 0.5;
     self.storyTitleLabel.font          = [UIFont monospacedSystemFontOfSize:30 weight:UIFontWeightBold];
     self.storyTitleLabel.textColor     = [UIColor systemYellowColor];
     self.storyTitleLabel.textAlignment = NSTextAlignmentCenter;
@@ -522,6 +530,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
 
     // Phase 2 — premise body text
     self.storyBodyLabel = [UILabel new];
+    self.storyBodyLabel.adjustsFontSizeToFitWidth = YES;
+    self.storyBodyLabel.minimumScaleFactor = 0.5;
     self.storyBodyLabel.font          = [UIFont systemFontOfSize:19 weight:UIFontWeightMedium];
     self.storyBodyLabel.textColor     = [UIColor colorWithWhite:0.90 alpha:1.0];
     self.storyBodyLabel.textAlignment = NSTextAlignmentCenter;
@@ -744,6 +754,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
             dimmer.tag = 9999;
             [self.bossFightOverlay addSubview:dimmer];
             UILabel *pauseLbl = [UILabel new];
+            pauseLbl.adjustsFontSizeToFitWidth = YES;
+            pauseLbl.minimumScaleFactor = 0.5;
             pauseLbl.text = @"⏸  PAUSED"; pauseLbl.textAlignment = NSTextAlignmentCenter;
             pauseLbl.font = [UIFont monospacedSystemFontOfSize:26 weight:UIFontWeightBold];
             pauseLbl.textColor = [UIColor whiteColor];
@@ -920,6 +932,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
     [self.view addSubview:card];
 
     UILabel *titleLabel        = [UILabel new];
+    titleLabel.adjustsFontSizeToFitWidth = YES;
+    titleLabel.minimumScaleFactor = 0.5;
     titleLabel.text            = cardTitle;
     titleLabel.font            = [UIFont monospacedSystemFontOfSize:52 weight:UIFontWeightBold];
     titleLabel.textColor       = isWin ? [UIColor systemGreenColor] : [UIColor systemRedColor];
@@ -929,6 +943,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
     [card addSubview:titleLabel];
 
     UILabel *subtitleLabel     = [UILabel new];
+    subtitleLabel.adjustsFontSizeToFitWidth = YES;
+    subtitleLabel.minimumScaleFactor = 0.5;
     subtitleLabel.text         = cardSubtitle;
     subtitleLabel.font         = [UIFont systemFontOfSize:17 weight:UIFontWeightMedium];
     subtitleLabel.textColor    = [UIColor colorWithWhite:0.85 alpha:1.0];
@@ -938,6 +954,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
     [card addSubview:subtitleLabel];
 
     UILabel *scoreDisplayLabel  = [UILabel new];
+    scoreDisplayLabel.adjustsFontSizeToFitWidth = YES;
+    scoreDisplayLabel.minimumScaleFactor = 0.5;
     scoreDisplayLabel.text      = [NSString stringWithFormat:@"TOTAL  %ld", (long)finalScore];
     scoreDisplayLabel.font      = [UIFont monospacedSystemFontOfSize:38 weight:UIFontWeightBold];
     scoreDisplayLabel.textColor = [UIColor systemYellowColor];
@@ -1315,6 +1333,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
 
     // Title
     UILabel *title = [UILabel new];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.text          = [NSString stringWithFormat:@"⚔️  LEVEL %ld BOSS FIGHT  ⚔️", (long)self.currentLevel];
     title.font          = [UIFont monospacedSystemFontOfSize:16 weight:UIFontWeightBold];
     title.textColor     = [UIColor systemRedColor];
@@ -1324,12 +1344,16 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
 
     // HP hearts — player (left) and boss (right)
     CGFloat hpY = 86;
-    UILabel *pHP = [UILabel new]; pHP.tag = 8801;
+    UILabel *pHP = [UILabel new];
+    pHP.adjustsFontSizeToFitWidth = YES;
+    pHP.minimumScaleFactor = 0.5; pHP.tag = 8801;
     pHP.font = [UIFont systemFontOfSize:20]; pHP.textAlignment = NSTextAlignmentLeft;
     pHP.frame = CGRectMake(14, hpY, halfW - 20, 28);
     [overlay addSubview:pHP];
 
-    UILabel *bHP = [UILabel new]; bHP.tag = 8802;
+    UILabel *bHP = [UILabel new];
+    bHP.adjustsFontSizeToFitWidth = YES;
+    bHP.minimumScaleFactor = 0.5; bHP.tag = 8802;
     bHP.font = [UIFont systemFontOfSize:20]; bHP.textAlignment = NSTextAlignmentRight;
     bHP.frame = CGRectMake(halfW + 6, hpY, halfW - 20, 28);
     [overlay addSubview:bHP];
@@ -1363,6 +1387,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
 
     // Name labels
     UILabel *pName = [UILabel new];
+    pName.adjustsFontSizeToFitWidth = YES;
+    pName.minimumScaleFactor = 0.5;
     pName.text = @"YOU"; pName.textAlignment = NSTextAlignmentCenter;
     pName.font = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightBold];
     pName.textColor = [UIColor colorWithRed:0.4 green:0.7 blue:1.0 alpha:1.0];
@@ -1370,6 +1396,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
     [overlay addSubview:pName];
 
     UILabel *bName = [UILabel new];
+    bName.adjustsFontSizeToFitWidth = YES;
+    bName.minimumScaleFactor = 0.5;
     bName.text = [NSString stringWithFormat:@"BOSS  Lv%ld", (long)self.currentLevel];
     bName.textAlignment = NSTextAlignmentCenter;
     bName.font = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightBold];
@@ -1379,6 +1407,8 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
 
     // VS divider
     UILabel *vs = [UILabel new];
+    vs.adjustsFontSizeToFitWidth = YES;
+    vs.minimumScaleFactor = 0.5;
     vs.text = @"VS"; vs.textAlignment = NSTextAlignmentCenter;
     vs.font = [UIFont monospacedSystemFontOfSize:26 weight:UIFontWeightBold];
     vs.textColor = [UIColor colorWithWhite:0.35 alpha:1.0];

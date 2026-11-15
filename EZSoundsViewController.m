@@ -141,6 +141,8 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
 - (void)setTitle:(NSString *)title message:(NSString *)message {
     if (title.length) {
         UILabel *label = [[UILabel alloc] init];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.minimumScaleFactor = 0.5;
         label.text = title;
         label.textColor = EZSoundsNeonText();
         label.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
@@ -150,6 +152,8 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
     }
     if (message.length) {
         UILabel *label = [[UILabel alloc] init];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.minimumScaleFactor = 0.5;
         label.text = message;
         label.textColor = EZSoundsNeonDimText();
         label.font = [UIFont systemFontOfSize:14];
@@ -503,6 +507,8 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [promptPanel addSubview:self.promptView];
 
     self.promptPlaceholder = [[UILabel alloc] init];
+    self.promptPlaceholder.adjustsFontSizeToFitWidth = YES;
+    self.promptPlaceholder.minimumScaleFactor = 0.5;
     self.promptPlaceholder.text = NSLocalizedString(@"EZSounds.PromptPlaceholder", nil);
     self.promptPlaceholder.textColor = EZSoundsNeonDimText();
     self.promptPlaceholder.font = [UIFont systemFontOfSize:16];
@@ -511,6 +517,8 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [promptPanel addSubview:self.promptPlaceholder];
 
     UILabel *hint = [[UILabel alloc] init];
+    hint.adjustsFontSizeToFitWidth = YES;
+    hint.minimumScaleFactor = 0.5;
     hint.text = NSLocalizedString(@"EZSounds.PromptHint", nil);
     hint.textColor = EZSoundsNeonDimText();
     hint.font = [UIFont systemFontOfSize:12.5];
@@ -523,12 +531,16 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [content addSubview:durationPanel];
 
     self.durationLabel = [[UILabel alloc] init];
+    self.durationLabel.adjustsFontSizeToFitWidth = YES;
+    self.durationLabel.minimumScaleFactor = 0.5;
     self.durationLabel.textColor = EZSoundsNeonText();
     self.durationLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
     self.durationLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [durationPanel addSubview:self.durationLabel];
 
     self.costLabel = [[UILabel alloc] init];
+    self.costLabel.adjustsFontSizeToFitWidth = YES;
+    self.costLabel.minimumScaleFactor = 0.5;
     self.costLabel.textColor = EZSoundsNeonDimText();
     self.costLabel.font = [UIFont systemFontOfSize:12.5];
     self.costLabel.textAlignment = NSTextAlignmentRight;
@@ -551,6 +563,8 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [content addSubview:loopPanel];
 
     UILabel *loopLabel = [[UILabel alloc] init];
+    loopLabel.adjustsFontSizeToFitWidth = YES;
+    loopLabel.minimumScaleFactor = 0.5;
     loopLabel.text = NSLocalizedString(@"EZSounds.Loop", nil);
     loopLabel.textColor = EZSoundsNeonText();
     loopLabel.font = [UIFont systemFontOfSize:16];
@@ -558,6 +572,8 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [loopPanel addSubview:loopLabel];
 
     UILabel *loopHint = [[UILabel alloc] init];
+    loopHint.adjustsFontSizeToFitWidth = YES;
+    loopHint.minimumScaleFactor = 0.5;
     loopHint.text = NSLocalizedString(@"EZSounds.LoopHint", nil);
     loopHint.textColor = EZSoundsNeonDimText();
     loopHint.font = [UIFont systemFontOfSize:12.5];
@@ -589,6 +605,8 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [content addSubview:self.spinner];
 
     self.statusLabel = [[UILabel alloc] init];
+    self.statusLabel.adjustsFontSizeToFitWidth = YES;
+    self.statusLabel.minimumScaleFactor = 0.5;
     self.statusLabel.textColor = EZSoundsNeonMint();
     self.statusLabel.font = [UIFont systemFontOfSize:14];
     self.statusLabel.numberOfLines = 0;
@@ -670,6 +688,8 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [self.view addSubview:self.libraryTable];
 
     self.emptyLabel = [[UILabel alloc] init];
+    self.emptyLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyLabel.minimumScaleFactor = 0.5;
     self.emptyLabel.text = NSLocalizedString(@"EZSounds.EmptyLibrary", nil);
     self.emptyLabel.textColor = EZSoundsNeonDimText();
     self.emptyLabel.font = [UIFont systemFontOfSize:15];

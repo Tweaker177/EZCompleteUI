@@ -157,6 +157,8 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
     // Title
     self.titleLabel = [[UILabel alloc] init];
+    self.titleLabel.adjustsFontSizeToFitWidth = YES;
+    self.titleLabel.minimumScaleFactor = 0.5;
     self.titleLabel.text = @"EZCompleteUI";
     self.titleLabel.font = [UIFont systemFontOfSize:32 weight:UIFontWeightBold];
     self.titleLabel.textAlignment = NSTextAlignmentCenter;
@@ -164,6 +166,8 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
     // Subtitle (changes based on mode)
     self.subtitleLabel = [[UILabel alloc] init];
+    self.subtitleLabel.adjustsFontSizeToFitWidth = YES;
+    self.subtitleLabel.minimumScaleFactor = 0.5;
     self.subtitleLabel.text = @"Sign in to continue";
     self.subtitleLabel.font = [UIFont systemFontOfSize:16];
     self.subtitleLabel.textColor = [UIColor secondaryLabelColor];
@@ -173,6 +177,8 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
     // Last-used account hint
     self.savedAccountLabel = [[UILabel alloc] init];
+    self.savedAccountLabel.adjustsFontSizeToFitWidth = YES;
+    self.savedAccountLabel.minimumScaleFactor = 0.5;
     self.savedAccountLabel.font = [UIFont systemFontOfSize:12];
     self.savedAccountLabel.textColor = [UIColor secondaryLabelColor];
     self.savedAccountLabel.textAlignment = NSTextAlignmentCenter;
@@ -190,6 +196,8 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     buildText = [buildText stringByAppendingString:@" · debug"];
 #endif
     self.buildLabel = [[UILabel alloc] init];
+    self.buildLabel.adjustsFontSizeToFitWidth = YES;
+    self.buildLabel.minimumScaleFactor = 0.5;
     self.buildLabel.text = buildText;
     self.buildLabel.font = [UIFont monospacedDigitSystemFontOfSize:10 weight:UIFontWeightRegular];
     self.buildLabel.textColor = [UIColor tertiaryLabelColor];
@@ -229,6 +237,8 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
     // Message label — red for errors, green for info (password reset sent, etc.)
     self.messageLabel = [[UILabel alloc] init];
+    self.messageLabel.adjustsFontSizeToFitWidth = YES;
+    self.messageLabel.minimumScaleFactor = 0.5;
     self.messageLabel.textColor = [UIColor systemRedColor];
     self.messageLabel.font = [UIFont systemFontOfSize:13];
     self.messageLabel.textAlignment = NSTextAlignmentCenter;
@@ -380,6 +390,8 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
     // Title
     UILabel *resetTitle = [[UILabel alloc] init];
+    resetTitle.adjustsFontSizeToFitWidth = YES;
+    resetTitle.minimumScaleFactor = 0.5;
     resetTitle.text = @"EZCompleteUI";
     resetTitle.font = [UIFont systemFontOfSize:32 weight:UIFontWeightBold];
     resetTitle.textAlignment = NSTextAlignmentCenter;
@@ -387,6 +399,8 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
     // Subtitle
     UILabel *resetSubtitle = [[UILabel alloc] init];
+    resetSubtitle.adjustsFontSizeToFitWidth = YES;
+    resetSubtitle.minimumScaleFactor = 0.5;
     resetSubtitle.text = @"Choose a new password for your account";
     resetSubtitle.font = [UIFont systemFontOfSize:16];
     resetSubtitle.textColor = [UIColor secondaryLabelColor];
@@ -420,6 +434,8 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
     // Error/info message label for the reset flow
     self.resetMessageLabel = [[UILabel alloc] init];
+    self.resetMessageLabel.adjustsFontSizeToFitWidth = YES;
+    self.resetMessageLabel.minimumScaleFactor = 0.5;
     self.resetMessageLabel.font = [UIFont systemFontOfSize:13];
     self.resetMessageLabel.textAlignment = NSTextAlignmentCenter;
     self.resetMessageLabel.numberOfLines = 0;

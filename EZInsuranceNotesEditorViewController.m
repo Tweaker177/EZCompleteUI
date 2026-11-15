@@ -45,6 +45,8 @@
     // UITextView has no built-in placeholder — a plain UILabel behind it,
     // hidden once there's real text, is the standard workaround.
     self.placeholderLabel = [[UILabel alloc] init];
+    self.placeholderLabel.adjustsFontSizeToFitWidth = YES;
+    self.placeholderLabel.minimumScaleFactor = 0.5;
     self.placeholderLabel.text = @"Why this file matters, what to look for, anything else worth noting…";
     self.placeholderLabel.font = self.textView.font;
     self.placeholderLabel.textColor = [UIColor placeholderTextColor];

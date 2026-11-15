@@ -384,6 +384,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         [self.cardView addSubview:self.titleLabel];
 
         self.subtitleLabel = [[UILabel alloc] init];
+        
+        self.subtitleLabel.adjustsFontSizeToFitWidth = YES;
+        
+        self.subtitleLabel.minimumScaleFactor = 0.5;
 
         self.subtitleLabel.font          = [UIFont systemFontOfSize:13];
 
@@ -434,6 +438,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         // whenever an item has no badgeFootnoteText.
 
         self.footnoteLabel = [[UILabel alloc] init];
+        
+        self.footnoteLabel.adjustsFontSizeToFitWidth = YES;
+        
+        self.footnoteLabel.minimumScaleFactor = 0.5;
 
         self.footnoteLabel.font          = [UIFont systemFontOfSize:9 weight:UIFontWeightMedium];
 
@@ -1157,6 +1165,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     }
 
     self.balanceLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 8 + promoOffset + kStoreControlsHeight, self.view.bounds.size.width, 22)];
+    
+    self.balanceLabel.adjustsFontSizeToFitWidth = YES;
+    
+    self.balanceLabel.minimumScaleFactor = 0.5;
 
     self.balanceLabel.font          = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
 
@@ -1173,6 +1185,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     // the user ran out mid-session (triggeringFeatureName is set by the caller)
 
     self.warningLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 34 + promoOffset + kStoreControlsHeight, self.view.bounds.size.width, 28)];
+    
+    self.warningLabel.adjustsFontSizeToFitWidth = YES;
+    
+    self.warningLabel.minimumScaleFactor = 0.5;
 
     self.warningLabel.backgroundColor = [UIColor systemRedColor];
 
@@ -2188,6 +2204,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [overlay addSubview:card];
 
     UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 28, 260, 50)];
+    titleLabel.adjustsFontSizeToFitWidth = YES;
+    titleLabel.minimumScaleFactor = 0.5;
     titleLabel.text          = title;
     titleLabel.font          = [UIFont boldSystemFontOfSize:20];
     titleLabel.textColor     = accent;
@@ -2196,6 +2214,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [card addSubview:titleLabel];
 
     UILabel *messageLabel = [[UILabel alloc] initWithFrame:CGRectMake(24, 84, 252, 44)];
+    messageLabel.adjustsFontSizeToFitWidth = YES;
+    messageLabel.minimumScaleFactor = 0.5;
     messageLabel.text          = message;
     messageLabel.font          = [UIFont systemFontOfSize:14];
     messageLabel.textColor     = [UIColor secondaryLabelColor];
@@ -2224,6 +2244,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [card addSubview:annualButton];
 
     UILabel *orLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 214, 260, 18)];
+    orLabel.adjustsFontSizeToFitWidth = YES;
+    orLabel.minimumScaleFactor = 0.5;
     orLabel.text          = NSLocalizedString(@"EZCoinStore.Upsell.Or", @"'or' divider text");
     orLabel.font          = [UIFont systemFontOfSize:12];
     orLabel.textColor     = [UIColor tertiaryLabelColor];
@@ -2732,6 +2754,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [overlay addSubview:card];
 
     UILabel *headlineLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 16, 240, 30)];
+    
+    headlineLabel.adjustsFontSizeToFitWidth = YES;
+    
+    headlineLabel.minimumScaleFactor = 0.5;
 
     headlineLabel.text          = NSLocalizedString(@"EZCoinStore.FreeSpins.Title", @"Free spins celebration title");
 
@@ -2770,6 +2796,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         [tiles addObject:tile];
 
         UILabel *glyph = [[UILabel alloc] initWithFrame:tile.bounds];
+        
+        glyph.adjustsFontSizeToFitWidth = YES;
+        
+        glyph.minimumScaleFactor = 0.5;
 
         glyph.text          = spinGlyphs[(NSUInteger)reel % spinGlyphs.count];
 
@@ -3217,6 +3247,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     self.storePotView = coinPot;
 
     UILabel *headlineLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 138, 240, 30)];
+    
+    headlineLabel.adjustsFontSizeToFitWidth = YES;
+    
+    headlineLabel.minimumScaleFactor = 0.5;
 
     headlineLabel.text          = NSLocalizedString(@"EZCoinStore.Celebration.CoinsAdded", @"Coin celebration headline");
 
@@ -3229,6 +3263,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [celebrationCard addSubview:headlineLabel];
 
     UILabel *amountLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 172, 240, 28)];
+    
+    amountLabel.adjustsFontSizeToFitWidth = YES;
+    
+    amountLabel.minimumScaleFactor = 0.5;
 
     amountLabel.text          = [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.Celebration.AmountFormat", @"Coin celebration amount"), (long)coinsAdded];
 
@@ -3241,6 +3279,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [celebrationCard addSubview:amountLabel];
 
     UILabel *newBalanceLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 204, 240, 22)];
+    
+    newBalanceLabel.adjustsFontSizeToFitWidth = YES;
+    
+    newBalanceLabel.minimumScaleFactor = 0.5;
 
     newBalanceLabel.text          = [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.Celebration.NewBalanceFormat", @"Coin celebration new balance"), (long)newBalance];
 

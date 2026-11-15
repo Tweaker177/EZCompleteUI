@@ -2260,12 +2260,16 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     // Legacy label — hidden, kept so any remaining references don't crash
     self.coinBalanceLabel = [[UILabel alloc] init];
+    self.coinBalanceLabel.adjustsFontSizeToFitWidth = YES;
+    self.coinBalanceLabel.minimumScaleFactor = 0.5;
     self.coinBalanceLabel.hidden = YES;
     self.coinBalanceLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.coinBalanceLabel];
 
     // Thread title label — tappable, sits between top bar and chat table
     self.threadTitleLabel                 = [[UILabel alloc] init];
+    self.threadTitleLabel.adjustsFontSizeToFitWidth = YES;
+    self.threadTitleLabel.minimumScaleFactor = 0.5;
     self.threadTitleLabel.text            = NSLocalizedString(@"EZThread.NewConversation", nil);
     self.threadTitleLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     self.threadTitleLabel.textColor       = [UIColor secondaryLabelColor];
@@ -2334,6 +2338,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.imageProgressRing.strokeEnd = 0;
     [self.imageProgressView.layer addSublayer:self.imageProgressRing];
     self.imageProgressLabel = [[UILabel alloc] init];
+    self.imageProgressLabel.adjustsFontSizeToFitWidth = YES;
+    self.imageProgressLabel.minimumScaleFactor = 0.5;
     self.imageProgressLabel.font = [UIFont monospacedDigitSystemFontOfSize:10 weight:UIFontWeightBold];
     self.imageProgressLabel.textColor = UIColor.whiteColor;
     self.imageProgressLabel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.65];
@@ -2343,6 +2349,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.imageProgressLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [self.imageProgressView addSubview:self.imageProgressLabel];
     self.statusBannerLabel = [[UILabel alloc] init];
+    self.statusBannerLabel.adjustsFontSizeToFitWidth = YES;
+    self.statusBannerLabel.minimumScaleFactor = 0.5;
     self.statusBannerLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
     self.statusBannerLabel.textColor = [UIColor secondaryLabelColor];
     self.statusBannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -2415,6 +2423,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     // Placeholder label — UITextView has no built-in placeholder
     UILabel *placeholder = [[UILabel alloc] init];
+    placeholder.adjustsFontSizeToFitWidth = YES;
+    placeholder.minimumScaleFactor = 0.5;
     placeholder.text      = @"Type message...";
     placeholder.font      = [UIFont systemFontOfSize:16];
     placeholder.textColor = [UIColor placeholderTextColor];
@@ -2823,12 +2833,16 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     card.layer.borderColor = [UIColor colorWithRed:0.15 green:0.78 blue:1.0 alpha:0.70].CGColor;
     [overlay addSubview:card];
     UILabel *titleLabel = [UILabel new];
+    titleLabel.adjustsFontSizeToFitWidth = YES;
+    titleLabel.minimumScaleFactor = 0.5;
     titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
     titleLabel.text = title;
     titleLabel.textColor = UIColor.whiteColor;
     titleLabel.font = [UIFont systemFontOfSize:21 weight:UIFontWeightBold];
     [card addSubview:titleLabel];
     UILabel *detailLabel = [UILabel new];
+    detailLabel.adjustsFontSizeToFitWidth = YES;
+    detailLabel.minimumScaleFactor = 0.5;
     detailLabel.translatesAutoresizingMaskIntoConstraints = NO;
     detailLabel.text = detail;
     detailLabel.textColor = [UIColor colorWithWhite:0.72 alpha:1];
@@ -7864,6 +7878,8 @@ static NSString *EZThreadExportTimestampNow(void) {
     self.threadSelectionBar = bar;
 
     UILabel *count = [UILabel new];
+    count.adjustsFontSizeToFitWidth = YES;
+    count.minimumScaleFactor = 0.5;
     count.textColor = UIColor.whiteColor;
     count.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightBold];
     count.textAlignment = NSTextAlignmentCenter;
@@ -8574,6 +8590,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     [card addSubview:stack];
 
     UILabel *title = [UILabel new];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.text = entries.count == 1 ? @"Forget this memory?"
         : [NSString stringWithFormat:@"Forget these %lu memories?", (unsigned long)entries.count];
     title.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold];
@@ -8590,6 +8608,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
             line = entry[@"explicitFact"];
         }
         UILabel *label = [UILabel new];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.minimumScaleFactor = 0.5;
         label.text = [NSString stringWithFormat:@"• %@", line];
         label.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
         label.textColor = [UIColor colorWithWhite:0.92 alpha:1.0];
@@ -8598,6 +8618,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     }
     if (entries.count > listed) {
         UILabel *more = [UILabel new];
+        more.adjustsFontSizeToFitWidth = YES;
+        more.minimumScaleFactor = 0.5;
         more.text = [NSString stringWithFormat:@"+%lu more", (unsigned long)(entries.count - listed)];
         more.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
         more.textColor = [UIColor colorWithWhite:0.62 alpha:1.0];
@@ -10087,6 +10109,8 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
     UILabel *previousDot = nil;
     for (NSInteger i = 0; i < 3; i++) {
         UILabel *dot = [[UILabel alloc] init];
+        dot.adjustsFontSizeToFitWidth = YES;
+        dot.minimumScaleFactor = 0.5;
         dot.text = @"•";
         dot.font = [UIFont systemFontOfSize:26 weight:UIFontWeightBold];
         dot.textColor = [UIColor secondaryLabelColor];
@@ -10115,6 +10139,8 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
     // Status line: multi-line, word-wrapped — a status sentence always
     // shows in full, however long it runs.
     UILabel *status = [[UILabel alloc] init];
+    status.adjustsFontSizeToFitWidth = YES;
+    status.minimumScaleFactor = 0.5;
     status.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
     status.textColor = [UIColor secondaryLabelColor];
     status.numberOfLines = 0;

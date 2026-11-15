@@ -8,6 +8,8 @@
     self.selectionStyle  = UITableViewCellSelectionStyleNone;
 
     _messageLabel                = [[UILabel alloc] init];
+    _messageLabel.adjustsFontSizeToFitWidth = YES;
+    _messageLabel.minimumScaleFactor = 0.5;
     _messageLabel.numberOfLines  = 0;
     _messageLabel.textAlignment  = NSTextAlignmentCenter;
     _messageLabel.font           = [UIFont systemFontOfSize:12];

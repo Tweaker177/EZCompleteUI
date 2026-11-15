@@ -248,6 +248,8 @@ typedef NS_ENUM(NSInteger, BRGameResultBottomBarState) {
     ]];
 
     self.titleLabel = [[UILabel alloc] init];
+    self.titleLabel.adjustsFontSizeToFitWidth = YES;
+    self.titleLabel.minimumScaleFactor = 0.5;
     self.titleLabel.text = self.gameTitle;
     self.titleLabel.textColor = [UIColor whiteColor];
     self.titleLabel.font = [UIFont boldSystemFontOfSize:30.0];
@@ -260,6 +262,8 @@ typedef NS_ENUM(NSInteger, BRGameResultBottomBarState) {
     self.premiseCard.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.10].CGColor;
 
     self.premiseLabel = [[UILabel alloc] init];
+    self.premiseLabel.adjustsFontSizeToFitWidth = YES;
+    self.premiseLabel.minimumScaleFactor = 0.5;
     NSString *premise = self.premiseText.length > 0 ? self.premiseText : @"No premise was generated for this world — jump in and see what you find.";
     self.premiseLabel.text = premise;
     self.premiseLabel.textColor = [UIColor whiteColor];
@@ -422,6 +426,8 @@ typedef NS_ENUM(NSInteger, BRGameResultBottomBarState) {
     [spinner startAnimating];
 
     self.busyStatusLabel = [[UILabel alloc] init];
+    self.busyStatusLabel.adjustsFontSizeToFitWidth = YES;
+    self.busyStatusLabel.minimumScaleFactor = 0.5;
     self.busyStatusLabel.text = @"Finalizing your world...";
     self.busyStatusLabel.textColor = [UIColor systemGrayColor];
     self.busyStatusLabel.font = [UIFont systemFontOfSize:15.0];
@@ -453,6 +459,8 @@ typedef NS_ENUM(NSInteger, BRGameResultBottomBarState) {
     [self.primaryActionButton addTarget:self action:@selector(handlePrimaryActionTapped) forControlEvents:UIControlEventTouchUpInside];
 
     self.inlineErrorLabel = [[UILabel alloc] init];
+    self.inlineErrorLabel.adjustsFontSizeToFitWidth = YES;
+    self.inlineErrorLabel.minimumScaleFactor = 0.5;
     self.inlineErrorLabel.textColor = [UIColor systemRedColor];
     self.inlineErrorLabel.font = [UIFont systemFontOfSize:13.0];
     self.inlineErrorLabel.numberOfLines = 0;

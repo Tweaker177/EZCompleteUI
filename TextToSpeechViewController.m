@@ -355,6 +355,8 @@ static NSString *timestampString(void) {
     // for why 120 became 240 (it was never a real ceiling, just a defensive
     // cap around a since-fixed crash in ez-elevenlabs' base64 encoding).
     self.charCountLabel = [[UILabel alloc] init];
+    self.charCountLabel.adjustsFontSizeToFitWidth = YES;
+    self.charCountLabel.minimumScaleFactor = 0.5;
     self.charCountLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightRegular];
     self.charCountLabel.textColor = EZTTSNeonDimText();
     self.charCountLabel.textAlignment = NSTextAlignmentRight;
@@ -382,6 +384,8 @@ static NSString *timestampString(void) {
 
     // Speed label + slider (ElevenLabs speed: 0.7 = slowest, 1.2 = fastest)
     self.speedLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    self.speedLabel.adjustsFontSizeToFitWidth = YES;
+    self.speedLabel.minimumScaleFactor = 0.5;
     self.speedLabel.text = NSLocalizedString(@"EZTTS.SpeedFormat", nil);
     self.speedLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
     self.speedLabel.textAlignment = NSTextAlignmentCenter;
@@ -485,6 +489,8 @@ static NSString *timestampString(void) {
 
 - (UILabel *)sectionHeaderLabel {
     UILabel *label = [[UILabel alloc] init];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack];
     label.textColor = EZTTSNeonCyan();
     return label;
@@ -629,12 +635,16 @@ static NSString *timestampString(void) {
     [overlay addSubview:card];
 
     UILabel *title = [[UILabel alloc] init];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.text = @"BACKGROUND AUDIO";
     title.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBlack];
     title.textColor = EZTTSNeonMint();
     title.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:title];
     UILabel *detail = [[UILabel alloc] init];
+    detail.adjustsFontSizeToFitWidth = YES;
+    detail.minimumScaleFactor = 0.5;
     detail.text = @"Create a looping environmental bed beneath your narration.";
     detail.numberOfLines = 0;
     detail.font = [UIFont systemFontOfSize:15];
@@ -655,6 +665,8 @@ static NSString *timestampString(void) {
     promptField.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:promptField];
     UILabel *hint = [[UILabel alloc] init];
+    hint.adjustsFontSizeToFitWidth = YES;
+    hint.minimumScaleFactor = 0.5;
     hint.text = @"Describe ambience only — no speech or lyrics.";
     hint.font = [UIFont systemFontOfSize:12]; hint.textColor = [EZTTSNeonDimText() colorWithAlphaComponent:0.8];
     hint.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:hint];

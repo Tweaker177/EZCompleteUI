@@ -224,6 +224,8 @@
 /// repeating the same three lines five times.
 - (UIView *)ez_sectionWithTitle:(NSString *)title content:(UIView *)contentView {
     UILabel *titleLabel = [[UILabel alloc] init];
+    titleLabel.adjustsFontSizeToFitWidth = YES;
+    titleLabel.minimumScaleFactor = 0.5;
     titleLabel.text = title;
     titleLabel.font = [UIFont boldSystemFontOfSize:20];
 
@@ -251,6 +253,8 @@
     self.confirmPasswordField = [self ez_textFieldWithPlaceholder:@"Confirm password" secure:YES];
 
     UILabel *passwordNote = [[UILabel alloc] init];
+    passwordNote.adjustsFontSizeToFitWidth = YES;
+    passwordNote.minimumScaleFactor = 0.5;
     passwordNote.text = @"This password is separate from your account login. "
         @"You'll need it to check in, send now, or cancel this policy — write it down somewhere safe. "
         @"It cannot be recovered if lost.";
@@ -354,10 +358,14 @@
 
 - (UIView *)ez_buildCountdownSection {
     self.countdownLabel = [[UILabel alloc] init];
+    self.countdownLabel.adjustsFontSizeToFitWidth = YES;
+    self.countdownLabel.minimumScaleFactor = 0.5;
     self.countdownLabel.font = [UIFont monospacedDigitSystemFontOfSize:28 weight:UIFontWeightBold];
     self.countdownLabel.textAlignment = NSTextAlignmentCenter;
 
     self.countdownSubtitleLabel = [[UILabel alloc] init];
+    self.countdownSubtitleLabel.adjustsFontSizeToFitWidth = YES;
+    self.countdownSubtitleLabel.minimumScaleFactor = 0.5;
     self.countdownSubtitleLabel.font = [UIFont systemFontOfSize:14];
     self.countdownSubtitleLabel.textColor = [UIColor secondaryLabelColor];
     self.countdownSubtitleLabel.textAlignment = NSTextAlignmentCenter;
@@ -844,6 +852,8 @@
 
     if (self.pendingUploads.count == 0 && self.files.count == 0) {
         UILabel *emptyLabel = [[UILabel alloc] init];
+        emptyLabel.adjustsFontSizeToFitWidth = YES;
+        emptyLabel.minimumScaleFactor = 0.5;
         emptyLabel.text = @"No files uploaded yet.";
         emptyLabel.textColor = [UIColor secondaryLabelColor];
         emptyLabel.font = [UIFont systemFontOfSize:14];
@@ -864,6 +874,8 @@
         [spinner startAnimating];
 
         UILabel *label = [[UILabel alloc] init];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.minimumScaleFactor = 0.5;
         label.text = [NSString stringWithFormat:@"Uploading %@…", pending.filename];
         label.font = [UIFont systemFontOfSize:15];
         label.numberOfLines = 1;
@@ -936,12 +948,16 @@
         }
 
         UILabel *nameLabel = [[UILabel alloc] init];
+        nameLabel.adjustsFontSizeToFitWidth = YES;
+        nameLabel.minimumScaleFactor = 0.5;
         nameLabel.text = filename;
         nameLabel.font = [UIFont systemFontOfSize:15];
         nameLabel.numberOfLines = 1;
         nameLabel.lineBreakMode = NSLineBreakByTruncatingMiddle;
 
         UILabel *sizeLabel = [[UILabel alloc] init];
+        sizeLabel.adjustsFontSizeToFitWidth = YES;
+        sizeLabel.minimumScaleFactor = 0.5;
         sizeLabel.text = [NSByteCountFormatter stringFromByteCount:sizeBytes countStyle:NSByteCountFormatterCountStyleFile];
         sizeLabel.font = [UIFont systemFontOfSize:12];
         sizeLabel.textColor = [UIColor secondaryLabelColor];
@@ -949,6 +965,8 @@
         NSArray<UIView *> *textStackViews = @[nameLabel, sizeLabel];
         if (notes.length) {
             UILabel *notesPreviewLabel = [[UILabel alloc] init];
+            notesPreviewLabel.adjustsFontSizeToFitWidth = YES;
+            notesPreviewLabel.minimumScaleFactor = 0.5;
             notesPreviewLabel.text = notes;
             notesPreviewLabel.font = [UIFont italicSystemFontOfSize:12];
             notesPreviewLabel.textColor = [UIColor secondaryLabelColor];
@@ -1212,6 +1230,8 @@
 
     if (self.recipients.count == 0) {
         UILabel *emptyLabel = [[UILabel alloc] init];
+        emptyLabel.adjustsFontSizeToFitWidth = YES;
+        emptyLabel.minimumScaleFactor = 0.5;
         emptyLabel.text = @"No recipients yet. Add at least one before sending.";
         emptyLabel.textColor = [UIColor secondaryLabelColor];
         emptyLabel.font = [UIFont systemFontOfSize:14];
@@ -1225,6 +1245,8 @@
         BOOL alreadySent = ![record[@"sent_at"] isEqual:[NSNull null]] && record[@"sent_at"] != nil;
 
         UILabel *emailLabel = [[UILabel alloc] init];
+        emailLabel.adjustsFontSizeToFitWidth = YES;
+        emailLabel.minimumScaleFactor = 0.5;
         emailLabel.text = alreadySent ? [NSString stringWithFormat:@"%@ ✓ sent", email] : email;
         emailLabel.font = [UIFont systemFontOfSize:15];
         emailLabel.numberOfLines = 1;
