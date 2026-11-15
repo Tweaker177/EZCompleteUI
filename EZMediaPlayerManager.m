@@ -222,7 +222,10 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 
     NSError *sessionError = nil;
     AVAudioSession *session = [AVAudioSession sharedInstance];
-    [session setCategory:AVAudioSessionCategoryPlayback error:&sessionError];
+    // MixWithOthers matches the slot machines session policy: nothing in
+    // the app claims the session exclusively, so music, sounds, and slot
+    // audio layer instead of interrupting each other.
+    [session setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:&sessionError];
     if (!sessionError) [session setActive:YES error:&sessionError];
     if (sessionError) {
         EZLogf(EZLogLevelWarning, @"Player", @"Audio session setup failed: %@", sessionError.localizedDescription);

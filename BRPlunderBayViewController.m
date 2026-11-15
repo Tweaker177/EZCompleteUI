@@ -495,7 +495,11 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     return url;
 }
 - (void)setupAudio {
-    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:nil];
+    // Playback + MixWithOthers: slot audio layers over whatever is already
+    // playing (the shared EZMediaPlayerManager owns the session and the Now
+    // Playing controls). The old Ambient category stripped background
+    // playback and the lock-screen / Control Center controls from the music.
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
     NSURL *boomURL = [self soundURL:@"pb_boom"];
     if (boomURL) {
         self.boomFile = [[AVAudioFile alloc] initForReading:boomURL error:nil];

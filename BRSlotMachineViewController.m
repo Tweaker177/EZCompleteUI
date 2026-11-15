@@ -468,7 +468,11 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
 
 - (void)setupAudio {
     NSError *error = nil;
-    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error];
+    // Playback + MixWithOthers: slot audio layers over whatever is already
+    // playing (the shared EZMediaPlayerManager owns the session and the Now
+    // Playing controls). The old Ambient category stripped background
+    // playback and the lock-screen / Control Center controls from the music.
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:&error];
     [[AVAudioSession sharedInstance] setActive:YES error:&error];
     NSURL *lossURL = [[NSBundle mainBundle] URLForResource:@"hurt-player" withExtension:@"aiff" subdirectory:@"sounds"];
     if (!lossURL) lossURL = [[NSBundle mainBundle] URLForResource:@"hurt-player" withExtension:@"aiff"];
