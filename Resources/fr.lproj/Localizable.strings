@@ -389,7 +389,7 @@
 "BRSlot.Picker.Detail" = "Choisissez une machine, explorez vos mondes enregistrés ou construisez une nouvelle salle de machines à sous.";
 "BRSlot.Picker.Back" = "‹ POURRITURE CERVEAU";
 "BRSlot.Picker.Classic.Title" = "Machines à sous Brainrot";
-"BRSlot.Picker.Classic.Detail" = "La salle originale à trois rouleaux avec cinq lignes de paiement et un jackpot progressif.";
+"BRSlot.Picker.Classic.Detail" = "La salle originale avec un jackpot progressif.";
 "BRSlot.Picker.Penny.Title" = "Machines à sous EZCoin Penny";
 "BRSlot.Picker.Penny.Detail" = "Cinq rouleaux, neuf lignes, des scatters EZCoin et des tours gratuits à double paiement.";
 "BRSlot.Picker.Create.Title" = "Créer une salle de machines à sous";

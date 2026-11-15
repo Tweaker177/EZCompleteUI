@@ -367,7 +367,7 @@
 "BRSlot.Picker.Detail" = "选择一台机器，探索您保存的世界，或建造一个新的老虎机室。";
 "BRSlot.Picker.Back" = "← 脑残";
 "BRSlot.Picker.Classic.Title" = "脑腐老虎机";
-"BRSlot.Picker.Classic.Detail" = "最初的三卷轴房间有五条支付线和一个累积奖金。";
+"BRSlot.Picker.Classic.Detail" = "最初的房间带有一个累积奖金。";
 "BRSlot.Picker.Penny.Title" = "EZCoin 便士老虎机";
 "BRSlot.Picker.Penny.Detail" = "五个卷轴、九条线、EZCoin 分散符号和双倍支付免费旋转。";
 "BRSlot.Picker.Create.Title" = "创建老虎机室";

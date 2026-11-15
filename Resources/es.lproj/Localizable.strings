@@ -389,7 +389,7 @@
 "BRSlot.Picker.Detail" = "Elige una máquina, explora tus mundos guardados o construye una nueva sala de tragamonedas.";
 "BRSlot.Picker.Back" = "‹ CEREBRO";
 "BRSlot.Picker.Classic.Title" = "Tragamonedas Brainrot";
-"BRSlot.Picker.Classic.Detail" = "La sala original de tres carretes con cinco líneas de pago y un bote progresivo.";
+"BRSlot.Picker.Classic.Detail" = "La sala original con un bote progresivo.";
 "BRSlot.Picker.Penny.Title" = "Tragamonedas de centavo EZCoin";
 "BRSlot.Picker.Penny.Detail" = "Cinco carretes, nueve líneas, scatters de EZCoin y giros gratis de doble pago.";
 "BRSlot.Picker.Create.Title" = "Crear una sala de tragamonedas";
