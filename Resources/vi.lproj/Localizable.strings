@@ -793,3 +793,5 @@
 "BRSlot.PP.WonCoins" = "Đã thắng %ld xu!";
 "BRSlot.Picker.Phoenix.Title" = "Phoenix Pavilion 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "Năm cuộn, hai mươi lăm dòng. Mũ vàng mở lựa chọn lá bài và quay miễn phí ×2, ×3 hoặc ×5.";
+"BRSlot.Lounge.WinningsMostChips" = "NHIỀU XU NHẤT: TOP 5\n\n";
+"BRSlot.Lounge.WinningsNoChips" = "Chưa có người dẫn đầu về xu.\n";

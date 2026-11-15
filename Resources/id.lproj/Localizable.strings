@@ -834,3 +834,5 @@
 "BRSlot.PP.WonCoins" = "Menang %ld koin!";
 "BRSlot.Picker.Phoenix.Title" = "Phoenix Pavilion 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "Lima gulungan, dua puluh lima garis. Topi emas membuka pilihan kartu dan putaran gratis ×2, ×3, atau ×5.";
+"BRSlot.Lounge.WinningsMostChips" = "KOIN TERBANYAK: TOP 5\n\n";
+"BRSlot.Lounge.WinningsNoChips" = "Belum ada pemimpin koin.\n";

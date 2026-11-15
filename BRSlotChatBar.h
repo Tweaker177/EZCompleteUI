@@ -1,5 +1,11 @@
 #import <UIKit/UIKit.h>
 
+/// Posted whenever a chat bar learns a new own-profile (room state, a
+/// profile fetch, or a successful save). Surfaces that show the player's
+/// own avatar — the game picker's profile button — observe it and refresh
+/// from the posting bar's profileAvatarURL.
+extern NSNotificationName const BRSlotProfileDidUpdateNotification;
+
 /// In-machine lounge chat bar. Pinned to the bottom of a slot screen it
 /// shows one line — the newest lounge message — and keeps updating while
 /// the player plays. Tapping the line expands it into the full lounge
@@ -10,6 +16,23 @@
 /// The view controller that presents sheets (profile, photo picker,
 /// winners board) on the bar's behalf — the slot screen hosting the bar.
 @property (nonatomic, weak) UIViewController *hostViewController;
+
+/// The signed URL of the player's own lounge avatar, once any profile
+/// payload has provided it; nil while the player has no photo.
+@property (nonatomic, copy, readonly) NSString *profileAvatarURL;
+
+/// Loads an avatar photo and hands back a thumbnail decoded at the
+/// display size (a square-cover render at points × screen scale), cached
+/// per URL + size. Avatars are shown at 34–76pt; the full 512px upload
+/// never needs to live in memory per row. Completion runs on the main
+/// queue with nil on any failure.
++ (void)loadAvatarThumbnailForURL:(NSString *)urlString points:(CGFloat)points completion:(void (^)(UIImage *image))completion;
+
+/// Fetches the player's own lounge profile (no room needed) and updates
+/// profileName / profileAvatarURL, posting
+/// BRSlotProfileDidUpdateNotification when the avatar changes. Works on a
+/// bar that was never attached or started.
+- (void)fetchOwnProfile;
 
 - (instancetype)initWithRoomID:(NSString *)roomID;
 

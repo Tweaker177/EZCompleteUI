@@ -25,8 +25,30 @@ static UIImage *BRChatScaledAvatar(UIImage *image) {
     return [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull ctx) { [image drawInRect:CGRectMake(0, 0, size.width, size.height)]; }];
 }
 
+NSNotificationName const BRSlotProfileDidUpdateNotification = @"BRSlotProfileDidUpdateNotification";
+
+// Displayed avatars are tiny (34pt board rows, a ~40pt nav button, a 76pt
+// editor preview): decode downloads straight to a cover thumbnail at the
+// display size instead of keeping the 512px upload alive per row.
+static UIImage *BRChatThumbnailFromData(NSData *data, CGFloat points) {
+    UIImage *image = data ? [UIImage imageWithData:data] : nil;
+    if (!image) return nil;
+    CGFloat px = points * UIScreen.mainScreen.scale;
+    if (px < 1) px = 68;
+    CGFloat factor = MAX(px / image.size.width, px / image.size.height);
+    CGSize size = CGSizeMake(MAX(1, round(image.size.width * factor)), MAX(1, round(image.size.height * factor)));
+    UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
+    format.scale = 1.0;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+    return [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull ctx) { [image drawInRect:CGRectMake(0, 0, size.width, size.height)]; }];
+}
+static NSString *BRChatAvatarIdentity(NSString *url) { return url ? ([url componentsSeparatedByString:@"?"].firstObject ?: url) : nil; }
+static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache *cache; static dispatch_once_t once; dispatch_once(&once, ^{ cache = [NSCache new]; cache.countLimit = 64; }); return cache; }
+
 @interface BRSlotChatPromptController : UIViewController
 @property (nonatomic, copy) NSString *promptTitle, *promptBody, *initialText;
+@property (nonatomic, strong) UIImage *avatarImage;
+@property (nonatomic, copy) NSString *avatarURLString;
 @property (nonatomic, copy) NSArray<NSString *> *actions;
 @property (nonatomic, copy) void (^selection)(NSInteger action, NSString *text);
 @property (nonatomic, strong) UITextField *textField;
@@ -37,9 +59,11 @@ static UIImage *BRChatScaledAvatar(UIImage *image) {
     UIView *card = [UIView new]; card.backgroundColor = [UIColor colorWithRed:.13 green:.045 blue:.23 alpha:1]; card.layer.cornerRadius = 22; card.layer.borderWidth = 1; card.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.62].CGColor; card.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:card];
     UILabel *title = [UILabel new]; title.text = self.promptTitle; title.textColor = UIColor.whiteColor; title.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; title.numberOfLines = 2; title.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:title];
     UILabel *body = [UILabel new]; body.text = self.promptBody; body.textColor = [UIColor colorWithWhite:.73 alpha:1]; body.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium]; body.numberOfLines = 0; body.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:body];
+    UIImageView *avatarView = nil;
+    if (self.avatarImage || self.avatarURLString.length) { avatarView = [UIImageView new]; avatarView.image = self.avatarImage ?: [UIImage systemImageNamed:@"person.crop.circle.fill"]; avatarView.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; avatarView.contentMode = UIViewContentModeScaleAspectFill; avatarView.clipsToBounds = YES; avatarView.layer.cornerRadius = 38; avatarView.layer.borderWidth = 1; avatarView.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.62].CGColor; avatarView.backgroundColor = [UIColor colorWithWhite:1 alpha:.07]; avatarView.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:avatarView]; if (!self.avatarImage && self.avatarURLString.length) { __weak UIImageView *weakAvatar = avatarView; [BRSlotChatBar loadAvatarThumbnailForURL:self.avatarURLString points:76 completion:^(UIImage *image) { if (image) weakAvatar.image = image; }]; } }
     self.textField = [UITextField new]; self.textField.text = self.initialText; self.textField.placeholder = NSLocalizedString(@"BRSlot.Lounge.DisplayName", nil); self.textField.textColor = UIColor.whiteColor; self.textField.backgroundColor = [UIColor colorWithWhite:1 alpha:.09]; self.textField.layer.cornerRadius = 12; self.textField.leftView = [[UIView alloc] initWithFrame:CGRectMake(0,0,12,1)]; self.textField.leftViewMode = UITextFieldViewModeAlways; self.textField.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:self.textField]; self.textField.hidden = !self.initialText;
     UIStackView *buttons = [UIStackView new]; buttons.axis = UILayoutConstraintAxisVertical; buttons.spacing = 9; buttons.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:buttons]; [self.actions enumerateObjectsUsingBlock:^(NSString *name, NSUInteger index, BOOL *stop) { UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem]; [b setTitle:name forState:UIControlStateNormal]; [b setTitleColor:index == self.actions.count - 1 ? [UIColor colorWithWhite:.72 alpha:1] : UIColor.whiteColor forState:UIControlStateNormal]; b.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBlack]; b.backgroundColor = index == self.actions.count - 1 ? [UIColor colorWithWhite:1 alpha:.07] : [UIColor colorWithRed:.58 green:.12 blue:.42 alpha:1]; b.layer.cornerRadius = 12; b.tag = index; [b addTarget:self action:@selector(tapped:) forControlEvents:UIControlEventTouchUpInside]; [buttons addArrangedSubview:b]; [b.heightAnchor constraintEqualToConstant:43].active = YES; }];
-    [NSLayoutConstraint activateConstraints:@[[card.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:18], [card.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-18], [card.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor], [title.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [title.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [title.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [body.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:7], [body.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [body.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [self.textField.topAnchor constraintEqualToAnchor:body.bottomAnchor constant:16], [self.textField.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [self.textField.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [self.textField.heightAnchor constraintEqualToConstant:46], [buttons.topAnchor constraintEqualToAnchor:self.textField.hidden ? body.bottomAnchor : self.textField.bottomAnchor constant:18], [buttons.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [buttons.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [buttons.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-20]]]; }
+    [NSLayoutConstraint activateConstraints:@[[card.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:18], [card.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-18], [card.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor], [title.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [title.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [title.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [body.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:7], [body.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [body.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [self.textField.topAnchor constraintEqualToAnchor:avatarView ? avatarView.bottomAnchor : body.bottomAnchor constant:avatarView ? 14 : 16], [self.textField.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [self.textField.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [self.textField.heightAnchor constraintEqualToConstant:46], [buttons.topAnchor constraintEqualToAnchor:self.textField.hidden ? (avatarView ? avatarView.bottomAnchor : body.bottomAnchor) : self.textField.bottomAnchor constant:18], [buttons.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [buttons.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [buttons.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-20]]]; if (avatarView) [NSLayoutConstraint activateConstraints:@[[avatarView.topAnchor constraintEqualToAnchor:body.bottomAnchor constant:14], [avatarView.centerXAnchor constraintEqualToAnchor:card.centerXAnchor], [avatarView.widthAnchor constraintEqualToConstant:76], [avatarView.heightAnchor constraintEqualToConstant:76]]]; }
 - (void)tapped:(UIButton *)sender { NSString *text = self.textField.text ?: @""; NSInteger action = sender.tag; [self dismissViewControllerAnimated:YES completion:^{ if (self.selection) self.selection(action, text); }]; }
 @end
 
@@ -64,6 +88,7 @@ static UIImage *BRChatScaledAvatar(UIImage *image) {
 @property (nonatomic, strong) UIImage *pendingAvatar;
 @property (nonatomic) BOOL musicEnabled;
 @property (nonatomic, copy) NSString *profileName;
+@property (nonatomic, copy) NSString *profileAvatarURL;
 @end
 
 @implementation BRSlotChatBar
@@ -263,7 +288,7 @@ static UIImage *BRChatScaledAvatar(UIImage *image) {
     }];
 }
 
-- (void)refresh { if (self.loading || !self.started) return; self.loading = YES; [self request:@{ @"action": @"room_state", @"room_id": self.roomID } completion:^(NSDictionary *json, NSString *error) { self.loading = NO; if (error || !json) { self.presenceLabel.text = @"● Lounge reconnecting…"; self.presenceLabel.textColor = UIColor.systemOrangeColor; if (!self.messages.count) self.latestLabel.text = @"● Lounge reconnecting…"; return; } NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; self.hasProfile = profile != nil; self.profileName = BRChatString(profile[@"display_name"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSInteger active = BRChatInteger(json[@"active_players"]); self.presenceLabel.text = [NSString stringWithFormat:@"● %ld player%@ in the lounge", (long)active, active == 1 ? @"" : @"s"]; self.presenceLabel.textColor = [UIColor colorWithRed:.55 green:1 blue:.72 alpha:1]; BOOL nearBottom = YES; if (self.expanded && self.messages.count) { CGFloat distance = self.table.contentSize.height - (self.table.contentOffset.y + self.table.bounds.size.height); nearBottom = distance < 90; } self.messages = [json[@"messages"] isKindOfClass:NSArray.class] ? json[@"messages"] : @[]; [self updateLatestLine]; if (self.expanded) { [self.table reloadData]; if (nearBottom || self.justSent) [self scrollToBottomAnimated:NO]; if (!self.hasProfile) [self offerProfileSetup]; } self.justSent = NO; }]; }
+- (void)refresh { if (self.loading || !self.started) return; self.loading = YES; [self request:@{ @"action": @"room_state", @"room_id": self.roomID } completion:^(NSDictionary *json, NSString *error) { self.loading = NO; if (error || !json) { self.presenceLabel.text = @"● Lounge reconnecting…"; self.presenceLabel.textColor = UIColor.systemOrangeColor; if (!self.messages.count) self.latestLabel.text = @"● Lounge reconnecting…"; return; } NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; self.hasProfile = profile != nil; self.profileName = BRChatString(profile[@"display_name"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSString *stateAvatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(stateAvatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = stateAvatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } NSInteger active = BRChatInteger(json[@"active_players"]); self.presenceLabel.text = [NSString stringWithFormat:@"● %ld player%@ in the lounge", (long)active, active == 1 ? @"" : @"s"]; self.presenceLabel.textColor = [UIColor colorWithRed:.55 green:1 blue:.72 alpha:1]; BOOL nearBottom = YES; if (self.expanded && self.messages.count) { CGFloat distance = self.table.contentSize.height - (self.table.contentOffset.y + self.table.bounds.size.height); nearBottom = distance < 90; } self.messages = [json[@"messages"] isKindOfClass:NSArray.class] ? json[@"messages"] : @[]; [self updateLatestLine]; if (self.expanded) { [self.table reloadData]; if (nearBottom || self.justSent) [self scrollToBottomAnimated:NO]; if (!self.hasProfile) [self offerProfileSetup]; } self.justSent = NO; }]; }
 
 - (void)updateLatestLine {
     NSDictionary *message = self.messages.lastObject;
@@ -280,15 +305,17 @@ static UIImage *BRChatScaledAvatar(UIImage *image) {
 
 - (void)offerProfileSetup { // No static "showing" flag: a swipe-dismissed sheet never ran the selection block, so the flag stuck and the prompt never appeared again. The presented controller is the guard — it clears itself on any dismissal.
     if (!self.hostViewController || self.hostViewController.presentedViewController) return; BRSlotChatPromptController *sheet = [BRSlotChatPromptController new]; sheet.promptTitle = @"Join the lounge"; sheet.promptBody = @"Choose a public display name. Your email and account details stay private."; sheet.initialText = @""; sheet.actions = @[@"Save Profile", @"Not Now"]; sheet.selection = ^(NSInteger action, NSString *text) { if (action == 0) [self saveProfileName:text music:NO]; }; [self.hostViewController presentViewController:sheet animated:YES completion:nil]; }
-- (void)editProfile { if (!self.hostViewController) return; BRSlotChatPromptController *sheet = [BRSlotChatPromptController new]; sheet.promptTitle = @"Your lounge profile"; sheet.promptBody = @"Your profile is shown only in game lounges."; sheet.initialText = self.profileName ?: @""; sheet.actions = @[@"Choose Photo", @"Save Profile", @"Cancel"]; __weak typeof(self) weakSelf = self; sheet.selection = ^(NSInteger action, NSString *text) { __strong typeof(weakSelf) self = weakSelf; if (!self) return; NSString *name = text.length ? text : (self.profileName ?: @"Player"); if (action == 0) { UIImagePickerController *picker = [UIImagePickerController new]; picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary; picker.delegate = self; [self.hostViewController presentViewController:picker animated:YES completion:nil]; } else if (action == 1) { [self saveProfileName:name music:self.musicEnabled]; } }; [self.hostViewController presentViewController:sheet animated:YES completion:nil]; }
+- (void)editProfile { if (!self.hostViewController) return; BRSlotChatPromptController *sheet = [BRSlotChatPromptController new]; sheet.promptTitle = @"Your lounge profile"; sheet.promptBody = @"Your profile is shown only in game lounges."; sheet.initialText = self.profileName ?: @""; sheet.avatarImage = self.pendingAvatar; sheet.avatarURLString = self.pendingAvatar ? nil : self.profileAvatarURL; sheet.actions = @[@"Choose Photo", @"Save Profile", @"Cancel"]; __weak typeof(self) weakSelf = self; sheet.selection = ^(NSInteger action, NSString *text) { __strong typeof(weakSelf) self = weakSelf; if (!self) return; NSString *name = text.length ? text : (self.profileName ?: @"Player"); if (action == 0) { UIImagePickerController *picker = [UIImagePickerController new]; picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary; picker.delegate = self; [self.hostViewController presentViewController:picker animated:YES completion:nil]; } else if (action == 1) { [self saveProfileName:name music:self.musicEnabled]; } }; [self.hostViewController presentViewController:sheet animated:YES completion:nil]; }
 - (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey,id> *)info { self.pendingAvatar = info[UIImagePickerControllerOriginalImage]; [picker dismissViewControllerAnimated:YES completion:^{ [self editProfile]; }]; }
 - (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker { [picker dismissViewControllerAnimated:YES completion:nil]; }
 - (void)saveProfileName:(NSString *)name music:(BOOL)music { // A too-short name used to return silently, so the setup sheet was re-offered on every 6s poll until the user typed 2+ characters or tapped Not Now. Fall back to "Player" like the edit-profile path already does.
-    if (name.length < 2) name = @"Player"; NSMutableDictionary *body = [@{ @"action": @"save_profile", @"display_name": name, @"music_enabled": @(music) } mutableCopy]; UIImage *avatar = BRChatScaledAvatar(self.pendingAvatar); NSData *image = avatar ? UIImageJPEGRepresentation(avatar, .78) : nil; if (image.length) body[@"avatar_b64"] = [image base64EncodedStringWithOptions:0]; [self request:body completion:^(__unused NSDictionary *json, NSString *error) { if (!error) { self.pendingAvatar = nil; self.hasProfile = YES; [self refresh]; } }]; }
+    if (name.length < 2) name = @"Player"; NSMutableDictionary *body = [@{ @"action": @"save_profile", @"display_name": name, @"music_enabled": @(music) } mutableCopy]; UIImage *avatar = BRChatScaledAvatar(self.pendingAvatar); NSData *image = avatar ? UIImageJPEGRepresentation(avatar, .78) : nil; if (image.length) body[@"avatar_b64"] = [image base64EncodedStringWithOptions:0]; [self request:body completion:^(NSDictionary *json, NSString *error) { if (!error) { self.pendingAvatar = nil; self.hasProfile = YES; NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; if (profile) { self.profileName = BRChatString(profile[@"display_name"]); NSString *savedAvatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(savedAvatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) self.profileAvatarURL = savedAvatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } [self refresh]; } }]; }
 
 - (void)showLeaderboard { [self request:@{ @"action": @"leaderboard" } completion:^(NSDictionary *json, NSString *error) { NSDictionary *board = [json[@"leaderboard"] isKindOfClass:NSDictionary.class] ? json[@"leaderboard"] : nil; if (error || !board) return; [self presentLeaderboard:board]; }]; }
 
 - (void)showWinnersBoard { [self showLeaderboard]; }
++ (void)loadAvatarThumbnailForURL:(NSString *)urlString points:(CGFloat)points completion:(void (^)(UIImage *))completion { if (!completion) return; if (!urlString.length) { completion(nil); return; } NSString *key = [NSString stringWithFormat:@"%@|%.0f", urlString, points]; UIImage *cached = [BRChatAvatarCache() objectForKey:key]; if (cached) { completion(cached); return; } NSURL *url = [NSURL URLWithString:urlString]; if (!url) { completion(nil); return; } [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) { UIImage *image = BRChatThumbnailFromData(data, points); if (image) [BRChatAvatarCache() setObject:image forKey:key]; dispatch_async(dispatch_get_main_queue(), ^{ completion(image); }); }] resume]; }
+- (void)fetchOwnProfile { [self request:@{ @"action": @"profile" } completion:^(NSDictionary *json, NSString *error) { if (error || !json) return; NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; if (!profile) return; self.hasProfile = YES; self.profileName = BRChatString(profile[@"display_name"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSString *avatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(avatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = avatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } }]; }
 - (void)showProfileEditor {
     if (self.profileName.length) { [self editProfile]; return; }
     // A bar that never started (the game picker's logic owner) has not seen
@@ -296,11 +323,124 @@ static UIImage *BRChatScaledAvatar(UIImage *image) {
     // current name instead of an empty field.
     [self request:@{ @"action": @"room_state", @"room_id": self.roomID } completion:^(NSDictionary *json, NSString *error) {
         NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil;
-        if (!error && profile) { self.hasProfile = YES; self.profileName = BRChatString(profile[@"display_name"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); }
+        if (!error && profile) { self.hasProfile = YES; self.profileName = BRChatString(profile[@"display_name"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSString *loadedAvatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(loadedAvatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = loadedAvatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } }
         [self editProfile];
     }];
 }
-- (void)presentLeaderboard:(NSDictionary *)board { if (!self.hostViewController) return; UIViewController *sheet = [UIViewController new]; sheet.view.backgroundColor = [UIColor colorWithRed:.055 green:.02 blue:.12 alpha:1]; sheet.modalPresentationStyle = UIModalPresentationPageSheet; sheet.sheetPresentationController.detents = @[[UISheetPresentationControllerDetent largeDetent]]; sheet.sheetPresentationController.prefersGrabberVisible = YES; UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Lounge.WinningsTitle", nil); title.font = [UIFont systemFontOfSize:25 weight:UIFontWeightBlack]; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; title.textAlignment = NSTextAlignmentCenter; title.translatesAutoresizingMaskIntoConstraints = NO; [sheet.view addSubview:title]; UILabel *mine = [UILabel new]; mine.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.WinningsMine", nil), BRChatNumber(board[@"my_today_total"]), BRChatNumber(board[@"my_best_hit"])]; mine.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold]; mine.textColor = UIColor.whiteColor; mine.textAlignment = NSTextAlignmentCenter; mine.translatesAutoresizingMaskIntoConstraints = NO; [sheet.view addSubview:mine]; UITextView *content = [UITextView new]; content.editable = NO; content.selectable = NO; content.backgroundColor = [UIColor colorWithWhite:1 alpha:.06]; content.layer.cornerRadius = 16; content.textColor = UIColor.whiteColor; content.font = [UIFont monospacedSystemFontOfSize:14 weight:UIFontWeightMedium]; NSMutableString *text = [NSMutableString stringWithString:NSLocalizedString(@"BRSlot.Lounge.WinningsTopTotals", nil)]; NSArray *daily = [board[@"daily_winnings"] isKindOfClass:NSArray.class] ? board[@"daily_winnings"] : @[]; if (!daily.count) [text appendString:NSLocalizedString(@"BRSlot.Lounge.WinningsNoWins", nil)]; [daily enumerateObjectsUsingBlock:^(NSDictionary *entry, NSUInteger i, BOOL *stop) { NSDictionary *row = BRChatDictionary(entry); [text appendFormat:NSLocalizedString(@"BRSlot.Lounge.WinningsRow", nil), (unsigned long)i + 1, BRChatString(row[@"name"]) ?: NSLocalizedString(@"BRSlot.Lounge.PlayerFallback", nil), BRChatNumber(row[@"total"])]; }]; [text appendString:NSLocalizedString(@"BRSlot.Lounge.WinningsBiggestHits", nil)]; NSArray *hits = [board[@"biggest_hits"] isKindOfClass:NSArray.class] ? board[@"biggest_hits"] : @[]; if (!hits.count) [text appendString:NSLocalizedString(@"BRSlot.Lounge.WinningsNoHits", nil)]; [hits enumerateObjectsUsingBlock:^(NSDictionary *entry, NSUInteger i, BOOL *stop) { NSDictionary *row = BRChatDictionary(entry); [text appendFormat:NSLocalizedString(@"BRSlot.Lounge.WinningsRow", nil), (unsigned long)i + 1, BRChatString(row[@"name"]) ?: NSLocalizedString(@"BRSlot.Lounge.PlayerFallback", nil), BRChatNumber(row[@"payout"])]; }]; [text appendString:NSLocalizedString(@"BRSlot.Lounge.WinningsFooter", nil)]; content.text = text; content.translatesAutoresizingMaskIntoConstraints = NO; [sheet.view addSubview:content]; UILayoutGuide *safe = sheet.view.safeAreaLayoutGuide; [NSLayoutConstraint activateConstraints:@[[title.topAnchor constraintEqualToAnchor:safe.topAnchor constant:28], [title.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:20], [title.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-20], [mine.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:8], [mine.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [mine.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [content.topAnchor constraintEqualToAnchor:mine.bottomAnchor constant:20], [content.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:18], [content.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-18], [content.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-18]]]; [self.hostViewController presentViewController:sheet animated:YES completion:nil]; }
+- (void)presentLeaderboard:(NSDictionary *)board {
+    if (!self.hostViewController) return;
+    UIViewController *sheet = [UIViewController new];
+    sheet.view.backgroundColor = [UIColor colorWithRed:.055 green:.02 blue:.12 alpha:1];
+    sheet.modalPresentationStyle = UIModalPresentationPageSheet;
+    sheet.sheetPresentationController.detents = @[[UISheetPresentationControllerDetent largeDetent]];
+    sheet.sheetPresentationController.prefersGrabberVisible = YES;
+    UILabel *title = [UILabel new];
+    title.text = NSLocalizedString(@"BRSlot.Lounge.WinningsTitle", nil);
+    title.font = [UIFont systemFontOfSize:25 weight:UIFontWeightBlack];
+    title.textColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+    title.textAlignment = NSTextAlignmentCenter;
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    [sheet.view addSubview:title];
+    UILabel *mine = [UILabel new];
+    mine.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.WinningsMine", nil), BRChatNumber(board[@"my_today_total"]), BRChatNumber(board[@"my_best_hit"])];
+    mine.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
+    mine.textColor = UIColor.whiteColor;
+    mine.textAlignment = NSTextAlignmentCenter;
+    mine.translatesAutoresizingMaskIntoConstraints = NO;
+    [sheet.view addSubview:mine];
+    UIScrollView *scroll = [UIScrollView new];
+    scroll.backgroundColor = [UIColor colorWithWhite:1 alpha:.06];
+    scroll.layer.cornerRadius = 16;
+    scroll.translatesAutoresizingMaskIntoConstraints = NO;
+    [sheet.view addSubview:scroll];
+    UIStackView *stack = [UIStackView new];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = 8;
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [scroll addSubview:stack];
+    NSString *(^trimmed)(NSString *) = ^NSString *(NSString *value) { return [value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]; };
+    void (^addHeader)(NSString *) = ^(NSString *key) {
+        UILabel *header = [UILabel new];
+        header.text = trimmed(NSLocalizedString(key, nil));
+        header.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBlack];
+        header.textColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+        [stack addArrangedSubview:header];
+    };
+    void (^addEmpty)(NSString *) = ^(NSString *key) {
+        UILabel *empty = [UILabel new];
+        empty.text = trimmed(NSLocalizedString(key, nil));
+        empty.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+        empty.textColor = [UIColor colorWithWhite:.75 alpha:1];
+        empty.numberOfLines = 0;
+        [stack addArrangedSubview:empty];
+    };
+    void (^addRow)(NSDictionary *, NSUInteger, NSString *) = ^(NSDictionary *entry, NSUInteger index, NSString *amountKey) {
+        NSDictionary *row = BRChatDictionary(entry);
+        UIView *line = [UIView new];
+        UIImageView *avatar = [UIImageView new];
+        avatar.image = [UIImage systemImageNamed:@"person.crop.circle.fill"];
+        avatar.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+        avatar.contentMode = UIViewContentModeScaleAspectFill;
+        avatar.clipsToBounds = YES;
+        avatar.layer.cornerRadius = 17;
+        avatar.translatesAutoresizingMaskIntoConstraints = NO;
+        [line addSubview:avatar];
+        UILabel *label = [UILabel new];
+        label.text = trimmed([NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.WinningsRow", nil), (unsigned long)index + 1, BRChatString(row[@"name"]) ?: NSLocalizedString(@"BRSlot.Lounge.PlayerFallback", nil), BRChatNumber(row[amountKey])]);
+        label.font = [UIFont monospacedSystemFontOfSize:14 weight:UIFontWeightMedium];
+        label.textColor = UIColor.whiteColor;
+        label.translatesAutoresizingMaskIntoConstraints = NO;
+        [line addSubview:label];
+        [NSLayoutConstraint activateConstraints:@[
+            [avatar.leadingAnchor constraintEqualToAnchor:line.leadingAnchor],
+            [avatar.centerYAnchor constraintEqualToAnchor:line.centerYAnchor],
+            [avatar.widthAnchor constraintEqualToConstant:34],
+            [avatar.heightAnchor constraintEqualToConstant:34],
+            [label.leadingAnchor constraintEqualToAnchor:avatar.trailingAnchor constant:10],
+            [label.trailingAnchor constraintEqualToAnchor:line.trailingAnchor],
+            [label.topAnchor constraintEqualToAnchor:line.topAnchor constant:4],
+            [label.bottomAnchor constraintEqualToAnchor:line.bottomAnchor constant:-4]]];
+        [stack addArrangedSubview:line];
+        NSString *avatarURL = BRChatString(row[@"avatar_url"]);
+        if (avatarURL.length) { __weak UIImageView *weakAvatar = avatar; [BRSlotChatBar loadAvatarThumbnailForURL:avatarURL points:34 completion:^(UIImage *image) { if (image) weakAvatar.image = image; }]; }
+    };
+    void (^addSection)(NSString *, NSArray *, NSString *, NSString *) = ^(NSString *headerKey, NSArray *entries, NSString *amountKey, NSString *emptyKey) {
+        addHeader(headerKey);
+        NSArray *rows = [entries isKindOfClass:NSArray.class] ? entries : @[];
+        if (!rows.count) { addEmpty(emptyKey); return; }
+        [rows enumerateObjectsUsingBlock:^(NSDictionary *entry, NSUInteger i, BOOL *stop) { addRow(entry, i, amountKey); }];
+    };
+    addSection(@"BRSlot.Lounge.WinningsTopTotals", board[@"daily_winnings"], @"total", @"BRSlot.Lounge.WinningsNoWins");
+    addSection(@"BRSlot.Lounge.WinningsBiggestHits", board[@"biggest_hits"], @"payout", @"BRSlot.Lounge.WinningsNoHits");
+    NSArray *chips = [board[@"top_chips"] isKindOfClass:NSArray.class] ? board[@"top_chips"] : @[];
+    if (chips.count > 5) chips = [chips subarrayWithRange:NSMakeRange(0, 5)];
+    addSection(@"BRSlot.Lounge.WinningsMostChips", chips, @"balance", @"BRSlot.Lounge.WinningsNoChips");
+    UILabel *footer = [UILabel new];
+    footer.text = trimmed(NSLocalizedString(@"BRSlot.Lounge.WinningsFooter", nil));
+    footer.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
+    footer.textColor = [UIColor colorWithWhite:.6 alpha:1];
+    footer.textAlignment = NSTextAlignmentCenter;
+    footer.numberOfLines = 0;
+    [stack addArrangedSubview:footer];
+    UILayoutGuide *safe = sheet.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [title.topAnchor constraintEqualToAnchor:safe.topAnchor constant:28],
+        [title.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:20],
+        [title.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-20],
+        [mine.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:8],
+        [mine.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
+        [mine.trailingAnchor constraintEqualToAnchor:title.trailingAnchor],
+        [scroll.topAnchor constraintEqualToAnchor:mine.bottomAnchor constant:20],
+        [scroll.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:18],
+        [scroll.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-18],
+        [scroll.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-18],
+        [stack.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor constant:14],
+        [stack.leadingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.leadingAnchor constant:14],
+        [stack.trailingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.trailingAnchor constant:-14],
+        [stack.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor constant:-14],
+        [stack.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor constant:-28]]];
+    [self.hostViewController presentViewController:sheet animated:YES completion:nil];
+}
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.messages.count + 1; }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath { if (indexPath.row == 0) { UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]; cell.backgroundColor = [UIColor colorWithRed:.30 green:.08 blue:.42 alpha:.55]; cell.textLabel.text = @"🎰 Cherry Queen · Live house host"; cell.textLabel.textColor = [UIColor colorWithRed:1 green:.79 blue:.25 alpha:1]; cell.textLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBlack]; cell.detailTextLabel.text = @"A room character who keeps the lounge welcoming. Spin responsibly and celebrate each other."; cell.detailTextLabel.textColor = [UIColor colorWithWhite:.78 alpha:1]; cell.detailTextLabel.numberOfLines = 0; return cell; } NSDictionary *message = BRChatDictionary(self.messages[indexPath.row - 1]); UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]; BOOL mine = BRChatBool(message[@"is_mine"]); BOOL host = BRChatBool(message[@"is_house_host"]); cell.backgroundColor = host ? [UIColor colorWithRed:.30 green:.08 blue:.42 alpha:.55] : (mine ? [UIColor colorWithRed:.22 green:.10 blue:.39 alpha:.65] : [UIColor colorWithWhite:1 alpha:.055]); cell.layer.cornerRadius = 12; NSString *displayName = BRChatString(message[@"display_name"]) ?: (host ? @"Cherry Queen" : @"Player"); cell.textLabel.text = host ? [NSString stringWithFormat:@"🎰 %@ · Live house host", displayName] : displayName; cell.textLabel.textColor = (mine || host) ? [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1] : UIColor.whiteColor; cell.textLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBlack]; cell.detailTextLabel.text = BRChatString(message[@"body"]) ?: @""; cell.detailTextLabel.textColor = [UIColor colorWithWhite:.83 alpha:1]; cell.detailTextLabel.numberOfLines = 0; cell.imageView.image = host ? [UIImage systemImageNamed:@"sparkles"] : [UIImage systemImageNamed:@"person.crop.circle.fill"]; cell.imageView.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; cell.imageView.layer.cornerRadius = 17; cell.imageView.clipsToBounds = YES; NSString *avatarURL = BRChatString(message[@"avatar_url"]); if (!host && avatarURL.length) { NSURL *url = [NSURL URLWithString:avatarURL]; if (!url) return cell; __weak UITableViewCell *weakCell = cell; [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) { UIImage *image = data ? [UIImage imageWithData:data] : nil; if (!image) return; dispatch_async(dispatch_get_main_queue(), ^{ weakCell.imageView.image = image; weakCell.imageView.contentMode = UIViewContentModeScaleAspectFill; }); }] resume]; } return cell; }

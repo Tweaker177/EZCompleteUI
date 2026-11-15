@@ -815,3 +815,5 @@
 "BRSlot.PP.WonCoins" = "Você ganhou %ld moedas!";
 "BRSlot.Picker.Phoenix.Title" = "Phoenix Pavilion 凤凰阁";
 "BRSlot.Picker.Phoenix.Detail" = "Cinco rolos, vinte e cinco linhas. Os chapéus dourados abrem uma escolha de carta e giros grátis de ×2, ×3 ou ×5.";
+"BRSlot.Lounge.WinningsMostChips" = "MAIS MOEDAS: TOP 5\n\n";
+"BRSlot.Lounge.WinningsNoChips" = "Ainda não há líderes em moedas.\n";
