@@ -207,7 +207,7 @@ static UIImage *PPParticleImage(BOOL coin) {
     NSInteger _lines, _betIndex;
     NSInteger _balance;                 // what the label shows
     BOOL _balanceChecked;               // _balance verified by the server (entry, settle, or bet change)
-    NSInteger _freeRemaining, _bonusMult, _bonusTotal, _bonusLines, _bonusBet, _lastAwarded, _spinWager;
+    NSInteger _freeRemaining, _freeBonusRemaining, _freeClaimRemaining, _bonusMult, _bonusTotal, _bonusLines, _bonusBet, _lastAwarded, _spinWager;
     BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving;
     NSUInteger _epoch;
     NSTimeInterval _celebrationEnd;
@@ -656,6 +656,13 @@ static UIImage *PPParticleImage(BOOL coin) {
 
 - (void)refreshBanner {
     if (_bonusMode) {
+        if (_freeClaimRemaining > 0 && _freeBonusRemaining == 0) {
+            // Claim spins only: they play at the claim shape (25 lines x 1)
+            // with no multiplier, so there is no × badge to show.
+            self.bannerLabel.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.FreeSpinsLeftClaim", @"FREE SPINS  %ld LEFT  ·  WON %@"), (long)_freeRemaining, PPNum(_bonusTotal)];
+            self.bannerLabel.textColor = PPC(0xFFE48F);
+            return;
+        }
         NSString *mult = _bonusMult > 0 ? [NSString stringWithFormat:@"%ld", (long)_bonusMult] : @"?";
         self.bannerLabel.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, PPNum(_bonusTotal)];
         self.bannerLabel.textColor = PPC(0xFFE48F);
@@ -784,6 +791,8 @@ static UIImage *PPParticleImage(BOOL coin) {
     [self request:@{@"action": @"status"} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_leaving || self->_busy || !result || error) return;
         self->_freeRemaining = PPInteger(result[@"free_spins_remaining"]);
+        self->_freeBonusRemaining = PPInteger(result[@"free_spins_bonus_remaining"]);
+        self->_freeClaimRemaining = PPInteger(result[@"free_spins_claim_remaining"]);
         self->_pickPending = PPBool(result[@"pick_pending"]);
         self->_bonusMult = PPInteger(result[@"multiplier"]);
         self->_bonusTotal = PPInteger(result[@"bonus_total"]);
@@ -987,6 +996,8 @@ static UIImage *PPParticleImage(BOOL coin) {
     NSInteger balance = PPInteger(res[@"balance"]);
     _lastAwarded = awarded;
     _freeRemaining = PPInteger(res[@"free_spins_remaining"]);
+    _freeBonusRemaining = PPInteger(res[@"free_spins_bonus_remaining"]);
+    _freeClaimRemaining = PPInteger(res[@"free_spins_claim_remaining"]);
     _pickPending = PPBool(res[@"pick_pending"]);
     if (free) {
         _bonusTotal = PPInteger(res[@"bonus_total"]);
@@ -1012,6 +1023,16 @@ static UIImage *PPParticleImage(BOOL coin) {
 - (void)afterSpin {
     BOOL triggered = _lastAwarded > 0;
     if (_spinFree) {
+        if (_pickPending && triggered) {
+            // A claim spin landed 3+ hats: those spins are bonus spins now,
+            // and they open the card pick exactly like a paid trigger. The
+            // pick's completion resumes the free-spin chain.
+            _bonusMult = 0;
+            [self setMessage:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.MoreSpins", @"+%ld MORE FREE SPINS!"), (long)_lastAwarded] highlight:YES];
+            [self refreshBanner];
+            [self after:0.7 do:^{ [self presentCardPick]; }];
+            return;
+        }
         if (_freeRemaining > 0) {
             if (triggered) {
                 [self setMessage:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.MoreSpins", @"+%ld MORE FREE SPINS!"), (long)_lastAwarded] highlight:YES];
