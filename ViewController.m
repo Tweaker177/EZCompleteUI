@@ -1201,12 +1201,25 @@ static EZSeahorseIDPicker *EZSeahorseActiveIDPicker = nil;
 // NSFW) reference is uploaded only to Nureta, and only after a pass.
 static NSData * _Nullable EZSeahorseFaceCropJPEGData(UIImage *image) {
     if (!image) return nil;
+    if (image.size.width < 1 || image.size.height < 1) return nil;
     // Bake orientation into the pixels so crop math is in plain image space.
+    // Cap the working size first: baking a full-resolution camera photo
+    // (a 48MP shot is ~195 MB as a bitmap) before anything is downscaled
+    // can get the app memory-killed mid-upload on smaller devices, which
+    // reads to the user as a crash. The ID payload itself is capped at
+    // 1600px, and face detection plus the likeness crop lose nothing at
+    // that size.
+    CGSize workSize = image.size;
+    CGFloat maxDim = MAX(workSize.width, workSize.height);
+    if (maxDim > 1600) {
+        CGFloat scale = 1600.0 / maxDim;
+        workSize = CGSizeMake(workSize.width * scale, workSize.height * scale);
+    }
     UIGraphicsImageRendererFormat *format = [[UIGraphicsImageRendererFormat alloc] init];
     format.scale = 1.0;
-    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:image.size format:format];
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:workSize format:format];
     UIImage *flat = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull ctx) {
-        [image drawInRect:CGRectMake(0, 0, image.size.width, image.size.height)];
+        [image drawInRect:CGRectMake(0, 0, workSize.width, workSize.height)];
     }];
     CGImageRef cg = flat.CGImage;
     if (!cg) return nil;
