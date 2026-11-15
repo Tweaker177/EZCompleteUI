@@ -1,7 +1,7 @@
-// BRGoldenMandarinAudio.m
-// EZCompleteUI — Golden Mandarin (金帽福运) slot
+// BRPhoenixPavilionAudio.m
+// EZCompleteUI — Phoenix Pavilion (凤凰阁) slot
 
-#import "BRGoldenMandarinAudio.h"
+#import "BRPhoenixPavilionAudio.h"
 #import <AVFoundation/AVFoundation.h>
 #include <math.h>
 #include <stdlib.h>
@@ -238,23 +238,24 @@ static AVAudioPCMBuffer *BufferFromTrack(BRTrack *t, AVAudioFormat *fmt, NSInteg
 
 typedef struct { double pos; int midi; double dur; } NoteEv;
 
-// Quirky 8-bar hook in D major pentatonic (D E F# A B). Positions are in eighth notes.
+// Phoenix Pavilion theme: a bouncier 8-bar hook in G major pentatonic (G A B D E),
+// a little slower and more flute-led than Golden Mandarin. Positions are in eighth notes.
 static const NoteEv kMelody[] = {
-    {0,69,1},{1,71,1},{2,74,2},{4,71,1},{5,69,1},{6,66,2},
-    {8,69,1},{9,66,1},{10,64,2},{12,66,1},{13,69,1},{14,71,2},
-    {16,74,1},{17,76,1},{18,78,2},{20,76,1},{21,74,1},{22,71,2},
-    {24,69,1},{25,71,1},{26,69,1},{27,66,1},{28,64,4},
-    {32,69,1},{33,71,1},{34,74,2},{36,78,1},{37,76,1},{38,74,2},
-    {40,71,1},{41,74,1},{42,71,1},{43,69,1},{44,66,2},{46,64,1},{47,66,1},
-    {48,69,2},{50,74,1},{51,71,1},{52,69,2},{54,66,1},{55,64,1},
-    {56,62,2},{58,64,1},{59,66,1},{60,69,3}
+    {0,67,1},{1,74,1},{2,71,1},{3,69,1},{4,67,2},{6,64,1},{7,67,1},
+    {8,69,1},{9,71,1},{10,74,2},{12,71,1},{13,69,1},{14,71,2},
+    {16,76,1},{17,74,1},{18,71,1},{19,74,1},{20,79,2},{22,76,1},{23,74,1},
+    {24,71,2},{26,69,1},{27,67,1},{28,69,4},
+    {32,67,1},{33,74,1},{34,71,1},{35,69,1},{36,67,2},{38,69,1},{39,71,1},
+    {40,74,1},{41,76,1},{42,79,2},{44,81,1},{45,79,1},{46,76,2},
+    {48,74,1},{49,71,1},{50,74,1},{51,76,1},{52,74,2},{54,71,1},{55,69,1},
+    {56,67,2},{58,64,1},{59,67,1},{60,67,3}
 };
-static const NoteEv kGrace[] = { {1.7,71,0.3}, {17.7,76,0.3}, {33.7,71,0.3}, {49.7,71,0.3} };
-static const NoteEv kFlute[] = { {28,76,4}, {44,74,2}, {60,78,3} };
-static const int kBassRoot[8] = { 38, 38, 33, 35, 38, 40, 33, 33 };
+static const NoteEv kGrace[] = { {7.7,74,0.3}, {23.7,79,0.3}, {39.7,74,0.3}, {55.7,71,0.3} };
+static const NoteEv kFlute[] = { {28,71,4}, {44,74,2}, {60,76,3} };
+static const int kBassRoot[8] = { 43, 43, 38, 40, 43, 45, 38, 38 };
 
 static AVAudioPCMBuffer *RenderTheme(AVAudioFormat *fmt, BOOL bonus) {
-    double bpm = bonus ? 138.0 : 112.0;
+    double bpm = bonus ? 132.0 : 104.0;
     int transpose = bonus ? 5 : 0;
     double eighth = 60.0 / bpm / 2.0;
     NSInteger loopFrames = (NSInteger)(64 * eighth * kSR);
@@ -283,7 +284,7 @@ static AVAudioPCMBuffer *RenderTheme(AVAudioFormat *fmt, BOOL bonus) {
         AddWood(&t, (b0 + 5) * eighth, 660, 0.26);
         AddWood(&t, (b0 + 7) * eighth, 1040, 0.22);
         if (bonus) for (int k = 1; k < 8; k += 2) AddNoise(&t, (b0 + k) * eighth, 0.05, 0.09, 0.012, 0.25);
-        if (bar % 4 == 0) AddBell(&t, b0 * eighth, MidiHz(86 + transpose), 0.07, 1.2);
+        if (bar % 4 == 0) AddBell(&t, b0 * eighth, MidiHz(91 + transpose), 0.07, 1.2);
     }
     AddEcho(&t, 0.19, 0.24f);
     FoldTail(&t, loopFrames);
@@ -349,11 +350,11 @@ static AVAudioPCMBuffer *RenderCrash(AVAudioFormat *fmt) {
 
 static AVAudioPCMBuffer *RenderFanfare(AVAudioFormat *fmt) {
     BRTrack t = TrackMake(3.6);
-    static const int run[] = { 62, 64, 66, 69, 71, 74, 76, 78, 81, 83 };
+    static const int run[] = { 62, 64, 67, 69, 71, 74, 76, 79, 81, 83 };
     for (int i = 0; i < 10; i++) AddPluck(&t, i * 0.075, MidiHz(run[i]), 0.42, 0.5, 9, 1.0);
     double hit = 0.85;
     for (int n = 0; n < 3; n++) {
-        static const int chord[3] = { 74, 78, 81 };
+        static const int chord[3] = { 74, 79, 83 };
         AddPluck(&t, hit, MidiHz(chord[n]), 0.4, 0.8, 9, 1.8);
         AddBell(&t, hit, MidiHz(chord[n] + 12), 0.25, 1.0);
     }
@@ -366,7 +367,7 @@ static AVAudioPCMBuffer *RenderFanfare(AVAudioFormat *fmt) {
 
 static AVAudioPCMBuffer *RenderAlarm(AVAudioFormat *fmt) {
     BRTrack t = TrackMake(6.2);
-    static const int bellMidi[6] = { 84, 86, 88, 91, 93, 96 };                 // C6 D6 E6 G6 A6 C7
+    static const int bellMidi[6] = { 83, 86, 88, 91, 93, 95 };                 // B5 D6 E6 G6 A6 B6
     AddGong(&t, 0, 175, 0.9, 2.6);
     AddSiren(&t, 0.1, 4.4, 0.5);
     BRNoise pick = { 0x9E3779B97F4A7C15ULL };
@@ -386,16 +387,16 @@ static AVAudioPCMBuffer *RenderAlarm(AVAudioFormat *fmt) {
 
 static AVAudioPCMBuffer *RenderNearMiss(AVAudioFormat *fmt) {
     BRTrack t = TrackMake(1.8);
-    static const int notes[3] = { 81, 78, 74 };
+    static const int notes[3] = { 81, 79, 74 };
     for (int i = 0; i < 3; i++) AddPluck(&t, i * 0.2, MidiHz(notes[i]), 0.38, 0.35, 7, 0.9);
     AddTom(&t, 0.55, 80, 0.4, 0.3);
     Normalize(&t, 0.7f);
     return BufferFromTrack(&t, fmt, t.frames);
 }
 
-/// Pentatonic arpeggio; `count` plucks climbing D major pentatonic from D5.
+/// Pentatonic arpeggio; `count` plucks climbing G major pentatonic from G5.
 static AVAudioPCMBuffer *RenderWin(AVAudioFormat *fmt, int count, BOOL gong) {
-    static const int degrees[14] = { 74, 76, 78, 81, 83, 86, 88, 90, 93, 95, 98, 100, 102, 105 };
+    static const int degrees[14] = { 74, 76, 79, 81, 83, 86, 88, 91, 93, 95, 98, 100, 103, 105 };
     BRTrack t = TrackMake(count * 0.075 + 2.4);
     for (int i = 0; i < count && i < 14; i++) {
         AddPluck(&t, i * 0.075, MidiHz(degrees[i] - 12), 0.38, 0.45, 8, 0.9);
@@ -425,11 +426,11 @@ static AVAudioPCMBuffer *RenderCardPick(AVAudioFormat *fmt) {
 
 static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
     BRTrack t = TrackMake(bells * 0.14 + 2.6);
-    static const int notes[5] = { 84, 88, 91, 93, 96 };
+    static const int notes[5] = { 83, 88, 91, 93, 95 };
     for (int i = 0; i < bells; i++) AddBell(&t, i * 0.14, MidiHz(notes[i]), 0.55, 0.7);
     if (bells >= 5) {
         AddGong(&t, bells * 0.14, 196, 0.8, 2.0);
-        for (int i = 0; i < 8; i++) AddPluck(&t, 0.7 + i * 0.06, MidiHz(74 + (int[]){0,2,4,7,9,12,14,16}[i]), 0.3, 0.5, 8, 0.8);
+        for (int i = 0; i < 8; i++) AddPluck(&t, 0.7 + i * 0.06, MidiHz(74 + (int[]){0,2,5,7,9,12,14,17}[i]), 0.3, 0.5, 8, 0.8);
     }
     AddEcho(&t, 0.16, 0.25f);
     Normalize(&t, 0.9f);
@@ -438,7 +439,7 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 
 #pragma mark - Player
 
-@interface BRGoldenMandarinAudio ()
+@interface BRPhoenixPavilionAudio ()
 @property (nonatomic, strong) AVAudioEngine *engine;
 @property (nonatomic, strong) AVAudioFormat *format;
 @property (nonatomic, strong) NSArray<AVAudioPlayerNode *> *voices;
@@ -449,7 +450,7 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 @property (nonatomic) NSInteger rollLevel;
 @end
 
-@implementation BRGoldenMandarinAudio
+@implementation BRPhoenixPavilionAudio
 
 - (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; [self shutdown]; }
 
@@ -465,7 +466,7 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
         b[@"bonusTheme"] = RenderTheme(fmt, YES);
         b[@"spin"] = RenderSpinStart(fmt);
         for (int i = 0; i < 5; i++) b[[NSString stringWithFormat:@"stop%d", i]] = RenderReelStop(fmt, i);
-        static const int scatterMidi[5] = { 84, 86, 88, 91, 93 };              // C6 D6 E6 G6 A6
+        static const int scatterMidi[5] = { 83, 86, 88, 91, 93 };              // B5 D6 E6 G6 A6
         for (int i = 0; i < 5; i++) b[[NSString stringWithFormat:@"scatter%d", i]] = RenderScatterNote(fmt, MidiHz(scatterMidi[i]));
         static const int rolls[3] = { 14, 20, 28 };
         for (int i = 0; i < 3; i++) b[[NSString stringWithFormat:@"roll%d", i + 1]] = RenderDrumRoll(fmt, rolls[i]);
@@ -496,11 +497,6 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 }
 
 - (void)buildEngine {
-    // Match the other slot machines (PR #114): Playback + MixWithOthers so
-    // the theme layers over music already playing instead of taking over
-    // the session. GM never set a category, so on a fresh launch it ran
-    // under the SoloAmbient default and silenced other audio.
-    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
     AVAudioEngine *engine = [AVAudioEngine new];
     NSMutableArray *voices = [NSMutableArray array];
     for (int i = 0; i < kVoiceCount; i++) {

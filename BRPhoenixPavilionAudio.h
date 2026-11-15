@@ -1,8 +1,8 @@
-// BRGoldenMandarinAudio.h
-// EZCompleteUI — Golden Mandarin (金帽福运) slot
+// BRPhoenixPavilionAudio.h
+// EZCompleteUI — Phoenix Pavilion (凤凰阁) slot
 //
 // All music and sound effects are synthesized in code (no audio files):
-// plucked-string theme (D-major pentatonic, guzheng/pipa flavored), bamboo
+// plucked-string theme (G-major pentatonic, guzheng/pipa flavored), bamboo
 // flute, taiko, temple blocks, gongs and bells. The scatter notes climb a
 // pentatonic scale, a drum roll builds from the second hat, and five hats
 // trigger an alarm-and-bells celebration.
@@ -11,7 +11,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface BRGoldenMandarinAudio : NSObject
+@interface BRPhoenixPavilionAudio : NSObject
 
 /// YES once every sound has been synthesized and the engine is running.
 @property (nonatomic, readonly) BOOL ready;

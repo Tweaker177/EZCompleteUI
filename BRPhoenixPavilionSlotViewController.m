@@ -1,7 +1,7 @@
-// BRGoldenMandarinSlotViewController.m
-// EZCompleteUI — Golden Mandarin (金帽福运)
+// BRPhoenixPavilionSlotViewController.m
+// EZCompleteUI — Phoenix Pavilion (凤凰阁)
 //
-// Client half of the `ez-golden-mandarin-spin` edge function. The server owns
+// Client half of the `ez-phoenix-pavilion-spin` edge function. The server owns
 // the reels, every payout, the free-spin award roll, the x2/x3/x5 card pick and
 // all EZ Coins; this screen renders what it is told and stages the drama:
 //   - reels blur while the request is in flight, then land left to right
@@ -10,37 +10,39 @@
 //   - five hats fire an alarm with ringing bells, confetti and a shaking cabinet
 //   - 3+ hats open a three-card pick; the server decides what each card hides
 //   - free spins then play themselves with every win multiplied
-// All art and sound are generated in code (BRGoldenMandarinArt / Audio).
+// All art and sound are generated in code (BRPhoenixPavilionArt / Audio).
 
-#import "BRGoldenMandarinSlotViewController.h"
+#import "BRPhoenixPavilionSlotViewController.h"
 #import "BRSlotChatBar.h"
-#import "BRGoldenMandarinEngine.h"
-#import "BRGoldenMandarinArt.h"
-#import "BRGoldenMandarinAudio.h"
+#import "BRPhoenixPavilionEngine.h"
+#import "BRPhoenixPavilionArt.h"
+#import "BRPhoenixPavilionAudio.h"
 #import "EZAuthManager.h"
 #import "EZEntitlementManager.h"
 #import "EZSupabaseConfig.h"
 #import "EZCoinStoreViewController.h"
 
-#define GMLoc(key, en) NSLocalizedStringWithDefaultValue(key, nil, NSBundle.mainBundle, en, nil)
+#define PPLoc(key, en) NSLocalizedStringWithDefaultValue(key, nil, NSBundle.mainBundle, en, nil)
 
-static NSString *const kGMMutedKey = @"BRGoldenMandarinMuted";
-static NSString *const kGMLinesKey = @"BRGoldenMandarinLines";
-static NSString *const kGMBetKey = @"BRGoldenMandarinBetIndex";
-static const NSInteger kGMLoopPeriod = 8;        // cells in the seamless blur loop
-static const CGFloat kGMLoopSpeed = 22.0;        // cells per second while blurring
+static NSString *const kPPMutedKey = @"BRPhoenixPavilionMuted";
+static NSString *const kPPLinesKey = @"BRPhoenixPavilionLines";
+static NSString *const kPPBetKey = @"BRPhoenixPavilionBetIndex";
+static const NSInteger kPPLoopPeriod = 8;        // cells in the seamless blur loop
+static const CGFloat kPPLoopSpeed = 22.0;        // cells per second while blurring
 
-static NSArray<NSNumber *> *GMBets(void) { return @[@1, @5, @10, @15, @25]; }
-static NSArray<NSString *> *GMSymbolNames(void) {
-    return @[@"lantern", @"fan", @"bamboo", @"plum", @"koi", @"jade", @"ingot", @"dragon", @"hat"];
+static NSArray<NSNumber *> *PPBets(void) { return @[@1, @2, @5, @10]; }
+/// Line counts the LINES button steps through (the server accepts any 1...25).
+static NSArray<NSNumber *> *PPLineChoices(void) { return @[@1, @5, @10, @15, @20, @25]; }
+static NSArray<NSString *> *PPSymbolNames(void) {
+    return @[@"envelope", @"tea", @"peony", @"pagoda", @"crane", @"ruyi", @"coins", @"phoenix", @"hat"];
 }
 
-static UIColor *GMC(uint32_t hex) {
+static UIColor *PPC(uint32_t hex) {
     return [UIColor colorWithRed:((hex >> 16) & 0xFF) / 255.0 green:((hex >> 8) & 0xFF) / 255.0 blue:(hex & 0xFF) / 255.0 alpha:1];
 }
-static UIColor *GMGold(void) { return GMC(0xF2C14E); }
+static UIColor *PPGold(void) { return PPC(0xF2C14E); }
 
-static NSString *GMNum(NSInteger n) {
+static NSString *PPNum(NSInteger n) {
     static NSNumberFormatter *formatter;
     static dispatch_once_t once;
     dispatch_once(&once, ^{ formatter = [NSNumberFormatter new]; formatter.numberStyle = NSNumberFormatterDecimalStyle; });
@@ -50,18 +52,18 @@ static NSString *GMNum(NSInteger n) {
 /// NSNull-safe JSON readers. The server should always send numbers and
 /// strings, but a null or mistyped value must fail closed, never crash on
 /// integerValue / boolValue (NSNull answers neither).
-static NSInteger GMInteger(id value) { return [value respondsToSelector:@selector(integerValue)] ? [value integerValue] : 0; }
-static BOOL GMBool(id value) { return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO; }
-static NSString *GMString(id value) { return [value isKindOfClass:NSString.class] && ((NSString *)value).length ? value : nil; }
+static NSInteger PPInteger(id value) { return [value respondsToSelector:@selector(integerValue)] ? [value integerValue] : 0; }
+static BOOL PPBool(id value) { return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO; }
+static NSString *PPString(id value) { return [value isKindOfClass:NSString.class] && ((NSString *)value).length ? value : nil; }
 
 /// Random symbol for the blur. Hats only appear when `allowHat` so a stopped
 /// reel never shows a stray hat next to the real result.
-static int GMFiller(BOOL allowHat) {
-    if (allowHat && arc4random_uniform(18) == 0) return GMSymbolHat;
-    return (int)arc4random_uniform(GMSymbolHat);
+static int PPFiller(BOOL allowHat) {
+    if (allowHat && arc4random_uniform(18) == 0) return PPSymbolHat;
+    return (int)arc4random_uniform(PPSymbolHat);
 }
 
-static UIImage *GMParticleImage(BOOL coin) {
+static UIImage *PPParticleImage(BOOL coin) {
     UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
     format.scale = 2;
     CGSize size = CGSizeMake(18, 18);
@@ -70,39 +72,39 @@ static UIImage *GMParticleImage(BOOL coin) {
             UIBezierPath *path = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(1, 1, 16, 16)];
             [path appendPath:[UIBezierPath bezierPathWithRect:CGRectMake(6.5, 6.5, 5, 5)]];
             path.usesEvenOddFillRule = YES;
-            [GMGold() setFill]; [path fill];
-            [GMC(0x9A6A08) setStroke]; path.lineWidth = 1; [path stroke];
+            [PPGold() setFill]; [path fill];
+            [PPC(0x9A6A08) setStroke]; path.lineWidth = 1; [path stroke];
         } else {      // a red-and-gold paper diamond
             UIBezierPath *path = [UIBezierPath bezierPath];
             [path moveToPoint:CGPointMake(9, 1)]; [path addLineToPoint:CGPointMake(15, 9)];
             [path addLineToPoint:CGPointMake(9, 17)]; [path addLineToPoint:CGPointMake(3, 9)]; [path closePath];
-            [GMC(0xD4161E) setFill]; [path fill];
-            [GMGold() setStroke]; path.lineWidth = 1.2; [path stroke];
+            [PPC(0xD4161E) setFill]; [path fill];
+            [PPGold() setStroke]; path.lineWidth = 1.2; [path stroke];
         }
     }];
 }
 
 #pragma mark - Gradient view
 
-@interface GMGradientView : UIView
+@interface PPGradientView : UIView
 @property (nonatomic, readonly) CAGradientLayer *gradientLayer;
 @end
-@implementation GMGradientView
+@implementation PPGradientView
 + (Class)layerClass { return [CAGradientLayer class]; }
 - (CAGradientLayer *)gradientLayer { return (CAGradientLayer *)self.layer; }
 @end
 
 #pragma mark - Pay table sheet
 
-@interface GMPaytableViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
+@interface PPPaytableViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
 @property (nonatomic, strong) UITableView *table;
 @end
 
-@implementation GMPaytableViewController
+@implementation PPPaytableViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = GMC(0x1A0509);
+    self.view.backgroundColor = PPC(0x061C22);
     UISheetPresentationController *sheet = self.sheetPresentationController;
     if (sheet) {
         sheet.detents = @[UISheetPresentationControllerDetent.mediumDetent, UISheetPresentationControllerDetent.largeDetent];
@@ -110,16 +112,16 @@ static UIImage *GMParticleImage(BOOL coin) {
     }
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = GMLoc(@"BRSlot.GM.Pays.Title", @"Golden Mandarin Pays");
+    title.text = PPLoc(@"BRSlot.PP.Pays.Title", @"Phoenix Pavilion Pays");
     title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightHeavy];
-    title.textColor = GMGold();
+    title.textColor = PPGold();
     title.textAlignment = NSTextAlignmentCenter;
     [self.view addSubview:title];
 
     self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
     self.table.translatesAutoresizingMaskIntoConstraints = NO;
     self.table.backgroundColor = UIColor.clearColor;
-    self.table.separatorColor = [GMGold() colorWithAlphaComponent:.25];
+    self.table.separatorColor = [PPGold() colorWithAlphaComponent:.25];
     self.table.dataSource = self;
     self.table.delegate = self;
     self.table.allowsSelection = NO;
@@ -128,8 +130,8 @@ static UIImage *GMParticleImage(BOOL coin) {
     footer.numberOfLines = 0;
     footer.textColor = [UIColor colorWithWhite:1 alpha:.82];
     footer.font = [UIFont systemFontOfSize:13];
-    footer.text = GMLoc(@"BRSlot.GM.Pays.Rules",
-        @"HOW TO PLAY\n\n• 9 paylines. Matching symbols pay left to right from reel 1: 3, 4 or 5 in a row. Prizes multiply your bet per line.\n• Golden Hats are scatters and pay anywhere. A spin never shows more than five.\n• 3 hats = 5–8 free spins, 4 hats = 14–16, 5 hats = 25–30.\n• Before free spins begin, pick one of three face-down cards. It hides ×2, ×3 or ×5, and that multiplies every line win in the bonus.\n• Hats during free spins add more spins (up to 100 banked).\n• Free spins cost nothing. Spins and payouts are decided on the server.");
+    footer.text = PPLoc(@"BRSlot.PP.Pays.Rules",
+        @"HOW TO PLAY\n\n• 25 paylines (choose how many to play). Matching symbols pay left to right from reel 1: 3, 4 or 5 in a row. Prizes multiply your bet per line.\n• Golden Hats are scatters and pay anywhere. A spin never shows more than five.\n• 3 hats = 5–8 free spins, 4 hats = 14–16, 5 hats = 25–30.\n• Before free spins begin, pick one of three face-down cards. It hides ×2, ×3 or ×5, and that multiplies every line win in the bonus.\n• Hats during free spins add more spins (up to 100 banked).\n• Free spins cost nothing. Spins and payouts are decided on the server.");
     CGSize fit = [footer sizeThatFits:CGSizeMake(UIScreen.mainScreen.bounds.size.width - 40, CGFLOAT_MAX)];
     UIView *wrap = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 100, fit.height + 40)];
     footer.frame = CGRectMake(20, 12, UIScreen.mainScreen.bounds.size.width - 40, fit.height);
@@ -149,25 +151,25 @@ static UIImage *GMParticleImage(BOOL coin) {
     ]];
 }
 
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return GMSymbolCount; }
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return PPSymbolCount; }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"pay"];
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"pay"];
-    GMSymbol symbol = (GMSymbol)(GMSymbolCount - 1 - path.row);   // hat first, then dragon down to lantern
+    PPSymbol symbol = (PPSymbol)(PPSymbolCount - 1 - path.row);   // hat first, then dragon down to lantern
     cell.backgroundColor = UIColor.clearColor;
-    cell.imageView.image = [BRGoldenMandarinArt imageForSymbol:symbol size:CGSizeMake(46, 46)];
-    cell.textLabel.textColor = GMGold();
+    cell.imageView.image = [BRPhoenixPavilionArt imageForSymbol:symbol size:CGSizeMake(46, 46)];
+    cell.textLabel.textColor = PPGold();
     cell.textLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
     cell.detailTextLabel.textColor = [UIColor colorWithWhite:1 alpha:.85];
     cell.detailTextLabel.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightRegular];
     cell.detailTextLabel.numberOfLines = 2;
-    cell.textLabel.text = [BRGoldenMandarinArt nameForSymbol:symbol];
-    if (symbol == GMSymbolHat) {
-        cell.detailTextLabel.text = GMLoc(@"BRSlot.GM.Pays.Hat", @"Scatter · 3 = 5–8 free spins · 4 = 14–16 · 5 = 25–30");
+    cell.textLabel.text = [BRPhoenixPavilionArt nameForSymbol:symbol];
+    if (symbol == PPSymbolHat) {
+        cell.detailTextLabel.text = PPLoc(@"BRSlot.PP.Pays.Hat", @"Scatter · 3 = 5–8 free spins · 4 = 14–16 · 5 = 25–30");
     } else {
-        cell.detailTextLabel.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Pays.Row", @"3×  %ld    4×  %ld    5×  %ld   (× bet per line)"),
-                                     (long)GMPayoutUnits(symbol, 3), (long)GMPayoutUnits(symbol, 4), (long)GMPayoutUnits(symbol, 5)];
+        cell.detailTextLabel.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Pays.Row", @"3×  %ld    4×  %ld    5×  %ld   (× bet per line)"),
+                                     (long)PPPayoutUnits(symbol, 3), (long)PPPayoutUnits(symbol, 4), (long)PPPayoutUnits(symbol, 5)];
     }
     return cell;
 }
@@ -176,10 +178,10 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 #pragma mark - Main screen
 
-@interface BRGoldenMandarinSlotViewController ()
-@property (nonatomic, strong) BRGoldenMandarinAudio *audio;
+@interface BRPhoenixPavilionSlotViewController ()
+@property (nonatomic, strong) BRPhoenixPavilionAudio *audio;
 @property (nonatomic, strong) BRSlotChatBar *chatBar;
-@property (nonatomic, strong) GMGradientView *background;
+@property (nonatomic, strong) PPGradientView *background;
 @property (nonatomic, strong) UIScrollView *scroll;
 @property (nonatomic, strong) UILabel *balanceLabel, *winLabel, *bannerLabel, *messageLabel, *totalBetLabel;
 @property (nonatomic, strong) UIView *machine;
@@ -196,10 +198,10 @@ static UIImage *GMParticleImage(BOOL coin) {
 @property (nonatomic, strong) UILabel *pickTitle, *pickSubtitle, *pickPrompt;
 @end
 
-@implementation BRGoldenMandarinSlotViewController {
-    int _grid[GM_REELS][GM_ROWS];       // the result being revealed
-    int _board[GM_REELS][GM_ROWS];      // what the reels currently show
-    int _hatsOnReel[GM_REELS];
+@implementation BRPhoenixPavilionSlotViewController {
+    int _grid[PP_REELS][PP_ROWS];       // the result being revealed
+    int _board[PP_REELS][PP_ROWS];      // what the reels currently show
+    int _hatsOnReel[PP_REELS];
     int _hatTotal;
     CGPoint _slotCenters[3];
     NSInteger _lines, _betIndex;
@@ -216,19 +218,19 @@ static UIImage *GMParticleImage(BOOL coin) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
-    _lines = [defaults objectForKey:kGMLinesKey] ? MAX(1, MIN(GM_MAX_LINES, [defaults integerForKey:kGMLinesKey])) : GM_MAX_LINES;
-    _betIndex = [defaults objectForKey:kGMBetKey] ? MAX(0, MIN((NSInteger)GMBets().count - 1, [defaults integerForKey:kGMBetKey])) : 0;
+    _lines = [defaults objectForKey:kPPLinesKey] ? MAX(1, MIN(PP_MAX_LINES, [defaults integerForKey:kPPLinesKey])) : PP_MAX_LINES;
+    _betIndex = [defaults objectForKey:kPPBetKey] ? MAX(0, MIN((NSInteger)PPBets().count - 1, [defaults integerForKey:kPPBetKey])) : 0;
     _bonusLines = _lines;
-    _bonusBet = GMBets()[_betIndex].integerValue;
+    _bonusBet = PPBets()[_betIndex].integerValue;
     self.reelViews = [NSMutableArray array];
     self.strips = [NSMutableArray array];
     self.stripCells = [NSMutableArray array];
     self.highlights = [NSMutableArray array];
-    for (int r = 0; r < GM_REELS; r++) for (int row = 0; row < GM_ROWS; row++) _board[r][row] = GMFiller(NO);
+    for (int r = 0; r < PP_REELS; r++) for (int row = 0; row < PP_ROWS; row++) _board[r][row] = PPFiller(NO);
 
     [self buildUI];
-    self.audio = [BRGoldenMandarinAudio new];
-    self.audio.muted = [defaults boolForKey:kGMMutedKey];
+    self.audio = [BRPhoenixPavilionAudio new];
+    self.audio.muted = [defaults boolForKey:kPPMutedKey];
     [self.audio prepare];
     [self refreshSoundButton];
     [self refreshLabels];
@@ -252,7 +254,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     _leaving = NO;
     [self.audio startThemeBonus:_bonusMode];
     [self refreshState];
-    if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"golden-mandarin"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; }
+    if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"phoenix-pavilion"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; }
     [self.chatBar start];
 }
 
@@ -272,7 +274,7 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
-    [BRGoldenMandarinArt purgeCache];
+    [BRPhoenixPavilionArt purgeCache];
 }
 
 - (void)appDidBecomeActive {
@@ -306,11 +308,11 @@ static UIImage *GMParticleImage(BOOL coin) {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
     [button setTitle:title forState:UIControlStateNormal];
     button.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack];
-    button.tintColor = GMGold();
-    button.backgroundColor = [GMC(0x5A0B14) colorWithAlphaComponent:.96];
+    button.tintColor = PPGold();
+    button.backgroundColor = [PPC(0x0D4A52) colorWithAlphaComponent:.96];
     button.layer.cornerRadius = 9;
     button.layer.borderWidth = 1;
-    button.layer.borderColor = [GMGold() colorWithAlphaComponent:.72].CGColor;
+    button.layer.borderColor = [PPGold() colorWithAlphaComponent:.72].CGColor;
     button.contentEdgeInsets = UIEdgeInsetsMake(7, 10, 7, 10);
     [button sizeToFit];
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
@@ -324,12 +326,12 @@ static UIImage *GMParticleImage(BOOL coin) {
     button.titleLabel.textAlignment = NSTextAlignmentCenter;
     button.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightHeavy];
     [button setTitle:title forState:UIControlStateNormal];
-    [button setTitleColor:GMGold() forState:UIControlStateNormal];
+    [button setTitleColor:PPGold() forState:UIControlStateNormal];
     [button setTitleColor:[UIColor colorWithWhite:1 alpha:.4] forState:UIControlStateDisabled];
     button.backgroundColor = color;
     button.layer.cornerRadius = 14;
     button.layer.borderWidth = 1.5;
-    button.layer.borderColor = [GMGold() colorWithAlphaComponent:.8].CGColor;
+    button.layer.borderColor = [PPGold() colorWithAlphaComponent:.8].CGColor;
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
     return button;
 }
@@ -338,7 +340,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     UILabel *cap = [UILabel new];
     cap.text = caption;
     cap.font = [UIFont systemFontOfSize:10 weight:UIFontWeightHeavy];
-    cap.textColor = [GMGold() colorWithAlphaComponent:.8];
+    cap.textColor = [PPGold() colorWithAlphaComponent:.8];
     cap.textAlignment = alignment;
     value.font = [UIFont monospacedDigitSystemFontOfSize:19 weight:UIFontWeightHeavy];
     value.textColor = UIColor.whiteColor;
@@ -352,15 +354,15 @@ static UIImage *GMParticleImage(BOOL coin) {
 }
 
 - (void)buildUI {
-    self.view.backgroundColor = GMC(0x12030A);
-    self.background = [[GMGradientView alloc] initWithFrame:self.view.bounds];
+    self.view.backgroundColor = PPC(0x04141A);
+    self.background = [[PPGradientView alloc] initWithFrame:self.view.bounds];
     self.background.userInteractionEnabled = NO;
-    self.background.gradientLayer.colors = @[(id)GMC(0x3B0610).CGColor, (id)GMC(0x12030A).CGColor];
+    self.background.gradientLayer.colors = @[(id)PPC(0x0C3A44).CGColor, (id)PPC(0x04141A).CGColor];
     [self.view insertSubview:self.background atIndex:0];
 
     self.navigationItem.hidesBackButton = YES;
-    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:GMLoc(@"BRSlot.Picker.Back", @"‹  BRAINROT") action:@selector(backTapped)]];
-    UIButton *pays = [self navButton:GMLoc(@"BRSlot.GM.Pays", @"PAYS") action:@selector(showPays)];
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:PPLoc(@"BRSlot.Picker.Back", @"‹  BRAINROT") action:@selector(backTapped)]];
+    UIButton *pays = [self navButton:PPLoc(@"BRSlot.PP.Pays", @"PAYS") action:@selector(showPays)];
     self.soundButton = [self navButton:@"🔊" action:@selector(toggleSound)];
     self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithCustomView:self.soundButton],
                                                 [[UIBarButtonItem alloc] initWithCustomView:pays]];
@@ -379,22 +381,22 @@ static UIImage *GMParticleImage(BOOL coin) {
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
     title.textAlignment = NSTextAlignmentCenter;
-    title.attributedText = [[NSAttributedString alloc] initWithString:@"金帽福运" attributes:@{
+    title.attributedText = [[NSAttributedString alloc] initWithString:@"凤凰阁" attributes:@{
         NSFontAttributeName: [UIFont systemFontOfSize:34 weight:UIFontWeightHeavy],
-        NSForegroundColorAttributeName: GMGold(), NSKernAttributeName: @6}];
-    title.layer.shadowColor = GMC(0xFF8A1F).CGColor;
+        NSForegroundColorAttributeName: PPGold(), NSKernAttributeName: @6}];
+    title.layer.shadowColor = PPC(0xFF8A1F).CGColor;
     title.layer.shadowOpacity = .7; title.layer.shadowRadius = 10; title.layer.shadowOffset = CGSizeZero;
     UILabel *subtitle = [UILabel new];
     subtitle.translatesAutoresizingMaskIntoConstraints = NO;
     subtitle.textAlignment = NSTextAlignmentCenter;
-    subtitle.attributedText = [[NSAttributedString alloc] initWithString:@"GOLDEN MANDARIN" attributes:@{
+    subtitle.attributedText = [[NSAttributedString alloc] initWithString:@"PHOENIX PAVILION" attributes:@{
         NSFontAttributeName: [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy],
         NSForegroundColorAttributeName: [UIColor colorWithRed:1 green:.96 blue:.86 alpha:.85], NSKernAttributeName: @4}];
 
     self.balanceLabel = [UILabel new];
     self.winLabel = [UILabel new];
-    UIView *balanceBlock = [self statBlockCaption:GMLoc(@"BRSlot.GM.Balance", @"BALANCE") value:self.balanceLabel alignment:NSTextAlignmentLeft];
-    UIView *winBlock = [self statBlockCaption:GMLoc(@"BRSlot.GM.Win", @"WIN") value:self.winLabel alignment:NSTextAlignmentRight];
+    UIView *balanceBlock = [self statBlockCaption:PPLoc(@"BRSlot.PP.Balance", @"BALANCE") value:self.balanceLabel alignment:NSTextAlignmentLeft];
+    UIView *winBlock = [self statBlockCaption:PPLoc(@"BRSlot.PP.Win", @"WIN") value:self.winLabel alignment:NSTextAlignmentRight];
     UIStackView *info = [[UIStackView alloc] initWithArrangedSubviews:@[balanceBlock, winBlock]];
     info.translatesAutoresizingMaskIntoConstraints = NO;
     info.distribution = UIStackViewDistributionFillEqually;
@@ -404,21 +406,21 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.bannerLabel.numberOfLines = 2;
     self.bannerLabel.textAlignment = NSTextAlignmentCenter;
     self.bannerLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy];
-    self.bannerLabel.textColor = GMGold();
-    self.bannerLabel.backgroundColor = [GMC(0x7A0A12) colorWithAlphaComponent:.9];
+    self.bannerLabel.textColor = PPGold();
+    self.bannerLabel.backgroundColor = [PPC(0x0F5A5A) colorWithAlphaComponent:.9];
     self.bannerLabel.layer.cornerRadius = 12;
     self.bannerLabel.layer.borderWidth = 1;
-    self.bannerLabel.layer.borderColor = [GMGold() colorWithAlphaComponent:.6].CGColor;
+    self.bannerLabel.layer.borderColor = [PPGold() colorWithAlphaComponent:.6].CGColor;
     self.bannerLabel.clipsToBounds = YES;
 
     // Cabinet
     self.machine = [UIView new];
     self.machine.translatesAutoresizingMaskIntoConstraints = NO;
-    self.machine.backgroundColor = GMC(0x4A0810);
+    self.machine.backgroundColor = PPC(0x0B3F45);
     self.machine.layer.cornerRadius = 22;
     self.machine.layer.borderWidth = 4;
-    self.machine.layer.borderColor = GMGold().CGColor;
-    self.machine.layer.shadowColor = GMC(0xFFB02E).CGColor;
+    self.machine.layer.borderColor = PPGold().CGColor;
+    self.machine.layer.shadowColor = PPC(0xFFB02E).CGColor;
     self.machine.layer.shadowRadius = 18;
     self.machine.layer.shadowOffset = CGSizeZero;
     self.machine.layer.shadowOpacity = 0;
@@ -428,20 +430,20 @@ static UIImage *GMParticleImage(BOOL coin) {
     reelStack.distribution = UIStackViewDistributionFillEqually;
     reelStack.spacing = 4;
     [self.machine addSubview:reelStack];
-    for (int r = 0; r < GM_REELS; r++) {
+    for (int r = 0; r < PP_REELS; r++) {
         UIView *reel = [UIView new];
         reel.clipsToBounds = YES;
         reel.layer.cornerRadius = 6;
         reel.layer.borderWidth = 1;
-        reel.layer.borderColor = [GMGold() colorWithAlphaComponent:.6].CGColor;
-        GMGradientView *paper = [[GMGradientView alloc] initWithFrame:CGRectZero];
+        reel.layer.borderColor = [PPGold() colorWithAlphaComponent:.6].CGColor;
+        PPGradientView *paper = [[PPGradientView alloc] initWithFrame:CGRectZero];
         paper.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        paper.gradientLayer.colors = @[(id)GMC(0xFFF8E7).CGColor, (id)GMC(0xF1DFB5).CGColor];
+        paper.gradientLayer.colors = @[(id)PPC(0xFFF8E7).CGColor, (id)PPC(0xF1DFB5).CGColor];
         [reel addSubview:paper];
         UIView *strip = [UIView new];
         [reel addSubview:strip];
         NSMutableArray<UIView *> *marks = [NSMutableArray array];
-        for (int row = 0; row < GM_ROWS; row++) {
+        for (int row = 0; row < PP_ROWS; row++) {
             UIView *mark = [UIView new];
             mark.hidden = YES;
             mark.userInteractionEnabled = NO;
@@ -450,7 +452,7 @@ static UIImage *GMParticleImage(BOOL coin) {
             [reel addSubview:mark];
             [marks addObject:mark];
         }
-        GMGradientView *shade = [[GMGradientView alloc] initWithFrame:CGRectZero];
+        PPGradientView *shade = [[PPGradientView alloc] initWithFrame:CGRectZero];
         shade.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         shade.userInteractionEnabled = NO;
         shade.gradientLayer.colors = @[(id)[UIColor colorWithWhite:0 alpha:.38].CGColor, (id)[UIColor colorWithWhite:0 alpha:0].CGColor,
@@ -475,18 +477,18 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.totalBetLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.totalBetLabel.textAlignment = NSTextAlignmentCenter;
     self.totalBetLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightHeavy];
-    self.totalBetLabel.textColor = [GMGold() colorWithAlphaComponent:.85];
+    self.totalBetLabel.textColor = [PPGold() colorWithAlphaComponent:.85];
 
-    UIColor *deepRed = GMC(0x6E0A14);
+    UIColor *deepRed = PPC(0x0D5560);
     self.linesButton = [self controlButton:@"" color:deepRed action:@selector(cycleLines)];
     self.betButton = [self controlButton:@"" color:deepRed action:@selector(cycleBet)];
-    self.maxButton = [self controlButton:@"" color:GMC(0x8A5A00) action:@selector(maxBet)];
+    self.maxButton = [self controlButton:@"" color:PPC(0x8A5A00) action:@selector(maxBet)];
     UIStackView *controls = [[UIStackView alloc] initWithArrangedSubviews:@[self.linesButton, self.betButton, self.maxButton]];
     controls.translatesAutoresizingMaskIntoConstraints = NO;
     controls.axis = UILayoutConstraintAxisHorizontal;
     controls.distribution = UIStackViewDistributionFillEqually;
     controls.spacing = 10;
-    self.spinButton = [self controlButton:GMLoc(@"BRSlot.GM.Spin", @"SPIN") color:GMC(0xC8141E) action:@selector(spinTapped)];
+    self.spinButton = [self controlButton:PPLoc(@"BRSlot.PP.Spin", @"SPIN") color:PPC(0xC8141E) action:@selector(spinTapped)];
     self.spinButton.titleLabel.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
     self.spinButton.layer.borderWidth = 2.5;
 
@@ -549,15 +551,15 @@ static UIImage *GMParticleImage(BOOL coin) {
 #pragma mark Reel layout
 
 - (void)layoutReelsIfNeeded {
-    if (self.reelViews.count != GM_REELS) return;
+    if (self.reelViews.count != PP_REELS) return;
     CGFloat width = self.reelViews[0].bounds.size.width;
     if (width < 10 || _reelsMoving) return;
     if (_stripsBuilt && fabs(width - _cellSize) < 0.5) return;
     _cellSize = width;
     _stripsBuilt = YES;
-    for (NSInteger r = 0; r < GM_REELS; r++) {
+    for (NSInteger r = 0; r < PP_REELS; r++) {
         [self configureStripForReel:r final:_board[r] old:_board[r] fillers:0];
-        for (NSInteger row = 0; row < GM_ROWS; row++) {
+        for (NSInteger row = 0; row < PP_ROWS; row++) {
             self.highlights[r][row].frame = CGRectInset(CGRectMake(0, row * width, width, width), 2, 2);
         }
     }
@@ -585,11 +587,11 @@ static UIImage *GMParticleImage(BOOL coin) {
         cell.transform = CGAffineTransformIdentity;
         cell.frame = CGRectMake(inset, i * s + inset, imageSize.width, imageSize.height);
         int symbol;
-        if (i == 0) symbol = GMFiller(NO);
+        if (i == 0) symbol = PPFiller(NO);
         else if (i <= 3) symbol = fin[i - 1];
-        else if (i < 4 + K) symbol = GMFiller(YES);
+        else if (i < 4 + K) symbol = PPFiller(YES);
         else symbol = old[i - (4 + K)];
-        cell.image = [BRGoldenMandarinArt imageForSymbol:(GMSymbol)symbol size:imageSize];
+        cell.image = [BRPhoenixPavilionArt imageForSymbol:(PPSymbol)symbol size:imageSize];
     }
     strip.frame = CGRectMake(0, -s, s, total * s);
 }
@@ -600,12 +602,12 @@ static UIImage *GMParticleImage(BOOL coin) {
     _reelsMoving = YES;
     CGFloat s = _cellSize, inset = s * 0.05;
     CGSize imageSize = CGSizeMake(s - 2 * inset, s - 2 * inset);
-    NSInteger P = kGMLoopPeriod, total = P + 3;
-    for (NSInteger r = 0; r < GM_REELS; r++) {
+    NSInteger P = kPPLoopPeriod, total = P + 3;
+    for (NSInteger r = 0; r < PP_REELS; r++) {
         UIView *strip = self.strips[r];
         NSMutableArray<UIImageView *> *cells = self.stripCells[r];
-        int pattern[kGMLoopPeriod];
-        for (NSInteger i = 0; i < P; i++) pattern[i] = GMFiller(NO);
+        int pattern[kPPLoopPeriod];
+        for (NSInteger i = 0; i < P; i++) pattern[i] = PPFiller(NO);
         while ((NSInteger)cells.count < total) {
             UIImageView *view = [UIImageView new];
             view.contentMode = UIViewContentModeScaleAspectFit;
@@ -618,13 +620,13 @@ static UIImage *GMParticleImage(BOOL coin) {
             cell.hidden = NO;
             cell.transform = CGAffineTransformIdentity;
             cell.frame = CGRectMake(inset, i * s + inset, imageSize.width, imageSize.height);
-            cell.image = [BRGoldenMandarinArt imageForSymbol:(GMSymbol)pattern[i % P] size:imageSize];
+            cell.image = [BRPhoenixPavilionArt imageForSymbol:(PPSymbol)pattern[i % P] size:imageSize];
         }
         strip.frame = CGRectMake(0, -(CGFloat)P * s, s, total * s);
         CABasicAnimation *loop = [CABasicAnimation animationWithKeyPath:@"transform.translation.y"];
         loop.fromValue = @0;
         loop.toValue = @((CGFloat)P * s);
-        loop.duration = P / kGMLoopSpeed;
+        loop.duration = P / kPPLoopSpeed;
         loop.repeatCount = HUGE_VALF;
         loop.timeOffset = r * 0.06;
         loop.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
@@ -638,33 +640,33 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 #pragma mark State and labels
 
-- (NSInteger)betPerLine { return GMBets()[_betIndex].integerValue; }
+- (NSInteger)betPerLine { return PPBets()[_betIndex].integerValue; }
 
 - (void)refreshLabels {
-    self.balanceLabel.text = [NSString stringWithFormat:GMLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)_balance];
+    self.balanceLabel.text = [NSString stringWithFormat:PPLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)_balance];
     NSInteger lines = _bonusMode ? _bonusLines : _lines, bet = _bonusMode ? _bonusBet : [self betPerLine];
     self.linesButton.titleLabel.text = nil;
-    [self.linesButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.Lines", @"LINES\n%ld"), (long)lines] forState:UIControlStateNormal];
-    [self.betButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.Bet", @"BET / LINE\n%ld"), (long)bet] forState:UIControlStateNormal];
-    [self.maxButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(GM_MAX_LINES * GMBets().lastObject.integerValue)] forState:UIControlStateNormal];
-    self.totalBetLabel.text = _bonusMode ? GMLoc(@"BRSlot.GM.FreeNoWager", @"FREE SPINS — NO WAGER TAKEN")
-        : [NSString stringWithFormat:GMLoc(@"BRSlot.GM.TotalBet", @"TOTAL BET  %ld COINS"), (long)(lines * bet)];
+    [self.linesButton setTitle:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.Lines", @"LINES\n%ld"), (long)lines] forState:UIControlStateNormal];
+    [self.betButton setTitle:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.Bet", @"BET / LINE\n%ld"), (long)bet] forState:UIControlStateNormal];
+    [self.maxButton setTitle:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(PP_MAX_LINES * PPBets().lastObject.integerValue)] forState:UIControlStateNormal];
+    self.totalBetLabel.text = _bonusMode ? PPLoc(@"BRSlot.PP.FreeNoWager", @"FREE SPINS — NO WAGER TAKEN")
+        : [NSString stringWithFormat:PPLoc(@"BRSlot.PP.TotalBet", @"TOTAL BET  %ld COINS"), (long)(lines * bet)];
 }
 
 - (void)refreshBanner {
     if (_bonusMode) {
         NSString *mult = _bonusMult > 0 ? [NSString stringWithFormat:@"%ld", (long)_bonusMult] : @"?";
-        self.bannerLabel.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, GMNum(_bonusTotal)];
-        self.bannerLabel.textColor = GMC(0xFFE48F);
+        self.bannerLabel.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, PPNum(_bonusTotal)];
+        self.bannerLabel.textColor = PPC(0xFFE48F);
     } else {
-        self.bannerLabel.text = GMLoc(@"BRSlot.GM.Hint", @"3+ GOLDEN HATS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5");
-        self.bannerLabel.textColor = GMGold();
+        self.bannerLabel.text = PPLoc(@"BRSlot.PP.Hint", @"3+ GOLDEN HATS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5");
+        self.bannerLabel.textColor = PPGold();
     }
 }
 
 - (void)setMessage:(NSString *)text highlight:(BOOL)highlight {
     self.messageLabel.text = text;
-    self.messageLabel.textColor = highlight ? GMC(0xFFD86B) : [UIColor colorWithWhite:.85 alpha:1];
+    self.messageLabel.textColor = highlight ? PPC(0xFFD86B) : [UIColor colorWithWhite:.85 alpha:1];
 }
 
 - (void)updateControls {
@@ -673,34 +675,36 @@ static UIImage *GMParticleImage(BOOL coin) {
         button.enabled = idle;
         button.alpha = idle ? 1 : 0.5;
     }
-    [self.spinButton setTitle:_bonusMode ? GMLoc(@"BRSlot.GM.FreeSpinsButton", @"FREE SPINS") : GMLoc(@"BRSlot.GM.Spin", @"SPIN") forState:UIControlStateNormal];
+    [self.spinButton setTitle:_bonusMode ? PPLoc(@"BRSlot.PP.FreeSpinsButton", @"FREE SPINS") : PPLoc(@"BRSlot.PP.Spin", @"SPIN") forState:UIControlStateNormal];
 }
 
 - (void)cycleLines {
     if (_busy || _bonusMode) return;
-    _lines = _lines % GM_MAX_LINES + 1;
-    [NSUserDefaults.standardUserDefaults setInteger:_lines forKey:kGMLinesKey];
+    NSInteger next = 0;
+    for (NSNumber *choice in PPLineChoices()) { if (choice.integerValue > _lines) { next = choice.integerValue; break; } }
+    _lines = next ?: PPLineChoices().firstObject.integerValue;
+    [NSUserDefaults.standardUserDefaults setInteger:_lines forKey:kPPLinesKey];
     [self refreshLabels];
 }
 
 - (void)cycleBet {
     if (_busy || _bonusMode) return;
-    _betIndex = (_betIndex + 1) % (NSInteger)GMBets().count;
-    [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:kGMBetKey];
+    _betIndex = (_betIndex + 1) % (NSInteger)PPBets().count;
+    [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:kPPBetKey];
     [self refreshLabels];
 }
 
 - (void)maxBet {
     if (_busy || _bonusMode) return;
-    _lines = GM_MAX_LINES;
-    _betIndex = (NSInteger)GMBets().count - 1;
+    _lines = PP_MAX_LINES;
+    _betIndex = (NSInteger)PPBets().count - 1;
     [self refreshLabels];
     [self spinTapped];
 }
 
 - (void)toggleSound {
     self.audio.muted = !self.audio.muted;
-    [NSUserDefaults.standardUserDefaults setBool:self.audio.muted forKey:kGMMutedKey];
+    [NSUserDefaults.standardUserDefaults setBool:self.audio.muted forKey:kPPMutedKey];
     [self refreshSoundButton];
 }
 
@@ -710,7 +714,7 @@ static UIImage *GMParticleImage(BOOL coin) {
 }
 
 - (void)showPays {
-    GMPaytableViewController *pays = [GMPaytableViewController new];
+    PPPaytableViewController *pays = [PPPaytableViewController new];
     pays.modalPresentationStyle = UIModalPresentationPageSheet;
     [self presentViewController:pays animated:YES completion:nil];
 }
@@ -719,7 +723,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     if (self.presentedViewController) return;
     EZCoinStoreViewController *store = [EZCoinStoreViewController new];
     store.showLowCoinsWarning = YES;
-    store.triggeringFeatureName = GMLoc(@"BRSlot.GM.StoreFeature", @"Golden Mandarin");
+    store.triggeringFeatureName = PPLoc(@"BRSlot.PP.StoreFeature", @"Phoenix Pavilion");
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:store];
     nav.modalPresentationStyle = UIModalPresentationPageSheet;
     [self presentViewController:nav animated:YES completion:nil];
@@ -730,10 +734,10 @@ static UIImage *GMParticleImage(BOOL coin) {
 - (void)request:(NSDictionary *)payload completion:(void (^)(NSDictionary *result, NSString *error, NSInteger status))completion {
     [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *authError) {
         if (!token) {
-            dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, GMLoc(@"BRSlot.GM.SignIn", @"Please sign in to play Golden Mandarin."), 401); });
+            dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, PPLoc(@"BRSlot.PP.SignIn", @"Please sign in to play Phoenix Pavilion."), 401); });
             return;
         }
-        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/ez-golden-mandarin-spin"]]];
+        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/ez-phoenix-pavilion-spin"]]];
         request.HTTPMethod = @"POST";
         request.timeoutInterval = 25;
         [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
@@ -746,7 +750,7 @@ static UIImage *GMParticleImage(BOOL coin) {
             NSInteger status = [response isKindOfClass:NSHTTPURLResponse.class] ? ((NSHTTPURLResponse *)response).statusCode : 0;
             NSString *error = nil;
             if (networkError) error = networkError.localizedDescription;
-            else if (status < 200 || status >= 300) error = GMString(result[@"reason"]) ?: GMString(result[@"error"]) ?: GMLoc(@"BRSlot.GM.RequestFailed", @"The request failed. Your balance is unchanged.");
+            else if (status < 200 || status >= 300) error = PPString(result[@"reason"]) ?: PPString(result[@"error"]) ?: PPLoc(@"BRSlot.PP.RequestFailed", @"The request failed. Your balance is unchanged.");
             dispatch_async(dispatch_get_main_queue(), ^{ completion(result, error, status); });
         }] resume];
     }];
@@ -762,13 +766,13 @@ static UIImage *GMParticleImage(BOOL coin) {
     }];
     [self request:@{@"action": @"status"} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_leaving || self->_busy || !result || error) return;
-        self->_freeRemaining = GMInteger(result[@"free_spins_remaining"]);
-        self->_pickPending = GMBool(result[@"pick_pending"]);
-        self->_bonusMult = GMInteger(result[@"multiplier"]);
-        self->_bonusTotal = GMInteger(result[@"bonus_total"]);
+        self->_freeRemaining = PPInteger(result[@"free_spins_remaining"]);
+        self->_pickPending = PPBool(result[@"pick_pending"]);
+        self->_bonusMult = PPInteger(result[@"multiplier"]);
+        self->_bonusTotal = PPInteger(result[@"bonus_total"]);
         if (self->_freeRemaining > 0) {
-            self->_bonusLines = MAX(1, MIN(GM_MAX_LINES, GMInteger(result[@"lines"])));
-            self->_bonusBet = GMInteger(result[@"bet_per_line"]) ?: 1;
+            self->_bonusLines = MAX(1, MIN(PP_MAX_LINES, PPInteger(result[@"lines"])));
+            self->_bonusBet = PPInteger(result[@"bet_per_line"]) ?: 1;
             [self resumeBonus];
         } else {
             [self refreshLabels]; [self refreshBanner]; [self updateControls];
@@ -780,7 +784,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     if (_busy || _freeRemaining <= 0) return;
     _busy = YES;
     [self enterBonusMode];
-    [self setMessage:GMLoc(@"BRSlot.GM.Resuming", @"Resuming your free spins…") highlight:YES];
+    [self setMessage:PPLoc(@"BRSlot.PP.Resuming", @"Resuming your free spins…") highlight:YES];
     if (_pickPending) [self after:0.8 do:^{ [self presentCardPick]; }];
     else [self after:1.0 do:^{ [self beginSpinFree:YES]; }];
 }
@@ -792,7 +796,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     NSInteger wager = _lines * [self betPerLine];
     _busy = YES;
     [self updateControls];
-    [self setMessage:GMLoc(@"BRSlot.CheckingBalance", @"Checking EZ Coins…") highlight:NO];
+    [self setMessage:PPLoc(@"BRSlot.CheckingBalance", @"Checking EZ Coins…") highlight:NO];
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
         if (self->_leaving) return;
         self->_balance = balance;
@@ -800,7 +804,7 @@ static UIImage *GMParticleImage(BOOL coin) {
         if (balance < wager) {
             self->_busy = NO;
             [self updateControls];
-            [self setMessage:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.NeedCoins", @"You need %ld coins for that bet."), (long)wager] highlight:NO];
+            [self setMessage:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.NeedCoins", @"You need %ld coins for that bet."), (long)wager] highlight:NO];
             [self showCoinStore];
             return;
         }
@@ -821,7 +825,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.winLabel.text = @"0";
     [self refreshLabels];
     [self refreshBanner];
-    [self setMessage:GMLoc(@"BRSlot.Spinning", @"Spinning…") highlight:NO];
+    [self setMessage:PPLoc(@"BRSlot.Spinning", @"Spinning…") highlight:NO];
     [self startReelLoops];
     [self.audio playSpinStart];
     [self haptic:UIImpactFeedbackStyleMedium];
@@ -830,7 +834,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     [self request:@{@"lines": @(lines), @"bet_per_line": @(bet)} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_epoch != epoch || self->_leaving) return;
         if (error || ![self parseResult:result]) {
-            [self failSpin:error ?: GMLoc(@"BRSlot.GM.BadResponse", @"Unexpected response. Your balance is unchanged.") status:status];
+            [self failSpin:error ?: PPLoc(@"BRSlot.PP.BadResponse", @"Unexpected response. Your balance is unchanged.") status:status];
             return;
         }
         [self revealResult:result];
@@ -854,17 +858,17 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 - (BOOL)parseResult:(NSDictionary *)result {
     NSArray *reels = result[@"reels"];
-    if (![reels isKindOfClass:NSArray.class] || reels.count != GM_REELS) return NO;
-    int grid[GM_REELS][GM_ROWS], perReel[GM_REELS] = {0}, hats = 0;
-    for (NSInteger c = 0; c < GM_REELS; c++) {
+    if (![reels isKindOfClass:NSArray.class] || reels.count != PP_REELS) return NO;
+    int grid[PP_REELS][PP_ROWS], perReel[PP_REELS] = {0}, hats = 0;
+    for (NSInteger c = 0; c < PP_REELS; c++) {
         NSArray *column = reels[c];
-        if (![column isKindOfClass:NSArray.class] || column.count != GM_ROWS) return NO;
-        for (NSInteger row = 0; row < GM_ROWS; row++) {
+        if (![column isKindOfClass:NSArray.class] || column.count != PP_ROWS) return NO;
+        for (NSInteger row = 0; row < PP_ROWS; row++) {
             if (![column[row] isKindOfClass:NSString.class]) return NO;
-            NSUInteger index = [GMSymbolNames() indexOfObject:column[row]];
+            NSUInteger index = [PPSymbolNames() indexOfObject:column[row]];
             if (index == NSNotFound) return NO;
             grid[c][row] = (int)index;
-            if (index == GMSymbolHat) { perReel[c]++; hats++; }
+            if (index == PPSymbolHat) { perReel[c]++; hats++; }
         }
     }
     memcpy(_grid, grid, sizeof(grid));
@@ -879,19 +883,19 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.result = result;
     [self stopReelLoops];
     CGFloat s = _cellSize;
-    double stopAt[GM_REELS];
+    double stopAt[PP_REELS];
     double t = 0.7;
     int hatsBefore = 0;
-    for (int r = 0; r < GM_REELS; r++) {
+    for (int r = 0; r < PP_REELS; r++) {
         if (r > 0) {
             t += 0.30;
-            if (hatsBefore >= 2 && hatsBefore < GM_MAX_SCATTERS) t += 0.65;
+            if (hatsBefore >= 2 && hatsBefore < PP_MAX_SCATTERS) t += 0.65;
         }
         stopAt[r] = t;
         hatsBefore += _hatsOnReel[r];
     }
     NSUInteger epoch = _epoch;
-    for (NSInteger r = 0; r < GM_REELS; r++) {
+    for (NSInteger r = 0; r < PP_REELS; r++) {
         NSInteger K = MAX(6, lround(stopAt[r] * 11.0));
         [self configureStripForReel:r final:_grid[r] old:_board[r] fillers:K];
         UIView *strip = self.strips[r];
@@ -910,7 +914,7 @@ static UIImage *GMParticleImage(BOOL coin) {
 }
 
 - (void)reelDidStop:(NSInteger)reel {
-    for (int row = 0; row < GM_ROWS; row++) _board[reel][row] = _grid[reel][row];
+    for (int row = 0; row < PP_ROWS; row++) _board[reel][row] = _grid[reel][row];
     int before = 0;
     for (int r = 0; r < reel; r++) before += _hatsOnReel[r];
     int here = _hatsOnReel[reel];
@@ -920,8 +924,8 @@ static UIImage *GMParticleImage(BOOL coin) {
 
     // Same bell for every hat, one pentatonic step higher each time.
     int k = 0;
-    for (int row = 0; row < GM_ROWS; row++) {
-        if (_grid[reel][row] != GMSymbolHat) continue;
+    for (int row = 0; row < PP_ROWS; row++) {
+        if (_grid[reel][row] != PPSymbolHat) continue;
         NSInteger noteIndex = before + k;
         NSInteger rowCopy = row;
         [self after:0.05 + k * 0.17 do:^{
@@ -931,15 +935,15 @@ static UIImage *GMParticleImage(BOOL coin) {
         k++;
     }
     // The drum roll starts with the second hat and grows with each one after.
-    if (total >= 2 && total < GM_MAX_SCATTERS && reel < GM_REELS - 1) {
+    if (total >= 2 && total < PP_MAX_SCATTERS && reel < PP_REELS - 1) {
         NSInteger level = MIN(3, total - 1);
         [self after:(here ? 0.3 + here * 0.1 : 0) do:^{ [self.audio startDrumRollLevel:level]; }];
     }
-    if (total == GM_MAX_SCATTERS && here > 0) {
+    if (total == PP_MAX_SCATTERS && here > 0) {
         [self.audio stopDrumRoll];
-        [self after:0.3 + here * 0.17 do:^{ [self celebrateHats:GM_MAX_SCATTERS]; }];
+        [self after:0.3 + here * 0.17 do:^{ [self celebrateHats:PP_MAX_SCATTERS]; }];
     }
-    if (reel == GM_REELS - 1) {
+    if (reel == PP_REELS - 1) {
         [self after:(here ? 0.45 + here * 0.17 : 0.3) do:^{ [self finishSpin]; }];
     }
 }
@@ -949,20 +953,20 @@ static UIImage *GMParticleImage(BOOL coin) {
     _reelsMoving = NO;
     NSDictionary *res = self.result;
     BOOL free = _spinFree;
-    NSInteger awarded = GMInteger(res[@"free_spins_awarded"]);
-    NSInteger balance = GMInteger(res[@"balance"]);
+    NSInteger awarded = PPInteger(res[@"free_spins_awarded"]);
+    NSInteger balance = PPInteger(res[@"balance"]);
     _lastAwarded = awarded;
-    _freeRemaining = GMInteger(res[@"free_spins_remaining"]);
-    _pickPending = GMBool(res[@"pick_pending"]);
+    _freeRemaining = PPInteger(res[@"free_spins_remaining"]);
+    _pickPending = PPBool(res[@"pick_pending"]);
     if (free) {
-        _bonusTotal = GMInteger(res[@"bonus_total"]);
+        _bonusTotal = PPInteger(res[@"bonus_total"]);
     } else if (awarded > 0) {
         _bonusLines = _lines; _bonusBet = [self betPerLine]; _bonusMult = 0; _bonusTotal = 0;
     }
     [EZEntitlementManager.shared applyKnownBalance:balance];
 
     NSTimeInterval wait = 0;
-    if (awarded > 0 && _hatTotal < GM_MAX_SCATTERS) {
+    if (awarded > 0 && _hatTotal < PP_MAX_SCATTERS) {
         if (_hatTotal >= 4) [self.audio playCrash];
         [self.audio playBonusFanfare];
         [self celebrateHats:_hatTotal];
@@ -980,7 +984,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     if (_spinFree) {
         if (_freeRemaining > 0) {
             if (triggered) {
-                [self setMessage:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.MoreSpins", @"+%ld MORE FREE SPINS!"), (long)_lastAwarded] highlight:YES];
+                [self setMessage:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.MoreSpins", @"+%ld MORE FREE SPINS!"), (long)_lastAwarded] highlight:YES];
             }
             [self refreshBanner];
             [self after:triggered ? 1.7 : 0.9 do:^{ [self beginSpinFree:YES]; }];
@@ -1002,12 +1006,12 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 #pragma mark Wins and highlights
 
-static NSArray<UIColor *> *GMLineColors(void) {
-    return @[GMC(0xFFD60A), GMC(0x30D158), GMC(0x64D2FF), GMC(0xFF453A), GMC(0xBF5AF2), GMC(0xFF9F0A), GMC(0x5E5CE6), GMC(0xFF375F), GMC(0xA7F432)];
+static NSArray<UIColor *> *PPLineColors(void) {
+    return @[PPC(0xFFD60A), PPC(0x30D158), PPC(0x64D2FF), PPC(0xFF453A), PPC(0xBF5AF2), PPC(0xFF9F0A), PPC(0x5E5CE6), PPC(0xFF375F), PPC(0xA7F432), PPC(0x00C7BE), PPC(0xFFD6A5), PPC(0xFF6482)];
 }
 
 - (void)clearHighlights {
-    for (NSInteger r = 0; r < GM_REELS; r++) {
+    for (NSInteger r = 0; r < PP_REELS; r++) {
         for (UIView *mark in self.highlights[r]) { mark.hidden = YES; [mark.layer removeAllAnimations]; }
         for (UIImageView *cell in self.stripCells[r]) { [cell.layer removeAllAnimations]; cell.transform = CGAffineTransformIdentity; }
     }
@@ -1028,54 +1032,54 @@ static NSArray<UIColor *> *GMLineColors(void) {
 }
 
 - (void)highlightHatsSticky {
-    for (NSInteger r = 0; r < GM_REELS; r++)
-        for (NSInteger row = 0; row < GM_ROWS; row++)
-            if (_grid[r][row] == GMSymbolHat) [self lightCellAtReel:r row:row color:GMGold() pulse:YES];
+    for (NSInteger r = 0; r < PP_REELS; r++)
+        for (NSInteger row = 0; row < PP_ROWS; row++)
+            if (_grid[r][row] == PPSymbolHat) [self lightCellAtReel:r row:row color:PPGold() pulse:YES];
 }
 
 - (void)presentWinsThen:(dispatch_block_t)completion {
     NSDictionary *res = self.result;
-    NSInteger payout = GMInteger(res[@"payout"]);
-    NSInteger balance = GMInteger(res[@"balance"]);
-    NSInteger bet = GMInteger(res[@"bet_per_line"]) ?: 1;
-    NSInteger lines = GMInteger(res[@"lines"]) ?: 1;
+    NSInteger payout = PPInteger(res[@"payout"]);
+    NSInteger balance = PPInteger(res[@"balance"]);
+    NSInteger bet = PPInteger(res[@"bet_per_line"]) ?: 1;
+    NSInteger lines = PPInteger(res[@"lines"]) ?: 1;
     NSInteger fromBalance = _balance;
     _balance = balance;
     NSArray *winners = [res[@"winning_lines"] isKindOfClass:NSArray.class] ? res[@"winning_lines"] : @[];
     if (payout <= 0) {
         [self refreshLabels];
-        [self setMessage:_spinFree ? GMLoc(@"BRSlot.GM.FreeNoWin", @"Free spin · no win")
-                                   : [NSString stringWithFormat:GMLoc(@"BRSlot.GM.NoWin", @"No win · −%ld coins"), (long)_spinWager] highlight:NO];
+        [self setMessage:_spinFree ? PPLoc(@"BRSlot.PP.FreeNoWin", @"Free spin · no win")
+                                   : [NSString stringWithFormat:PPLoc(@"BRSlot.PP.NoWin", @"No win · −%ld coins"), (long)_spinWager] highlight:NO];
         [self after:_spinFree ? 0.5 : 0.2 do:completion];
         return;
     }
     [self.audio playWinForPayoutRatio:(double)payout / (double)MAX(1, lines * bet)];
-    [self countLabel:self.winLabel from:0 to:payout duration:0.9 formatter:^NSString *(NSInteger v) { return GMNum(v); }];
+    [self countLabel:self.winLabel from:0 to:payout duration:0.9 formatter:^NSString *(NSInteger v) { return PPNum(v); }];
     [self countLabel:self.balanceLabel from:fromBalance to:balance duration:0.9 formatter:^NSString *(NSInteger v) {
-        return [NSString stringWithFormat:GMLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)v];
+        return [NSString stringWithFormat:PPLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)v];
     }];
-    [self setMessage:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.WonCoins", @"Won %ld coins!"), (long)payout] highlight:YES];
+    [self setMessage:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.WonCoins", @"Won %ld coins!"), (long)payout] highlight:YES];
 
-    NSArray<UIColor *> *palette = GMLineColors();
+    NSArray<UIColor *> *palette = PPLineColors();
     NSTimeInterval per = _spinFree ? 0.75 : 1.0;
     BOOL oneByOne = winners.count <= 3;
     for (NSUInteger i = 0; i < winners.count; i++) {
         NSDictionary *line = winners[i];
         if (![line isKindOfClass:NSDictionary.class]) continue;
         NSArray *rows = [line[@"rows"] isKindOfClass:NSArray.class] ? line[@"rows"] : @[];
-        NSInteger matches = MIN(5, MAX(0, GMInteger(line[@"matches"])));
-        NSInteger lineIndex = MAX(0, GMInteger(line[@"index"]));
+        NSInteger matches = MIN(5, MAX(0, PPInteger(line[@"matches"])));
+        NSInteger lineIndex = MAX(0, PPInteger(line[@"index"]));
         UIColor *color = palette[lineIndex % (NSInteger)palette.count];
         NSString *symbolName = [line[@"symbol"] isKindOfClass:NSString.class] ? line[@"symbol"] : @"";
-        NSString *detail = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.WinLine", @"Line %ld · %ld× %@ · +%@"),
+        NSString *detail = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.WinLine", @"Line %ld · %ld× %@ · +%@"),
                             (long)(lineIndex + 1), (long)matches,
-                            [BRGoldenMandarinArt nameForSymbol:(GMSymbol)MAX(0, MIN(GMSymbolHat, (NSInteger)[GMSymbolNames() indexOfObject:symbolName]))],
-                            GMNum(GMInteger(line[@"coins"]))];
+                            [BRPhoenixPavilionArt nameForSymbol:(PPSymbol)MAX(0, MIN(PPSymbolHat, (NSInteger)[PPSymbolNames() indexOfObject:symbolName]))],
+                            PPNum(PPInteger(line[@"coins"]))];
         void (^show)(void) = ^{
             if (oneByOne) [self clearHighlights];
             for (NSInteger col = 0; col < matches && col < (NSInteger)rows.count; col++) {
-                NSInteger row = GMInteger(rows[col]);
-                if (row >= 0 && row < GM_ROWS) [self lightCellAtReel:col row:row color:color pulse:oneByOne];
+                NSInteger row = PPInteger(rows[col]);
+                if (row >= 0 && row < PP_ROWS) [self lightCellAtReel:col row:row color:color pulse:oneByOne];
             }
             if (oneByOne) [self setMessage:detail highlight:YES];
         };
@@ -1108,15 +1112,15 @@ static NSArray<UIColor *> *GMLineColors(void) {
     UIView *reelView = self.reelViews[reel];
     CGRect slot = [reelView convertRect:CGRectMake(0, row * s, s, s) toView:self.machine];
     CGRect frame = CGRectInset(slot, s * 0.05, s * 0.05);
-    UIImageView *copy = [[UIImageView alloc] initWithImage:[BRGoldenMandarinArt imageForSymbol:GMSymbolHat size:frame.size]];
+    UIImageView *copy = [[UIImageView alloc] initWithImage:[BRPhoenixPavilionArt imageForSymbol:PPSymbolHat size:frame.size]];
     copy.frame = frame;
-    copy.layer.shadowColor = GMC(0xFFD86B).CGColor;
+    copy.layer.shadowColor = PPC(0xFFD86B).CGColor;
     copy.layer.shadowOpacity = 1; copy.layer.shadowRadius = 14; copy.layer.shadowOffset = CGSizeZero;
     UIView *ring = [[UIView alloc] initWithFrame:CGRectMake(0, 0, slot.size.width, slot.size.width)];
     ring.center = CGPointMake(CGRectGetMidX(slot), CGRectGetMidY(slot));
     ring.layer.cornerRadius = slot.size.width / 2;
     ring.layer.borderWidth = 3;
-    ring.layer.borderColor = GMC(0xFFD86B).CGColor;
+    ring.layer.borderColor = PPC(0xFFD86B).CGColor;
     [self.machine addSubview:ring];
     [self.machine addSubview:copy];
     [UIView animateWithDuration:0.16 animations:^{ copy.transform = CGAffineTransformMakeScale(1.4, 1.4); } completion:^(BOOL f) {
@@ -1150,21 +1154,21 @@ static NSArray<UIColor *> *GMLineColors(void) {
     CGFloat width = overlay.bounds.size.width;
 
     UILabel *main = [UILabel new];
-    main.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Hats", @"%ld GOLDEN HATS!"), (long)hats];
+    main.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Hats", @"%ld GOLDEN HATS!"), (long)hats];
     main.font = [UIFont systemFontOfSize:hats >= 5 ? 40 : 34 weight:UIFontWeightBlack];
-    main.textColor = GMC(0xFFE48F);
+    main.textColor = PPC(0xFFE48F);
     main.textAlignment = NSTextAlignmentCenter;
-    main.layer.shadowColor = GMC(0xD4161E).CGColor;
+    main.layer.shadowColor = PPC(0xD4161E).CGColor;
     main.layer.shadowOpacity = 1; main.layer.shadowRadius = 8; main.layer.shadowOffset = CGSizeZero;
     main.frame = CGRectMake(0, 0, width, 50);
     UILabel *sub = [UILabel new];
-    sub.text = GMLoc(@"BRSlot.GM.HatsSub", @"金帽 · FREE SPINS UNLOCKED");
+    sub.text = PPLoc(@"BRSlot.PP.HatsSub", @"金帽 · FREE SPINS UNLOCKED");
     sub.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
     sub.textColor = UIColor.whiteColor;
     sub.textAlignment = NSTextAlignmentCenter;
     sub.frame = CGRectMake(0, 48, width, 22);
     UIView *banner = [[UIView alloc] initWithFrame:CGRectMake(0, 0, width, 76)];
-    banner.backgroundColor = [GMC(0x4A0810) colorWithAlphaComponent:.9];
+    banner.backgroundColor = [PPC(0x0B3F45) colorWithAlphaComponent:.9];
     banner.center = CGPointMake(width / 2, CGRectGetMidY([self.machine convertRect:self.machine.bounds toView:self.view]));
     [banner addSubview:main]; [banner addSubview:sub];
     [overlay addSubview:banner];
@@ -1182,10 +1186,10 @@ static NSArray<UIColor *> *GMLineColors(void) {
         UIView *flash = [[UIView alloc] initWithFrame:overlay.bounds];
         flash.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         flash.alpha = 0.3;
-        flash.backgroundColor = GMC(0xFF2A2A);
+        flash.backgroundColor = PPC(0xFF2A2A);
         [overlay insertSubview:flash atIndex:0];
         CABasicAnimation *strobe = [CABasicAnimation animationWithKeyPath:@"backgroundColor"];
-        strobe.fromValue = (id)GMC(0xFF2A2A).CGColor; strobe.toValue = (id)GMC(0xFFC83A).CGColor;
+        strobe.fromValue = (id)PPC(0xFF2A2A).CGColor; strobe.toValue = (id)PPC(0xFFC83A).CGColor;
         strobe.duration = 0.18; strobe.autoreverses = YES; strobe.repeatCount = HUGE_VALF;
         [flash.layer addAnimation:strobe forKey:@"gmStrobe"];
 
@@ -1228,7 +1232,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
     NSMutableArray *cells = [NSMutableArray array];
     for (NSNumber *coin in @[@YES, @NO]) {
         CAEmitterCell *cell = [CAEmitterCell emitterCell];
-        cell.contents = (id)GMParticleImage(coin.boolValue).CGImage;
+        cell.contents = (id)PPParticleImage(coin.boolValue).CGImage;
         cell.birthRate = 12 * intensity;
         cell.lifetime = 5.5;
         cell.velocity = 170; cell.velocityRange = 70;
@@ -1252,22 +1256,22 @@ static NSArray<UIColor *> *GMLineColors(void) {
     [self refreshBanner];
     [self updateControls];
     [UIView animateWithDuration:0.4 animations:^{
-        self.machine.layer.borderColor = GMC(0xFFE066).CGColor;
-        self.machine.backgroundColor = GMC(0x7A0A12);
+        self.machine.layer.borderColor = PPC(0xFFE066).CGColor;
+        self.machine.backgroundColor = PPC(0x0F5A5A);
     }];
     self.machine.layer.shadowOpacity = 0.85;
-    self.background.gradientLayer.colors = @[(id)GMC(0x7A0A12).CGColor, (id)GMC(0x2A0508).CGColor];
+    self.background.gradientLayer.colors = @[(id)PPC(0x0F5A5A).CGColor, (id)PPC(0x07242A).CGColor];
     [self.audio startThemeBonus:YES];
 }
 
 - (void)exitBonusMode {
     _bonusMode = NO;
     [UIView animateWithDuration:0.4 animations:^{
-        self.machine.layer.borderColor = GMGold().CGColor;
-        self.machine.backgroundColor = GMC(0x4A0810);
+        self.machine.layer.borderColor = PPGold().CGColor;
+        self.machine.backgroundColor = PPC(0x0B3F45);
     }];
     self.machine.layer.shadowOpacity = 0;
-    self.background.gradientLayer.colors = @[(id)GMC(0x3B0610).CGColor, (id)GMC(0x12030A).CGColor];
+    self.background.gradientLayer.colors = @[(id)PPC(0x0C3A44).CGColor, (id)PPC(0x04141A).CGColor];
     [self.audio startThemeBonus:NO];
     [self refreshLabels];
     [self refreshBanner];
@@ -1279,7 +1283,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
 - (UIView *)makeCardAtIdentity:(NSInteger)identity size:(CGSize)size {
     UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, size.width, size.height)];
     card.tag = identity;
-    UIImageView *back = [[UIImageView alloc] initWithImage:[BRGoldenMandarinArt cardBackWithSize:size]];
+    UIImageView *back = [[UIImageView alloc] initWithImage:[BRPhoenixPavilionArt cardBackWithSize:size]];
     back.frame = card.bounds;
     back.tag = 1;
     UIView *front = [[UIView alloc] initWithFrame:card.bounds];
@@ -1287,16 +1291,16 @@ static NSArray<UIColor *> *GMLineColors(void) {
     front.hidden = YES;
     front.layer.cornerRadius = 10;
     front.layer.borderWidth = 3;
-    front.layer.borderColor = GMGold().CGColor;
+    front.layer.borderColor = PPGold().CGColor;
     front.clipsToBounds = YES;
-    GMGradientView *gold = [[GMGradientView alloc] initWithFrame:card.bounds];
-    gold.gradientLayer.colors = @[(id)GMC(0xFFF3AE).CGColor, (id)GMC(0xE9B52A).CGColor, (id)GMC(0xB07A0C).CGColor];
+    PPGradientView *gold = [[PPGradientView alloc] initWithFrame:card.bounds];
+    gold.gradientLayer.colors = @[(id)PPC(0xFFF3AE).CGColor, (id)PPC(0xE9B52A).CGColor, (id)PPC(0xB07A0C).CGColor];
     [front addSubview:gold];
     UILabel *value = [[UILabel alloc] initWithFrame:front.bounds];
     value.tag = 3;
     value.textAlignment = NSTextAlignmentCenter;
     value.font = [UIFont systemFontOfSize:size.width * 0.5 weight:UIFontWeightBlack];
-    value.textColor = GMC(0x8E0F18);
+    value.textColor = PPC(0x8E0F18);
     value.adjustsFontSizeToFitWidth = YES;
     [front addSubview:value];
     [card addSubview:back];
@@ -1310,7 +1314,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
     [self.pickOverlay removeFromSuperview];
     UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
     overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    overlay.backgroundColor = [UIColor colorWithRed:.06 green:.01 blue:.03 alpha:.9];
+    overlay.backgroundColor = [UIColor colorWithRed:.01 green:.05 blue:.06 alpha:.9];
     overlay.alpha = 0;
     [self.view addSubview:overlay];
     self.pickOverlay = overlay;
@@ -1319,21 +1323,21 @@ static NSArray<UIColor *> *GMLineColors(void) {
 
     NSInteger spins = MAX(1, _freeRemaining);
     self.pickTitle = [[UILabel alloc] initWithFrame:CGRectMake(16, height * 0.16, width - 32, 44)];
-    self.pickTitle.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Pick.Title", @"%ld FREE SPINS"), (long)spins];
+    self.pickTitle.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Pick.Title", @"%ld FREE SPINS"), (long)spins];
     self.pickTitle.font = [UIFont systemFontOfSize:34 weight:UIFontWeightBlack];
-    self.pickTitle.textColor = GMC(0xFFE48F);
+    self.pickTitle.textColor = PPC(0xFFE48F);
     self.pickTitle.textAlignment = NSTextAlignmentCenter;
     self.pickSubtitle = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(self.pickTitle.frame), width - 32, 30)];
     self.pickSubtitle.text = @"选择一张牌";
     self.pickSubtitle.font = [UIFont systemFontOfSize:22 weight:UIFontWeightHeavy];
-    self.pickSubtitle.textColor = GMGold();
+    self.pickSubtitle.textColor = PPGold();
     self.pickSubtitle.textAlignment = NSTextAlignmentCenter;
     self.pickPrompt = [[UILabel alloc] initWithFrame:CGRectMake(24, CGRectGetMaxY(self.pickSubtitle.frame) + 6, width - 48, 44)];
     self.pickPrompt.numberOfLines = 2;
     self.pickPrompt.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
     self.pickPrompt.textColor = [UIColor colorWithWhite:1 alpha:.88];
     self.pickPrompt.textAlignment = NSTextAlignmentCenter;
-    self.pickPrompt.text = GMLoc(@"BRSlot.GM.Pick.Shuffling", @"Shuffling…");
+    self.pickPrompt.text = PPLoc(@"BRSlot.PP.Pick.Shuffling", @"Shuffling…");
     [overlay addSubview:self.pickTitle]; [overlay addSubview:self.pickSubtitle]; [overlay addSubview:self.pickPrompt];
 
     CGFloat cardWidth = MIN(104, (width - 72) / 3), cardHeight = cardWidth * 1.4;
@@ -1361,7 +1365,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
     if (!self.pickOverlay) return;
     if (step >= total) {
         _pickEnabled = YES;
-        self.pickPrompt.text = GMLoc(@"BRSlot.GM.Pick.Prompt", @"Pick a card. One hides your multiplier for every free spin.");
+        self.pickPrompt.text = PPLoc(@"BRSlot.PP.Pick.Prompt", @"Pick a card. One hides your multiplier for every free spin.");
         return;
     }
     NSInteger a = arc4random_uniform(3);
@@ -1395,7 +1399,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
     NSInteger identity = tap.view.tag;
     [self.audio playCardPick];
     [self haptic:UIImpactFeedbackStyleMedium];
-    self.pickPrompt.text = GMLoc(@"BRSlot.GM.Pick.Wait", @"Opening…");
+    self.pickPrompt.text = PPLoc(@"BRSlot.PP.Pick.Wait", @"Opening…");
     [self request:@{@"action": @"pick", @"card": @(identity)} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_leaving) return;
         NSArray *cards = result[@"cards"];
@@ -1405,7 +1409,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
                 [self closePickOverlayThen:^{ self->_busy = NO; [self refreshState]; }];
                 return;
             }
-            self.pickPrompt.text = GMLoc(@"BRSlot.GM.Pick.Retry", @"Couldn't reach the server. Tap a card to try again.");
+            self.pickPrompt.text = PPLoc(@"BRSlot.PP.Pick.Retry", @"Couldn't reach the server. Tap a card to try again.");
             return;
         }
         self->_pickEnabled = NO;
@@ -1415,55 +1419,39 @@ static NSArray<UIColor *> *GMLineColors(void) {
 
 - (void)revealPick:(NSDictionary *)result identity:(NSInteger)identity {
     NSArray *cards = result[@"cards"];
-    NSInteger multiplier = GMInteger(result[@"multiplier"]);
-    // Values stay bound to card identity: the card the player tapped
-    // (pickCards[identity] — the same view that carries that tag) shows
-    // cards[identity], the value the server recorded for this pick.
+    NSInteger multiplier = PPInteger(result[@"multiplier"]);
     for (NSInteger i = 0; i < 3; i++) {
         UILabel *value = (UILabel *)[self.pickCards[i] viewWithTag:3];
-        value.text = [NSString stringWithFormat:@"×%ld", (long)GMInteger(cards[i])];
+        value.text = [NSString stringWithFormat:@"×%ld", (long)PPInteger(cards[i])];
     }
-    _bonusMult = multiplier;
-    _pickPending = NO;
-    UIView *picked = self.pickCards[identity];
-    [self.pickOverlay bringSubviewToFront:picked];
-
-    // 1. Turn over ALL THREE cards at once, so the player sees what
-    // every card hid — including the two they did not pick.
-    for (UIView *card in self.pickCards) {
+    void (^flip)(UIView *, BOOL) = ^(UIView *card, BOOL dim) {
         [UIView transitionWithView:card duration:0.45 options:UIViewAnimationOptionTransitionFlipFromLeft animations:^{
             [card viewWithTag:1].hidden = YES;
             [card viewWithTag:2].hidden = NO;
         } completion:nil];
+        if (dim) [UIView animateWithDuration:0.3 delay:0.3 options:0 animations:^{ card.alpha = 0.5; } completion:nil];
+    };
+    UIView *picked = self.pickCards[identity];
+    [self.pickOverlay bringSubviewToFront:picked];
+    flip(picked, NO);
+    [UIView animateWithDuration:0.45 animations:^{ picked.transform = CGAffineTransformMakeScale(1.18, 1.18); }];
+    [self.audio playMultiplierReveal:multiplier];
+    self.pickPrompt.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Pick.Result", @"Your multiplier: ×%ld"), (long)multiplier];
+    self.pickPrompt.textColor = PPC(0xFFE48F);
+    self.pickPrompt.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
+    NSTimeInterval delay = 0.8;
+    for (NSInteger i = 0; i < 3; i++) {
+        if (i == identity) continue;
+        UIView *card = self.pickCards[i];
+        [self after:delay do:^{ flip(card, YES); }];
+        delay += 0.35;
     }
-    // 2. Hold on the full reveal, then the two unpicked cards disappear
-    // and the picked card takes center stage, still showing its value.
-    [self after:1.15 do:^{
-        for (NSInteger i = 0; i < 3; i++) {
-            if (i == identity) continue;
-            UIView *card = self.pickCards[i];
-            [UIView animateWithDuration:0.35 animations:^{ card.alpha = 0; } completion:^(BOOL finished) {
-                card.hidden = YES;
-            }];
-        }
-        [UIView animateWithDuration:0.35 animations:^{
-            picked.center = self->_slotCenters[1];
-            picked.transform = CGAffineTransformMakeScale(1.18, 1.18);
-        }];
-    }];
-    // 3. A beat with only the picked card on screen, then celebrate the
-    // multiplier it revealed before the free spins begin.
-    [self after:2.15 do:^{
-        [self.audio playMultiplierReveal:multiplier];
-        [self haptic:UIImpactFeedbackStyleHeavy];
-        self.pickPrompt.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Pick.Result", @"Your multiplier: ×%ld"), (long)multiplier];
-        self.pickPrompt.textColor = GMC(0xFFE48F);
-        self.pickPrompt.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
-    }];
-    [self after:3.3 do:^{
+    _bonusMult = multiplier;
+    _pickPending = NO;
+    [self after:delay + 1.1 do:^{
         [self closePickOverlayThen:^{
             [self refreshBanner];
-            [self setMessage:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.BonusStart", @"×%ld free spins begin!"), (long)multiplier] highlight:YES];
+            [self setMessage:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.BonusStart", @"×%ld free spins begin!"), (long)multiplier] highlight:YES];
             [self after:0.9 do:^{ [self beginSpinFree:YES]; }];
         }];
     }];
@@ -1485,30 +1473,30 @@ static NSArray<UIColor *> *GMLineColors(void) {
     [self.summaryOverlay removeFromSuperview];
     UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
     overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    overlay.backgroundColor = [UIColor colorWithRed:.06 green:.01 blue:.03 alpha:.88];
+    overlay.backgroundColor = [UIColor colorWithRed:.01 green:.05 blue:.06 alpha:.88];
     overlay.alpha = 0;
     [self.view addSubview:overlay];
     self.summaryOverlay = overlay;
     CGFloat width = overlay.bounds.size.width, height = overlay.bounds.size.height;
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, height * 0.30, width - 32, 44)];
-    title.text = GMLoc(@"BRSlot.GM.Summary.Title", @"FREE SPINS COMPLETE");
+    title.text = PPLoc(@"BRSlot.PP.Summary.Title", @"FREE SPINS COMPLETE");
     title.font = [UIFont systemFontOfSize:26 weight:UIFontWeightBlack];
-    title.textColor = GMC(0xFFE48F);
+    title.textColor = PPC(0xFFE48F);
     title.textAlignment = NSTextAlignmentCenter;
     UILabel *sub = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(title.frame) + 4, width - 32, 24)];
-    sub.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.Summary.Sub", @"×%ld  ·  TOTAL WIN"), (long)MAX(1, mult)];
+    sub.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Summary.Sub", @"×%ld  ·  TOTAL WIN"), (long)MAX(1, mult)];
     sub.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
-    sub.textColor = GMGold();
+    sub.textColor = PPGold();
     sub.textAlignment = NSTextAlignmentCenter;
     UILabel *amount = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(sub.frame) + 10, width - 32, 64)];
-    amount.text = [NSString stringWithFormat:@"🪙 %@", GMNum(0)];
+    amount.text = [NSString stringWithFormat:@"🪙 %@", PPNum(0)];
     amount.font = [UIFont monospacedDigitSystemFontOfSize:48 weight:UIFontWeightBlack];
     amount.textColor = UIColor.whiteColor;
     amount.textAlignment = NSTextAlignmentCenter;
     amount.adjustsFontSizeToFitWidth = YES;
     UILabel *hint = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(amount.frame) + 12, width - 32, 20)];
-    hint.text = GMLoc(@"BRSlot.GM.Summary.Tap", @"Tap to continue");
+    hint.text = PPLoc(@"BRSlot.PP.Summary.Tap", @"Tap to continue");
     hint.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
     hint.textColor = [UIColor colorWithWhite:1 alpha:.6];
     hint.textAlignment = NSTextAlignmentCenter;
@@ -1517,7 +1505,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
     [UIView animateWithDuration:0.35 animations:^{ overlay.alpha = 1; }];
     if (total > 0) {
         [self.audio playWinForPayoutRatio:30];
-        [self countLabel:amount from:0 to:total duration:1.4 formatter:^NSString *(NSInteger v) { return [NSString stringWithFormat:@"🪙 %@", GMNum(v)]; }];
+        [self countLabel:amount from:0 to:total duration:1.4 formatter:^NSString *(NSInteger v) { return [NSString stringWithFormat:@"🪙 %@", PPNum(v)]; }];
         [self startConfettiIn:overlay duration:2.4 intensity:0.7];
     }
     [self after:5.0 do:^{ [self dismissSummary]; }];
@@ -1532,7 +1520,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
     [self exitBonusMode];
     _busy = NO;
     [self updateControls];
-    [self setMessage:GMLoc(@"BRSlot.GM.Idle", @"Match 3 or more symbols from the left on a payline.") highlight:NO];
+    [self setMessage:PPLoc(@"BRSlot.PP.Idle", @"Match 3 or more symbols from the left on a payline.") highlight:NO];
     [self refreshState];
 }
 

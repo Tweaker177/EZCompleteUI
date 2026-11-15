@@ -736,6 +736,8 @@
 "BRSlot.Picker.Plunder.Title" = "Plunder Bay";
 "BRSlot.Picker.Plunder.Detail" = "Five reels, twenty lines, a chest full of free spins. The pirate machine.";
 "BRSlot.Picker.Golden.Title" = "Golden Mandarin 金帽福运";
+"BRSlot.Picker.Phoenix.Title" = "Phoenix Pavilion 凤凰阁";
+"BRSlot.Picker.Phoenix.Detail" = "Five reels, twenty-five lines. Golden hats open a card pick and ×2, ×3 or ×5 free spins.";
 "BRSlot.Picker.Golden.Detail" = "Five reels, nine lines. Golden hats open a card pick and ×2, ×3 or ×5 free spins.";
 /* Slot win results */
 "BRSlot.Win.LineResult" = "🎉 Won %1$ld coins (%2$+ld) on %3$ld lines!";
