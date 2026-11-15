@@ -308,6 +308,8 @@
         NSString *appVersion     = infoPlist[@"CFBundleShortVersionString"] ?: @"?";
         NSString *buildNumber    = infoPlist[@"CFBundleVersion"]            ?: @"?";
         UILabel *versionLabel    = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 20)];
+        versionLabel.adjustsFontSizeToFitWidth = YES;
+        versionLabel.minimumScaleFactor = 0.5;
         versionLabel.text        = [NSString stringWithFormat:@"EZCompleteUI  v%@  (build %@)",
                                      appVersion, buildNumber];
         versionLabel.font        = [UIFont systemFontOfSize:12];
@@ -320,6 +322,8 @@
         [self addSection:@"💎 Subscription" y:&y];
 
         self.subscriptionStatusLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 20)];
+        self.subscriptionStatusLabel.adjustsFontSizeToFitWidth = YES;
+        self.subscriptionStatusLabel.minimumScaleFactor = 0.5;
         self.subscriptionStatusLabel.font = [UIFont systemFontOfSize:13];
         self.subscriptionStatusLabel.textColor = [UIColor secondaryLabelColor];
         self.subscriptionStatusLabel.text = @"Loading...";
@@ -327,6 +331,8 @@
         y += 26;
 
         self.coinBalanceLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 20)];
+        self.coinBalanceLabel.adjustsFontSizeToFitWidth = YES;
+        self.coinBalanceLabel.minimumScaleFactor = 0.5;
         self.coinBalanceLabel.font = [UIFont systemFontOfSize:13];
         self.coinBalanceLabel.textColor = [UIColor secondaryLabelColor];
         self.coinBalanceLabel.text = @"";
@@ -700,6 +706,8 @@
         *y += 10;
         UILabel *label  = [[UILabel alloc] initWithFrame:
                            CGRectMake(20, *y, self.view.frame.size.width - 40, 28)];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.minimumScaleFactor = 0.5;
         label.text      = title;
         label.font      = [UIFont boldSystemFontOfSize:15];
         label.textColor = [UIColor systemBlueColor];
@@ -710,6 +718,8 @@
     - (UILabel *)addLabel:(NSString *)text y:(CGFloat *)y {
         UILabel *label      = [[UILabel alloc] initWithFrame:
                                CGRectMake(20, *y, self.view.frame.size.width - 40, 20)];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.minimumScaleFactor = 0.5;
         label.text          = text;
         label.font          = [UIFont systemFontOfSize:13];
         label.textColor     = [UIColor secondaryLabelColor];
@@ -1004,6 +1014,8 @@
     - (UILabel *)addWrappingLabel:(NSString *)text y:(CGFloat *)y minHeight:(CGFloat)minHeight {
         UILabel *label      = [[UILabel alloc] initWithFrame:
                                CGRectMake(20, *y, self.view.frame.size.width - 40, 20)];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.minimumScaleFactor = 0.5;
         label.text          = text;
         label.font          = [UIFont systemFontOfSize:13];
         label.textColor     = [UIColor secondaryLabelColor];

@@ -87,6 +87,8 @@
     [container addSubview:_artworkView];
 
     _titleLabel = [[UILabel alloc] init];
+    _titleLabel.adjustsFontSizeToFitWidth = YES;
+    _titleLabel.minimumScaleFactor = 0.5;
     _titleLabel.font = [UIFont boldSystemFontOfSize:15];
     _titleLabel.textColor = [UIColor colorWithRed:0.85 green:0.95 blue:0.85 alpha:1.0];
     _titleLabel.numberOfLines = 2;
@@ -94,6 +96,8 @@
     [container addSubview:_titleLabel];
 
     _subtitleLabel = [[UILabel alloc] init];
+    _subtitleLabel.adjustsFontSizeToFitWidth = YES;
+    _subtitleLabel.minimumScaleFactor = 0.5;
     _subtitleLabel.font = [UIFont systemFontOfSize:12];
     _subtitleLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1.0];
     _subtitleLabel.numberOfLines = 2;
@@ -134,6 +138,8 @@
     [container addSubview:_scrubber];
 
     _timeLabel = [[UILabel alloc] init];
+    _timeLabel.adjustsFontSizeToFitWidth = YES;
+    _timeLabel.minimumScaleFactor = 0.5;
     _timeLabel.font = [UIFont monospacedDigitSystemFontOfSize:11 weight:UIFontWeightRegular];
     _timeLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1.0];
     _timeLabel.textAlignment = NSTextAlignmentRight;

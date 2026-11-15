@@ -154,12 +154,16 @@ static const NSInteger kPromptCharacterLimit = 300;
     ]];
 
     UILabel *titleLabel = [[UILabel alloc] init];
+    titleLabel.adjustsFontSizeToFitWidth = YES;
+    titleLabel.minimumScaleFactor = 0.5;
     titleLabel.text = [NSString stringWithFormat:@"AI Prompt — %@", self.assetDisplayName];
     titleLabel.textColor = [UIColor whiteColor];
     titleLabel.font = [UIFont boldSystemFontOfSize:22.0];
     titleLabel.numberOfLines = 0;
 
     UILabel *costLabel = [[UILabel alloc] init];
+    costLabel.adjustsFontSizeToFitWidth = YES;
+    costLabel.minimumScaleFactor = 0.5;
     costLabel.text = self.costDescription;
     costLabel.textColor = [UIColor systemGrayColor];
     costLabel.font = [UIFont systemFontOfSize:14.0];
@@ -171,6 +175,8 @@ static const NSInteger kPromptCharacterLimit = 300;
     [self.generateButton addTarget:self action:@selector(handleGenerateTapped) forControlEvents:UIControlEventTouchUpInside];
 
     self.errorLabel = [[UILabel alloc] init];
+    self.errorLabel.adjustsFontSizeToFitWidth = YES;
+    self.errorLabel.minimumScaleFactor = 0.5;
     self.errorLabel.textColor = [UIColor systemRedColor];
     self.errorLabel.font = [UIFont systemFontOfSize:13.0];
     self.errorLabel.numberOfLines = 0;
@@ -241,12 +247,16 @@ static const NSInteger kPromptCharacterLimit = 300;
     self.promptTextView.keyboardAppearance = UIKeyboardAppearanceDark;
 
     self.promptPlaceholderLabel = [[UILabel alloc] init];
+    self.promptPlaceholderLabel.adjustsFontSizeToFitWidth = YES;
+    self.promptPlaceholderLabel.minimumScaleFactor = 0.5;
     self.promptPlaceholderLabel.text = @"e.g., Cyberpunk character in red neon palette";
     self.promptPlaceholderLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.35];
     self.promptPlaceholderLabel.font = self.promptTextView.font;
     self.promptPlaceholderLabel.numberOfLines = 0;
 
     self.counterLabel = [[UILabel alloc] init];
+    self.counterLabel.adjustsFontSizeToFitWidth = YES;
+    self.counterLabel.minimumScaleFactor = 0.5;
     self.counterLabel.textColor = [UIColor systemGrayColor];
     self.counterLabel.font = [UIFont systemFontOfSize:12.0];
     self.counterLabel.textAlignment = NSTextAlignmentRight;
@@ -310,6 +320,8 @@ static const NSInteger kPromptCharacterLimit = 300;
     placeholderIcon.tintColor = [UIColor colorWithWhite:1.0 alpha:0.25];
     placeholderIcon.contentMode = UIViewContentModeScaleAspectFit;
     UILabel *placeholderLabel = [[UILabel alloc] init];
+    placeholderLabel.adjustsFontSizeToFitWidth = YES;
+    placeholderLabel.minimumScaleFactor = 0.5;
     placeholderLabel.text = @"No preview yet";
     placeholderLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.35];
     placeholderLabel.font = [UIFont systemFontOfSize:14.0];

@@ -155,6 +155,8 @@ static NSNumber *safeNumber(id value) {
     UILabel * (^lbl)(CGFloat, UIFontWeight, UIColor *, NSInteger) =
     ^UILabel *(CGFloat size, UIFontWeight weight, UIColor *color, NSInteger lines) {
         UILabel *label = [UILabel new];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.minimumScaleFactor = 0.5;
         label.font          = [UIFont systemFontOfSize:size weight:weight];
         label.textColor     = color;
         label.numberOfLines = (int)lines;
@@ -326,6 +328,8 @@ static NSNumber *safeNumber(id value) {
     UILabel * (^lbl)(CGFloat, UIFontWeight, UIColor *, NSTextAlignment, NSInteger) =
     ^UILabel *(CGFloat size, UIFontWeight weight, UIColor *color, NSTextAlignment alignment, NSInteger lines) {
         UILabel *label = [UILabel new];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.minimumScaleFactor = 0.5;
         label.font          = [UIFont systemFontOfSize:size weight:weight];
         label.textColor     = color;
         label.textAlignment = alignment;
@@ -455,6 +459,8 @@ static NSNumber *safeNumber(id value) {
     self.tableView.tableFooterView = footerView;
 
     self.emptyLabel = [UILabel new];
+    self.emptyLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyLabel.minimumScaleFactor = 0.5;
     self.emptyLabel.text          = @"No usage yet";
     self.emptyLabel.textColor     = [UIColor colorWithWhite:0.7 alpha:1];
     self.emptyLabel.textAlignment = NSTextAlignmentCenter;

@@ -42,6 +42,8 @@ static NSString * const kBRRicochetHighScoresURL = @"https://spuoimtqofhbdzosrbn
     card.layer.borderWidth = 1.25;
     [header addSubview:card];
     UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(16, 12, card.bounds.size.width - 32, 25)];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.text = [NSString stringWithFormat:@"🏆  Score: %ld", (long)self.pendingScore];
     label.font = [UIFont monospacedSystemFontOfSize:19 weight:UIFontWeightBold];
     label.textColor = UIColor.whiteColor;

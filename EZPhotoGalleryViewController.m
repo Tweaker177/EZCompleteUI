@@ -546,6 +546,8 @@ static void EZPresentPhotoSourcePicker(UIViewController *presenter,
     [overlay addSubview:card];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(20, 25, cardWidth - 40, 30)];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.text = @"Add to Photo Gallery";
     title.textAlignment = NSTextAlignmentCenter;
     title.font = [UIFont systemFontOfSize:21 weight:UIFontWeightBold];
@@ -553,6 +555,8 @@ static void EZPresentPhotoSourcePicker(UIViewController *presenter,
     [card addSubview:title];
 
     UILabel *subtitle = [[UILabel alloc] initWithFrame:CGRectMake(24, 58, cardWidth - 48, 38)];
+    subtitle.adjustsFontSizeToFitWidth = YES;
+    subtitle.minimumScaleFactor = 0.5;
     subtitle.text = @"Choose a source for photos and image references.";
     subtitle.numberOfLines = 2;
     subtitle.textAlignment = NSTextAlignmentCenter;
@@ -588,12 +592,16 @@ static void EZPresentPhotoSourcePicker(UIViewController *presenter,
         [card addSubview:button];
 
         UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(64, 12, button.bounds.size.width - 80, 24)];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.minimumScaleFactor = 0.5;
         label.text = titleText;
         label.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
         label.textColor = [UIColor whiteColor];
         label.userInteractionEnabled = NO;
         [button addSubview:label];
         UILabel *detail = [[UILabel alloc] initWithFrame:CGRectMake(64, 37, button.bounds.size.width - 80, 20)];
+        detail.adjustsFontSizeToFitWidth = YES;
+        detail.minimumScaleFactor = 0.5;
         detail.text = detailText;
         detail.font = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
         detail.textColor = [UIColor colorWithWhite:0.70 alpha:1.0];
@@ -657,12 +665,16 @@ static void EZPresentPhotoExportPicker(UIViewController *presenter, BOOL hasEdit
     card.transform = CGAffineTransformMakeScale(0.82, 0.82);
     [overlay addSubview:card];
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(20, 22, cardWidth - 40, 28)];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.text = NSLocalizedString(@"EZGallery.Export.Title", nil);
     title.textAlignment = NSTextAlignmentCenter;
     title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold];
     title.textColor = [UIColor colorWithRed:0.05 green:0.92 blue:0.72 alpha:1.0];
     [card addSubview:title];
     UILabel *subtitle = [[UILabel alloc] initWithFrame:CGRectMake(24, 51, cardWidth - 48, 22)];
+    subtitle.adjustsFontSizeToFitWidth = YES;
+    subtitle.minimumScaleFactor = 0.5;
     subtitle.text = NSLocalizedString(@"EZGallery.Export.Subtitle", nil);
     subtitle.textAlignment = NSTextAlignmentCenter;
     subtitle.font = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
@@ -1242,6 +1254,8 @@ static BOOL EZGalleryErrorIsSafetyRejection(NSString *message) {
     [promptContainer addSubview:_editPromptField];
 
     _editPromptPlaceholderLabel = [[UILabel alloc] init];
+    _editPromptPlaceholderLabel.adjustsFontSizeToFitWidth = YES;
+    _editPromptPlaceholderLabel.minimumScaleFactor = 0.5;
     _editPromptPlaceholderLabel.text = NSLocalizedString(@"EZGallery.EditPromptPlaceholder", nil);
     _editPromptPlaceholderLabel.textColor = [UIColor colorWithWhite:0.72 alpha:0.70];
     _editPromptPlaceholderLabel.font = _editPromptField.font;
@@ -1263,6 +1277,8 @@ static BOOL EZGalleryErrorIsSafetyRejection(NSString *message) {
     [promptContainer addSubview:_addImageButton];
 
     _sourceCountLabel = [[UILabel alloc] init];
+    _sourceCountLabel.adjustsFontSizeToFitWidth = YES;
+    _sourceCountLabel.minimumScaleFactor = 0.5;
     _sourceCountLabel.backgroundColor = [UIColor colorWithRed:0.05 green:0.92 blue:0.72 alpha:1.0];
     _sourceCountLabel.textColor = [UIColor colorWithRed:0.03 green:0.05 blue:0.10 alpha:1.0];
     _sourceCountLabel.font = [UIFont systemFontOfSize:9 weight:UIFontWeightBold];
@@ -1297,6 +1313,8 @@ static BOOL EZGalleryErrorIsSafetyRejection(NSString *message) {
     [_sendEditButton addSubview:_editSpinner];
 
     _editErrorLabel = [[UILabel alloc] init];
+    _editErrorLabel.adjustsFontSizeToFitWidth = YES;
+    _editErrorLabel.minimumScaleFactor = 0.5;
     _editErrorLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
     _editErrorLabel.textColor = [UIColor systemOrangeColor];
     _editErrorLabel.textAlignment = NSTextAlignmentCenter;
@@ -2059,6 +2077,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [_processingProgressView.layer addSublayer:_processingProgressLayer];
 
     _processingProgressLabel = [[UILabel alloc] init];
+    _processingProgressLabel.adjustsFontSizeToFitWidth = YES;
+    _processingProgressLabel.minimumScaleFactor = 0.5;
     _processingProgressLabel.textColor = UIColor.whiteColor;
     _processingProgressLabel.font = [UIFont systemFontOfSize:30 weight:UIFontWeightBold];
     _processingProgressLabel.textAlignment = NSTextAlignmentCenter;
@@ -2068,6 +2088,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [_processingProgressView addSubview:_processingProgressLabel];
 
     _processingStatusLabel = [[UILabel alloc] init];
+    _processingStatusLabel.adjustsFontSizeToFitWidth = YES;
+    _processingStatusLabel.minimumScaleFactor = 0.5;
     _processingStatusLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
     _processingStatusLabel.textColor = [UIColor whiteColor];
     _processingStatusLabel.textAlignment = NSTextAlignmentCenter;
@@ -2982,6 +3004,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
     // Count label plus an explicit multi-select entry point.
     self.countLabel = [[UILabel alloc] init];
+    self.countLabel.adjustsFontSizeToFitWidth = YES;
+    self.countLabel.minimumScaleFactor = 0.5;
     self.countLabel.font      = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
     self.countLabel.textColor = [UIColor colorWithWhite:0.5 alpha:1];
     UIBarButtonItem *countItem = [[UIBarButtonItem alloc] initWithCustomView:self.countLabel];
@@ -3011,6 +3035,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)setupEmptyState {
     self.emptyLabel = [[UILabel alloc] init];
+    self.emptyLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyLabel.minimumScaleFactor = 0.5;
     self.emptyLabel.text          = @"No media yet.\nImages, GIFs, and videos saved from chats appear here.";
     self.emptyLabel.numberOfLines = 2;
     self.emptyLabel.textAlignment = NSTextAlignmentCenter;
@@ -3495,6 +3521,8 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     [overlay addSubview:card];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(20, 22, cardWidth - 40, 26)];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.text = @"SELECTED MEDIA";
     title.textAlignment = NSTextAlignmentCenter;
     title.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold];
@@ -3502,6 +3530,8 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     [card addSubview:title];
 
     UILabel *subtitle = [[UILabel alloc] initWithFrame:CGRectMake(24, 49, cardWidth - 48, 22)];
+    subtitle.adjustsFontSizeToFitWidth = YES;
+    subtitle.minimumScaleFactor = 0.5;
     subtitle.text = selectedCount == 1
         ? @"1 item selected"
         : [NSString stringWithFormat:@"%lu items selected", (unsigned long)selectedCount];
@@ -3650,6 +3680,8 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     [self.musicRenderingSpinner startAnimating];
 
     UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(28, CGRectGetMidY(overlay.bounds) + 20, overlay.bounds.size.width - 56, 54)];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleWidth;
     label.text = @"MAKING MUSIC VIDEO…\nLooping visuals • syncing audio";
     label.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold]; label.textColor = UIColor.whiteColor;
@@ -3749,6 +3781,8 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     [card addSubview:icon];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(20, 60, cardWidth - 40, 25)];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.text = @"MAKE MUSIC VIDEO";
     title.textAlignment = NSTextAlignmentCenter;
     title.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold];
@@ -3756,6 +3790,8 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     [card addSubview:title];
 
     UILabel *subtitle = [[UILabel alloc] initWithFrame:CGRectMake(24, 89, cardWidth - 48, 54)];
+    subtitle.adjustsFontSizeToFitWidth = YES;
+    subtitle.minimumScaleFactor = 0.5;
     subtitle.text = @"Attach your own track, or let ElevenLabs compose music matched to the finished visuals.";
     subtitle.textAlignment = NSTextAlignmentCenter;
     subtitle.numberOfLines = 3;

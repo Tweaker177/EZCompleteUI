@@ -76,6 +76,8 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     [self.view addSubview:self.heroIcon];
 
     self.titleLabel = [UILabel new];
+    self.titleLabel.adjustsFontSizeToFitWidth = YES;
+    self.titleLabel.minimumScaleFactor = 0.5;
     self.titleLabel.font = [UIFont systemFontOfSize:28 weight:UIFontWeightBold];
     self.titleLabel.textColor = UIColor.whiteColor;
     self.titleLabel.textAlignment = NSTextAlignmentCenter;
@@ -84,6 +86,8 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     [self.view addSubview:self.titleLabel];
 
     self.bodyLabel = [UILabel new];
+    self.bodyLabel.adjustsFontSizeToFitWidth = YES;
+    self.bodyLabel.minimumScaleFactor = 0.5;
     self.bodyLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightRegular];
     self.bodyLabel.textColor = [UIColor colorWithWhite:0.82 alpha:1];
     self.bodyLabel.textAlignment = NSTextAlignmentCenter;
@@ -205,6 +209,8 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
 
 - (UILabel *)demoLabel:(NSString *)text color:(UIColor *)color font:(CGFloat)size {
     UILabel *label = [UILabel new];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.text = text;
     label.textColor = color;
     label.font = [UIFont systemFontOfSize:size weight:UIFontWeightSemibold];

@@ -112,6 +112,8 @@
 
     // ── Timestamp — tappable link to source thread ────────────────────────────
     _timestampLabel = [[UILabel alloc] init];
+    _timestampLabel.adjustsFontSizeToFitWidth = YES;
+    _timestampLabel.minimumScaleFactor = 0.5;
     _timestampLabel.font      = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightSemibold];
     _timestampLabel.textColor = [UIColor systemBlueColor];
     _timestampLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -141,6 +143,8 @@
 
     // ── Badge (teal pill, shown while thumb loading or as fallback) ───────────
     _attachmentBadge = [[UILabel alloc] init];
+    _attachmentBadge.adjustsFontSizeToFitWidth = YES;
+    _attachmentBadge.minimumScaleFactor = 0.5;
     _attachmentBadge.font              = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
     _attachmentBadge.textColor         = [UIColor whiteColor];
     _attachmentBadge.backgroundColor   = [UIColor systemTealColor];
@@ -173,6 +177,8 @@
     [_playerView addSubview:_playerArtworkView];
 
     _playerTitleLabel = [[UILabel alloc] init];
+    _playerTitleLabel.adjustsFontSizeToFitWidth = YES;
+    _playerTitleLabel.minimumScaleFactor = 0.5;
     _playerTitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
     _playerTitleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
     _playerTitleLabel.textColor = [UIColor labelColor];
@@ -181,6 +187,8 @@
     [_playerView addSubview:_playerTitleLabel];
 
     _playerDetailLabel = [[UILabel alloc] init];
+    _playerDetailLabel.adjustsFontSizeToFitWidth = YES;
+    _playerDetailLabel.minimumScaleFactor = 0.5;
     _playerDetailLabel.translatesAutoresizingMaskIntoConstraints = NO;
     _playerDetailLabel.font = [UIFont systemFontOfSize:12];
     _playerDetailLabel.textColor = [UIColor secondaryLabelColor];
@@ -238,6 +246,8 @@
 
     // ── Edit hint — bold and obvious ──────────────────────────────────────────
     _editHintLabel = [[UILabel alloc] init];
+    _editHintLabel.adjustsFontSizeToFitWidth = YES;
+    _editHintLabel.minimumScaleFactor = 0.5;
     _editHintLabel.text            = @"✏️ Tap summary to edit";
     _editHintLabel.font            = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
     _editHintLabel.textColor       = [UIColor systemBlueColor];
@@ -730,6 +740,8 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
 
 - (void)setupEmptyLabel {
     self.emptyLabel = [[UILabel alloc] init];
+    self.emptyLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyLabel.minimumScaleFactor = 0.5;
     self.emptyLabel.text          = NSLocalizedString(@"EZMemories.NoneSaved", nil);
     self.emptyLabel.textColor     = [UIColor secondaryLabelColor];
     self.emptyLabel.font          = [UIFont systemFontOfSize:16];
@@ -1251,6 +1263,8 @@ didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
 - (void)showToast:(NSString *)message {
     dispatch_async(dispatch_get_main_queue(), ^{
         UILabel *toast           = [[UILabel alloc] init];
+        toast.adjustsFontSizeToFitWidth = YES;
+        toast.minimumScaleFactor = 0.5;
         toast.text               = message;
         toast.font               = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
         toast.textColor          = [UIColor whiteColor];

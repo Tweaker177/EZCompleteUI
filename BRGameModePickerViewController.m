@@ -8,6 +8,8 @@
     self.view.backgroundColor = [UIColor colorWithRed:0.025 green:0.03 blue:0.09 alpha:1];
 
     UILabel *title = [UILabel new];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.text = NSLocalizedString(@"EZGameMode.Title", nil);
     title.font = [UIFont systemFontOfSize:26 weight:UIFontWeightBold];
     title.textColor = UIColor.whiteColor;
@@ -16,6 +18,8 @@
     [self.view addSubview:title];
 
     UILabel *subtitle = [UILabel new];
+    subtitle.adjustsFontSizeToFitWidth = YES;
+    subtitle.minimumScaleFactor = 0.5;
     subtitle.text = NSLocalizedString(@"EZGameMode.Subtitle", nil);
     subtitle.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     subtitle.textColor = [UIColor colorWithWhite:0.70 alpha:1];
@@ -81,12 +85,16 @@
     icon.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:icon];
     UILabel *name = [UILabel new];
+    name.adjustsFontSizeToFitWidth = YES;
+    name.minimumScaleFactor = 0.5;
     name.text = title;
     name.font = [UIFont systemFontOfSize:21 weight:UIFontWeightBold];
     name.textColor = UIColor.whiteColor;
     name.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:name];
     UILabel *detail = [UILabel new];
+    detail.adjustsFontSizeToFitWidth = YES;
+    detail.minimumScaleFactor = 0.5;
     detail.text = subtitle;
     detail.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
     detail.textColor = [UIColor colorWithWhite:0.84 alpha:1];

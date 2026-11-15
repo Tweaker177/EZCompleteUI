@@ -170,12 +170,16 @@
     ]];
 
     UILabel *titleLabel = [[UILabel alloc] init];
+    titleLabel.adjustsFontSizeToFitWidth = YES;
+    titleLabel.minimumScaleFactor = 0.5;
     titleLabel.text = self.sheetTitle;
     titleLabel.textColor = [UIColor whiteColor];
     titleLabel.font = [UIFont boldSystemFontOfSize:22.0];
     titleLabel.numberOfLines = 0;
 
     UILabel *subtitleLabel = [[UILabel alloc] init];
+    subtitleLabel.adjustsFontSizeToFitWidth = YES;
+    subtitleLabel.minimumScaleFactor = 0.5;
     subtitleLabel.text = self.sheetSubtitle;
     subtitleLabel.textColor = [UIColor systemGrayColor];
     subtitleLabel.font = [UIFont systemFontOfSize:14.0];
@@ -200,12 +204,16 @@
     self.textView.returnKeyType = self.isMultiline ? UIReturnKeyDefault : UIReturnKeyDone;
 
     self.placeholderLabel = [[UILabel alloc] init];
+    self.placeholderLabel.adjustsFontSizeToFitWidth = YES;
+    self.placeholderLabel.minimumScaleFactor = 0.5;
     self.placeholderLabel.text = self.placeholderText;
     self.placeholderLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.35];
     self.placeholderLabel.font = self.textView.font;
     self.placeholderLabel.numberOfLines = 0;
 
     self.counterLabel = [[UILabel alloc] init];
+    self.counterLabel.adjustsFontSizeToFitWidth = YES;
+    self.counterLabel.minimumScaleFactor = 0.5;
     self.counterLabel.textColor = [UIColor systemGrayColor];
     self.counterLabel.font = [UIFont systemFontOfSize:12.0];
     self.counterLabel.textAlignment = NSTextAlignmentRight;

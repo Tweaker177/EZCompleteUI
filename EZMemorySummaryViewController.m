@@ -66,6 +66,8 @@
 
     // ── Timestamp ────────────────────────────────────────────────────────
     _timestampLabel = [[UILabel alloc] init];
+    _timestampLabel.adjustsFontSizeToFitWidth = YES;
+    _timestampLabel.minimumScaleFactor = 0.5;
     _timestampLabel.font      = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightSemibold];
     _timestampLabel.textColor = [UIColor systemBlueColor];
     _timestampLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -94,6 +96,8 @@
 
     // ── Edit hint ────────────────────────────────────────────────────────
     _editHintLabel = [[UILabel alloc] init];
+    _editHintLabel.adjustsFontSizeToFitWidth = YES;
+    _editHintLabel.minimumScaleFactor = 0.5;
     _editHintLabel.text            = @"✏️ Tap fact to edit";
     _editHintLabel.font            = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
     _editHintLabel.textColor       = [UIColor systemBlueColor];
@@ -231,6 +235,8 @@ static NSString * const kSummaryCellID = @"EZMemorySummaryCell";
 
 - (void)setupEmptyLabel {
     self.emptyLabel = [[UILabel alloc] init];
+    self.emptyLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyLabel.minimumScaleFactor = 0.5;
     self.emptyLabel.text          = @"No important memories yet.\nAsk the assistant to remember something important and it will appear here.";
     self.emptyLabel.numberOfLines = 0;
     self.emptyLabel.textColor     = [UIColor secondaryLabelColor];
@@ -404,6 +410,8 @@ didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
 - (void)showToast:(NSString *)message {
     dispatch_async(dispatch_get_main_queue(), ^{
         UILabel *toast           = [[UILabel alloc] init];
+        toast.adjustsFontSizeToFitWidth = YES;
+        toast.minimumScaleFactor = 0.5;
         toast.text               = message;
         toast.font               = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
         toast.textColor          = [UIColor whiteColor];

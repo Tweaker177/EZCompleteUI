@@ -273,6 +273,8 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     UILabel* (^makeLabel)(CGFloat, UIFontWeight, UIColor *, NSInteger) =
     ^UILabel *(CGFloat size, UIFontWeight weight, UIColor *color, NSInteger lines) {
         UILabel *label       = [UILabel new];
+        label.adjustsFontSizeToFitWidth = YES;
+        label.minimumScaleFactor = 0.5;
         label.font           = [UIFont systemFontOfSize:size weight:weight];
         label.textColor      = color;
         label.numberOfLines  = (int)lines;
@@ -349,6 +351,8 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     [_card addSubview:_grantButton];
 
     _grantButtonLabel = [UILabel new];
+    _grantButtonLabel.adjustsFontSizeToFitWidth = YES;
+    _grantButtonLabel.minimumScaleFactor = 0.5;
     _grantButtonLabel.text = @"+";
     _grantButtonLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightSemibold];
     _grantButtonLabel.textColor = EZGold();
@@ -1093,6 +1097,8 @@ static NSInteger const kPageSize = 50;
 
     // ── Empty state label ─────────────────────────────────────────────────────
     self.emptyLabel               = [UILabel new];
+    self.emptyLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyLabel.minimumScaleFactor = 0.5;
     self.emptyLabel.text          = @"No transactions found.";
     self.emptyLabel.textColor     = EZMuted();
     self.emptyLabel.font          = [UIFont systemFontOfSize:15];

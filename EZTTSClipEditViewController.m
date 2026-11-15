@@ -292,6 +292,8 @@ static UIColor *EZEditElectricBlue(void) {
 
 - (UILabel *)sectionHeaderLabel {
     UILabel *label = [[UILabel alloc] init];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
     label.textColor = [EZEditElectricBlue() colorWithAlphaComponent:0.90];
     return label;
@@ -299,6 +301,8 @@ static UIColor *EZEditElectricBlue(void) {
 
 - (UILabel *)sectionBodyLabel {
     UILabel *label = [[UILabel alloc] init];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.font = [UIFont systemFontOfSize:15];
     label.numberOfLines = 3;
     return label;
@@ -344,6 +348,8 @@ static UIColor *EZEditElectricBlue(void) {
     [self.scrollView addSubview:self.rangeSelector];
 
     self.selectionTimeLabel = [[UILabel alloc] init];
+    self.selectionTimeLabel.adjustsFontSizeToFitWidth = YES;
+    self.selectionTimeLabel.minimumScaleFactor = 0.5;
     self.selectionTimeLabel.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightRegular];
     self.selectionTimeLabel.textColor = [UIColor secondaryLabelColor];
     self.selectionTimeLabel.textAlignment = NSTextAlignmentCenter;
@@ -428,6 +434,8 @@ static UIColor *EZEditElectricBlue(void) {
     self.backgroundSectionLabel.text = @"BACKGROUND AUDIO — SAVES TO THIS CLIP";
     [self.scrollView addSubview:self.backgroundSectionLabel];
     self.backgroundLevelLabel = [[UILabel alloc] init];
+    self.backgroundLevelLabel.adjustsFontSizeToFitWidth = YES;
+    self.backgroundLevelLabel.minimumScaleFactor = 0.5;
     self.backgroundLevelLabel.font = [UIFont monospacedDigitSystemFontOfSize:14 weight:UIFontWeightRegular];
     self.backgroundLevelLabel.textAlignment = NSTextAlignmentRight;
     [self.scrollView addSubview:self.backgroundLevelLabel];
@@ -864,6 +872,8 @@ static UIColor *EZEditElectricBlue(void) {
     [self.scrollView addSubview:self.speedSlider];
 
     self.speedValueLabel = [[UILabel alloc] init];
+    self.speedValueLabel.adjustsFontSizeToFitWidth = YES;
+    self.speedValueLabel.minimumScaleFactor = 0.5;
     self.speedValueLabel.font = [UIFont monospacedDigitSystemFontOfSize:14 weight:UIFontWeightRegular];
     self.speedValueLabel.textAlignment = NSTextAlignmentRight;
     [self updateSpeedValueLabel];
@@ -1004,6 +1014,8 @@ static UIColor *EZEditElectricBlue(void) {
     [self.scrollView addSubview:self.effectsSectionLabel];
 
     self.pitchValueLabel = [[UILabel alloc] init];
+    self.pitchValueLabel.adjustsFontSizeToFitWidth = YES;
+    self.pitchValueLabel.minimumScaleFactor = 0.5;
     self.pitchValueLabel.font = [UIFont monospacedDigitSystemFontOfSize:14 weight:UIFontWeightRegular];
     self.pitchValueLabel.textAlignment = NSTextAlignmentRight;
     [self.scrollView addSubview:self.pitchValueLabel];

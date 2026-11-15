@@ -114,12 +114,16 @@
 
 - (void)buildTableView {
     UILabel *titleLabel = [[UILabel alloc] init];
+    titleLabel.adjustsFontSizeToFitWidth = YES;
+    titleLabel.minimumScaleFactor = 0.5;
     titleLabel.text = [NSString stringWithFormat:@"Configure: %@", self.assetDisplayName];
     titleLabel.textColor = [UIColor whiteColor];
     titleLabel.font = [UIFont boldSystemFontOfSize:22.0];
     titleLabel.numberOfLines = 0;
 
     UILabel *subtitleLabel = [[UILabel alloc] init];
+    subtitleLabel.adjustsFontSizeToFitWidth = YES;
+    subtitleLabel.minimumScaleFactor = 0.5;
     subtitleLabel.text = self.currentStateLabel;
     subtitleLabel.textColor = [UIColor systemGrayColor];
     subtitleLabel.font = [UIFont systemFontOfSize:14.0];

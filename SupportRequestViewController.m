@@ -116,6 +116,8 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
 
     // ── Intro label ──────────────────────────────────────────────────────────
     UILabel *introLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, y, contentWidth, 0)];
+    introLabel.adjustsFontSizeToFitWidth = YES;
+    introLabel.minimumScaleFactor = 0.5;
     introLabel.text =
         @"Describe your issue or feedback below. Your current app settings "
          "(no API keys) will be included automatically to help diagnose problems.";
@@ -153,6 +155,8 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
 
     // ── Include debug log toggle ─────────────────────────────────────────────
     UILabel *logToggleLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, y, contentWidth - 60, 22)];
+    logToggleLabel.adjustsFontSizeToFitWidth = YES;
+    logToggleLabel.minimumScaleFactor = 0.5;
     logToggleLabel.text      = @"Include debug log";
     logToggleLabel.font      = [UIFont systemFontOfSize:15];
     logToggleLabel.textColor = [UIColor labelColor];
@@ -167,6 +171,8 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
     y += 30;
 
     UILabel *logHintLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, y, contentWidth, 0)];
+    logHintLabel.adjustsFontSizeToFitWidth = YES;
+    logHintLabel.minimumScaleFactor = 0.5;
     logHintLabel.text =
         @"The debug log records model calls and errors. It does not contain message content.";
     logHintLabel.font          = [UIFont systemFontOfSize:12];
@@ -185,6 +191,8 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
 
     // ── Include coin usage toggle ─────────────────────────────────────────────
     UILabel *usageToggleLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, y, contentWidth - 60, 22)];
+    usageToggleLabel.adjustsFontSizeToFitWidth = YES;
+    usageToggleLabel.minimumScaleFactor = 0.5;
     usageToggleLabel.text      = @"Include coin usage";
     usageToggleLabel.font      = [UIFont systemFontOfSize:15];
     usageToggleLabel.textColor = [UIColor labelColor];
@@ -200,6 +208,8 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
     y += 30;
 
     UILabel *usageHintLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, y, contentWidth, 0)];
+    usageHintLabel.adjustsFontSizeToFitWidth = YES;
+    usageHintLabel.minimumScaleFactor = 0.5;
     usageHintLabel.text =
         @"Attaches your coin usage history as a CSV file. "
          "Helps resolve any questions about charges — you can open it in Numbers or Excel.";
@@ -216,6 +226,8 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
 
     self.settingsPreviewLabel =
         [[UILabel alloc] initWithFrame:CGRectMake(16, y, contentWidth, 0)];
+    self.settingsPreviewLabel.adjustsFontSizeToFitWidth = YES;
+    self.settingsPreviewLabel.minimumScaleFactor = 0.5;
     self.settingsPreviewLabel.text          = [self buildSettingsSnapshotDisplayString];
     self.settingsPreviewLabel.font          = [UIFont monospacedSystemFontOfSize:11
                                                                           weight:UIFontWeightRegular];
@@ -246,6 +258,8 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
 - (UILabel *)makeSectionLabel:(NSString *)text y:(CGFloat *)y {
     UILabel *label      = [[UILabel alloc] initWithFrame:
                             CGRectMake(16, *y, self.view.frame.size.width - 32, 20)];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.text          = text;
     label.font          = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
     label.textColor     = [UIColor secondaryLabelColor];

@@ -74,8 +74,12 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     dial.userInteractionEnabled = NO;
     dial.layer.borderWidth = 1.5; dial.layer.borderColor = [UIColor colorWithRed:0.74 green:0.52 blue:1 alpha:0.75].CGColor; [self addSubview:dial];
     _indicator = [[UIView alloc] initWithFrame:CGRectMake(30, 7, 4, 20)]; _indicator.backgroundColor = [UIColor colorWithRed:0.88 green:0.80 blue:1 alpha:1]; _indicator.layer.cornerRadius = 2; _indicator.userInteractionEnabled = NO; _indicator.layer.anchorPoint = CGPointMake(0.5, 1.0); _indicator.center = CGPointMake(32, 32); [dial addSubview:_indicator];
-    _captionLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 63, 72, 15)]; _captionLabel.text = caption; _captionLabel.textAlignment = NSTextAlignmentCenter; _captionLabel.font = [UIFont systemFontOfSize:10 weight:UIFontWeightBold]; _captionLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1]; _captionLabel.userInteractionEnabled = NO; [self addSubview:_captionLabel];
-    _valueLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 80, 72, 18)]; _valueLabel.textAlignment = NSTextAlignmentCenter; _valueLabel.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightBold]; _valueLabel.textColor = UIColor.whiteColor; _valueLabel.userInteractionEnabled = NO; [self addSubview:_valueLabel];
+    _captionLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 63, 72, 15)];
+    _captionLabel.adjustsFontSizeToFitWidth = YES;
+    _captionLabel.minimumScaleFactor = 0.5; _captionLabel.text = caption; _captionLabel.textAlignment = NSTextAlignmentCenter; _captionLabel.font = [UIFont systemFontOfSize:10 weight:UIFontWeightBold]; _captionLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1]; _captionLabel.userInteractionEnabled = NO; [self addSubview:_captionLabel];
+    _valueLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 80, 72, 18)];
+    _valueLabel.adjustsFontSizeToFitWidth = YES;
+    _valueLabel.minimumScaleFactor = 0.5; _valueLabel.textAlignment = NSTextAlignmentCenter; _valueLabel.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightBold]; _valueLabel.textColor = UIColor.whiteColor; _valueLabel.userInteractionEnabled = NO; [self addSubview:_valueLabel];
     self.minimumValue = 0; self.maximumValue = 1;
     _panRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
     _panRecognizer.minimumNumberOfTouches = 1;
@@ -373,6 +377,8 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     [self.view addSubview:self.settingsBtn];
 
     self.gameOverLabel = [[UILabel alloc] init];
+    self.gameOverLabel.adjustsFontSizeToFitWidth = YES;
+    self.gameOverLabel.minimumScaleFactor = 0.5;
     self.gameOverLabel.numberOfLines = 0;
     self.gameOverLabel.textAlignment = NSTextAlignmentCenter;
     self.gameOverLabel.textColor = [UIColor whiteColor];
@@ -383,6 +389,8 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
 
 - (UILabel *)makeHUDLabel {
     UILabel *label = [[UILabel alloc] init];
+    label.adjustsFontSizeToFitWidth = YES;
+    label.minimumScaleFactor = 0.5;
     label.textColor = [UIColor whiteColor];
     label.font = [UIFont boldSystemFontOfSize:14];
     label.numberOfLines = 2;
@@ -703,13 +711,25 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
             spark.transform = CGAffineTransformMakeRotation(angle * 4); spark.alpha = 0;
         } completion:^(__unused BOOL done) { [spark removeFromSuperview]; }];
     }
-    UILabel *trophy = [[UILabel alloc] initWithFrame:CGRectMake(0, 34, width, 76)]; trophy.text = @"🏆"; trophy.textAlignment = NSTextAlignmentCenter; trophy.font = [UIFont systemFontOfSize:61]; [card addSubview:trophy];
-    UILabel *eyebrow = [[UILabel alloc] initWithFrame:CGRectMake(20, 118, width - 40, 18)]; eyebrow.text = @"RICHOCHET BLAST"; eyebrow.textAlignment = NSTextAlignmentCenter; eyebrow.font = [UIFont systemFontOfSize:11 weight:UIFontWeightBold]; eyebrow.textColor = [UIColor colorWithRed:1 green:0.78 blue:0.20 alpha:1]; [card addSubview:eyebrow];
-    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(18, 140, width - 36, 38)]; title.text = @"NEW HIGH SCORE!"; title.textAlignment = NSTextAlignmentCenter; title.font = [UIFont systemFontOfSize:26 weight:UIFontWeightHeavy]; title.textColor = UIColor.whiteColor; [card addSubview:title];
+    UILabel *trophy = [[UILabel alloc] initWithFrame:CGRectMake(0, 34, width, 76)];
+    trophy.adjustsFontSizeToFitWidth = YES;
+    trophy.minimumScaleFactor = 0.5; trophy.text = @"🏆"; trophy.textAlignment = NSTextAlignmentCenter; trophy.font = [UIFont systemFontOfSize:61]; [card addSubview:trophy];
+    UILabel *eyebrow = [[UILabel alloc] initWithFrame:CGRectMake(20, 118, width - 40, 18)];
+    eyebrow.adjustsFontSizeToFitWidth = YES;
+    eyebrow.minimumScaleFactor = 0.5; eyebrow.text = @"RICHOCHET BLAST"; eyebrow.textAlignment = NSTextAlignmentCenter; eyebrow.font = [UIFont systemFontOfSize:11 weight:UIFontWeightBold]; eyebrow.textColor = [UIColor colorWithRed:1 green:0.78 blue:0.20 alpha:1]; [card addSubview:eyebrow];
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(18, 140, width - 36, 38)];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5; title.text = @"NEW HIGH SCORE!"; title.textAlignment = NSTextAlignmentCenter; title.font = [UIFont systemFontOfSize:26 weight:UIFontWeightHeavy]; title.textColor = UIColor.whiteColor; [card addSubview:title];
     UIView *scorePill = [[UIView alloc] initWithFrame:CGRectMake(38, 194, width - 76, 78)]; scorePill.backgroundColor = [UIColor colorWithWhite:1 alpha:0.09]; scorePill.layer.cornerRadius = 18; scorePill.layer.borderWidth = 1; scorePill.layer.borderColor = [UIColor colorWithRed:1 green:0.78 blue:0.20 alpha:0.42].CGColor; [card addSubview:scorePill];
-    UILabel *rank = [[UILabel alloc] initWithFrame:CGRectMake(0, 9, scorePill.bounds.size.width, 20)]; rank.text = [NSString stringWithFormat:@"YOU PLACED #%ld", (long)placement]; rank.textAlignment = NSTextAlignmentCenter; rank.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; rank.textColor = [UIColor colorWithWhite:0.73 alpha:1]; [scorePill addSubview:rank];
-    UILabel *scoreLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 28, scorePill.bounds.size.width, 40)]; scoreLabel.text = [NSString stringWithFormat:@"%ld", (long)score]; scoreLabel.textAlignment = NSTextAlignmentCenter; scoreLabel.font = [UIFont monospacedDigitSystemFontOfSize:32 weight:UIFontWeightBold]; scoreLabel.textColor = [UIColor colorWithRed:1 green:0.80 blue:0.25 alpha:1]; [scorePill addSubview:scoreLabel];
-    UILabel *caption = [[UILabel alloc] initWithFrame:CGRectMake(28, 282, width - 56, 32)]; caption.text = @"That run deserves a place on the board."; caption.textAlignment = NSTextAlignmentCenter; caption.numberOfLines = 2; caption.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium]; caption.textColor = [UIColor colorWithWhite:0.72 alpha:1]; [card addSubview:caption];
+    UILabel *rank = [[UILabel alloc] initWithFrame:CGRectMake(0, 9, scorePill.bounds.size.width, 20)];
+    rank.adjustsFontSizeToFitWidth = YES;
+    rank.minimumScaleFactor = 0.5; rank.text = [NSString stringWithFormat:@"YOU PLACED #%ld", (long)placement]; rank.textAlignment = NSTextAlignmentCenter; rank.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; rank.textColor = [UIColor colorWithWhite:0.73 alpha:1]; [scorePill addSubview:rank];
+    UILabel *scoreLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 28, scorePill.bounds.size.width, 40)];
+    scoreLabel.adjustsFontSizeToFitWidth = YES;
+    scoreLabel.minimumScaleFactor = 0.5; scoreLabel.text = [NSString stringWithFormat:@"%ld", (long)score]; scoreLabel.textAlignment = NSTextAlignmentCenter; scoreLabel.font = [UIFont monospacedDigitSystemFontOfSize:32 weight:UIFontWeightBold]; scoreLabel.textColor = [UIColor colorWithRed:1 green:0.80 blue:0.25 alpha:1]; [scorePill addSubview:scoreLabel];
+    UILabel *caption = [[UILabel alloc] initWithFrame:CGRectMake(28, 282, width - 56, 32)];
+    caption.adjustsFontSizeToFitWidth = YES;
+    caption.minimumScaleFactor = 0.5; caption.text = @"That run deserves a place on the board."; caption.textAlignment = NSTextAlignmentCenter; caption.numberOfLines = 2; caption.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium]; caption.textColor = [UIColor colorWithWhite:0.72 alpha:1]; [card addSubview:caption];
     UIButton *claim = [UIButton buttonWithType:UIButtonTypeSystem]; claim.frame = CGRectMake(24, 316, width - 48, 42); claim.backgroundColor = [UIColor colorWithRed:1 green:0.70 blue:0.12 alpha:1]; claim.layer.cornerRadius = 14; [claim setTitle:@"CLAIM YOUR SCORE" forState:UIControlStateNormal]; claim.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy]; claim.tintColor = [UIColor colorWithRed:0.10 green:0.05 blue:0.18 alpha:1]; [card addSubview:claim];
     __weak typeof(self) weakSelf = self;
     void (^dismissCard)(void) = ^{ [UIView animateWithDuration:0.20 animations:^{ overlay.alpha = 0; card.transform = CGAffineTransformMakeScale(0.9, 0.9); } completion:^(__unused BOOL done) { [overlay removeFromSuperview]; weakSelf.highScoreCelebrationOverlay = nil; }]; };
@@ -1210,12 +1230,16 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     [close addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { UIView *activeOverlay = weakOverlayForClose; [UIView animateWithDuration:.16 animations:^{ activeOverlay.alpha = 0; } completion:^(__unused BOOL done) { [activeOverlay removeFromSuperview]; weakSelfForClose.musicSettingsOverlay = nil; }]; }] forControlEvents:UIControlEventTouchUpInside];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(20, 25, cardWidth - 40, 28)];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.5;
     title.text = @"♪  MUSIC LAB";
     title.textAlignment = NSTextAlignmentCenter;
     title.textColor = [UIColor colorWithRed:0.74 green:0.52 blue:1.0 alpha:1.0];
     title.font = [UIFont systemFontOfSize:21 weight:UIFontWeightBold];
     [card addSubview:title];
     UILabel *subtitle = [[UILabel alloc] initWithFrame:CGRectMake(24, 55, cardWidth - 48, 34)];
+    subtitle.adjustsFontSizeToFitWidth = YES;
+    subtitle.minimumScaleFactor = 0.5;
     subtitle.text = @"Tune the bounce soundtrack for this run.";
     subtitle.textAlignment = NSTextAlignmentCenter;
     subtitle.textColor = [UIColor colorWithWhite:0.70 alpha:1.0];
@@ -1238,12 +1262,16 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     NSArray<BRRicochetMusicKnob *> *knobs = @[attackKnob, releaseKnob, filterKnob, reverbKnob];
     NSArray<BRRicochetMusicKnob *> *mixKnobs = @[synthVolumeKnob, drumsVolumeKnob];
     for (BRRicochetMusicKnob *knob in [knobs arrayByAddingObjectsFromArray:mixKnobs]) { knob.minimumValue = 0; knob.maximumValue = 1; [card addSubview:knob]; }
-    UILabel *wave1Label = [[UILabel alloc] initWithFrame:CGRectMake(25, 388, 84, 32)]; wave1Label.text = @"OSC 1 WAVE"; wave1Label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; wave1Label.textColor = [UIColor colorWithWhite:0.65 alpha:1]; [card addSubview:wave1Label];
+    UILabel *wave1Label = [[UILabel alloc] initWithFrame:CGRectMake(25, 388, 84, 32)];
+    wave1Label.adjustsFontSizeToFitWidth = YES;
+    wave1Label.minimumScaleFactor = 0.5; wave1Label.text = @"OSC 1 WAVE"; wave1Label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; wave1Label.textColor = [UIColor colorWithWhite:0.65 alpha:1]; [card addSubview:wave1Label];
     UISegmentedControl *wave1 = [[UISegmentedControl alloc] initWithItems:@[ @"SIN", @"TRI", @"SAW", @"SQR" ]];
     wave1.frame = CGRectMake(112, 384, cardWidth - 137, 36);
     wave1.selectedSegmentTintColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:0.82];
     [card addSubview:wave1];
-    UILabel *wave2Label = [[UILabel alloc] initWithFrame:CGRectMake(25, 424, 84, 32)]; wave2Label.text = @"OSC 2 WAVE"; wave2Label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; wave2Label.textColor = [UIColor colorWithWhite:0.65 alpha:1]; [card addSubview:wave2Label];
+    UILabel *wave2Label = [[UILabel alloc] initWithFrame:CGRectMake(25, 424, 84, 32)];
+    wave2Label.adjustsFontSizeToFitWidth = YES;
+    wave2Label.minimumScaleFactor = 0.5; wave2Label.text = @"OSC 2 WAVE"; wave2Label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; wave2Label.textColor = [UIColor colorWithWhite:0.65 alpha:1]; [card addSubview:wave2Label];
     UISegmentedControl *wave2 = [[UISegmentedControl alloc] initWithItems:@[ @"SIN", @"TRI", @"SAW", @"SQR" ]];
     wave2.frame = CGRectMake(112, 420, cardWidth - 137, 36);
     wave2.selectedSegmentTintColor = [UIColor colorWithRed:0.40 green:0.65 blue:1 alpha:0.78];
@@ -1279,6 +1307,8 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
         row.layer.cornerRadius = 14;
         [card addSubview:row];
         UILabel *name = [[UILabel alloc] initWithFrame:CGRectMake(15, 0, 105, 46)];
+        name.adjustsFontSizeToFitWidth = YES;
+        name.minimumScaleFactor = 0.5;
         name.text = rowTitles[i]; name.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold];
         name.textColor = [UIColor colorWithWhite:0.65 alpha:1.0]; [row addSubview:name];
         UILabel *value = rowValues[i]; value.frame = CGRectMake(112, 0, row.bounds.size.width - 127, 46); [row addSubview:value];
@@ -1308,7 +1338,9 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     UIButton *minus = smallButton(@"−", cardWidth / 2.0 - 70); UIButton *plus = smallButton(@"+", cardWidth / 2.0 + 12);
     [minus addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.tempoBPM = MAX(60, weakSelf.synth.tempoBPM - 1); [weakSelf persistSynthSettings]; refresh(); }] forControlEvents:UIControlEventTouchUpInside];
     [plus addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.tempoBPM = MIN(200, weakSelf.synth.tempoBPM + 1); [weakSelf persistSynthSettings]; refresh(); }] forControlEvents:UIControlEventTouchUpInside];
-    UILabel *arpLabel = [[UILabel alloc] initWithFrame:CGRectMake(25, 352, 84, 32)]; arpLabel.text = @"ARP RATE"; arpLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; arpLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1]; [card addSubview:arpLabel];
+    UILabel *arpLabel = [[UILabel alloc] initWithFrame:CGRectMake(25, 352, 84, 32)];
+    arpLabel.adjustsFontSizeToFitWidth = YES;
+    arpLabel.minimumScaleFactor = 0.5; arpLabel.text = @"ARP RATE"; arpLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; arpLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1]; [card addSubview:arpLabel];
     UISegmentedControl *arp = [[UISegmentedControl alloc] initWithItems:@[ @"Off", @"1/4", @"1/8", @"1/16" ]];
     arp.frame = CGRectMake(112, 348, cardWidth - 137, 36); arp.selectedSegmentIndex = self.synth.arpeggioDivision + 1;
     arp.selectedSegmentTintColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:0.82];
@@ -1337,10 +1369,14 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     }
     UISwitch *midiSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(cardWidth - 80, 682, 52, 32)]; midiSwitch.on = self.synth.isMIDIClockEnabled; midiSwitch.onTintColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:1];
     [midiSwitch addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.midiClockEnabled = midiSwitch.isOn; [weakSelf persistSynthSettings]; }] forControlEvents:UIControlEventValueChanged]; [card addSubview:midiSwitch];
-    UILabel *midi = [[UILabel alloc] initWithFrame:CGRectMake(25, 674, 200, 44)]; midi.text = @"MIDI CLOCK SYNC"; midi.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; midi.textColor = [UIColor colorWithWhite:0.70 alpha:1]; [card addSubview:midi];
+    UILabel *midi = [[UILabel alloc] initWithFrame:CGRectMake(25, 674, 200, 44)];
+    midi.adjustsFontSizeToFitWidth = YES;
+    midi.minimumScaleFactor = 0.5; midi.text = @"MIDI CLOCK SYNC"; midi.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; midi.textColor = [UIColor colorWithWhite:0.70 alpha:1]; [card addSubview:midi];
     UISwitch *drumsSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(cardWidth - 80, 724, 52, 32)]; drumsSwitch.on = self.synth.isDrumLoopEnabled; drumsSwitch.onTintColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:1];
     [drumsSwitch addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { weakSelf.synth.drumLoopEnabled = drumsSwitch.isOn; [weakSelf persistSynthSettings]; }] forControlEvents:UIControlEventValueChanged]; [card addSubview:drumsSwitch];
-    UILabel *drums = [[UILabel alloc] initWithFrame:CGRectMake(25, 716, 220, 44)]; drums.text = @"808 DRUM LOOP"; drums.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; drums.textColor = [UIColor colorWithWhite:0.70 alpha:1]; [card addSubview:drums];
+    UILabel *drums = [[UILabel alloc] initWithFrame:CGRectMake(25, 716, 220, 44)];
+    drums.adjustsFontSizeToFitWidth = YES;
+    drums.minimumScaleFactor = 0.5; drums.text = @"808 DRUM LOOP"; drums.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; drums.textColor = [UIColor colorWithWhite:0.70 alpha:1]; [card addSubview:drums];
     UIButton *done = [UIButton buttonWithType:UIButtonTypeSystem]; done.frame = CGRectMake(20, 766, cardWidth - 40, 42); done.backgroundColor = [UIColor colorWithRed:0.63 green:0.35 blue:1 alpha:0.92]; done.layer.cornerRadius = 12; [done setTitle:@"Done" forState:UIControlStateNormal]; done.titleLabel.font = [UIFont boldSystemFontOfSize:15]; done.tintColor = UIColor.whiteColor; [card addSubview:done];
     [done addAction:[UIAction actionWithHandler:^(__unused UIAction *action) { [UIView animateWithDuration:0.16 animations:^{ overlay.alpha = 0; } completion:^(__unused BOOL done) { [overlay removeFromSuperview]; weakSelf.musicSettingsOverlay = nil; }]; }] forControlEvents:UIControlEventTouchUpInside];
     refresh();

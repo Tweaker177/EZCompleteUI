@@ -29,6 +29,8 @@
 
     // ── Meta label (hidden until swipe) ─────────────────────────────────────
     _metaLabel = [[UILabel alloc] init];
+    _metaLabel.adjustsFontSizeToFitWidth = YES;
+    _metaLabel.minimumScaleFactor = 0.5;
     _metaLabel.numberOfLines  = 0;
     _metaLabel.font           = [UIFont systemFontOfSize:11];
     _metaLabel.textColor      = [UIColor secondaryLabelColor];
@@ -98,6 +100,8 @@
     _reactionBadge.layer.borderColor = [UIColor colorWithWhite:0.5 alpha:0.25].CGColor;
     _reactionBadge.hidden = YES;
     _reactionLabel = [[UILabel alloc] init];
+    _reactionLabel.adjustsFontSizeToFitWidth = YES;
+    _reactionLabel.minimumScaleFactor = 0.5;
     _reactionLabel.font = [UIFont systemFontOfSize:12];
     _reactionLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [_reactionBadge addSubview:_reactionLabel];

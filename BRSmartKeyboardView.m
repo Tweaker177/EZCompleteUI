@@ -41,11 +41,15 @@
         [self.layer addSublayer:self.indicatorLayer];
 
         self.captionLabel = [[UILabel alloc] init];
+        self.captionLabel.adjustsFontSizeToFitWidth = YES;
+        self.captionLabel.minimumScaleFactor = 0.5;
         self.captionLabel.font = [UIFont boldSystemFontOfSize:9];
         self.captionLabel.textColor = [UIColor colorWithWhite:1 alpha:0.55];
         self.captionLabel.textAlignment = NSTextAlignmentCenter;
         [self addSubview:self.captionLabel];
         self.valueLabel = [[UILabel alloc] init];
+        self.valueLabel.adjustsFontSizeToFitWidth = YES;
+        self.valueLabel.minimumScaleFactor = 0.5;
         self.valueLabel.font = [UIFont monospacedDigitSystemFontOfSize:9 weight:UIFontWeightBold];
         self.valueLabel.textColor = [UIColor colorWithWhite:1 alpha:0.92];
         self.valueLabel.textAlignment = NSTextAlignmentCenter;

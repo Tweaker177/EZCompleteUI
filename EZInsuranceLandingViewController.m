@@ -101,6 +101,8 @@ static BOOL EZStatusIsCurrent(NSString *status) {
     [self.view addSubview:self.tableView];
 
     self.emptyStateLabel = [[UILabel alloc] init];
+    self.emptyStateLabel.adjustsFontSizeToFitWidth = YES;
+    self.emptyStateLabel.minimumScaleFactor = 0.5;
     self.emptyStateLabel.text = @"No active policies.\nTap above to create one.";
     self.emptyStateLabel.numberOfLines = 0;
     self.emptyStateLabel.textAlignment = NSTextAlignmentCenter;
