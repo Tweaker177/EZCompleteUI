@@ -1,4 +1,5 @@
 #import "EZBubbleCell.h"
+#import "EZTheme.h"
 
 @implementation EZBubbleCell {
     UIView     *_bubbleView;
@@ -33,7 +34,7 @@
     _metaLabel = [[UILabel alloc] init];
     _metaLabel.numberOfLines  = 0;
     _metaLabel.font           = [UIFont systemFontOfSize:11];
-    _metaLabel.textColor      = [UIColor secondaryLabelColor];
+    _metaLabel.textColor      = [EZTheme secondaryTextColor];
     _metaLabel.alpha          = 0.0;
     _metaLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [self.contentView addSubview:_metaLabel];
@@ -91,11 +92,7 @@
     _reactionBadge.translatesAutoresizingMaskIntoConstraints = NO;
     _reactionBadge.layer.cornerRadius = 10.0;
     _reactionBadge.clipsToBounds = YES;
-    _reactionBadge.backgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
-        return tc.userInterfaceStyle == UIUserInterfaceStyleDark
-            ? [UIColor colorWithRed:0.28 green:0.28 blue:0.30 alpha:1.0]
-            : [UIColor colorWithRed:0.95 green:0.95 blue:0.97 alpha:1.0];
-    }];
+    _reactionBadge.backgroundColor = [EZTheme cardColor];
     _reactionBadge.layer.borderWidth = 1.0;
     _reactionBadge.layer.borderColor = [UIColor colorWithWhite:0.5 alpha:0.25].CGColor;
     _reactionBadge.hidden = YES;
@@ -124,12 +121,8 @@
     _ttsButton.translatesAutoresizingMaskIntoConstraints = NO;
     _ttsButton.layer.cornerRadius = 15.0;
     _ttsButton.clipsToBounds = YES;
-    _ttsButton.backgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
-        return tc.userInterfaceStyle == UIUserInterfaceStyleDark
-            ? [UIColor colorWithRed:0.28 green:0.28 blue:0.30 alpha:1.0]
-            : [UIColor colorWithRed:0.95 green:0.95 blue:0.97 alpha:1.0];
-    }];
-    _ttsButton.tintColor = [UIColor systemBlueColor];
+    _ttsButton.backgroundColor = [EZTheme cardColor];
+    _ttsButton.tintColor = [EZTheme goldColor];
     _ttsButton.hidden = YES;
     [_ttsButton addTarget:self action:@selector(_ttsButtonTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.contentView addSubview:_ttsButton];
@@ -147,12 +140,8 @@
     _soundButton.translatesAutoresizingMaskIntoConstraints = NO;
     _soundButton.layer.cornerRadius = 15.0;
     _soundButton.clipsToBounds = YES;
-    _soundButton.backgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
-        return tc.userInterfaceStyle == UIUserInterfaceStyleDark
-            ? [UIColor colorWithRed:0.28 green:0.28 blue:0.30 alpha:1.0]
-            : [UIColor colorWithRed:0.95 green:0.95 blue:0.97 alpha:1.0];
-    }];
-    _soundButton.tintColor = [UIColor systemBlueColor];
+    _soundButton.backgroundColor = [EZTheme cardColor];
+    _soundButton.tintColor = [EZTheme goldColor];
     _soundButton.hidden = YES;
     [_soundButton addTarget:self action:@selector(_soundButtonTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.contentView addSubview:_soundButton];
@@ -204,26 +193,24 @@
     _messageTextView.text = text;
 
     // ── Bubble background ────────────────────────────────────────────────────
-    _bubbleView.backgroundColor = isUser
-        ? [UIColor systemBlueColor]
-        : [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
-               return tc.userInterfaceStyle == UIUserInterfaceStyleDark
-                   ? [UIColor colorWithRed:0.20 green:0.20 blue:0.22 alpha:1.0]
-                   : [UIColor colorWithRed:0.90 green:0.90 blue:0.92 alpha:1.0];
-           }];
+    _bubbleView.backgroundColor = isUser ? [EZTheme userBubbleColor]
+                                         : [EZTheme assistantBubbleColor];
+    _bubbleView.layer.borderWidth = isUser ? 0.0 : 1.0;
+    _bubbleView.layer.borderColor = [EZTheme hairlineColor].CGColor;
     _messageTextView.backgroundColor = [UIColor clearColor];
-    _messageTextView.textColor = isUser ? [UIColor whiteColor] : [UIColor labelColor];
+    _messageTextView.textColor = isUser ? [EZTheme userBubbleTextColor]
+                                        : [EZTheme primaryTextColor];
 
     UIColor *linkColor = isUser
-        ? [UIColor colorWithWhite:1.0 alpha:0.90]
-        : [UIColor colorWithRed:0.231 green:0.510 blue:0.965 alpha:1.0];
+        ? [[EZTheme userBubbleTextColor] colorWithAlphaComponent:0.85]
+        : [EZTheme goldColor];
     _messageTextView.linkTextAttributes = @{
         NSForegroundColorAttributeName : linkColor,
         NSUnderlineStyleAttributeName  : @(NSUnderlineStyleSingle),
     };
     _messageTextView.tintColor = isUser
-        ? [UIColor colorWithWhite:1.0 alpha:0.7]
-        : [UIColor systemBlueColor];
+        ? [[EZTheme userBubbleTextColor] colorWithAlphaComponent:0.6]
+        : [EZTheme goldColor];
 
     // ── Tail ─────────────────────────────────────────────────────────────────
     if (@available(iOS 11.0, *)) {

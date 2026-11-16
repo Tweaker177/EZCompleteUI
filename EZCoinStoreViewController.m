@@ -87,6 +87,8 @@
 
 #import "EZCoinPotView.h"
 
+#import "EZTheme.h"
+
 #import "helpers.h"
 
 #import "EZCoinLedgerViewController.h"
@@ -669,7 +671,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.title = NSLocalizedString(@"EZCoinStore.Title", @"Coin store navigation title");
 
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
 
     // No explicit close button — this VC is presented as a swipe-to-dismiss
 
@@ -1180,7 +1182,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, headerHeight)];
 
-    self.headerView.backgroundColor = [UIColor colorWithRed:0.05 green:0.05 blue:0.12 alpha:1.0];
+    self.headerView.backgroundColor = [EZTheme cardColor];
 
     if (self.isPromoActive) {
 
@@ -1259,7 +1261,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.tableView.dataSource       = self;
 
-    self.tableView.backgroundColor  = [UIColor systemBackgroundColor];
+    self.tableView.backgroundColor  = [EZTheme chatBackgroundColor];
 
     self.tableView.separatorStyle   = UITableViewCellSeparatorStyleNone;
 

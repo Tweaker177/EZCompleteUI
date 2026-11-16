@@ -611,6 +611,7 @@
 #import "ViewController+EZKeepAwake.h"
 #import "ElevenLabsCloneViewController.h"
 #import "EZCoinStoreViewController.h"
+#import "EZTheme.h"
 #import "EZFirstRunTutorialViewController.h"
 #import "EZPhotoGalleryViewController.h"
 #import "EZCoinPotView.h"
@@ -2215,7 +2216,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (void)setupUI {
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
 
     // Top bar buttons
     // + New chat (save current, start fresh)
@@ -2342,7 +2343,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.chatTableView.dataSource         = self;
     self.chatTableView.delegate           = self;
     self.chatTableView.separatorStyle     = UITableViewCellSeparatorStyleNone;
-    self.chatTableView.backgroundColor    = [UIColor systemBackgroundColor];
+    self.chatTableView.backgroundColor    = [EZTheme chatBackgroundColor];
     self.chatTableView.estimatedRowHeight = 60;
     self.chatTableView.rowHeight          = UITableViewAutomaticDimension;
     self.chatTableView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -2451,16 +2452,17 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     // Message input — UITextView so it can expand to multiple lines.
     // Wrapped in a rounded container view to replicate UITextBorderStyleRoundedRect look.
     UIView *inputWrapper = [[UIView alloc] init];
-    inputWrapper.backgroundColor   = [UIColor systemBackgroundColor];
+    inputWrapper.backgroundColor   = [EZTheme backgroundColor];
     inputWrapper.layer.cornerRadius = 10.0;
     inputWrapper.layer.borderWidth  = 1.5;
-    inputWrapper.layer.borderColor  = [UIColor separatorColor].CGColor;
+    inputWrapper.layer.borderColor  = [[EZTheme goldColor] colorWithAlphaComponent:0.35].CGColor;
     inputWrapper.clipsToBounds      = YES;
     inputWrapper.translatesAutoresizingMaskIntoConstraints = NO;
 
     self.messageTextField = [[UITextView alloc] init];
     self.messageTextField.font                  = [UIFont systemFontOfSize:16];
-    self.messageTextField.textColor             = [UIColor labelColor];
+    self.messageTextField.textColor             = [EZTheme primaryTextColor];
+    self.messageTextField.tintColor             = [EZTheme goldColor];
     self.messageTextField.backgroundColor       = [UIColor clearColor];
     self.messageTextField.textContainerInset    = UIEdgeInsetsMake(8, 6, 8, 6);
     self.messageTextField.textContainer.lineFragmentPadding = 0;
@@ -2505,9 +2507,16 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
               forControlEvents:UIControlEventTouchUpInside];
     self.sendButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.inputContainer addSubview:self.sendButton];
-    self.inputContainer.backgroundColor = [UIColor colorWithRed:0 green:0.44 blue:0.34 alpha:0.8];
-    self.inputContainer.layer.borderWidth = 2.0;
-    self.inputContainer.layer.borderColor = [UIColor secondaryLabelColor].CGColor;
+    self.sendButton.backgroundColor = [EZTheme goldColor];
+    [self.sendButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateNormal];
+    [self.sendButton setTitleColor:[[EZTheme userBubbleTextColor] colorWithAlphaComponent:0.45] forState:UIControlStateDisabled];
+    self.sendButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+    self.sendButton.layer.cornerRadius = 16.0;
+    self.sendButton.clipsToBounds = YES;
+    self.sendButton.contentEdgeInsets = UIEdgeInsetsMake(7, 16, 7, 16);
+    self.inputContainer.backgroundColor = [EZTheme cardColor];
+    self.inputContainer.layer.borderWidth = 1.0;
+    self.inputContainer.layer.borderColor = [EZTheme hairlineColor].CGColor;
     self.inputContainer.layer.masksToBounds = YES;
     self.inputContainer.layer.cornerRadius = 10.0;
 
