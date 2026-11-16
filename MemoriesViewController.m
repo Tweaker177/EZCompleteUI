@@ -18,6 +18,7 @@
 //     that caused wrong thumbnails after any reload that changed sort order.
 
 #import "MemoriesViewController.h"
+#import "EZTheme.h"
 #import "helpers.h"
 #import "EZPhotoGalleryViewController.h"
 #import "EZMusicLibraryManager.h"
@@ -92,10 +93,10 @@
     UIView *card = [[UIView alloc] init];
     card.tag = 999;
     card.translatesAutoresizingMaskIntoConstraints = NO;
-    card.backgroundColor     = [UIColor secondarySystemGroupedBackgroundColor];
+    card.backgroundColor     = [EZTheme cardColor];
     card.layer.cornerRadius  = 14;
     card.layer.borderWidth   = 1.0;
-    card.layer.borderColor   = [UIColor separatorColor].CGColor;
+    card.layer.borderColor   = [EZTheme hairlineColor].CGColor;
     card.layer.shadowColor   = [UIColor blackColor].CGColor;
     card.layer.shadowOpacity = 0.08;
     card.layer.shadowOffset  = CGSizeMake(0, 2);
@@ -115,7 +116,7 @@
     _timestampLabel.adjustsFontSizeToFitWidth = YES;
     _timestampLabel.minimumScaleFactor = 0.5;
     _timestampLabel.font      = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightSemibold];
-    _timestampLabel.textColor = [UIColor systemBlueColor];
+    _timestampLabel.textColor = [EZTheme goldColor];
     _timestampLabel.translatesAutoresizingMaskIntoConstraints = NO;
     _timestampLabel.userInteractionEnabled = YES;
     UITapGestureRecognizer *tsTap = [[UITapGestureRecognizer alloc]
@@ -129,7 +130,7 @@
     _attachmentThumb.contentMode        = UIViewContentModeScaleAspectFill;
     _attachmentThumb.clipsToBounds      = YES;
     _attachmentThumb.layer.cornerRadius = 8;
-    _attachmentThumb.backgroundColor    = [UIColor tertiarySystemFillColor];
+    _attachmentThumb.backgroundColor    = [EZTheme backgroundColor];
     _attachmentThumb.hidden             = YES;
     [card addSubview:_attachmentThumb];
 
@@ -146,8 +147,8 @@
     _attachmentBadge.adjustsFontSizeToFitWidth = YES;
     _attachmentBadge.minimumScaleFactor = 0.5;
     _attachmentBadge.font              = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
-    _attachmentBadge.textColor         = [UIColor whiteColor];
-    _attachmentBadge.backgroundColor   = [UIColor systemTealColor];
+    _attachmentBadge.textColor         = [EZTheme userBubbleTextColor];
+    _attachmentBadge.backgroundColor   = [EZTheme goldColor];
     _attachmentBadge.text              = @"  📎  Tap to preview attachment  ";
     _attachmentBadge.layer.cornerRadius = 8;
     _attachmentBadge.clipsToBounds     = YES;
@@ -162,7 +163,7 @@
     // ── Song player row (hidden unless the memory has a playable song) ────
     _playerView = [[UIView alloc] init];
     _playerView.translatesAutoresizingMaskIntoConstraints = NO;
-    _playerView.backgroundColor    = [UIColor tertiarySystemFillColor];
+    _playerView.backgroundColor    = [EZTheme cardColor];
     _playerView.layer.cornerRadius = 10;
     _playerView.clipsToBounds      = YES;
     _playerView.hidden             = YES;
@@ -173,7 +174,7 @@
     _playerArtworkView.contentMode        = UIViewContentModeScaleAspectFill;
     _playerArtworkView.clipsToBounds      = YES;
     _playerArtworkView.layer.cornerRadius = 6;
-    _playerArtworkView.backgroundColor    = [UIColor secondarySystemFillColor];
+    _playerArtworkView.backgroundColor    = [EZTheme backgroundColor];
     [_playerView addSubview:_playerArtworkView];
 
     _playerTitleLabel = [[UILabel alloc] init];
@@ -181,7 +182,7 @@
     _playerTitleLabel.minimumScaleFactor = 0.5;
     _playerTitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
     _playerTitleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
-    _playerTitleLabel.textColor = [UIColor labelColor];
+    _playerTitleLabel.textColor = [EZTheme primaryTextColor];
     _playerTitleLabel.numberOfLines = 1;
     _playerTitleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     [_playerView addSubview:_playerTitleLabel];
@@ -191,13 +192,13 @@
     _playerDetailLabel.minimumScaleFactor = 0.5;
     _playerDetailLabel.translatesAutoresizingMaskIntoConstraints = NO;
     _playerDetailLabel.font = [UIFont systemFontOfSize:12];
-    _playerDetailLabel.textColor = [UIColor secondaryLabelColor];
+    _playerDetailLabel.textColor = [EZTheme secondaryTextColor];
     _playerDetailLabel.numberOfLines = 1;
     [_playerView addSubview:_playerDetailLabel];
 
     _playerPlayButton = [UIButton buttonWithType:UIButtonTypeSystem];
     _playerPlayButton.translatesAutoresizingMaskIntoConstraints = NO;
-    _playerPlayButton.tintColor = [UIColor labelColor];
+    _playerPlayButton.tintColor = [EZTheme goldColor];
     _playerPlayButton.accessibilityLabel = NSLocalizedString(@"EZMemory.Player.Play", @"Play accessibility label");
     [_playerPlayButton setImage:[UIImage systemImageNamed:@"play.fill"
         withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22]]
@@ -214,7 +215,7 @@
     _playerProgressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
     _playerProgressView.translatesAutoresizingMaskIntoConstraints = NO;
     _playerProgressView.trackTintColor = [UIColor clearColor];
-    _playerProgressView.progressTintColor = [UIColor systemBlueColor];
+    _playerProgressView.progressTintColor = [EZTheme goldColor];
     _playerProgressView.hidden = YES;
     [_playerView addSubview:_playerProgressView];
 
@@ -226,7 +227,7 @@
     // ── Summary text view ─────────────────────────────────────────────────────
     _summaryTextView = [[UITextView alloc] init];
     _summaryTextView.font             = [UIFont systemFontOfSize:15];
-    _summaryTextView.textColor        = [UIColor labelColor];
+    _summaryTextView.textColor        = [EZTheme primaryTextColor];
     _summaryTextView.backgroundColor  = [UIColor clearColor];
     _summaryTextView.scrollEnabled    = NO;
     _summaryTextView.delegate         = self;
@@ -250,7 +251,7 @@
     _editHintLabel.minimumScaleFactor = 0.5;
     _editHintLabel.text            = @"✏️ Tap summary to edit";
     _editHintLabel.font            = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
-    _editHintLabel.textColor       = [UIColor systemBlueColor];
+    _editHintLabel.textColor       = [EZTheme goldColor];
     _editHintLabel.alpha           = 0.7;
     _editHintLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:_editHintLabel];
@@ -394,7 +395,7 @@
         } else {
             self.playerArtworkView.image = [UIImage systemImageNamed:@"music.note"];
             self.playerArtworkView.contentMode = UIViewContentModeScaleAspectFit;
-            self.playerArtworkView.tintColor = [UIColor secondaryLabelColor];
+            self.playerArtworkView.tintColor = [EZTheme secondaryTextColor];
         }
         self.playerView.hidden = NO;
         self.playerHeightConstraint.constant = 64;
@@ -604,7 +605,7 @@
 
 - (void)textViewDidBeginEditing:(UITextView *)textView {
     UIView *card = [self.contentView viewWithTag:999];
-    card.layer.borderColor = [UIColor systemBlueColor].CGColor;
+    card.layer.borderColor = [EZTheme goldColor].CGColor;
     card.layer.borderWidth = 2.0;
     self.editHintLabel.text  = @"✏️ Editing — Done to save";
     self.editHintLabel.alpha = 1.0;
@@ -612,7 +613,7 @@
 
 - (void)textViewDidEndEditing:(UITextView *)textView {
     UIView *card = [self.contentView viewWithTag:999];
-    card.layer.borderColor = [UIColor separatorColor].CGColor;
+    card.layer.borderColor   = [EZTheme hairlineColor].CGColor;
     card.layer.borderWidth = 1.0;
     self.editHintLabel.text  = @"✏️ Tap summary to edit";
     self.editHintLabel.alpha = 0.7;
@@ -661,7 +662,10 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = NSLocalizedString(@"EZMemories.Title", nil);
-    self.view.backgroundColor = [UIColor systemGroupedBackgroundColor];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
+    self.navigationController.navigationBar.standardAppearance   = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.tintColor            = [EZTheme goldColor];
 
     // ── Left nav bar: search (refresh handled automatically via file watch) ───
     UIBarButtonItem *searchItem = nil;
@@ -726,6 +730,7 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
     [self.tableView registerClass:[EZMemoryCell class] forCellReuseIdentifier:kCellID];
     [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:kEmptyCellID];
     [self.view addSubview:self.tableView];
+    self.tableView.backgroundColor = [EZTheme chatBackgroundColor];
 }
 
 - (void)setupSearchBar {
@@ -735,6 +740,12 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
     self.searchBar.placeholder = NSLocalizedString(@"EZMemories.Search", nil);
     self.searchBar.delegate = self;
     self.searchBar.showsCancelButton = NO;
+    self.searchBar.barStyle          = UIBarStyleBlack;
+    self.searchBar.tintColor         = [EZTheme goldColor];
+    if (@available(iOS 13.0, *)) {
+        self.searchBar.searchTextField.backgroundColor = [EZTheme cardColor];
+        self.searchBar.searchTextField.textColor       = [EZTheme primaryTextColor];
+    }
     self.tableView.tableHeaderView = self.searchBar;
 }
 
@@ -743,7 +754,7 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
     self.emptyLabel.adjustsFontSizeToFitWidth = YES;
     self.emptyLabel.minimumScaleFactor = 0.5;
     self.emptyLabel.text          = NSLocalizedString(@"EZMemories.NoneSaved", nil);
-    self.emptyLabel.textColor     = [UIColor secondaryLabelColor];
+    self.emptyLabel.textColor     = [EZTheme secondaryTextColor];
     self.emptyLabel.font          = [UIFont systemFontOfSize:16];
     self.emptyLabel.textAlignment = NSTextAlignmentCenter;
     self.emptyLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -1031,7 +1042,7 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
             } else {
                 cfg.text = NSLocalizedString(@"EZMemories.NoneSaved", nil);
             }
-            cfg.textProperties.color = [UIColor secondaryLabelColor];
+            cfg.textProperties.color = [EZTheme secondaryTextColor];
             cell.contentConfiguration = cfg;
         } else {
             if (self.searchTerm.length > 0) {
@@ -1039,7 +1050,7 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
             } else {
                 cell.textLabel.text = NSLocalizedString(@"EZMemories.NoneSaved", nil);
             }
-            cell.textLabel.textColor = [UIColor secondaryLabelColor];
+            cell.textLabel.textColor = [EZTheme secondaryTextColor];
         }
         cell.userInteractionEnabled = NO;
         cell.selectionStyle = UITableViewCellSelectionStyleNone;

@@ -51,6 +51,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// Assistant chat bubbles: the lifted card navy.
 + (UIColor *)assistantBubbleColor;
 
+/// Opaque navy navigation-bar appearance (white title text) for themed
+/// screens that live in their own navigation controller.
++ (UINavigationBarAppearance *)navigationBarAppearance;
+
 @end
 
 NS_ASSUME_NONNULL_END

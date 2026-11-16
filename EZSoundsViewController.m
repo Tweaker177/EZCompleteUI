@@ -4,6 +4,7 @@
 //
 
 #import "EZSoundsViewController.h"
+#import "EZTheme.h"
 #import <AVFoundation/AVFoundation.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "helpers.h"
@@ -17,15 +18,17 @@
 #import "EZTTSManifestEntry.h"
 
 // ── Neon arcade palette (mirrors TextToSpeechViewController) ────────────────
-static UIColor *EZSoundsNeonBackground(void) { return [UIColor colorWithRed:0.03 green:0.02 blue:0.09 alpha:1.0]; }
-static UIColor *EZSoundsNeonPanel(void)      { return [UIColor colorWithRed:0.09 green:0.05 blue:0.18 alpha:1.0]; }
-static UIColor *EZSoundsNeonField(void)      { return [UIColor colorWithRed:0.14 green:0.09 blue:0.28 alpha:1.0]; }
-static UIColor *EZSoundsNeonViolet(void)     { return [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0]; }
-static UIColor *EZSoundsNeonCyan(void)       { return [UIColor colorWithRed:0.00 green:0.88 blue:1.00 alpha:1.0]; }
-static UIColor *EZSoundsNeonMint(void)       { return [UIColor colorWithRed:0.15 green:0.95 blue:0.80 alpha:1.0]; }
-static UIColor *EZSoundsNeonPink(void)       { return [UIColor colorWithRed:1.00 green:0.25 blue:0.62 alpha:1.0]; }
-static UIColor *EZSoundsNeonText(void)       { return [UIColor colorWithRed:0.94 green:0.92 blue:1.00 alpha:1.0]; }
-static UIColor *EZSoundsNeonDimText(void)    { return [UIColor colorWithRed:0.66 green:0.60 blue:0.90 alpha:1.0]; }
+// Palette names kept for the existing call sites; every value now
+// comes from EZTheme so this screen matches the rest of the app.
+static UIColor *EZSoundsNeonBackground(void) { return [EZTheme chatBackgroundColor]; }
+static UIColor *EZSoundsNeonPanel(void) { return [EZTheme cardColor]; }
+static UIColor *EZSoundsNeonField(void) { return [EZTheme backgroundColor]; }
+static UIColor *EZSoundsNeonViolet(void) { return [EZTheme goldColor]; }
+static UIColor *EZSoundsNeonCyan(void) { return [EZTheme goldColor]; }
+static UIColor *EZSoundsNeonMint(void) { return [EZTheme goldColor]; }
+static UIColor *EZSoundsNeonPink(void) { return [EZTheme goldColor]; }
+static UIColor *EZSoundsNeonText(void) { return [EZTheme primaryTextColor]; }
+static UIColor *EZSoundsNeonDimText(void) { return [EZTheme secondaryTextColor]; }
 
 static NSString * const kEZSoundsPlayerIdentifierPrefix = @"sound:";
 static NSInteger const kEZSoundsMaxSeconds = 30;
@@ -590,7 +593,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     // Generate button + status
     self.generateButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.generateButton setTitle:NSLocalizedString(@"EZSounds.Generate", nil) forState:UIControlStateNormal];
-    [self.generateButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [self.generateButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateNormal];
     self.generateButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightBold];
     self.generateButton.backgroundColor = EZSoundsNeonPink();
     self.generateButton.layer.cornerRadius = 12;

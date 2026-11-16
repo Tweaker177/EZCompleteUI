@@ -40,6 +40,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import "helpers.h"
+#import "EZTheme.h"
 #import "EZAuthManager.h"
 #import "EZTTSLibraryManager.h"
 #import "EZTTSLibraryViewController.h"
@@ -64,15 +65,17 @@ static const Float64 kBackgroundAudioTailSeconds = 3.0;
 // ── Neon arcade palette (this screen only) ───────────────────────────────────
 // Deep-space background, glowing violet/cyan borders, hot pink primary action.
 // No system blue anywhere on this screen.
-static UIColor *EZTTSNeonBackground(void) { return [UIColor colorWithRed:0.03 green:0.02 blue:0.09 alpha:1.0]; }
-static UIColor *EZTTSNeonPanel(void)      { return [UIColor colorWithRed:0.09 green:0.05 blue:0.18 alpha:1.0]; }
-static UIColor *EZTTSNeonField(void)      { return [UIColor colorWithRed:0.14 green:0.09 blue:0.28 alpha:1.0]; }
-static UIColor *EZTTSNeonViolet(void)     { return [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0]; }
-static UIColor *EZTTSNeonCyan(void)       { return [UIColor colorWithRed:0.00 green:0.88 blue:1.00 alpha:1.0]; }
-static UIColor *EZTTSNeonMint(void)       { return [UIColor colorWithRed:0.15 green:0.95 blue:0.80 alpha:1.0]; }
-static UIColor *EZTTSNeonPink(void)       { return [UIColor colorWithRed:1.00 green:0.25 blue:0.62 alpha:1.0]; }
-static UIColor *EZTTSNeonText(void)       { return [UIColor colorWithRed:0.94 green:0.92 blue:1.00 alpha:1.0]; }
-static UIColor *EZTTSNeonDimText(void)    { return [UIColor colorWithRed:0.66 green:0.60 blue:0.90 alpha:1.0]; }
+// Palette names kept for the existing call sites; every value now
+// comes from EZTheme so this screen matches the rest of the app.
+static UIColor *EZTTSNeonBackground(void) { return [EZTheme chatBackgroundColor]; }
+static UIColor *EZTTSNeonPanel(void) { return [EZTheme cardColor]; }
+static UIColor *EZTTSNeonField(void) { return [EZTheme backgroundColor]; }
+static UIColor *EZTTSNeonViolet(void) { return [EZTheme goldColor]; }
+static UIColor *EZTTSNeonCyan(void) { return [EZTheme goldColor]; }
+static UIColor *EZTTSNeonMint(void) { return [EZTheme goldColor]; }
+static UIColor *EZTTSNeonPink(void) { return [EZTheme goldColor]; }
+static UIColor *EZTTSNeonText(void) { return [EZTheme primaryTextColor]; }
+static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
 
 @interface TextToSpeechViewController : UIViewController <UITextViewDelegate>
 @end
@@ -452,8 +455,8 @@ static NSString *timestampString(void) {
     self.addMusicButton.layer.borderColor = EZTTSNeonViolet().CGColor;
     [self.addMusicButton setTitle:@"Add Music" forState:UIControlStateNormal];
     [self.addMusicButton setImage:[UIImage systemImageNamed:@"music.note"] forState:UIControlStateNormal];
-    [self.addMusicButton setTitleColor:[UIColor colorWithRed:0.85 green:0.62 blue:1.00 alpha:1.0] forState:UIControlStateNormal];
-    self.addMusicButton.tintColor = [UIColor colorWithRed:0.85 green:0.62 blue:1.00 alpha:1.0];
+    [self.addMusicButton setTitleColor:[EZTheme goldColor] forState:UIControlStateNormal];
+    self.addMusicButton.tintColor = [EZTheme goldColor];
     self.addMusicButton.enabled = NO;
     self.addMusicButton.alpha = 0.5;
     [self.addMusicButton addTarget:self action:@selector(addMusicTapped:) forControlEvents:UIControlEventTouchUpInside];

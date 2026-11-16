@@ -72,6 +72,16 @@
     return [self cardColor];
 }
 
++ (UINavigationBarAppearance *)navigationBarAppearance {
+    UINavigationBarAppearance *appearance = [[UINavigationBarAppearance alloc] init];
+    [appearance configureWithOpaqueBackground];
+    appearance.backgroundColor = [self backgroundColor];
+    appearance.shadowColor = [UIColor clearColor];
+    appearance.titleTextAttributes = @{ NSForegroundColorAttributeName: [UIColor whiteColor] };
+    appearance.largeTitleTextAttributes = @{ NSForegroundColorAttributeName: [UIColor whiteColor] };
+    return appearance;
+}
+
 + (UIColor *)chatBackgroundColor {
     static UIColor *color; static dispatch_once_t once;
     dispatch_once(&once, ^{

@@ -12,6 +12,7 @@
 // never reads or writes.
 
 #import "EZMemorySummaryViewController.h"
+#import "EZTheme.h"
 #import "helpers.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,10 +54,10 @@
     UIView *card = [[UIView alloc] init];
     card.tag = 999;
     card.translatesAutoresizingMaskIntoConstraints = NO;
-    card.backgroundColor     = [UIColor secondarySystemGroupedBackgroundColor];
+    card.backgroundColor     = [EZTheme cardColor];
     card.layer.cornerRadius  = 14;
     card.layer.borderWidth   = 1.0;
-    card.layer.borderColor   = [UIColor separatorColor].CGColor;
+    card.layer.borderColor   = [EZTheme hairlineColor].CGColor;
     card.layer.shadowColor   = [UIColor blackColor].CGColor;
     card.layer.shadowOpacity = 0.08;
     card.layer.shadowOffset  = CGSizeMake(0, 2);
@@ -69,14 +70,14 @@
     _timestampLabel.adjustsFontSizeToFitWidth = YES;
     _timestampLabel.minimumScaleFactor = 0.5;
     _timestampLabel.font      = [UIFont monospacedSystemFontOfSize:12 weight:UIFontWeightSemibold];
-    _timestampLabel.textColor = [UIColor systemBlueColor];
+    _timestampLabel.textColor = [EZTheme goldColor];
     _timestampLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:_timestampLabel];
 
     // ── Fact text — the inline editor, same affordance as EZMemoryCell ──
     _factTextView = [[UITextView alloc] init];
     _factTextView.font             = [UIFont systemFontOfSize:15];
-    _factTextView.textColor        = [UIColor labelColor];
+    _factTextView.textColor        = [EZTheme primaryTextColor];
     _factTextView.backgroundColor  = [UIColor clearColor];
     _factTextView.scrollEnabled    = NO;
     _factTextView.delegate         = self;
@@ -100,7 +101,7 @@
     _editHintLabel.minimumScaleFactor = 0.5;
     _editHintLabel.text            = @"✏️ Tap fact to edit";
     _editHintLabel.font            = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
-    _editHintLabel.textColor       = [UIColor systemBlueColor];
+    _editHintLabel.textColor       = [EZTheme goldColor];
     _editHintLabel.alpha           = 0.7;
     _editHintLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:_editHintLabel];
@@ -151,7 +152,7 @@
 
 - (void)textViewDidBeginEditing:(UITextView *)textView {
     UIView *card = [self.contentView viewWithTag:999];
-    card.layer.borderColor = [UIColor systemBlueColor].CGColor;
+    card.layer.borderColor = [EZTheme goldColor].CGColor;
     card.layer.borderWidth = 2.0;
     self.editHintLabel.text  = @"✏️ Editing — Done to save";
     self.editHintLabel.alpha = 1.0;
@@ -159,7 +160,7 @@
 
 - (void)textViewDidEndEditing:(UITextView *)textView {
     UIView *card = [self.contentView viewWithTag:999];
-    card.layer.borderColor = [UIColor separatorColor].CGColor;
+    card.layer.borderColor   = [EZTheme hairlineColor].CGColor;
     card.layer.borderWidth = 1.0;
     self.editHintLabel.text  = @"✏️ Tap fact to edit";
     self.editHintLabel.alpha = 0.7;
@@ -192,7 +193,10 @@ static NSString * const kSummaryCellID = @"EZMemorySummaryCell";
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"Memory Summary";
-    self.view.backgroundColor = [UIColor systemGroupedBackgroundColor];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
+    self.navigationController.navigationBar.standardAppearance   = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.tintColor            = [EZTheme goldColor];
 
     // ── Left nav bar: add ────────────────────────────────────────────────
     UIBarButtonItem *addItem = [[UIBarButtonItem alloc]
@@ -231,6 +235,7 @@ static NSString * const kSummaryCellID = @"EZMemorySummaryCell";
     self.tableView.autoresizingMask   = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.tableView registerClass:[EZMemorySummaryCell class] forCellReuseIdentifier:kSummaryCellID];
     [self.view addSubview:self.tableView];
+    self.tableView.backgroundColor = [EZTheme chatBackgroundColor];
 }
 
 - (void)setupEmptyLabel {
@@ -239,7 +244,7 @@ static NSString * const kSummaryCellID = @"EZMemorySummaryCell";
     self.emptyLabel.minimumScaleFactor = 0.5;
     self.emptyLabel.text          = @"No important memories yet.\nAsk the assistant to remember something important and it will appear here.";
     self.emptyLabel.numberOfLines = 0;
-    self.emptyLabel.textColor     = [UIColor secondaryLabelColor];
+    self.emptyLabel.textColor     = [EZTheme secondaryTextColor];
     self.emptyLabel.font          = [UIFont systemFontOfSize:16];
     self.emptyLabel.textAlignment = NSTextAlignmentCenter;
     self.emptyLabel.translatesAutoresizingMaskIntoConstraints = NO;
