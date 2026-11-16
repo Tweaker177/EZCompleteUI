@@ -195,6 +195,9 @@ static UIImage *PPParticleImage(BOOL coin) {
 @property (nonatomic, strong) NSDictionary *result;
 // Card pick
 @property (nonatomic, strong) NSMutableArray<UIView *> *pickCards;      // by identity 0...2
+@property (nonatomic, strong) NSMutableArray<UIView *> *pickCardBacks;   // parallel to pickCards
+@property (nonatomic, strong) NSMutableArray<UIView *> *pickCardFronts;  // parallel to pickCards
+@property (nonatomic, strong) NSMutableArray<UILabel *> *pickCardValues; // parallel to pickCards
 @property (nonatomic, strong) NSMutableArray<UIView *> *pickSlots;      // card in each slot, left to right
 @property (nonatomic, strong) UILabel *pickTitle, *pickSubtitle, *pickPrompt;
 @end
@@ -1376,6 +1379,15 @@ static NSArray<UIColor *> *PPLineColors(void) {
     [front addSubview:value];
     [card addSubview:back];
     [card addSubview:front];
+    // Direct references, never viewWithTag:: the card's own tag IS its
+    // identity (0, 1, 2), which collides with the subview tags (back 1,
+    // front 2) — viewWithTag:1 returned the identity-1 card itself
+    // (hiding the whole card at flip time) and viewWithTag:2 the
+    // identity-2 card (its front never unhid). That was the messed-up
+    // reveal: only the identity-0 card ever flipped correctly.
+    [self.pickCardBacks addObject:back];
+    [self.pickCardFronts addObject:front];
+    [self.pickCardValues addObject:value];
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(cardTapped:)];
     [card addGestureRecognizer:tap];
     return card;
@@ -1414,6 +1426,9 @@ static NSArray<UIColor *> *PPLineColors(void) {
     CGFloat cardWidth = MIN(104, (width - 72) / 3), cardHeight = cardWidth * 1.4;
     self.pickCards = [NSMutableArray array];
     self.pickSlots = [NSMutableArray array];
+    self.pickCardBacks = [NSMutableArray array];
+    self.pickCardFronts = [NSMutableArray array];
+    self.pickCardValues = [NSMutableArray array];
     for (NSInteger i = 0; i < 3; i++) {
         _slotCenters[i] = CGPointMake(width / 2 + (i - 1) * (cardWidth + 14), height * 0.55);
         UIView *card = [self makeCardAtIdentity:i size:CGSizeMake(cardWidth, cardHeight)];
@@ -1491,35 +1506,54 @@ static NSArray<UIColor *> *PPLineColors(void) {
 - (void)revealPick:(NSDictionary *)result identity:(NSInteger)identity {
     NSArray *cards = result[@"cards"];
     NSInteger multiplier = PPInteger(result[@"multiplier"]);
+    // Values stay bound to card identity: the card the player tapped
+    // (pickCards[identity] — the same view that carries that tag) shows
+    // cards[identity], the value the server recorded for this pick.
     for (NSInteger i = 0; i < 3; i++) {
-        UILabel *value = (UILabel *)[self.pickCards[i] viewWithTag:3];
+        UILabel *value = self.pickCardValues[i];
         value.text = [NSString stringWithFormat:@"×%ld", (long)PPInteger(cards[i])];
-    }
-    void (^flip)(UIView *, BOOL) = ^(UIView *card, BOOL dim) {
-        [UIView transitionWithView:card duration:0.45 options:UIViewAnimationOptionTransitionFlipFromLeft animations:^{
-            [card viewWithTag:1].hidden = YES;
-            [card viewWithTag:2].hidden = NO;
-        } completion:nil];
-        if (dim) [UIView animateWithDuration:0.3 delay:0.3 options:0 animations:^{ card.alpha = 0.5; } completion:nil];
-    };
-    UIView *picked = self.pickCards[identity];
-    [self.pickOverlay bringSubviewToFront:picked];
-    flip(picked, NO);
-    [UIView animateWithDuration:0.45 animations:^{ picked.transform = CGAffineTransformMakeScale(1.18, 1.18); }];
-    [self.audio playMultiplierReveal:multiplier];
-    self.pickPrompt.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Pick.Result", @"Your multiplier: ×%ld"), (long)multiplier];
-    self.pickPrompt.textColor = PPC(0xFFE48F);
-    self.pickPrompt.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
-    NSTimeInterval delay = 0.8;
-    for (NSInteger i = 0; i < 3; i++) {
-        if (i == identity) continue;
-        UIView *card = self.pickCards[i];
-        [self after:delay do:^{ flip(card, YES); }];
-        delay += 0.35;
     }
     _bonusMult = multiplier;
     _pickPending = NO;
-    [self after:delay + 1.1 do:^{
+    UIView *picked = self.pickCards[identity];
+    [self.pickOverlay bringSubviewToFront:picked];
+
+    // 1. Turn over ALL THREE cards at once, so the player sees what
+    // every card hid — including the two they did not pick.
+    for (NSInteger i = 0; i < 3; i++) {
+        UIView *card = self.pickCards[i];
+        UIView *back = self.pickCardBacks[i];
+        UIView *front = self.pickCardFronts[i];
+        [UIView transitionWithView:card duration:0.45 options:UIViewAnimationOptionTransitionFlipFromLeft animations:^{
+            back.hidden = YES;
+            front.hidden = NO;
+        } completion:nil];
+    }
+    // 2. Hold on the full reveal, then the two unpicked cards disappear
+    // and the picked card takes center stage, still showing its value.
+    [self after:1.15 do:^{
+        for (NSInteger i = 0; i < 3; i++) {
+            if (i == identity) continue;
+            UIView *card = self.pickCards[i];
+            [UIView animateWithDuration:0.35 animations:^{ card.alpha = 0; } completion:^(BOOL finished) {
+                card.hidden = YES;
+            }];
+        }
+        [UIView animateWithDuration:0.35 animations:^{
+            picked.center = self->_slotCenters[1];
+            picked.transform = CGAffineTransformMakeScale(1.18, 1.18);
+        }];
+    }];
+    // 3. A beat with only the picked card on screen, then celebrate the
+    // multiplier it revealed before the free spins begin.
+    [self after:2.15 do:^{
+        [self.audio playMultiplierReveal:multiplier];
+        [self haptic:UIImpactFeedbackStyleHeavy];
+        self.pickPrompt.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Pick.Result", @"Your multiplier: ×%ld"), (long)multiplier];
+        self.pickPrompt.textColor = PPC(0xFFE48F);
+        self.pickPrompt.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
+    }];
+    [self after:3.3 do:^{
         [self closePickOverlayThen:^{
             [self refreshBanner];
             [self setMessage:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.BonusStart", @"×%ld free spins begin!"), (long)multiplier] highlight:YES];
