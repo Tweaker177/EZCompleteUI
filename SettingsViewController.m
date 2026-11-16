@@ -319,6 +319,14 @@
         [self.scrollView addSubview:versionLabel];
         y += 30;
 
+        // ── GitHub ────────────────────────────────────────────────────────────────
+        [self addSection:@"🐙 GitHub" y:&y];
+        [self addLabel:@"Let chat models read your repos (and, if you allow it, propose changes)." y:&y];
+        [self addButton:@"Connect / Manage GitHub"
+                  color:[UIColor systemGrayColor]
+                 action:@selector(openGitHubSettings)
+                      y:&y w:w];
+
         // ── Subscription ─────────────────────────────────────────────────────────
         [self addSection:@"💎 Subscription" y:&y];
 
@@ -491,14 +499,6 @@
         [self addButton:@"📬 Support & Feedback"
                   color:[UIColor systemTealColor]
                  action:@selector(openSupportRequest)
-                      y:&y w:w];
-
-        // ── GitHub ────────────────────────────────────────────────────────────────
-        [self addSection:@"🐙 GitHub" y:&y];
-        [self addLabel:@"Let chat models read your repos (and, if you allow it, propose changes)." y:&y];
-        [self addButton:@"Connect / Manage GitHub"
-                  color:[UIColor systemGrayColor]
-                 action:@selector(openGitHubSettings)
                       y:&y w:w];
 
         // ── NSFW Images (Seahorse) ────────────────────────────────────
