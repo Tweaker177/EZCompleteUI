@@ -209,7 +209,7 @@ static UIImage *PPParticleImage(BOOL coin) {
     NSInteger _balance;                 // what the label shows
     BOOL _balanceChecked;               // _balance verified by the server (entry, settle, or bet change)
     NSInteger _freeRemaining, _freeBonusRemaining, _freeClaimRemaining, _bonusMult, _bonusTotal, _bonusLines, _bonusBet, _lastAwarded, _spinWager;
-    BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving;
+    BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving, _forceBonusArmed;
     NSUInteger _epoch;
     NSTimeInterval _celebrationEnd;
     CGFloat _cellSize;
@@ -493,6 +493,10 @@ static UIImage *PPParticleImage(BOOL coin) {
     self.spinButton = [self controlButton:PPLoc(@"BRSlot.PP.Spin", @"SPIN") color:PPC(0xC8141E) action:@selector(spinTapped)];
     self.spinButton.titleLabel.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
     self.spinButton.layer.borderWidth = 2.5;
+    UILongPressGestureRecognizer *forceBonusHold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(forceBonusHold:)];
+    forceBonusHold.minimumPressDuration = 10.0;
+    forceBonusHold.cancelsTouchesInView = YES;
+    [self.spinButton addGestureRecognizer:forceBonusHold];
 
     [content addSubview:title]; [content addSubview:subtitle]; [content addSubview:info]; [content addSubview:self.bannerLabel];
     [content addSubview:self.machine]; [content addSubview:self.messageLabel]; [content addSubview:self.totalBetLabel];
@@ -818,6 +822,17 @@ static UIImage *PPParticleImage(BOOL coin) {
 
 #pragma mark Spinning
 
+// Test back door: a 10-second hold on SPIN arms a forced bonus for
+// the next paid spin (a heavy buzz confirms it armed). The server
+// honors force_bonus only for the owner's accounts, so for every
+// other player the hold does nothing at all.
+- (void)forceBonusHold:(UILongPressGestureRecognizer *)recognizer {
+    if (recognizer.state != UIGestureRecognizerStateBegan) return;
+    if (_busy || _pickPending) return;
+    _forceBonusArmed = YES;
+    [self haptic:UIImpactFeedbackStyleHeavy];
+}
+
 - (void)spinTapped {
     if (_busy || _bonusMode || _freeRemaining > 0) return;
     NSInteger wager = _lines * [self betPerLine];
@@ -870,7 +885,9 @@ static UIImage *PPParticleImage(BOOL coin) {
     [self haptic:UIImpactFeedbackStyleMedium];
 
     NSUInteger epoch = _epoch;
-    [self request:@{@"lines": @(lines), @"bet_per_line": @(bet)} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
+    NSMutableDictionary *spinBody = [@{@"lines": @(lines), @"bet_per_line": @(bet)} mutableCopy];
+    if (_forceBonusArmed && !free) { spinBody[@"force_bonus"] = @YES; _forceBonusArmed = NO; }
+    [self request:spinBody completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_epoch != epoch || self->_leaving) return;
         if (error || ![self parseResult:result]) {
             [self failSpin:error ?: PPLoc(@"BRSlot.PP.BadResponse", @"Unexpected response. Your balance is unchanged.") status:status];
@@ -1474,52 +1491,35 @@ static NSArray<UIColor *> *PPLineColors(void) {
 - (void)revealPick:(NSDictionary *)result identity:(NSInteger)identity {
     NSArray *cards = result[@"cards"];
     NSInteger multiplier = PPInteger(result[@"multiplier"]);
-    // Values stay bound to card identity: the card the player tapped
-    // (pickCards[identity] — the same view that carries that tag) shows
-    // cards[identity], the value the server recorded for this pick.
     for (NSInteger i = 0; i < 3; i++) {
         UILabel *value = (UILabel *)[self.pickCards[i] viewWithTag:3];
         value.text = [NSString stringWithFormat:@"×%ld", (long)PPInteger(cards[i])];
     }
-    _bonusMult = multiplier;
-    _pickPending = NO;
-    UIView *picked = self.pickCards[identity];
-    [self.pickOverlay bringSubviewToFront:picked];
-
-    // 1. Turn over ALL THREE cards at once, so the player sees what
-    // every card hid — including the two they did not pick.
-    for (UIView *card in self.pickCards) {
+    void (^flip)(UIView *, BOOL) = ^(UIView *card, BOOL dim) {
         [UIView transitionWithView:card duration:0.45 options:UIViewAnimationOptionTransitionFlipFromLeft animations:^{
             [card viewWithTag:1].hidden = YES;
             [card viewWithTag:2].hidden = NO;
         } completion:nil];
+        if (dim) [UIView animateWithDuration:0.3 delay:0.3 options:0 animations:^{ card.alpha = 0.5; } completion:nil];
+    };
+    UIView *picked = self.pickCards[identity];
+    [self.pickOverlay bringSubviewToFront:picked];
+    flip(picked, NO);
+    [UIView animateWithDuration:0.45 animations:^{ picked.transform = CGAffineTransformMakeScale(1.18, 1.18); }];
+    [self.audio playMultiplierReveal:multiplier];
+    self.pickPrompt.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Pick.Result", @"Your multiplier: ×%ld"), (long)multiplier];
+    self.pickPrompt.textColor = PPC(0xFFE48F);
+    self.pickPrompt.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
+    NSTimeInterval delay = 0.8;
+    for (NSInteger i = 0; i < 3; i++) {
+        if (i == identity) continue;
+        UIView *card = self.pickCards[i];
+        [self after:delay do:^{ flip(card, YES); }];
+        delay += 0.35;
     }
-    // 2. Hold on the full reveal, then the two unpicked cards fade out
-    // completely and the picked card takes center stage, still showing
-    // its value — the picked card is the one that stays visible.
-    [self after:1.15 do:^{
-        for (NSInteger i = 0; i < 3; i++) {
-            if (i == identity) continue;
-            UIView *card = self.pickCards[i];
-            [UIView animateWithDuration:0.35 animations:^{ card.alpha = 0; } completion:^(BOOL finished) {
-                card.hidden = YES;
-            }];
-        }
-        [UIView animateWithDuration:0.35 animations:^{
-            picked.center = self->_slotCenters[1];
-            picked.transform = CGAffineTransformMakeScale(1.18, 1.18);
-        }];
-    }];
-    // 3. A beat with only the picked card on screen, then celebrate the
-    // multiplier it revealed before the free spins begin.
-    [self after:2.15 do:^{
-        [self.audio playMultiplierReveal:multiplier];
-        [self haptic:UIImpactFeedbackStyleHeavy];
-        self.pickPrompt.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Pick.Result", @"Your multiplier: ×%ld"), (long)multiplier];
-        self.pickPrompt.textColor = PPC(0xFFE48F);
-        self.pickPrompt.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
-    }];
-    [self after:3.3 do:^{
+    _bonusMult = multiplier;
+    _pickPending = NO;
+    [self after:delay + 1.1 do:^{
         [self closePickOverlayThen:^{
             [self refreshBanner];
             [self setMessage:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.BonusStart", @"×%ld free spins begin!"), (long)multiplier] highlight:YES];
