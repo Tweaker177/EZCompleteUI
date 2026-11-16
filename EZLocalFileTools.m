@@ -73,16 +73,22 @@ static const NSUInteger kEZLocalFileMaxListEntries = 500;
     return [imageExts containsObject:ext];
 }
 
-+ (BOOL)isTextExtension:(NSString *)ext {
-    static NSSet<NSString *> *textExts;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        textExts = [NSSet setWithArray:@[@"txt", @"text", @"md", @"markdown", @"csv", @"tsv", @"json", @"xml",
-                                          @"html", @"htm", @"log", @"srt", @"swift", @"m", @"mm", @"h", @"c",
-                                          @"cc", @"cpp", @"hpp", @"py", @"js", @"ts", @"sh", @"yaml", @"yml",
-                                          @"toml", @"ini", @"cfg", @"conf", @"plist", @"strings", @"rtf"]];
-    });
-    return [textExts containsObject:ext];
++ (NSString *)sniffedImageExtension:(NSData *)data {
+    // Image routing also follows the bytes, so a photo saved under a
+    // non-image name still rides the image pipeline.
+    const unsigned char *b = data.bytes;
+    NSUInteger n = data.length;
+    if (n >= 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) return @"jpg";
+    if (n >= 4 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) return @"png";
+    if (n >= 4 && b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46 && b[3] == 0x38) return @"gif";
+    if (n >= 12 && !memcmp(b, "RIFF", 4) && !memcmp(b + 8, "WEBP", 4)) return @"webp";
+    if (n >= 2 && b[0] == 0x42 && b[1] == 0x4D) return @"bmp";
+    if (n >= 4 && ((b[0] == 0x49 && b[1] == 0x49 && b[2] == 0x2A && b[3] == 0x00) ||
+                   (b[0] == 0x4D && b[1] == 0x4D && b[2] == 0x00 && b[3] == 0x2A))) return @"tiff";
+    if (n >= 12 && !memcmp(b + 4, "ftyp", 4) &&
+        (!memcmp(b + 8, "heic", 4) || !memcmp(b + 8, "heix", 4) || !memcmp(b + 8, "hevc", 4) ||
+         !memcmp(b + 8, "mif1", 4) || !memcmp(b + 8, "msf1", 4))) return @"heic";
+    return nil;
 }
 
 + (void)executeRequest:(NSDictionary *)request
@@ -182,38 +188,39 @@ static const NSUInteger kEZLocalFileMaxListEntries = 500;
     unsigned long long byteSize = [match[@"size"] unsignedLongLongValue];
     NSString *ext = fileName.pathExtension.lowercaseString;
 
-    if ([self isImageExtension:ext]) {
-        if (byteSize > kEZLocalFileMaxImageBytes) {
-            return [self textResult:header body:[NSString stringWithFormat:
-                @"[Local file: %@ — %llu bytes]\nThis image is too large to send as image context, so it was not attached.", fileName, byteSize]];
-        }
-        NSData *data = [NSData dataWithContentsOfFile:match[@"path"]];
-        if (!data) {
-            return [self textResult:@"read_local_file: error"
-                               body:[NSString stringWithFormat:@"%@ could not be read.", fileName]];
-        }
-        return @{ @"kind": @"image",
-                  @"fileName": fileName,
-                  @"data": data,
-                  @"extension": ext.length ? ext : @"jpg",
-                  @"byteSize": @(byteSize) };
+    if ([self isImageExtension:ext] && byteSize > kEZLocalFileMaxImageBytes) {
+        return [self textResult:header body:[NSString stringWithFormat:
+            @"[Local file: %@ — %llu bytes]\nThis image is too large to send as image context, so it was not attached.", fileName, byteSize]];
     }
-
     NSData *data = [NSData dataWithContentsOfFile:match[@"path"]];
     if (!data) {
         return [self textResult:@"read_local_file: error"
                            body:[NSString stringWithFormat:@"%@ could not be read.", fileName]];
     }
+    NSString *sniffedImageExt = [self sniffedImageExtension:data];
+    if ([self isImageExtension:ext] || sniffedImageExt) {
+        if (data.length > kEZLocalFileMaxImageBytes) {
+            return [self textResult:header body:[NSString stringWithFormat:
+                @"[Local file: %@ — %llu bytes]\nThis image is too large to send as image context, so it was not attached.", fileName, byteSize]];
+        }
+        return @{ @"kind": @"image",
+                  @"fileName": fileName,
+                  @"data": data,
+                  @"extension": [self isImageExtension:ext] ? ext : sniffedImageExt,
+                  @"byteSize": @(byteSize) };
+    }
 
+    // Text-vs-binary is decided by CONTENT, never by extension: a .ts,
+    // .m, .py or extensionless file whose bytes decode as text IS text
+    // and is returned in full like any other text file. Text means the
+    // bytes contain no NUL and decode — UTF-8 first, Latin-1 as the
+    // lenient fallback. Anything else is genuinely binary (audio,
+    // archives, PDFs, compiled data) and its raw bytes are never
+    // dumped into the conversation.
     NSString *text = nil;
-    if ([self isTextExtension:ext]) {
+    if (!memchr(data.bytes, 0, data.length)) {
         text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]
             ?: [[NSString alloc] initWithData:data encoding:NSISOLatin1StringEncoding];
-    } else if (!memchr(data.bytes, 0, MIN(data.length, (NSUInteger)8192))) {
-        // Unknown type: treat as text only when it decodes cleanly as
-        // UTF-8 and has no NUL bytes — otherwise it is binary and its
-        // raw bytes are never dumped into the conversation.
-        text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     }
     if (!text) {
         NSString *typeLabel = ext.length ? [ext uppercaseString] : @"unknown type";
