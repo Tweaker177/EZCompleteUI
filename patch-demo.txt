@@ -2,15 +2,13 @@ EZCompleteUI patch_file demo scratch file.
 This file exists only to prove patch_file works. Safe to delete.
 
 Section A: status
-color: red
+color: blue
 size: small
 
-Section B: block that will move
+Section C: anchor
+ANCHOR LINE
 BLOCK START
 line one of the moving block
 line two of the moving block
 BLOCK END
-
-Section C: anchor
-ANCHOR LINE
 (end of file)
