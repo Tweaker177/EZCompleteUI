@@ -2,6 +2,7 @@
 #import "EZAuthManager.h"
 #import "EZEntitlementManager.h"
 #import "EZSupabaseConfig.h"
+#import "EZAppErrorReporter.h"
 #import "EZCoinStoreViewController.h"
 #import "BRSlotChatBar.h"
 #import <AVFoundation/AVFoundation.h>
@@ -113,12 +114,8 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     scroll.contentInset = UIEdgeInsetsMake(0, 0, 50, 0); scroll.scrollIndicatorInsets = scroll.contentInset;
     UIView *content = [UIView new]; content.translatesAutoresizingMaskIntoConstraints = NO; [scroll addSubview:content];
     UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Plunder.Heading", nil); title.font = [UIFont systemFontOfSize:23 weight:UIFontWeightBlack]; title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .55; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; title.textAlignment = NSTextAlignmentCenter;
-    self.balanceLabel = [UILabel new];
-    self.balanceLabel.adjustsFontSizeToFitWidth = YES;
-    self.balanceLabel.minimumScaleFactor = 0.5; self.balanceLabel.text = NSLocalizedString(@"BRSlot.Balance.Loading", nil); self.balanceLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold]; self.balanceLabel.textColor = UIColor.whiteColor; self.balanceLabel.textAlignment = NSTextAlignmentCenter;
-    self.bonusLabel = [UILabel new];
-    self.bonusLabel.adjustsFontSizeToFitWidth = YES;
-    self.bonusLabel.minimumScaleFactor = 0.5; self.bonusLabel.text = NSLocalizedString(@"BRSlot.Plunder.ScatterReward", nil); self.bonusLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; self.bonusLabel.textColor = [UIColor colorWithRed:1 green:.83 blue:.3 alpha:1]; self.bonusLabel.textAlignment = NSTextAlignmentCenter; self.bonusLabel.numberOfLines = 2; self.bonusLabel.backgroundColor = [UIColor colorWithRed:.05 green:.16 blue:.28 alpha:1]; self.bonusLabel.layer.cornerRadius = 10; self.bonusLabel.clipsToBounds = YES;
+    self.balanceLabel = [UILabel new]; self.balanceLabel.text = NSLocalizedString(@"BRSlot.Balance.Loading", nil); self.balanceLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold]; self.balanceLabel.textColor = UIColor.whiteColor; self.balanceLabel.textAlignment = NSTextAlignmentCenter;
+    self.bonusLabel = [UILabel new]; self.bonusLabel.text = NSLocalizedString(@"BRSlot.Plunder.ScatterReward", nil); self.bonusLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; self.bonusLabel.textColor = [UIColor colorWithRed:1 green:.83 blue:.3 alpha:1]; self.bonusLabel.textAlignment = NSTextAlignmentCenter; self.bonusLabel.numberOfLines = 2; self.bonusLabel.backgroundColor = [UIColor colorWithRed:.05 green:.16 blue:.28 alpha:1]; self.bonusLabel.layer.cornerRadius = 10; self.bonusLabel.clipsToBounds = YES;
     self.machineView = [UIView new]; self.machineView.backgroundColor = [UIColor colorWithRed:.05 green:.09 blue:.22 alpha:1]; self.machineView.layer.cornerRadius = 21; self.machineView.layer.borderWidth = 3; self.machineView.layer.borderColor = [UIColor colorWithRed:1 green:.71 blue:.12 alpha:1].CGColor;
     UIStackView *columns = [UIStackView new]; columns.axis = UILayoutConstraintAxisHorizontal; columns.distribution = UIStackViewDistributionFillEqually; columns.spacing = 5;
     self.reels = [NSMutableArray array];
@@ -130,9 +127,7 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     }
     columns.translatesAutoresizingMaskIntoConstraints = NO; [self.machineView addSubview:columns];
     self.bonusTint = [UIView new]; self.bonusTint.backgroundColor = [UIColor colorWithRed:.01 green:.02 blue:.08 alpha:.30]; self.bonusTint.userInteractionEnabled = NO; self.bonusTint.hidden = YES; self.bonusTint.translatesAutoresizingMaskIntoConstraints = NO; [self.machineView addSubview:self.bonusTint];
-    self.messageLabel = [UILabel new];
-    self.messageLabel.adjustsFontSizeToFitWidth = YES;
-    self.messageLabel.minimumScaleFactor = 0.5; self.messageLabel.text = NSLocalizedString(@"BRSlot.Plunder.Description", nil); self.messageLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold]; self.messageLabel.textColor = [UIColor colorWithWhite:.85 alpha:1]; self.messageLabel.textAlignment = NSTextAlignmentCenter; self.messageLabel.numberOfLines = 2;
+    self.messageLabel = [UILabel new]; self.messageLabel.text = NSLocalizedString(@"BRSlot.Plunder.Description", nil); self.messageLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold]; self.messageLabel.textColor = [UIColor colorWithWhite:.85 alpha:1]; self.messageLabel.textAlignment = NSTextAlignmentCenter; self.messageLabel.numberOfLines = 2;
     self.betButton = [self control:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil), (long)self.betCoins] color:[UIColor colorWithRed:.08 green:.34 blue:.52 alpha:1] action:@selector(cycleBet)];
     self.maxButton = [self control:NSLocalizedString(@"BRSlot.Plunder.MaxBet", nil) color:[UIColor colorWithRed:.45 green:.28 blue:.08 alpha:1] action:@selector(maxBet)];
     self.autoSpinChoice = 5;
@@ -162,9 +157,7 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     [[tile viewWithTag:77] removeFromSuperview]; tile.image = nil;
     UIImage *art = [BRPlunderBayViewController plunderSymbolImage:symbol];
     if (art) { tile.image = art; tile.contentMode = UIViewContentModeScaleAspectFill; return; }
-    UILabel *glyph = [UILabel new];
-    glyph.adjustsFontSizeToFitWidth = YES;
-    glyph.minimumScaleFactor = 0.5; glyph.tag = 77; glyph.text = symbol.length ? [[symbol substringToIndex:1] uppercaseString] : @"?";
+    UILabel *glyph = [UILabel new]; glyph.tag = 77; glyph.text = symbol.length ? [[symbol substringToIndex:1] uppercaseString] : @"?";
     glyph.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; glyph.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1];
     glyph.textAlignment = NSTextAlignmentCenter; glyph.frame = tile.bounds; glyph.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [tile addSubview:glyph];
 }
@@ -353,7 +346,7 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     [self startReelsSound]; [self playWhoosh];
     for (NSInteger tick=0;tick<5;tick++) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(tick*.11*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (!self.spinning || self.animationID != animationID) return; for (NSArray *col in self.reels) for (UIImageView *tile in col) [self setSymbol:PlunderSymbols()[arc4random_uniform((uint32_t)PlunderSymbols().count)] onTile:tile]; });
     [self request:@{@"bet_coins":@(self.betCoins)} completion:^(NSDictionary *result, NSString *error) {
-        if (error || ![result[@"reels"] isKindOfClass:NSArray.class]) { [self finishWithError:error ?: @"Spin failed; balance unchanged."]; [self refreshState]; if ([error.localizedLowercaseString containsString:@"insufficient"]) [self showCoinStore]; return; }
+        if (error || ![result[@"reels"] isKindOfClass:NSArray.class]) { [EZAppErrorReporter reportSource:@"plunder_bay" code:@"spin_failed" message:error]; [self finishWithError:error ?: @"Spin failed; balance unchanged."]; [self refreshState]; if ([error.localizedLowercaseString containsString:@"insufficient"]) [self showCoinStore]; return; }
         [self reveal:result];
     }];
 }
@@ -389,15 +382,15 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
 }
 - (void)reveal:(NSDictionary *)result {
     NSArray *columns = result[@"reels"];
-    if (columns.count != 5) { [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
+    if (columns.count != 5) { [EZAppErrorReporter reportSource:@"plunder_bay" code:@"invalid_spin" message:@"Invalid spin result"]; [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
     for (NSArray *column in columns) {
-        if (![column isKindOfClass:NSArray.class] || column.count != 3) { [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
+        if (![column isKindOfClass:NSArray.class] || column.count != 3) { [EZAppErrorReporter reportSource:@"plunder_bay" code:@"invalid_spin" message:@"Invalid spin result"]; [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
         // Every symbol must be a known string: a number, NSNull, or an
         // unknown name would crash setSymbol (isEqualToString: /
         // substringToIndex:) when the column lands — via the staged
         // reveal and via the slam-stop jump, which both read this
         // same validated result.
-        for (id symbol in column) if (![symbol isKindOfClass:NSString.class] || ![PlunderSymbols() containsObject:symbol]) { [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
+        for (id symbol in column) if (![symbol isKindOfClass:NSString.class] || ![PlunderSymbols() containsObject:symbol]) { [EZAppErrorReporter reportSource:@"plunder_bay" code:@"invalid_spin" message:@"Invalid spin result"]; [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
     }
     self.preSpinBoard = nil;
     self.pendingSpinResult = result;
@@ -648,18 +641,14 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
 - (void)showWin:(NSInteger)payout awarded:(NSInteger)awarded {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; [self.winOverlay removeFromSuperview]; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
     UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.03 green:.05 blue:.14 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
-    UILabel *text=[UILabel new];
-    text.adjustsFontSizeToFitWidth = YES;
-    text.minimumScaleFactor = 0.5; text.text=awarded ? [NSString stringWithFormat:@"🧭 %ld FREE SPINS%@",(long)awarded,payout?[NSString stringWithFormat:@"  +%ld COINS",(long)payout]:@""] : [NSString stringWithFormat:@"WINNER!  +%ld COINS",(long)payout]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
+    UILabel *text=[UILabel new]; text.text=awarded ? [NSString stringWithFormat:@"🧭 %ld FREE SPINS%@",(long)awarded,payout?[NSString stringWithFormat:@"  +%ld COINS",(long)payout]:@""] : [NSString stringWithFormat:@"WINNER!  +%ld COINS",(long)payout]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
     [self coinWave:overlay];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(3.2*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (self.winOverlay==overlay) { self.celebrating=NO; [overlay removeFromSuperview]; self.winOverlay=nil; } });
 }
 - (void)showFreeSpinsComplete:(NSInteger)total {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; [self.winOverlay removeFromSuperview]; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
     UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.03 green:.05 blue:.14 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
-    UILabel *text=[UILabel new];
-    text.adjustsFontSizeToFitWidth = YES;
-    text.minimumScaleFactor = 0.5; text.text=[NSString stringWithFormat:@"⚓ FREE SPINS COMPLETE!\nTOTAL WON  +%ld COINS",(long)total]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
+    UILabel *text=[UILabel new]; text.text=[NSString stringWithFormat:@"⚓ FREE SPINS COMPLETE!\nTOTAL WON  +%ld COINS",(long)total]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
     [self coinWave:overlay];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(3.2*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (self.winOverlay==overlay) { self.celebrating=NO; [overlay removeFromSuperview]; self.winOverlay=nil; } });
 }

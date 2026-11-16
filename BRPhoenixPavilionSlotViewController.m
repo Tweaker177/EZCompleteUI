@@ -20,6 +20,7 @@
 #import "EZAuthManager.h"
 #import "EZEntitlementManager.h"
 #import "EZSupabaseConfig.h"
+#import "EZAppErrorReporter.h"
 #import "EZCoinStoreViewController.h"
 
 #define PPLoc(key, en) NSLocalizedStringWithDefaultValue(key, nil, NSBundle.mainBundle, en, nil)
@@ -111,8 +112,6 @@ static UIImage *PPParticleImage(BOOL coin) {
         sheet.prefersGrabberVisible = YES;
     }
     UILabel *title = [UILabel new];
-    title.adjustsFontSizeToFitWidth = YES;
-    title.minimumScaleFactor = 0.5;
     title.translatesAutoresizingMaskIntoConstraints = NO;
     title.text = PPLoc(@"BRSlot.PP.Pays.Title", @"Phoenix Pavilion Pays");
     title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightHeavy];
@@ -129,8 +128,6 @@ static UIImage *PPParticleImage(BOOL coin) {
     self.table.allowsSelection = NO;
     self.table.rowHeight = 62;
     UILabel *footer = [UILabel new];
-    footer.adjustsFontSizeToFitWidth = YES;
-    footer.minimumScaleFactor = 0.5;
     footer.numberOfLines = 0;
     footer.textColor = [UIColor colorWithWhite:1 alpha:.82];
     footer.font = [UIFont systemFontOfSize:13];
@@ -343,8 +340,6 @@ static UIImage *PPParticleImage(BOOL coin) {
 
 - (UIView *)statBlockCaption:(NSString *)caption value:(UILabel *)value alignment:(NSTextAlignment)alignment {
     UILabel *cap = [UILabel new];
-    cap.adjustsFontSizeToFitWidth = YES;
-    cap.minimumScaleFactor = 0.5;
     cap.text = caption;
     cap.font = [UIFont systemFontOfSize:10 weight:UIFontWeightHeavy];
     cap.textColor = [PPGold() colorWithAlphaComponent:.8];
@@ -386,8 +381,6 @@ static UIImage *PPParticleImage(BOOL coin) {
     [self.scroll addSubview:content];
 
     UILabel *title = [UILabel new];
-    title.adjustsFontSizeToFitWidth = YES;
-    title.minimumScaleFactor = 0.5;
     title.translatesAutoresizingMaskIntoConstraints = NO;
     title.textAlignment = NSTextAlignmentCenter;
     title.attributedText = [[NSAttributedString alloc] initWithString:@"凤凰阁" attributes:@{
@@ -396,8 +389,6 @@ static UIImage *PPParticleImage(BOOL coin) {
     title.layer.shadowColor = PPC(0xFF8A1F).CGColor;
     title.layer.shadowOpacity = .7; title.layer.shadowRadius = 10; title.layer.shadowOffset = CGSizeZero;
     UILabel *subtitle = [UILabel new];
-    subtitle.adjustsFontSizeToFitWidth = YES;
-    subtitle.minimumScaleFactor = 0.5;
     subtitle.translatesAutoresizingMaskIntoConstraints = NO;
     subtitle.textAlignment = NSTextAlignmentCenter;
     subtitle.attributedText = [[NSAttributedString alloc] initWithString:@"PHOENIX PAVILION" attributes:@{
@@ -405,11 +396,7 @@ static UIImage *PPParticleImage(BOOL coin) {
         NSForegroundColorAttributeName: [UIColor colorWithRed:1 green:.96 blue:.86 alpha:.85], NSKernAttributeName: @4}];
 
     self.balanceLabel = [UILabel new];
-    self.balanceLabel.adjustsFontSizeToFitWidth = YES;
-    self.balanceLabel.minimumScaleFactor = 0.5;
     self.winLabel = [UILabel new];
-    self.winLabel.adjustsFontSizeToFitWidth = YES;
-    self.winLabel.minimumScaleFactor = 0.5;
     UIView *balanceBlock = [self statBlockCaption:PPLoc(@"BRSlot.PP.Balance", @"BALANCE") value:self.balanceLabel alignment:NSTextAlignmentLeft];
     UIView *winBlock = [self statBlockCaption:PPLoc(@"BRSlot.PP.Win", @"WIN") value:self.winLabel alignment:NSTextAlignmentRight];
     UIStackView *info = [[UIStackView alloc] initWithArrangedSubviews:@[balanceBlock, winBlock]];
@@ -417,8 +404,6 @@ static UIImage *PPParticleImage(BOOL coin) {
     info.distribution = UIStackViewDistributionFillEqually;
 
     self.bannerLabel = [UILabel new];
-    self.bannerLabel.adjustsFontSizeToFitWidth = YES;
-    self.bannerLabel.minimumScaleFactor = 0.5;
     self.bannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.bannerLabel.numberOfLines = 2;
     self.bannerLabel.textAlignment = NSTextAlignmentCenter;
@@ -485,16 +470,12 @@ static UIImage *PPParticleImage(BOOL coin) {
     }
 
     self.messageLabel = [UILabel new];
-    self.messageLabel.adjustsFontSizeToFitWidth = YES;
-    self.messageLabel.minimumScaleFactor = 0.5;
     self.messageLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.messageLabel.numberOfLines = 2;
     self.messageLabel.textAlignment = NSTextAlignmentCenter;
     self.messageLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
     self.messageLabel.textColor = [UIColor colorWithWhite:.85 alpha:1];
     self.totalBetLabel = [UILabel new];
-    self.totalBetLabel.adjustsFontSizeToFitWidth = YES;
-    self.totalBetLabel.minimumScaleFactor = 0.5;
     self.totalBetLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.totalBetLabel.textAlignment = NSTextAlignmentCenter;
     self.totalBetLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightHeavy];
@@ -900,6 +881,7 @@ static UIImage *PPParticleImage(BOOL coin) {
 }
 
 - (void)failSpin:(NSString *)message status:(NSInteger)status {
+    [EZAppErrorReporter reportSource:@"phoenix_pavilion" code:@"spin_failed" message:message];
     _balanceChecked = NO;
     [self stopReelLoops];
     _reelsMoving = NO;
@@ -1226,8 +1208,6 @@ static NSArray<UIColor *> *PPLineColors(void) {
     CGFloat width = overlay.bounds.size.width;
 
     UILabel *main = [UILabel new];
-    main.adjustsFontSizeToFitWidth = YES;
-    main.minimumScaleFactor = 0.5;
     main.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Hats", @"%ld GOLDEN HATS!"), (long)hats];
     main.font = [UIFont systemFontOfSize:hats >= 5 ? 40 : 34 weight:UIFontWeightBlack];
     main.textColor = PPC(0xFFE48F);
@@ -1236,8 +1216,6 @@ static NSArray<UIColor *> *PPLineColors(void) {
     main.layer.shadowOpacity = 1; main.layer.shadowRadius = 8; main.layer.shadowOffset = CGSizeZero;
     main.frame = CGRectMake(0, 0, width, 50);
     UILabel *sub = [UILabel new];
-    sub.adjustsFontSizeToFitWidth = YES;
-    sub.minimumScaleFactor = 0.5;
     sub.text = PPLoc(@"BRSlot.PP.HatsSub", @"金帽 · FREE SPINS UNLOCKED");
     sub.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
     sub.textColor = UIColor.whiteColor;
@@ -1278,8 +1256,6 @@ static NSArray<UIColor *> *PPLineColors(void) {
         NSArray<NSNumber *> *xs = @[@(28), @(width - 28), @(width * 0.3), @(width * 0.7)];
         for (NSUInteger i = 0; i < xs.count; i++) {
             UILabel *bell = [UILabel new];
-            bell.adjustsFontSizeToFitWidth = YES;
-            bell.minimumScaleFactor = 0.5;
             bell.text = @"🔔";
             bell.font = [UIFont systemFontOfSize:i < 2 ? 46 : 38];
             [bell sizeToFit];
@@ -1401,22 +1377,16 @@ static NSArray<UIColor *> *PPLineColors(void) {
 
     NSInteger spins = MAX(1, _freeRemaining);
     self.pickTitle = [[UILabel alloc] initWithFrame:CGRectMake(16, height * 0.16, width - 32, 44)];
-    self.pickTitle.adjustsFontSizeToFitWidth = YES;
-    self.pickTitle.minimumScaleFactor = 0.5;
     self.pickTitle.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Pick.Title", @"%ld FREE SPINS"), (long)spins];
     self.pickTitle.font = [UIFont systemFontOfSize:34 weight:UIFontWeightBlack];
     self.pickTitle.textColor = PPC(0xFFE48F);
     self.pickTitle.textAlignment = NSTextAlignmentCenter;
     self.pickSubtitle = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(self.pickTitle.frame), width - 32, 30)];
-    self.pickSubtitle.adjustsFontSizeToFitWidth = YES;
-    self.pickSubtitle.minimumScaleFactor = 0.5;
     self.pickSubtitle.text = @"选择一张牌";
     self.pickSubtitle.font = [UIFont systemFontOfSize:22 weight:UIFontWeightHeavy];
     self.pickSubtitle.textColor = PPGold();
     self.pickSubtitle.textAlignment = NSTextAlignmentCenter;
     self.pickPrompt = [[UILabel alloc] initWithFrame:CGRectMake(24, CGRectGetMaxY(self.pickSubtitle.frame) + 6, width - 48, 44)];
-    self.pickPrompt.adjustsFontSizeToFitWidth = YES;
-    self.pickPrompt.minimumScaleFactor = 0.5;
     self.pickPrompt.numberOfLines = 2;
     self.pickPrompt.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold];
     self.pickPrompt.textColor = [UIColor colorWithWhite:1 alpha:.88];
@@ -1504,52 +1474,35 @@ static NSArray<UIColor *> *PPLineColors(void) {
 - (void)revealPick:(NSDictionary *)result identity:(NSInteger)identity {
     NSArray *cards = result[@"cards"];
     NSInteger multiplier = PPInteger(result[@"multiplier"]);
-    // Values stay bound to card identity: the card the player tapped
-    // (pickCards[identity] — the same view that carries that tag) shows
-    // cards[identity], the value the server recorded for this pick.
     for (NSInteger i = 0; i < 3; i++) {
         UILabel *value = (UILabel *)[self.pickCards[i] viewWithTag:3];
         value.text = [NSString stringWithFormat:@"×%ld", (long)PPInteger(cards[i])];
     }
-    _bonusMult = multiplier;
-    _pickPending = NO;
-    UIView *picked = self.pickCards[identity];
-    [self.pickOverlay bringSubviewToFront:picked];
-
-    // 1. Turn over ALL THREE cards at once, so the player sees what
-    // every card hid — including the two they did not pick.
-    for (UIView *card in self.pickCards) {
+    void (^flip)(UIView *, BOOL) = ^(UIView *card, BOOL dim) {
         [UIView transitionWithView:card duration:0.45 options:UIViewAnimationOptionTransitionFlipFromLeft animations:^{
             [card viewWithTag:1].hidden = YES;
             [card viewWithTag:2].hidden = NO;
         } completion:nil];
+        if (dim) [UIView animateWithDuration:0.3 delay:0.3 options:0 animations:^{ card.alpha = 0.5; } completion:nil];
+    };
+    UIView *picked = self.pickCards[identity];
+    [self.pickOverlay bringSubviewToFront:picked];
+    flip(picked, NO);
+    [UIView animateWithDuration:0.45 animations:^{ picked.transform = CGAffineTransformMakeScale(1.18, 1.18); }];
+    [self.audio playMultiplierReveal:multiplier];
+    self.pickPrompt.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Pick.Result", @"Your multiplier: ×%ld"), (long)multiplier];
+    self.pickPrompt.textColor = PPC(0xFFE48F);
+    self.pickPrompt.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
+    NSTimeInterval delay = 0.8;
+    for (NSInteger i = 0; i < 3; i++) {
+        if (i == identity) continue;
+        UIView *card = self.pickCards[i];
+        [self after:delay do:^{ flip(card, YES); }];
+        delay += 0.35;
     }
-    // 2. Hold on the full reveal, then the two unpicked cards fade out
-    // completely and the picked card takes center stage, still showing
-    // its value — the picked card is the one that stays visible.
-    [self after:1.15 do:^{
-        for (NSInteger i = 0; i < 3; i++) {
-            if (i == identity) continue;
-            UIView *card = self.pickCards[i];
-            [UIView animateWithDuration:0.35 animations:^{ card.alpha = 0; } completion:^(BOOL finished) {
-                card.hidden = YES;
-            }];
-        }
-        [UIView animateWithDuration:0.35 animations:^{
-            picked.center = self->_slotCenters[1];
-            picked.transform = CGAffineTransformMakeScale(1.18, 1.18);
-        }];
-    }];
-    // 3. A beat with only the picked card on screen, then celebrate the
-    // multiplier it revealed before the free spins begin.
-    [self after:2.15 do:^{
-        [self.audio playMultiplierReveal:multiplier];
-        [self haptic:UIImpactFeedbackStyleHeavy];
-        self.pickPrompt.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Pick.Result", @"Your multiplier: ×%ld"), (long)multiplier];
-        self.pickPrompt.textColor = PPC(0xFFE48F);
-        self.pickPrompt.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
-    }];
-    [self after:3.3 do:^{
+    _bonusMult = multiplier;
+    _pickPending = NO;
+    [self after:delay + 1.1 do:^{
         [self closePickOverlayThen:^{
             [self refreshBanner];
             [self setMessage:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.BonusStart", @"×%ld free spins begin!"), (long)multiplier] highlight:YES];
@@ -1581,15 +1534,11 @@ static NSArray<UIColor *> *PPLineColors(void) {
     CGFloat width = overlay.bounds.size.width, height = overlay.bounds.size.height;
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, height * 0.30, width - 32, 44)];
-    title.adjustsFontSizeToFitWidth = YES;
-    title.minimumScaleFactor = 0.5;
     title.text = PPLoc(@"BRSlot.PP.Summary.Title", @"FREE SPINS COMPLETE");
     title.font = [UIFont systemFontOfSize:26 weight:UIFontWeightBlack];
     title.textColor = PPC(0xFFE48F);
     title.textAlignment = NSTextAlignmentCenter;
     UILabel *sub = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(title.frame) + 4, width - 32, 24)];
-    sub.adjustsFontSizeToFitWidth = YES;
-    sub.minimumScaleFactor = 0.5;
     sub.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.Summary.Sub", @"×%ld  ·  TOTAL WIN"), (long)MAX(1, mult)];
     sub.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
     sub.textColor = PPGold();
@@ -1601,8 +1550,6 @@ static NSArray<UIColor *> *PPLineColors(void) {
     amount.textAlignment = NSTextAlignmentCenter;
     amount.adjustsFontSizeToFitWidth = YES;
     UILabel *hint = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(amount.frame) + 12, width - 32, 20)];
-    hint.adjustsFontSizeToFitWidth = YES;
-    hint.minimumScaleFactor = 0.5;
     hint.text = PPLoc(@"BRSlot.PP.Summary.Tap", @"Tap to continue");
     hint.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
     hint.textColor = [UIColor colorWithWhite:1 alpha:.6];
