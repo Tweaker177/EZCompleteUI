@@ -2,6 +2,7 @@
 #import "EZAuthManager.h"
 #import "EZEntitlementManager.h"
 #import "EZSupabaseConfig.h"
+#import "EZAppErrorReporter.h"
 #import "EZCoinStoreViewController.h"
 #import "BRAssetSourceSheetViewController.h"
 #import "BRAssetGenerationSheetViewController.h"
@@ -47,12 +48,8 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     self.modalPresentationStyle = UIModalPresentationPageSheet;
     self.sheetPresentationController.prefersGrabberVisible = YES;
     self.sheetPresentationController.detents = @[[UISheetPresentationControllerDetent mediumDetent], [UISheetPresentationControllerDetent largeDetent]];
-    UILabel *title = [UILabel new];
-    title.adjustsFontSizeToFitWidth = YES;
-    title.minimumScaleFactor = 0.5; title.text = NSLocalizedString(@"BRSlot.Customizer.PennyTitle", nil); title.textColor = UIColor.whiteColor; title.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; title.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:title];
-    UILabel *subtitle = [UILabel new];
-    subtitle.adjustsFontSizeToFitWidth = YES;
-    subtitle.minimumScaleFactor = 0.5; subtitle.text = NSLocalizedString(@"BRSlot.Customizer.PennySubtitle", nil); subtitle.textColor = [UIColor colorWithWhite:.67 alpha:1]; subtitle.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium]; subtitle.numberOfLines = 2; subtitle.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:subtitle];
+    UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Customizer.PennyTitle", nil); title.textColor = UIColor.whiteColor; title.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; title.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:title];
+    UILabel *subtitle = [UILabel new]; subtitle.text = NSLocalizedString(@"BRSlot.Customizer.PennySubtitle", nil); subtitle.textColor = [UIColor colorWithWhite:.67 alpha:1]; subtitle.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium]; subtitle.numberOfLines = 2; subtitle.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:subtitle];
     UITableView *table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped]; table.backgroundColor = UIColor.clearColor; table.dataSource = self; table.delegate = self; table.rowHeight = 64; table.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:table];
     UIButton *reset = [UIButton buttonWithType:UIButtonTypeSystem]; [reset setTitle:NSLocalizedString(@"BRSlot.Customizer.ResetAll", nil) forState:UIControlStateNormal]; [reset setTitleColor:UIColor.systemRedColor forState:UIControlStateNormal]; reset.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBold]; reset.backgroundColor = [[UIColor systemRedColor] colorWithAlphaComponent:.12]; reset.layer.cornerRadius = 12; [reset addTarget:self action:@selector(resetAllTapped) forControlEvents:UIControlEventTouchUpInside]; reset.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:reset];
     [NSLayoutConstraint activateConstraints:@[[title.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:17], [title.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:22], [title.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-22], [subtitle.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:5], [subtitle.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [subtitle.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [table.topAnchor constraintEqualToAnchor:subtitle.bottomAnchor constant:8], [table.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor], [table.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor], [table.bottomAnchor constraintEqualToAnchor:reset.topAnchor constant:-8], [reset.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [reset.trailingAnchor constraintEqualToAnchor:subtitle.trailingAnchor], [reset.heightAnchor constraintEqualToConstant:46], [reset.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-14]]];
@@ -131,12 +128,8 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     scroll.contentInset = UIEdgeInsetsMake(0, 0, 50, 0); scroll.scrollIndicatorInsets = scroll.contentInset;
     UIView *content = [UIView new]; content.translatesAutoresizingMaskIntoConstraints = NO; [scroll addSubview:content];
     UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Penny.Heading", nil); title.font = [UIFont systemFontOfSize:23 weight:UIFontWeightBlack]; title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .55; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; title.textAlignment = NSTextAlignmentCenter;
-    self.balanceLabel = [UILabel new];
-    self.balanceLabel.adjustsFontSizeToFitWidth = YES;
-    self.balanceLabel.minimumScaleFactor = 0.5; self.balanceLabel.text = NSLocalizedString(@"BRSlot.Balance.Loading", nil); self.balanceLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold]; self.balanceLabel.textColor = UIColor.whiteColor; self.balanceLabel.textAlignment = NSTextAlignmentCenter;
-    self.bonusLabel = [UILabel new];
-    self.bonusLabel.adjustsFontSizeToFitWidth = YES;
-    self.bonusLabel.minimumScaleFactor = 0.5; self.bonusLabel.text = NSLocalizedString(@"BRSlot.Penny.ScatterReward", nil); self.bonusLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; self.bonusLabel.textColor = [UIColor colorWithRed:1 green:.83 blue:.3 alpha:1]; self.bonusLabel.textAlignment = NSTextAlignmentCenter; self.bonusLabel.numberOfLines = 2; self.bonusLabel.backgroundColor = [UIColor colorWithRed:.4 green:.09 blue:.3 alpha:1]; self.bonusLabel.layer.cornerRadius = 10; self.bonusLabel.clipsToBounds = YES;
+    self.balanceLabel = [UILabel new]; self.balanceLabel.text = NSLocalizedString(@"BRSlot.Balance.Loading", nil); self.balanceLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold]; self.balanceLabel.textColor = UIColor.whiteColor; self.balanceLabel.textAlignment = NSTextAlignmentCenter;
+    self.bonusLabel = [UILabel new]; self.bonusLabel.text = NSLocalizedString(@"BRSlot.Penny.ScatterReward", nil); self.bonusLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; self.bonusLabel.textColor = [UIColor colorWithRed:1 green:.83 blue:.3 alpha:1]; self.bonusLabel.textAlignment = NSTextAlignmentCenter; self.bonusLabel.numberOfLines = 2; self.bonusLabel.backgroundColor = [UIColor colorWithRed:.4 green:.09 blue:.3 alpha:1]; self.bonusLabel.layer.cornerRadius = 10; self.bonusLabel.clipsToBounds = YES;
     UIView *machine = [UIView new]; machine.backgroundColor = [UIColor colorWithRed:.29 green:.08 blue:.42 alpha:1]; machine.layer.cornerRadius = 21; machine.layer.borderWidth = 3; machine.layer.borderColor = [UIColor colorWithRed:1 green:.71 blue:.12 alpha:1].CGColor;
     UIStackView *columns = [UIStackView new]; columns.axis = UILayoutConstraintAxisHorizontal; columns.distribution = UIStackViewDistributionFillEqually; columns.spacing = 5;
     self.reels = [NSMutableArray array];
@@ -147,9 +140,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
         [self.reels addObject:tiles]; [columns addArrangedSubview:stack];
     }
     columns.translatesAutoresizingMaskIntoConstraints = NO; [machine addSubview:columns];
-    self.messageLabel = [UILabel new];
-    self.messageLabel.adjustsFontSizeToFitWidth = YES;
-    self.messageLabel.minimumScaleFactor = 0.5; self.messageLabel.text = NSLocalizedString(@"BRSlot.Penny.Description", nil); self.messageLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold]; self.messageLabel.textColor = [UIColor colorWithWhite:.85 alpha:1]; self.messageLabel.textAlignment = NSTextAlignmentCenter; self.messageLabel.numberOfLines = 2;
+    self.messageLabel = [UILabel new]; self.messageLabel.text = NSLocalizedString(@"BRSlot.Penny.Description", nil); self.messageLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold]; self.messageLabel.textColor = [UIColor colorWithWhite:.85 alpha:1]; self.messageLabel.textAlignment = NSTextAlignmentCenter; self.messageLabel.numberOfLines = 2;
     self.customizeButton = [UIButton buttonWithType:UIButtonTypeSystem]; [self.customizeButton setTitle:NSLocalizedString(@"BRSlot.Customize", nil) forState:UIControlStateNormal]; [self.customizeButton setTitleColor:[UIColor colorWithRed:1 green:.78 blue:.18 alpha:1] forState:UIControlStateNormal]; self.customizeButton.titleLabel.font=[UIFont systemFontOfSize:14 weight:UIFontWeightBold]; [self.customizeButton addTarget:self action:@selector(customize) forControlEvents:UIControlEventTouchUpInside];
     self.linesButton = [self control:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Control.LinesValue", nil), (long)self.lines] color:UIColor.systemIndigoColor action:@selector(cycleLines)];
     self.betButton = [self control:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Control.BetPerLineValue", nil), (long)self.betPerLine] color:[UIColor colorWithRed:.08 green:.54 blue:.62 alpha:1] action:@selector(cycleBet)];
@@ -177,9 +168,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     UIImage *custom = self.customImages[symbol];
     if (custom) { tile.image = custom; tile.contentMode = UIViewContentModeScaleAspectFill; return; }
     if ([symbol isEqualToString:@"ez_coin"]) { tile.image = PennyEZCoinSymbolImage(); tile.contentMode = UIViewContentModeScaleAspectFit; return; }
-    UILabel *glyph = [UILabel new];
-    glyph.adjustsFontSizeToFitWidth = YES;
-    glyph.minimumScaleFactor = 0.5; glyph.tag = 77; glyph.text = PennyGlyphs()[symbol] ?: @"?";
+    UILabel *glyph = [UILabel new]; glyph.tag = 77; glyph.text = PennyGlyphs()[symbol] ?: @"?";
     glyph.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; glyph.textColor = [UIColor colorWithRed:.20 green:.07 blue:.28 alpha:1];
     glyph.textAlignment = NSTextAlignmentCenter; glyph.frame = tile.bounds; glyph.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [tile addSubview:glyph];
 }
@@ -291,14 +280,14 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     self.preSpinBoard = before;
     for (NSInteger tick=0;tick<5;tick++) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(tick*.11*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (!self.spinning || self.animationID != animationID) return; for (NSArray *col in self.reels) for (UIImageView *tile in col) [self setSymbol:PennySymbols()[arc4random_uniform((uint32_t)PennySymbols().count)] onTile:tile]; });
     [self request:@{@"lines":@(self.lines),@"bet_per_line":@(self.betPerLine)} completion:^(NSDictionary *result, NSString *error) {
-        if (error || ![result[@"reels"] isKindOfClass:NSArray.class]) { [self finishWithError:error ?: @"Spin failed; balance unchanged."]; [self refreshState]; if ([error.localizedLowercaseString containsString:@"insufficient"]) [self showCoinStore]; return; }
+        if (error || ![result[@"reels"] isKindOfClass:NSArray.class]) { [EZAppErrorReporter reportSource:@"penny" code:@"spin_failed" message:error]; [self finishWithError:error ?: @"Spin failed; balance unchanged."]; [self refreshState]; if ([error.localizedLowercaseString containsString:@"insufficient"]) [self showCoinStore]; return; }
         [self reveal:result];
     }];
 }
 - (void)reveal:(NSDictionary *)result {
     NSArray *columns = result[@"reels"];
-    if (columns.count != 5) { [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
-    for (NSArray *column in columns) if (![column isKindOfClass:NSArray.class] || column.count != 3) { [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
+    if (columns.count != 5) { [EZAppErrorReporter reportSource:@"penny" code:@"invalid_spin" message:@"Invalid spin result"]; [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
+    for (NSArray *column in columns) if (![column isKindOfClass:NSArray.class] || column.count != 3) { [EZAppErrorReporter reportSource:@"penny" code:@"invalid_spin" message:@"Invalid spin result"]; [self finishWithError:NSLocalizedString(@"BRSlot.Error.InvalidSpin", nil)]; return; }
     self.preSpinBoard = nil;
     ++self.animationID;
     for (NSInteger col=0;col<5;col++) {
@@ -359,18 +348,14 @@ static UIImage *PennyEZCoinSymbolImage(void) {
 - (void)showWin:(NSInteger)payout awarded:(NSInteger)awarded {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
     UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.12 green:.025 blue:.23 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
-    UILabel *text=[UILabel new];
-    text.adjustsFontSizeToFitWidth = YES;
-    text.minimumScaleFactor = 0.5; text.text=awarded ? [NSString stringWithFormat:@"⚡ %ld FREE SPINS%@",(long)awarded,payout?[NSString stringWithFormat:@"  +%ld COINS",(long)payout]:@""] : [NSString stringWithFormat:@"WINNER!  +%ld COINS",(long)payout]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
+    UILabel *text=[UILabel new]; text.text=awarded ? [NSString stringWithFormat:@"⚡ %ld FREE SPINS%@",(long)awarded,payout?[NSString stringWithFormat:@"  +%ld COINS",(long)payout]:@""] : [NSString stringWithFormat:@"WINNER!  +%ld COINS",(long)payout]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
     [self coinWave:overlay];
 }
 - (void)showFreeSpinsComplete:(NSInteger)total {
     [self playTheme:@"brainrot-theme2"];
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
     UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.12 green:.025 blue:.23 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
-    UILabel *text=[UILabel new];
-    text.adjustsFontSizeToFitWidth = YES;
-    text.minimumScaleFactor = 0.5; text.text=[NSString stringWithFormat:@"🎁 FREE SPINS COMPLETE!\nTOTAL WON  +%ld COINS",(long)total]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
+    UILabel *text=[UILabel new]; text.text=[NSString stringWithFormat:@"🎁 FREE SPINS COMPLETE!\nTOTAL WON  +%ld COINS",(long)total]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
     [self coinWave:overlay];
 }
 - (void)coinWave:(UIView *)overlay { if (!self.celebrating || overlay!=self.winOverlay) return; UIImage *coin=[UIImage imageNamed:@"EZCoin"]; CGFloat baseX=CGRectGetMidX(overlay.bounds),bottom=CGRectGetMaxY(overlay.bounds)-40; for (NSInteger i=0;i<24;i++) { UIImageView *particle=[[UIImageView alloc] initWithImage:coin]; particle.frame=CGRectMake(baseX,bottom,20,20); [overlay insertSubview:particle atIndex:0]; CGFloat x=baseX+(NSInteger)arc4random_uniform(300)-150,y=100+arc4random_uniform(250); [UIView animateWithDuration:1.1 delay:arc4random_uniform(12)/100.0 options:0 animations:^{ particle.center=CGPointMake(x,y); particle.alpha=0; } completion:^(__unused BOOL done){ [particle removeFromSuperview]; }]; } dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.05*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self coinWave:overlay]; }); }
