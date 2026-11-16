@@ -492,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "لاحقًا";
 "EZCoinStore.FreeSpins.MessageClassic" = "لقد فزت بـ %ld لفات مجانية على ماكينات كلاسيك!";
 "EZCoinStore.FreeSpins.MessagePenny" = "لقد فزت بـ %ld لفات مجانية على ماكينات بيني!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "لقد فزت بـ %ld لفات مجانية على فينيكس بافيليون!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "لقد فزت بـ %ld لفات مجانية على بلاندر باي!";
 
 // File explorer
@@ -759,6 +760,7 @@
 "BRSlot.PP.FreeNoWin" = "لفة مجانية · بلا فوز";
 "BRSlot.PP.FreeSpinsButton" = "لفات مجانية";
 "BRSlot.PP.FreeSpinsLeft" = "لفات مجانية  تبقى %ld  ·  ×%@  ·  الفوز %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "لفات مجانية  تبقى %ld  ·  الفوز %@";
 "BRSlot.PP.Hats" = "%ld قبعة ذهبية!";
 "BRSlot.PP.HatsSub" = "金帽 · تم فتح اللفات المجانية";
 "BRSlot.PP.Hint" = "3+ قبعات ذهبية = لفات مجانية\nاختر بطاقة للحصول على ×2 / ×3 / ×5";

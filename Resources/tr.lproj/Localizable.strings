@@ -533,6 +533,7 @@
 "EZCoinStore.FreeSpins.Later" = "Sonra";
 "EZCoinStore.FreeSpins.MessageClassic" = "Classic Slots'ta %ld ücretsiz dönüş kazandınız!";
 "EZCoinStore.FreeSpins.MessagePenny" = "Penny Slots'ta %ld ücretsiz dönüş kazandınız!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Phoenix Pavilion'de %ld ücretsiz dönüş kazandınız!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "Plunder Bay'de %ld ücretsiz dönüş kazandınız!";
 
 // File explorer
@@ -800,6 +801,7 @@
 "BRSlot.PP.FreeNoWin" = "Ücretsiz dönüş · kazanç yok";
 "BRSlot.PP.FreeSpinsButton" = "ÜCRETSİZ DÖNÜŞLER";
 "BRSlot.PP.FreeSpinsLeft" = "ÜCRETSİZ DÖNÜŞ  %ld KALDI  ·  ×%@  ·  KAZANILAN %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "ÜCRETSİZ DÖNÜŞ  %ld KALDI  ·  KAZANILAN %@";
 "BRSlot.PP.Hats" = "%ld ALTIN ŞAPKA!";
 "BRSlot.PP.HatsSub" = "金帽 · ÜCRETSİZ DÖNÜŞLER AÇILDI";
 "BRSlot.PP.Hint" = "3+ ALTIN ŞAPKA = ÜCRETSİZ DÖNÜŞ\n×2 / ×3 / ×5 İÇİN BİR KART SEÇ";

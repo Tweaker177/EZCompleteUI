@@ -533,6 +533,7 @@
 "EZCoinStore.FreeSpins.Later" = "나중에";
 "EZCoinStore.FreeSpins.MessageClassic" = "클래식 슬롯에서 무료 스핀 %ld회를 획득했습니다!";
 "EZCoinStore.FreeSpins.MessagePenny" = "페니 슬롯에서 무료 스핀 %ld회를 획득했습니다!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "피닉스 파빌리온에서 무료 스핀 %ld회를 획득했습니다!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "플런더 베이에서 무료 스핀 %ld회를 획득했습니다!";
 
 // File explorer
@@ -800,6 +801,7 @@
 "BRSlot.PP.FreeNoWin" = "프리스핀 · 당첨 없음";
 "BRSlot.PP.FreeSpinsButton" = "프리스핀";
 "BRSlot.PP.FreeSpinsLeft" = "프리스핀  %ld 남음  ·  ×%@  ·  획득 %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "프리스핀  %ld 남음  ·  획득 %@";
 "BRSlot.PP.Hats" = "황금 모자 %ld개!";
 "BRSlot.PP.HatsSub" = "金帽 · 프리스핀 잠금 해제";
 "BRSlot.PP.Hint" = "황금 모자 3개 이상 = 프리스핀\n카드를 골라 ×2 / ×3 / ×5 획득";

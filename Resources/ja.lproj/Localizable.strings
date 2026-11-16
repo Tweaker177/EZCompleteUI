@@ -492,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "後で";
 "EZCoinStore.FreeSpins.MessageClassic" = "%ld 回のフリースピンをクラシックスロットで獲得しました！";
 "EZCoinStore.FreeSpins.MessagePenny" = "%ld 回のフリースピンをペニースロットで獲得しました！";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "%ld 回のフリースピンをフェニックスパビリオンで獲得しました！";
 "EZCoinStore.FreeSpins.MessagePlunder" = "%ld 回のフリースピンをプランダーベイで獲得しました！";
 
 // File explorer
@@ -759,6 +760,7 @@
 "BRSlot.PP.FreeNoWin" = "フリースピン · 当たりなし";
 "BRSlot.PP.FreeSpinsButton" = "フリースピン";
 "BRSlot.PP.FreeSpinsLeft" = "フリースピン  残り %ld  ·  ×%@  ·  獲得 %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "フリースピン  残り %ld  ·  獲得 %@";
 "BRSlot.PP.Hats" = "%ld 個の金の帽子！";
 "BRSlot.PP.HatsSub" = "金帽 · フリースピン解放";
 "BRSlot.PP.Hint" = "金の帽子3つ以上 = フリースピン\nカードを選んで ×2 / ×3 / ×5";

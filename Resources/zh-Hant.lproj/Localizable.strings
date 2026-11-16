@@ -533,6 +533,7 @@
 "EZCoinStore.FreeSpins.Later" = "稍後";
 "EZCoinStore.FreeSpins.MessageClassic" = "您在經典老虎機贏得了 %ld 次免費旋轉！";
 "EZCoinStore.FreeSpins.MessagePenny" = "您在便士老虎機贏得了 %ld 次免費旋轉！";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "您在鳳凰閣贏得了 %ld 次免費旋轉！";
 "EZCoinStore.FreeSpins.MessagePlunder" = "您在掠奪灣贏得了 %ld 次免費旋轉！";
 
 // File explorer
@@ -800,6 +801,7 @@
 "BRSlot.PP.FreeNoWin" = "免費旋轉 · 未中獎";
 "BRSlot.PP.FreeSpinsButton" = "免費旋轉";
 "BRSlot.PP.FreeSpinsLeft" = "免費旋轉  剩餘 %ld  ·  ×%@  ·  已贏 %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "免費旋轉  剩餘 %ld  ·  已贏 %@";
 "BRSlot.PP.Hats" = "%ld 頂金帽！";
 "BRSlot.PP.HatsSub" = "金帽 · 免費旋轉已解鎖";
 "BRSlot.PP.Hint" = "3+ 頂金帽 = 免費旋轉\n選一張牌獲得 ×2 / ×3 / ×5";

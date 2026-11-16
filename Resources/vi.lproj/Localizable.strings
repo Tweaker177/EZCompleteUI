@@ -492,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "Để sau";
 "EZCoinStore.FreeSpins.MessageClassic" = "Bạn thắng %ld vòng quay miễn phí tại Máy Classic!";
 "EZCoinStore.FreeSpins.MessagePenny" = "Bạn thắng %ld vòng quay miễn phí tại Máy Penny!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Bạn thắng %ld vòng quay miễn phí tại Phoenix Pavilion!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "Bạn thắng %ld vòng quay miễn phí tại Plunder Bay!";
 
 // File explorer
@@ -759,6 +760,7 @@
 "BRSlot.PP.FreeNoWin" = "Quay miễn phí · không thắng";
 "BRSlot.PP.FreeSpinsButton" = "QUAY MIỄN PHÍ";
 "BRSlot.PP.FreeSpinsLeft" = "QUAY MIỄN PHÍ  CÒN %ld  ·  ×%@  ·  ĐÃ THẮNG %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "QUAY MIỄN PHÍ  CÒN %ld  ·  ĐÃ THẮNG %@";
 "BRSlot.PP.Hats" = "%ld MŨ VÀNG!";
 "BRSlot.PP.HatsSub" = "金帽 · ĐÃ MỞ KHÓA QUAY MIỄN PHÍ";
 "BRSlot.PP.Hint" = "3+ MŨ VÀNG = QUAY MIỄN PHÍ\nCHỌN MỘT LÁ BÀI ĐỂ NHẬN ×2 / ×3 / ×5";
