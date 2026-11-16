@@ -999,6 +999,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 // TTS / audio
 @property (nonatomic, strong) AVSpeechSynthesizer *speechSynthesizer;
 @property (nonatomic, strong) AVAudioPlayer *audioPlayer;
+@property (nonatomic, copy) NSString *chatTTSActiveClipID;
+@property (nonatomic, strong) AVAudioPlayer *chatTTSActivePlayer;
 @property (nonatomic, strong) NSString      *lastAIResponse;
 @property (nonatomic, strong) NSString      *lastUserPrompt;
 
@@ -1113,9 +1115,12 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)persistImagePath:(NSString *)path prompt:(NSString *)prompt;
 - (void)performChatImageRequest:(NSDictionary *)imageRequest sourcePath:(NSString *)sourcePath;
 - (void)performChatMusicRequest:(NSDictionary *)musicRequest;
-- (void)performChatTTSRequest:(NSDictionary *)ttsRequest;
-- (void)speakChatTextWithApple:(NSString *)text language:(NSString *)language;
-- (void)speakChatTextWithElevenLabs:(NSString *)text voiceID:(NSString *)voiceID language:(NSString *)language;
+- (NSDictionary *)performChatTTSRequest:(NSDictionary *)ttsRequest clipID:(NSString *)clipID;
+- (void)speakChatTextWithApple:(NSString *)text language:(NSString *)language clipID:(NSString *)clipID;
+- (void)speakChatTextWithElevenLabs:(NSString *)text voiceID:(NSString *)voiceID language:(NSString *)language clipID:(NSString *)clipID;
+- (void)ez_toggleChatTTSForCell:(EZBubbleCell *)cell;
+- (BOOL)ez_chatTTSIsPlayingClipID:(NSString *)clipID;
+- (void)ez_reloadChatTTSRowForClipID:(NSString *)clipID;
 - (void)performChatSoundRequest:(NSDictionary *)soundRequest;
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *pendingForgetPrompts;
 @property (nonatomic, strong) NSDictionary *activeForgetPrompt;
@@ -1877,6 +1882,21 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
                     break;
                 }
             }
+            NSString *restoredTTSClipID = [msg[@"_ttsClipID"] isKindOfClass:[NSString class]]
+                ? msg[@"_ttsClipID"] : nil;
+            if (restoredTTSClipID.length) {
+                for (NSUInteger di = displayCountBefore; di < self.displayMessages.count; di++) {
+                    NSDictionary *addedEntry = self.displayMessages[di];
+                    if (![addedEntry[@"role"] isEqualToString:@"assistant"]) continue;
+                    NSMutableDictionary *stampedEntry = [addedEntry mutableCopy];
+                    stampedEntry[@"ttsText"] = [msg[@"_ttsText"] isKindOfClass:[NSString class]] ? msg[@"_ttsText"] : @"";
+                    stampedEntry[@"ttsEngine"] = [msg[@"_ttsEngine"] isKindOfClass:[NSString class]] ? msg[@"_ttsEngine"] : @"elevenlabs";
+                    stampedEntry[@"ttsLanguage"] = [msg[@"_ttsLanguage"] isKindOfClass:[NSString class]] ? msg[@"_ttsLanguage"] : @"";
+                    stampedEntry[@"ttsClipID"] = restoredTTSClipID;
+                    self.displayMessages[di] = stampedEntry;
+                    break;
+                }
+            }
         } else if ([role isEqualToString:@"system"] &&
                    ([msg[@"isUserAuthoredSystemMessage"] boolValue] ||
                     [msg[@"isCustomInstruction"] boolValue])) {
@@ -2260,16 +2280,12 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     // Legacy label — hidden, kept so any remaining references don't crash
     self.coinBalanceLabel = [[UILabel alloc] init];
-    self.coinBalanceLabel.adjustsFontSizeToFitWidth = YES;
-    self.coinBalanceLabel.minimumScaleFactor = 0.5;
     self.coinBalanceLabel.hidden = YES;
     self.coinBalanceLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.coinBalanceLabel];
 
     // Thread title label — tappable, sits between top bar and chat table
     self.threadTitleLabel                 = [[UILabel alloc] init];
-    self.threadTitleLabel.adjustsFontSizeToFitWidth = YES;
-    self.threadTitleLabel.minimumScaleFactor = 0.5;
     self.threadTitleLabel.text            = NSLocalizedString(@"EZThread.NewConversation", nil);
     self.threadTitleLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     self.threadTitleLabel.textColor       = [UIColor secondaryLabelColor];
@@ -2338,8 +2354,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.imageProgressRing.strokeEnd = 0;
     [self.imageProgressView.layer addSublayer:self.imageProgressRing];
     self.imageProgressLabel = [[UILabel alloc] init];
-    self.imageProgressLabel.adjustsFontSizeToFitWidth = YES;
-    self.imageProgressLabel.minimumScaleFactor = 0.5;
     self.imageProgressLabel.font = [UIFont monospacedDigitSystemFontOfSize:10 weight:UIFontWeightBold];
     self.imageProgressLabel.textColor = UIColor.whiteColor;
     self.imageProgressLabel.backgroundColor = [UIColor colorWithWhite:0 alpha:0.65];
@@ -2349,8 +2363,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.imageProgressLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [self.imageProgressView addSubview:self.imageProgressLabel];
     self.statusBannerLabel = [[UILabel alloc] init];
-    self.statusBannerLabel.adjustsFontSizeToFitWidth = YES;
-    self.statusBannerLabel.minimumScaleFactor = 0.5;
     self.statusBannerLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
     self.statusBannerLabel.textColor = [UIColor secondaryLabelColor];
     self.statusBannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -2423,8 +2435,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     // Placeholder label — UITextView has no built-in placeholder
     UILabel *placeholder = [[UILabel alloc] init];
-    placeholder.adjustsFontSizeToFitWidth = YES;
-    placeholder.minimumScaleFactor = 0.5;
     placeholder.text      = @"Type message...";
     placeholder.font      = [UIFont systemFontOfSize:16];
     placeholder.textColor = [UIColor placeholderTextColor];
@@ -2833,16 +2843,12 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     card.layer.borderColor = [UIColor colorWithRed:0.15 green:0.78 blue:1.0 alpha:0.70].CGColor;
     [overlay addSubview:card];
     UILabel *titleLabel = [UILabel new];
-    titleLabel.adjustsFontSizeToFitWidth = YES;
-    titleLabel.minimumScaleFactor = 0.5;
     titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
     titleLabel.text = title;
     titleLabel.textColor = UIColor.whiteColor;
     titleLabel.font = [UIFont systemFontOfSize:21 weight:UIFontWeightBold];
     [card addSubview:titleLabel];
     UILabel *detailLabel = [UILabel new];
-    detailLabel.adjustsFontSizeToFitWidth = YES;
-    detailLabel.minimumScaleFactor = 0.5;
     detailLabel.translatesAutoresizingMaskIntoConstraints = NO;
     detailLabel.text = detail;
     detailLabel.textColor = [UIColor colorWithWhite:0.72 alpha:1];
@@ -3609,6 +3615,109 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     [self.speechSynthesizer speakUtterance:u];
 }
 
+/// Where a chat-TTS clip's ElevenLabs audio is cached (Library/Caches —
+/// the system may purge it under storage pressure, and a missing file
+/// just means a replay uses the free Apple voice instead).
+static NSString *EZChatTTSClipPath(NSString *clipID) {
+    NSString *dir = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject
+                     stringByAppendingPathComponent:@"EZChatTTS"];
+    return [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.mp3", clipID ?: @""]];
+}
+
+@interface ViewController (EZChatTTSPlayback) <AVAudioPlayerDelegate, AVSpeechSynthesizerDelegate>
+@end
+
+/// YES while the given chat-TTS clip is the one loaded and audibly
+/// playing (file player playing, or the synthesizer speaking unpaused).
+- (BOOL)ez_chatTTSIsPlayingClipID:(NSString *)clipID {
+    if (!clipID.length || ![clipID isEqualToString:self.chatTTSActiveClipID]) return NO;
+    if (self.chatTTSActivePlayer) return self.chatTTSActivePlayer.isPlaying;
+    return self.speechSynthesizer.isSpeaking && !self.speechSynthesizer.isPaused;
+}
+
+/// Reloads the one chat row showing the given clip, if it is on screen,
+/// so its play/pause icon matches reality.
+- (void)ez_reloadChatTTSRowForClipID:(NSString *)clipID {
+    if (!clipID.length) return;
+    [self.displayMessages enumerateObjectsUsingBlock:^(NSDictionary *entry, NSUInteger idx, BOOL *stop) {
+        if ([entry[@"ttsClipID"] isEqualToString:clipID]) {
+            if (idx < self.displayMessages.count) {
+                [self.chatTableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:(NSInteger)idx inSection:0]]
+                                          withRowAnimation:UITableViewRowAnimationNone];
+            }
+            *stop = YES;
+        }
+    }];
+}
+
+/// The bubble play/pause button: toggles the clip loaded for that row,
+/// or starts a replay — the cached ElevenLabs audio when it is still on
+/// disk (free, exact same voice), otherwise the Apple voice (also free;
+/// a replay never buys the speech a second time).
+- (void)ez_toggleChatTTSForCell:(EZBubbleCell *)cell {
+    NSIndexPath *indexPath = [self.chatTableView indexPathForCell:cell];
+    if (!indexPath || (NSUInteger)indexPath.row >= self.displayMessages.count) return;
+    NSDictionary *entry = self.displayMessages[(NSUInteger)indexPath.row];
+    NSString *clipID = [entry[@"ttsClipID"] isKindOfClass:[NSString class]] ? entry[@"ttsClipID"] : nil;
+    if (!clipID.length) return;
+    if ([clipID isEqualToString:self.chatTTSActiveClipID]) {
+        if (self.chatTTSActivePlayer) {
+            if (self.chatTTSActivePlayer.isPlaying) [self.chatTTSActivePlayer pause];
+            else [self.chatTTSActivePlayer play];
+        } else if (self.speechSynthesizer.isPaused) {
+            [self.speechSynthesizer continueSpeaking];
+        } else if (self.speechSynthesizer.isSpeaking) {
+            [self.speechSynthesizer pauseSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+        }
+        [self ez_reloadChatTTSRowForClipID:clipID];
+        return;
+    }
+    NSString *oldClipID = self.chatTTSActiveClipID;
+    if (self.audioPlayer.isPlaying) [self.audioPlayer stop];
+    if (self.speechSynthesizer.isSpeaking) [self.speechSynthesizer stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+    self.chatTTSActiveClipID = nil;
+    self.chatTTSActivePlayer = nil;
+    NSString *text = [entry[@"ttsText"] isKindOfClass:[NSString class]] ? entry[@"ttsText"] : @"";
+    NSString *language = [entry[@"ttsLanguage"] isKindOfClass:[NSString class]] ? entry[@"ttsLanguage"] : nil;
+    NSString *engine = [entry[@"ttsEngine"] isKindOfClass:[NSString class]] ? entry[@"ttsEngine"] : @"elevenlabs";
+    NSString *clipPath = EZChatTTSClipPath(clipID);
+    BOOL replayedFromCache = NO;
+    if (![engine isEqualToString:@"apple"] && [[NSFileManager defaultManager] fileExistsAtPath:clipPath]) {
+        NSError *sessionError = nil;
+        EZActivatePlaybackAudioSession(&sessionError);
+        NSError *playerErr = nil;
+        AVAudioPlayer *player = [[AVAudioPlayer alloc] initWithContentsOfURL:[NSURL fileURLWithPath:clipPath] error:&playerErr];
+        if (player && !playerErr) {
+            self.audioPlayer = player;
+            player.delegate = self;
+            self.chatTTSActiveClipID = clipID;
+            self.chatTTSActivePlayer = player;
+            [player prepareToPlay];
+            replayedFromCache = [player play];
+        }
+    }
+    if (!replayedFromCache) {
+        [self speakChatTextWithApple:text language:language clipID:clipID];
+    }
+    if (oldClipID.length) [self ez_reloadChatTTSRowForClipID:oldClipID];
+    [self ez_reloadChatTTSRowForClipID:clipID];
+}
+
+- (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
+    if (player != self.chatTTSActivePlayer) return;
+    NSString *clipID = self.chatTTSActiveClipID;
+    self.chatTTSActiveClipID = nil;
+    self.chatTTSActivePlayer = nil;
+    [self ez_reloadChatTTSRowForClipID:clipID];
+}
+
+- (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didFinishSpeechUtterance:(AVSpeechUtterance *)utterance {
+    if (!self.chatTTSActiveClipID.length || self.chatTTSActivePlayer) return;
+    NSString *clipID = self.chatTTSActiveClipID;
+    self.chatTTSActiveClipID = nil;
+    [self ez_reloadChatTTSRowForClipID:clipID];
+}
+
 /// Speaks a tts_request returned by ez-chat (the speak_text tool).
 /// Engine rule (user, 2026-11-15): always the user's ElevenLabs voice —
 /// the same ez-elevenlabs "tts" call speakLastResponse makes, at the
@@ -3621,34 +3730,38 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 /// The request's language picks the Apple voice on the fallback path;
 /// ElevenLabs voices are multilingual and take language from the text.
 /// Empty or overlong text is dropped silently.
-- (void)performChatTTSRequest:(NSDictionary *)ttsRequest {
+- (NSDictionary *)performChatTTSRequest:(NSDictionary *)ttsRequest clipID:(NSString *)clipID {
     NSString *text = [ttsRequest[@"text"] isKindOfClass:[NSString class]]
         ? [ttsRequest[@"text"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
-    if (!text.length || text.length > 1000) return;
+    if (!text.length || text.length > 1000) return nil;
     NSString *language = [ttsRequest[@"language"] isKindOfClass:[NSString class]] ? ttsRequest[@"language"] : nil;
     NSString *engine = [ttsRequest[@"engine"] isKindOfClass:[NSString class]] ? ttsRequest[@"engine"] : @"elevenlabs";
     if ([engine isEqualToString:@"apple"]) {
-        [self speakChatTextWithApple:text language:language];
-        return;
+        [self speakChatTextWithApple:text language:language clipID:clipID];
+    } else {
+        NSString *voiceID = [[NSUserDefaults standardUserDefaults] stringForKey:@"elevenVoiceID"];
+        if (!voiceID.length) {
+            [self speakChatTextWithApple:text language:language clipID:clipID];
+        } else {
+            [self speakChatTextWithElevenLabs:text voiceID:voiceID language:language clipID:clipID];
+        }
     }
-    NSString *voiceID = [[NSUserDefaults standardUserDefaults] stringForKey:@"elevenVoiceID"];
-    if (!voiceID.length) {
-        [self speakChatTextWithApple:text language:language];
-        return;
-    }
-    [self speakChatTextWithElevenLabs:text voiceID:voiceID language:language];
+    return @{ @"text": text, @"engine": engine, @"language": language ?: @"", @"clipID": clipID ?: @"" };
 }
 
 /// The Apple-voice leg of a chat speak request — speakWithApple: with
 /// the request's language, on the main queue. Also stops any ElevenLabs
 /// playback in flight so the two voices never overlap.
-- (void)speakChatTextWithApple:(NSString *)text language:(NSString *)language {
+- (void)speakChatTextWithApple:(NSString *)text language:(NSString *)language clipID:(NSString *)clipID {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSError *sessionError = nil;
         if (!EZActivatePlaybackAudioSession(&sessionError)) {
             EZLogf(EZLogLevelError, @"TTS", @"Could not activate chat TTS audio session: %@", sessionError.localizedDescription);
             return;
         }
+        self.chatTTSActiveClipID = clipID;
+        self.chatTTSActivePlayer = nil;
+        self.speechSynthesizer.delegate = self;
         if (self.audioPlayer.isPlaying) [self.audioPlayer stop];
         if (self.speechSynthesizer.isSpeaking)
             [self.speechSynthesizer stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
@@ -3665,10 +3778,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 /// 402, non-200, undecodable audio, playback failure) falls back to
 /// the Apple voice silently instead of posting chat lines or a coin
 /// alert: the user asked for speech, not a dialog.
-- (void)speakChatTextWithElevenLabs:(NSString *)text voiceID:(NSString *)voiceID language:(NSString *)language {
+- (void)speakChatTextWithElevenLabs:(NSString *)text voiceID:(NSString *)voiceID language:(NSString *)language clipID:(NSString *)clipID {
     NSString *jwt = [EZAuthManager shared].accessToken;
     if (!jwt.length) {
-        [self speakChatTextWithApple:text language:language];
+        [self speakChatTextWithApple:text language:language clipID:clipID];
         return;
     }
     NSInteger charCount = (NSInteger)text.length;
@@ -3698,14 +3811,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             ? [[NSData alloc] initWithBase64EncodedString:audioB64 options:NSDataBase64DecodingIgnoreUnknownCharacters] : nil;
         if (!audioData.length) {
             EZLogf(EZLogLevelError, @"TTS", @"Chat ElevenLabs TTS failed (HTTP %ld) — Apple voice fallback", (long)http.statusCode);
-            [strongSelf speakChatTextWithApple:text language:language];
+            [strongSelf speakChatTextWithApple:text language:language clipID:clipID];
             return;
         }
         dispatch_async(dispatch_get_main_queue(), ^{
             NSError *sessionError = nil;
             if (!EZActivatePlaybackAudioSession(&sessionError)) {
                 EZLogf(EZLogLevelError, @"TTS", @"Could not activate chat ElevenLabs playback session: %@", sessionError.localizedDescription);
-                [strongSelf speakChatTextWithApple:text language:language];
+                [strongSelf speakChatTextWithApple:text language:language clipID:clipID];
                 return;
             }
             if (strongSelf.speechSynthesizer.isSpeaking)
@@ -3714,13 +3827,25 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             strongSelf.audioPlayer = [[AVAudioPlayer alloc] initWithData:audioData error:&playerErr];
             if (playerErr) {
                 EZLogf(EZLogLevelError, @"TTS", @"Chat ElevenLabs player error: %@", playerErr.localizedDescription);
-                [strongSelf speakChatTextWithApple:text language:language];
+                [strongSelf speakChatTextWithApple:text language:language clipID:clipID];
                 return;
             }
+            // Cache the clip so the bubble's play button can replay it
+            // without buying the speech again; a purged cache just means
+            // the replay falls back to the free Apple voice.
+            if (clipID.length) {
+                NSString *clipPath = EZChatTTSClipPath(clipID);
+                [[NSFileManager defaultManager] createDirectoryAtPath:clipPath.stringByDeletingLastPathComponent
+                                          withIntermediateDirectories:YES attributes:nil error:nil];
+                [audioData writeToFile:clipPath atomically:YES];
+            }
+            strongSelf.audioPlayer.delegate = strongSelf;
+            strongSelf.chatTTSActiveClipID = clipID;
+            strongSelf.chatTTSActivePlayer = strongSelf.audioPlayer;
             [strongSelf.audioPlayer prepareToPlay];
             if (![strongSelf.audioPlayer play]) {
                 EZLog(EZLogLevelError, @"TTS", @"Chat ElevenLabs playback refused — Apple voice fallback");
-                [strongSelf speakChatTextWithApple:text language:language];
+                [strongSelf speakChatTextWithApple:text language:language clipID:clipID];
                 return;
             }
             [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(__unused NSInteger balance) {
@@ -5127,8 +5252,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         // continues with the reply (or an image/music/sound request) below.
         NSDictionary *ttsRequest = [json[@"tts_request"] isKindOfClass:[NSDictionary class]]
             ? json[@"tts_request"] : nil;
+        NSDictionary *ttsInfo = nil;
         if (ttsRequest) {
-            [self performChatTTSRequest:ttsRequest];
+            ttsInfo = [self performChatTTSRequest:ttsRequest clipID:NSUUID.UUID.UUIDString];
         }
 
         NSDictionary *imageRequest = [json[@"image_request"] isKindOfClass:[NSDictionary class]]
@@ -5274,6 +5400,17 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             self.sendButton.enabled = YES;
             self.lastAIResponse = reply;
             [self.chatContext addObject:@{@"role": @"assistant", @"content": reply}];
+            if (ttsInfo) {
+                // Mark the turn as spoken so its bubble carries the
+                // play/pause replay button. The _ keys are stripped by
+                // the payload sanitizer and never reach the server.
+                NSMutableDictionary *stampedEntry = [self.chatContext.lastObject mutableCopy];
+                stampedEntry[@"_ttsText"] = ttsInfo[@"text"];
+                stampedEntry[@"_ttsEngine"] = ttsInfo[@"engine"];
+                stampedEntry[@"_ttsLanguage"] = ttsInfo[@"language"];
+                stampedEntry[@"_ttsClipID"] = ttsInfo[@"clipID"];
+                self.chatContext[self.chatContext.count - 1] = stampedEntry;
+            }
 
             NSMutableArray<NSString *> *codePaths = [NSMutableArray array];
             NSString *displayReply = [self processReplyWithCodeBlocks:reply savedPaths:codePaths];
@@ -5283,7 +5420,21 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                 if (![allAttachments containsObject:p]) [allAttachments addObject:p];
             }
 
+            NSUInteger ttsDisplayCountBefore = self.displayMessages.count;
             [self appendToChat:[NSString stringWithFormat:@"AI: %@", displayReply]];
+            if (ttsInfo) {
+                for (NSUInteger di = ttsDisplayCountBefore; di < self.displayMessages.count; di++) {
+                    NSDictionary *addedEntry = self.displayMessages[di];
+                    if (![addedEntry[@"role"] isEqualToString:@"assistant"]) continue;
+                    NSMutableDictionary *stampedDisplay = [addedEntry mutableCopy];
+                    stampedDisplay[@"ttsText"] = ttsInfo[@"text"];
+                    stampedDisplay[@"ttsEngine"] = ttsInfo[@"engine"];
+                    stampedDisplay[@"ttsLanguage"] = ttsInfo[@"language"];
+                    stampedDisplay[@"ttsClipID"] = ttsInfo[@"clipID"];
+                    self.displayMessages[di] = stampedDisplay;
+                    break;
+                }
+            }
 
             // The reaction note rode along with this turn and the model has
             // now answered past it: stamp the delivered reactions shared so
@@ -7878,8 +8029,6 @@ static NSString *EZThreadExportTimestampNow(void) {
     self.threadSelectionBar = bar;
 
     UILabel *count = [UILabel new];
-    count.adjustsFontSizeToFitWidth = YES;
-    count.minimumScaleFactor = 0.5;
     count.textColor = UIColor.whiteColor;
     count.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightBold];
     count.textAlignment = NSTextAlignmentCenter;
@@ -8590,8 +8739,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     [card addSubview:stack];
 
     UILabel *title = [UILabel new];
-    title.adjustsFontSizeToFitWidth = YES;
-    title.minimumScaleFactor = 0.5;
     title.text = entries.count == 1 ? @"Forget this memory?"
         : [NSString stringWithFormat:@"Forget these %lu memories?", (unsigned long)entries.count];
     title.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold];
@@ -8608,8 +8755,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
             line = entry[@"explicitFact"];
         }
         UILabel *label = [UILabel new];
-        label.adjustsFontSizeToFitWidth = YES;
-        label.minimumScaleFactor = 0.5;
         label.text = [NSString stringWithFormat:@"• %@", line];
         label.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
         label.textColor = [UIColor colorWithWhite:0.92 alpha:1.0];
@@ -8618,8 +8763,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     }
     if (entries.count > listed) {
         UILabel *more = [UILabel new];
-        more.adjustsFontSizeToFitWidth = YES;
-        more.minimumScaleFactor = 0.5;
         more.text = [NSString stringWithFormat:@"+%lu more", (unsigned long)(entries.count - listed)];
         more.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
         more.textColor = [UIColor colorWithWhite:0.62 alpha:1.0];
@@ -9291,6 +9434,12 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
                         chatKey:msg[@"chatKey"]
                        threadID:msg[@"threadID"]];
         [cell setReactionEmoji:msg[@"reaction"]];
+        NSString *ttsClipID = [msg[@"ttsClipID"] isKindOfClass:[NSString class]] ? msg[@"ttsClipID"] : nil;
+        [cell setTTSPlaybackVisible:(ttsClipID.length > 0)
+                            playing:[self ez_chatTTSIsPlayingClipID:ttsClipID]];
+        cell.ttsButtonTapped = ^(EZBubbleCell *tappedCell) {
+            [self ez_toggleChatTTSForCell:tappedCell];
+        };
         [self ez_attachCopyInteractionToCellIfNeeded:cell];
         [self configureThreadSelectionDotForCell:cell indexPath:indexPath];
         return cell;
@@ -10109,8 +10258,6 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
     UILabel *previousDot = nil;
     for (NSInteger i = 0; i < 3; i++) {
         UILabel *dot = [[UILabel alloc] init];
-        dot.adjustsFontSizeToFitWidth = YES;
-        dot.minimumScaleFactor = 0.5;
         dot.text = @"•";
         dot.font = [UIFont systemFontOfSize:26 weight:UIFontWeightBold];
         dot.textColor = [UIColor secondaryLabelColor];
@@ -10139,8 +10286,6 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
     // Status line: multi-line, word-wrapped — a status sentence always
     // shows in full, however long it runs.
     UILabel *status = [[UILabel alloc] init];
-    status.adjustsFontSizeToFitWidth = YES;
-    status.minimumScaleFactor = 0.5;
     status.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
     status.textColor = [UIColor secondaryLabelColor];
     status.numberOfLines = 0;
