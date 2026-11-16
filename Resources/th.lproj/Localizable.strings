@@ -492,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "ไว้ทีหลัง";
 "EZCoinStore.FreeSpins.MessageClassic" = "คุณชนะฟรีสปิน %ld ครั้งที่สล็อต Classic!";
 "EZCoinStore.FreeSpins.MessagePenny" = "คุณชนะฟรีสปิน %ld ครั้งที่สล็อต Penny!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "คุณชนะฟรีสปิน %ld ครั้งที่ฟีนิกซ์ พาวิลเลียน!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "คุณชนะฟรีสปิน %ld ครั้งที่พลันเดอร์ เบย์!";
 
 // File explorer
@@ -759,6 +760,7 @@
 "BRSlot.PP.FreeNoWin" = "ฟรีสปิน · ไม่ชนะ";
 "BRSlot.PP.FreeSpinsButton" = "ฟรีสปิน";
 "BRSlot.PP.FreeSpinsLeft" = "ฟรีสปิน  เหลือ %ld  ·  ×%@  ·  ชนะแล้ว %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "ฟรีสปิน  เหลือ %ld  ·  ชนะแล้ว %@";
 "BRSlot.PP.Hats" = "หมวกทอง %ld ใบ!";
 "BRSlot.PP.HatsSub" = "金帽 · ปลดล็อกฟรีสปินแล้ว";
 "BRSlot.PP.Hint" = "หมวกทอง 3+ = ฟรีสปิน\nเลือกการ์ดเพื่อรับ ×2 / ×3 / ×5";

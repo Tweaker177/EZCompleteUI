@@ -492,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "Später";
 "EZCoinStore.FreeSpins.MessageClassic" = "Du hast %ld Freispiele an den Classic Slots gewonnen!";
 "EZCoinStore.FreeSpins.MessagePenny" = "Du hast %ld Freispiele an den Penny Slots gewonnen!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Du hast %ld Freispiele in Phoenix Pavilion gewonnen!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "Du hast %ld Freispiele in Plunder Bay gewonnen!";
 
 // File explorer
@@ -759,6 +760,7 @@
 "BRSlot.PP.FreeNoWin" = "Freispiel · kein Gewinn";
 "BRSlot.PP.FreeSpinsButton" = "FREISPIELE";
 "BRSlot.PP.FreeSpinsLeft" = "FREISPIELE  NOCH %ld  ·  ×%@  ·  GEWONNEN %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "FREISPIELE  NOCH %ld  ·  GEWONNEN %@";
 "BRSlot.PP.Hats" = "%ld GOLDENE HÜTE!";
 "BRSlot.PP.HatsSub" = "金帽 · FREISPIELE FREIGESCHALTET";
 "BRSlot.PP.Hint" = "3+ GOLDENE HÜTE = FREISPIELE\nWÄHLE EINE KARTE FÜR ×2 / ×3 / ×5";

@@ -492,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "Più tardi";
 "EZCoinStore.FreeSpins.MessageClassic" = "Hai vinto %ld giri gratuiti alle slot Classic!";
 "EZCoinStore.FreeSpins.MessagePenny" = "Hai vinto %ld giri gratuiti alle slot Penny!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Hai vinto %ld giri gratuiti a Phoenix Pavilion!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "Hai vinto %ld giri gratuiti a Plunder Bay!";
 
 // File explorer
@@ -759,6 +760,7 @@
 "BRSlot.PP.FreeNoWin" = "Giro gratuito · nessuna vincita";
 "BRSlot.PP.FreeSpinsButton" = "GIRI GRATUITI";
 "BRSlot.PP.FreeSpinsLeft" = "GIRI GRATUITI  RIMASTI %ld  ·  ×%@  ·  VINTO %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "GIRI GRATUITI  RIMASTI %ld  ·  VINTO %@";
 "BRSlot.PP.Hats" = "%ld CAPPELLI DORATI!";
 "BRSlot.PP.HatsSub" = "金帽 · GIRI GRATUITI SBLOCCATI";
 "BRSlot.PP.Hint" = "3+ CAPPELLI DORATI = GIRI GRATUITI\nSCEGLI UNA CARTA PER ×2 / ×3 / ×5";

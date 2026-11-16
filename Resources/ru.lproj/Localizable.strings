@@ -532,6 +532,7 @@
 "EZCoinStore.FreeSpins.Later" = "Позже";
 "EZCoinStore.FreeSpins.MessageClassic" = "Вы выиграли %ld бесплатных вращений на автоматах Classic!";
 "EZCoinStore.FreeSpins.MessagePenny" = "Вы выиграли %ld бесплатных вращений на автоматах Penny!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Вы выиграли %ld бесплатных вращений в Феникс Павильон!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "Вы выиграли %ld бесплатных вращений в Пландер Бэй!";
 
 // File explorer
@@ -799,6 +800,7 @@
 "BRSlot.PP.FreeNoWin" = "Бесплатное вращение · без выигрыша";
 "BRSlot.PP.FreeSpinsButton" = "БЕСПЛАТНЫЕ ВРАЩЕНИЯ";
 "BRSlot.PP.FreeSpinsLeft" = "БЕСПЛАТНЫХ ВРАЩЕНИЙ  ОСТАЛОСЬ %ld  ·  ×%@  ·  ВЫИГРЫШ %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "БЕСПЛАТНЫХ ВРАЩЕНИЙ  ОСТАЛОСЬ %ld  ·  ВЫИГРЫШ %@";
 "BRSlot.PP.Hats" = "%ld ЗОЛОТЫХ ШЛЯП!";
 "BRSlot.PP.HatsSub" = "金帽 · БЕСПЛАТНЫЕ ВРАЩЕНИЯ ОТКРЫТЫ";
 "BRSlot.PP.Hint" = "3+ ЗОЛОТЫХ ШЛЯП = БЕСПЛАТНЫЕ ВРАЩЕНИЯ\nВЫБЕРИТЕ КАРТУ ДЛЯ ×2 / ×3 / ×5";

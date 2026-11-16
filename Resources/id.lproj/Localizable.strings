@@ -533,6 +533,7 @@
 "EZCoinStore.FreeSpins.Later" = "Nanti";
 "EZCoinStore.FreeSpins.MessageClassic" = "Anda memenangkan %ld putaran gratis di Slot Klasik!";
 "EZCoinStore.FreeSpins.MessagePenny" = "Anda memenangkan %ld putaran gratis di Slot Penny!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Anda memenangkan %ld putaran gratis di Phoenix Pavilion!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "Anda memenangkan %ld putaran gratis di Plunder Bay!";
 
 // File explorer
@@ -800,6 +801,7 @@
 "BRSlot.PP.FreeNoWin" = "Putaran gratis · tidak menang";
 "BRSlot.PP.FreeSpinsButton" = "PUTARAN GRATIS";
 "BRSlot.PP.FreeSpinsLeft" = "PUTARAN GRATIS  SISA %ld  ·  ×%@  ·  MENANG %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "PUTARAN GRATIS  SISA %ld  ·  MENANG %@";
 "BRSlot.PP.Hats" = "%ld TOPI EMAS!";
 "BRSlot.PP.HatsSub" = "金帽 · PUTARAN GRATIS TERBUKA";
 "BRSlot.PP.Hint" = "3+ TOPI EMAS = PUTARAN GRATIS\nPILIH KARTU UNTUK ×2 / ×3 / ×5";

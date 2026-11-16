@@ -514,6 +514,7 @@
 "EZCoinStore.FreeSpins.Later" = "Plus tard";
 "EZCoinStore.FreeSpins.MessageClassic" = "Vous avez gagné %ld tours gratuits sur les machines Classic !";
 "EZCoinStore.FreeSpins.MessagePenny" = "Vous avez gagné %ld tours gratuits sur les machines Penny !";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Vous avez gagné %ld tours gratuits sur Phoenix Pavilion !";
 "EZCoinStore.FreeSpins.MessagePlunder" = "Vous avez gagné %ld tours gratuits sur Plunder Bay !";
 
 // File explorer
@@ -781,6 +782,7 @@
 "BRSlot.PP.FreeNoWin" = "Tour gratuit · aucun gain";
 "BRSlot.PP.FreeSpinsButton" = "TOURS GRATUITS";
 "BRSlot.PP.FreeSpinsLeft" = "TOURS GRATUITS  RESTANT %ld  ·  ×%@  ·  GAGNÉ %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "TOURS GRATUITS  RESTANT %ld  ·  GAGNÉ %@";
 "BRSlot.PP.Hats" = "%ld CHAPEAUX DORÉS !";
 "BRSlot.PP.HatsSub" = "金帽 · TOURS GRATUITS DÉBLOQUÉS";
 "BRSlot.PP.Hint" = "3+ CHAPEAUX DORÉS = TOURS GRATUITS\nCHOISISSEZ UNE CARTE POUR ×2 / ×3 / ×5";

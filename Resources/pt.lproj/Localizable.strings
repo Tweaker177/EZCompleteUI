@@ -514,6 +514,7 @@
 "EZCoinStore.FreeSpins.Later" = "Depois";
 "EZCoinStore.FreeSpins.MessageClassic" = "Você ganhou %ld giros grátis nos caça-níqueis Classic!";
 "EZCoinStore.FreeSpins.MessagePenny" = "Você ganhou %ld giros grátis nos caça-níqueis Penny!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "Você ganhou %ld giros grátis em Phoenix Pavilion!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "Você ganhou %ld giros grátis em Plunder Bay!";
 
 // File explorer
@@ -781,6 +782,7 @@
 "BRSlot.PP.FreeNoWin" = "Giro grátis · sem prêmio";
 "BRSlot.PP.FreeSpinsButton" = "GIROS GRÁTIS";
 "BRSlot.PP.FreeSpinsLeft" = "GIROS GRÁTIS  RESTAM %ld  ·  ×%@  ·  GANHO %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "GIROS GRÁTIS  RESTAM %ld  ·  GANHO %@";
 "BRSlot.PP.Hats" = "%ld CHAPÉUS DOURADOS!";
 "BRSlot.PP.HatsSub" = "金帽 · GIROS GRÁTIS DESBLOQUEADOS";
 "BRSlot.PP.Hint" = "3+ CHAPÉUS DOURADOS = GIROS GRÁTIS\nESCOLHA UMA CARTA PARA ×2 / ×3 / ×5";

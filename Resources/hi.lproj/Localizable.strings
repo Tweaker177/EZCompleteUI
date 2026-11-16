@@ -492,6 +492,7 @@
 "EZCoinStore.FreeSpins.Later" = "बाद में";
 "EZCoinStore.FreeSpins.MessageClassic" = "आपने Classic Slots पर %ld मुफ़्त स्पिन जीते!";
 "EZCoinStore.FreeSpins.MessagePenny" = "आपने Penny Slots पर %ld मुफ़्त स्पिन जीते!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "आपने फीनिक्स पैविलियन पर %ld मुफ़्त स्पिन जीते!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "आपने प्लंडर बे पर %ld मुफ़्त स्पिन जीते!";
 
 // File explorer
@@ -759,6 +760,7 @@
 "BRSlot.PP.FreeNoWin" = "मुफ़्त स्पिन · कोई जीत नहीं";
 "BRSlot.PP.FreeSpinsButton" = "मुफ़्त स्पिन";
 "BRSlot.PP.FreeSpinsLeft" = "मुफ़्त स्पिन  %ld बचे  ·  ×%@  ·  जीते %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "मुफ़्त स्पिन  %ld बचे  ·  जीते %@";
 "BRSlot.PP.Hats" = "%ld सुनहरी टोपियाँ!";
 "BRSlot.PP.HatsSub" = "金帽 · मुफ़्त स्पिन अनलॉक हुए";
 "BRSlot.PP.Hint" = "3+ सुनहरी टोपियाँ = मुफ़्त स्पिन\n×2 / ×3 / ×5 के लिए एक कार्ड चुनें";

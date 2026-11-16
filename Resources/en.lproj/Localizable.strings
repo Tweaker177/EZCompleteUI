@@ -536,6 +536,7 @@
 "EZCoinStore.FreeSpins.Later" = "Later";
 "EZCoinStore.FreeSpins.MessageClassic" = "You won %ld free spins on the Classic Slots!";
 "EZCoinStore.FreeSpins.MessagePenny" = "You won %ld free spins on the Penny Slots!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "You won %ld free spins on Phoenix Pavilion!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "You won %ld free spins on Plunder Bay!";
 
 // File explorer
@@ -807,6 +808,7 @@
 "BRSlot.PP.FreeNoWin" = "Free spin · no win";
 "BRSlot.PP.FreeSpinsButton" = "FREE SPINS";
 "BRSlot.PP.FreeSpinsLeft" = "FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "FREE SPINS  %ld LEFT  ·  WON %@";
 "BRSlot.PP.Hats" = "%ld GOLDEN HATS!";
 "BRSlot.PP.HatsSub" = "金帽 · FREE SPINS UNLOCKED";
 "BRSlot.PP.Hint" = "3+ GOLDEN HATS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5";

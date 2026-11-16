@@ -514,6 +514,7 @@
 "EZCoinStore.FreeSpins.Later" = "Más tarde";
 "EZCoinStore.FreeSpins.MessageClassic" = "¡Ganaste %ld giros gratis en las tragamonedas clásicas!";
 "EZCoinStore.FreeSpins.MessagePenny" = "¡Ganaste %ld giros gratis en las tragamonedas de un centavo!";
+"EZCoinStore.FreeSpins.MessagePhoenix" = "¡Ganaste %ld giros gratis en Phoenix Pavilion!";
 "EZCoinStore.FreeSpins.MessagePlunder" = "¡Ganaste %ld giros gratis en Plunder Bay!";
 
 // File explorer
@@ -781,6 +782,7 @@
 "BRSlot.PP.FreeNoWin" = "Giro gratis · sin premio";
 "BRSlot.PP.FreeSpinsButton" = "GIROS GRATIS";
 "BRSlot.PP.FreeSpinsLeft" = "GIROS GRATIS  QUEDAN %ld  ·  ×%@  ·  GANADO %@";
+"BRSlot.PP.FreeSpinsLeftClaim" = "GIROS GRATIS  QUEDAN %ld  ·  GANADO %@";
 "BRSlot.PP.Hats" = "¡%ld SOMBREROS DORADOS!";
 "BRSlot.PP.HatsSub" = "金帽 · GIROS GRATIS DESBLOQUEADOS";
 "BRSlot.PP.Hint" = "3+ SOMBREROS DORADOS = GIROS GRATIS\nELIGE UNA CARTA PARA ×2 / ×3 / ×5";
