@@ -4,6 +4,23 @@ All notable changes to EZCompleteUI are documented here. Version numbers refer
 to the app/package version. Server-backed features also require their matching
 Supabase Edge Function deployments and migrations.
 
+## 7.2.9 — 2026-11-16
+
+### Chat and files
+
+- Expanded local file tools to browse five app folders, resolve relative
+  paths, extract PDF text, and identify text and binary files by content.
+- Fixed local file results appearing when a saved chat is restored and
+  improved handling of incomplete GitHub responses.
+- Generated chat sounds play automatically and can be replayed from the
+  message. Fixed a crash when saving generated speech.
+
+### Slots
+
+- Added a shared sound toggle in the slot picker.
+- Improved the profile editor and avatar display, fixed the free-spin claim
+  flow, and corrected the bonus-card reveal.
+
 ## 7.2.8 — 2026-11-16
 
 ### Slots
@@ -12,7 +29,7 @@ Supabase Edge Function deployments and migrations.
   free spins and the bonus multiplier card pick, localized in all
   17 languages.
 - Hourly free-spin claims now land on a random slot machine (Classic,
-  Penny or Plunder Bay). Claim spins play at the minimum bet and pay
+  Penny, Plunder Bay or Phoenix Pavilion). Claim spins play at the minimum bet and pay
   without a multiplier; scatter-won bonus spins keep their bet and
   multiplier.
 - The slot leaderboard now shows player photos (or an emblem avatar),
