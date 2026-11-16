@@ -865,12 +865,92 @@ NSString *EZHelperLogGetPath(void) {
 //   builds for debugging, it defines the DEBUG symbol; when building for the
 //   App Store, it doesn't. So the NSLog call literally doesn't exist in
 //   release builds — it's removed before compilation.
+
+// ── Log redaction + entry cap ─────────────────────────────────────────
+// Image payloads (data: URLs, raw base64) must never reach a log file:
+// one attached photo is megabytes of base64, which flooded the System
+// Log and made its viewer render as a black screen. Every payload
+// collapses to "<image attached: <mime>, <size>>" with the DECODED byte
+// size. EZLogRedactedObject deep-walks dictionaries and arrays;
+// EZLogRedactedString also catches data: URLs and long base64 runs
+// embedded inside a larger string. The entry cap in EZLog/EZHelperLog
+// is the backstop: no single entry may exceed 8192 chars, whatever a
+// future call site hands it.
+
+static const NSUInteger EZ_LOG_ENTRY_MAX_CHARS = 8192;
+
+static NSString *_EZLogSizeString(NSUInteger bytes) {
+    if (bytes < 1024) return [NSString stringWithFormat:@"%lu B", (unsigned long)bytes];
+    if (bytes < 1024 * 1024) return [NSString stringWithFormat:@"%lu KB", (unsigned long)((bytes + 512) / 1024)];
+    return [NSString stringWithFormat:@"%.1f MB", bytes / (1024.0 * 1024.0)];
+}
+
+static NSString *_EZLogImagePlaceholder(NSString *mime, NSUInteger base64Chars) {
+    NSUInteger bytes = (base64Chars * 3) / 4;
+    if (mime.length) return [NSString stringWithFormat:@"<image attached: %@, %@>", mime, _EZLogSizeString(bytes)];
+    return [NSString stringWithFormat:@"<image attached: %@>", _EZLogSizeString(bytes)];
+}
+
+static BOOL _EZLogStringIsBase64Run(NSString *candidate) {
+    // NSData's image base64 is always a multiple of 4 and strictly
+    // decodable; a long English word or URL path segment is not.
+    if (candidate.length % 4 != 0) return NO;
+    return [[NSData alloc] initWithBase64EncodedString:candidate options:0] != nil;
+}
+
+NSString *EZLogRedactedString(NSString *text) {
+    if (!text.length) return text ?: @"";
+    static NSRegularExpression *dataURLRegex = nil;
+    static NSRegularExpression *base64RunRegex = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        dataURLRegex = [NSRegularExpression regularExpressionWithPattern:@"data:([A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+)?;base64,([A-Za-z0-9+/=]+)" options:0 error:nil];
+        base64RunRegex = [NSRegularExpression regularExpressionWithPattern:@"[A-Za-z0-9+/]{256,}={0,2}" options:0 error:nil];
+    });
+    NSString *result = text;
+    // Replace from the end so earlier match ranges stay valid.
+    NSArray<NSTextCheckingResult *> *matches = [dataURLRegex matchesInString:result options:0 range:NSMakeRange(0, result.length)];
+    for (NSTextCheckingResult *m in matches.reverseObjectEnumerator) {
+        NSString *mime = [m rangeAtIndex:1].location != NSNotFound ? [result substringWithRange:[m rangeAtIndex:1]] : nil;
+        result = [result stringByReplacingCharactersInRange:m.range
+                                                 withString:_EZLogImagePlaceholder(mime, [m rangeAtIndex:2].length)];
+    }
+    matches = [base64RunRegex matchesInString:result options:0 range:NSMakeRange(0, result.length)];
+    for (NSTextCheckingResult *m in matches.reverseObjectEnumerator) {
+        if (!_EZLogStringIsBase64Run([result substringWithRange:m.range])) continue;
+        result = [result stringByReplacingCharactersInRange:m.range
+                                                 withString:_EZLogImagePlaceholder(nil, m.range.length)];
+    }
+    return result;
+}
+
+id EZLogRedactedObject(id object) {
+    if ([object isKindOfClass:NSString.class]) return EZLogRedactedString(object);
+    if ([object isKindOfClass:NSDictionary.class]) {
+        NSMutableDictionary *copy = [NSMutableDictionary dictionaryWithCapacity:[object count]];
+        for (id key in object) copy[key] = EZLogRedactedObject(object[key]);
+        return [copy copy];
+    }
+    if ([object isKindOfClass:NSArray.class]) {
+        NSMutableArray *copy = [NSMutableArray arrayWithCapacity:[object count]];
+        for (id item in object) [copy addObject:EZLogRedactedObject(item)];
+        return [copy copy];
+    }
+    return object;
+}
+
+static NSString *_EZLogCappedMessage(NSString *message) {
+    if (message.length <= EZ_LOG_ENTRY_MAX_CHARS) return message;
+    return [[message substringToIndex:EZ_LOG_ENTRY_MAX_CHARS]
+        stringByAppendingFormat:@"… [log entry truncated: %lu chars total]", (unsigned long)message.length];
+}
+
 void EZLog(EZLogLevel level, NSString *tag, NSString *message) {
     NSString *logLine = [NSString stringWithFormat:@"[%@] [%@] [%@] %@",
                          _timestampForDisplay(),
                          _logLevelString(level),
                          tag ?: @"GENERAL",
-                         message ?: @""];
+                         _EZLogCappedMessage(message ?: @"")];
 #ifdef DEBUG
     NSLog(@"%@", logLine);
 #endif
@@ -906,7 +986,7 @@ void EZHelperLog(NSString *tag, NSString *message) {
     NSString *logLine = [NSString stringWithFormat:@"[%@] [%@] %@",
                          _timestampForDisplay(),
                          tag ?: @"HELPER",
-                         message ?: @""];
+                         _EZLogCappedMessage(message ?: @"")];
 #ifdef DEBUG
     NSLog(@"%@", logLine);
 #endif
@@ -932,7 +1012,7 @@ static NSString *_helperMetadataDescription(NSDictionary<NSString *, id> *metada
     if (metadata.count == 0) return @"";
     NSMutableString *desc = [NSMutableString stringWithString:@"METADATA:\n"];
     for (NSString *key in metadata) {
-        NSString *value = [NSString stringWithFormat:@"%@", metadata[key] ?: @"(null)"];
+        NSString *value = EZLogRedactedString([NSString stringWithFormat:@"%@", metadata[key] ?: @"(null)"]);
         [desc appendFormat:@"  %@: %@\n", key, value];
     }
     return [desc copy];
@@ -957,11 +1037,11 @@ static void _logHelperAPICall(NSString *stageTag,
                               NSDictionary<NSString *, id> *metadata) {
     NSMutableString *body = [NSMutableString string];
     [body appendString:@"SYSTEM PROMPT:\n"];
-    [body appendString:systemPrompt.length ? systemPrompt : @"<empty>"];
+    [body appendString:systemPrompt.length ? EZLogRedactedString(systemPrompt) : @"<empty>"];
     [body appendString:@"\n\nUSER MESSAGE:\n"];
-    [body appendString:userMessage.length ? userMessage : @"<empty>"];
+    [body appendString:userMessage.length ? EZLogRedactedString(userMessage) : @"<empty>"];
     [body appendString:@"\n\nRESPONSE:\n"];
-    [body appendString:responseText.length ? responseText : @"<empty>"];
+    [body appendString:responseText.length ? EZLogRedactedString(responseText) : @"<empty>"];
     _logHelperEntry(stageTag, [body copy], metadata);
 }
 
@@ -972,7 +1052,7 @@ static void _logHelperDecision(NSString *stageTag,
     if (details.count > 0) {
         [body appendString:@"DETAILS:\n"];
         for (NSString *key in details) {
-            NSString *value = [NSString stringWithFormat:@"%@", details[key] ?: @"(null)"];
+            NSString *value = EZLogRedactedString([NSString stringWithFormat:@"%@", details[key] ?: @"(null)"]);
             [body appendFormat:@"  %@: %@\n", key, value];
         }
     }
