@@ -10,7 +10,7 @@ static NSInteger BRChatInteger(id value) { return [value respondsToSelector:@sel
 static NSString *BRChatString(id value) { return [value isKindOfClass:NSString.class] ? value : nil; }
 static NSNumber *BRChatNumber(id value) { return [value isKindOfClass:NSNumber.class] ? value : @0; }
 static NSDictionary *BRChatDictionary(id value) { return [value isKindOfClass:NSDictionary.class] ? value : @{}; }
-// Avatars show at 34pt: cap the upload at 512px so a full-resolution
+// Avatars show at up to 76pt: cap the upload at 512px so a full-resolution
 // library photo doesn't become a multi-MB base64 JSON body that times out
 // and silently fails the save (same shape as the 1600px ID-upload cap).
 static UIImage *BRChatScaledAvatar(UIImage *image) {
@@ -27,7 +27,7 @@ static UIImage *BRChatScaledAvatar(UIImage *image) {
 
 NSNotificationName const BRSlotProfileDidUpdateNotification = @"BRSlotProfileDidUpdateNotification";
 
-// Displayed avatars are tiny (34pt board rows, a ~40pt nav button, a 76pt
+// Displayed avatars are small (76pt board rows, a ~40pt nav button, a 76pt
 // editor preview): decode downloads straight to a cover thumbnail at the
 // display size instead of keeping the 512px upload alive per row.
 static UIImage *BRChatThumbnailFromData(NSData *data, CGFloat points) {
@@ -356,14 +356,14 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     [sheet.view addSubview:scroll];
     UIStackView *stack = [UIStackView new];
     stack.axis = UILayoutConstraintAxisVertical;
-    stack.spacing = 8;
+    stack.spacing = 10;
     stack.translatesAutoresizingMaskIntoConstraints = NO;
     [scroll addSubview:stack];
     NSString *(^trimmed)(NSString *) = ^NSString *(NSString *value) { return [value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]; };
     void (^addHeader)(NSString *) = ^(NSString *key) {
         UILabel *header = [UILabel new];
         header.text = trimmed(NSLocalizedString(key, nil));
-        header.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBlack];
+        header.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBlack];
         header.textColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
         [stack addArrangedSubview:header];
     };
@@ -383,27 +383,34 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
         avatar.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
         avatar.contentMode = UIViewContentModeScaleAspectFill;
         avatar.clipsToBounds = YES;
-        avatar.layer.cornerRadius = 17;
+        avatar.layer.cornerRadius = 38;
+        avatar.layer.borderWidth = 2;
+        avatar.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.62].CGColor;
+        avatar.backgroundColor = [UIColor colorWithWhite:1 alpha:.07];
         avatar.translatesAutoresizingMaskIntoConstraints = NO;
         [line addSubview:avatar];
         UILabel *label = [UILabel new];
         label.text = trimmed([NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.WinningsRow", nil), (unsigned long)index + 1, BRChatString(row[@"name"]) ?: NSLocalizedString(@"BRSlot.Lounge.PlayerFallback", nil), BRChatNumber(row[amountKey])]);
-        label.font = [UIFont monospacedSystemFontOfSize:14 weight:UIFontWeightMedium];
+        label.font = [UIFont monospacedSystemFontOfSize:17 weight:UIFontWeightSemibold];
         label.textColor = UIColor.whiteColor;
+        label.numberOfLines = 0;
         label.translatesAutoresizingMaskIntoConstraints = NO;
         [line addSubview:label];
+        // Big rows: a 76pt avatar plus padding makes each entry ~92pt
+        // tall, so about 6-7 entries fill the screen and the rest of
+        // the board is reached by scrolling, as requested.
         [NSLayoutConstraint activateConstraints:@[
             [avatar.leadingAnchor constraintEqualToAnchor:line.leadingAnchor],
-            [avatar.centerYAnchor constraintEqualToAnchor:line.centerYAnchor],
-            [avatar.widthAnchor constraintEqualToConstant:34],
-            [avatar.heightAnchor constraintEqualToConstant:34],
-            [label.leadingAnchor constraintEqualToAnchor:avatar.trailingAnchor constant:10],
+            [avatar.topAnchor constraintEqualToAnchor:line.topAnchor constant:8],
+            [avatar.bottomAnchor constraintEqualToAnchor:line.bottomAnchor constant:-8],
+            [avatar.widthAnchor constraintEqualToConstant:76],
+            [avatar.heightAnchor constraintEqualToConstant:76],
+            [label.leadingAnchor constraintEqualToAnchor:avatar.trailingAnchor constant:14],
             [label.trailingAnchor constraintEqualToAnchor:line.trailingAnchor],
-            [label.topAnchor constraintEqualToAnchor:line.topAnchor constant:4],
-            [label.bottomAnchor constraintEqualToAnchor:line.bottomAnchor constant:-4]]];
+            [label.centerYAnchor constraintEqualToAnchor:line.centerYAnchor]]];
         [stack addArrangedSubview:line];
         NSString *avatarURL = BRChatString(row[@"avatar_url"]);
-        if (avatarURL.length) { __weak UIImageView *weakAvatar = avatar; [BRSlotChatBar loadAvatarThumbnailForURL:avatarURL points:34 completion:^(UIImage *image) { if (image) weakAvatar.image = image; }]; }
+        if (avatarURL.length) { __weak UIImageView *weakAvatar = avatar; [BRSlotChatBar loadAvatarThumbnailForURL:avatarURL points:76 completion:^(UIImage *image) { if (image) weakAvatar.image = image; }]; }
     };
     void (^addSection)(NSString *, NSArray *, NSString *, NSString *) = ^(NSString *headerKey, NSArray *entries, NSString *amountKey, NSString *emptyKey) {
         if (stack.arrangedSubviews.count) {
