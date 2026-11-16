@@ -717,6 +717,34 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     [super viewWillAppear:animated];
 
+    // Release the game pin when the store is back on top. Play Now
+
+    // (openClaimCelebrationSlot / openFirstBrainrotSlot) pins this
+
+    // sheet (modalInPresentation = YES) so a swipe down can't kill
+
+    // the game mid-session — but this store has no close button;
+
+    // swipe-down is its only exit. Once the game has been popped
+
+    // and the store is showing again, the session the pin was
+
+    // protecting is over, so unpin here or the user is trapped in
+
+    // the store with no way out. Only when the store is the root
+
+    // of its own presented sheet: when it's pushed inside the
+
+    // slot flow, that flow's pin is not ours to release.
+
+    UINavigationController *sheetNav = self.navigationController;
+
+    if (sheetNav && sheetNav.viewControllers.firstObject == self && sheetNav.presentingViewController) {
+
+        sheetNav.modalInPresentation = NO;
+
+    }
+
     // Lightweight countdown refresh using already-cached timing data.
 
     // No network call here — refreshDailyCoinsStatus handles that on load
