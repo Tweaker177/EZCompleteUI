@@ -17,6 +17,14 @@ typedef NS_ENUM(NSInteger, EZLogLevel) {
 
 NSString *EZLogGetPath(void);
 void EZLog(EZLogLevel level, NSString *tag, NSString *message);
+// Log redaction: collapses image payloads (data: URLs and long base64
+// runs, anywhere in a string or nested in dictionaries/arrays) to a
+// short "<image attached: <mime>, <size>>" placeholder with the decoded
+// byte size. Anything that can carry an image must pass through one of
+// these before it is logged. EZLog/EZHelperLog additionally cap every
+// entry at 8192 chars as a backstop.
+NSString *EZLogRedactedString(NSString *text);
+id EZLogRedactedObject(id object);
 #define EZLogf(level, tag, fmt, ...) EZLog((level),(tag),[NSString stringWithFormat:(fmt),##__VA_ARGS__])
 void EZLogRotateIfNeeded(NSUInteger maxBytes);
 

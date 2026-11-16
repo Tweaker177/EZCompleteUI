@@ -5473,7 +5473,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                 : @"Got it — I'll remember that.";
         }
         if (!reply.length) {
-            EZLogf(EZLogLevelError, @"API", @"No reply in ez-chat response: %@", json);
+            EZLogf(EZLogLevelError, @"API", @"No reply in ez-chat response: %@", EZLogRedactedObject(json));
             [self handleAPIError:@"Unexpected response format"]; return;
         }
 
@@ -7332,44 +7332,15 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 /// shape and all ordinary text, while collapsing embedded image bytes so one
 /// attachment cannot fill the System Log with megabytes of Base64.
 - (NSDictionary *)loggableChatRequestBody:(NSDictionary *)body {
-    NSMutableDictionary *logBody = [body mutableCopy] ?: [NSMutableDictionary dictionary];
-    NSArray *messages = [body[@"messages"] isKindOfClass:NSArray.class] ? body[@"messages"] : nil;
-    if (!messages) return [logBody copy];
-
-    NSMutableArray *logMessages = [NSMutableArray arrayWithCapacity:messages.count];
-    for (NSDictionary *message in messages) {
-        if (![message isKindOfClass:NSDictionary.class]) { [logMessages addObject:message ?: @{}]; continue; }
-        NSMutableDictionary *logMessage = [message mutableCopy];
-        NSArray *content = [message[@"content"] isKindOfClass:NSArray.class] ? message[@"content"] : nil;
-        if (!content) { [logMessages addObject:logMessage]; continue; }
-
-        NSMutableArray *logContent = [NSMutableArray arrayWithCapacity:content.count];
-        for (NSDictionary *block in content) {
-            if (![block isKindOfClass:NSDictionary.class]) { [logContent addObject:block ?: @{}]; continue; }
-            NSMutableDictionary *logBlock = [block mutableCopy];
-            NSString *type = [block[@"type"] isKindOfClass:NSString.class] ? block[@"type"] : @"";
-            if ([type isEqualToString:@"image_url"]) {
-                id imageURL = block[@"image_url"];
-                NSString *url = [imageURL isKindOfClass:NSDictionary.class] ? imageURL[@"url"]
-                    : [imageURL isKindOfClass:NSString.class] ? imageURL : nil;
-                if ([url hasPrefix:@"data:"]) {
-                    NSRange marker = [url rangeOfString:@";base64,"];
-                    NSString *mime = marker.location == NSNotFound ? @"image" : [url substringWithRange:NSMakeRange(5, marker.location - 5)];
-                    NSUInteger chars = marker.location == NSNotFound ? url.length : url.length - NSMaxRange(marker);
-                    logBlock[@"image_url"] = @{ @"url": [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)chars] };
-                }
-            } else if ([type isEqualToString:@"input_image"] && [block[@"data"] isKindOfClass:NSString.class]) {
-                NSString *data = block[@"data"];
-                NSString *mime = [block[@"media_type"] isKindOfClass:NSString.class] ? block[@"media_type"] : @"image";
-                logBlock[@"data"] = [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)data.length];
-            }
-            [logContent addObject:logBlock];
-        }
-        logMessage[@"content"] = logContent;
-        [logMessages addObject:logMessage];
-    }
-    logBody[@"messages"] = logMessages;
-    return [logBody copy];
+    // Generalized redaction (helpers.m): collapses data: URLs and long
+    // base64 runs ANYWHERE in the body — any key, any nesting, string
+    // content included — to "<image attached: <mime>, <size>>" with the
+    // decoded byte size. The previous version only knew two block
+    // shapes inside messages[].content[], so other shapes (input_image
+    // carrying its bytes under image_url, file blocks, a data: URL in a
+    // plain string) reached the System Log whole. Logging only: the
+    // request actually sent keeps the full image data.
+    return EZLogRedactedObject(body);
 }
 
 - (NSString *)featureLabel:(EZFeature)feature {
