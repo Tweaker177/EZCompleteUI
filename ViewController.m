@@ -621,6 +621,7 @@
 #import "EZMusicService.h"
 #import "EZMusicLibraryManager.h"
 #import "EZSoundLibraryManager.h"
+#import "EZTTSLibraryManager.h"
 #import "EZMusicBubbleCell.h"
 #import "MemoriesViewController.h"
 #import "SupportRequestViewController.h"
@@ -1115,9 +1116,9 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)persistImagePath:(NSString *)path prompt:(NSString *)prompt;
 - (void)performChatImageRequest:(NSDictionary *)imageRequest sourcePath:(NSString *)sourcePath;
 - (void)performChatMusicRequest:(NSDictionary *)musicRequest;
-- (NSDictionary *)performChatTTSRequest:(NSDictionary *)ttsRequest clipID:(NSString *)clipID;
+- (NSDictionary *)performChatTTSRequest:(NSDictionary *)ttsRequest clipID:(NSString *)clipID archived:(void (^)(NSString *entryUUID))archived;
 - (void)speakChatTextWithApple:(NSString *)text language:(NSString *)language clipID:(NSString *)clipID;
-- (void)speakChatTextWithElevenLabs:(NSString *)text voiceID:(NSString *)voiceID language:(NSString *)language clipID:(NSString *)clipID;
+- (void)speakChatTextWithElevenLabs:(NSString *)text voiceID:(NSString *)voiceID language:(NSString *)language clipID:(NSString *)clipID archived:(void (^)(NSString *entryUUID))archived;
 - (void)ez_toggleChatTTSForCell:(EZBubbleCell *)cell;
 - (BOOL)ez_chatTTSIsPlayingClipID:(NSString *)clipID;
 - (void)ez_reloadChatTTSRowForClipID:(NSString *)clipID;
@@ -3680,9 +3681,14 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     NSString *text = [entry[@"ttsText"] isKindOfClass:[NSString class]] ? entry[@"ttsText"] : @"";
     NSString *language = [entry[@"ttsLanguage"] isKindOfClass:[NSString class]] ? entry[@"ttsLanguage"] : nil;
     NSString *engine = [entry[@"ttsEngine"] isKindOfClass:[NSString class]] ? entry[@"ttsEngine"] : @"elevenlabs";
-    NSString *clipPath = EZChatTTSClipPath(clipID);
+    NSString *clipPath = nil;
+    EZTTSManifestEntry *libraryEntry = [[EZTTSLibraryManager sharedManager] clipWithUUID:clipID];
+    if (libraryEntry) clipPath = [[EZTTSLibraryManager sharedManager] absoluteURLForEntry:libraryEntry].path;
+    if (!clipPath.length && [[NSFileManager defaultManager] fileExistsAtPath:EZChatTTSClipPath(clipID)]) {
+        clipPath = EZChatTTSClipPath(clipID);
+    }
     BOOL replayedFromCache = NO;
-    if (![engine isEqualToString:@"apple"] && [[NSFileManager defaultManager] fileExistsAtPath:clipPath]) {
+    if (![engine isEqualToString:@"apple"] && clipPath.length) {
         NSError *sessionError = nil;
         EZActivatePlaybackAudioSession(&sessionError);
         NSError *playerErr = nil;
@@ -3730,7 +3736,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 /// The request's language picks the Apple voice on the fallback path;
 /// ElevenLabs voices are multilingual and take language from the text.
 /// Empty or overlong text is dropped silently.
-- (NSDictionary *)performChatTTSRequest:(NSDictionary *)ttsRequest clipID:(NSString *)clipID {
+- (NSDictionary *)performChatTTSRequest:(NSDictionary *)ttsRequest clipID:(NSString *)clipID archived:(void (^)(NSString *entryUUID))archived {
     NSString *text = [ttsRequest[@"text"] isKindOfClass:[NSString class]]
         ? [ttsRequest[@"text"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
     if (!text.length || text.length > 1000) return nil;
@@ -3743,7 +3749,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         if (!voiceID.length) {
             [self speakChatTextWithApple:text language:language clipID:clipID];
         } else {
-            [self speakChatTextWithElevenLabs:text voiceID:voiceID language:language clipID:clipID];
+            [self speakChatTextWithElevenLabs:text voiceID:voiceID language:language clipID:clipID archived:archived];
         }
     }
     return @{ @"text": text, @"engine": engine, @"language": language ?: @"", @"clipID": clipID ?: @"" };
@@ -3778,7 +3784,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 /// 402, non-200, undecodable audio, playback failure) falls back to
 /// the Apple voice silently instead of posting chat lines or a coin
 /// alert: the user asked for speech, not a dialog.
-- (void)speakChatTextWithElevenLabs:(NSString *)text voiceID:(NSString *)voiceID language:(NSString *)language clipID:(NSString *)clipID {
+- (void)speakChatTextWithElevenLabs:(NSString *)text voiceID:(NSString *)voiceID language:(NSString *)language clipID:(NSString *)clipID archived:(void (^)(NSString *entryUUID))archived {
     NSString *jwt = [EZAuthManager shared].accessToken;
     if (!jwt.length) {
         [self speakChatTextWithApple:text language:language clipID:clipID];
@@ -3839,6 +3845,26 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                                           withIntermediateDirectories:YES attributes:nil error:nil];
                 [audioData writeToFile:clipPath atomically:YES];
             }
+            // Archive the clip to the TTS library (its contract: every
+            // successful generation is saved). The handler swaps the
+            // bubble's stamp to the library entry's uuid when this lands,
+            // so replays resolve to the library file — the right voice,
+            // permanently, never re-bought.
+            [[EZTTSLibraryManager sharedManager] saveAudioData:audioData
+                                                        prompt:text
+                                                     voiceName:nil
+                                                       voiceID:voiceID
+                                                      provider:@"elevenlabs"
+                                                         model:kElevenLabsTTSModelID
+                                                     extension:@"mp3"
+                                                      metadata:nil
+                                                    completion:^(EZTTSManifestEntry *entry, NSError *error) {
+                if (error) {
+                    EZLogf(EZLogLevelError, @"TTSLibrary", @"Chat TTS archive failed: %@", error.localizedDescription);
+                    return;
+                }
+                if (archived) archived(entry.uuid);
+            }];
             strongSelf.audioPlayer.delegate = strongSelf;
             strongSelf.chatTTSActiveClipID = clipID;
             strongSelf.chatTTSActivePlayer = strongSelf.audioPlayer;
@@ -4055,6 +4081,19 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         }
 
         dispatch_async(dispatch_get_main_queue(), ^{
+            // Archive every successful generation to the TTS library —
+            // no TTS asset should exist only in a transient player.
+            [[EZTTSLibraryManager sharedManager] saveAudioData:audioData
+                                                        prompt:text
+                                                     voiceName:nil
+                                                       voiceID:voiceID
+                                                      provider:@"elevenlabs"
+                                                         model:kElevenLabsTTSModelID
+                                                     extension:@"mp3"
+                                                      metadata:nil
+                                                    completion:^(EZTTSManifestEntry *entry, NSError *error) {
+                if (error) EZLogf(EZLogLevelError, @"TTSLibrary", @"Archive failed: %@", error.localizedDescription);
+            }];
             NSError *sessionError = nil;
             if (!EZActivatePlaybackAudioSession(&sessionError)) {
                 EZLogf(EZLogLevelError, @"TTS", @"Could not activate ElevenLabs playback audio session: %@", sessionError.localizedDescription);
@@ -5254,7 +5293,34 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
             ? json[@"tts_request"] : nil;
         NSDictionary *ttsInfo = nil;
         if (ttsRequest) {
-            ttsInfo = [self performChatTTSRequest:ttsRequest clipID:NSUUID.UUID.UUIDString];
+            NSString *ttsClipID = NSUUID.UUID.UUIDString;
+            ttsInfo = [self performChatTTSRequest:ttsRequest clipID:ttsClipID archived:^(NSString *entryUUID) {
+                // The ElevenLabs clip is now in the TTS library: point the
+                // turn's stamp at the library entry (the permanent home)
+                // and drop the temporary cache copy. If the user has
+                // already switched threads, leave the stamp as-is — the
+                // cache file still backs its replay.
+                if (!entryUUID.length) return;
+                if (![self.activeThread.threadID isEqualToString:capturedThreadID]) return;
+                for (NSUInteger ci = 0; ci < self.chatContext.count; ci++) {
+                    if ([self.chatContext[ci][@"_ttsClipID"] isEqualToString:ttsClipID]) {
+                        NSMutableDictionary *restamp = [self.chatContext[ci] mutableCopy];
+                        restamp[@"_ttsClipID"] = entryUUID;
+                        self.chatContext[ci] = restamp;
+                        break;
+                    }
+                }
+                for (NSUInteger di = 0; di < self.displayMessages.count; di++) {
+                    if ([self.displayMessages[di][@"ttsClipID"] isEqualToString:ttsClipID]) {
+                        NSMutableDictionary *restamp = [self.displayMessages[di] mutableCopy];
+                        restamp[@"ttsClipID"] = entryUUID;
+                        self.displayMessages[di] = restamp;
+                        break;
+                    }
+                }
+                [self saveActiveThread];
+                [[NSFileManager defaultManager] removeItemAtPath:EZChatTTSClipPath(ttsClipID) error:nil];
+            }];
         }
 
         NSDictionary *imageRequest = [json[@"image_request"] isKindOfClass:[NSDictionary class]]
