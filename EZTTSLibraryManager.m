@@ -384,15 +384,23 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
         // Build the entry first: the file takes the clip's display
         // name from birth (app-wide user rule, 2026-11-13) — what the
         // list shows is what the file is called, so exports never
-        // surface a generated tts_<stamp>_<id> name. The filename is
-        // filled in below, once metadata is set and the name is final.
+        // surface a generated tts_<stamp>_<id> name. The final filename
+        // is assigned below, once metadata is set and the name is
+        // final; until then the entry carries a non-empty placeholder,
+        // because the entry initializer asserts filename and
+        // relativePath are non-empty — passing @"" here crashed every
+        // save with an uncaught NSParameterAssert on this queue (the
+        // chat TTS crash + missing TTS history, fixed 2026-11-16 the
+        // same way EZSoundLibraryManager already did it). The
+        // placeholder is replaced before the file is written and
+        // before the entry reaches the manifest, so it never surfaces.
         EZTTSManifestEntry *entry = [EZTTSManifestEntry entryWithProvider:provider
                                                                   voiceName:voiceName
                                                                     voiceID:voiceID
                                                                       model:model
                                                                      prompt:prompt
-                                                                   filename:@""
-                                                               relativePath:@""
+                                                                   filename:@"pending"
+                                                               relativePath:[kEZAudioFolderName stringByAppendingPathComponent:@"pending"]
                                                                    duration:0
                                                                  sampleRate:0
                                                                    fileSize:0];
