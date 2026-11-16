@@ -17,6 +17,7 @@
     NSLayoutConstraint *_reactionBadgeTrailing;  // assistant bubbles: badge at trailing edge
     NSLayoutConstraint *_bubbleBottomConstraint; // deepens when a badge needs room
     UIButton   *_ttsButton;              // play/pause for chat-TTS bubbles, hidden unless set
+    UIButton   *_soundButton;            // play/pause for chat sound bubbles, hidden unless set
 }
 
 // ─── init ──────────────────────────────────────────────────────────────────
@@ -139,6 +140,29 @@
         [_ttsButton.heightAnchor constraintEqualToConstant:30],
     ]];
     [self setTTSPlaybackVisible:NO playing:NO];
+
+    // Same seat as the TTS button (bubble trailing +6, 30pt): a row
+    // shows one or the other, never both.
+    _soundButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    _soundButton.translatesAutoresizingMaskIntoConstraints = NO;
+    _soundButton.layer.cornerRadius = 15.0;
+    _soundButton.clipsToBounds = YES;
+    _soundButton.backgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
+        return tc.userInterfaceStyle == UIUserInterfaceStyleDark
+            ? [UIColor colorWithRed:0.28 green:0.28 blue:0.30 alpha:1.0]
+            : [UIColor colorWithRed:0.95 green:0.95 blue:0.97 alpha:1.0];
+    }];
+    _soundButton.tintColor = [UIColor systemBlueColor];
+    _soundButton.hidden = YES;
+    [_soundButton addTarget:self action:@selector(_soundButtonTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.contentView addSubview:_soundButton];
+    [NSLayoutConstraint activateConstraints:@[
+        [_soundButton.leadingAnchor constraintEqualToAnchor:_bubbleView.trailingAnchor constant:6],
+        [_soundButton.centerYAnchor constraintEqualToAnchor:_bubbleView.centerYAnchor],
+        [_soundButton.widthAnchor  constraintEqualToConstant:30],
+        [_soundButton.heightAnchor constraintEqualToConstant:30],
+    ]];
+    [self setSoundPlaybackVisible:NO playing:NO];
 
     // ── Pan gesture for swipe-to-reveal ─────────────────────────────────────
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc]
@@ -274,10 +298,25 @@
     if (self.ttsButtonTapped) self.ttsButtonTapped(self);
 }
 
+- (void)setSoundPlaybackVisible:(BOOL)visible playing:(BOOL)playing {
+    _soundButton.hidden = !visible;
+    if (visible) {
+        UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:13 weight:UIImageSymbolWeightBold];
+        [_soundButton setImage:[UIImage systemImageNamed:(playing ? @"pause.fill" : @"play.fill") withConfiguration:cfg]
+                    forState:UIControlStateNormal];
+    }
+}
+
+- (void)_soundButtonTapped {
+    if (self.soundButtonTapped) self.soundButtonTapped(self);
+}
+
 - (void)prepareForReuse {
     [super prepareForReuse];
     [self setTTSPlaybackVisible:NO playing:NO];
     self.ttsButtonTapped = nil;
+    [self setSoundPlaybackVisible:NO playing:NO];
+    self.soundButtonTapped = nil;
 }
 
 - (void)setReactionEmoji:(NSString *)emoji {

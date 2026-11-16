@@ -1004,6 +1004,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) AVAudioPlayer *audioPlayer;
 @property (nonatomic, copy) NSString *chatTTSActiveClipID;
 @property (nonatomic, strong) AVAudioPlayer *chatTTSActivePlayer;
+@property (nonatomic, copy) NSString *chatSoundActiveID;
+@property (nonatomic, strong) AVAudioPlayer *chatSoundActivePlayer;
 @property (nonatomic, strong) NSString      *lastAIResponse;
 @property (nonatomic, strong) NSString      *lastUserPrompt;
 
@@ -1124,6 +1126,11 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)ez_toggleChatTTSForCell:(EZBubbleCell *)cell;
 - (BOOL)ez_chatTTSIsPlayingClipID:(NSString *)clipID;
 - (void)ez_reloadChatTTSRowForClipID:(NSString *)clipID;
+- (void)ez_toggleChatSoundForCell:(EZBubbleCell *)cell;
+- (BOOL)ez_chatSoundIsPlayingEntryID:(NSString *)entryID;
+- (void)ez_reloadChatSoundRowForEntryID:(NSString *)entryID;
+- (void)ez_playChatSoundEntryID:(NSString *)entryID data:(NSData *)data loop:(BOOL)loop;
+- (void)ez_stopChatSoundPlayback;
 - (void)performChatSoundRequest:(NSDictionary *)soundRequest;
 @property (nonatomic, assign) NSInteger githubRoundCount;
 - (void)performChatGitHubRequest:(NSDictionary *)githubRequest summary:(NSString *)summary threadID:(NSString *)threadID;
@@ -1909,6 +1916,18 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
                     stampedEntry[@"ttsEngine"] = [msg[@"_ttsEngine"] isKindOfClass:[NSString class]] ? msg[@"_ttsEngine"] : @"elevenlabs";
                     stampedEntry[@"ttsLanguage"] = [msg[@"_ttsLanguage"] isKindOfClass:[NSString class]] ? msg[@"_ttsLanguage"] : @"";
                     stampedEntry[@"ttsClipID"] = restoredTTSClipID;
+                    self.displayMessages[di] = stampedEntry;
+                    break;
+                }
+            }
+            NSString *restoredSoundEntryID = [msg[@"_soundEntryID"] isKindOfClass:[NSString class]]
+                ? msg[@"_soundEntryID"] : nil;
+            if (restoredSoundEntryID.length) {
+                for (NSUInteger di = displayCountBefore; di < self.displayMessages.count; di++) {
+                    NSDictionary *addedEntry = self.displayMessages[di];
+                    if (![addedEntry[@"role"] isEqualToString:@"assistant"]) continue;
+                    NSMutableDictionary *stampedEntry = [addedEntry mutableCopy];
+                    stampedEntry[@"soundEntryID"] = restoredSoundEntryID;
                     self.displayMessages[di] = stampedEntry;
                     break;
                 }
@@ -3687,6 +3706,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     }
     NSString *oldClipID = self.chatTTSActiveClipID;
     if (self.audioPlayer.isPlaying) [self.audioPlayer stop];
+    [self ez_stopChatSoundPlayback];
     if (self.speechSynthesizer.isSpeaking) [self.speechSynthesizer stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
     self.chatTTSActiveClipID = nil;
     self.chatTTSActivePlayer = nil;
@@ -3721,7 +3741,95 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     [self ez_reloadChatTTSRowForClipID:clipID];
 }
 
+- (BOOL)ez_chatSoundIsPlayingEntryID:(NSString *)entryID {
+    if (!entryID.length || ![entryID isEqualToString:self.chatSoundActiveID]) return NO;
+    return self.chatSoundActivePlayer.isPlaying;
+}
+
+- (void)ez_reloadChatSoundRowForEntryID:(NSString *)entryID {
+    if (!entryID.length) return;
+    [self.displayMessages enumerateObjectsUsingBlock:^(NSDictionary *entry, NSUInteger idx, BOOL *stop) {
+        if ([entry[@"soundEntryID"] isEqualToString:entryID]) {
+            if (idx < self.displayMessages.count) {
+                [self.chatTableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:(NSInteger)idx inSection:0]]
+                                          withRowAnimation:UITableViewRowAnimationNone];
+            }
+            *stop = YES;
+        }
+    }];
+}
+
+- (void)ez_stopChatSoundPlayback {
+    NSString *oldID = self.chatSoundActiveID;
+    if (self.chatSoundActivePlayer) [self.chatSoundActivePlayer stop];
+    self.chatSoundActivePlayer = nil;
+    self.chatSoundActiveID = nil;
+    if (oldID.length) [self ez_reloadChatSoundRowForEntryID:oldID];
+}
+
+/// Starts a chat sound: the autoplay right after generation (the
+/// just-made bytes are passed in) or a bubble replay (resolved from
+/// the Sounds library — a replay never regenerates anything). One
+/// chat audio stream at a time: any TTS playback stops first.
+- (void)ez_playChatSoundEntryID:(NSString *)entryID data:(NSData *)data loop:(BOOL)loop {
+    if (!entryID.length) return;
+    if (self.audioPlayer.isPlaying) [self.audioPlayer stop];
+    if (self.speechSynthesizer.isSpeaking) [self.speechSynthesizer stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+    NSString *oldTTSClipID = self.chatTTSActiveClipID;
+    self.chatTTSActiveClipID = nil;
+    self.chatTTSActivePlayer = nil;
+    if (oldTTSClipID.length) [self ez_reloadChatTTSRowForClipID:oldTTSClipID];
+    [self ez_stopChatSoundPlayback];
+    EZSoundManifestEntry *entry = [[EZSoundLibraryManager sharedManager] soundWithUUID:entryID];
+    if (!entry && !data.length) return;
+    NSError *sessionError = nil;
+    EZActivatePlaybackAudioSession(&sessionError);
+    AVAudioPlayer *player = nil;
+    NSError *playerErr = nil;
+    if (data.length) {
+        player = [[AVAudioPlayer alloc] initWithData:data error:&playerErr];
+    } else if (entry) {
+        NSURL *fileURL = [[EZSoundLibraryManager sharedManager] absoluteURLForEntry:entry];
+        if (fileURL) player = [[AVAudioPlayer alloc] initWithContentsOfURL:fileURL error:&playerErr];
+    }
+    if (!player || playerErr) return;
+    player.delegate = self;
+    player.numberOfLoops = loop ? -1 : 0;
+    self.chatSoundActivePlayer = player;
+    self.chatSoundActiveID = entryID;
+    [player prepareToPlay];
+    [player play];
+    [self ez_reloadChatSoundRowForEntryID:entryID];
+}
+
+/// The sound bubble's play/pause button: toggles the loaded sound,
+/// or replays the row's saved sound from the library.
+- (void)ez_toggleChatSoundForCell:(EZBubbleCell *)cell {
+    NSIndexPath *indexPath = [self.chatTableView indexPathForCell:cell];
+    if (!indexPath || (NSUInteger)indexPath.row >= self.displayMessages.count) return;
+    NSDictionary *entry = self.displayMessages[(NSUInteger)indexPath.row];
+    NSString *entryID = [entry[@"soundEntryID"] isKindOfClass:[NSString class]] ? entry[@"soundEntryID"] : nil;
+    if (!entryID.length) return;
+    if ([entryID isEqualToString:self.chatSoundActiveID] && self.chatSoundActivePlayer) {
+        if (self.chatSoundActivePlayer.isPlaying) [self.chatSoundActivePlayer pause];
+        else [self.chatSoundActivePlayer play];
+        [self ez_reloadChatSoundRowForEntryID:entryID];
+        return;
+    }
+    EZSoundManifestEntry *libEntry = [[EZSoundLibraryManager sharedManager] soundWithUUID:entryID];
+    if (!libEntry) return;
+    BOOL loop = [libEntry.metadata[@"loop"] respondsToSelector:@selector(boolValue)] && [libEntry.metadata[@"loop"] boolValue];
+    [self ez_playChatSoundEntryID:entryID data:nil loop:loop];
+}
+
 - (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
+    if (player == self.chatSoundActivePlayer) {
+        NSString *soundEntryID = self.chatSoundActiveID;
+        self.chatSoundActivePlayer = nil;
+        self.chatSoundActiveID = nil;
+        [self ez_reloadChatSoundRowForEntryID:soundEntryID];
+        return;
+    }
     if (player != self.chatTTSActivePlayer) return;
     NSString *clipID = self.chatTTSActiveClipID;
     self.chatTTSActiveClipID = nil;
@@ -9033,8 +9141,9 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
 /// through the same ez-elevenlabs generate_sound call the Sounds screen
 /// makes, and saves the result to the Sounds library. The function is
 /// the one place that prices and charges; nothing here decides a price.
-/// No autoplay: like the Sounds screen, the saved sound plays only when
-/// its row is tapped.
+/// The saved sound also lands in the conversation as an assistant
+/// line carrying a play/pause button, and it autoplays once (user
+/// request, 2026-11-16 — the Sounds screen itself stays tap-only).
 - (void)performChatSoundRequest:(NSDictionary *)soundRequest {
     NSString *prompt = [soundRequest[@"prompt"] isKindOfClass:[NSString class]]
         ? [soundRequest[@"prompt"] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : @"";
@@ -9046,6 +9155,7 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
         [self appendToChat:@"[System: The sound request was incomplete. Please try again.]"];
         return;
     }
+    NSString *capturedThreadID = self.activeThread.threadID;
     NSString *token = [EZAuthManager shared].accessToken;
     if (!token.length) {
         [self appendToChat:@"[System: Sign in to create sounds.]"];
@@ -9115,9 +9225,32 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
                     return;
                 }
                 NSString *shownPrompt = prompt.length > 60 ? [[prompt substringToIndex:60] stringByAppendingString:@"\u2026"] : prompt;
-                [strongSelf appendToChat:[NSString stringWithFormat:
-                    @"[System: Sound saved to your Sounds library: \"%@\" (%ld sec).]",
-                    shownPrompt, (long)seconds]];
+                if (![strongSelf.activeThread.threadID isEqualToString:capturedThreadID]) return;
+                // The sound joins the conversation: a context note (so
+                // the model knows it exists, and a thread restore can
+                // re-stamp the bubble) plus a matching assistant line
+                // whose bubble carries the play/pause button — and it
+                // autoplays now. If the user switched threads while it
+                // generated, the sound is still saved to the library;
+                // it just doesn't land in the other conversation.
+                NSString *soundNote = [NSString stringWithFormat:
+                    @"[Sound created: \"%@\" (%ld sec) — saved to the Sounds library.]",
+                    shownPrompt, (long)seconds];
+                NSMutableDictionary *soundContext = [@{@"role": @"assistant", @"content": soundNote} mutableCopy];
+                soundContext[@"_soundEntryID"] = entry.uuid;
+                [strongSelf.chatContext addObject:soundContext];
+                NSUInteger soundDisplayCountBefore = strongSelf.displayMessages.count;
+                [strongSelf appendToChat:[NSString stringWithFormat:@"AI: %@", soundNote]];
+                for (NSUInteger di = soundDisplayCountBefore; di < strongSelf.displayMessages.count; di++) {
+                    NSDictionary *addedEntry = strongSelf.displayMessages[di];
+                    if (![addedEntry[@"role"] isEqualToString:@"assistant"]) continue;
+                    NSMutableDictionary *stampedDisplay = [addedEntry mutableCopy];
+                    stampedDisplay[@"soundEntryID"] = entry.uuid;
+                    strongSelf.displayMessages[di] = stampedDisplay;
+                    break;
+                }
+                [strongSelf saveActiveThread];
+                [strongSelf ez_playChatSoundEntryID:entry.uuid data:audio loop:loop];
             }];
         });
     }] resume];
@@ -10023,6 +10156,12 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
                             playing:[self ez_chatTTSIsPlayingClipID:ttsClipID]];
         cell.ttsButtonTapped = ^(EZBubbleCell *tappedCell) {
             [self ez_toggleChatTTSForCell:tappedCell];
+        };
+        NSString *soundEntryID = [msg[@"soundEntryID"] isKindOfClass:[NSString class]] ? msg[@"soundEntryID"] : nil;
+        [cell setSoundPlaybackVisible:(soundEntryID.length > 0)
+                              playing:[self ez_chatSoundIsPlayingEntryID:soundEntryID]];
+        cell.soundButtonTapped = ^(EZBubbleCell *tappedCell) {
+            [self ez_toggleChatSoundForCell:tappedCell];
         };
         [self ez_attachCopyInteractionToCellIfNeeded:cell];
         [self configureThreadSelectionDotForCell:cell indexPath:indexPath];

@@ -18,6 +18,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// cell so the owner can resolve the row at tap time (reuse-safe).
 @property (nonatomic, copy, nullable) void (^ttsButtonTapped)(EZBubbleCell *cell);
 - (void)setTTSPlaybackVisible:(BOOL)visible playing:(BOOL)playing;
+/// Play/pause button shown next to a chat sound bubble (a sound the
+/// create_sound tool made). Same contract as the TTS button; a row
+/// shows at most one of the two, since a turn is never both.
+@property (nonatomic, copy, nullable) void (^soundButtonTapped)(EZBubbleCell *cell);
+- (void)setSoundPlaybackVisible:(BOOL)visible playing:(BOOL)playing;
 @end
 
 NS_ASSUME_NONNULL_END
