@@ -180,8 +180,10 @@ static void EZDrawDoodle(CGContextRef ctx, NSInteger type, CGFloat r) {
         }
         case EZDoodleChatBubble: {
             CGRect body = CGRectMake(-r, -r * 0.78, 2 * r, r * 1.42);
-            CGContextBeginPath(ctx);
-            CGContextAddRoundedRect(ctx, body, r * 0.34, r * 0.34);
+            CGMutablePathRef bubblePath = CGPathCreateMutable();
+            CGPathAddRoundedRect(bubblePath, NULL, body, r * 0.34, r * 0.34);
+            CGContextAddPath(ctx, bubblePath);
+            CGPathRelease(bubblePath);
             CGContextStrokePath(ctx);
             CGContextBeginPath(ctx);
             CGContextMoveToPoint(ctx, -r * 0.55, r * 0.60);
