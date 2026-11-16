@@ -620,6 +620,7 @@
 #import "EZSoundsViewController.h"
 #import "EZMusicService.h"
 #import "EZGitHubService.h"
+#import "EZLocalFileTools.h"
 #import "EZMusicLibraryManager.h"
 #import "EZSoundLibraryManager.h"
 #import "EZTTSLibraryManager.h"
@@ -1127,6 +1128,9 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, assign) NSInteger githubRoundCount;
 - (void)performChatGitHubRequest:(NSDictionary *)githubRequest summary:(NSString *)summary threadID:(NSString *)threadID;
 - (void)ez_compactGitHubResults;
+@property (nonatomic, assign) NSInteger localFileRoundCount;
+- (void)performChatLocalFileRequest:(NSDictionary *)request summary:(NSString *)summary threadID:(NSString *)threadID;
+- (void)ez_compactLocalFileResults;
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *pendingForgetPrompts;
 @property (nonatomic, strong) NSDictionary *activeForgetPrompt;
 @property (nonatomic, strong) UIView *forgetPromptOverlay;
@@ -4814,6 +4818,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 - (void)callChatCompletions {
     // A new user message starts a fresh budget of GitHub tool steps.
     self.githubRoundCount = 0;
+    self.localFileRoundCount = 0;
     [self callChatCompletionsWithRetryCount:0];
 }
 
@@ -5149,6 +5154,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     // ez-github function, which holds the token and gates every write on the
     // user's approval.
     ezBody[@"github_tools"] = @YES;
+    ezBody[@"local_file_tools"] = @YES;
     ezBody[@"image_source_available"] = @(capturedImageSource.length > 0);
     if (userPreferences.length > 0) ezBody[@"user_preferences"] = userPreferences;
     if (useWebSearch)           ezBody[@"web_search"] = @YES;
@@ -5457,6 +5463,41 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
             return;
         }
 
+        // Local file tool: a local_file_request is a handoff like the
+        // GitHub one, except the app executes it itself against
+        // Documents/EZAttachments (see performChatLocalFileRequest:).
+        // Coins for this turn are already settled by ez-chat; every
+        // round trip is an ordinary chat call.
+        NSDictionary *localFileRequest = [json[@"local_file_request"] isKindOfClass:[NSDictionary class]]
+            ? json[@"local_file_request"] : nil;
+        if (localFileRequest) {
+            NSString *introReply = [json[@"reply"] isKindOfClass:[NSString class]] ? json[@"reply"] : @"";
+            NSString *localFileSummary = [json[@"local_file_summary"] isKindOfClass:[NSString class]]
+                ? json[@"local_file_summary"] : @"";
+            dispatch_async(dispatch_get_main_queue(), ^{
+                id localBalance = json[@"balance"];
+                if ([localBalance respondsToSelector:@selector(integerValue)]) {
+                    [[EZEntitlementManager shared] applyKnownBalance:[localBalance integerValue]];
+                }
+                [self updateCoinBalanceDisplay];
+                if (![self.activeThread.threadID isEqualToString:capturedThreadID]) {
+                    self.sendButton.enabled = YES;
+                    [self appendToChat:@"[System: Local file request stopped because the conversation changed. Please resend it in the original chat.]"];
+                    return;
+                }
+                // If the model said something before calling the tool, keep it.
+                if (introReply.length > 0) {
+                    [self.chatContext addObject:@{@"role": @"assistant", @"content": introReply}];
+                    [self appendToChat:[NSString stringWithFormat:@"AI: %@", introReply]];
+                }
+                // Same reaction-note stamping as the plain-reply path.
+                [self ez_stampReactionEntriesShared:pendingReactionEntries];
+                [self saveActiveThread];
+                [self performChatLocalFileRequest:localFileRequest summary:localFileSummary threadID:capturedThreadID];
+            });
+            return;
+        }
+
         NSString *reply = json[@"reply"];
         if (!reply.length && ttsRequest) {
             // A speak-only turn: the words the user just heard are the reply.
@@ -5473,7 +5514,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                 : @"Got it — I'll remember that.";
         }
         if (!reply.length) {
-            EZLogf(EZLogLevelError, @"API", @"No reply in ez-chat response: %@", EZLogRedactedObject(json));
+            EZLogf(EZLogLevelError, @"API", @"No reply in ez-chat response: %@", json);
             [self handleAPIError:@"Unexpected response format"]; return;
         }
 
@@ -5521,6 +5562,8 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
             // turns don't re-send whole files, and end this message's tool loop.
             [self ez_compactGitHubResults];
             self.githubRoundCount = 0;
+            [self ez_compactLocalFileResults];
+            self.localFileRoundCount = 0;
             if (ttsInfo) {
                 // Mark the turn as spoken so its bubble carries the
                 // play/pause replay button. The _ keys are stripped by
@@ -7332,15 +7375,44 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 /// shape and all ordinary text, while collapsing embedded image bytes so one
 /// attachment cannot fill the System Log with megabytes of Base64.
 - (NSDictionary *)loggableChatRequestBody:(NSDictionary *)body {
-    // Generalized redaction (helpers.m): collapses data: URLs and long
-    // base64 runs ANYWHERE in the body — any key, any nesting, string
-    // content included — to "<image attached: <mime>, <size>>" with the
-    // decoded byte size. The previous version only knew two block
-    // shapes inside messages[].content[], so other shapes (input_image
-    // carrying its bytes under image_url, file blocks, a data: URL in a
-    // plain string) reached the System Log whole. Logging only: the
-    // request actually sent keeps the full image data.
-    return EZLogRedactedObject(body);
+    NSMutableDictionary *logBody = [body mutableCopy] ?: [NSMutableDictionary dictionary];
+    NSArray *messages = [body[@"messages"] isKindOfClass:NSArray.class] ? body[@"messages"] : nil;
+    if (!messages) return [logBody copy];
+
+    NSMutableArray *logMessages = [NSMutableArray arrayWithCapacity:messages.count];
+    for (NSDictionary *message in messages) {
+        if (![message isKindOfClass:NSDictionary.class]) { [logMessages addObject:message ?: @{}]; continue; }
+        NSMutableDictionary *logMessage = [message mutableCopy];
+        NSArray *content = [message[@"content"] isKindOfClass:NSArray.class] ? message[@"content"] : nil;
+        if (!content) { [logMessages addObject:logMessage]; continue; }
+
+        NSMutableArray *logContent = [NSMutableArray arrayWithCapacity:content.count];
+        for (NSDictionary *block in content) {
+            if (![block isKindOfClass:NSDictionary.class]) { [logContent addObject:block ?: @{}]; continue; }
+            NSMutableDictionary *logBlock = [block mutableCopy];
+            NSString *type = [block[@"type"] isKindOfClass:NSString.class] ? block[@"type"] : @"";
+            if ([type isEqualToString:@"image_url"]) {
+                id imageURL = block[@"image_url"];
+                NSString *url = [imageURL isKindOfClass:NSDictionary.class] ? imageURL[@"url"]
+                    : [imageURL isKindOfClass:NSString.class] ? imageURL : nil;
+                if ([url hasPrefix:@"data:"]) {
+                    NSRange marker = [url rangeOfString:@";base64,"];
+                    NSString *mime = marker.location == NSNotFound ? @"image" : [url substringWithRange:NSMakeRange(5, marker.location - 5)];
+                    NSUInteger chars = marker.location == NSNotFound ? url.length : url.length - NSMaxRange(marker);
+                    logBlock[@"image_url"] = @{ @"url": [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)chars] };
+                }
+            } else if ([type isEqualToString:@"input_image"] && [block[@"data"] isKindOfClass:NSString.class]) {
+                NSString *data = block[@"data"];
+                NSString *mime = [block[@"media_type"] isKindOfClass:NSString.class] ? block[@"media_type"] : @"image";
+                logBlock[@"data"] = [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)data.length];
+            }
+            [logContent addObject:logBlock];
+        }
+        logMessage[@"content"] = logContent;
+        [logMessages addObject:logMessage];
+    }
+    logBody[@"messages"] = logMessages;
+    return [logBody copy];
 }
 
 - (NSString *)featureLabel:(EZFeature)feature {
@@ -9180,6 +9252,10 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
 // (-ez_compactGitHubResults) so later turns don't re-send whole files.
 
 static NSInteger const kEZChatGitHubMaxRounds = 8;
+static NSInteger const kEZChatLocalFileMaxRounds = 8;
+/// Characters of each local file result kept in history after the model
+/// has used it (mirrors kEZGitHubResultKeepChars).
+static NSUInteger const kEZLocalFileResultKeepChars = 1500;
 /// Characters of each GitHub result kept in history after the model has used it.
 static NSUInteger const kEZGitHubResultKeepChars = 1500;
 static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
@@ -9332,6 +9408,91 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
     }];
 }
 
+/// Adds a local file result to the model's context only (never to the
+/// visible chat), mirroring ez_appendGitHubResultToContext:.
+- (void)ez_appendLocalFileResultToContext:(NSString *)content summary:(NSString *)summary {
+    [self.chatContext addObject:@{
+        @"role": @"user",
+        @"content": content,
+        @"_localFileResult": @YES,
+        @"_localFileSummary": summary ?: @"",
+    }];
+}
+
+/// Runs one local_file_request from ez-chat against EZAttachments and
+/// feeds the result back so the model can continue the turn. Every
+/// failure arrives as a tool result, never as a failed send.
+- (void)performChatLocalFileRequest:(NSDictionary *)request
+                            summary:(NSString *)summary
+                           threadID:(NSString *)threadID {
+    if (self.localFileRoundCount >= kEZChatLocalFileMaxRounds) {
+        self.sendButton.enabled = YES;
+        [self appendToChat:[NSString stringWithFormat:
+            @"[System: Stopped after %ld local file steps for this message. Ask again to keep going.]",
+            (long)kEZChatLocalFileMaxRounds]];
+        return;
+    }
+    self.localFileRoundCount += 1;
+    self.sendButton.enabled = NO;
+    NSString *shown = summary.length > 0 ? summary : @"Reading a local file";
+    [self appendToChat:[NSString stringWithFormat:@"[System: 📁 %@…]", shown]];
+    __weak typeof(self) weakSelf = self;
+    [EZLocalFileTools executeRequest:request completion:^(NSDictionary *result) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        if (![strongSelf.activeThread.threadID isEqualToString:threadID]) {
+            strongSelf.sendButton.enabled = YES;
+            return;
+        }
+        if ([result[@"kind"] isEqualToString:@"image"]) {
+            // Run the bytes through the same preparer the attach flow
+            // uses, then hand the model a vision message in the exact
+            // shape a user-attached image takes.
+            NSData *data = [result[@"data"] isKindOfClass:[NSData class]] ? result[@"data"] : nil;
+            NSString *ext = [result[@"extension"] isKindOfClass:[NSString class]] ? result[@"extension"] : @"jpg";
+            NSError *prepError = nil;
+            NSArray<NSDictionary<NSString *, id> *> *prepared = data.length
+                ? [EZImageAttachmentPreparer preparedImagesFromData:@[data]
+                                                         extensions:@[ext]
+                                              maximumTotalByteCount:kEZChatImageAttachmentBudget
+                                                              error:&prepError]
+                : nil;
+            if (prepared.count) {
+                NSMutableArray *blocks = [NSMutableArray array];
+                for (NSDictionary *item in prepared) {
+                    NSString *b64 = [item[@"data"] base64EncodedStringWithOptions:0];
+                    [blocks addObject:@{@"type": @"image_url",
+                                        @"image_url": @{@"url": [NSString stringWithFormat:@"data:%@;base64,%@", item[@"mimeType"], b64]}}];
+                }
+                [blocks addObject:@{@"type": @"text",
+                                    @"text": [NSString stringWithFormat:
+                                        @"[Local file result — read_local_file]\n[Local file: %@ — %@ bytes]\nThe image itself is attached as image context.\n[End of local file result]",
+                                        result[@"fileName"], result[@"byteSize"]]}];
+                [strongSelf.chatContext addObject:@{
+                    @"role": @"user",
+                    @"content": [blocks copy],
+                    @"_isVisionAttachment": @YES,
+                    @"_localFileResult": @YES,
+                    @"_localFileSummary": summary ?: @"",
+                }];
+                [strongSelf saveActiveThread];
+                [strongSelf callChatCompletionsWithRetryCount:0];
+                return;
+            }
+            result = @{@"kind": @"text",
+                       @"text": [NSString stringWithFormat:
+                           @"[Local file result — read_local_file: error]\n%@ could not be prepared as an image (%@), so it was not attached.\n[End of local file result]",
+                           result[@"fileName"], prepError.localizedDescription ?: @"unknown error"]};
+        }
+        NSString *content = [result[@"text"] isKindOfClass:[NSString class]]
+            ? result[@"text"]
+            : @"[Local file result — read_local_file: error]\nThe file could not be read.\n[End of local file result]";
+        [strongSelf ez_appendLocalFileResultToContext:content summary:summary];
+        [strongSelf saveActiveThread];
+        [strongSelf callChatCompletionsWithRetryCount:0];
+    }];
+}
+
 /// Asks the user to approve a write. The preview came from the server, computed
 /// from the live repository, so what is shown is what will happen.
 - (void)presentGitHubApprovalForResult:(NSDictionary *)result
@@ -9444,6 +9605,23 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
 /// Trims every GitHub result in the context down to its first few lines. Run
 /// once the model has answered: the answer carries what mattered, and keeping
 /// whole files in history would make every later turn slower and dearer.
+- (void)ez_compactLocalFileResults {
+    for (NSUInteger i = 0; i < self.chatContext.count; i++) {
+        NSDictionary *entry = self.chatContext[i];
+        if (![entry[@"_localFileResult"] boolValue] || [entry[@"_localFileCompacted"] boolValue]) continue;
+        NSString *content = [entry[@"content"] isKindOfClass:[NSString class]] ? entry[@"content"] : @"";
+        NSMutableDictionary *trimmed = [entry mutableCopy];
+        trimmed[@"_localFileCompacted"] = @YES;
+        if (content.length > kEZLocalFileResultKeepChars) {
+            NSRange safe = [content rangeOfComposedCharacterSequencesForRange:NSMakeRange(0, kEZLocalFileResultKeepChars)];
+            trimmed[@"content"] = [NSString stringWithFormat:
+                @"%@\n[…%lu more characters of this local file result were dropped after it was used, to keep the conversation small. Call read_local_file again if you need them.]\n[End of local file result]",
+                [content substringWithRange:safe], (unsigned long)(content.length - safe.length)];
+        }
+        self.chatContext[i] = trimmed;
+    }
+}
+
 - (void)ez_compactGitHubResults {
     for (NSUInteger i = 0; i < self.chatContext.count; i++) {
         NSDictionary *entry = self.chatContext[i];
