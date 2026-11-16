@@ -193,6 +193,9 @@ static UIImage *GMParticleImage(BOOL coin) {
 @property (nonatomic, strong) NSDictionary *result;
 // Card pick
 @property (nonatomic, strong) NSMutableArray<UIView *> *pickCards;      // by identity 0...2
+@property (nonatomic, strong) NSMutableArray<UIView *> *pickCardBacks;   // parallel to pickCards
+@property (nonatomic, strong) NSMutableArray<UIView *> *pickCardFronts;  // parallel to pickCards
+@property (nonatomic, strong) NSMutableArray<UILabel *> *pickCardValues; // parallel to pickCards
 @property (nonatomic, strong) NSMutableArray<UIView *> *pickSlots;      // card in each slot, left to right
 @property (nonatomic, strong) UILabel *pickTitle, *pickSubtitle, *pickPrompt;
 @end
@@ -1351,6 +1354,15 @@ static NSArray<UIColor *> *GMLineColors(void) {
     [front addSubview:value];
     [card addSubview:back];
     [card addSubview:front];
+    // Direct references, never viewWithTag:: the card's own tag IS its
+    // identity (0, 1, 2), which collides with the subview tags (back 1,
+    // front 2) — viewWithTag:1 returned the identity-1 card itself
+    // (hiding the whole card at flip time) and viewWithTag:2 the
+    // identity-2 card (its front never unhid). That was the messed-up
+    // reveal: only the identity-0 card ever flipped correctly.
+    [self.pickCardBacks addObject:back];
+    [self.pickCardFronts addObject:front];
+    [self.pickCardValues addObject:value];
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(cardTapped:)];
     [card addGestureRecognizer:tap];
     return card;
@@ -1389,6 +1401,9 @@ static NSArray<UIColor *> *GMLineColors(void) {
     CGFloat cardWidth = MIN(104, (width - 72) / 3), cardHeight = cardWidth * 1.4;
     self.pickCards = [NSMutableArray array];
     self.pickSlots = [NSMutableArray array];
+    self.pickCardBacks = [NSMutableArray array];
+    self.pickCardFronts = [NSMutableArray array];
+    self.pickCardValues = [NSMutableArray array];
     for (NSInteger i = 0; i < 3; i++) {
         _slotCenters[i] = CGPointMake(width / 2 + (i - 1) * (cardWidth + 14), height * 0.55);
         UIView *card = [self makeCardAtIdentity:i size:CGSizeMake(cardWidth, cardHeight)];
@@ -1470,7 +1485,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
     // (pickCards[identity] — the same view that carries that tag) shows
     // cards[identity], the value the server recorded for this pick.
     for (NSInteger i = 0; i < 3; i++) {
-        UILabel *value = (UILabel *)[self.pickCards[i] viewWithTag:3];
+        UILabel *value = self.pickCardValues[i];
         value.text = [NSString stringWithFormat:@"×%ld", (long)GMInteger(cards[i])];
     }
     _bonusMult = multiplier;
@@ -1480,10 +1495,13 @@ static NSArray<UIColor *> *GMLineColors(void) {
 
     // 1. Turn over ALL THREE cards at once, so the player sees what
     // every card hid — including the two they did not pick.
-    for (UIView *card in self.pickCards) {
+    for (NSInteger i = 0; i < 3; i++) {
+        UIView *card = self.pickCards[i];
+        UIView *back = self.pickCardBacks[i];
+        UIView *front = self.pickCardFronts[i];
         [UIView transitionWithView:card duration:0.45 options:UIViewAnimationOptionTransitionFlipFromLeft animations:^{
-            [card viewWithTag:1].hidden = YES;
-            [card viewWithTag:2].hidden = NO;
+            back.hidden = YES;
+            front.hidden = NO;
         } completion:nil];
     }
     // 2. Hold on the full reveal, then the two unpicked cards disappear
