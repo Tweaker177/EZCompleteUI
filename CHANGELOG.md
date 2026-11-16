@@ -4,6 +4,40 @@ All notable changes to EZCompleteUI are documented here. Version numbers refer
 to the app/package version. Server-backed features also require their matching
 Supabase Edge Function deployments and migrations.
 
+## 7.2.8 — 2026-11-16
+
+### Slots
+
+- Added **Phoenix Pavilion**, a five-reel slot machine with 25 paylines,
+  free spins and the bonus multiplier card pick, localized in all
+  17 languages.
+- Hourly free-spin claims now land on a random slot machine (Classic,
+  Penny or Plunder Bay). Claim spins play at the minimum bet and pay
+  without a multiplier; scatter-won bonus spins keep their bet and
+  multiplier.
+- The slot leaderboard now shows player photos (or an emblem avatar),
+  adds a **Most Chips** top five, and records Golden Mandarin and
+  Phoenix Pavilion wins. Players without a photo get one of ten
+  emblem avatars.
+
+### Chat, images and audio
+
+- Chat models can speak replies aloud in your ElevenLabs voice and
+  generate sound effects directly into your Sounds library.
+- Spoken replies carry a play/pause button in chat, so speech can be
+  replayed free; every generated speech clip is saved to your
+  TTS library.
+- Chat models can read files from your in-app attachments and photo
+  gallery when you ask them to.
+- With your approval, chat models can work with your GitHub
+  repositories: read code, patch files, and open or merge pull
+  requests.
+- Fixed the welcome bonus so new accounts receive their coins and
+  free spins.
+
+Phoenix Pavilion spins, chat speech and sound generation require the
+corresponding server functions.
+
 ## 7.2.7 — 2026-11-14
 
 ### Slots
