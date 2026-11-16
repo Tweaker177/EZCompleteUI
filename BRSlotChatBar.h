@@ -6,6 +6,18 @@
 /// from the posting bar's profileAvatarURL.
 extern NSNotificationName const BRSlotProfileDidUpdateNotification;
 
+/// Posted when the shared slot sound setting changes (see below).
+extern NSNotificationName const BRSlotSoundSettingChangedNotification;
+
+/// The one sound on/off setting for the whole slot family: the game
+/// picker's casino ambience and every machine's sounds (reels, wins,
+/// bonus music). Stored in NSUserDefaults and ON by default. Every
+/// audio owner checks BRSlotSoundEnabled() at its play points and
+/// observes BRSlotSoundSettingChangedNotification to stop live
+/// playback the moment the setting flips off.
+BOOL BRSlotSoundEnabled(void);
+void BRSlotSetSoundEnabled(BOOL enabled);
+
 /// In-machine lounge chat bar. Pinned to the bottom of a slot screen it
 /// shows one line — the newest lounge message — and keeps updating while
 /// the player plays. Tapping the line expands it into the full lounge

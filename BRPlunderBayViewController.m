@@ -75,6 +75,7 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(br_slotSoundSettingChanged) name:BRSlotSoundSettingChangedNotification object:nil];
     // One title per page: the big in-view heading is this screen's only title; no nav-bar duplicate.
     self.view.backgroundColor = [UIColor colorWithRed:.02 green:.04 blue:.10 alpha:1];
     self.betIndex = 1; // 20 coins
@@ -85,6 +86,7 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
 - (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (self.freeSpinsRemaining > 0) [self startBonusSong]; [self scheduleBonusAutoSpin]; if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"plunder-bay"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; } [self.chatBar start]; }
+- (void)br_slotSoundSettingChanged { if (BRSlotSoundEnabled()) return; [self.ambienceNode pause]; [self.songNode pause]; [self stopDrumRoll]; [self.boomNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.bellsPlayer stop]; [self.coinsPlayer stop]; [self.cannonPlayer stop]; }
 - (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; self.autoSpinToken++; [self stopAutoSpin]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController || self.navigationController.isBeingDismissed) { [self.chatBar stop]; [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
 
@@ -620,6 +622,7 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     }
 }
 - (void)playBoomAtStep:(NSInteger)step {
+    if (!BRSlotSoundEnabled()) return;
     if (!self.boomFile || !self.sfxEngine) return;
     if (!self.sfxEngine.running) [self.sfxEngine startAndReturnError:nil];
     self.boomSpeed.rate = powf(2.0f, (float)(step * 3) / 12.0f); // +3 semitones per chest
@@ -627,17 +630,17 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     [self.boomNode scheduleFile:self.boomFile atTime:nil completionHandler:nil];
     [self.boomNode play];
 }
-- (void)playCannon { if (self.cannonPlayer) { [self.cannonPlayer stop]; self.cannonPlayer.currentTime = 0; [self.cannonPlayer play]; } }
-- (void)playWhoosh { if (self.whooshPlayer) { [self.whooshPlayer stop]; self.whooshPlayer.currentTime = 0; [self.whooshPlayer play]; } }
-- (void)startReelsSound { if (self.reelsPlayer && !self.reelsPlayer.isPlaying) { self.reelsPlayer.currentTime = 0; [self.reelsPlayer play]; } }
+- (void)playCannon { if (!BRSlotSoundEnabled()) return; if (self.cannonPlayer) { [self.cannonPlayer stop]; self.cannonPlayer.currentTime = 0; [self.cannonPlayer play]; } }
+- (void)playWhoosh { if (!BRSlotSoundEnabled()) return; if (self.whooshPlayer) { [self.whooshPlayer stop]; self.whooshPlayer.currentTime = 0; [self.whooshPlayer play]; } }
+- (void)startReelsSound { if (!BRSlotSoundEnabled()) return; if (self.reelsPlayer && !self.reelsPlayer.isPlaying) { self.reelsPlayer.currentTime = 0; [self.reelsPlayer play]; } }
 - (void)stopReelsSound { [self.reelsPlayer stop]; }
-- (void)startDrumRoll { if (!self.drumNode || !self.drumBuffer) return; [self.drumNode stop]; [self.drumNode scheduleBuffer:self.drumBuffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil]; [self plunderStartLoopNode:self.drumNode]; }
+- (void)startDrumRoll { if (!BRSlotSoundEnabled()) return; if (!self.drumNode || !self.drumBuffer) return; [self.drumNode stop]; [self.drumNode scheduleBuffer:self.drumBuffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil]; [self plunderStartLoopNode:self.drumNode]; }
 - (void)stopDrumRoll { [self.drumNode stop]; }
-- (void)playBells { if (self.bellsPlayer) { self.bellsPlayer.currentTime = 0; [self.bellsPlayer play]; } }
-- (void)playCoins { if (self.coinsPlayer) { self.coinsPlayer.currentTime = 0; [self.coinsPlayer play]; } }
-- (void)startAmbience { if (self.inBonus || !self.view.window) return; [self plunderStartLoopNode:self.ambienceNode]; }
+- (void)playBells { if (!BRSlotSoundEnabled()) return; if (self.bellsPlayer) { self.bellsPlayer.currentTime = 0; [self.bellsPlayer play]; } }
+- (void)playCoins { if (!BRSlotSoundEnabled()) return; if (self.coinsPlayer) { self.coinsPlayer.currentTime = 0; [self.coinsPlayer play]; } }
+- (void)startAmbience { if (!BRSlotSoundEnabled() || self.inBonus || !self.view.window) return; [self plunderStartLoopNode:self.ambienceNode]; }
 - (void)stopAmbience { [self.ambienceNode pause]; }
-- (void)startBonusSong { [self plunderStartLoopNode:self.songNode]; }
+- (void)startBonusSong { if (!BRSlotSoundEnabled()) return; [self plunderStartLoopNode:self.songNode]; }
 - (void)showWin:(NSInteger)payout awarded:(NSInteger)awarded {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; [self.winOverlay removeFromSuperview]; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
     UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.03 green:.05 blue:.14 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
