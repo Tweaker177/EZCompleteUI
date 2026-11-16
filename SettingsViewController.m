@@ -16,6 +16,7 @@
     #import "LoginViewController.h"
     #import "EZCoinStoreViewController.h"
     #import "EZPoliciesViewController.h"
+    #import "EZGitHubSettingsViewController.h"
     #import "EZAuthManager.h"
     #import "EZEntitlementManager.h"
     #import "EZReferralManager.h"
@@ -492,6 +493,14 @@
                  action:@selector(openSupportRequest)
                       y:&y w:w];
 
+        // ── GitHub ────────────────────────────────────────────────────────────────
+        [self addSection:@"🐙 GitHub" y:&y];
+        [self addLabel:@"Let chat models read your repos (and, if you allow it, propose changes)." y:&y];
+        [self addButton:@"Connect / Manage GitHub"
+                  color:[UIColor systemGrayColor]
+                 action:@selector(openGitHubSettings)
+                      y:&y w:w];
+
         // ── NSFW Images (Seahorse) ────────────────────────────────────
         [self addSection:@"🔞 NSFW Images (Seahorse)" y:&y];
         self.seahorseStatusLabel = [self addWrappingLabel:@"Checking enrollment…"
@@ -915,6 +924,14 @@
     // ─────────────────────────────────────────────────────────────────────────────
     // MARK: - Legal & Policies
     // ─────────────────────────────────────────────────────────────────────────────
+
+    - (void)openGitHubSettings {
+        EZGitHubSettingsViewController *githubVC = [EZGitHubSettingsViewController new];
+        UINavigationController *nav = [[UINavigationController alloc]
+            initWithRootViewController:githubVC];
+        nav.modalPresentationStyle = UIModalPresentationPageSheet;
+        [self presentViewController:nav animated:YES completion:nil];
+    }
 
     - (void)openPolicies {
         EZPoliciesViewController *policiesVC = [EZPoliciesViewController new];
