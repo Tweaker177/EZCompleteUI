@@ -3,16 +3,27 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /// Executes the chat model's local file tools (read_local_file and
-/// list_local_files) against the app's two file stores: Documents/
-/// EZAttachments (documents and other files) and the EZPhotoGallery
-/// directory (images — uploads, generations and edits save there, not
-/// in EZAttachments).
+/// list_local_files) against five of the app's Documents folders —
+/// the allowed roots: EZAttachments, EZPhotoGallery, EZSounds,
+/// EZMusic and EZThreads. Read-only: nothing here writes, moves or
+/// deletes.
 ///
-/// The model never gets a path: it asks for a file by name, and every
-/// lookup happens inside those two directories. Names containing "/"
-/// or ".." are refused outright, so there is no way to reach anything
-/// outside them. Every outcome — success, not found, ambiguous
-/// name, binary file, too large, unreadable — comes back as a tool
+/// The model asks for a file either by a path relative to one of the
+/// roots ("EZAttachments/notes/plan.md" — subfolders are expected,
+/// users organize their own files) or by a bare file name, which is
+/// searched across all five roots (exact, then case-insensitive, then
+/// unique substring; ambiguous names come back as a candidate list
+/// with full paths). list_local_files with a path browses one root or
+/// subfolder; without a path it lists everything, recursively.
+///
+/// The ONLY path restriction: after the requested path is
+/// standardized and its ".." and symlinks are resolved, it must still
+/// sit inside one of the five roots. Anything inside them is fair
+/// game, however deep.
+///
+/// Text-vs-binary is decided by content, never by extension. Every
+/// outcome — success, not found, ambiguous name, outside the allowed
+/// folders, binary file, too large, unreadable — comes back as a tool
 /// result the model can react to; this class never throws and never
 /// fails the chat turn.
 ///
