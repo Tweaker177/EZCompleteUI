@@ -207,7 +207,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     NSInteger _balance;                 // what the label shows
     BOOL _balanceChecked;               // _balance verified by the server (entry, settle, or bet change)
     NSInteger _freeRemaining, _bonusMult, _bonusTotal, _bonusLines, _bonusBet, _lastAwarded, _spinWager;
-    BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving;
+    BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving, _forceBonusArmed;
     NSUInteger _epoch;
     NSTimeInterval _celebrationEnd;
     CGFloat _cellSize;
@@ -491,6 +491,10 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.spinButton = [self controlButton:GMLoc(@"BRSlot.GM.Spin", @"SPIN") color:GMC(0xC8141E) action:@selector(spinTapped)];
     self.spinButton.titleLabel.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
     self.spinButton.layer.borderWidth = 2.5;
+    UILongPressGestureRecognizer *forceBonusHold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(forceBonusHold:)];
+    forceBonusHold.minimumPressDuration = 10.0;
+    forceBonusHold.cancelsTouchesInView = YES;
+    [self.spinButton addGestureRecognizer:forceBonusHold];
 
     [content addSubview:title]; [content addSubview:subtitle]; [content addSubview:info]; [content addSubview:self.bannerLabel];
     [content addSubview:self.machine]; [content addSubview:self.messageLabel]; [content addSubview:self.totalBetLabel];
@@ -805,6 +809,17 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 #pragma mark Spinning
 
+// Test back door: a 10-second hold on SPIN arms a forced bonus for
+// the next paid spin (a heavy buzz confirms it armed). The server
+// honors force_bonus only for the owner's accounts, so for every
+// other player the hold does nothing at all.
+- (void)forceBonusHold:(UILongPressGestureRecognizer *)recognizer {
+    if (recognizer.state != UIGestureRecognizerStateBegan) return;
+    if (_busy || _pickPending) return;
+    _forceBonusArmed = YES;
+    [self haptic:UIImpactFeedbackStyleHeavy];
+}
+
 - (void)spinTapped {
     if (_busy || _bonusMode || _freeRemaining > 0) return;
     NSInteger wager = _lines * [self betPerLine];
@@ -857,7 +872,9 @@ static UIImage *GMParticleImage(BOOL coin) {
     [self haptic:UIImpactFeedbackStyleMedium];
 
     NSUInteger epoch = _epoch;
-    [self request:@{@"lines": @(lines), @"bet_per_line": @(bet)} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
+    NSMutableDictionary *spinBody = [@{@"lines": @(lines), @"bet_per_line": @(bet)} mutableCopy];
+    if (_forceBonusArmed && !free) { spinBody[@"force_bonus"] = @YES; _forceBonusArmed = NO; }
+    [self request:spinBody completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_epoch != epoch || self->_leaving) return;
         if (error || ![self parseResult:result]) {
             [self failSpin:error ?: GMLoc(@"BRSlot.GM.BadResponse", @"Unexpected response. Your balance is unchanged.") status:status];
