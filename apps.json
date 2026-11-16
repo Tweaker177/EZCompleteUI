@@ -31,6 +31,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.9",
+          "buildVersion": "7.2.9",
+          "date": "2026-11-16",
+          "localizedDescription": "## What’s new in 7.2.9\n\n### Chat and files\n\n- Expanded local file tools to browse five app folders, resolve relative\n  paths, extract PDF text, and identify text and binary files by content.\n- Fixed local file results appearing when a saved chat is restored and\n  improved handling of incomplete GitHub responses.\n- Generated chat sounds play automatically and can be replayed from the\n  message. Fixed a crash when saving generated speech.\n\n### Slots\n\n- Added a shared sound toggle in the slot picker.\n- Improved the profile editor and avatar display, fixed the free-spin claim\n  flow, and corrected the bonus-card reveal.\n\n## Also included since 7.2.7\n\n### Slots\n\n- Added **Phoenix Pavilion**, a five-reel slot machine with 25 paylines,\n  free spins and the bonus multiplier card pick, localized in all\n  17 languages.\n- Hourly free-spin claims now land on a random slot machine (Classic,\n  Penny, Plunder Bay or Phoenix Pavilion). Claim spins play at the minimum bet and pay\n  without a multiplier; scatter-won bonus spins keep their bet and\n  multiplier.\n- The slot leaderboard now shows player photos (or an emblem avatar),\n  adds a **Most Chips** top five, and records Golden Mandarin and\n  Phoenix Pavilion wins. Players without a photo get one of ten\n  emblem avatars.\n\n### Chat, images and audio\n\n- Chat models can speak replies aloud in your ElevenLabs voice and\n  generate sound effects directly into your Sounds library.\n- Spoken replies carry a play/pause button in chat, so speech can be\n  replayed free; every generated speech clip is saved to your\n  TTS library.\n- Chat models can read files from your in-app attachments and photo\n  gallery when you ask them to.\n- With your approval, chat models can work with your GitHub\n  repositories: read code, patch files, and open or merge pull\n  requests.\n- Fixed the welcome bonus so new accounts receive their coins and\n  free spins.\n\nPhoenix Pavilion spins, chat speech and sound generation require the\ncorresponding server functions.\n\n##…",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.9/EZCompleteUI-7.2.9-release.ipa",
+          "size": 16810225,
+          "sha256": "9c8fe6bcce100daab444b7c50635af4103066a4d10c6daa631889a3a9db38812",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.7",
           "buildVersion": "7.2.7",
           "date": "2026-11-15",
