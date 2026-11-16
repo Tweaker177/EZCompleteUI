@@ -1336,6 +1336,9 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     return EZSeahorseSHA256Hex([NSData dataWithContentsOfFile:path]);
 }
 
+@interface ViewController (EZChatTTSPlayback) <AVAudioPlayerDelegate, AVSpeechSynthesizerDelegate>
+@end
+
 @implementation ViewController
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3624,9 +3627,6 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                      stringByAppendingPathComponent:@"EZChatTTS"];
     return [dir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.mp3", clipID ?: @""]];
 }
-
-@interface ViewController (EZChatTTSPlayback) <AVAudioPlayerDelegate, AVSpeechSynthesizerDelegate>
-@end
 
 /// YES while the given chat-TTS clip is the one loaded and audibly
 /// playing (file player playing, or the synthesizer speaking unpaused).
