@@ -33,6 +33,7 @@
 //       tries again from scratch.
 
 #import "EZMusicBubbleCell.h"
+#import "EZTheme.h"
 #import "EZMediaPlayerManager.h"
 #import "EZMusicService.h"
 #import "EZMusicLibraryManager.h"
@@ -66,7 +67,7 @@
 
     // Same dark card look as EZCodeBlockCell so generated items match.
     UIView *container = [[UIView alloc] init];
-    container.backgroundColor = [UIColor colorWithWhite:0.12 alpha:1.0];
+    container.backgroundColor = [EZTheme cardColor];
     container.layer.cornerRadius = 10;
     container.layer.borderColor = [UIColor colorWithWhite:0.3 alpha:1.0].CGColor;
     container.layer.borderWidth = 0.5;
@@ -74,12 +75,12 @@
     container.translatesAutoresizingMaskIntoConstraints = NO;
     [self.contentView addSubview:container];
 
-    UIColor *accentColor = [UIColor colorWithRed:0.05 green:0.92 blue:0.72 alpha:1.0];
+    UIColor *accentColor = [EZTheme goldColor];
 
     // Cover art, or a music-note placeholder until one exists.
     _artworkView = [[UIImageView alloc] init];
     _artworkView.tintColor = accentColor;
-    _artworkView.backgroundColor = [UIColor colorWithWhite:0.2 alpha:1.0];
+    _artworkView.backgroundColor = [EZTheme backgroundColor];
     _artworkView.layer.cornerRadius = 8;
     _artworkView.clipsToBounds = YES;
     _artworkView.isAccessibilityElement = NO;
@@ -90,7 +91,7 @@
     _titleLabel.adjustsFontSizeToFitWidth = YES;
     _titleLabel.minimumScaleFactor = 0.5;
     _titleLabel.font = [UIFont boldSystemFontOfSize:15];
-    _titleLabel.textColor = [UIColor colorWithRed:0.85 green:0.95 blue:0.85 alpha:1.0];
+    _titleLabel.textColor = [EZTheme primaryTextColor];
     _titleLabel.numberOfLines = 2;
     _titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [container addSubview:_titleLabel];
@@ -99,7 +100,7 @@
     _subtitleLabel.adjustsFontSizeToFitWidth = YES;
     _subtitleLabel.minimumScaleFactor = 0.5;
     _subtitleLabel.font = [UIFont systemFontOfSize:12];
-    _subtitleLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1.0];
+    _subtitleLabel.textColor = [EZTheme secondaryTextColor];
     _subtitleLabel.numberOfLines = 2;
     _subtitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [container addSubview:_subtitleLabel];
@@ -141,7 +142,7 @@
     _timeLabel.adjustsFontSizeToFitWidth = YES;
     _timeLabel.minimumScaleFactor = 0.5;
     _timeLabel.font = [UIFont monospacedDigitSystemFontOfSize:11 weight:UIFontWeightRegular];
-    _timeLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1.0];
+    _timeLabel.textColor = [EZTheme secondaryTextColor];
     _timeLabel.textAlignment = NSTextAlignmentRight;
     _timeLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [container addSubview:_timeLabel];
