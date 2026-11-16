@@ -5464,8 +5464,8 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         }
 
         // Local file tool: a local_file_request is a handoff like the
-        // GitHub one, except the app executes it itself against
-        // Documents/EZAttachments (see performChatLocalFileRequest:).
+        // GitHub one, except the app executes it itself against its
+        // own file stores (see performChatLocalFileRequest:).
         // Coins for this turn are already settled by ez-chat; every
         // round trip is an ordinary chat call.
         NSDictionary *localFileRequest = [json[@"local_file_request"] isKindOfClass:[NSDictionary class]]

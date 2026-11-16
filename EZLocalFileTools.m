@@ -1,4 +1,5 @@
 #import "EZLocalFileTools.h"
+#import "helpers.h"
 
 /// Text files are sent to the model in full up to this many characters
 /// (the same ceiling the GitHub tool uses). Over it, the model gets the
@@ -22,10 +23,9 @@ static const NSUInteger kEZLocalFileMaxListEntries = 500;
     return dir;
 }
 
-/// All regular files in EZAttachments as @{name, path, size}, sorted by
-/// name. Directories and hidden files are skipped.
-+ (NSArray<NSDictionary *> *)fileEntries {
-    NSString *dir = [self attachmentsDirectory];
+/// All regular files in one directory as @{name, path, size}, sorted
+/// by name. Directories and hidden files are skipped.
++ (NSArray<NSDictionary *> *)fileEntriesInDirectory:(NSString *)dir {
     NSArray<NSString *> *names = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dir error:nil] ?: @[];
     NSMutableArray<NSDictionary *> *entries = [NSMutableArray array];
     for (NSString *name in names) {
@@ -43,6 +43,17 @@ static const NSUInteger kEZLocalFileMaxListEntries = 500;
         return [a[@"name"] localizedCaseInsensitiveCompare:b[@"name"]];
     }];
     return [entries copy];
+}
+
+/// The searchable files: EZAttachments first, then the photo gallery
+/// (images live there, not in EZAttachments). Attachment entries win
+/// name ties because they are scanned first.
++ (NSArray<NSDictionary *> *)fileEntries {
+    NSMutableArray<NSDictionary *> *all = [NSMutableArray array];
+    [all addObjectsFromArray:[self fileEntriesInDirectory:[self attachmentsDirectory]]];
+    NSString *gallery = EZPhotoGalleryDirectory();
+    if (gallery.length) [all addObjectsFromArray:[self fileEntriesInDirectory:gallery]];
+    return [all copy];
 }
 
 + (NSString *)framed:(NSString *)header body:(NSString *)body {
@@ -104,10 +115,10 @@ static const NSUInteger kEZLocalFileMaxListEntries = 500;
         : @"list_local_files";
     if (!shown.count) {
         return [self textResult:header body:query.length
-            ? [NSString stringWithFormat:@"No files in EZAttachments match \"%@\".", query]
-            : @"EZAttachments is empty: there are no files to read."];
+            ? [NSString stringWithFormat:@"No files match \"%@\".", query]
+            : @"There are no files to read yet."];
     }
-    NSMutableString *body = [NSMutableString stringWithFormat:@"%lu file%@ in EZAttachments%@:\n",
+    NSMutableString *body = [NSMutableString stringWithFormat:@"%lu file%@%@:\n",
         (unsigned long)shown.count, shown.count == 1 ? @"" : @"s",
         query.length ? [NSString stringWithFormat:@" matching \"%@\"", query] : @""];
     NSUInteger limit = MIN(shown.count, kEZLocalFileMaxListEntries);
@@ -164,7 +175,7 @@ static const NSUInteger kEZLocalFileMaxListEntries = 500;
     if (!match) {
         return [self textResult:@"read_local_file: error"
                            body:[NSString stringWithFormat:
-            @"No file named \"%@\" is in EZAttachments. Use list_local_files to see what is there.", name]];
+            @"No file named \"%@\" was found. Use list_local_files to see what is available.", name]];
     }
 
     NSString *fileName = match[@"name"];

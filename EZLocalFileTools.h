@@ -3,12 +3,15 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /// Executes the chat model's local file tools (read_local_file and
-/// list_local_files) against Documents/EZAttachments ONLY.
+/// list_local_files) against the app's two file stores: Documents/
+/// EZAttachments (documents and other files) and the EZPhotoGallery
+/// directory (images — uploads, generations and edits save there, not
+/// in EZAttachments).
 ///
 /// The model never gets a path: it asks for a file by name, and every
-/// lookup happens inside that one directory. Names containing "/" or
-/// ".." are refused outright, so there is no way to reach anything
-/// outside EZAttachments. Every outcome — success, not found, ambiguous
+/// lookup happens inside those two directories. Names containing "/"
+/// or ".." are refused outright, so there is no way to reach anything
+/// outside them. Every outcome — success, not found, ambiguous
 /// name, binary file, too large, unreadable — comes back as a tool
 /// result the model can react to; this class never throws and never
 /// fails the chat turn.
