@@ -16,6 +16,7 @@
     NSLayoutConstraint *_reactionBadgeLeading;   // user bubbles: badge at leading edge
     NSLayoutConstraint *_reactionBadgeTrailing;  // assistant bubbles: badge at trailing edge
     NSLayoutConstraint *_bubbleBottomConstraint; // deepens when a badge needs room
+    UIButton   *_ttsButton;              // play/pause for chat-TTS bubbles, hidden unless set
 }
 
 // ─── init ──────────────────────────────────────────────────────────────────
@@ -29,8 +30,6 @@
 
     // ── Meta label (hidden until swipe) ─────────────────────────────────────
     _metaLabel = [[UILabel alloc] init];
-    _metaLabel.adjustsFontSizeToFitWidth = YES;
-    _metaLabel.minimumScaleFactor = 0.5;
     _metaLabel.numberOfLines  = 0;
     _metaLabel.font           = [UIFont systemFontOfSize:11];
     _metaLabel.textColor      = [UIColor secondaryLabelColor];
@@ -100,8 +99,6 @@
     _reactionBadge.layer.borderColor = [UIColor colorWithWhite:0.5 alpha:0.25].CGColor;
     _reactionBadge.hidden = YES;
     _reactionLabel = [[UILabel alloc] init];
-    _reactionLabel.adjustsFontSizeToFitWidth = YES;
-    _reactionLabel.minimumScaleFactor = 0.5;
     _reactionLabel.font = [UIFont systemFontOfSize:12];
     _reactionLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [_reactionBadge addSubview:_reactionLabel];
@@ -116,6 +113,32 @@
         [_reactionLabel.leadingAnchor constraintEqualToAnchor:_reactionBadge.leadingAnchor constant:5],
         [_reactionLabel.trailingAnchor constraintEqualToAnchor:_reactionBadge.trailingAnchor constant:-5],
     ]];
+
+    // ── Chat-TTS play/pause button ───────────────────────────────────────────
+    // Sits just right of an assistant bubble (the 60pt trailing slack in
+    // the alignment constraints leaves room). Hidden unless the row is a
+    // spoken (speak_text) bubble; the view controller sets visibility,
+    // the play/pause state, and the tap block on every configure pass.
+    _ttsButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    _ttsButton.translatesAutoresizingMaskIntoConstraints = NO;
+    _ttsButton.layer.cornerRadius = 15.0;
+    _ttsButton.clipsToBounds = YES;
+    _ttsButton.backgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *tc) {
+        return tc.userInterfaceStyle == UIUserInterfaceStyleDark
+            ? [UIColor colorWithRed:0.28 green:0.28 blue:0.30 alpha:1.0]
+            : [UIColor colorWithRed:0.95 green:0.95 blue:0.97 alpha:1.0];
+    }];
+    _ttsButton.tintColor = [UIColor systemBlueColor];
+    _ttsButton.hidden = YES;
+    [_ttsButton addTarget:self action:@selector(_ttsButtonTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.contentView addSubview:_ttsButton];
+    [NSLayoutConstraint activateConstraints:@[
+        [_ttsButton.leadingAnchor constraintEqualToAnchor:_bubbleView.trailingAnchor constant:6],
+        [_ttsButton.centerYAnchor constraintEqualToAnchor:_bubbleView.centerYAnchor],
+        [_ttsButton.widthAnchor  constraintEqualToConstant:30],
+        [_ttsButton.heightAnchor constraintEqualToConstant:30],
+    ]];
+    [self setTTSPlaybackVisible:NO playing:NO];
 
     // ── Pan gesture for swipe-to-reveal ─────────────────────────────────────
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc]
@@ -237,6 +260,25 @@
 //   • Release    → springs back to origin, meta label fades out
 //
 // For assistant (left-aligned) bubbles we mirror: drag right reveals meta on left.
+
+- (void)setTTSPlaybackVisible:(BOOL)visible playing:(BOOL)playing {
+    _ttsButton.hidden = !visible;
+    if (visible) {
+        UIImageSymbolConfiguration *cfg = [UIImageSymbolConfiguration configurationWithPointSize:13 weight:UIImageSymbolWeightBold];
+        [_ttsButton setImage:[UIImage systemImageNamed:(playing ? @"pause.fill" : @"play.fill") withConfiguration:cfg]
+                    forState:UIControlStateNormal];
+    }
+}
+
+- (void)_ttsButtonTapped {
+    if (self.ttsButtonTapped) self.ttsButtonTapped(self);
+}
+
+- (void)prepareForReuse {
+    [super prepareForReuse];
+    [self setTTSPlaybackVisible:NO playing:NO];
+    self.ttsButtonTapped = nil;
+}
 
 - (void)setReactionEmoji:(NSString *)emoji {
     if (emoji.length) {
