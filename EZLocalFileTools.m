@@ -1,5 +1,6 @@
 #import "EZLocalFileTools.h"
 #import "helpers.h"
+#import <PDFKit/PDFKit.h>
 
 /// Text files are sent to the model in full up to this many characters
 /// (the same ceiling the GitHub tool uses). Over it, the model gets the
@@ -155,6 +156,55 @@ static NSArray<NSString *> *EZLocalFileRootNames(void) {
 }
 
 #pragma mark - Classification (content, never extension)
+
++ (BOOL)isPDFData:(NSData *)data {
+    // The %PDF- header can sit a little into the file (the spec
+    // allows leading bytes), so scan the first kilobyte.
+    NSUInteger scan = MIN(data.length, (NSUInteger)1024);
+    if (!scan) return NO;
+    NSData *head = [data subdataWithRange:NSMakeRange(0, scan)];
+    NSData *magic = [@"%PDF-" dataUsingEncoding:NSASCIIStringEncoding];
+    return [head rangeOfData:magic options:0 range:NSMakeRange(0, head.length)].location != NSNotFound;
+}
+
+/// PDFs are documents, not opaque binaries: decode them with PDFKit
+/// and hand the model the text, page by page, under the same
+/// 1,000,000-character ceiling as any other text. A PDF with no text
+/// layer (scanned images), a locked PDF, and an undecodable PDF each
+/// get their own clear result instead of the generic binary one.
++ (NSDictionary *)pdfResultForData:(NSData *)data
+                       displayName:(NSString *)displayName
+                            header:(NSString *)header
+                          byteSize:(unsigned long long)byteSize {
+    PDFDocument *doc = [[PDFDocument alloc] initWithData:data];
+    if (!doc) {
+        return [self textResult:header body:[NSString stringWithFormat:
+            @"[Local file: %@ — %llu bytes]\nThis PDF could not be decoded, so its contents were not sent.", displayName, byteSize]];
+    }
+    if (doc.isLocked) {
+        return [self textResult:header body:[NSString stringWithFormat:
+            @"[Local file: %@ — %llu bytes]\nThis PDF is password-protected, so its text could not be extracted.", displayName, byteSize]];
+    }
+    NSUInteger pages = doc.pageCount;
+    NSMutableString *text = [NSMutableString string];
+    for (NSUInteger i = 0; i < pages; i++) {
+        NSString *pageText = [doc pageAtIndex:i].string;
+        if (pageText.length) {
+            [text appendFormat:@"\n\n[Page %lu]\n%@", (unsigned long)(i + 1), pageText];
+        }
+        if (text.length > kEZLocalFileMaxTextChars) {
+            return [self textResult:header body:[NSString stringWithFormat:
+                @"[Local file: %@ — %llu bytes]\nThis PDF has %lu pages and its text is over the 1,000,000-character limit, so its contents were not sent.", displayName, byteSize, (unsigned long)pages]];
+        }
+    }
+    NSString *trimmed = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (!trimmed.length) {
+        return [self textResult:header body:[NSString stringWithFormat:
+            @"[Local file: %@ — %llu bytes]\nThis PDF has %lu pages but no readable text — it is probably scanned images. Its contents were not sent.", displayName, byteSize, (unsigned long)pages]];
+    }
+    return [self textResult:header body:[NSString stringWithFormat:
+        @"[Local file: %@ — %llu bytes]\n[PDF text — %lu page%@]\n%@", displayName, byteSize, (unsigned long)pages, pages == 1 ? @"" : @"s", trimmed]];
+}
 
 + (BOOL)isImageExtension:(NSString *)ext {
     static NSSet<NSString *> *imageExts;
@@ -379,6 +429,10 @@ static NSArray<NSString *> *EZLocalFileRootNames(void) {
                   @"data": data,
                   @"extension": [self isImageExtension:ext] ? ext : sniffedImageExt,
                   @"byteSize": @(byteSize) };
+    }
+
+    if ([self isPDFData:data]) {
+        return [self pdfResultForData:data displayName:displayName header:header byteSize:byteSize];
     }
 
     // Text-vs-binary is decided by CONTENT, never by extension: a .ts,

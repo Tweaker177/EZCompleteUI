@@ -21,7 +21,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// sit inside one of the five roots. Anything inside them is fair
 /// game, however deep.
 ///
-/// Text-vs-binary is decided by content, never by extension. Every
+/// Text-vs-binary is decided by content, never by extension. PDFs
+/// are decoded to their text with PDFKit (already linked by the
+/// app), page by page, under the same size ceiling as other text.
+/// Every
 /// outcome — success, not found, ambiguous name, outside the allowed
 /// folders, binary file, too large, unreadable — comes back as a tool
 /// result the model can react to; this class never throws and never
