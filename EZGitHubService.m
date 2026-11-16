@@ -22,6 +22,13 @@ static NSError *EZGitHubError(EZGitHubServiceErrorCode code, NSString *message, 
     return [NSError errorWithDomain:EZGitHubServiceErrorDomain code:code userInfo:info];
 }
 
+/// Reads a JSON boolean defensively: NSNull (or any non-number) reads as NO
+/// instead of crashing — messaging boolValue to NSNull is a hard crash, and
+/// the server's ok/connected/allow_writes flags are parsed JSON.
+static BOOL EZGitHubBool(id value) {
+    return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO;
+}
+
 static BOOL EZGitHubIsTransientNetworkError(NSError *error) {
     if (![error.domain isEqualToString:NSURLErrorDomain]) return NO;
     switch (error.code) {
@@ -176,7 +183,7 @@ static NSError *EZGitHubErrorForResponse(NSInteger status, NSDictionary *json) {
         completion:^(NSInteger status, NSDictionary *json, NSHTTPURLResponse *response, NSError *error) {
         if (error) { completion(nil, nil, error); return; }
         NSError *failure = EZGitHubErrorForResponse(status, json);
-        if (failure || ![json[@"ok"] boolValue]) {
+        if (failure || !EZGitHubBool(json[@"ok"])) {
             completion(nil, nil, failure ?: EZGitHubError(EZGitHubServiceErrorServer,
                                                           EZGitHubServerMessage(json, status), nil));
             return;
@@ -194,7 +201,7 @@ static NSError *EZGitHubErrorForResponse(NSInteger status, NSDictionary *json) {
         NSError *failure = EZGitHubErrorForResponse(status, json);
         if (failure) { completion(NO, nil, NO, failure); return; }
         NSString *login = [json[@"login"] isKindOfClass:[NSString class]] ? json[@"login"] : nil;
-        completion([json[@"connected"] boolValue], login, [json[@"allow_writes"] boolValue], nil);
+        completion(EZGitHubBool(json[@"connected"]), login, EZGitHubBool(json[@"allow_writes"]), nil);
     }];
 }
 
@@ -203,12 +210,12 @@ static NSError *EZGitHubErrorForResponse(NSInteger status, NSDictionary *json) {
         completion:^(NSInteger status, NSDictionary *json, NSHTTPURLResponse *response, NSError *error) {
         if (error) { completion(NO, error); return; }
         NSError *failure = EZGitHubErrorForResponse(status, json);
-        if (failure || ![json[@"ok"] boolValue]) {
+        if (failure || !EZGitHubBool(json[@"ok"])) {
             completion(NO, failure ?: EZGitHubError(EZGitHubServiceErrorServer,
                                                     EZGitHubServerMessage(json, status), nil));
             return;
         }
-        completion([json[@"allow_writes"] boolValue], nil);
+        completion(EZGitHubBool(json[@"allow_writes"]), nil);
     }];
 }
 
@@ -217,7 +224,7 @@ static NSError *EZGitHubErrorForResponse(NSInteger status, NSDictionary *json) {
         completion:^(NSInteger status, NSDictionary *json, NSHTTPURLResponse *response, NSError *error) {
         if (error) { completion(error); return; }
         NSError *failure = EZGitHubErrorForResponse(status, json);
-        if (failure || ![json[@"ok"] boolValue]) {
+        if (failure || !EZGitHubBool(json[@"ok"])) {
             completion(failure ?: EZGitHubError(EZGitHubServiceErrorServer,
                                                 EZGitHubServerMessage(json, status), nil));
             return;
@@ -246,13 +253,19 @@ static NSError *EZGitHubErrorForResponse(NSInteger status, NSDictionary *json) {
         if (status == 401) { completion(nil, EZGitHubErrorForResponse(status, json)); return; }
         // The server reports GitHub-side and validation failures as a JSON
         // body with ok = false (HTTP 200 or 400): hand those to the caller as
-        // a result so the model can be told what went wrong.
-        if (json && json[@"ok"] != nil && status >= 200 && status < 500) {
+        // a result so the model can be told what went wrong. ok must be a
+        // real boolean — a null ok is not a result the caller can read (its
+        // boolValue reads would crash on NSNull), so it is a bad response.
+        if (json && [json[@"ok"] isKindOfClass:[NSNumber class]] && status >= 200 && status < 500) {
             completion(json, nil);
             return;
         }
         NSError *failure = EZGitHubErrorForResponse(status, json);
-        completion(failure ? nil : json, failure);
+        if (!failure) {
+            failure = EZGitHubError(EZGitHubServiceErrorBadResponse,
+                @"The GitHub service sent an unexpected reply. Please try again.", nil);
+        }
+        completion(nil, failure);
     }];
 }
 

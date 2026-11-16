@@ -941,7 +941,10 @@ id EZLogRedactedObject(id object) {
 
 static NSString *_EZLogCappedMessage(NSString *message) {
     if (message.length <= EZ_LOG_ENTRY_MAX_CHARS) return message;
-    return [[message substringToIndex:EZ_LOG_ENTRY_MAX_CHARS]
+    // Cut on a composed-character boundary: a lone surrogate makes the
+    // UTF-8 encoding in _appendLineToFile fail and the entry is lost.
+    NSRange safe = [message rangeOfComposedCharacterSequencesForRange:NSMakeRange(0, EZ_LOG_ENTRY_MAX_CHARS)];
+    return [[message substringWithRange:safe]
         stringByAppendingFormat:@"… [log entry truncated: %lu chars total]", (unsigned long)message.length];
 }
 

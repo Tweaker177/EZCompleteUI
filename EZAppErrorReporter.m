@@ -11,7 +11,15 @@
                                     @"error_code": code ?: @"error",
                                     @"app_version": version } mutableCopy];
     if (message.length) {
-        body[@"message"] = message.length > 300 ? [message substringToIndex:300] : message;
+        if (message.length > 300) {
+            // Cut on a composed-character boundary: substringToIndex: can
+            // split an emoji, and the lone surrogate makes the JSON
+            // serialization below fail, silently dropping the report.
+            NSRange safe = [message rangeOfComposedCharacterSequencesForRange:NSMakeRange(0, 300)];
+            body[@"message"] = [message substringWithRange:safe];
+        } else {
+            body[@"message"] = message;
+        }
     }
     NSData *payload = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
     if (!payload) return;

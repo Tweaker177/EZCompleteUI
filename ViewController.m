@@ -1778,8 +1778,10 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         NSString *text    = [content isKindOfClass:[NSString class]] ? content : nil;
 
         // GitHub tool results are model-only context (they can be huge); they
-        // are never shown as chat bubbles, live or on restore.
-        if ([msg[@"_githubResult"] boolValue]) continue;
+        // are never shown as chat bubbles, live or on restore. Same for
+        // local file results: a read file's whole contents would otherwise
+        // render as one giant "You:" bubble on every thread switch.
+        if ([msg[@"_githubResult"] boolValue] || [msg[@"_localFileResult"] boolValue]) continue;
 
         // Songs a chat model created are UI-only timeline events too. A failed
         // song has no card (its error line was a transient system message), so
@@ -9474,7 +9476,10 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
     }
 
     // A write preview: show it and wait for the user's decision.
-    if ([result[@"needs_confirmation"] boolValue]) {
+    // needs_confirmation comes from parsed JSON: guard the boolValue read
+    // (an NSNull would crash) the same way the service guards its flags.
+    if ([result[@"needs_confirmation"] respondsToSelector:@selector(boolValue)] &&
+        [result[@"needs_confirmation"] boolValue]) {
         if (!sameThread) {
             self.sendButton.enabled = YES;
             [self appendToChat:@"[System: A GitHub change was waiting for approval, but the conversation changed, so it was dropped. Ask again in the original chat.]"];
@@ -9484,7 +9489,7 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
         return;
     }
 
-    BOOL ok = [result[@"ok"] boolValue];
+    BOOL ok = [result[@"ok"] respondsToSelector:@selector(boolValue)] ? [result[@"ok"] boolValue] : NO;
     NSString *code = [result[@"code"] isKindOfClass:[NSString class]] ? result[@"code"] : @"";
     NSString *errorText = [result[@"error"] isKindOfClass:[NSString class]] ? result[@"error"] : @"";
     NSString *modelText = [result[@"message_for_model"] isKindOfClass:[NSString class]] ? result[@"message_for_model"] : @"";
