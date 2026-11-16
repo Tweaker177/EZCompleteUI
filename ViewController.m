@@ -5324,6 +5324,14 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                 // cache file still backs its replay.
                 if (!entryUUID.length) return;
                 if (![self.activeThread.threadID isEqualToString:capturedThreadID]) return;
+                // The bubble's stamp swaps to the library uuid below;
+                // swap the playback tracker too, or during this first
+                // autoplay the bubble's button thinks nothing is
+                // playing (shows play, restarts instead of pausing)
+                // and the finish reload can't find its row.
+                if ([self.chatTTSActiveClipID isEqualToString:ttsClipID]) {
+                    self.chatTTSActiveClipID = entryUUID;
+                }
                 for (NSUInteger ci = 0; ci < self.chatContext.count; ci++) {
                     if ([self.chatContext[ci][@"_ttsClipID"] isEqualToString:ttsClipID]) {
                         NSMutableDictionary *restamp = [self.chatContext[ci] mutableCopy];
