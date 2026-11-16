@@ -57,12 +57,8 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
 @implementation BRSlotChatPromptController
 - (void)viewDidLoad { [super viewDidLoad]; self.view.backgroundColor = [UIColor colorWithRed:.055 green:.02 blue:.12 alpha:1]; self.modalPresentationStyle = UIModalPresentationPageSheet; self.sheetPresentationController.detents = @[[UISheetPresentationControllerDetent mediumDetent]]; self.sheetPresentationController.prefersGrabberVisible = YES; self.sheetPresentationController.preferredCornerRadius = 25;
     UIView *card = [UIView new]; card.backgroundColor = [UIColor colorWithRed:.13 green:.045 blue:.23 alpha:1]; card.layer.cornerRadius = 22; card.layer.borderWidth = 1; card.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.62].CGColor; card.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:card];
-    UILabel *title = [UILabel new];
-    title.adjustsFontSizeToFitWidth = YES;
-    title.minimumScaleFactor = 0.5; title.text = self.promptTitle; title.textColor = UIColor.whiteColor; title.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; title.numberOfLines = 2; title.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:title];
-    UILabel *body = [UILabel new];
-    body.adjustsFontSizeToFitWidth = YES;
-    body.minimumScaleFactor = 0.5; body.text = self.promptBody; body.textColor = [UIColor colorWithWhite:.73 alpha:1]; body.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium]; body.numberOfLines = 0; body.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:body];
+    UILabel *title = [UILabel new]; title.text = self.promptTitle; title.textColor = UIColor.whiteColor; title.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; title.numberOfLines = 2; title.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:title];
+    UILabel *body = [UILabel new]; body.text = self.promptBody; body.textColor = [UIColor colorWithWhite:.73 alpha:1]; body.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium]; body.numberOfLines = 0; body.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:body];
     UIImageView *avatarView = nil;
     if (self.avatarImage || self.avatarURLString.length) { avatarView = [UIImageView new]; avatarView.image = self.avatarImage ?: [UIImage systemImageNamed:@"person.crop.circle.fill"]; avatarView.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; avatarView.contentMode = UIViewContentModeScaleAspectFill; avatarView.clipsToBounds = YES; avatarView.layer.cornerRadius = 38; avatarView.layer.borderWidth = 1; avatarView.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.62].CGColor; avatarView.backgroundColor = [UIColor colorWithWhite:1 alpha:.07]; avatarView.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:avatarView]; if (!self.avatarImage && self.avatarURLString.length) { __weak UIImageView *weakAvatar = avatarView; [BRSlotChatBar loadAvatarThumbnailForURL:self.avatarURLString points:76 completion:^(UIImage *image) { if (image) weakAvatar.image = image; }]; } }
     self.textField = [UITextField new]; self.textField.text = self.initialText; self.textField.placeholder = NSLocalizedString(@"BRSlot.Lounge.DisplayName", nil); self.textField.textColor = UIColor.whiteColor; self.textField.backgroundColor = [UIColor colorWithWhite:1 alpha:.09]; self.textField.layer.cornerRadius = 12; self.textField.leftView = [[UIView alloc] initWithFrame:CGRectMake(0,0,12,1)]; self.textField.leftViewMode = UITextFieldViewModeAlways; self.textField.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:self.textField]; self.textField.hidden = !self.initialText;
@@ -125,12 +121,8 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     self.collapsedView = [UIView new];
     self.collapsedView.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:self.collapsedView];
-    UILabel *icon = [UILabel new];
-    icon.adjustsFontSizeToFitWidth = YES;
-    icon.minimumScaleFactor = 0.5; icon.text = @"💬"; icon.font = [UIFont systemFontOfSize:13]; icon.translatesAutoresizingMaskIntoConstraints = NO; [self.collapsedView addSubview:icon];
+    UILabel *icon = [UILabel new]; icon.text = @"💬"; icon.font = [UIFont systemFontOfSize:13]; icon.translatesAutoresizingMaskIntoConstraints = NO; [self.collapsedView addSubview:icon];
     self.latestLabel = [UILabel new];
-    self.latestLabel.adjustsFontSizeToFitWidth = YES;
-    self.latestLabel.minimumScaleFactor = 0.5;
     self.latestLabel.text = NSLocalizedString(@"BRSlot.Lounge.Connecting", nil);
     self.latestLabel.textColor = [UIColor colorWithWhite:.88 alpha:1];
     self.latestLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
@@ -171,14 +163,10 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     self.expandedView.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:self.expandedView];
     // Header: presence on the left, collapse on the right. The winners board and profile buttons live on the game picker now.
-    self.presenceLabel = [UILabel new];
-    self.presenceLabel.adjustsFontSizeToFitWidth = YES;
-    self.presenceLabel.minimumScaleFactor = 0.5; self.presenceLabel.text = NSLocalizedString(@"BRSlot.Lounge.Connecting", nil); self.presenceLabel.textColor = [UIColor colorWithRed:.55 green:1 blue:.72 alpha:1]; self.presenceLabel.font = [UIFont systemFontOfSize:12.5 weight:UIFontWeightBold]; self.presenceLabel.translatesAutoresizingMaskIntoConstraints = NO; [self.expandedView addSubview:self.presenceLabel];
+    self.presenceLabel = [UILabel new]; self.presenceLabel.text = NSLocalizedString(@"BRSlot.Lounge.Connecting", nil); self.presenceLabel.textColor = [UIColor colorWithRed:.55 green:1 blue:.72 alpha:1]; self.presenceLabel.font = [UIFont systemFontOfSize:12.5 weight:UIFontWeightBold]; self.presenceLabel.translatesAutoresizingMaskIntoConstraints = NO; [self.expandedView addSubview:self.presenceLabel];
     UIButton *collapse = [UIButton buttonWithType:UIButtonTypeSystem]; [collapse setImage:[UIImage systemImageNamed:@"chevron.down"] forState:UIControlStateNormal]; collapse.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; [collapse addTarget:self action:@selector(collapseTapped) forControlEvents:UIControlEventTouchUpInside]; collapse.translatesAutoresizingMaskIntoConstraints = NO; [self.expandedView addSubview:collapse];
     self.table = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain]; self.table.backgroundColor = UIColor.clearColor; self.table.separatorStyle = UITableViewCellSeparatorStyleNone; self.table.dataSource = self; self.table.delegate = self; self.table.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive; self.table.estimatedRowHeight = 56; self.table.translatesAutoresizingMaskIntoConstraints = NO; [self.expandedView addSubview:self.table];
-    UILabel *note = [UILabel new];
-    note.adjustsFontSizeToFitWidth = YES;
-    note.minimumScaleFactor = 0.5; note.text = NSLocalizedString(@"BRSlot.Lounge.Note", nil); note.numberOfLines = 2; note.textAlignment = NSTextAlignmentCenter; note.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium]; note.textColor = [UIColor colorWithWhite:.56 alpha:1]; note.translatesAutoresizingMaskIntoConstraints = NO; [self.expandedView addSubview:note];
+    UILabel *note = [UILabel new]; note.text = NSLocalizedString(@"BRSlot.Lounge.Note", nil); note.numberOfLines = 2; note.textAlignment = NSTextAlignmentCenter; note.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium]; note.textColor = [UIColor colorWithWhite:.56 alpha:1]; note.translatesAutoresizingMaskIntoConstraints = NO; [self.expandedView addSubview:note];
     UIView *bar = [UIView new]; bar.backgroundColor = [UIColor colorWithWhite:1 alpha:.08]; bar.layer.cornerRadius = 18; bar.translatesAutoresizingMaskIntoConstraints = NO; [self.expandedView addSubview:bar];
     self.composer = [UITextField new]; self.composer.placeholder = NSLocalizedString(@"BRSlot.Lounge.Composer", nil); self.composer.textColor = UIColor.whiteColor; self.composer.attributedPlaceholder = [[NSAttributedString alloc] initWithString:self.composer.placeholder attributes:@{NSForegroundColorAttributeName:[UIColor colorWithWhite:.62 alpha:1]}]; self.composer.delegate = self; self.composer.returnKeyType = UIReturnKeySend; self.composer.translatesAutoresizingMaskIntoConstraints = NO; [bar addSubview:self.composer];
     UIButton *send = [UIButton buttonWithType:UIButtonTypeSystem]; [send setImage:[UIImage systemImageNamed:@"paperplane.fill"] forState:UIControlStateNormal]; send.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; [send addTarget:self action:@selector(send) forControlEvents:UIControlEventTouchUpInside]; send.translatesAutoresizingMaskIntoConstraints = NO; [bar addSubview:send];
@@ -347,8 +335,6 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     sheet.sheetPresentationController.detents = @[[UISheetPresentationControllerDetent largeDetent]];
     sheet.sheetPresentationController.prefersGrabberVisible = YES;
     UILabel *title = [UILabel new];
-    title.adjustsFontSizeToFitWidth = YES;
-    title.minimumScaleFactor = 0.5;
     title.text = NSLocalizedString(@"BRSlot.Lounge.WinningsTitle", nil);
     title.font = [UIFont systemFontOfSize:25 weight:UIFontWeightBlack];
     title.textColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
@@ -356,12 +342,11 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     title.translatesAutoresizingMaskIntoConstraints = NO;
     [sheet.view addSubview:title];
     UILabel *mine = [UILabel new];
-    mine.adjustsFontSizeToFitWidth = YES;
-    mine.minimumScaleFactor = 0.5;
     mine.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.WinningsMine", nil), BRChatNumber(board[@"my_today_total"]), BRChatNumber(board[@"my_best_hit"])];
     mine.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
     mine.textColor = UIColor.whiteColor;
     mine.textAlignment = NSTextAlignmentCenter;
+    mine.numberOfLines = 0;
     mine.translatesAutoresizingMaskIntoConstraints = NO;
     [sheet.view addSubview:mine];
     UIScrollView *scroll = [UIScrollView new];
@@ -377,8 +362,6 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     NSString *(^trimmed)(NSString *) = ^NSString *(NSString *value) { return [value stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]; };
     void (^addHeader)(NSString *) = ^(NSString *key) {
         UILabel *header = [UILabel new];
-        header.adjustsFontSizeToFitWidth = YES;
-        header.minimumScaleFactor = 0.5;
         header.text = trimmed(NSLocalizedString(key, nil));
         header.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBlack];
         header.textColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
@@ -386,8 +369,6 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     };
     void (^addEmpty)(NSString *) = ^(NSString *key) {
         UILabel *empty = [UILabel new];
-        empty.adjustsFontSizeToFitWidth = YES;
-        empty.minimumScaleFactor = 0.5;
         empty.text = trimmed(NSLocalizedString(key, nil));
         empty.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
         empty.textColor = [UIColor colorWithWhite:.75 alpha:1];
@@ -406,8 +387,6 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
         avatar.translatesAutoresizingMaskIntoConstraints = NO;
         [line addSubview:avatar];
         UILabel *label = [UILabel new];
-        label.adjustsFontSizeToFitWidth = YES;
-        label.minimumScaleFactor = 0.5;
         label.text = trimmed([NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.WinningsRow", nil), (unsigned long)index + 1, BRChatString(row[@"name"]) ?: NSLocalizedString(@"BRSlot.Lounge.PlayerFallback", nil), BRChatNumber(row[amountKey])]);
         label.font = [UIFont monospacedSystemFontOfSize:14 weight:UIFontWeightMedium];
         label.textColor = UIColor.whiteColor;
@@ -427,6 +406,12 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
         if (avatarURL.length) { __weak UIImageView *weakAvatar = avatar; [BRSlotChatBar loadAvatarThumbnailForURL:avatarURL points:34 completion:^(UIImage *image) { if (image) weakAvatar.image = image; }]; }
     };
     void (^addSection)(NSString *, NSArray *, NSString *, NSString *) = ^(NSString *headerKey, NSArray *entries, NSString *amountKey, NSString *emptyKey) {
+        if (stack.arrangedSubviews.count) {
+            UIView *spacer = [UIView new];
+            spacer.translatesAutoresizingMaskIntoConstraints = NO;
+            [spacer.heightAnchor constraintEqualToConstant:10].active = YES;
+            [stack addArrangedSubview:spacer];
+        }
         addHeader(headerKey);
         NSArray *rows = [entries isKindOfClass:NSArray.class] ? entries : @[];
         if (!rows.count) { addEmpty(emptyKey); return; }
@@ -438,8 +423,6 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     if (chips.count > 5) chips = [chips subarrayWithRange:NSMakeRange(0, 5)];
     addSection(@"BRSlot.Lounge.WinningsMostChips", chips, @"balance", @"BRSlot.Lounge.WinningsNoChips");
     UILabel *footer = [UILabel new];
-    footer.adjustsFontSizeToFitWidth = YES;
-    footer.minimumScaleFactor = 0.5;
     footer.text = trimmed(NSLocalizedString(@"BRSlot.Lounge.WinningsFooter", nil));
     footer.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
     footer.textColor = [UIColor colorWithWhite:.6 alpha:1];
