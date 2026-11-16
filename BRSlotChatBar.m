@@ -26,6 +26,17 @@ static UIImage *BRChatScaledAvatar(UIImage *image) {
 }
 
 NSNotificationName const BRSlotProfileDidUpdateNotification = @"BRSlotProfileDidUpdateNotification";
+NSNotificationName const BRSlotSoundSettingChangedNotification = @"BRSlotSoundSettingChangedNotification";
+
+static NSString * const BRSlotSoundEnabledKey = @"BRSlotSoundEnabled";
+BOOL BRSlotSoundEnabled(void) {
+    NSNumber *value = [[NSUserDefaults standardUserDefaults] objectForKey:BRSlotSoundEnabledKey];
+    return value ? value.boolValue : YES;
+}
+void BRSlotSetSoundEnabled(BOOL enabled) {
+    [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:BRSlotSoundEnabledKey];
+    [[NSNotificationCenter defaultCenter] postNotificationName:BRSlotSoundSettingChangedNotification object:nil];
+}
 
 // Displayed avatars are small (76pt board rows, a ~40pt nav button, a 76pt
 // editor preview): decode downloads straight to a cover thumbnail at the

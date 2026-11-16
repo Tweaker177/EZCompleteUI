@@ -34,7 +34,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
 @end
 
 @implementation BRSlotOddsSheetViewController
-- (void)viewDidLoad { [super viewDidLoad]; self.view.backgroundColor = [UIColor colorWithRed:.07 green:.03 blue:.16 alpha:1]; self.modalPresentationStyle = UIModalPresentationPageSheet; UISheetPresentationController *sheet = self.sheetPresentationController; sheet.prefersGrabberVisible = YES; sheet.preferredCornerRadius = 24; sheet.detents = @[[UISheetPresentationControllerDetent mediumDetent], [UISheetPresentationControllerDetent largeDetent]];
+- (void)viewDidLoad { [super viewDidLoad]; [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(br_slotSoundSettingChanged) name:BRSlotSoundSettingChangedNotification object:nil]; self.view.backgroundColor = [UIColor colorWithRed:.07 green:.03 blue:.16 alpha:1]; self.modalPresentationStyle = UIModalPresentationPageSheet; UISheetPresentationController *sheet = self.sheetPresentationController; sheet.prefersGrabberVisible = YES; sheet.preferredCornerRadius = 24; sheet.detents = @[[UISheetPresentationControllerDetent mediumDetent], [UISheetPresentationControllerDetent largeDetent]];
     UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Odds.Title", nil); title.font = [UIFont systemFontOfSize:25 weight:UIFontWeightBlack]; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; title.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:title];
     UILabel *sub = [UILabel new]; sub.text = NSLocalizedString(@"BRSlot.Odds.Subtitle", nil); sub.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium]; sub.textColor = [UIColor colorWithWhite:.68 alpha:1]; sub.numberOfLines = 2; sub.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:sub];
     self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleInsetGrouped]; self.tableView.backgroundColor = UIColor.clearColor; self.tableView.dataSource = self; self.tableView.rowHeight = 56; self.tableView.separatorColor = [UIColor colorWithWhite:1 alpha:.08]; self.tableView.translatesAutoresizingMaskIntoConstraints = NO; [self.view addSubview:self.tableView];
@@ -507,7 +507,9 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
     if (lossURL) { self.lossPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:lossURL error:nil]; self.lossPlayer.volume = .72; [self.lossPlayer prepareToPlay]; }
 }
 
+- (void)br_slotSoundSettingChanged { if (BRSlotSoundEnabled()) return; [self.musicPlayer stop]; self.musicPlayer = nil; [self.lossPlayer stop]; }
 - (void)playTheme:(NSString *)name {
+    if (!BRSlotSoundEnabled()) return;
     if ([self.musicPlayer.url.lastPathComponent isEqualToString:[name stringByAppendingString:@".mp3"]]) return;
     NSURL *url = [[NSBundle mainBundle] URLForResource:name withExtension:@"mp3" subdirectory:@"sounds"];
     if (!url) url = [[NSBundle mainBundle] URLForResource:name withExtension:@"mp3"];
@@ -519,7 +521,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
     self.musicPlayer.volume = .32; [self.musicPlayer prepareToPlay]; [self.musicPlayer play];
 }
 
-- (void)playLossSound { [self.lossPlayer stop]; self.lossPlayer.currentTime = 0; [self.lossPlayer play]; }
+- (void)playLossSound { if (!BRSlotSoundEnabled()) return; [self.lossPlayer stop]; self.lossPlayer.currentTime = 0; [self.lossPlayer play]; }
 
 - (void)eruptCoinsForPayout:(NSInteger)payout jackpot:(BOOL)jackpot {
     [self stopWinCelebration];

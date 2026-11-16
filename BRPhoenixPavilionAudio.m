@@ -2,6 +2,7 @@
 // EZCompleteUI — Phoenix Pavilion (凤凰阁) slot
 
 #import "BRPhoenixPavilionAudio.h"
+#import "BRSlotChatBar.h"
 #import <AVFoundation/AVFoundation.h>
 #include <math.h>
 #include <stdlib.h>
@@ -456,6 +457,8 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 
 - (void)prepare {
     if (self.ready || self.preparing) return;
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(br_soundSettingChanged:) name:BRSlotSoundSettingChangedNotification object:nil];
+    self.muted = !BRSlotSoundEnabled();
     self.preparing = YES;
     self.format = [[AVAudioFormat alloc] initWithCommonFormat:AVAudioPCMFormatFloat32 sampleRate:kSR channels:1 interleaved:NO];
     AVAudioFormat *fmt = self.format;
@@ -547,7 +550,9 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 
 - (void)setMuted:(BOOL)muted { _muted = muted; self.engine.mainMixerNode.outputVolume = muted ? 0 : 1; }
 
+- (void)br_soundSettingChanged:(NSNotification *)note { BOOL enabled = BRSlotSoundEnabled(); self.muted = !enabled; if (!enabled) { [self stopTheme]; [self stopDrumRoll]; } }
 - (void)playName:(NSString *)name volume:(float)volume {
+    if (!BRSlotSoundEnabled()) return;
     AVAudioPCMBuffer *buffer = self.buffers[name];
     if (!self.ready || !buffer || !self.engine.isRunning || !self.voices.count) return;
     AVAudioPlayerNode *node = self.voices[(NSUInteger)(self.voiceCursor++ % (NSInteger)self.voices.count)];
@@ -559,6 +564,7 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 #pragma mark Music
 
 - (void)startThemeBonus:(BOOL)bonus {
+    if (!BRSlotSoundEnabled()) return;
     self.themeWanted = YES; self.themeBonus = bonus;
     AVAudioPCMBuffer *buffer = self.buffers[bonus ? @"bonusTheme" : @"theme"];
     if (!self.ready || !buffer || !self.engine.isRunning) return;
@@ -582,6 +588,7 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 - (void)playScatterNoteAtIndex:(NSInteger)index { [self playName:[NSString stringWithFormat:@"scatter%ld", (long)MAX(0, MIN(4, index))] volume:1.0]; }
 
 - (void)startDrumRollLevel:(NSInteger)level {
+    if (!BRSlotSoundEnabled()) return;
     level = MAX(1, MIN(3, level));
     AVAudioPCMBuffer *buffer = self.buffers[[NSString stringWithFormat:@"roll%ld", (long)level]];
     if (!self.ready || !buffer || !self.engine.isRunning) return;
