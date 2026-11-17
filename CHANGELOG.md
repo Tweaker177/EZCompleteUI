@@ -4,6 +4,20 @@ All notable changes to EZCompleteUI are documented here. Version numbers refer
 to the app/package version. Server-backed features also require their matching
 Supabase Edge Function deployments and migrations.
 
+## 7.2.10 — 2026-11-17
+
+### Chat and GitHub
+
+- Added inline GitHub link previews to assistant messages.
+
+### Appearance
+
+- Introduced a shared navy-and-gold theme with a custom doodle pattern across
+  chat, the Coin Store, Memories, the chat drawer, Text to Speech, Sounds,
+  Music, music message cards, and the TTS clip editor.
+- Improved contrast for gold TTS buttons and sharing actions in Music and TTS
+  history, as well as Sounds tabs and swipe actions.
+
 ## 7.2.9 — 2026-11-16
 
 ### Chat and files
