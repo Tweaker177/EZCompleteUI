@@ -12,6 +12,7 @@
 
 #import "ChatHistoryViewController.h"
 #import "helpers.h"
+#import "EZTheme.h"
 
 static NSString * const kCellID = @"EZThreadCell";
 static NSString * const kNavigationCellID = @"EZNavigationCell";
@@ -49,6 +50,10 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
     [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:kNavigationCellID];
     self.tableView.rowHeight          = UITableViewAutomaticDimension;
     self.tableView.estimatedRowHeight = 70;
+    self.view.backgroundColor      = [EZTheme chatBackgroundColor];
+    self.tableView.backgroundColor = [EZTheme chatBackgroundColor];
+    self.tableView.separatorColor  = [EZTheme hairlineColor];
+    self.tableView.tintColor       = [EZTheme goldColor];
 
     [self setupSearchBar];
     [self reload];
@@ -86,6 +91,12 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
     self.searchBar.placeholder         = @"Search titles";
     self.searchBar.delegate            = self;
     self.searchBar.showsCancelButton   = NO;
+    self.searchBar.barStyle            = UIBarStyleBlack;
+    self.searchBar.tintColor           = [EZTheme goldColor];
+    if (@available(iOS 13.0, *)) {
+        self.searchBar.searchTextField.backgroundColor = [EZTheme cardColor];
+        self.searchBar.searchTextField.textColor       = [EZTheme primaryTextColor];
+    }
 }
 
 - (void)applySearchFilter {
@@ -145,6 +156,12 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
     return section == 1 ? NSLocalizedString(@"EZNav.RecentChats", nil) : nil;
 }
 
+- (void)tableView:(UITableView *)tableView willDisplayHeaderView:(UIView *)view forSection:(NSInteger)section {
+    UITableViewHeaderFooterView *header = (UITableViewHeaderFooterView *)view;
+    header.textLabel.textColor = [EZTheme secondaryTextColor];
+    header.contentView.backgroundColor = [UIColor clearColor];
+}
+
 - (UITableViewCell *)tableView:(UITableView *)tableView
          cellForRowAtIndexPath:(NSIndexPath *)indexPath {
 
@@ -173,16 +190,22 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
         if (@available(iOS 14.0, *)) {
             UIListContentConfiguration *cfg = cell.defaultContentConfiguration;
             cfg.text = titles[(NSUInteger)indexPath.row];
+            cfg.textProperties.color = [EZTheme primaryTextColor];
             cfg.image = [UIImage systemImageNamed:icons[(NSUInteger)indexPath.row]];
-            cfg.imageProperties.tintColor = [UIColor systemTealColor];
+            cfg.imageProperties.tintColor = [EZTheme goldColor];
             cell.contentConfiguration = cfg;
         } else {
             cell.textLabel.text = titles[(NSUInteger)indexPath.row];
+            cell.textLabel.textColor = [EZTheme primaryTextColor];
             cell.imageView.image = [UIImage systemImageNamed:icons[(NSUInteger)indexPath.row]];
         }
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         cell.userInteractionEnabled = YES;
         cell.selectionStyle = UITableViewCellSelectionStyleDefault;
+        cell.backgroundColor = [UIColor clearColor];
+        UIView *navSelBG = [[UIView alloc] init];
+        navSelBG.backgroundColor = [EZTheme cardColor];
+        cell.selectedBackgroundView = navSelBG;
         return cell;
     }
 
@@ -191,17 +214,21 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
     cell.accessoryType          = UITableViewCellAccessoryNone;
     cell.userInteractionEnabled = YES;
     cell.selectionStyle         = UITableViewCellSelectionStyleDefault;
+    cell.backgroundColor        = [UIColor clearColor];
+    UIView *threadSelBG = [[UIView alloc] init];
+    threadSelBG.backgroundColor = [EZTheme cardColor];
+    cell.selectedBackgroundView = threadSelBG;
 
     if (self.threads.count == 0) {
         // Empty state row
         if (@available(iOS 14.0, *)) {
             UIListContentConfiguration *cfg = cell.defaultContentConfiguration;
             cfg.text                  = self.loadingThreads ? @"Loading conversations…" : @"No saved conversations";
-            cfg.textProperties.color  = [UIColor secondaryLabelColor];
+            cfg.textProperties.color  = [EZTheme secondaryTextColor];
             cell.contentConfiguration = cfg;
         } else {
             cell.textLabel.text      = self.loadingThreads ? @"Loading conversations…" : @"No saved conversations";
-            cell.textLabel.textColor = [UIColor secondaryLabelColor];
+            cell.textLabel.textColor = [EZTheme secondaryTextColor];
         }
         cell.userInteractionEnabled = NO;
         cell.selectionStyle         = UITableViewCellSelectionStyleNone;
@@ -228,15 +255,17 @@ static NSString * const kNavigationCellID = @"EZNavigationCell";
     if (@available(iOS 14.0, *)) {
         UIListContentConfiguration *cfg  = cell.defaultContentConfiguration;
         cfg.text                         = thread.title ?: @"Untitled";
+        cfg.textProperties.color         = [EZTheme primaryTextColor];
         cfg.textProperties.numberOfLines = 2;
         cfg.secondaryText                = subtitle;
-        cfg.secondaryTextProperties.color = [UIColor secondaryLabelColor];
+        cfg.secondaryTextProperties.color = [EZTheme secondaryTextColor];
         cell.contentConfiguration        = cfg;
     } else {
         cell.textLabel.text              = thread.title ?: @"Untitled";
         cell.textLabel.numberOfLines     = 2;
+        cell.textLabel.textColor         = [EZTheme primaryTextColor];
         cell.detailTextLabel.text        = subtitle;
-        cell.detailTextLabel.textColor   = [UIColor secondaryLabelColor];
+        cell.detailTextLabel.textColor   = [EZTheme secondaryTextColor];
     }
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;

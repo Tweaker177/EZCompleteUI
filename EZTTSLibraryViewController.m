@@ -18,6 +18,7 @@
 //
 
 #import "EZTTSLibraryViewController.h"
+#import "EZTheme.h"
 #import "EZTTSLibraryManager.h"
 #import "EZTTSLibraryClipCell.h"
 #import "EZTTSClipEditViewController.h"
@@ -33,14 +34,16 @@ static NSString * const kEZTTSPlayerIdentifierPrefix = @"tts-clip:";
 
 static NSString * const kEZClipCellReuseID = @"EZTTSLibraryClipCell";
 
-static UIColor *EZTTSNeonBackground(void) { return [UIColor colorWithRed:0.03 green:0.02 blue:0.09 alpha:1.0]; }
-static UIColor *EZTTSNeonPanel(void)      { return [UIColor colorWithRed:0.09 green:0.05 blue:0.18 alpha:1.0]; }
-static UIColor *EZTTSNeonField(void)      { return [UIColor colorWithRed:0.14 green:0.09 blue:0.28 alpha:1.0]; }
-static UIColor *EZTTSNeonViolet(void)     { return [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0]; }
-static UIColor *EZTTSNeonCyan(void)       { return [UIColor colorWithRed:0.00 green:0.88 blue:1.00 alpha:1.0]; }
-static UIColor *EZTTSNeonPink(void)       { return [UIColor colorWithRed:1.00 green:0.25 blue:0.62 alpha:1.0]; }
-static UIColor *EZTTSNeonText(void)       { return [UIColor colorWithRed:0.94 green:0.92 blue:1.00 alpha:1.0]; }
-static UIColor *EZTTSNeonDimText(void)    { return [UIColor colorWithRed:0.66 green:0.60 blue:0.90 alpha:1.0]; }
+// Palette names kept for the existing call sites; every value now
+// comes from EZTheme so this screen matches the rest of the app.
+static UIColor *EZTTSNeonBackground(void) { return [EZTheme chatBackgroundColor]; }
+static UIColor *EZTTSNeonPanel(void) { return [EZTheme cardColor]; }
+static UIColor *EZTTSNeonField(void) { return [EZTheme backgroundColor]; }
+static UIColor *EZTTSNeonViolet(void) { return [EZTheme goldColor]; }
+static UIColor *EZTTSNeonCyan(void) { return [EZTheme goldColor]; }
+static UIColor *EZTTSNeonPink(void) { return [EZTheme goldColor]; }
+static UIColor *EZTTSNeonText(void) { return [EZTheme primaryTextColor]; }
+static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
 
 
 @interface EZTTSLibraryViewController () <UITableViewDataSource, UITableViewDelegate, UISearchResultsUpdating>
@@ -237,7 +240,8 @@ static UIColor *EZTTSNeonDimText(void)    { return [UIColor colorWithRed:0.66 gr
         completionHandler(YES);
     }];
     share.image = [UIImage systemImageNamed:@"square.and.arrow.up"];
-    share.backgroundColor = EZTTSNeonViolet();
+    // UIKit renders swipe action titles and template icons in white.
+    share.backgroundColor = [EZTheme cardColor];
     return [UISwipeActionsConfiguration configurationWithActions:@[share]];
 }
 
