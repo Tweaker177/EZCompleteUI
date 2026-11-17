@@ -6,6 +6,7 @@
 // player (EZMediaPlayerManager), so the two never overlap.
 
 #import "EZTTSClipEditViewController.h"
+#import "EZTheme.h"
 #import "EZTTSLibraryManager.h"
 #import "EZSoundLibraryManager.h"
 #import "EZSoundManifestEntry.h"
@@ -20,8 +21,10 @@
 static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
 static const Float64 kEZSceneBackgroundTailSeconds = 3.0;
 
+// Accent name kept for the existing call sites; the value is now the
+// shared EZTheme gold so the editor matches the rest of the app.
 static UIColor *EZEditElectricBlue(void) {
-    return [UIColor colorWithRed:0.00 green:0.48 blue:1.00 alpha:1.0];
+    return [EZTheme goldColor];
 }
 
 @interface EZTTSClipEditViewController () <AVAudioPlayerDelegate>
@@ -242,14 +245,14 @@ static UIColor *EZEditElectricBlue(void) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"Edit Clip";
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
     self.view.tintColor = EZEditElectricBlue();
 
     self.scrollView = [[UIScrollView alloc] init];
     [self.view addSubview:self.scrollView];
 
     self.promptContainer = [[UIView alloc] init];
-    self.promptContainer.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.promptContainer.backgroundColor = [EZTheme cardColor];
     self.promptContainer.layer.cornerRadius = 12;
     self.promptContainer.layer.borderWidth = 1.0;
     self.promptContainer.layer.borderColor = [EZEditElectricBlue() colorWithAlphaComponent:0.35].CGColor;
@@ -264,7 +267,7 @@ static UIColor *EZEditElectricBlue(void) {
     self.promptLabel.numberOfLines = 3;
     [self.promptContainer addSubview:self.promptLabel];
     self.promptDisclosureImage = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"chevron.down"]];
-    self.promptDisclosureImage.tintColor = [UIColor secondaryLabelColor];
+    self.promptDisclosureImage.tintColor = [EZTheme secondaryTextColor];
     self.promptDisclosureImage.contentMode = UIViewContentModeCenter;
     [self.promptContainer addSubview:self.promptDisclosureImage];
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"doc.on.doc"]
@@ -331,7 +334,7 @@ static UIColor *EZEditElectricBlue(void) {
     self.editWaveformView = [[WaveformView alloc] init];
     self.editWaveformView.symmetric = YES;
     self.editWaveformView.lineWidth = 1.5;
-    self.editWaveformView.waveColor = [UIColor systemGray3Color];
+    self.editWaveformView.waveColor = [[EZTheme goldColor] colorWithAlphaComponent:0.55];
     self.editWaveformView.progressColor = EZEditElectricBlue();
     self.editWaveformView.userInteractionEnabled = NO; // purely visual — the range selector overlaid on top handles touches
     [self.scrollView addSubview:self.editWaveformView];
@@ -351,7 +354,7 @@ static UIColor *EZEditElectricBlue(void) {
     self.selectionTimeLabel.adjustsFontSizeToFitWidth = YES;
     self.selectionTimeLabel.minimumScaleFactor = 0.5;
     self.selectionTimeLabel.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightRegular];
-    self.selectionTimeLabel.textColor = [UIColor secondaryLabelColor];
+    self.selectionTimeLabel.textColor = [EZTheme secondaryTextColor];
     self.selectionTimeLabel.textAlignment = NSTextAlignmentCenter;
     [self.scrollView addSubview:self.selectionTimeLabel];
 
@@ -959,7 +962,7 @@ static UIColor *EZEditElectricBlue(void) {
     self.voiceButton = [UIButton buttonWithType:UIButtonTypeSystem];
     self.voiceButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
     self.voiceButton.titleLabel.font = [UIFont systemFontOfSize:15];
-    self.voiceButton.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.voiceButton.backgroundColor = [EZTheme cardColor];
     self.voiceButton.layer.cornerRadius = 8;
     self.voiceButton.layer.borderWidth = 1.0;
     self.voiceButton.layer.borderColor = [EZEditElectricBlue() colorWithAlphaComponent:0.3].CGColor;

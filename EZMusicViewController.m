@@ -71,6 +71,7 @@
 //   - Initial version.
 
 #import "EZMusicViewController.h"
+#import "EZTheme.h"
 #import "EZMusicArtworkService.h"
 #import <AVFoundation/AVFoundation.h>
 #import <MobileCoreServices/MobileCoreServices.h>
@@ -187,7 +188,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     CGFloat count = levels.count, gap = 2.0;
     CGFloat width = MAX(1.0, (CGRectGetWidth(rect) - gap * (count - 1)) / count);
     CGFloat middle = CGRectGetMidY(rect);
-    UIColor *color = [UIColor systemBlueColor];
+    UIColor *color = [EZTheme goldColor];
     CGContextSetFillColorWithColor(context, [color colorWithAlphaComponent:0.68].CGColor);
     for (NSUInteger index = 0; index < levels.count; index++) {
         CGFloat height = MAX(3.0, MIN(CGRectGetHeight(rect), levels[index].doubleValue * CGRectGetHeight(rect)));
@@ -312,6 +313,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     if (!self) return nil;
 
     self.selectionStyle = UITableViewCellSelectionStyleNone;
+    self.backgroundColor = [UIColor clearColor];
+    self.contentView.backgroundColor = [UIColor clearColor];
 
     _spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
     _spinner.color = [UIColor whiteColor];
@@ -321,11 +324,11 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
     _artworkView = [[UIImageView alloc] init];
     _artworkView.translatesAutoresizingMaskIntoConstraints = NO;
-    _artworkView.tintColor = [UIColor secondaryLabelColor];
-    _artworkView.backgroundColor = [UIColor secondarySystemFillColor];
+    _artworkView.tintColor = [EZTheme secondaryTextColor];
+    _artworkView.backgroundColor = [EZTheme backgroundColor];
     _artworkView.layer.cornerRadius = 0;
     _artworkView.layer.borderWidth = 1.0;
-    _artworkView.layer.borderColor = [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:0.60].CGColor;
+    _artworkView.layer.borderColor = [[EZTheme goldColor] colorWithAlphaComponent:0.60].CGColor;
     _artworkView.clipsToBounds = YES;
     _artworkView.isAccessibilityElement = NO;
     // Long-press the cover for a context menu whose Generate action makes a
@@ -340,10 +343,10 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     // saturated, and cycling, so a composing row is obvious at a glance.
     _generatingGradient = [CAGradientLayer layer];
     _generatingGradient.colors = @[
-        (id)[UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0].CGColor,
-        (id)[UIColor colorWithRed:1.00 green:0.25 blue:0.62 alpha:1.0].CGColor,
-        (id)[UIColor colorWithRed:0.00 green:0.88 blue:1.00 alpha:1.0].CGColor,
-        (id)[UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0].CGColor,
+        (id)[EZTheme goldColor].CGColor,
+        (id)[UIColor colorWithRed:1.00 green:0.90 blue:0.45 alpha:1.0].CGColor,
+        (id)[UIColor colorWithRed:0.85 green:0.65 blue:0.05 alpha:1.0].CGColor,
+        (id)[EZTheme goldColor].CGColor,
     ];
     _generatingGradient.startPoint = CGPointMake(0, 0);
     _generatingGradient.endPoint = CGPointMake(1, 1);
@@ -376,7 +379,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _detailLabel.translatesAutoresizingMaskIntoConstraints = NO;
     _detailLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     _detailLabel.adjustsFontForContentSizeCategory = YES;
-    _detailLabel.textColor = [UIColor secondaryLabelColor];
+    _detailLabel.textColor = [EZTheme secondaryTextColor];
     _detailLabel.numberOfLines = 1;
     _detailLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     [self.contentView addSubview:_detailLabel];
@@ -395,7 +398,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _editButton = [UIButton buttonWithType:UIButtonTypeSystem];
     _editButton.translatesAutoresizingMaskIntoConstraints = NO;
     [_editButton setImage:[UIImage systemImageNamed:@"pencil"] forState:UIControlStateNormal];
-    _editButton.tintColor = [UIColor secondaryLabelColor];
+    _editButton.tintColor = [EZTheme secondaryTextColor];
     _editButton.accessibilityLabel = EZMusicText(@"EZMusic.A11y.Rename", @"Rename song");
     _editButton.hidden = YES;
     [_editButton addTarget:self action:@selector(editButtonTapped) forControlEvents:UIControlEventTouchUpInside];
@@ -461,9 +464,9 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     if (generating) {
         [self.spinner startAnimating];
         CAKeyframeAnimation *cycle = [CAKeyframeAnimation animationWithKeyPath:@"colors"];
-        UIColor *violet = [UIColor colorWithRed:0.70 green:0.28 blue:1.00 alpha:1.0];
-        UIColor *pink   = [UIColor colorWithRed:1.00 green:0.25 blue:0.62 alpha:1.0];
-        UIColor *cyan   = [UIColor colorWithRed:0.00 green:0.88 blue:1.00 alpha:1.0];
+        UIColor *violet = [EZTheme goldColor];
+        UIColor *pink   = [UIColor colorWithRed:1.00 green:0.90 blue:0.45 alpha:1.0];
+        UIColor *cyan   = [UIColor colorWithRed:0.85 green:0.65 blue:0.05 alpha:1.0];
         cycle.values = @[
             @[(id)violet.CGColor, (id)pink.CGColor, (id)cyan.CGColor, (id)violet.CGColor],
             @[(id)pink.CGColor, (id)cyan.CGColor, (id)violet.CGColor, (id)pink.CGColor],
@@ -588,7 +591,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
       waveformIdentifier:(NSString *)waveformIdentifier {
     self.titleLabel.text = title;
     self.detailLabel.text = detail;
-    self.detailLabel.textColor = detailIsError ? [UIColor systemOrangeColor] : [UIColor secondaryLabelColor];
+    self.detailLabel.textColor = detailIsError ? [UIColor systemOrangeColor] : [EZTheme secondaryTextColor];
     self.favoriteView.hidden = !favorite;
     BOOL showWaveform = [status isEqualToString:@"complete"];
     self.waveformHeightConstraint.constant = showWaveform ? 30 : 0;
@@ -641,7 +644,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = self.heading;
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
     self.navigationItem.rightBarButtonItem =
         [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
                                                       target:self
@@ -658,7 +661,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     textView.selectable = YES;
     textView.backgroundColor = [UIColor clearColor];
     textView.font = [UIFont systemFontOfSize:16];
-    textView.textColor = [UIColor labelColor];
+    textView.textColor = [EZTheme primaryTextColor];
     textView.textContainerInset = UIEdgeInsetsMake(16, 16, 24, 16);
     textView.text = self.bodyText;
     textView.accessibilityLabel = self.accessibilityName;
@@ -793,7 +796,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 - (void)viewDidLoad {
     [super viewDidLoad];
 
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
     self.entries = [NSMutableArray array];
     self.pollTokens = [NSMutableDictionary dictionary];
     self.announcedGenerationIDs = [NSMutableSet set];
@@ -809,6 +812,10 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     ]];
     self.tabControl.selectedSegmentIndex = EZMusicTabLibrary;
     [self.tabControl addTarget:self action:@selector(tabChanged:) forControlEvents:UIControlEventValueChanged];
+    self.tabControl.backgroundColor = [EZTheme cardColor];
+    self.tabControl.selectedSegmentTintColor = [EZTheme goldColor];
+    [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme secondaryTextColor]} forState:UIControlStateNormal];
+    [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme userBubbleTextColor]} forState:UIControlStateSelected];
     self.navigationItem.titleView = self.tabControl;
 
     if (self.navigationController.viewControllers.firstObject == self) {
@@ -879,7 +886,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     label.adjustsFontSizeToFitWidth = YES;
     label.minimumScaleFactor = 0.5;
     label.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
-    label.textColor = [UIColor secondaryLabelColor];
+    label.textColor = [EZTheme secondaryTextColor];
     label.text = [text uppercaseString];
     return label;
 }
@@ -903,7 +910,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [stack addArrangedSubview:[self sectionHeaderLabelWithText:EZMusicText(@"EZMusic.Prompt.Header", @"Describe your song")]];
 
     self.promptContainer = [[UIView alloc] init];
-    self.promptContainer.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.promptContainer.backgroundColor = [EZTheme cardColor];
     self.promptContainer.layer.cornerRadius = 12;
     self.promptContainer.layer.borderWidth = 1;
     self.promptContainer.layer.borderColor = [UIColor systemGray4Color].CGColor;
@@ -922,7 +929,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.promptPlaceholderLabel.minimumScaleFactor = 0.5;
     self.promptPlaceholderLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.promptPlaceholderLabel.font = [UIFont systemFontOfSize:16];
-    self.promptPlaceholderLabel.textColor = [UIColor placeholderTextColor];
+    self.promptPlaceholderLabel.textColor = [EZTheme secondaryTextColor];
     self.promptPlaceholderLabel.numberOfLines = 0;
     self.promptPlaceholderLabel.userInteractionEnabled = NO;
     self.promptPlaceholderLabel.text = EZMusicText(@"EZMusic.Prompt.Placeholder",
@@ -934,7 +941,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.characterCountLabel.minimumScaleFactor = 0.5;
     self.characterCountLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.characterCountLabel.font = [UIFont systemFontOfSize:12];
-    self.characterCountLabel.textColor = [UIColor secondaryLabelColor];
+    self.characterCountLabel.textColor = [EZTheme secondaryTextColor];
     [self.promptContainer addSubview:self.characterCountLabel];
 
     [NSLayoutConstraint activateConstraints:@[
@@ -955,7 +962,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [stack setCustomSpacing:16 afterView:self.promptContainer];
     [stack addArrangedSubview:[self sectionHeaderLabelWithText:@"Lyrics (optional)"]];
     self.lyricsTextView = [[UITextView alloc] init];
-    self.lyricsTextView.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.lyricsTextView.backgroundColor = [EZTheme backgroundColor];
     self.lyricsTextView.layer.cornerRadius = 12;
     self.lyricsTextView.layer.borderWidth = 1;
     self.lyricsTextView.layer.borderColor = [UIColor systemGray4Color].CGColor;
@@ -970,7 +977,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [stack setCustomSpacing:16 afterView:self.lyricsTextView];
     [stack addArrangedSubview:[self sectionHeaderLabelWithText:@"Audio reference (coming soon)"]];
     self.referenceButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    self.referenceButton.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.referenceButton.backgroundColor = [EZTheme cardColor];
     self.referenceButton.layer.cornerRadius = 12;
     self.referenceButton.layer.borderWidth = 1;
     self.referenceButton.layer.borderColor = [UIColor systemGray4Color].CGColor;
@@ -987,6 +994,10 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.referenceModeControl = [[UISegmentedControl alloc] initWithItems:@[
         @"Guide new music", @"Use in song"
     ]];
+    self.referenceModeControl.backgroundColor = [EZTheme cardColor];
+    self.referenceModeControl.selectedSegmentTintColor = [EZTheme goldColor];
+    [self.referenceModeControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme secondaryTextColor]} forState:UIControlStateNormal];
+    [self.referenceModeControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme userBubbleTextColor]} forState:UIControlStateSelected];
     self.referenceModeControl.selectedSegmentIndex = self.referenceMode;
     self.referenceModeControl.accessibilityLabel = @"How to use the audio reference";
     self.referenceModeControl.enabled = self.referenceURL.isFileURL && !self.referenceModeLocked;
@@ -996,7 +1007,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.referenceDetailLabel.adjustsFontSizeToFitWidth = YES;
     self.referenceDetailLabel.minimumScaleFactor = 0.5;
     self.referenceDetailLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-    self.referenceDetailLabel.textColor = [UIColor secondaryLabelColor];
+    self.referenceDetailLabel.textColor = [EZTheme secondaryTextColor];
     self.referenceDetailLabel.numberOfLines = 0;
     [stack addArrangedSubview:self.referenceDetailLabel];
     [self updateReferencePresentation];
@@ -1008,7 +1019,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [stack setCustomSpacing:16 afterView:self.promptContainer];
 
     self.titleField = [[UITextField alloc] init];
-    self.titleField.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.titleField.backgroundColor = [EZTheme backgroundColor];
     self.titleField.layer.cornerRadius = 10;
     self.titleField.font = [UIFont systemFontOfSize:16];
     self.titleField.placeholder = EZMusicText(@"EZMusic.Title.Placeholder", @"Optional - defaults to your description");
@@ -1065,6 +1076,10 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [stack addArrangedSubview:variantHeader];
 
     self.variantControl = [[UISegmentedControl alloc] initWithItems:@[@"1", @"2", @"3"]];
+    self.variantControl.backgroundColor = [EZTheme cardColor];
+    self.variantControl.selectedSegmentTintColor = [EZTheme goldColor];
+    [self.variantControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme secondaryTextColor]} forState:UIControlStateNormal];
+    [self.variantControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme userBubbleTextColor]} forState:UIControlStateSelected];
     self.variantControl.selectedSegmentIndex = 0;
     [self.variantControl addTarget:self action:@selector(variantsChanged:) forControlEvents:UIControlEventValueChanged];
     [stack addArrangedSubview:self.variantControl];
@@ -1080,15 +1095,15 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [stack addArrangedSubview:self.quoteLabel];
 
     self.generateButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    self.generateButton.backgroundColor = [UIColor systemBlueColor];
+    self.generateButton.backgroundColor = [EZTheme goldColor];
     self.generateButton.layer.cornerRadius = 14;
     self.generateButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
-    [self.generateButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    [self.generateButton setTitleColor:[UIColor whiteColor] forState:UIControlStateDisabled];
+    [self.generateButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateNormal];
+    [self.generateButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateDisabled];
     [self.generateButton addTarget:self action:@selector(generateTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.generateButton.heightAnchor constraintEqualToConstant:52].active = YES;
     self.surpriseButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    self.surpriseButton.backgroundColor = [UIColor systemPurpleColor];
+    self.surpriseButton.backgroundColor = [EZTheme cardColor];
     self.surpriseButton.layer.cornerRadius = 14;
     [self.surpriseButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
     [self.surpriseButton setTitle:@"Surprise me" forState:UIControlStateNormal];
@@ -1104,7 +1119,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.statusLabel.adjustsFontSizeToFitWidth = YES;
     self.statusLabel.minimumScaleFactor = 0.5;
     self.statusLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-    self.statusLabel.textColor = [UIColor secondaryLabelColor];
+    self.statusLabel.textColor = [EZTheme secondaryTextColor];
     self.statusLabel.numberOfLines = 0;
     self.statusLabel.textAlignment = NSTextAlignmentCenter;
     self.statusLabel.hidden = YES;
@@ -1114,7 +1129,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     footnote.adjustsFontSizeToFitWidth = YES;
     footnote.minimumScaleFactor = 0.5;
     footnote.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-    footnote.textColor = [UIColor tertiaryLabelColor];
+    footnote.textColor = [EZTheme secondaryTextColor];
     footnote.numberOfLines = 0;
     footnote.textAlignment = NSTextAlignmentCenter;
     footnote.text = EZMusicText(@"EZMusic.Footnote",
@@ -1127,7 +1142,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         [stack setCustomSpacing:18 afterView:self.surpriseButton];
         [stack addArrangedSubview:[self sectionHeaderLabelWithText:@"Video soundtrack"]];
         self.videoSoundtrackButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        self.videoSoundtrackButton.backgroundColor = [UIColor systemPurpleColor];
+        self.videoSoundtrackButton.backgroundColor = [EZTheme cardColor];
         self.videoSoundtrackButton.layer.cornerRadius = 12;
         self.videoSoundtrackButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
         self.videoSoundtrackButton.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
@@ -1142,7 +1157,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         videoDetail.adjustsFontSizeToFitWidth = YES;
         videoDetail.minimumScaleFactor = 0.5;
         videoDetail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-        videoDetail.textColor = UIColor.secondaryLabelColor;
+        videoDetail.textColor = EZTheme.secondaryTextColor;
         videoDetail.numberOfLines = 0;
         videoDetail.text = @"Analyzes the video’s visuals, generates a matching soundtrack, then attaches it to the finished video.";
         [stack addArrangedSubview:videoDetail];
@@ -1181,6 +1196,8 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.libraryTable.rowHeight = 108;
     self.libraryTable.estimatedRowHeight = 108;
     self.libraryTable.separatorInset = UIEdgeInsetsMake(0, 64, 0, 0);
+    self.libraryTable.backgroundColor = [EZTheme chatBackgroundColor];
+    self.libraryTable.separatorColor = [EZTheme hairlineColor];
     self.libraryTable.tableFooterView = [[UIView alloc] init];
     [self.libraryTable registerClass:[EZMusicTrackCell class] forCellReuseIdentifier:@"EZMusicTrackCell"];
     [self buildPlaylistHeader];
@@ -1193,7 +1210,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.emptyStateLabel.adjustsFontSizeToFitWidth = YES;
     self.emptyStateLabel.minimumScaleFactor = 0.5;
     self.emptyStateLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
-    self.emptyStateLabel.textColor = [UIColor secondaryLabelColor];
+    self.emptyStateLabel.textColor = [EZTheme secondaryTextColor];
     self.emptyStateLabel.textAlignment = NSTextAlignmentCenter;
     self.emptyStateLabel.numberOfLines = 0;
     self.libraryTable.backgroundView = self.emptyStateLabel;
@@ -1210,7 +1227,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
 - (void)buildPlaylistHeader {
     UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 76)];
-    header.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    header.backgroundColor = [EZTheme cardColor];
     UILabel *title = [[UILabel alloc] init];
     title.adjustsFontSizeToFitWidth = YES;
     title.minimumScaleFactor = 0.5;
@@ -1225,7 +1242,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     detail.minimumScaleFactor = 0.5;
     detail.translatesAutoresizingMaskIntoConstraints = NO;
     detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-    detail.textColor = UIColor.secondaryLabelColor;
+    detail.textColor = EZTheme.secondaryTextColor;
     detail.numberOfLines = 1;
     [header addSubview:detail];
     self.playlistDetailLabel = detail;
@@ -1237,7 +1254,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
         button.translatesAutoresizingMaskIntoConstraints = NO;
         [button setImage:[UIImage systemImageNamed:symbols[index]] forState:UIControlStateNormal];
-        button.tintColor = UIColor.systemBlueColor;
+        button.tintColor = EZTheme.goldColor;
         [button addTarget:self action:actions[index] forControlEvents:UIControlEventTouchUpInside];
         [header addSubview:button];
         [buttons addObject:button];
@@ -1358,7 +1375,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
     if (!self.config) {
         self.quoteLabel.text = EZMusicText(@"EZMusic.Quote.Loading", @"Loading prices...");
-        self.quoteLabel.textColor = [UIColor secondaryLabelColor];
+        self.quoteLabel.textColor = [EZTheme secondaryTextColor];
         [self updateGenerateButtonState];
         return;
     }
@@ -1384,7 +1401,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         [text appendString:EZMusicText(@"EZMusic.Quote.Insufficient", @"Not enough coins - tap Generate to get more.")];
     }
     self.quoteLabel.text = text;
-    self.quoteLabel.textColor = insufficient ? [UIColor systemRedColor] : [UIColor labelColor];
+    self.quoteLabel.textColor = insufficient ? [UIColor systemRedColor] : [EZTheme primaryTextColor];
     [self updateGenerateButtonState];
 }
 
@@ -1481,7 +1498,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
     UIView *card = [[UIView alloc] init];
     card.translatesAutoresizingMaskIntoConstraints = NO;
-    card.backgroundColor = [UIColor systemBackgroundColor];
+    card.backgroundColor = [EZTheme cardColor];
     card.layer.cornerRadius = 22;
     [overlay addSubview:card];
     BOOL videoMode = self.pickingVideoSoundtrack;
@@ -1490,21 +1507,21 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     title.minimumScaleFactor = 0.5; title.text = videoMode ? @"Compose music for video" : @"Add an audio reference"; title.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold]; title.translatesAutoresizingMaskIntoConstraints = NO;
     UILabel *detail = [[UILabel alloc] init];
     detail.adjustsFontSizeToFitWidth = YES;
-    detail.minimumScaleFactor = 0.5; detail.text = videoMode ? @"The video’s visuals guide a new soundtrack." : @"Choose an audio clip to guide or include in a song."; detail.textColor = UIColor.secondaryLabelColor; detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.translatesAutoresizingMaskIntoConstraints = NO;
+    detail.minimumScaleFactor = 0.5; detail.text = videoMode ? @"The video’s visuals guide a new soundtrack." : @"Choose an audio clip to guide or include in a song."; detail.textColor = EZTheme.secondaryTextColor; detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:title]; [card addSubview:detail];
     UIStackView *choices = [[UIStackView alloc] init]; choices.translatesAutoresizingMaskIntoConstraints = NO; choices.axis = UILayoutConstraintAxisVertical; choices.spacing = 10; [card addSubview:choices];
     NSArray *rows = videoMode
         ? @[@[@"Photo Library", @"Choose a video from Photos", @"photo.on.rectangle", @"photo"], @[@"EZ Photo Gallery", @"Use a video already in the app", @"square.grid.2x2", @"gallery"], @[@"Files", @"Choose a video file", @"folder", @"files"]]
         : @[@[@"Files", @"Compressed or lossless audio", @"folder", @"files"]];
     for (NSArray *row in rows) {
-        UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; button.tag = [rows indexOfObject:row]; button.backgroundColor = UIColor.secondarySystemBackgroundColor; button.layer.cornerRadius = 14; button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft; button.contentEdgeInsets = UIEdgeInsetsMake(10, 14, 10, 14); [button addTarget:self action:@selector(referenceSourceChosen:) forControlEvents:UIControlEventTouchUpInside];
-        UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:row[2]]]; icon.tintColor = UIColor.systemPurpleColor; icon.translatesAutoresizingMaskIntoConstraints = NO;
+        UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; button.tag = [rows indexOfObject:row]; button.backgroundColor = EZTheme.cardColor; button.layer.cornerRadius = 14; button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft; button.contentEdgeInsets = UIEdgeInsetsMake(10, 14, 10, 14); [button addTarget:self action:@selector(referenceSourceChosen:) forControlEvents:UIControlEventTouchUpInside];
+        UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:row[2]]]; icon.tintColor = EZTheme.goldColor; icon.translatesAutoresizingMaskIntoConstraints = NO;
         UILabel *name = [[UILabel alloc] init];
         name.adjustsFontSizeToFitWidth = YES;
         name.minimumScaleFactor = 0.5; name.text = row[0]; name.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
         UILabel *sub = [[UILabel alloc] init];
         sub.adjustsFontSizeToFitWidth = YES;
-        sub.minimumScaleFactor = 0.5; sub.text = row[1]; sub.textColor = UIColor.secondaryLabelColor; sub.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+        sub.minimumScaleFactor = 0.5; sub.text = row[1]; sub.textColor = EZTheme.secondaryTextColor; sub.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
         UIStackView *labels = [[UIStackView alloc] initWithArrangedSubviews:@[name, sub]]; labels.axis = UILayoutConstraintAxisVertical; labels.spacing = 2;
         UIStackView *line = [[UIStackView alloc] initWithArrangedSubviews:@[icon, labels]]; line.userInteractionEnabled = NO; line.axis = UILayoutConstraintAxisHorizontal; line.alignment = UIStackViewAlignmentCenter; line.spacing = 12; [button addSubview:line]; line.translatesAutoresizingMaskIntoConstraints = NO;
         [NSLayoutConstraint activateConstraints:@[[line.leadingAnchor constraintEqualToAnchor:button.leadingAnchor constant:14], [line.trailingAnchor constraintEqualToAnchor:button.trailingAnchor constant:-14], [line.topAnchor constraintEqualToAnchor:button.topAnchor constant:10], [line.bottomAnchor constraintEqualToAnchor:button.bottomAnchor constant:-10], [icon.widthAnchor constraintEqualToConstant:28]]];
@@ -1607,15 +1624,15 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     overlay.backgroundColor = [UIColor colorWithWhite:0 alpha:0.48];
     self.musicDialogOverlay = overlay;
     [self.view addSubview:overlay];
-    UIView *card = [UIView new]; card.translatesAutoresizingMaskIntoConstraints = NO; card.backgroundColor = UIColor.systemBackgroundColor; card.layer.cornerRadius = 22; [overlay addSubview:card];
-    UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem]; closeButton.translatesAutoresizingMaskIntoConstraints = NO; [closeButton setImage:[UIImage systemImageNamed:@"xmark.circle.fill"] forState:UIControlStateNormal]; closeButton.tintColor = UIColor.secondaryLabelColor; [card addSubview:closeButton];
+    UIView *card = [UIView new]; card.translatesAutoresizingMaskIntoConstraints = NO; card.backgroundColor = EZTheme.cardColor; card.layer.cornerRadius = 22; [overlay addSubview:card];
+    UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem]; closeButton.translatesAutoresizingMaskIntoConstraints = NO; [closeButton setImage:[UIImage systemImageNamed:@"xmark.circle.fill"] forState:UIControlStateNormal]; closeButton.tintColor = EZTheme.secondaryTextColor; [card addSubview:closeButton];
     [closeButton addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; }] forControlEvents:UIControlEventTouchUpInside];
     UILabel *title = [UILabel new];
     title.adjustsFontSizeToFitWidth = YES;
     title.minimumScaleFactor = 0.5; title.translatesAutoresizingMaskIntoConstraints = NO; title.text = @"Choose a 2-minute reference"; title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold]; [card addSubview:title];
     UILabel *detail = [UILabel new];
     detail.adjustsFontSizeToFitWidth = YES;
-    detail.minimumScaleFactor = 0.5; detail.translatesAutoresizingMaskIntoConstraints = NO; detail.numberOfLines = 0; detail.textColor = UIColor.secondaryLabelColor; detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.text = @"References longer than two minutes are rejected before generation. Pick the part of this song you want to use."; [card addSubview:detail];
+    detail.minimumScaleFactor = 0.5; detail.translatesAutoresizingMaskIntoConstraints = NO; detail.numberOfLines = 0; detail.textColor = EZTheme.secondaryTextColor; detail.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline]; detail.text = @"References longer than two minutes are rejected before generation. Pick the part of this song you want to use."; [card addSubview:detail];
     UILabel *range = [UILabel new];
     range.adjustsFontSizeToFitWidth = YES;
     range.minimumScaleFactor = 0.5; range.translatesAutoresizingMaskIntoConstraints = NO; range.textAlignment = NSTextAlignmentCenter; range.font = [UIFont monospacedDigitSystemFontOfSize:15 weight:UIFontWeightSemibold]; [card addSubview:range];
@@ -1623,7 +1640,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     void (^refresh)(void) = ^{ range.text = [NSString stringWithFormat:@"%.0f:%02.0f – %.0f:%02.0f", floor(slider.value / 60), fmod(slider.value, 60), floor((slider.value + 120) / 60), fmod(slider.value + 120, 60)]; };
     [slider addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { refresh(); }] forControlEvents:UIControlEventValueChanged]; refresh();
     UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem]; cancel.translatesAutoresizingMaskIntoConstraints = NO; [cancel setTitle:@"Cancel" forState:UIControlStateNormal]; [card addSubview:cancel];
-    UIButton *use = [UIButton buttonWithType:UIButtonTypeSystem]; use.translatesAutoresizingMaskIntoConstraints = NO; use.backgroundColor = UIColor.systemPurpleColor; use.tintColor = UIColor.whiteColor; use.layer.cornerRadius = 12; [use setTitle:@"Use selected clip" forState:UIControlStateNormal]; [card addSubview:use];
+    UIButton *use = [UIButton buttonWithType:UIButtonTypeSystem]; use.translatesAutoresizingMaskIntoConstraints = NO; use.backgroundColor = EZTheme.goldColor; use.tintColor = EZTheme.userBubbleTextColor; use.layer.cornerRadius = 12; [use setTitle:@"Use selected clip" forState:UIControlStateNormal]; [card addSubview:use];
     [cancel addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; }] forControlEvents:UIControlEventTouchUpInside];
     [use addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) {
         [overlay removeFromSuperview]; self.musicDialogOverlay = nil;
@@ -2547,7 +2564,9 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
             completionHandler(YES);
             [weakSelf shareEntryID:entryID];
         }];
-        shareAction.backgroundColor = [UIColor systemBlueColor];
+        // UIKit controls the swipe action's title color; use a dark themed
+        // background to keep its white text legible.
+        shareAction.backgroundColor = [EZTheme cardColor];
         [actions addObject:shareAction];
     }
     UISwipeActionsConfiguration *configuration = [UISwipeActionsConfiguration configurationWithActions:actions];
@@ -3064,16 +3083,16 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     overlay.backgroundColor = [UIColor colorWithWhite:0 alpha:0.48];
     self.musicDialogOverlay = overlay;
     [self.view addSubview:overlay];
-    UIView *card = [UIView new]; card.translatesAutoresizingMaskIntoConstraints = NO; card.backgroundColor = UIColor.systemBackgroundColor; card.layer.cornerRadius = 22; [overlay addSubview:card];
-    UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem]; closeButton.translatesAutoresizingMaskIntoConstraints = NO; [closeButton setImage:[UIImage systemImageNamed:@"xmark.circle.fill"] forState:UIControlStateNormal]; closeButton.tintColor = UIColor.secondaryLabelColor; [card addSubview:closeButton];
+    UIView *card = [UIView new]; card.translatesAutoresizingMaskIntoConstraints = NO; card.backgroundColor = EZTheme.cardColor; card.layer.cornerRadius = 22; [overlay addSubview:card];
+    UIButton *closeButton = [UIButton buttonWithType:UIButtonTypeSystem]; closeButton.translatesAutoresizingMaskIntoConstraints = NO; [closeButton setImage:[UIImage systemImageNamed:@"xmark.circle.fill"] forState:UIControlStateNormal]; closeButton.tintColor = EZTheme.secondaryTextColor; [card addSubview:closeButton];
     [closeButton addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; }] forControlEvents:UIControlEventTouchUpInside];
     UILabel *heading = [UILabel new];
     heading.adjustsFontSizeToFitWidth = YES;
     heading.minimumScaleFactor = 0.5; heading.translatesAutoresizingMaskIntoConstraints = NO; heading.text = title; heading.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold]; heading.numberOfLines = 0; [card addSubview:heading];
     UILabel *body = [UILabel new];
     body.adjustsFontSizeToFitWidth = YES;
-    body.minimumScaleFactor = 0.5; body.translatesAutoresizingMaskIntoConstraints = NO; body.text = message; body.textColor = UIColor.secondaryLabelColor; body.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; body.numberOfLines = 0; [card addSubview:body];
-    UIButton *dismiss = [UIButton buttonWithType:UIButtonTypeSystem]; dismiss.translatesAutoresizingMaskIntoConstraints = NO; [dismiss setTitle:primaryTitle ?: EZMusicText(@"EZMusic.OK", @"OK") forState:UIControlStateNormal]; dismiss.backgroundColor = UIColor.systemPurpleColor; dismiss.tintColor = UIColor.whiteColor; dismiss.layer.cornerRadius = 12; [card addSubview:dismiss];
+    body.minimumScaleFactor = 0.5; body.translatesAutoresizingMaskIntoConstraints = NO; body.text = message; body.textColor = EZTheme.secondaryTextColor; body.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; body.numberOfLines = 0; [card addSubview:body];
+    UIButton *dismiss = [UIButton buttonWithType:UIButtonTypeSystem]; dismiss.translatesAutoresizingMaskIntoConstraints = NO; [dismiss setTitle:primaryTitle ?: EZMusicText(@"EZMusic.OK", @"OK") forState:UIControlStateNormal]; dismiss.backgroundColor = EZTheme.goldColor; dismiss.tintColor = EZTheme.userBubbleTextColor; dismiss.layer.cornerRadius = 12; [card addSubview:dismiss];
     [dismiss addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; if (primaryHandler) primaryHandler(); }] forControlEvents:UIControlEventTouchUpInside];
     [NSLayoutConstraint activateConstraints:@[[card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:28], [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-28], [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor], [closeButton.topAnchor constraintEqualToAnchor:card.topAnchor constant:12], [closeButton.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-12], [closeButton.widthAnchor constraintEqualToConstant:28], [closeButton.heightAnchor constraintEqualToConstant:28], [heading.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [heading.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [heading.trailingAnchor constraintEqualToAnchor:closeButton.leadingAnchor constant:-8], [body.topAnchor constraintEqualToAnchor:heading.bottomAnchor constant:9], [body.leadingAnchor constraintEqualToAnchor:heading.leadingAnchor], [body.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [dismiss.topAnchor constraintEqualToAnchor:body.bottomAnchor constant:22], [dismiss.leadingAnchor constraintEqualToAnchor:heading.leadingAnchor], [dismiss.trailingAnchor constraintEqualToAnchor:body.trailingAnchor], [dismiss.heightAnchor constraintEqualToConstant:46], [dismiss.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18]]];
     overlay.alpha = 0; [UIView animateWithDuration:.18 animations:^{ overlay.alpha = 1; }];
@@ -3134,7 +3153,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
     UIView *card = [[UIView alloc] init];
     card.translatesAutoresizingMaskIntoConstraints = NO;
-    card.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    card.backgroundColor = [EZTheme cardColor];
     card.layer.cornerRadius = 14;
     UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
     spinner.translatesAutoresizingMaskIntoConstraints = NO;
