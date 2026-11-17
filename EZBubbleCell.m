@@ -1,5 +1,6 @@
 #import "EZBubbleCell.h"
 #import "EZTheme.h"
+#import <LinkPresentation/LinkPresentation.h>
 
 @implementation EZBubbleCell {
     UIView     *_bubbleView;
@@ -19,6 +20,10 @@
     NSLayoutConstraint *_bubbleBottomConstraint; // deepens when a badge needs room
     UIButton   *_ttsButton;              // play/pause for chat-TTS bubbles, hidden unless set
     UIButton   *_soundButton;            // play/pause for chat sound bubbles, hidden unless set
+    UIStackView *_githubPreviews;
+    NSLayoutConstraint *_githubPreviewsBottom;
+    NSMutableArray<LPMetadataProvider *> *_githubMetadataProviders;
+    NSUInteger _githubPreviewGeneration;
 }
 
 // ─── init ──────────────────────────────────────────────────────────────────
@@ -57,17 +62,28 @@
     _messageTextView.translatesAutoresizingMaskIntoConstraints = NO;
 
     [_bubbleView addSubview:_messageTextView];
+    _githubPreviews = [[UIStackView alloc] init];
+    _githubPreviews.axis = UILayoutConstraintAxisVertical;
+    _githubPreviews.spacing = 8;
+    _githubPreviews.alignment = UIStackViewAlignmentFill;
+    _githubPreviews.translatesAutoresizingMaskIntoConstraints = NO;
+    [_bubbleView addSubview:_githubPreviews];
+    _githubMetadataProviders = [NSMutableArray array];
     [self.contentView addSubview:_bubbleView];
 
-    // Text view fills bubble
+    // Text and optional link cards fill the bubble.
     _bubbleBottomConstraint = [_bubbleView.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-4];
+    _githubPreviewsBottom = [_githubPreviews.bottomAnchor constraintEqualToAnchor:_bubbleView.bottomAnchor];
     [NSLayoutConstraint activateConstraints:@[
         [_bubbleView.topAnchor    constraintEqualToAnchor:self.contentView.topAnchor    constant:4],
         _bubbleBottomConstraint,
         [_messageTextView.topAnchor     constraintEqualToAnchor:_bubbleView.topAnchor],
-        [_messageTextView.bottomAnchor  constraintEqualToAnchor:_bubbleView.bottomAnchor],
         [_messageTextView.leadingAnchor  constraintEqualToAnchor:_bubbleView.leadingAnchor],
         [_messageTextView.trailingAnchor constraintEqualToAnchor:_bubbleView.trailingAnchor],
+        [_githubPreviews.topAnchor constraintEqualToAnchor:_messageTextView.bottomAnchor],
+        [_githubPreviews.leadingAnchor constraintEqualToAnchor:_bubbleView.leadingAnchor constant:10],
+        [_githubPreviews.trailingAnchor constraintEqualToAnchor:_bubbleView.trailingAnchor constant:-10],
+        _githubPreviewsBottom,
     ]];
 
     // Width cap: bubble never wider than ~76% of a standard screen
@@ -191,6 +207,7 @@
     _bubbleView.transform = CGAffineTransformIdentity;
 
     _messageTextView.text = text;
+    [self ez_configureGitHubPreviewsForText:text isUser:isUser];
 
     // ── Bubble background ────────────────────────────────────────────────────
     _bubbleView.backgroundColor = isUser ? [EZTheme userBubbleColor]
@@ -265,6 +282,104 @@
     _metaLabel.textAlignment = isUser ? NSTextAlignmentRight : NSTextAlignmentLeft;
 }
 
+// GitHub cards are presentation only: the original response stays intact for
+// copying, selection, reactions, export, and restoration. No GitHub token is
+// sent to Link Presentation; private pages may therefore show the fallback.
+- (void)ez_clearGitHubPreviews {
+    _githubPreviewGeneration++;
+    for (LPMetadataProvider *provider in _githubMetadataProviders) [provider cancel];
+    [_githubMetadataProviders removeAllObjects];
+    for (UIView *view in [_githubPreviews.arrangedSubviews copy]) {
+        [_githubPreviews removeArrangedSubview:view];
+        [view removeFromSuperview];
+    }
+    _githubPreviewsBottom.constant = 0;
+}
+
+- (void)ez_configureGitHubPreviewsForText:(NSString *)text isUser:(BOOL)isUser {
+    [self ez_clearGitHubPreviews];
+    if (isUser || !text.length) return;
+
+    static NSDataDetector *detector;
+    static NSCache<NSString *, LPLinkMetadata *> *metadataCache;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        detector = [NSDataDetector dataDetectorWithTypes:NSTextCheckingTypeLink error:nil];
+        metadataCache = [[NSCache alloc] init];
+        metadataCache.countLimit = 100;
+    });
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
+    NSArray<NSTextCheckingResult *> *matches = [detector matchesInString:text options:0 range:NSMakeRange(0, text.length)];
+    for (NSTextCheckingResult *match in matches) {
+        NSURL *url = match.URL;
+        NSString *host = url.host.lowercaseString;
+        if (![url.scheme.lowercaseString isEqualToString:@"https"] ||
+            !([host isEqualToString:@"github.com"] || [host isEqualToString:@"www.github.com"]) ||
+            url.user.length || url.password.length || url.port || !url.absoluteString.length ||
+            [seen containsObject:url.absoluteString]) continue;
+        [seen addObject:url.absoluteString];
+
+        LPLinkMetadata *metadata = [metadataCache objectForKey:url.absoluteString];
+        if (!metadata) {
+            metadata = [[LPLinkMetadata alloc] init];
+            metadata.originalURL = url;
+            metadata.URL = url;
+            metadata.title = url.path.length > 1 ? url.path : @"GitHub";
+        }
+        UIView *container = [[UIView alloc] init];
+        container.translatesAutoresizingMaskIntoConstraints = NO;
+        container.layer.cornerRadius = 12;
+        container.clipsToBounds = YES;
+        container.backgroundColor = [EZTheme cardColor];
+        LPLinkView *preview = [[LPLinkView alloc] initWithMetadata:metadata];
+        preview.translatesAutoresizingMaskIntoConstraints = NO;
+        preview.userInteractionEnabled = NO;
+        [container addSubview:preview];
+        UIButton *openButton = [UIButton buttonWithType:UIButtonTypeCustom];
+        openButton.translatesAutoresizingMaskIntoConstraints = NO;
+        openButton.accessibilityLabel = [NSString stringWithFormat:@"Open GitHub link: %@", url.absoluteString];
+        [openButton addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
+            [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+        }] forControlEvents:UIControlEventTouchUpInside];
+        [container addSubview:openButton];
+        [_githubPreviews addArrangedSubview:container];
+        NSLayoutConstraint *preferredWidth = [container.widthAnchor constraintEqualToConstant:250];
+        preferredWidth.priority = UILayoutPriorityDefaultHigh;
+        [NSLayoutConstraint activateConstraints:@[
+            preferredWidth,
+            [container.heightAnchor constraintEqualToConstant:210],
+            [preview.topAnchor constraintEqualToAnchor:container.topAnchor],
+            [preview.bottomAnchor constraintEqualToAnchor:container.bottomAnchor],
+            [preview.leadingAnchor constraintEqualToAnchor:container.leadingAnchor],
+            [preview.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
+            [openButton.topAnchor constraintEqualToAnchor:container.topAnchor],
+            [openButton.bottomAnchor constraintEqualToAnchor:container.bottomAnchor],
+            [openButton.leadingAnchor constraintEqualToAnchor:container.leadingAnchor],
+            [openButton.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
+        ]];
+        _githubPreviewsBottom.constant = -10;
+
+        if ([metadataCache objectForKey:url.absoluteString]) continue;
+        LPMetadataProvider *provider = [[LPMetadataProvider alloc] init];
+        provider.timeout = 12;
+        [_githubMetadataProviders addObject:provider];
+        NSUInteger generation = _githubPreviewGeneration;
+        __weak typeof(self) weakSelf = self;
+        __weak LPLinkView *weakPreview = preview;
+        [provider startFetchingMetadataForURL:url completionHandler:^(LPLinkMetadata *result, NSError *error) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                __strong typeof(weakSelf) cell = weakSelf;
+                if (!cell || cell->_githubPreviewGeneration != generation) return;
+                [cell->_githubMetadataProviders removeObject:provider];
+                if (result && !error) {
+                    [metadataCache setObject:result forKey:url.absoluteString];
+                    weakPreview.metadata = result;
+                }
+            });
+        }];
+    }
+}
+
 // ─── Pan gesture handler ──────────────────────────────────────────────────────
 // iMessage behaviour:
 //   • Drag left  → bubble slides left, meta label fades in on the right
@@ -300,6 +415,7 @@
 
 - (void)prepareForReuse {
     [super prepareForReuse];
+    [self ez_clearGitHubPreviews];
     [self setTTSPlaybackVisible:NO playing:NO];
     self.ttsButtonTapped = nil;
     [self setSoundPlaybackVisible:NO playing:NO];
