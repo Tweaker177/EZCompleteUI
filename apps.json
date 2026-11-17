@@ -31,6 +31,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.10",
+          "buildVersion": "7.2.10",
+          "date": "2026-11-17",
+          "localizedDescription": "## What's Changed\n* Fix slot sound toggle observer wired to the wrong view controller by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/153\n* GitHub approvals: app-styled card instead of a stock alert by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/152\n* Cohesive navy/gold theme (EZTheme) + doodle-pattern background for chat and store by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/154\n* Fix EZTheme build: CGPathAddRoundedRect instead of the nonexistent CGContextAddRoundedRect by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/155\n* EZTheme music and editors sweep with Share contrast fix by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/158\n* EZTheme sweep, complete: Music screens, music bubble cell, TTS clip editor by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/157\n* Fix Sounds and TTS Library theme contrast by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/159\n* EZTheme everywhere: Memories, chat drawer, TTS and Sounds by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/156\n* Add GitHub link previews to assistant messages by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/160\n* Bump version to 7.2.10 by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/162\n\n\n**Full Changelog**: https://github.com/Tweaker177/EZCompleteUI/compare/7.2.9...7.2.10",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.10/EZCompleteUI-7.2.10-release.ipa",
+          "size": 16824163,
+          "sha256": "5680a87fb95cd8b03c28d5010b080e6bfc3be19c435abe704668e22f28efedae",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.9",
           "buildVersion": "7.2.9",
           "date": "2026-11-16",
