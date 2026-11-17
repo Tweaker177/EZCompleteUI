@@ -974,7 +974,9 @@ static UIImage *SOParticleImage(BOOL coin) {
         _bonusLines = _lines; _bonusBet = [self betPerLine]; _bonusMult = 0; _bonusTotal = 0;
     }
     [EZEntitlementManager.shared applyKnownBalance:balance];
-    _balanceChecked = YES;
+    // Keep the display's prior known/unknown state until presentWinsThen:
+    // sets _balance from the result. Marking it known here would expose a
+    // stale value when the optimistic balance was unavailable.
 
     NSTimeInterval wait = 0;
     if (awarded > 0 && _hatTotal < SO_MAX_SCATTERS) {
