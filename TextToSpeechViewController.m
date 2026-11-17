@@ -668,8 +668,7 @@ static NSString *timestampString(void) {
     promptField.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:promptField];
     UILabel *hint = [[UILabel alloc] init];
-    hint.adjustsFontSizeToFitWidth = YES;
-    hint.minimumScaleFactor = 0.5;
+    hint.numberOfLines = 0;
     hint.text = @"Describe ambience only — no speech or lyrics.";
     hint.font = [UIFont systemFontOfSize:12]; hint.textColor = [EZTTSNeonDimText() colorWithAlphaComponent:0.8];
     hint.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:hint];
@@ -705,7 +704,7 @@ static NSString *timestampString(void) {
         [card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:20], [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-20], [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor],
         [title.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [title.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [detail.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:8], [detail.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [detail.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20],
         [promptField.topAnchor constraintEqualToAnchor:detail.bottomAnchor constant:16], [promptField.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [promptField.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [promptField.heightAnchor constraintEqualToConstant:100],
-        [hint.topAnchor constraintEqualToAnchor:promptField.bottomAnchor constant:6], [hint.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
+        [hint.topAnchor constraintEqualToAnchor:promptField.bottomAnchor constant:6], [hint.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [hint.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20],
         [surprise.topAnchor constraintEqualToAnchor:hint.bottomAnchor constant:16], [surprise.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [surprise.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [surprise.heightAnchor constraintEqualToConstant:44],
         [useScene.topAnchor constraintEqualToAnchor:surprise.bottomAnchor constant:8], [useScene.leadingAnchor constraintEqualToAnchor:surprise.leadingAnchor], [useScene.trailingAnchor constraintEqualToAnchor:surprise.trailingAnchor], [useScene.heightAnchor constraintEqualToConstant:44],
         [remove.topAnchor constraintEqualToAnchor:useScene.bottomAnchor constant:8], [remove.leadingAnchor constraintEqualToAnchor:surprise.leadingAnchor], [remove.trailingAnchor constraintEqualToAnchor:surprise.trailingAnchor], [remove.heightAnchor constraintEqualToConstant:40],

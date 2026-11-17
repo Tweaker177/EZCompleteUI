@@ -265,6 +265,7 @@ static UIColor *EZEditElectricBlue(void) {
     self.promptLabel.text = [displayTitle isKindOfClass:[NSString class]] && displayTitle.length > 0
         ? displayTitle : self.entry.prompt;
     self.promptLabel.numberOfLines = 3;
+    self.promptLabel.lineBreakMode = NSLineBreakByClipping;
     [self.promptContainer addSubview:self.promptLabel];
     self.promptDisclosureImage = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"chevron.down"]];
     self.promptDisclosureImage.tintColor = [EZTheme secondaryTextColor];
@@ -304,8 +305,6 @@ static UIColor *EZEditElectricBlue(void) {
 
 - (UILabel *)sectionBodyLabel {
     UILabel *label = [[UILabel alloc] init];
-    label.adjustsFontSizeToFitWidth = YES;
-    label.minimumScaleFactor = 0.5;
     label.font = [UIFont systemFontOfSize:15];
     label.numberOfLines = 3;
     return label;
