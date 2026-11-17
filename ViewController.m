@@ -5288,19 +5288,35 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         // the chat shows as its system entry ("Reading pull request #46 in
         // ...") instead of repeating the user's prompt — repeated prompts
         // made the rounds look like duplicate charges in Coin Usage.
-        NSDictionary *lastEntry = [self.chatContext lastObject];
-        if ([lastEntry isKindOfClass:[NSDictionary class]]) {
-            NSString *toolSummary = [lastEntry[@"_githubSummary"] isKindOfClass:[NSString class]]
+        // An asynchronous image, music, or sound completion can arrive
+        // between a tool result and a retry. Skip only those timeline events;
+        // don't scan past ordinary messages and reuse an older tool's summary.
+        for (id entry in self.chatContext.reverseObjectEnumerator) {
+            if (![entry isKindOfClass:[NSDictionary class]]) break;
+            NSDictionary *lastEntry = (NSDictionary *)entry;
+            if ([lastEntry[@"_uiOnly"] boolValue] ||
+                ([lastEntry[@"role"] isEqualToString:@"assistant"] &&
+                 [lastEntry[@"_soundEntryID"] isKindOfClass:[NSString class]] &&
+                 [lastEntry[@"_soundEntryID"] length] > 0)) continue;
+            NSString *toolSummary = [lastEntry[@"_githubResult"] boolValue] &&
+                [lastEntry[@"_githubSummary"] isKindOfClass:[NSString class]]
                 ? lastEntry[@"_githubSummary"] : nil;
-            if (toolSummary.length == 0 &&
+            if (toolSummary.length == 0 && [lastEntry[@"_localFileResult"] boolValue] &&
                 [lastEntry[@"_localFileSummary"] isKindOfClass:[NSString class]])
                 toolSummary = lastEntry[@"_localFileSummary"];
             if (toolSummary.length > 0) previewText = toolSummary;
+            break;
         }
     }
     if (previewText.length > 0) {
         NSUInteger cap = MIN(previewText.length, 120);
-        ezBody[@"prompt_preview"] = [previewText substringToIndex:cap];
+        if (cap < previewText.length) {
+            // Keep the 120 UTF-16-unit limit without splitting a surrogate
+            // pair or composed character, which can break JSON encoding.
+            NSRange lastCharacter = [previewText rangeOfComposedCharacterSequenceAtIndex:cap - 1];
+            if (NSMaxRange(lastCharacter) > cap) cap = lastCharacter.location;
+        }
+        if (cap > 0) ezBody[@"prompt_preview"] = [previewText substringToIndex:cap];
     }
     NSString *loc = [defaults stringForKey:@"webSearchLocation"] ?: @"";
     if (loc.length > 0) ezBody[@"location"] = loc;
@@ -9649,7 +9665,7 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
                     @"content": [blocks copy],
                     @"_isVisionAttachment": @YES,
                     @"_localFileResult": @YES,
-                    @"_localFileSummary": summary ?: @"",
+                    @"_localFileSummary": shown,
                 }];
                 [strongSelf saveActiveThread];
                 [strongSelf callChatCompletionsWithRetryCount:0];
@@ -9663,7 +9679,7 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
         NSString *content = [result[@"text"] isKindOfClass:[NSString class]]
             ? result[@"text"]
             : @"[Local file result — read_local_file: error]\nThe file could not be read.\n[End of local file result]";
-        [strongSelf ez_appendLocalFileResultToContext:content summary:summary];
+        [strongSelf ez_appendLocalFileResultToContext:content summary:shown];
         [strongSelf saveActiveThread];
         [strongSelf callChatCompletionsWithRetryCount:0];
     }];
