@@ -2564,7 +2564,9 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
             completionHandler(YES);
             [weakSelf shareEntryID:entryID];
         }];
-        shareAction.backgroundColor = [EZTheme goldColor];
+        // UIKit controls the swipe action's title color; use a dark themed
+        // background to keep its white text legible.
+        shareAction.backgroundColor = [EZTheme cardColor];
         [actions addObject:shareAction];
     }
     UISwipeActionsConfiguration *configuration = [UISwipeActionsConfiguration configurationWithActions:actions];
