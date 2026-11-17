@@ -5288,13 +5288,16 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         // the chat shows as its system entry ("Reading pull request #46 in
         // ...") instead of repeating the user's prompt — repeated prompts
         // made the rounds look like duplicate charges in Coin Usage.
-        // An asynchronous image/music timeline event can arrive between a
-        // tool result and a retry. Skip only UI events; do not scan past an
-        // ordinary message and accidentally reuse an older tool's summary.
+        // An asynchronous image, music, or sound completion can arrive
+        // between a tool result and a retry. Skip only those timeline events;
+        // don't scan past ordinary messages and reuse an older tool's summary.
         for (id entry in self.chatContext.reverseObjectEnumerator) {
             if (![entry isKindOfClass:[NSDictionary class]]) break;
             NSDictionary *lastEntry = (NSDictionary *)entry;
-            if ([lastEntry[@"_uiOnly"] boolValue]) continue;
+            if ([lastEntry[@"_uiOnly"] boolValue] ||
+                ([lastEntry[@"role"] isEqualToString:@"assistant"] &&
+                 [lastEntry[@"_soundEntryID"] isKindOfClass:[NSString class]] &&
+                 [lastEntry[@"_soundEntryID"] length] > 0)) continue;
             NSString *toolSummary = [lastEntry[@"_githubResult"] boolValue] &&
                 [lastEntry[@"_githubSummary"] isKindOfClass:[NSString class]]
                 ? lastEntry[@"_githubSummary"] : nil;
