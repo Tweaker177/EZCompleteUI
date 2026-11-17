@@ -31,6 +31,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.11",
+          "buildVersion": "7.2.11",
+          "date": "2026-11-17",
+          "localizedDescription": "## What's Changed\n* Starlight Odyssey: instant spins (server-settled) + preemptive card-reveal fix by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/163\n* Theme: Photo Gallery light EZTheme touch by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/170\n* Big-win celebration: fireworks + coin volcano at 25x the bet (75x MEGA) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/164\n* Bump version to 7.2.11 by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/165\n* Coin Usage: friendly names + slot icon for the newer machines by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/166\n* Fix: Starlight Odyssey audio session category + drum-roll volume clamp by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/168\n* Label audit: wrap at full size, restore user-content previews (TTS titles, Edit Clip prompt) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/169\n* Theme: Files browser full EZTheme makeover by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/172\n* Harden tool-round coin usage previews by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/173\n* Coin Usage: label tool follow-up charges with the system-entry summary by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/171\n\n\n**Full Changelog**: https://github.com/Tweaker177/EZCompleteUI/compare/7.2.10...7.2.11",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.11/EZCompleteUI-7.2.11-release.ipa",
+          "size": 16962841,
+          "sha256": "470feafb295d7f060a326d3e2f32224a8482f639f94680595fef6bdcbd307773",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.10",
           "buildVersion": "7.2.10",
           "date": "2026-11-17",
