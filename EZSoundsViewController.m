@@ -426,6 +426,8 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     self.tabControl.selectedSegmentTintColor = EZSoundsNeonViolet();
     [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: EZSoundsNeonText()}
                                    forState:UIControlStateNormal];
+    [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme userBubbleTextColor]}
+                                   forState:UIControlStateSelected];
     [self.tabControl addTarget:self action:@selector(tabChanged) forControlEvents:UIControlEventValueChanged];
     [self.view addSubview:self.tabControl];
 
@@ -1143,7 +1145,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         }];
         completionHandler(YES);
     }];
-    favoriteAction.backgroundColor = [UIColor colorWithRed:0.85 green:0.65 blue:0.05 alpha:1.0];
+    favoriteAction.backgroundColor = [EZTheme cardColor];
     return [UISwipeActionsConfiguration configurationWithActions:@[deleteAction, favoriteAction]];
 }
 

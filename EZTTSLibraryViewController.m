@@ -240,7 +240,8 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
         completionHandler(YES);
     }];
     share.image = [UIImage systemImageNamed:@"square.and.arrow.up"];
-    share.backgroundColor = EZTTSNeonViolet();
+    // UIKit renders swipe action titles and template icons in white.
+    share.backgroundColor = [EZTheme cardColor];
     return [UISwipeActionsConfiguration configurationWithActions:@[share]];
 }
 
