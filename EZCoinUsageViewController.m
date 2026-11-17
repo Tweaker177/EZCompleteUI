@@ -75,6 +75,10 @@ static NSString *friendlyFeatureName(NSString *feature) {
         @"daily_reward":    @"Daily Free Coins",
         @"brainrot_slots":  @"Brainrot Slots",
         @"brainrot_penny_slots": @"EZCoin Penny Slots",
+        @"brainrot_plunder_slots": @"Plunder Bay Slots",
+        @"brainrot_golden_mandarin_slots": @"Golden Mandarin Slots",
+        @"brainrot_phoenix_pavilion_slots": @"Phoenix Pavilion Slots",
+        @"brainrot_starlight_odyssey_slots": @"Starlight Odyssey Slots",
     };
     return map[feature] ?: feature;
 }
@@ -90,7 +94,7 @@ static NSString *featureIcon(NSString *feature) {
     if ([feature isEqual:@"whisper_minute"]) return @"🎙";
     if ([feature isEqual:@"web_search"]) return @"🔍";
     if ([feature isEqual:@"daily_reward"]) return @"🎁";
-    if ([feature isEqual:@"brainrot_slots"] || [feature isEqual:@"brainrot_penny_slots"]) return @"🎰";
+    if ([feature hasPrefix:@"brainrot_"] && [feature hasSuffix:@"_slots"]) return @"🎰";
     return @"🪙";
 }
 
