@@ -460,6 +460,7 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
         self.messageLabel.text = awarded ? [NSString stringWithFormat:@"🧭 %@%@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.FreeSpinsAward", nil), (long)awarded], payout ? [NSString stringWithFormat:@" %@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.Coins", nil), (long)payout]] : @""] : payout ? [NSString stringWithFormat:NSLocalizedString(winLineCount == 1 ? @"BRSlot.Win.LinesResultOne" : @"BRSlot.Win.LinesResult", nil), (long)payout, (long)winLineCount] : wasFreeSpin ? NSLocalizedString(@"BRSlot.Win.FreeSpinNoWin", nil) : [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.NoWin", nil), (long)PlunderInteger(result[@"wager"])];
         self.messageLabel.textColor=(payout || awarded) ? UIColor.systemYellowColor : [UIColor colorWithWhite:.8 alpha:1];
         if (payout > 0) [self playCoins];
+        if (payout > 0) [BRSlotCelebration celebrateBigWinInView:self.view payout:payout totalBet:MAX(1, PlunderInteger(result[@"wager"]))];
         if (payout || awarded) [self showWin:payout awarded:awarded];
         self.pendingSpinResult = nil;
         self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=YES; [self updateBonusLabel];
