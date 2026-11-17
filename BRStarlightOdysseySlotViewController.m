@@ -211,7 +211,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     NSInteger _lines, _betIndex;
     NSInteger _balance;                 // what the label shows
     NSInteger _freeRemaining, _bonusMult, _bonusTotal, _bonusLines, _bonusBet, _lastAwarded, _spinWager;
-    BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving;
+    BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving, _balanceChecked;
     NSUInteger _epoch;
     NSTimeInterval _celebrationEnd;
     CGFloat _cellSize;
@@ -689,6 +689,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     _lines = next ?: SOLineChoices().firstObject.integerValue;
     [NSUserDefaults.standardUserDefaults setInteger:_lines forKey:kSOLinesKey];
     [self refreshLabels];
+    [self checkBalanceSilently];
 }
 
 - (void)cycleBet {
@@ -696,6 +697,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     _betIndex = (_betIndex + 1) % (NSInteger)SOBets().count;
     [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:kSOBetKey];
     [self refreshLabels];
+    [self checkBalanceSilently];
 }
 
 - (void)maxBet {
@@ -703,6 +705,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     _lines = SO_MAX_LINES;
     _betIndex = (NSInteger)SOBets().count - 1;
     [self refreshLabels];
+    [self checkBalanceSilently];
     [self spinTapped];
 }
 
@@ -766,6 +769,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
         if (self->_busy) return;
         self->_balance = balance;
+        self->_balanceChecked = YES;
         [self refreshLabels];
     }];
     [self request:@{@"action": @"status"} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
@@ -795,15 +799,42 @@ static UIImage *SOParticleImage(BOOL coin) {
 
 #pragma mark Spinning
 
+/// Fills the balance cache without ever blocking a spin and without ever
+/// putting a "checking" message on screen. Runs on screen entry (via
+/// refreshState), after every settled spin, and whenever the bet changes;
+/// the spin path trusts the cache and fires immediately.
+- (void)checkBalanceSilently {
+    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+        if (self->_busy || self->_leaving) return;
+        self->_balance = balance;
+        self->_balanceChecked = YES;
+        [self refreshLabels];
+    }];
+}
+
 - (void)spinTapped {
     if (_busy || _bonusMode || _freeRemaining > 0) return;
     NSInteger wager = _lines * [self betPerLine];
+    if (_balanceChecked) {
+        // Balance was verified after the last spin, on the last bet change, or on
+        // screen entry, and coins only move through spins settled on this screen —
+        // trust the cache and fire immediately instead of waiting on a round trip.
+        if (_balance < wager) {
+            [self setMessage:[NSString stringWithFormat:SOLoc(@"BRSlot.SO.NeedCoins", @"You need %ld coins for that bet."), (long)wager] highlight:NO];
+            [self showCoinStore];
+            return;
+        }
+        [self beginSpinFree:NO];
+        return;
+    }
+    // Cold cache (first spin before the entry refresh lands): one real check,
+    // still silent — no "checking" message.
     _busy = YES;
     [self updateControls];
-    [self setMessage:SOLoc(@"BRSlot.CheckingBalance", @"Checking EZ Coins…") highlight:NO];
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
         if (self->_leaving) return;
         self->_balance = balance;
+        self->_balanceChecked = YES;
         [self refreshLabels];
         if (balance < wager) {
             self->_busy = NO;
@@ -846,6 +877,7 @@ static UIImage *SOParticleImage(BOOL coin) {
 }
 
 - (void)failSpin:(NSString *)message status:(NSInteger)status {
+    _balanceChecked = NO;
     [self stopReelLoops];
     _reelsMoving = NO;
     [self.audio stopDrumRoll];
@@ -968,6 +1000,7 @@ static UIImage *SOParticleImage(BOOL coin) {
         _bonusLines = _lines; _bonusBet = [self betPerLine]; _bonusMult = 0; _bonusTotal = 0;
     }
     [EZEntitlementManager.shared applyKnownBalance:balance];
+    _balanceChecked = YES;
 
     NSTimeInterval wait = 0;
     if (awarded > 0 && _hatTotal < SO_MAX_SCATTERS) {
@@ -1049,6 +1082,7 @@ static NSArray<UIColor *> *SOLineColors(void) {
     NSInteger lines = SOInteger(res[@"lines"]) ?: 1;
     NSInteger fromBalance = _balance;
     _balance = balance;
+    _balanceChecked = YES;
     NSArray *winners = [res[@"winning_lines"] isKindOfClass:NSArray.class] ? res[@"winning_lines"] : @[];
     if (payout <= 0) {
         [self refreshLabels];
