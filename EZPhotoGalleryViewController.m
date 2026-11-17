@@ -14,6 +14,7 @@
 #import "EZPhotoGalleryAnalysisService.h"
 #import "EZSupabaseConfig.h"
 #import "EZMusicService.h"
+#import "EZTheme.h"
 #import "ViewController+EZKeepAwake.h"
 #import "helpers.h"
 #import <SafariServices/SafariServices.h>
@@ -2973,16 +2974,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     self.title = self.chatAttachmentSelectionMode
         ? @"Attach from Gallery" : NSLocalizedString(@"EZGallery.Title", nil);
 
-    UINavigationBarAppearance *appearance = [UINavigationBarAppearance new];
-    [appearance configureWithOpaqueBackground];
-    appearance.backgroundColor = [UIColor colorWithRed:0.04 green:0.04 blue:0.10 alpha:1.0];
-    appearance.titleTextAttributes = @{
-        NSFontAttributeName:            [UIFont boldSystemFontOfSize:17],
-        NSForegroundColorAttributeName: [UIColor whiteColor],
-    };
-    self.navigationController.navigationBar.standardAppearance   = appearance;
-    self.navigationController.navigationBar.scrollEdgeAppearance = appearance;
-    self.navigationController.navigationBar.tintColor = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0];
+    self.navigationController.navigationBar.standardAppearance   = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.tintColor = [EZTheme goldColor];
 
     // The leading + imports images. Files exposes installed providers such as
     // Dropbox, Box, Google Drive, and any cloud-photo app with Files support.
@@ -3024,7 +3018,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     self.collectionView = [[UICollectionView alloc] initWithFrame:self.view.bounds
                                              collectionViewLayout:self.layout];
     self.collectionView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    self.collectionView.backgroundColor  = [UIColor colorWithRed:0.04 green:0.04 blue:0.10 alpha:1.0];
+    self.collectionView.backgroundColor  = [EZTheme chatBackgroundColor];
     self.collectionView.delegate         = self;
     self.collectionView.dataSource       = self;
     self.collectionView.alwaysBounceVertical = YES;
@@ -3041,7 +3035,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     self.emptyLabel.numberOfLines = 2;
     self.emptyLabel.textAlignment = NSTextAlignmentCenter;
     self.emptyLabel.font          = [UIFont systemFontOfSize:15 weight:UIFontWeightRegular];
-    self.emptyLabel.textColor     = [UIColor colorWithWhite:0.4 alpha:1];
+    self.emptyLabel.textColor     = [EZTheme secondaryTextColor];
     self.emptyLabel.hidden        = YES;
     self.emptyLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.emptyLabel];
