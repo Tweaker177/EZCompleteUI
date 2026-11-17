@@ -432,7 +432,7 @@ static NSString *timestampString(void) {
     playConfig.image = [UIImage systemImageNamed:@"play.fill"];
     playConfig.imagePadding = 8;
     playConfig.baseBackgroundColor = EZTTSNeonPink();
-    playConfig.baseForegroundColor = [UIColor whiteColor];
+    playConfig.baseForegroundColor = [EZTheme userBubbleTextColor];
     playConfig.cornerStyle = UIButtonConfigurationCornerStyleLarge;
     playConfig.titleTextAttributesTransformer =
         ^NSDictionary<NSAttributedStringKey,id> * _Nonnull(NSDictionary<NSAttributedStringKey,id> * _Nonnull attrs) {
@@ -683,6 +683,7 @@ static NSString *timestampString(void) {
     };
     UIButton *surprise = button(@"✦  Surprise Me", [UIColor colorWithRed:0.00 green:0.55 blue:0.62 alpha:1.0]);
     UIButton *useScene = button(@"Use This Scene", EZTTSNeonPink());
+    [useScene setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateNormal];
     UIButton *remove = button(@"Remove Background", [UIColor systemRedColor]);
     UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem]; cancel.translatesAutoresizingMaskIntoConstraints = NO; [cancel setTitle:@"Cancel" forState:UIControlStateNormal]; [cancel setTitleColor:EZTTSNeonDimText() forState:UIControlStateNormal]; [card addSubview:cancel];
     [surprise addAction:[UIAction actionWithHandler:^(__unused UIAction *a) {
