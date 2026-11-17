@@ -1238,8 +1238,7 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     title.font = [UIFont systemFontOfSize:21 weight:UIFontWeightBold];
     [card addSubview:title];
     UILabel *subtitle = [[UILabel alloc] initWithFrame:CGRectMake(24, 55, cardWidth - 48, 34)];
-    subtitle.adjustsFontSizeToFitWidth = YES;
-    subtitle.minimumScaleFactor = 0.5;
+    subtitle.numberOfLines = 2;
     subtitle.text = @"Tune the bounce soundtrack for this run.";
     subtitle.textAlignment = NSTextAlignmentCenter;
     subtitle.textColor = [UIColor colorWithWhite:0.70 alpha:1.0];

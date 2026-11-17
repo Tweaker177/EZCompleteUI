@@ -374,8 +374,6 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [self.contentView addSubview:_titleLabel];
 
     _detailLabel = [[UILabel alloc] init];
-    _detailLabel.adjustsFontSizeToFitWidth = YES;
-    _detailLabel.minimumScaleFactor = 0.5;
     _detailLabel.translatesAutoresizingMaskIntoConstraints = NO;
     _detailLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     _detailLabel.adjustsFontForContentSizeCategory = YES;

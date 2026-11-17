@@ -330,14 +330,13 @@
         // ── Subscription ─────────────────────────────────────────────────────────
         [self addSection:@"💎 Subscription" y:&y];
 
-        self.subscriptionStatusLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 20)];
-        self.subscriptionStatusLabel.adjustsFontSizeToFitWidth = YES;
-        self.subscriptionStatusLabel.minimumScaleFactor = 0.5;
+        self.subscriptionStatusLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 33)];
+        self.subscriptionStatusLabel.numberOfLines = 2;
         self.subscriptionStatusLabel.font = [UIFont systemFontOfSize:13];
         self.subscriptionStatusLabel.textColor = [UIColor secondaryLabelColor];
         self.subscriptionStatusLabel.text = @"Loading...";
         [self.scrollView addSubview:self.subscriptionStatusLabel];
-        y += 26;
+        y += 39;
 
         self.coinBalanceLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 20)];
         self.coinBalanceLabel.adjustsFontSizeToFitWidth = YES;

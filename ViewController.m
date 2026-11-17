@@ -2406,6 +2406,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.statusBannerLabel = [[UILabel alloc] init];
     self.statusBannerLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
     self.statusBannerLabel.textColor = [UIColor secondaryLabelColor];
+    self.statusBannerLabel.numberOfLines = 0;
     self.statusBannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [self.statusBannerView addSubview:self.statusBannerLabel];
 

@@ -1097,8 +1097,7 @@ static NSInteger const kPageSize = 50;
 
     // ── Empty state label ─────────────────────────────────────────────────────
     self.emptyLabel               = [UILabel new];
-    self.emptyLabel.adjustsFontSizeToFitWidth = YES;
-    self.emptyLabel.minimumScaleFactor = 0.5;
+    self.emptyLabel.numberOfLines = 0;
     self.emptyLabel.text          = @"No transactions found.";
     self.emptyLabel.textColor     = EZMuted();
     self.emptyLabel.font          = [UIFont systemFontOfSize:15];
@@ -1109,6 +1108,8 @@ static NSInteger const kPageSize = 50;
     [NSLayoutConstraint activateConstraints:@[
         [self.emptyLabel.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
         [self.emptyLabel.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
+        [self.emptyLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:32],
+        [self.emptyLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-32],
     ]];
 }
 

@@ -61,8 +61,6 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
         [self.contentView addSubview:_favoriteButton];
 
         _titleLabel = [[UILabel alloc] init];
-        _titleLabel.adjustsFontSizeToFitWidth = YES;
-        _titleLabel.minimumScaleFactor = 0.5;
         _titleLabel.font = [UIFont boldSystemFontOfSize:18];
         _titleLabel.textColor = EZTTSNeonText();
         _titleLabel.numberOfLines = 1;

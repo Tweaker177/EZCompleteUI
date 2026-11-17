@@ -751,8 +751,7 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
 
 - (void)setupEmptyLabel {
     self.emptyLabel = [[UILabel alloc] init];
-    self.emptyLabel.adjustsFontSizeToFitWidth = YES;
-    self.emptyLabel.minimumScaleFactor = 0.5;
+    self.emptyLabel.numberOfLines = 0;
     self.emptyLabel.text          = NSLocalizedString(@"EZMemories.NoneSaved", nil);
     self.emptyLabel.textColor     = [EZTheme secondaryTextColor];
     self.emptyLabel.font          = [UIFont systemFontOfSize:16];
@@ -762,6 +761,8 @@ static NSString * const kEmptyCellID = @"EZMemoryEmptyCell";
     [NSLayoutConstraint activateConstraints:@[
         [self.emptyLabel.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
         [self.emptyLabel.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
+        [self.emptyLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:32],
+        [self.emptyLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-32],
     ]];
 }
 

@@ -426,8 +426,8 @@ typedef NS_ENUM(NSInteger, BRGameResultBottomBarState) {
     [spinner startAnimating];
 
     self.busyStatusLabel = [[UILabel alloc] init];
-    self.busyStatusLabel.adjustsFontSizeToFitWidth = YES;
-    self.busyStatusLabel.minimumScaleFactor = 0.5;
+    self.busyStatusLabel.numberOfLines = 0;
+    self.busyStatusLabel.textAlignment = NSTextAlignmentCenter;
     self.busyStatusLabel.text = @"Finalizing your world...";
     self.busyStatusLabel.textColor = [UIColor systemGrayColor];
     self.busyStatusLabel.font = [UIFont systemFontOfSize:15.0];
@@ -441,6 +441,7 @@ typedef NS_ENUM(NSInteger, BRGameResultBottomBarState) {
 
     [NSLayoutConstraint activateConstraints:@[
         [stack.centerXAnchor constraintEqualToAnchor:container.centerXAnchor],
+        [stack.widthAnchor constraintLessThanOrEqualToAnchor:container.widthAnchor constant:-48.0],
         [stack.topAnchor constraintEqualToAnchor:container.topAnchor constant:8.0],
         [stack.bottomAnchor constraintEqualToAnchor:container.bottomAnchor constant:-8.0],
     ]];

@@ -600,9 +600,8 @@ static void EZPresentPhotoSourcePicker(UIViewController *presenter,
         label.textColor = [UIColor whiteColor];
         label.userInteractionEnabled = NO;
         [button addSubview:label];
-        UILabel *detail = [[UILabel alloc] initWithFrame:CGRectMake(64, 37, button.bounds.size.width - 80, 20)];
-        detail.adjustsFontSizeToFitWidth = YES;
-        detail.minimumScaleFactor = 0.5;
+        UILabel *detail = [[UILabel alloc] initWithFrame:CGRectMake(64, 37, button.bounds.size.width - 80, 32)];
+        detail.numberOfLines = 2;
         detail.text = detailText;
         detail.font = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
         detail.textColor = [UIColor colorWithWhite:0.70 alpha:1.0];
