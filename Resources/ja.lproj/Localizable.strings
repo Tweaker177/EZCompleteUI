@@ -439,6 +439,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld コイン";
 "BRSlot.Win.Jackpot" = "ジャックポット！";
 "BRSlot.Win.Winner" = "勝者！";
+"BRSlot.Win.BigWin" = "ビッグウィン！";
+"BRSlot.Win.MegaWin" = "メガウィン！";
+"BRSlot.Win.BigWinSub" = "+%ld コイン · ×%ld";
 "BRSlot.Lounge.SignIn" = "ラウンジに参加するにはサインインしてください。";
 "BRSlot.Lounge.Delete" = "削除";
 "BRSlot.OK" = "OK";

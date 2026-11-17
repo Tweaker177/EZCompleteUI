@@ -439,6 +439,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld XU";
 "BRSlot.Win.Jackpot" = "GIẢI ĐỘC ĐẮC!";
 "BRSlot.Win.Winner" = "NGƯỜI CHIẾN THẮNG!";
+"BRSlot.Win.BigWin" = "THẮNG LỚN!";
+"BRSlot.Win.MegaWin" = "THẮNG CỰC LỚN!";
+"BRSlot.Win.BigWinSub" = "+%ld XU · ×%ld";
 "BRSlot.Lounge.SignIn" = "Đăng nhập để tham gia phòng chờ.";
 "BRSlot.Lounge.Delete" = "Xóa";
 "BRSlot.OK" = "được rồi";

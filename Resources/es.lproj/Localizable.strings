@@ -461,6 +461,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld MONEDAS";
 "BRSlot.Win.Jackpot" = "¡BOTE!";
 "BRSlot.Win.Winner" = "¡GANADOR!";
+"BRSlot.Win.BigWin" = "¡GRAN PREMIO!";
+"BRSlot.Win.MegaWin" = "¡MEGAPREMIO!";
+"BRSlot.Win.BigWinSub" = "+%ld MONEDAS · ×%ld";
 "BRSlot.Lounge.SignIn" = "Inicia sesión para unirte al salón.";
 "BRSlot.Lounge.Delete" = "Eliminar";
 "BRSlot.OK" = "bien";

@@ -439,6 +439,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld عملات معدنية";
 "BRSlot.Win.Jackpot" = "الفوز بالجائزة الكبرى!";
 "BRSlot.Win.Winner" = "الفائز!";
+"BRSlot.Win.BigWin" = "فوز كبير!";
+"BRSlot.Win.MegaWin" = "فوز ضخم!";
+"BRSlot.Win.BigWinSub" = "+%ld قطعة نقدية · ×%ld";
 "BRSlot.Lounge.SignIn" = "قم بتسجيل الدخول للانضمام إلى الصالة.";
 "BRSlot.Lounge.Delete" = "حذف";
 "BRSlot.OK" = "حسنًا";

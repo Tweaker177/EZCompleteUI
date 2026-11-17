@@ -669,7 +669,7 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     }
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, size.width - 32, mega ? 74 : 60)];
-    title.text = mega ? @"MEGA WIN!" : @"BIG WIN!";
+    title.text = NSLocalizedString(mega ? @"BRSlot.Win.MegaWin" : @"BRSlot.Win.BigWin", nil);
     title.font = [UIFont systemFontOfSize:mega ? 58 : 46 weight:UIFontWeightBlack];
     title.textColor = [UIColor colorWithRed:1.00 green:0.80 blue:0.15 alpha:1];
     title.textAlignment = NSTextAlignmentCenter;
@@ -680,7 +680,7 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     title.layer.shadowRadius = 7;
     title.layer.shadowOffset = CGSizeMake(0, 3);
     UILabel *sub = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(title.frame) + 2, size.width - 32, 30)];
-    sub.text = [NSString stringWithFormat:@"+%ld COINS · ×%ld", (long)payout, (long)multiple];
+    sub.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.BigWinSub", nil), (long)payout, (long)multiple];
     sub.font = [UIFont systemFontOfSize:21 weight:UIFontWeightHeavy];
     sub.textColor = UIColor.whiteColor;
     sub.textAlignment = NSTextAlignmentCenter;

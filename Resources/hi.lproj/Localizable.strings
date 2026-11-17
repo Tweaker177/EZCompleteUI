@@ -439,6 +439,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld सिक्के";
 "BRSlot.Win.Jackpot" = "जैकपॉट!";
 "BRSlot.Win.Winner" = "विजेता!";
+"BRSlot.Win.BigWin" = "बड़ी जीत!";
+"BRSlot.Win.MegaWin" = "मेगा जीत!";
+"BRSlot.Win.BigWinSub" = "+%ld सिक्के · ×%ld";
 "BRSlot.Lounge.SignIn" = "लाउंज में शामिल होने के लिए साइन इन करें.";
 "BRSlot.Lounge.Delete" = "हटाएँ";
 "BRSlot.OK" = "ठीक है";
