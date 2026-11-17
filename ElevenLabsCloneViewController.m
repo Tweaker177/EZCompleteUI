@@ -23,6 +23,7 @@
 // Requires: WaveformView.h
 
 #import "ElevenLabsCloneViewController.h"
+#import "EZTheme.h"
 #import "WaveformView.h"
 #import <AVFoundation/AVFoundation.h>
 #import <QuickLook/QuickLook.h>
@@ -106,7 +107,10 @@ static NSString * const kEZElevenLabsURL         =
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = NSLocalizedString(@"ElevenLabsClone.Title", @"Voice cloning screen title");
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
+    self.navigationItem.standardAppearance = [EZTheme navigationBarAppearance];
+    self.navigationItem.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.tintColor = [EZTheme goldColor];
     self.visibleVoiceRowCount = 40;
 
     self.scrollView = [[UIScrollView alloc] initWithFrame:self.view.bounds];
@@ -116,6 +120,7 @@ static NSString * const kEZElevenLabsURL         =
         UIScrollViewContentInsetAdjustmentAlways;
     self.scrollView.alwaysBounceVertical = YES;
     self.scrollView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
+    self.scrollView.backgroundColor = [UIColor clearColor];
     [self.view addSubview:self.scrollView];
 
     UITapGestureRecognizer *tap =
@@ -182,8 +187,10 @@ static NSString * const kEZElevenLabsURL         =
     noiseLbl.minimumScaleFactor = 0.5;
     noiseLbl.text = NSLocalizedString(@"ElevenLabsClone.RemoveNoise", @"Noise removal switch label");
     noiseLbl.font = [UIFont systemFontOfSize:13];
+    noiseLbl.textColor = [EZTheme primaryTextColor];
     [self.scrollView addSubview:noiseLbl];
     self.noiseSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(m + w - 60, y - 4, 60, 32)];
+    self.noiseSwitch.onTintColor = [EZTheme goldColor];
     [self.scrollView addSubview:self.noiseSwitch];
     y += 44;
 
@@ -216,6 +223,7 @@ static NSString * const kEZElevenLabsURL         =
     self.timerLabel.font =
         [UIFont monospacedDigitSystemFontOfSize:16 weight:UIFontWeightMedium];
     self.timerLabel.textAlignment = NSTextAlignmentCenter;
+    self.timerLabel.textColor = [EZTheme primaryTextColor];
     [self.scrollView addSubview:self.timerLabel];
     y += 28;
 
@@ -224,14 +232,13 @@ static NSString * const kEZElevenLabsURL         =
     self.waveformView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     self.waveformView.lineWidth    = 1.5;
     self.waveformView.symmetric    = YES;
-    self.waveformView.waveColor    = [UIColor colorWithRed:0.12 green:0.56
-                                                      blue:0.95 alpha:1.0];
+    self.waveformView.waveColor    = [[EZTheme goldColor] colorWithAlphaComponent:0.45];
     self.waveformView.secondaryWaveColor =
         [self.waveformView.waveColor colorWithAlphaComponent:0.40];
-    self.waveformView.progressColor = [UIColor systemOrangeColor];
+    self.waveformView.progressColor = [EZTheme goldColor];
     self.waveformView.layer.cornerRadius = 10;
     self.waveformView.clipsToBounds = YES;
-    self.waveformView.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    self.waveformView.backgroundColor = [EZTheme cardColor];
     [self.scrollView addSubview:self.waveformView];
     y += 96;
 
@@ -285,8 +292,8 @@ static NSString * const kEZElevenLabsURL         =
     self.uploadButton.titleLabel.font =
         [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
     self.uploadButton.layer.cornerRadius = 10;
-    self.uploadButton.backgroundColor = [UIColor systemBlueColor];
-    [self.uploadButton setTitleColor:UIColor.whiteColor
+    self.uploadButton.backgroundColor = [EZTheme goldColor];
+    [self.uploadButton setTitleColor:[EZTheme backgroundColor]
                             forState:UIControlStateNormal];
     [self.uploadButton addTarget:self
                           action:@selector(uploadClone:)
@@ -300,6 +307,7 @@ static NSString * const kEZElevenLabsURL         =
         initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner.center = CGPointMake(vw / 2.0, y + 12);
     self.spinner.hidesWhenStopped = YES;
+    self.spinner.color = [EZTheme goldColor];
     [self.scrollView addSubview:self.spinner];
     y += 34;
 
@@ -313,6 +321,7 @@ static NSString * const kEZElevenLabsURL         =
     voicesHeader.minimumScaleFactor = 0.5;
     voicesHeader.text = NSLocalizedString(@"ElevenLabsClone.MyVoices", @"Cloned voices section title");
     voicesHeader.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
+    voicesHeader.textColor = [EZTheme primaryTextColor];
     [self.scrollView addSubview:voicesHeader];
 
     self.refreshVoicesButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -321,6 +330,8 @@ static NSString * const kEZElevenLabsURL         =
                               forState:UIControlStateNormal];
     self.refreshVoicesButton.titleLabel.font =
         [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+    [self.refreshVoicesButton setTitleColor:[EZTheme goldColor]
+                                   forState:UIControlStateNormal];
     [self.refreshVoicesButton addTarget:self
                                  action:@selector(refreshVoicesTapped:)
                        forControlEvents:UIControlEventTouchUpInside];
@@ -330,6 +341,7 @@ static NSString * const kEZElevenLabsURL         =
         initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.voicesSpinner.center = CGPointMake(m + w - 45, y + 12);
     self.voicesSpinner.hidesWhenStopped = YES;
+    self.voicesSpinner.color = [EZTheme goldColor];
     [self.scrollView addSubview:self.voicesSpinner];
     y += 36;
 
@@ -352,14 +364,19 @@ static NSString * const kEZElevenLabsURL         =
     l.minimumScaleFactor = 0.5;
     l.text = text;
     l.font = [UIFont systemFontOfSize:11 weight:UIFontWeightSemibold];
-    l.textColor = [UIColor secondaryLabelColor];
+    l.textColor = [EZTheme goldColor];
     return l;
 }
 
 - (UITextField *)makeTextField:(NSString *)placeholder frame:(CGRect)frame {
     UITextField *tf = [[UITextField alloc] initWithFrame:frame];
-    tf.placeholder = placeholder;
     tf.borderStyle = UITextBorderStyleRoundedRect;
+    tf.backgroundColor = [EZTheme cardColor];
+    tf.textColor = [EZTheme primaryTextColor];
+    tf.tintColor = [EZTheme goldColor];
+    tf.attributedPlaceholder = [[NSAttributedString alloc]
+        initWithString:placeholder ?: @""
+            attributes:@{ NSForegroundColorAttributeName: [EZTheme secondaryTextColor] }];
     tf.delegate = self;
     return tf;
 }
@@ -372,7 +389,8 @@ static NSString * const kEZElevenLabsURL         =
     [b setTitle:title forState:UIControlStateNormal];
     b.titleLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];
     b.layer.cornerRadius = 8;
-    b.backgroundColor = [UIColor systemFillColor];
+    b.backgroundColor = [EZTheme cardColor];
+    [b setTitleColor:[EZTheme primaryTextColor] forState:UIControlStateNormal];
     [b addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
     b.enabled = NO;
     return b;
@@ -386,17 +404,17 @@ static NSString * const kEZElevenLabsURL         =
     [b setTitle:title forState:UIControlStateNormal];
     b.titleLabel.font = [UIFont systemFontOfSize:14];
     b.layer.cornerRadius = 8;
-    b.backgroundColor = [UIColor systemGray5Color];
-    [b setTitleColor:[UIColor labelColor] forState:UIControlStateNormal];
+    b.backgroundColor = [EZTheme cardColor];
+    [b setTitleColor:[EZTheme primaryTextColor] forState:UIControlStateNormal];
     b.layer.borderWidth = 0.5;
-    b.layer.borderColor = [UIColor systemGray3Color].CGColor;
+    b.layer.borderColor = [EZTheme hairlineColor].CGColor;
     [b addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
     return b;
 }
 
 - (UIView *)makeDivider:(CGRect)frame {
     UIView *v = [[UIView alloc] initWithFrame:frame];
-    v.backgroundColor = [UIColor separatorColor];
+    v.backgroundColor = [EZTheme hairlineColor];
     return v;
 }
 
@@ -570,7 +588,7 @@ static NSString * const kEZElevenLabsURL         =
     self.timerLabel.text = @"00:00";
 
     [self.recordButton setTitle:NSLocalizedString(@"ElevenLabsClone.StopRecording", @"Stop recording button") forState:UIControlStateNormal];
-    self.recordButton.backgroundColor = [UIColor systemGrayColor];
+    self.recordButton.backgroundColor = [EZTheme cardColor];
     [self setFileActionsEnabled:NO];
 
     [self startMeterTimer];
@@ -1218,7 +1236,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         empty.minimumScaleFactor = 0.5;
         empty.text = NSLocalizedString(@"ElevenLabsClone.NoClonedVoices", @"Empty cloned voices list message");
         empty.font = [UIFont systemFontOfSize:13];
-        empty.textColor = [UIColor secondaryLabelColor];
+        empty.textColor = [EZTheme secondaryTextColor];
         empty.numberOfLines = 2;
         [self.voicesContainerView addSubview:empty];
         y += 60;
@@ -1235,7 +1253,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             if (i < visibleCount - 1) {
                 UIView *sep = [[UIView alloc]
                     initWithFrame:CGRectMake(m, y, w, 0.5)];
-                sep.backgroundColor = [UIColor separatorColor];
+                sep.backgroundColor = [EZTheme hairlineColor];
                 [self.voicesContainerView addSubview:sep];
                 y += 0.5;
             }
@@ -1249,7 +1267,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                               (unsigned long)visibleCount,
                               (unsigned long)self.myVoices.count];
             moreLabel.font = [UIFont systemFontOfSize:12];
-            moreLabel.textColor = [UIColor secondaryLabelColor];
+            moreLabel.textColor = [EZTheme secondaryTextColor];
             [self.voicesContainerView addSubview:moreLabel];
             y += 26;
 
@@ -1291,6 +1309,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     nameLbl.minimumScaleFactor = 0.5;
     nameLbl.text = name;
     nameLbl.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
+    nameLbl.textColor = [EZTheme primaryTextColor];
     nameLbl.numberOfLines = 1;
     nameLbl.lineBreakMode = NSLineBreakByTruncatingTail;
     [row addSubview:nameLbl];
@@ -1307,7 +1326,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         ? [NSString stringWithFormat:@"%@  ·  %@", shortID, cat]
         : shortID;
     detailLbl.font = [UIFont systemFontOfSize:11];
-    detailLbl.textColor = [UIColor secondaryLabelColor];
+    detailLbl.textColor = [EZTheme secondaryTextColor];
     detailLbl.numberOfLines = 1;
     detailLbl.lineBreakMode = NSLineBreakByTruncatingMiddle;
     [row addSubview:detailLbl];
