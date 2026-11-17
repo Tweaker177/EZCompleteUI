@@ -2845,7 +2845,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     }
 
-    UILabel *amountLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 158, 248, 30)];
+    UILabel *amountLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 150, 248, 54)];
 
     amountLabel.text          = [self freeSpinsAmountTextForCount:0];
 
@@ -2857,7 +2857,9 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     amountLabel.adjustsFontSizeToFitWidth = YES;
 
-    amountLabel.minimumScaleFactor        = 0.65;
+    amountLabel.numberOfLines = 2;
+
+    amountLabel.minimumScaleFactor        = 0.5;
 
     [card addSubview:amountLabel];
 
