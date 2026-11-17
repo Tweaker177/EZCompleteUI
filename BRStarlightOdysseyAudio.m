@@ -574,6 +574,11 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 }
 
 - (void)buildEngine {
+    // Match the other slot machines (PR #114): Playback + MixWithOthers so
+    // the theme layers over music already playing instead of taking over
+    // the session. Without this the machine inherits the picker's Ambient
+    // category and obeys the silent switch, unlike the other five machines.
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:nil];
     AVAudioEngine *engine = [AVAudioEngine new];
     NSMutableArray *voices = [NSMutableArray array];
     for (int i = 0; i < kVoiceCount; i++) {
@@ -660,7 +665,7 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
     self.rollLevel = level;
     [self duckTheme:YES];
     [self.rollNode stop];
-    self.rollNode.volume = 0.42 + 0.2 * level;
+    self.rollNode.volume = MIN(1.0f, 0.42f + 0.2f * level);
     [self.rollNode scheduleBuffer:buffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil];
     [self.rollNode play];
 }
