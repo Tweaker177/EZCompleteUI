@@ -198,6 +198,9 @@ static UIImage *SOParticleImage(BOOL coin) {
 @property (nonatomic, strong) NSDictionary *result;
 // Card pick
 @property (nonatomic, strong) NSMutableArray<UIView *> *pickCards;      // by identity 0...2
+@property (nonatomic, strong) NSMutableArray<UIView *> *pickCardBacks;   // parallel to pickCards
+@property (nonatomic, strong) NSMutableArray<UIView *> *pickCardFronts;  // parallel to pickCards
+@property (nonatomic, strong) NSMutableArray<UILabel *> *pickCardValues; // parallel to pickCards
 @property (nonatomic, strong) NSMutableArray<UIView *> *pickSlots;      // card in each slot, left to right
 @property (nonatomic, strong) UILabel *pickTitle, *pickSubtitle, *pickPrompt;
 @end
@@ -211,9 +214,8 @@ static UIImage *SOParticleImage(BOOL coin) {
     NSInteger _lines, _betIndex;
     NSInteger _balance;                 // what the label shows
     NSInteger _freeRemaining, _bonusMult, _bonusTotal, _bonusLines, _bonusBet, _lastAwarded, _spinWager;
-    BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving, _balanceChecked;
+    BOOL _pickPending, _bonusMode, _busy, _spinFree, _leaving, _pickEnabled, _pickInFlight, _stripsBuilt, _reelsMoving, _balanceChecked, _forceBonusArmed;
     NSUInteger _epoch;
-    NSUInteger _balanceGeneration, _stateGeneration;
     NSTimeInterval _celebrationEnd;
     CGFloat _cellSize;
 }
@@ -496,6 +498,10 @@ static UIImage *SOParticleImage(BOOL coin) {
     self.spinButton = [self controlButton:SOLoc(@"BRSlot.SO.Spin", @"SPIN") color:SOC(0xC8141E) action:@selector(spinTapped)];
     self.spinButton.titleLabel.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
     self.spinButton.layer.borderWidth = 2.5;
+    UILongPressGestureRecognizer *forceBonusHold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(forceBonusHold:)];
+    forceBonusHold.minimumPressDuration = 10.0;
+    forceBonusHold.cancelsTouchesInView = YES;
+    [self.spinButton addGestureRecognizer:forceBonusHold];
 
     [content addSubview:title]; [content addSubview:subtitle]; [content addSubview:info]; [content addSubview:self.bannerLabel];
     [content addSubview:self.machine]; [content addSubview:self.messageLabel]; [content addSubview:self.totalBetLabel];
@@ -648,9 +654,7 @@ static UIImage *SOParticleImage(BOOL coin) {
 - (NSInteger)betPerLine { return SOBets()[_betIndex].integerValue; }
 
 - (void)refreshLabels {
-    self.balanceLabel.text = _balanceChecked
-        ? [NSString stringWithFormat:SOLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)_balance]
-        : @"🪙 —";
+    self.balanceLabel.text = [NSString stringWithFormat:SOLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)_balance];
     NSInteger lines = _bonusMode ? _bonusLines : _lines, bet = _bonusMode ? _bonusBet : [self betPerLine];
     self.linesButton.titleLabel.text = nil;
     [self.linesButton setTitle:[NSString stringWithFormat:SOLoc(@"BRSlot.SO.Lines", @"LINES\n%ld"), (long)lines] forState:UIControlStateNormal];
@@ -708,6 +712,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     _lines = SO_MAX_LINES;
     _betIndex = (NSInteger)SOBets().count - 1;
     [self refreshLabels];
+    [self checkBalanceSilently];
     [self spinTapped];
 }
 
@@ -768,10 +773,14 @@ static UIImage *SOParticleImage(BOOL coin) {
 /// Syncs balance and any in-progress bonus, and resumes it if the player left
 /// mid-way (including a card pick that was never made).
 - (void)refreshState {
-    [self checkBalanceSilently];
-    NSUInteger generation = ++_stateGeneration;
+    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+        if (self->_busy) return;
+        self->_balance = balance;
+        self->_balanceChecked = YES;
+        [self refreshLabels];
+    }];
     [self request:@{@"action": @"status"} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
-        if (self->_leaving || self->_busy || generation != self->_stateGeneration || !result || error) return;
+        if (self->_leaving || self->_busy || !result || error) return;
         self->_freeRemaining = SOInteger(result[@"free_spins_remaining"]);
         self->_pickPending = SOBool(result[@"pick_pending"]);
         self->_bonusMult = SOInteger(result[@"multiplier"]);
@@ -797,29 +806,66 @@ static UIImage *SOParticleImage(BOOL coin) {
 
 #pragma mark Spinning
 
-/// Refreshes the displayed balance without gating spins. A later refresh or
-/// spin invalidates earlier callbacks, even if they arrive after play ends.
+/// Fills the balance cache without ever blocking a spin and without ever
+/// putting a "checking" message on screen. Runs on screen entry (via
+/// refreshState), after every settled spin, and whenever the bet changes;
+/// the spin path trusts the cache and fires immediately.
 - (void)checkBalanceSilently {
-    NSUInteger generation = ++_balanceGeneration;
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (self->_leaving || generation != self->_balanceGeneration || balance < 0) return;
-            self->_balance = balance;
-            self->_balanceChecked = YES;
-            [self refreshLabels];
-        });
+        if (self->_busy || self->_leaving) return;
+        self->_balance = balance;
+        self->_balanceChecked = YES;
+        [self refreshLabels];
     }];
+}
+
+// Test back door: a 10-second hold on SPIN arms a forced bonus for
+// the next paid spin (a heavy buzz confirms it armed). The server
+// honors force_bonus only for the owner's accounts, so for every
+// other player the hold does nothing at all.
+- (void)forceBonusHold:(UILongPressGestureRecognizer *)recognizer {
+    if (recognizer.state != UIGestureRecognizerStateBegan) return;
+    if (_busy || _pickPending) return;
+    _forceBonusArmed = YES;
+    [self haptic:UIImpactFeedbackStyleHeavy];
 }
 
 - (void)spinTapped {
     if (_busy || _bonusMode || _freeRemaining > 0) return;
-    // The server, not a potentially stale local balance, decides affordability.
-    [self beginSpinFree:NO];
+    NSInteger wager = _lines * [self betPerLine];
+    if (_balanceChecked) {
+        // Balance was verified after the last spin, on the last bet change, or on
+        // screen entry, and coins only move through spins settled on this screen —
+        // trust the cache and fire immediately instead of waiting on a round trip.
+        if (_balance < wager) {
+            [self setMessage:[NSString stringWithFormat:SOLoc(@"BRSlot.SO.NeedCoins", @"You need %ld coins for that bet."), (long)wager] highlight:NO];
+            [self showCoinStore];
+            return;
+        }
+        [self beginSpinFree:NO];
+        return;
+    }
+    // Cold cache (first spin before the entry refresh lands): one real check,
+    // still silent — no "checking" message.
+    _busy = YES;
+    [self updateControls];
+    [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {
+        if (self->_leaving) return;
+        self->_balance = balance;
+        self->_balanceChecked = YES;
+        [self refreshLabels];
+        if (balance < wager) {
+            self->_busy = NO;
+            [self updateControls];
+            [self setMessage:[NSString stringWithFormat:SOLoc(@"BRSlot.SO.NeedCoins", @"You need %ld coins for that bet."), (long)wager] highlight:NO];
+            [self showCoinStore];
+            return;
+        }
+        [self beginSpinFree:NO];
+    }];
 }
 
 - (void)beginSpinFree:(BOOL)free {
-    ++_balanceGeneration;
-    ++_stateGeneration;
     _busy = YES;
     _spinFree = free;
     [self updateControls];
@@ -828,8 +874,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     NSInteger bet = free ? _bonusBet : [self betPerLine];
     _spinWager = free ? 0 : lines * bet;
     if (free) { _freeRemaining = MAX(0, _freeRemaining - 1); }
-    else if (_balanceChecked && _balance >= _spinWager) { _balance -= _spinWager; }
-    else { _balanceChecked = NO; }
+    else { _balance -= _spinWager; }
     self.winLabel.text = @"0";
     [self refreshLabels];
     [self refreshBanner];
@@ -839,7 +884,9 @@ static UIImage *SOParticleImage(BOOL coin) {
     [self haptic:UIImpactFeedbackStyleMedium];
 
     NSUInteger epoch = _epoch;
-    [self request:@{@"lines": @(lines), @"bet_per_line": @(bet)} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
+    NSMutableDictionary *spinBody = [@{@"lines": @(lines), @"bet_per_line": @(bet)} mutableCopy];
+    if (_forceBonusArmed && !free) { spinBody[@"force_bonus"] = @YES; _forceBonusArmed = NO; }
+    [self request:spinBody completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_epoch != epoch || self->_leaving) return;
         if (error || ![self parseResult:result]) {
             [self failSpin:error ?: SOLoc(@"BRSlot.SO.BadResponse", @"Unexpected response. Your balance is unchanged.") status:status];
@@ -851,7 +898,6 @@ static UIImage *SOParticleImage(BOOL coin) {
 
 - (void)failSpin:(NSString *)message status:(NSInteger)status {
     _balanceChecked = NO;
-    [self refreshLabels];
     [self stopReelLoops];
     _reelsMoving = NO;
     [self.audio stopDrumRoll];
@@ -974,9 +1020,7 @@ static UIImage *SOParticleImage(BOOL coin) {
         _bonusLines = _lines; _bonusBet = [self betPerLine]; _bonusMult = 0; _bonusTotal = 0;
     }
     [EZEntitlementManager.shared applyKnownBalance:balance];
-    // Keep the display's prior known/unknown state until presentWinsThen:
-    // sets _balance from the result. Marking it known here would expose a
-    // stale value when the optimistic balance was unavailable.
+    _balanceChecked = YES;
 
     NSTimeInterval wait = 0;
     if (awarded > 0 && _hatTotal < SO_MAX_SCATTERS) {
@@ -993,9 +1037,6 @@ static UIImage *SOParticleImage(BOOL coin) {
 }
 
 - (void)afterSpin {
-    // Start after the win-count animation so the refresh cannot be painted
-    // over by its scheduled label updates. The next spin invalidates it.
-    [self checkBalanceSilently];
     BOOL triggered = _lastAwarded > 0;
     if (_spinFree) {
         if (_freeRemaining > 0) {
@@ -1017,6 +1058,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     }
     _busy = NO;
     [self updateControls];
+    if (_balance <= 0) [self after:0.5 do:^{ [self showCoinStore]; }];
 }
 
 #pragma mark Wins and highlights
@@ -1058,7 +1100,7 @@ static NSArray<UIColor *> *SOLineColors(void) {
     NSInteger balance = SOInteger(res[@"balance"]);
     NSInteger bet = SOInteger(res[@"bet_per_line"]) ?: 1;
     NSInteger lines = SOInteger(res[@"lines"]) ?: 1;
-    NSInteger fromBalance = _balanceChecked ? _balance : balance;
+    NSInteger fromBalance = _balance;
     _balance = balance;
     _balanceChecked = YES;
     NSArray *winners = [res[@"winning_lines"] isKindOfClass:NSArray.class] ? res[@"winning_lines"] : @[];
@@ -1321,6 +1363,9 @@ static NSArray<UIColor *> *SOLineColors(void) {
     [front addSubview:value];
     [card addSubview:back];
     [card addSubview:front];
+    [self.pickCardBacks addObject:back];
+    [self.pickCardFronts addObject:front];
+    [self.pickCardValues addObject:value];
     UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(cardTapped:)];
     [card addGestureRecognizer:tap];
     return card;
@@ -1358,6 +1403,9 @@ static NSArray<UIColor *> *SOLineColors(void) {
 
     CGFloat cardWidth = MIN(104, (width - 72) / 3), cardHeight = cardWidth * 1.4;
     self.pickCards = [NSMutableArray array];
+    self.pickCardBacks = [NSMutableArray array];
+    self.pickCardFronts = [NSMutableArray array];
+    self.pickCardValues = [NSMutableArray array];
     self.pickSlots = [NSMutableArray array];
     for (NSInteger i = 0; i < 3; i++) {
         _slotCenters[i] = CGPointMake(width / 2 + (i - 1) * (cardWidth + 14), height * 0.55);
@@ -1437,19 +1485,23 @@ static NSArray<UIColor *> *SOLineColors(void) {
     NSArray *cards = result[@"cards"];
     NSInteger multiplier = SOInteger(result[@"multiplier"]);
     for (NSInteger i = 0; i < 3; i++) {
-        UILabel *value = (UILabel *)[self.pickCards[i] viewWithTag:3];
-        value.text = [NSString stringWithFormat:@"×%ld", (long)SOInteger(cards[i])];
+        self.pickCardValues[i].text = [NSString stringWithFormat:@"×%ld", (long)SOInteger(cards[i])];
     }
-    void (^flip)(UIView *, BOOL) = ^(UIView *card, BOOL dim) {
+    // Flip via the direct back/front references, never viewWithTag: — each
+    // card's own tag IS its identity (0/1/2) while its back/front subviews
+    // use tags 1/2, so viewWithTag: matched the card itself first and only
+    // the identity-0 card ever flipped correctly (the PR #143 bug).
+    void (^flip)(NSInteger, BOOL) = ^(NSInteger i, BOOL dim) {
+        UIView *card = self.pickCards[i];
         [UIView transitionWithView:card duration:0.45 options:UIViewAnimationOptionTransitionFlipFromLeft animations:^{
-            [card viewWithTag:1].hidden = YES;
-            [card viewWithTag:2].hidden = NO;
+            self.pickCardBacks[i].hidden = YES;
+            self.pickCardFronts[i].hidden = NO;
         } completion:nil];
         if (dim) [UIView animateWithDuration:0.3 delay:0.3 options:0 animations:^{ card.alpha = 0.5; } completion:nil];
     };
     UIView *picked = self.pickCards[identity];
     [self.pickOverlay bringSubviewToFront:picked];
-    flip(picked, NO);
+    flip(identity, NO);
     [UIView animateWithDuration:0.45 animations:^{ picked.transform = CGAffineTransformMakeScale(1.18, 1.18); }];
     [self.audio playMultiplierReveal:multiplier];
     self.pickPrompt.text = [NSString stringWithFormat:SOLoc(@"BRSlot.SO.Pick.Result", @"Your multiplier: ×%ld"), (long)multiplier];
@@ -1458,8 +1510,7 @@ static NSArray<UIColor *> *SOLineColors(void) {
     NSTimeInterval delay = 0.8;
     for (NSInteger i = 0; i < 3; i++) {
         if (i == identity) continue;
-        UIView *card = self.pickCards[i];
-        [self after:delay do:^{ flip(card, YES); }];
+        [self after:delay do:^{ flip(i, YES); }];
         delay += 0.35;
     }
     _bonusMult = multiplier;
