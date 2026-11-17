@@ -503,3 +503,212 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     return configuration;
 }
 @end
+
+#pragma mark - Big win celebration
+
+/// Fireworks + coin-volcano celebration for huge wins, shared by every
+/// slot machine. All artwork is drawn in code at runtime (no image
+/// assets): gold coins for the volcano, stars and sparks for the
+/// fireworks. The overlay never takes touches and removes itself.
+@implementation BRSlotCelebration
+
++ (UIImage *)brs_coinImage {
+    static UIImage *image = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        CGSize size = CGSizeMake(30, 30);
+        image = [[[UIGraphicsImageRenderer alloc] initWithSize:size] imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull ctx) {
+            CGRect bounds = CGRectMake(0, 0, size.width, size.height);
+            [[UIColor colorWithRed:0.72 green:0.48 blue:0.04 alpha:1] setFill];
+            [[UIBezierPath bezierPathWithOvalInRect:bounds] fill];
+            [[UIColor colorWithRed:1.00 green:0.78 blue:0.10 alpha:1] setFill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectInset(bounds, 2.5, 2.5)] fill];
+            [[UIColor colorWithRed:1.00 green:0.92 blue:0.50 alpha:1] setFill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectInset(bounds, 6.5, 6.5)] fill];
+        }];
+    });
+    return image;
+}
+
++ (UIImage *)brs_starImage {
+    static UIImage *image = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        CGSize size = CGSizeMake(24, 24);
+        image = [[[UIGraphicsImageRenderer alloc] initWithSize:size] imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull ctx) {
+            UIBezierPath *star = [UIBezierPath bezierPath];
+            CGFloat cx = 12, cy = 12, rOuter = 11, rInner = 4.6;
+            for (NSInteger i = 0; i < 10; i++) {
+                CGFloat r = (i % 2 == 0) ? rOuter : rInner;
+                CGFloat a = (CGFloat)(-M_PI_2 + i * M_PI / 5);
+                CGPoint pt = CGPointMake(cx + r * (CGFloat)cos(a), cy + r * (CGFloat)sin(a));
+                if (i == 0) [star moveToPoint:pt]; else [star addLineToPoint:pt];
+            }
+            [star closePath];
+            [[UIColor colorWithRed:1.00 green:0.85 blue:0.25 alpha:1] setFill];
+            [star fill];
+        }];
+    });
+    return image;
+}
+
++ (UIImage *)brs_sparkImage {
+    static UIImage *image = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        CGSize size = CGSizeMake(10, 10);
+        image = [[[UIGraphicsImageRenderer alloc] initWithSize:size] imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull ctx) {
+            [[UIColor whiteColor] setFill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(0, 0, size.width, size.height)] fill];
+        }];
+    });
+    return image;
+}
+
++ (CAEmitterLayer *)brs_fireworkAt:(CGPoint)position {
+    CAEmitterLayer *layer = [CAEmitterLayer layer];
+    layer.emitterPosition = position;
+    layer.emitterShape = kCAEmitterLayerPoint;
+    layer.renderMode = kCAEmitterLayerAdditive;
+    CAEmitterCell *star = [CAEmitterCell emitterCell];
+    star.contents = (id)[self brs_starImage].CGImage;
+    star.birthRate = 90;
+    star.lifetime = 1.4;
+    star.lifetimeRange = 0.4;
+    star.velocity = 230;
+    star.velocityRange = 90;
+    star.emissionRange = (CGFloat)(2 * M_PI);
+    star.yAcceleration = 150;
+    star.scale = 0.55;
+    star.scaleRange = 0.25;
+    star.alphaSpeed = -0.7;
+    star.spin = 2;
+    star.spinRange = 4;
+    CAEmitterCell *spark = [CAEmitterCell emitterCell];
+    spark.contents = (id)[self brs_sparkImage].CGImage;
+    spark.birthRate = 150;
+    spark.lifetime = 1.1;
+    spark.lifetimeRange = 0.3;
+    spark.velocity = 285;
+    spark.velocityRange = 120;
+    spark.emissionRange = (CGFloat)(2 * M_PI);
+    spark.yAcceleration = 170;
+    spark.scale = 0.5;
+    spark.scaleRange = 0.2;
+    spark.alphaSpeed = -0.9;
+    spark.color = [UIColor colorWithRed:1.00 green:0.80 blue:0.30 alpha:1].CGColor;
+    layer.emitterCells = @[star, spark];
+    return layer;
+}
+
++ (CAEmitterLayer *)brs_coinVolcanoAt:(CGPoint)position width:(CGFloat)width mega:(BOOL)mega {
+    CAEmitterLayer *layer = [CAEmitterLayer layer];
+    layer.emitterPosition = position;
+    layer.emitterShape = kCAEmitterLayerLine;
+    layer.emitterSize = CGSizeMake(width, 1);
+    layer.emitterMode = kCAEmitterLayerOutline;
+    CAEmitterCell *coin = [CAEmitterCell emitterCell];
+    coin.contents = (id)[self brs_coinImage].CGImage;
+    coin.birthRate = mega ? 170 : 120;
+    coin.lifetime = 2.6;
+    coin.lifetimeRange = 0.5;
+    coin.velocity = 560;
+    coin.velocityRange = 150;
+    coin.emissionLongitude = (CGFloat)(-M_PI_2);
+    coin.emissionRange = 0.45;
+    coin.yAcceleration = 980;
+    coin.spin = 3;
+    coin.spinRange = 7;
+    coin.scale = 0.8;
+    coin.scaleRange = 0.35;
+    layer.emitterCells = @[coin];
+    return layer;
+}
+
++ (BOOL)celebrateBigWinInView:(UIView *)hostView payout:(NSInteger)payout totalBet:(NSInteger)totalBet {
+    if (!hostView || totalBet <= 0 || payout <= 0) return NO;
+    NSInteger multiple = payout / totalBet;
+    if (multiple < 25) return NO;
+    BOOL mega = multiple >= 75;
+
+    UIView *overlay = [[UIView alloc] initWithFrame:hostView.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.userInteractionEnabled = NO;
+    overlay.backgroundColor = UIColor.clearColor;
+    [hostView addSubview:overlay];
+    CGSize size = overlay.bounds.size;
+    BOOL reduceMotion = UIAccessibilityIsReduceMotionEnabled();
+
+    if (!reduceMotion) {
+        CAEmitterLayer *volcano = [self brs_coinVolcanoAt:CGPointMake(size.width / 2, size.height * 0.97)
+                                                    width:MIN(150, size.width * 0.42) mega:mega];
+        [overlay.layer addSublayer:volcano];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((mega ? 2.4 : 1.6) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            volcano.birthRate = 0;
+        });
+        NSArray<NSValue *> *spots = mega
+            ? @[[NSValue valueWithCGPoint:CGPointMake(0.16, 0.20)], [NSValue valueWithCGPoint:CGPointMake(0.38, 0.12)],
+                [NSValue valueWithCGPoint:CGPointMake(0.62, 0.22)], [NSValue valueWithCGPoint:CGPointMake(0.84, 0.13)],
+                [NSValue valueWithCGPoint:CGPointMake(0.50, 0.30)]]
+            : @[[NSValue valueWithCGPoint:CGPointMake(0.22, 0.18)], [NSValue valueWithCGPoint:CGPointMake(0.52, 0.11)],
+                [NSValue valueWithCGPoint:CGPointMake(0.80, 0.19)]];
+        [spots enumerateObjectsUsingBlock:^(NSValue *value, NSUInteger idx, BOOL *stop) {
+            CGPoint fraction = value.CGPointValue;
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(idx * 0.28 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                if (!overlay.superview) return;
+                CAEmitterLayer *burst = [self brs_fireworkAt:CGPointMake(size.width * fraction.x, size.height * fraction.y)];
+                [overlay.layer addSublayer:burst];
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    burst.birthRate = 0;
+                });
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    [burst removeFromSuperlayer];
+                });
+            });
+        }];
+    }
+
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, size.width - 32, mega ? 74 : 60)];
+    title.text = mega ? @"MEGA WIN!" : @"BIG WIN!";
+    title.font = [UIFont systemFontOfSize:mega ? 58 : 46 weight:UIFontWeightBlack];
+    title.textColor = [UIColor colorWithRed:1.00 green:0.80 blue:0.15 alpha:1];
+    title.textAlignment = NSTextAlignmentCenter;
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.6;
+    title.layer.shadowColor = UIColor.blackColor.CGColor;
+    title.layer.shadowOpacity = 0.5;
+    title.layer.shadowRadius = 7;
+    title.layer.shadowOffset = CGSizeMake(0, 3);
+    UILabel *sub = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(title.frame) + 2, size.width - 32, 30)];
+    sub.text = [NSString stringWithFormat:@"+%ld COINS · ×%ld", (long)payout, (long)multiple];
+    sub.font = [UIFont systemFontOfSize:21 weight:UIFontWeightHeavy];
+    sub.textColor = UIColor.whiteColor;
+    sub.textAlignment = NSTextAlignmentCenter;
+    sub.adjustsFontSizeToFitWidth = YES;
+    sub.minimumScaleFactor = 0.6;
+    sub.layer.shadowColor = UIColor.blackColor.CGColor;
+    sub.layer.shadowOpacity = 0.5;
+    sub.layer.shadowRadius = 5;
+    sub.layer.shadowOffset = CGSizeMake(0, 2);
+    UIView *banner = [[UIView alloc] initWithFrame:CGRectMake(0, size.height * 0.30, size.width, CGRectGetMaxY(sub.frame))];
+    banner.userInteractionEnabled = NO;
+    [banner addSubview:title];
+    [banner addSubview:sub];
+    banner.transform = CGAffineTransformMakeScale(0.3, 0.3);
+    banner.alpha = 0;
+    [overlay addSubview:banner];
+    [UIView animateWithDuration:0.55 delay:0 usingSpringWithDamping:0.55 initialSpringVelocity:0.8 options:0 animations:^{
+        banner.transform = CGAffineTransformIdentity;
+        banner.alpha = 1;
+    } completion:nil];
+
+    NSTimeInterval total = reduceMotion ? 1.8 : (mega ? 4.2 : 3.0);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(total * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [UIView animateWithDuration:0.35 animations:^{ overlay.alpha = 0; } completion:^(BOOL finished) {
+            [overlay removeFromSuperview];
+        }];
+    });
+    return YES;
+}
+
+@end

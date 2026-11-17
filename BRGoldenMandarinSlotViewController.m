@@ -1102,6 +1102,9 @@ static NSArray<UIColor *> *GMLineColors(void) {
         [self after:_spinFree ? 0.5 : 0.2 do:completion];
         return;
     }
+    if ([BRSlotCelebration celebrateBigWinInView:self.view payout:payout totalBet:MAX(1, lines * bet)]) {
+        [self.audio playBonusFanfare];
+    }
     [self.audio playWinForPayoutRatio:(double)payout / (double)MAX(1, lines * bet)];
     [self countLabel:self.winLabel from:0 to:payout duration:0.9 formatter:^NSString *(NSInteger v) { return GMNum(v); }];
     [self countLabel:self.balanceLabel from:fromBalance to:balance duration:0.9 formatter:^NSString *(NSInteger v) {
