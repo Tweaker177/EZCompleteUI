@@ -9435,9 +9435,8 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
 //     GitHub until the user approves it here; the same request is then re-sent
 //     with confirmed:YES. Declining is reported back to the model as a fact.
 //
-// Loop guard: at most kEZChatGitHubMaxRounds GitHub steps per user message
-// (githubRoundCount is reset by -callChatCompletions, the user-send entry
-// point). After the model's final answer lands, old results are trimmed
+// githubRoundCount is reset by -callChatCompletions, the user-send entry
+// point. After the model's final answer lands, old results are trimmed
 // (-ez_compactGitHubResults) so later turns don't re-send whole files.
 
 static NSInteger const kEZChatLocalFileMaxRounds = 8;
