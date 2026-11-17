@@ -18,6 +18,7 @@
 
 #import <QuickLook/QuickLook.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "EZTheme.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -210,7 +211,7 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
 
     if (self.mode == EZFileExplorerModeHome) {
         self.appRoots = [self ez_buildAppRoots];
@@ -224,6 +225,9 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
     self.tableView.delegate = self;
     self.tableView.allowsMultipleSelectionDuringEditing = YES;
     self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
+    self.tableView.backgroundColor = [EZTheme chatBackgroundColor];
+    self.tableView.separatorColor = [EZTheme hairlineColor];
+    self.tableView.tintColor = [EZTheme goldColor];
     [self.view addSubview:self.tableView];
 
     self.refreshControl = [[UIRefreshControl alloc] init];
@@ -231,18 +235,20 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
                             action:@selector(ez_reload)
                   forControlEvents:UIControlEventValueChanged];
     self.tableView.refreshControl = self.refreshControl;
+    self.refreshControl.tintColor = [EZTheme goldColor];
 
     self.spinner = [[UIActivityIndicatorView alloc]
         initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
     self.spinner.translatesAutoresizingMaskIntoConstraints = NO;
     self.spinner.hidesWhenStopped = YES;
+    self.spinner.color = [EZTheme goldColor];
     [self.view addSubview:self.spinner];
 
     self.emptyLabel = [[UILabel alloc] init];
     self.emptyLabel.adjustsFontSizeToFitWidth = YES;
     self.emptyLabel.minimumScaleFactor = 0.5;
     self.emptyLabel.translatesAutoresizingMaskIntoConstraints = NO;
-    self.emptyLabel.textColor = [UIColor secondaryLabelColor];
+    self.emptyLabel.textColor = [EZTheme secondaryTextColor];
     self.emptyLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     self.emptyLabel.textAlignment = NSTextAlignmentCenter;
     self.emptyLabel.numberOfLines = 0;
@@ -273,6 +279,10 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
     self.navigationItem.searchController = self.searchController;
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
     self.definesPresentationContext = YES;
+    self.searchController.searchBar.barStyle = UIBarStyleBlack;
+    self.searchController.searchBar.tintColor = [EZTheme goldColor];
+    self.searchController.searchBar.searchTextField.backgroundColor = [EZTheme cardColor];
+    self.searchController.searchBar.searchTextField.textColor = [EZTheme primaryTextColor];
 
     if (self.mode == EZFileExplorerModeFolder) {
         UIBarButtonItem *sortItem = [[UIBarButtonItem alloc]
@@ -308,6 +318,15 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
                    action:@selector(ez_doneTapped)];
     }
 
+    self.navigationItem.standardAppearance = [EZTheme navigationBarAppearance];
+    self.navigationItem.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.tintColor = [EZTheme goldColor];
+    UIToolbarAppearance *toolbarAppearance = [UIToolbarAppearance new];
+    [toolbarAppearance configureWithOpaqueBackground];
+    toolbarAppearance.backgroundColor = [EZTheme cardColor];
+    self.navigationController.toolbar.standardAppearance = toolbarAppearance;
+    self.navigationController.toolbar.scrollEdgeAppearance = toolbarAppearance;
+    self.navigationController.toolbar.tintColor = [EZTheme goldColor];
     [self ez_reload];
 }
 
@@ -516,6 +535,14 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
         : NSLocalizedString(@"EZFileExplorer.SectionDevice", @"Device section header");
 }
 
+- (void)tableView:(UITableView *)tableView
+    willDisplayHeaderView:(UIView *)view
+               forSection:(NSInteger)section {
+    UITableViewHeaderFooterView *header = (UITableViewHeaderFooterView *)view;
+    header.textLabel.textColor = [EZTheme secondaryTextColor];
+    header.contentView.backgroundColor = [UIColor clearColor];
+}
+
 - (NSInteger)tableView:(UITableView *)tableView
     numberOfRowsInSection:(NSInteger)section {
     if (self.mode == EZFileExplorerModeHome) {
@@ -538,12 +565,18 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
     if (!cell) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle
                                       reuseIdentifier:kCellID];
+        cell.backgroundColor = [UIColor clearColor];
+        UIView *selectedBG = [[UIView alloc] init];
+        selectedBG.backgroundColor = [EZTheme cardColor];
+        cell.selectedBackgroundView = selectedBG;
     }
     EZFileItem *item = [self ez_itemAtIndexPath:indexPath];
     UIListContentConfiguration *cfg = [UIListContentConfiguration cellConfiguration];
     cfg.text = item.displayName;
     cfg.image = [UIImage systemImageNamed:[self ez_symbolNameForItem:item]];
-    cfg.imageProperties.tintColor = [UIColor secondaryLabelColor];
+    cfg.textProperties.color = [EZTheme primaryTextColor];
+    cfg.secondaryTextProperties.color = [EZTheme secondaryTextColor];
+    cfg.imageProperties.tintColor = item.isDirectory ? [EZTheme goldColor] : [EZTheme secondaryTextColor];
     if (item.isDirectory) {
         cfg.secondaryText = [self ez_folderDetailForItem:item];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -796,7 +829,7 @@ static NSString * const kEZAppGroupIdentifier = @"group.com.i0stweak3r.ezcomplet
         completion(YES);
     }];
     share.image = [UIImage systemImageNamed:@"square.and.arrow.up"];
-    share.backgroundColor = [UIColor systemBlueColor];
+    share.backgroundColor = [EZTheme cardColor];
     [actions addObject:share];
 
     if ([self ez_canTrashItem:item]) {
@@ -1384,7 +1417,7 @@ handler:^(__kindof UIAction *a) {
         self.selectionCountLabel.minimumScaleFactor = 0.5;
         self.selectionCountLabel.font =
             [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
-        self.selectionCountLabel.textColor = [UIColor secondaryLabelColor];
+        self.selectionCountLabel.textColor = [EZTheme secondaryTextColor];
         self.selectionCountItem = [[UIBarButtonItem alloc]
             initWithCustomView:self.selectionCountLabel];
         self.createZipItem = [[UIBarButtonItem alloc]
@@ -1786,7 +1819,7 @@ handler:^(__kindof UIAction *a) {
 
     UIView *card = [[UIView alloc] init];
     card.translatesAutoresizingMaskIntoConstraints = NO;
-    card.backgroundColor = [UIColor secondarySystemBackgroundColor];
+    card.backgroundColor = [EZTheme cardColor];
     card.layer.cornerRadius = 14;
 
     self.progressTitleLabel = [[UILabel alloc] init];
@@ -1797,6 +1830,7 @@ handler:^(__kindof UIAction *a) {
         [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
     self.progressTitleLabel.text = title;
     self.progressTitleLabel.textAlignment = NSTextAlignmentCenter;
+    self.progressTitleLabel.textColor = [EZTheme primaryTextColor];
 
     self.progressEntryLabel = [[UILabel alloc] init];
     self.progressEntryLabel.adjustsFontSizeToFitWidth = YES;
@@ -1804,13 +1838,15 @@ handler:^(__kindof UIAction *a) {
     self.progressEntryLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.progressEntryLabel.font =
         [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
-    self.progressEntryLabel.textColor = [UIColor secondaryLabelColor];
+    self.progressEntryLabel.textColor = [EZTheme secondaryTextColor];
     self.progressEntryLabel.textAlignment = NSTextAlignmentCenter;
     self.progressEntryLabel.lineBreakMode = NSLineBreakByTruncatingMiddle;
 
     self.progressBar = [[UIProgressView alloc]
         initWithProgressViewStyle:UIProgressViewStyleDefault];
     self.progressBar.translatesAutoresizingMaskIntoConstraints = NO;
+    self.progressBar.progressTintColor = [EZTheme goldColor];
+    self.progressBar.trackTintColor = [EZTheme hairlineColor];
     self.progressBar.progress = 0;
 
     // Long operations can be cancelled (plan safety rail) — the
