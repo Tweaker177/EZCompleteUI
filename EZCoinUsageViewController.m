@@ -79,6 +79,7 @@ static NSString *friendlyFeatureName(NSString *feature) {
         @"brainrot_golden_mandarin_slots": @"Golden Mandarin Slots",
         @"brainrot_phoenix_pavilion_slots": @"Phoenix Pavilion Slots",
         @"brainrot_starlight_odyssey_slots": @"Starlight Odyssey Slots",
+        @"brainrot_penguin_parade_slots": @"Penguin Parade Slots",
     };
     return map[feature] ?: feature;
 }
