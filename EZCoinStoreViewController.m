@@ -97,6 +97,10 @@
 
 #import "EZCoinUsageViewController.h"
 
+#if APPSTORE
+#import "EZStoreKitManager.h"
+#endif
+
 #import "BRSlotMachineViewController.h"
 
 #import "BRPennySlotViewController.h"
@@ -706,6 +710,14 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [self addDailyCoinsButton];
 
     [self refreshDailyCoinsStatus];
+
+#if APPSTORE
+    // StoreKit: register the transaction observer (unfinished transactions
+    // from a previous session redeliver and verify here) and add the
+    // Restore Purchases button Apple requires for auto-renewable subs.
+    [[EZStoreKitManager shared] startObserving];
+    [self addRestorePurchasesButton];
+#endif
 
 #if DEBUG
     // Debug-only transaction inspector lives on the title row; customer-facing
@@ -2011,6 +2023,74 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 #endif
 
+#if APPSTORE
+// ── StoreKit: restore purchases + subscription management ────────────────────
+
+- (void)addRestorePurchasesButton {
+    UIButton *restoreButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [restoreButton setTitle:NSLocalizedStringWithDefaultValue(@"EZCoinStore.RestorePurchases", nil, [NSBundle mainBundle], @"Restore Purchases", @"Restore purchases button title")
+                   forState:UIControlStateNormal];
+    restoreButton.contentEdgeInsets = UIEdgeInsetsMake(6, 10, 6, 10);
+    restoreButton.titleLabel.font   = [UIFont systemFontOfSize:16.0];
+    [restoreButton addTarget:self
+                      action:@selector(restorePurchasesTapped:)
+            forControlEvents:UIControlEventTouchUpInside];
+    UIBarButtonItem *restoreItem = [[UIBarButtonItem alloc] initWithCustomView:restoreButton];
+    if (self.navigationItem.rightBarButtonItem) {
+        NSMutableArray *items = [self.navigationItem.rightBarButtonItems mutableCopy] ?: [NSMutableArray array];
+        if (self.navigationItem.rightBarButtonItem && ![items containsObject:self.navigationItem.rightBarButtonItem]) {
+            [items addObject:self.navigationItem.rightBarButtonItem];
+        }
+        [items addObject:restoreItem];
+        self.navigationItem.rightBarButtonItems = items;
+    } else {
+        self.navigationItem.rightBarButtonItem = restoreItem;
+    }
+}
+
+- (void)restorePurchasesTapped:(UIButton *)sender {
+    [self.spinner startAnimating];
+    self.tableView.userInteractionEnabled = NO;
+    [[EZStoreKitManager shared] restorePurchasesWithCompletion:^(BOOL restored, NSString *errorMessage) {
+        [self.spinner stopAnimating];
+        self.tableView.userInteractionEnabled = YES;
+        if (errorMessage) {
+            [self showAlert:NSLocalizedString(@"EZCoinStore.Alert.Error", @"Generic error alert title")
+                    message:errorMessage];
+            return;
+        }
+        if (restored) {
+            [[NSNotificationCenter defaultCenter]
+                postNotificationName:@"EZSubscriptionUpdated" object:nil];
+            [self refreshBalance];
+            [self showAlert:NSLocalizedStringWithDefaultValue(@"EZCoinStore.RestoreDone", nil, [NSBundle mainBundle], @"Purchases restored", @"Restore purchases success title")
+                    message:NSLocalizedStringWithDefaultValue(@"EZCoinStore.RestoreDoneMessage", nil, [NSBundle mainBundle], @"Your subscription has been restored.", @"Restore purchases success message")];
+        } else {
+            [self showAlert:NSLocalizedStringWithDefaultValue(@"EZCoinStore.RestoreNone", nil, [NSBundle mainBundle], @"Nothing to restore", @"Restore purchases none found title")
+                    message:NSLocalizedStringWithDefaultValue(@"EZCoinStore.RestoreNoneMessage", nil, [NSBundle mainBundle], @"No previous purchases were found for this Apple ID.", @"Restore purchases none found message")];
+        }
+    }];
+}
+
+- (void)presentManageSubscriptionsAlert {
+    UIAlertController *alert =
+        [UIAlertController alertControllerWithTitle:NSLocalizedString(@"EZCoinStore.Alert.CancelSubscription", @"Cancel subscription confirmation title")
+                                            message:NSLocalizedStringWithDefaultValue(@"EZCoinStore.ManageSubscriptionsMessage", nil, [NSBundle mainBundle], @"This subscription is managed by Apple. You can change or cancel it in your Apple ID subscriptions.", @"Manage subscriptions message for the App Store build")
+                                     preferredStyle:UIAlertControllerStyleAlert];
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZCoinStore.KeepPlan", @"Keep subscription button title")
+                                               style:UIAlertActionStyleCancel
+                                             handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedStringWithDefaultValue(@"EZCoinStore.ManageSubscriptions", nil, [NSBundle mainBundle], @"Manage Subscription", @"Manage subscription button title")
+                                               style:UIAlertActionStyleDefault
+                                             handler:^(UIAlertAction *action) {
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://apps.apple.com/account/subscriptions"]
+                                           options:@{}
+                                 completionHandler:nil];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+#endif
+
 /// User-facing coin usage history — triggered via the clock icon in the nav bar
 
 - (void)historyTapped {
@@ -2054,6 +2134,14 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     // If the user taps their current active plan, offer to cancel it
 
     if (item.isCurrentPlan && item.type == EZStoreItemTypeSubscription) {
+
+#if APPSTORE
+        // App Store subscriptions are managed by Apple, not the server —
+        // send the user to their Apple subscription page instead of the
+        // PayPal cancel flow.
+        [self presentManageSubscriptionsAlert];
+        return;
+#endif
 
         UIAlertController *cancelAlert = [UIAlertController
 
@@ -2345,6 +2433,37 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 - (void)startSubscriptionForTier:(NSString *)tierName token:(NSString *)token {
 
+#if APPSTORE
+    // App Store build: StoreKit purchase. All tiers are one subscription
+    // group, so switching plans needs no cancel step — Apple prorates and
+    // moves the subscription. The server grant lands via
+    // verify-appstore-purchase; mirror the PayPal path's success handling
+    // (refresh + EZSubscriptionUpdated) once it does.
+    [[EZStoreKitManager shared] purchaseSubscriptionTier:tierName
+        completion:^(EZStoreKitOutcome outcome, NSInteger coinsAdded, NSInteger balance, BOOL alreadyGranted, NSString *errorMessage) {
+            [self.spinner stopAnimating];
+            self.tableView.userInteractionEnabled = YES;
+            switch (outcome) {
+                case EZStoreKitOutcomeSuccess:
+                    [[NSNotificationCenter defaultCenter]
+                        postNotificationName:@"EZSubscriptionUpdated" object:nil];
+                    [self refreshBalance];
+                    break;
+                case EZStoreKitOutcomeFailed:
+                    [self showAlert:NSLocalizedString(@"EZCoinStore.Alert.Error", @"Generic error alert title")
+                            message:errorMessage ?: NSLocalizedString(@"EZCoinStore.Alert.CheckoutStartFailed", @"Checkout start failure message")];
+                    break;
+                case EZStoreKitOutcomeCancelled:
+                case EZStoreKitOutcomePendingVerification:
+                    [self refreshBalance];
+                    break;
+            }
+        }];
+    return;
+#endif
+
+#if !APPSTORE
+
     NSString *currentTier   = [EZEntitlementManager shared].currentTier;
 
     NSString *currentStatus = [EZEntitlementManager shared].currentStatus;
@@ -2372,6 +2491,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     }
 
 }
+
+#endif
 
 - (void)cancelCurrentSubscriptionWithToken:(NSString *)token
 
@@ -2409,6 +2530,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 }
 
+#if !APPSTORE
 - (void)createPayPalSubscriptionForTier:(NSString *)tierName token:(NSString *)token {
 
     // Sends the tier name, not a plan ID. The edge function resolves the real
@@ -2483,9 +2605,48 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 }
 
+#endif
+
 // ── One-time top-up checkout ──────────────────────────────────────────────────
 
 - (void)startTopUpForPackageID:(NSString *)packageID coins:(NSInteger)coins token:(NSString *)token {
+
+#if APPSTORE
+    // App Store build: StoreKit purchase (consumable). On a verified grant
+    // run the exact success path the PayPal capture uses — apply the known
+    // balance, celebrate, notify, then a delayed sync refresh.
+    [[EZStoreKitManager shared] purchaseTopUpPackage:packageID
+        completion:^(EZStoreKitOutcome outcome, NSInteger coinsAdded, NSInteger balance, BOOL alreadyGranted, NSString *errorMessage) {
+            [self.spinner stopAnimating];
+            self.tableView.userInteractionEnabled = YES;
+            switch (outcome) {
+                case EZStoreKitOutcomeSuccess:
+                    if (alreadyGranted) {
+                        [self refreshBalance];
+                    } else {
+                        [[EZEntitlementManager shared] applyKnownBalance:balance];
+                        [self showCoinCelebration:coinsAdded newBalance:balance];
+                        [[NSNotificationCenter defaultCenter]
+                            postNotificationName:@"EZSubscriptionUpdated" object:nil];
+                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)),
+                                       dispatch_get_main_queue(), ^{
+                            [self refreshBalance];
+                        });
+                    }
+                    break;
+                case EZStoreKitOutcomeFailed:
+                    [self showAlert:NSLocalizedString(@"EZCoinStore.Alert.Error", @"Generic error alert title")
+                            message:errorMessage ?: NSLocalizedString(@"EZCoinStore.Alert.PurchaseNotConfirmed", @"Purchase not confirmed fallback message")];
+                    [self refreshBalance];
+                    break;
+                case EZStoreKitOutcomeCancelled:
+                case EZStoreKitOutcomePendingVerification:
+                    [self refreshBalance];
+                    break;
+            }
+        }];
+    return;
+#endif
 
     // amount and coins are no longer sent -- create-paypal-order resolves
     // both server-side from package_id alone now, so a jailbroken client
@@ -2551,6 +2712,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 }
 
+#if !APPSTORE
 // ── SFSafariViewControllerDelegate ───────────────────────────────────────────
 
 - (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
@@ -2686,6 +2848,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     }] resume];
 
 }
+
+#endif
 
 // ── Coin celebration overlay ──────────────────────────────────────────────────
 
