@@ -29,6 +29,7 @@ static NSString *const kPGMutedKey = @"BRPenguinParadeMuted";
 static NSString *const kPGLinesKey = @"BRPenguinParadeLines";
 static NSString *const kPGBetKey = @"BRPenguinParadeBetIndex";
 static NSString *const kPGVIPBetKey = @"BRPenguinParadeVIPBetIndex";
+static NSString *const kPGMeterKey = @"BRPenguinParadeMeterEggs";   // display cache only; the server owns the real count
 static const NSInteger kPGLoopPeriod = 8;        // cells in the seamless blur loop
 static const CGFloat kPGLoopSpeed = 22.0;        // cells per second while blurring
 
@@ -132,7 +133,7 @@ static UIImage *PGParticleImage(BOOL coin) {
     footer.textColor = [UIColor colorWithWhite:1 alpha:.82];
     footer.font = [UIFont systemFontOfSize:13];
     footer.text = PGLoc(@"BRSlot.PG.Pays.Rules",
-        @"HOW TO PLAY\n\n• 9 paylines. Matching symbols pay left to right from reel 1: 3, 4 or 5 in a row. Prizes multiply your bet per line.\n• Golden Eggs are scatters and pay anywhere. A spin never shows more than five.\n• 3 eggs = 5–8 free spins, 4 eggs = 14–16, 5 eggs = 25–30.\n• Before free spins begin, pick one of three penguins holding an egg. Every egg hatches a chick wearing ×2, ×3 or ×5, and your pick multiplies every line win in the bonus.\n• Eggs during free spins add more spins (up to 100 banked).\n• Free spins cost nothing. Spins and payouts are decided on the server.");
+        @"HOW TO PLAY\n\n• 9 paylines. Matching symbols pay left to right from reel 1: 3, 4 or 5 in a row. Prizes multiply your bet per line.\n• Golden Eggs are scatters and pay anywhere. A spin never shows more than five.\n• 3 eggs = 5–8 free spins, 4 eggs = 14–16, 5 eggs = 25–30.\n• Before free spins begin, pick one of three penguins holding an egg. Every egg hatches a chick wearing ×2, ×3 or ×5, and your pick multiplies every line win in the bonus.\n• Eggs during free spins add more spins (up to 100 banked).\n• EGG METER: every golden egg that lands on any spin flies into the oval meter above the reels. When it is full it explodes and pays bonus coins, then starts over. It remembers its level between visits.\n• Free spins cost nothing. Spins and payouts are decided on the server.");
     CGSize fit = [footer sizeThatFits:CGSizeMake(UIScreen.mainScreen.bounds.size.width - 40, CGFLOAT_MAX)];
     UIView *wrap = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 100, fit.height + 40)];
     footer.frame = CGRectMake(20, 12, UIScreen.mainScreen.bounds.size.width - 40, fit.height);
@@ -186,6 +187,9 @@ static UIImage *PGParticleImage(BOOL coin) {
 @property (nonatomic, strong) UIScrollView *scroll;
 @property (nonatomic, strong) UILabel *balanceLabel, *winLabel, *bannerLabel, *messageLabel, *totalBetLabel;
 @property (nonatomic, strong) UIView *machine;
+@property (nonatomic, strong) UIView *meterView, *meterFill;      // the oval egg meter above the reels
+@property (nonatomic, strong) CAGradientLayer *meterGradient;
+@property (nonatomic, strong) UILabel *meterCount;
 @property (nonatomic, strong) NSMutableArray<UIView *> *reelViews;
 @property (nonatomic, strong) NSMutableArray<UIView *> *strips;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIImageView *> *> *stripCells;
@@ -208,6 +212,7 @@ static UIImage *PGParticleImage(BOOL coin) {
     int _eggTotal;
     CGPoint _slotCenters[3];
     NSInteger _lines, _betIndex;
+    NSInteger _meterEggs, _meterSize;   // egg meter as displayed (server-authoritative)
     NSInteger _balance;                 // what the label shows
     BOOL _balanceChecked;               // _balance verified by the server (entry, settle, or bet change)
     NSInteger _freeRemaining, _bonusMult, _bonusTotal, _bonusLines, _bonusBet, _lastAwarded, _spinWager;
@@ -226,6 +231,8 @@ static UIImage *PGParticleImage(BOOL coin) {
     _betIndex = [defaults objectForKey:[self betDefaultsKey]] ? MAX(0, MIN((NSInteger)[self activeBets].count - 1, [defaults integerForKey:[self betDefaultsKey]])) : 0;
     _bonusLines = _lines;
     _bonusBet = [self activeBets][_betIndex].integerValue;
+    _meterSize = 100;
+    _meterEggs = MAX(0, MIN(_meterSize, [defaults integerForKey:kPGMeterKey]));
     self.reelViews = [NSMutableArray array];
     self.strips = [NSMutableArray array];
     self.stripCells = [NSMutableArray array];
@@ -251,6 +258,7 @@ static UIImage *PGParticleImage(BOOL coin) {
     [super viewDidLayoutSubviews];
     self.background.frame = self.view.bounds;
     [self layoutReelsIfNeeded];
+    [self updateMeterAnimated:NO];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -413,11 +421,45 @@ static UIImage *PGParticleImage(BOOL coin) {
     self.bannerLabel.textAlignment = NSTextAlignmentCenter;
     self.bannerLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy];
     self.bannerLabel.textColor = PGGold();
-    self.bannerLabel.backgroundColor = [PGC(0x1A5A9A) colorWithAlphaComponent:.9];
-    self.bannerLabel.layer.cornerRadius = 12;
-    self.bannerLabel.layer.borderWidth = 1;
-    self.bannerLabel.layer.borderColor = [PGGold() colorWithAlphaComponent:.6].CGColor;
-    self.bannerLabel.clipsToBounds = YES;
+    self.bannerLabel.backgroundColor = UIColor.clearColor;
+    self.bannerLabel.shadowColor = [UIColor colorWithWhite:0 alpha:.75];
+    self.bannerLabel.shadowOffset = CGSizeMake(0, 1);
+
+    // The egg meter: an oval track that fills left to right. The banner text
+    // sits on top of it.
+    self.meterView = [UIView new];
+    self.meterView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.meterView.backgroundColor = [PGC(0x0A2344) colorWithAlphaComponent:.95];
+    self.meterView.layer.cornerRadius = 22;
+    self.meterView.layer.borderWidth = 1.5;
+    self.meterView.layer.borderColor = [PGGold() colorWithAlphaComponent:.65].CGColor;
+    self.meterView.clipsToBounds = YES;
+    self.meterFill = [UIView new];
+    self.meterFill.clipsToBounds = YES;
+    self.meterFill.layer.cornerRadius = 22;
+    self.meterGradient = [CAGradientLayer layer];
+    self.meterGradient.colors = @[(id)PGC(0x1E8FE0).CGColor, (id)PGC(0x6FD6FF).CGColor, (id)PGC(0xFFE48F).CGColor];
+    self.meterGradient.startPoint = CGPointMake(0, .5); self.meterGradient.endPoint = CGPointMake(1, .5);
+    [self.meterFill.layer addSublayer:self.meterGradient];
+    self.meterCount = [UILabel new];
+    self.meterCount.translatesAutoresizingMaskIntoConstraints = NO;
+    self.meterCount.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightHeavy];
+    self.meterCount.textColor = UIColor.whiteColor;
+    self.meterCount.textAlignment = NSTextAlignmentRight;
+    self.meterCount.shadowColor = [UIColor colorWithWhite:0 alpha:.8];
+    self.meterCount.shadowOffset = CGSizeMake(0, 1);
+    [self.meterView addSubview:self.meterFill];
+    [self.meterView addSubview:self.bannerLabel];
+    [self.meterView addSubview:self.meterCount];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.bannerLabel.leadingAnchor constraintEqualToAnchor:self.meterView.leadingAnchor constant:18],
+        [self.bannerLabel.trailingAnchor constraintEqualToAnchor:self.meterView.trailingAnchor constant:-72],
+        [self.bannerLabel.topAnchor constraintEqualToAnchor:self.meterView.topAnchor],
+        [self.bannerLabel.bottomAnchor constraintEqualToAnchor:self.meterView.bottomAnchor],
+        [self.meterCount.trailingAnchor constraintEqualToAnchor:self.meterView.trailingAnchor constant:-16],
+        [self.meterCount.centerYAnchor constraintEqualToAnchor:self.meterView.centerYAnchor],
+        [self.meterCount.widthAnchor constraintEqualToConstant:56],
+    ]];
 
     // Cabinet
     self.machine = [UIView new];
@@ -503,7 +545,7 @@ static UIImage *PGParticleImage(BOOL coin) {
     forceBonusHold.cancelsTouchesInView = YES;
     [self.spinButton addGestureRecognizer:forceBonusHold];
 
-    [content addSubview:title]; [content addSubview:subtitle]; [content addSubview:info]; [content addSubview:self.bannerLabel];
+    [content addSubview:title]; [content addSubview:subtitle]; [content addSubview:info]; [content addSubview:self.meterView];
     [content addSubview:self.machine]; [content addSubview:self.messageLabel]; [content addSubview:self.totalBetLabel];
     [content addSubview:controls]; [content addSubview:self.spinButton];
 
@@ -528,11 +570,11 @@ static UIImage *PGParticleImage(BOOL coin) {
         [info.topAnchor constraintEqualToAnchor:subtitle.bottomAnchor constant:10],
         [info.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:22],
         [info.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-22],
-        [self.bannerLabel.topAnchor constraintEqualToAnchor:info.bottomAnchor constant:10],
-        [self.bannerLabel.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
-        [self.bannerLabel.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
-        [self.bannerLabel.heightAnchor constraintEqualToConstant:40],
-        [self.machine.topAnchor constraintEqualToAnchor:self.bannerLabel.bottomAnchor constant:12],
+        [self.meterView.topAnchor constraintEqualToAnchor:info.bottomAnchor constant:10],
+        [self.meterView.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
+        [self.meterView.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
+        [self.meterView.heightAnchor constraintEqualToConstant:44],
+        [self.machine.topAnchor constraintEqualToAnchor:self.meterView.bottomAnchor constant:12],
         [self.machine.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:14],
         [self.machine.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-14],
         [reelStack.topAnchor constraintEqualToAnchor:self.machine.topAnchor constant:12],
@@ -797,6 +839,11 @@ static UIImage *PGParticleImage(BOOL coin) {
         self->_pickPending = PGBool(result[@"pick_pending"]);
         self->_bonusMult = PGInteger(result[@"multiplier"]);
         self->_bonusTotal = PGInteger(result[@"bonus_total"]);
+        if (result[@"meter_eggs"]) {
+            if (PGInteger(result[@"meter_size"]) > 0) self->_meterSize = PGInteger(result[@"meter_size"]);
+            self->_meterEggs = MAX(0, MIN(self->_meterSize, PGInteger(result[@"meter_eggs"])));
+            [self updateMeterAnimated:YES];
+        }
         if (self->_freeRemaining > 0) {
             self->_bonusLines = MAX(1, MIN(PG_MAX_LINES, PGInteger(result[@"lines"])));
             self->_bonusBet = PGInteger(result[@"bet_per_line"]) ?: 1;
@@ -1030,7 +1077,7 @@ static UIImage *PGParticleImage(BOOL coin) {
     }
     wait = MAX(0, _celebrationEnd - CACurrentMediaTime());
     [self after:wait + 0.15 do:^{
-        [self presentWinsThen:^{ [self afterSpin]; }];
+        [self presentWinsThen:^{ [self feedMeterThen:^{ [self afterSpin]; }]; }];
     }];
 }
 
@@ -1057,6 +1104,288 @@ static UIImage *PGParticleImage(BOOL coin) {
     _busy = NO;
     [self updateControls];
     if (_balance <= 0) [self after:0.5 do:^{ [self showCoinStore]; }];
+}
+
+#pragma mark Egg meter
+
+- (CGFloat)meterFillWidthForEggs:(NSInteger)eggs {
+    CGFloat w = self.meterView.bounds.size.width, h = self.meterView.bounds.size.height;
+    if (eggs <= 0 || _meterSize <= 0) return 0;
+    return MIN(w, MAX(h * 0.7, w * MIN(1.0, (CGFloat)eggs / _meterSize)));   // never a sliver
+}
+
+- (void)updateMeterAnimated:(BOOL)animated {
+    CGFloat w = self.meterView.bounds.size.width, h = self.meterView.bounds.size.height;
+    if (w < 1) return;
+    self.meterGradient.frame = CGRectMake(0, 0, w, h);          // fixed, so colour maps to meter position
+    self.meterCount.text = [NSString stringWithFormat:@"🥚 %ld/%ld", (long)MIN(_meterEggs, _meterSize), (long)_meterSize];
+    [NSUserDefaults.standardUserDefaults setInteger:_meterEggs forKey:kPGMeterKey];
+    CGRect target = CGRectMake(0, 0, [self meterFillWidthForEggs:_meterEggs], h);
+    if (animated) {
+        [UIView animateWithDuration:0.28 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionCurveEaseOut animations:^{ self.meterFill.frame = target; } completion:nil];
+    } else {
+        self.meterFill.frame = target;
+    }
+    // Nearly full: the rim pulses to tease the explosion.
+    BOOL near = _meterSize > 0 && (CGFloat)_meterEggs / _meterSize >= 0.85;
+    if (near && ![self.meterView.layer animationForKey:@"pgNear"]) {
+        CABasicAnimation *pulse = [CABasicAnimation animationWithKeyPath:@"borderColor"];
+        pulse.fromValue = (id)[PGGold() colorWithAlphaComponent:.65].CGColor;
+        pulse.toValue = (id)UIColor.whiteColor.CGColor;
+        pulse.duration = 0.5; pulse.autoreverses = YES; pulse.repeatCount = HUGE_VALF;
+        [self.meterView.layer addAnimation:pulse forKey:@"pgNear"];
+    } else if (!near) {
+        [self.meterView.layer removeAnimationForKey:@"pgNear"];
+    }
+}
+
+/// A small flourish on the meter each time an egg lands in it.
+- (void)bumpMeter {
+    [UIView animateWithDuration:0.09 animations:^{ self.meterView.transform = CGAffineTransformMakeScale(1.035, 1.12); }
+                     completion:^(BOOL f) { [UIView animateWithDuration:0.16 delay:0 usingSpringWithDamping:0.5 initialSpringVelocity:0 options:0 animations:^{ self.meterView.transform = CGAffineTransformIdentity; } completion:nil]; }];
+}
+
+/// After the wins: every golden egg on the board flies off its reel into the
+/// meter with a whoosh. If that fills the meter, it explodes and pays out.
+- (void)feedMeterThen:(dispatch_block_t)completion {
+    NSDictionary *res = self.result;
+    if (PGInteger(res[@"meter_size"]) > 0) _meterSize = PGInteger(res[@"meter_size"]);
+    BOOL hasMeter = res[@"meter_eggs"] != nil;
+    BOOL filled = PGBool(res[@"meter_filled"]);
+    NSInteger payout = PGInteger(res[@"meter_payout"]);
+    NSInteger after = MAX(0, MIN(_meterSize, PGInteger(res[@"meter_eggs"])));
+    NSInteger finalBalance = PGInteger(res[@"balance"]);
+    if (!hasMeter || _eggTotal <= 0) {
+        if (hasMeter) { _meterEggs = after; [self updateMeterAnimated:YES]; }
+        completion();
+        return;
+    }
+    // Where every egg starts: its cell, in screen coordinates.
+    NSMutableArray<NSValue *> *starts = [NSMutableArray array];
+    CGFloat s = _cellSize;
+    for (int r = 0; r < PG_REELS; r++) for (int row = 0; row < PG_ROWS; row++) {
+        if (_grid[r][row] != PGSymbolEgg) continue;
+        CGRect cell = [self.reelViews[r] convertRect:CGRectMake(0, row * s, s, s) toView:self.view];
+        [starts addObject:[NSValue valueWithCGRect:CGRectInset(cell, s * 0.05, s * 0.05)]];
+    }
+    NSInteger count = starts.count;
+    NSInteger before = _meterEggs;
+    __block NSInteger arrived = 0;
+    NSUInteger epoch = _epoch;
+    for (NSInteger k = 0; k < count; k++) {
+        CGRect start = starts[k].CGRectValue;
+        NSTimeInterval delay = k * 0.15;
+        [self after:delay do:^{
+            if (self->_leaving || self->_epoch != epoch) return;
+            UIImageView *egg = [[UIImageView alloc] initWithImage:[BRPenguinParadeArt imageForSymbol:PGSymbolEgg size:start.size]];
+            egg.frame = start;
+            egg.layer.shadowColor = PGC(0xFFD86B).CGColor;
+            egg.layer.shadowOpacity = 1; egg.layer.shadowRadius = 12; egg.layer.shadowOffset = CGSizeZero;
+            [self.view addSubview:egg];
+            [self.audio playEggWhooshAtIndex:k];
+
+            NSInteger expected = MIN(self->_meterSize, before + k + 1);
+            CGPoint edge = [self.meterView convertPoint:CGPointMake([self meterFillWidthForEggs:expected] - 10, self.meterView.bounds.size.height / 2) toView:self.view];
+            CGPoint from = egg.center;
+            CGPoint control = CGPointMake((from.x + edge.x) / 2 + (k % 2 ? 60 : -60), MIN(from.y, edge.y) - 70);
+            UIBezierPath *path = [UIBezierPath bezierPath];
+            [path moveToPoint:from];
+            [path addQuadCurveToPoint:edge controlPoint:control];
+
+            // Sparkle trail: little glows left behind along the arc.
+            for (int t = 1; t <= 6; t++) {
+                [self after:0.07 * t do:^{
+                    CGPoint here = egg.layer.presentationLayer ? egg.layer.presentationLayer.position : egg.center;
+                    UIView *spark = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 8, 8)];
+                    spark.center = here;
+                    spark.layer.cornerRadius = 4;
+                    spark.backgroundColor = PGC(0xFFE48F);
+                    spark.layer.shadowColor = PGC(0xFFE48F).CGColor; spark.layer.shadowOpacity = 1; spark.layer.shadowRadius = 5; spark.layer.shadowOffset = CGSizeZero;
+                    [self.view insertSubview:spark belowSubview:egg];
+                    [UIView animateWithDuration:0.35 animations:^{ spark.alpha = 0; spark.transform = CGAffineTransformMakeScale(0.2, 0.2); } completion:^(BOOL f) { [spark removeFromSuperview]; }];
+                }];
+            }
+            CAKeyframeAnimation *fly = [CAKeyframeAnimation animationWithKeyPath:@"position"];
+            fly.path = path.CGPath;
+            fly.duration = 0.5;
+            fly.timingFunction = [CAMediaTimingFunction functionWithControlPoints:0.55 :0.0 :0.8 :0.6];   // ease-in: it accelerates into the meter
+            fly.fillMode = kCAFillModeForwards; fly.removedOnCompletion = NO;
+            CABasicAnimation *shrink = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+            shrink.fromValue = @1.0; shrink.toValue = @0.3; shrink.duration = 0.5;
+            shrink.fillMode = kCAFillModeForwards; shrink.removedOnCompletion = NO;
+            CABasicAnimation *spin = [CABasicAnimation animationWithKeyPath:@"transform.rotation.z"];
+            spin.fromValue = @0; spin.toValue = @(M_PI * (k % 2 ? 2 : -2)); spin.duration = 0.5;
+            spin.fillMode = kCAFillModeForwards; spin.removedOnCompletion = NO;
+            [CATransaction begin];
+            [CATransaction setCompletionBlock:^{
+                [egg removeFromSuperview];
+                if (self->_leaving || self->_epoch != epoch) return;
+                self->_meterEggs = expected;
+                [self updateMeterAnimated:YES];
+                [self bumpMeter];
+                [self haptic:UIImpactFeedbackStyleLight];
+                arrived++;
+                if (arrived == count) {
+                    [self after:0.25 do:^{
+                        if (self->_leaving || self->_epoch != epoch) return;
+                        if (filled) {
+                            self->_meterEggs = self->_meterSize;
+                            [self updateMeterAnimated:YES];
+                            [self explodeMeterWithPayout:payout newBalance:finalBalance remainder:after completion:completion];
+                        } else {
+                            self->_meterEggs = after;
+                            [self updateMeterAnimated:YES];
+                            completion();
+                        }
+                    }];
+                }
+            }];
+            [egg.layer addAnimation:fly forKey:@"fly"];
+            [egg.layer addAnimation:shrink forKey:@"shrink"];
+            [egg.layer addAnimation:spin forKey:@"spin"];
+            [CATransaction commit];
+        }];
+    }
+}
+
+/// Meter full: it charges, shakes, flashes and bursts into eggs, coins and ice
+/// shards, a coin shower falls, the prize counts up and the meter starts over.
+- (void)explodeMeterWithPayout:(NSInteger)payout newBalance:(NSInteger)newBalance remainder:(NSInteger)remainder completion:(dispatch_block_t)completion {
+    UIView *host = self.view;
+    CGPoint center = [self.meterView.superview convertPoint:self.meterView.center toView:host];
+    NSUInteger epoch = _epoch;
+    self.bannerLabel.text = PGLoc(@"BRSlot.PG.MeterFull", @"EGG METER FULL!");
+    self.bannerLabel.textColor = UIColor.whiteColor;
+    [self.audio playMeterCharge];
+    [self haptic:UIImpactFeedbackStyleMedium];
+
+    // 1. Charge: the meter trembles harder and glows.
+    CAKeyframeAnimation *shake = [CAKeyframeAnimation animationWithKeyPath:@"transform.translation.x"];
+    NSMutableArray *xs = [NSMutableArray array];
+    for (int i = 0; i < 36; i++) [xs addObject:@((i % 2 ? 1 : -1) * (1.0 + 7.0 * i / 36.0))];
+    [xs addObject:@0];
+    shake.values = xs; shake.duration = 1.3;
+    [self.meterView.layer addAnimation:shake forKey:@"pgShake"];
+    self.meterView.layer.masksToBounds = NO;
+    self.meterView.layer.shadowColor = PGC(0xFFE48F).CGColor;
+    self.meterView.layer.shadowOffset = CGSizeZero;
+    CABasicAnimation *glow = [CABasicAnimation animationWithKeyPath:@"shadowOpacity"];
+    glow.fromValue = @0; glow.toValue = @1; glow.duration = 1.3; glow.fillMode = kCAFillModeForwards; glow.removedOnCompletion = NO;
+    [self.meterView.layer addAnimation:glow forKey:@"pgGlow"];
+    self.meterView.layer.shadowRadius = 22;
+    for (int i = 0; i < 4; i++) {            // rising white flashes on the fill
+        [self after:0.2 + i * 0.3 do:^{
+            [UIView animateWithDuration:0.12 animations:^{ self.meterFill.alpha = 0.45; } completion:^(BOOL f) { [UIView animateWithDuration:0.12 animations:^{ self.meterFill.alpha = 1; }]; }];
+            [self haptic:UIImpactFeedbackStyleLight];
+        }];
+    }
+
+    // 2. Boom.
+    [self after:1.4 do:^{
+        if (self->_leaving || self->_epoch != epoch) { completion(); return; }
+        [self.audio playMeterBoom];
+        [self haptic:UIImpactFeedbackStyleHeavy];
+        [self after:0.12 do:^{ [self haptic:UIImpactFeedbackStyleHeavy]; }];
+
+        UIView *flash = [[UIView alloc] initWithFrame:host.bounds];
+        flash.backgroundColor = UIColor.whiteColor; flash.userInteractionEnabled = NO; flash.alpha = 0.9;
+        [host addSubview:flash];
+        [UIView animateWithDuration:0.55 animations:^{ flash.alpha = 0; } completion:^(BOOL f) { [flash removeFromSuperview]; }];
+
+        for (int i = 0; i < 3; i++) {        // expanding shock rings
+            UIView *ring = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 60, 60)];
+            ring.center = center; ring.userInteractionEnabled = NO;
+            ring.layer.cornerRadius = 30;
+            ring.layer.borderWidth = 5 - i;
+            ring.layer.borderColor = (i == 1 ? PGC(0x6FD6FF) : PGC(0xFFE48F)).CGColor;
+            ring.alpha = 0.95;
+            [host addSubview:ring];
+            [UIView animateWithDuration:0.9 delay:0.1 * i options:UIViewAnimationOptionCurveEaseOut animations:^{
+                ring.transform = CGAffineTransformMakeScale(12 + i * 3, 12 + i * 3);
+                ring.alpha = 0;
+            } completion:^(BOOL f) { [ring removeFromSuperview]; }];
+        }
+
+        // One-shot burst of eggs, coins and ice shards from the meter.
+        CAEmitterLayer *burst = [CAEmitterLayer layer];
+        burst.frame = host.bounds;
+        burst.emitterPosition = center;
+        burst.emitterShape = kCAEmitterLayerPoint;
+        burst.renderMode = kCAEmitterLayerAdditive;
+        NSMutableArray *cells = [NSMutableArray array];
+        UIImage *eggImage = [BRPenguinParadeArt imageForSymbol:PGSymbolEgg size:CGSizeMake(34, 34)];
+        for (NSNumber *kind in @[@0, @1, @2]) {
+            CAEmitterCell *cell = [CAEmitterCell emitterCell];
+            cell.contents = (id)(kind.intValue == 0 ? eggImage : PGParticleImage(kind.intValue == 1)).CGImage;
+            cell.birthRate = 90; cell.lifetime = 2.6;
+            cell.velocity = 380; cell.velocityRange = 170;
+            cell.emissionRange = 2 * M_PI;
+            cell.yAcceleration = 420;
+            cell.spin = 3; cell.spinRange = 6;
+            cell.scale = kind.intValue == 0 ? 0.7 : 0.55; cell.scaleRange = 0.3;
+            cell.alphaSpeed = -0.3;
+            [cells addObject:cell];
+        }
+        burst.emitterCells = cells;
+        [host.layer addSublayer:burst];
+        [self after:0.14 do:^{ burst.birthRate = 0; }];
+        [self after:3.0 do:^{ [burst removeFromSuperlayer]; }];
+
+        [UIView animateWithDuration:0.25 delay:0 usingSpringWithDamping:0.35 initialSpringVelocity:0 options:0 animations:^{
+            self.meterView.transform = CGAffineTransformMakeScale(1.08, 1.4);
+        } completion:^(BOOL f) { [UIView animateWithDuration:0.4 animations:^{ self.meterView.transform = CGAffineTransformIdentity; }]; }];
+        [self startConfettiIn:host duration:3.2 intensity:1.8];
+
+        // Prize banner.
+        UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, MIN(host.bounds.size.width - 40, 320), 130)];
+        card.center = CGPointMake(host.bounds.size.width / 2, CGRectGetMidY([self.machine convertRect:self.machine.bounds toView:host]));
+        card.backgroundColor = [PGC(0x0A2344) colorWithAlphaComponent:.94];
+        card.layer.cornerRadius = 26; card.layer.borderWidth = 3; card.layer.borderColor = PGGold().CGColor;
+        card.layer.shadowColor = PGC(0xFFE48F).CGColor; card.layer.shadowOpacity = 1; card.layer.shadowRadius = 24; card.layer.shadowOffset = CGSizeZero;
+        card.userInteractionEnabled = NO;
+        UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(8, 12, card.bounds.size.width - 16, 34)];
+        title.text = PGLoc(@"BRSlot.PG.MeterBoom", @"EGG-PLOSION!");
+        title.font = [UIFont systemFontOfSize:30 weight:UIFontWeightBlack];
+        title.textColor = PGC(0xBFE6FF); title.textAlignment = NSTextAlignmentCenter;
+        UILabel *prize = [[UILabel alloc] initWithFrame:CGRectMake(8, 52, card.bounds.size.width - 16, 56)];
+        prize.font = [UIFont monospacedDigitSystemFontOfSize:44 weight:UIFontWeightBlack];
+        prize.textColor = PGC(0xFFE48F); prize.textAlignment = NSTextAlignmentCenter;
+        prize.adjustsFontSizeToFitWidth = YES; prize.minimumScaleFactor = 0.5;
+        prize.text = @"+0";
+        [card addSubview:title]; [card addSubview:prize];
+        [host addSubview:card];
+        card.transform = CGAffineTransformMakeScale(0.2, 0.2); card.alpha = 0;
+        [UIView animateWithDuration:0.55 delay:0.15 usingSpringWithDamping:0.5 initialSpringVelocity:0.6 options:0 animations:^{
+            card.transform = CGAffineTransformIdentity; card.alpha = 1;
+        } completion:nil];
+        [self after:0.3 do:^{
+            [self.audio playWinForPayoutRatio:20];
+            [self countLabel:prize from:0 to:payout duration:1.4 formatter:^NSString *(NSInteger v) { return [NSString stringWithFormat:@"+%@", PGNum(v)]; }];
+            NSInteger fromBalance = self->_balance;
+            [self countLabel:self.balanceLabel from:fromBalance to:newBalance duration:1.4 formatter:^NSString *(NSInteger v) {
+                return [NSString stringWithFormat:PGLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)v];
+            }];
+            self->_balance = newBalance;
+            self->_balanceChecked = YES;
+        }];
+        [self setMessage:[NSString stringWithFormat:PGLoc(@"BRSlot.PG.MeterWon", @"Egg meter bonus: %ld coins!"), (long)payout] highlight:YES];
+
+        // 3. Reset: the card leaves and the meter drains back to the remainder.
+        [self after:3.6 do:^{
+            [UIView animateWithDuration:0.35 animations:^{ card.alpha = 0; card.transform = CGAffineTransformMakeScale(1.15, 1.15); } completion:^(BOOL f) { [card removeFromSuperview]; }];
+            [self.meterView.layer removeAnimationForKey:@"pgGlow"];
+            [self.meterView.layer removeAnimationForKey:@"pgShake"];
+            self.meterView.layer.shadowOpacity = 0;
+            self.meterView.layer.masksToBounds = YES;
+            self->_meterEggs = remainder;
+            [UIView animateWithDuration:0.9 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+                self.meterFill.frame = CGRectMake(0, 0, [self meterFillWidthForEggs:remainder], self.meterView.bounds.size.height);
+            } completion:nil];
+            [self updateMeterAnimated:YES];
+            [self refreshBanner];
+            [self after:1.0 do:completion];
+        }];
+    }];
 }
 
 #pragma mark Wins and highlights
@@ -1095,7 +1424,7 @@ static NSArray<UIColor *> *PGLineColors(void) {
 - (void)presentWinsThen:(dispatch_block_t)completion {
     NSDictionary *res = self.result;
     NSInteger payout = PGInteger(res[@"payout"]);
-    NSInteger balance = PGInteger(res[@"balance"]);
+    NSInteger balance = PGInteger(res[@"balance"]) - PGInteger(res[@"meter_payout"]);   // meter prize lands with the explosion
     NSInteger bet = PGInteger(res[@"bet_per_line"]) ?: 1;
     NSInteger lines = PGInteger(res[@"lines"]) ?: 1;
     NSInteger fromBalance = _balance;

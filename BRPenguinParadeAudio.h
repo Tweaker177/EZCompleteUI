@@ -51,6 +51,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)playAlarmCelebration;
 - (void)playNearMissSigh;
 
+// Egg meter
+/// An egg flying off the reels into the meter; `index` raises the pitch for each successive egg.
+- (void)playEggWhooshAtIndex:(NSInteger)index;
+- (void)playMeterCharge;
+- (void)playMeterBoom;
+
 // Wins
 /// ratio = payout / total bet.
 - (void)playWinForPayoutRatio:(double)ratio;
