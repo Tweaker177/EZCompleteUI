@@ -744,11 +744,11 @@
 "BRSlot.Plunder.Title" = "掠夺湾";
 "BRSlot.Plunder.Heading" = "☠掠夺湾☠";
 "BRSlot.Plunder.Description" = "二十条线，一个宝箱。三个宝箱唤醒奖励。";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ 宝箱任意位置赔付 — 3 个以上开启免费旋转，连线获胜 ×3";
+"BRSlot.Plunder.ScatterReward" = "3 个以上宝箱开启免费旋转";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ 还剩 %ld 次免费旋转 — 连线获胜 ×3";
 "BRSlot.Plunder.FreeSpin" = "免费旋转 — 不扣除投注";
 "BRSlot.Plunder.BetValue" = "下注\n%ld";
-"BRSlot.Plunder.MaxBet" = "最大赌注\n100 + 旋转";
+"BRSlot.Plunder.MaxBet" = "最大赌注\n%ld + 旋转";
 "BRSlot.Plunder.NeedCoins" = "这次下注需要 %ld 个硬币。";
 "BRSlot.Plunder.SignIn" = "登录即可玩掠夺湾。";
 "BRSlot.Plunder.StoreFeature" = "掠夺湾";

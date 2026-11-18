@@ -744,11 +744,11 @@
 "BRSlot.Plunder.Title" = "بلاندر باي";
 "BRSlot.Plunder.Heading" = "☠ بلاندر باي ☠";
 "BRSlot.Plunder.Description" = "عشرون خطًا، صندوق كنز واحد. ثلاثة صناديق توقظ المكافأة.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ الصناديق تدفع في أي مكان — 3 أو أكثر تبدأ دورات مجانية بأرباح خطوط ×3";
+"BRSlot.Plunder.ScatterReward" = "3 أو أكثر من الصناديق تبدأ الدورات المجانية";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld دورات مجانية متبقية — أرباح الخطوط ×3";
 "BRSlot.Plunder.FreeSpin" = "دورة مجانية — لا يتم أخذ رهان";
 "BRSlot.Plunder.BetValue" = "الرهان\n%ld";
-"BRSlot.Plunder.MaxBet" = "الحد الأقصى للرهان\n100 + تدور";
+"BRSlot.Plunder.MaxBet" = "الحد الأقصى للرهان\n%ld + تدور";
 "BRSlot.Plunder.NeedCoins" = "تحتاج إلى %ld قطعة نقدية لهذا الرهان.";
 "BRSlot.Plunder.SignIn" = "قم بتسجيل الدخول للعب بلاندر باي.";
 "BRSlot.Plunder.StoreFeature" = "بلاندر باي";

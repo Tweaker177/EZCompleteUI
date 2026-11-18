@@ -785,11 +785,11 @@
 "BRSlot.Plunder.Title" = "Plunder Bay";
 "BRSlot.Plunder.Heading" = "☠  PLUNDER BAY  ☠";
 "BRSlot.Plunder.Description" = "Dua puluh garis, satu peti harta karun. Tiga peti membangunkan bonus.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Peti membayar di mana saja — 3 atau lebih memulai putaran gratis dengan kemenangan garis ×3";
+"BRSlot.Plunder.ScatterReward" = "3 peti atau lebih memulai putaran gratis";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ SISA %ld PUTARAN GRATIS — KEMENANGAN GARIS ×3";
 "BRSlot.Plunder.FreeSpin" = "Putaran gratis — tanpa taruhan";
 "BRSlot.Plunder.BetValue" = "TARUHAN\n%ld";
-"BRSlot.Plunder.MaxBet" = "TARUHAN MAKS\n100 + PUTAR";
+"BRSlot.Plunder.MaxBet" = "TARUHAN MAKS\n%ld + PUTAR";
 "BRSlot.Plunder.NeedCoins" = "Butuh %ld koin untuk taruhan ini.";
 "BRSlot.Plunder.SignIn" = "Masuk untuk bermain Plunder Bay.";
 "BRSlot.Plunder.StoreFeature" = "Plunder Bay";

@@ -728,11 +728,11 @@
 "BRSlot.Plunder.Title" = "Plunder Bay";
 "BRSlot.Plunder.Heading" = "☠ PLUNDER BAY ☠";
 "BRSlot.Plunder.Description" = "Twenty lines, one treasure chest. Three chests wake the bonus.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Chests pay anywhere — 3 or more start free spins with line wins ×3";
+"BRSlot.Plunder.ScatterReward" = "3 or more chests starts free spins";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld FREE SPINS LEFT — line wins ×3";
 "BRSlot.Plunder.FreeSpin" = "Free spin — no wager taken";
 "BRSlot.Plunder.BetValue" = "BET\n%ld";
-"BRSlot.Plunder.MaxBet" = "MAX BET\n100 + SPIN";
+"BRSlot.Plunder.MaxBet" = "MAX BET\n%ld + SPIN";
 "BRSlot.Plunder.NeedCoins" = "You need %ld coins for that bet.";
 "BRSlot.Plunder.SignIn" = "Please sign in to play Plunder Bay.";
 "BRSlot.Plunder.StoreFeature" = "Plunder Bay";

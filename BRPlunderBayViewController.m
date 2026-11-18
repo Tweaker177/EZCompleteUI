@@ -133,7 +133,7 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     self.bonusTint = [UIView new]; self.bonusTint.backgroundColor = [UIColor colorWithRed:.01 green:.02 blue:.08 alpha:.30]; self.bonusTint.userInteractionEnabled = NO; self.bonusTint.hidden = YES; self.bonusTint.translatesAutoresizingMaskIntoConstraints = NO; [self.machineView addSubview:self.bonusTint];
     self.messageLabel = [UILabel new]; self.messageLabel.text = NSLocalizedString(@"BRSlot.Plunder.Description", nil); self.messageLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightSemibold]; self.messageLabel.textColor = [UIColor colorWithWhite:.85 alpha:1]; self.messageLabel.textAlignment = NSTextAlignmentCenter; self.messageLabel.numberOfLines = 2;
     self.betButton = [self control:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil), (long)self.betCoins] color:[UIColor colorWithRed:.08 green:.34 blue:.52 alpha:1] action:@selector(cycleBet)];
-    self.maxButton = [self control:NSLocalizedString(@"BRSlot.Plunder.MaxBet", nil) color:[UIColor colorWithRed:.45 green:.28 blue:.08 alpha:1] action:@selector(maxBet)];
+    self.maxButton = [self control:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.MaxBet", nil), (long)[self betLadder].lastObject.integerValue] color:[UIColor colorWithRed:.45 green:.28 blue:.08 alpha:1] action:@selector(maxBet)];
     self.autoSpinChoice = 5;
     self.autoButton = [self control:[self autoButtonTitle] color:[UIColor colorWithRed:.16 green:.42 blue:.30 alpha:1] action:@selector(autoButtonTapped)];
     UILongPressGestureRecognizer *autoHold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(autoButtonHeld:)];

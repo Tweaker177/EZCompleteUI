@@ -766,11 +766,11 @@
 "BRSlot.Plunder.Title" = "Plunder Bay";
 "BRSlot.Plunder.Heading" = "☠ PLUNDER BAY ☠";
 "BRSlot.Plunder.Description" = "Vingt lignes, un coffre au trésor. Trois coffres réveillent le bonus.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Les coffres paient partout — 3 ou plus lancent les tours gratuits avec gains de ligne ×3";
+"BRSlot.Plunder.ScatterReward" = "3 coffres ou plus lancent les tours gratuits";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld TOURS GRATUITS RESTANTS — GAINS DE LIGNE ×3";
 "BRSlot.Plunder.FreeSpin" = "Tour gratuit — aucune mise prélevée";
 "BRSlot.Plunder.BetValue" = "MISE\n%ld";
-"BRSlot.Plunder.MaxBet" = "MISE MAXIMALE\n100 + TOURNER";
+"BRSlot.Plunder.MaxBet" = "MISE MAXIMALE\n%ld + TOURNER";
 "BRSlot.Plunder.NeedCoins" = "Besoin de %ld pièces pour cette mise.";
 "BRSlot.Plunder.SignIn" = "Connectez-vous pour jouer à Plunder Bay.";
 "BRSlot.Plunder.StoreFeature" = "Plunder Bay";

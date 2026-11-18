@@ -784,11 +784,11 @@
 "BRSlot.Plunder.Title" = "Пландер Бэй";
 "BRSlot.Plunder.Heading" = "☠ ПЛАНДЕР БЭЙ ☠";
 "BRSlot.Plunder.Description" = "Двадцать линий, один сундук с сокровищами. Три сундука пробуждают бонус.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Сундуки платят в любом месте — от 3 запускают бесплатные вращения с выигрышами по линиям ×3";
+"BRSlot.Plunder.ScatterReward" = "От 3 сундуков запускаются бесплатные вращения";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ ОСТАЛОСЬ %ld БЕСПЛАТНЫХ ВРАЩЕНИЙ — ВЫИГРЫШИ ПО ЛИНИЯМ ×3";
 "BRSlot.Plunder.FreeSpin" = "Бесплатное вращение — ставка не списывается";
 "BRSlot.Plunder.BetValue" = "СТАВКА\n%ld";
-"BRSlot.Plunder.MaxBet" = "МАКС. СТАВКА\n100 + СПИН";
+"BRSlot.Plunder.MaxBet" = "МАКС. СТАВКА\n%ld + СПИН";
 "BRSlot.Plunder.NeedCoins" = "Для этой ставки нужно %ld монет.";
 "BRSlot.Plunder.SignIn" = "Войдите, чтобы играть в Plunder Bay.";
 "BRSlot.Plunder.StoreFeature" = "Пландер Бэй";

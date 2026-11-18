@@ -744,11 +744,11 @@
 "BRSlot.Plunder.Title" = "Plunder Bay";
 "BRSlot.Plunder.Heading" = "☠PLUNDER BAY☠";
 "BRSlot.Plunder.Description" = "Venti linee, un forziere del tesoro. Tre forzieri risvegliano il bonus.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ I forzieri pagano ovunque — 3 o più avviano giri gratuiti con vincite di linea ×3";
+"BRSlot.Plunder.ScatterReward" = "3 o più forzieri avviano giri gratuiti";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld GIRI GRATUITI RIMANENTI — VINCITE DI LINEA ×3";
 "BRSlot.Plunder.FreeSpin" = "Giro gratuito — nessuna puntata prelevata";
 "BRSlot.Plunder.BetValue" = "PUNTATA\n%ld";
-"BRSlot.Plunder.MaxBet" = "PUNTATA MASSIMA\n100 + GIRA";
+"BRSlot.Plunder.MaxBet" = "PUNTATA MASSIMA\n%ld + GIRA";
 "BRSlot.Plunder.NeedCoins" = "Hai bisogno di %ld monete per questa puntata.";
 "BRSlot.Plunder.SignIn" = "Accedi per giocare a Plunder Bay.";
 "BRSlot.Plunder.StoreFeature" = "Plunder Bay";

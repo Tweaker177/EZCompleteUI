@@ -744,11 +744,11 @@
 "BRSlot.Plunder.Title" = "Plunder Bay";
 "BRSlot.Plunder.Heading" = "☠ PLUNDER BAY ☠";
 "BRSlot.Plunder.Description" = "Zwanzig Linien, eine Schatztruhe. Drei Truhen wecken den Bonus.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Truhen zahlen überall — ab 3 starten Freispiele mit Liniengewinnen ×3";
+"BRSlot.Plunder.ScatterReward" = "Ab 3 Truhen starten Freispiele";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld FREISPIELE ÜBRIG — LINIENGEWINNE ×3";
 "BRSlot.Plunder.FreeSpin" = "Freispiel — kein Einsatz abgezogen";
 "BRSlot.Plunder.BetValue" = "EINSATZ\n%ld";
-"BRSlot.Plunder.MaxBet" = "MAX. EINSATZ\n100 + DREHEN";
+"BRSlot.Plunder.MaxBet" = "MAX. EINSATZ\n%ld + DREHEN";
 "BRSlot.Plunder.NeedCoins" = "Für diesen Einsatz werden %ld Münzen benötigt.";
 "BRSlot.Plunder.SignIn" = "Melden Sie sich an, um Plunder Bay zu spielen.";
 "BRSlot.Plunder.StoreFeature" = "Plunder Bay";
