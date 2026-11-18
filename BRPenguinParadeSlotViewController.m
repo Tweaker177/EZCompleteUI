@@ -28,10 +28,12 @@
 static NSString *const kPGMutedKey = @"BRPenguinParadeMuted";
 static NSString *const kPGLinesKey = @"BRPenguinParadeLines";
 static NSString *const kPGBetKey = @"BRPenguinParadeBetIndex";
+static NSString *const kPGVIPBetKey = @"BRPenguinParadeVIPBetIndex";
 static const NSInteger kPGLoopPeriod = 8;        // cells in the seamless blur loop
 static const CGFloat kPGLoopSpeed = 22.0;        // cells per second while blurring
 
 static NSArray<NSNumber *> *PGBets(void) { return @[@1, @5, @10, @15, @25]; }
+static NSArray<NSNumber *> *PGVIPBets(void) { return @[@1, @5, @10, @15, @25, @50, @75, @125]; }
 static NSArray<NSString *> *PGSymbolNames(void) {
     return @[@"snowflake", @"fish", @"igloo", @"cocoa", @"seal", @"whale", @"chick", @"emperor", @"egg"];
 }
@@ -221,9 +223,9 @@ static UIImage *PGParticleImage(BOOL coin) {
     [super viewDidLoad];
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
     _lines = [defaults objectForKey:kPGLinesKey] ? MAX(1, MIN(PG_MAX_LINES, [defaults integerForKey:kPGLinesKey])) : PG_MAX_LINES;
-    _betIndex = [defaults objectForKey:kPGBetKey] ? MAX(0, MIN((NSInteger)PGBets().count - 1, [defaults integerForKey:kPGBetKey])) : 0;
+    _betIndex = [defaults objectForKey:[self betDefaultsKey]] ? MAX(0, MIN((NSInteger)[self activeBets].count - 1, [defaults integerForKey:[self betDefaultsKey]])) : 0;
     _bonusLines = _lines;
-    _bonusBet = PGBets()[_betIndex].integerValue;
+    _bonusBet = [self activeBets][_betIndex].integerValue;
     self.reelViews = [NSMutableArray array];
     self.strips = [NSMutableArray array];
     self.stripCells = [NSMutableArray array];
@@ -422,6 +424,7 @@ static UIImage *PGParticleImage(BOOL coin) {
     self.machine.layer.cornerRadius = 22;
     self.machine.layer.borderWidth = 4;
     self.machine.layer.borderColor = PGGold().CGColor;
+    if (self.vipMode) { self.machine.layer.borderWidth = 6; self.machine.layer.shadowOpacity = .55; }
     self.machine.layer.shadowColor = PGC(0x8EDBFF).CGColor;
     self.machine.layer.shadowRadius = 18;
     self.machine.layer.shadowOffset = CGSizeZero;
@@ -646,7 +649,9 @@ static UIImage *PGParticleImage(BOOL coin) {
 
 #pragma mark State and labels
 
-- (NSInteger)betPerLine { return PGBets()[_betIndex].integerValue; }
+- (NSArray<NSNumber *> *)activeBets { return self.vipMode ? PGVIPBets() : PGBets(); }
+- (NSString *)betDefaultsKey { return self.vipMode ? kPGVIPBetKey : kPGBetKey; }
+- (NSInteger)betPerLine { return [self activeBets][_betIndex].integerValue; }
 
 - (void)refreshLabels {
     self.balanceLabel.text = [NSString stringWithFormat:PGLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)_balance];
@@ -654,7 +659,7 @@ static UIImage *PGParticleImage(BOOL coin) {
     self.linesButton.titleLabel.text = nil;
     [self.linesButton setTitle:[NSString stringWithFormat:PGLoc(@"BRSlot.PG.Lines", @"LINES\n%ld"), (long)lines] forState:UIControlStateNormal];
     [self.betButton setTitle:[NSString stringWithFormat:PGLoc(@"BRSlot.PG.Bet", @"BET / LINE\n%ld"), (long)bet] forState:UIControlStateNormal];
-    [self.maxButton setTitle:[NSString stringWithFormat:PGLoc(@"BRSlot.PG.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(PG_MAX_LINES * PGBets().lastObject.integerValue)] forState:UIControlStateNormal];
+    [self.maxButton setTitle:[NSString stringWithFormat:PGLoc(@"BRSlot.PG.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(PG_MAX_LINES * [self activeBets].lastObject.integerValue)] forState:UIControlStateNormal];
     self.totalBetLabel.text = _bonusMode ? PGLoc(@"BRSlot.PG.FreeNoWager", @"FREE SPINS — NO WAGER TAKEN")
         : [NSString stringWithFormat:PGLoc(@"BRSlot.PG.TotalBet", @"TOTAL BET  %ld COINS"), (long)(lines * bet)];
 }
@@ -665,7 +670,7 @@ static UIImage *PGParticleImage(BOOL coin) {
         self.bannerLabel.text = [NSString stringWithFormat:PGLoc(@"BRSlot.PG.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, PGNum(_bonusTotal)];
         self.bannerLabel.textColor = PGC(0xFFE48F);
     } else {
-        self.bannerLabel.text = PGLoc(@"BRSlot.PG.Hint", @"3+ GOLDEN EGGS = FREE SPINS\nHATCH A ×2 / ×3 / ×5 MULTIPLIER");
+        self.bannerLabel.text = self.vipMode ? PGLoc(@"BRSlot.PG.HintVIP", @"PENGUIN PARADE VIP \u00b7 BETS TO 125 A LINE \u00b7 RICHER LINE PAYS\n3+ GOLDEN EGGS = FREE SPINS") : PGLoc(@"BRSlot.PG.Hint", @"3+ GOLDEN EGGS = FREE SPINS\nHATCH A ×2 / ×3 / ×5 MULTIPLIER");
         self.bannerLabel.textColor = PGGold();
     }
 }
@@ -694,8 +699,8 @@ static UIImage *PGParticleImage(BOOL coin) {
 
 - (void)cycleBet {
     if (_busy || _bonusMode) return;
-    _betIndex = (_betIndex + 1) % (NSInteger)PGBets().count;
-    [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:kPGBetKey];
+    _betIndex = (_betIndex + 1) % (NSInteger)[self activeBets].count;
+    [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:[self betDefaultsKey]];
     [self refreshLabels];
     [self checkBalanceSilently];
 }
@@ -703,7 +708,7 @@ static UIImage *PGParticleImage(BOOL coin) {
 - (void)maxBet {
     if (_busy || _bonusMode) return;
     _lines = PG_MAX_LINES;
-    _betIndex = (NSInteger)PGBets().count - 1;
+    _betIndex = (NSInteger)[self activeBets].count - 1;
     [self refreshLabels];
     [self checkBalanceSilently];
     [self spinTapped];
@@ -876,6 +881,7 @@ static UIImage *PGParticleImage(BOOL coin) {
     NSUInteger epoch = _epoch;
     NSMutableDictionary *spinBody = [@{@"lines": @(lines), @"bet_per_line": @(bet)} mutableCopy];
     if (_forceBonusArmed && !free) { spinBody[@"force_bonus"] = @YES; _forceBonusArmed = NO; }
+    if (self.vipMode) spinBody[@"vip"] = @YES;
     [self request:spinBody completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_epoch != epoch || self->_leaving) return;
         if (error || ![self parseResult:result]) {

@@ -10,6 +10,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// award, the multiplier pick and all EZ Coins; this screen renders what it is
 /// told. Symbols and sound are generated in code, so there are no asset files.
 @interface BRPenguinParadeSlotViewController : UIViewController
+/// VIP mode: extended bet ladder (to 125/line) and server-scaled line pays.
+/// The server re-checks the 50,000-point gate on every spin.
+@property (nonatomic) BOOL vipMode;
 @end
 
 NS_ASSUME_NONNULL_END
