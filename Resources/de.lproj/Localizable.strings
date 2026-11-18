@@ -439,6 +439,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld MÜNZEN";
 "BRSlot.Win.Jackpot" = "JACKPOT!";
 "BRSlot.Win.Winner" = "GEWINNER!";
+"BRSlot.Win.BigWin" = "GROSSER GEWINN!";
+"BRSlot.Win.MegaWin" = "MEGA-GEWINN!";
+"BRSlot.Win.BigWinSub" = "+%ld MÜNZEN · ×%ld";
 "BRSlot.Lounge.SignIn" = "Melden Sie sich an, um der Lounge beizutreten.";
 "BRSlot.Lounge.Delete" = "Löschen";
 "BRSlot.OK" = "Okay";

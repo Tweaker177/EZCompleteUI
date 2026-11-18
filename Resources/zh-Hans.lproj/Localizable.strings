@@ -439,6 +439,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld 个硬币";
 "BRSlot.Win.Jackpot" = "大奖！";
 "BRSlot.Win.Winner" = "优胜者！";
+"BRSlot.Win.BigWin" = "大赢！";
+"BRSlot.Win.MegaWin" = "超级大赢！";
+"BRSlot.Win.BigWinSub" = "+%ld 硬币 · ×%ld";
 "BRSlot.Lounge.SignIn" = "登录以加入休息室。";
 "BRSlot.Lounge.Delete" = "删除";
 "BRSlot.OK" = "好的";

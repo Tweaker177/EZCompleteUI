@@ -439,6 +439,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld เหรียญ";
 "BRSlot.Win.Jackpot" = "แจ็คพอต!";
 "BRSlot.Win.Winner" = "ผู้ชนะ!";
+"BRSlot.Win.BigWin" = "ชนะรางวัลใหญ่!";
+"BRSlot.Win.MegaWin" = "ชนะรางวัลใหญ่มาก!";
+"BRSlot.Win.BigWinSub" = "+%ld เหรียญ · ×%ld";
 "BRSlot.Lounge.SignIn" = "ลงชื่อเข้าใช้เพื่อเข้าร่วมห้องรับรอง";
 "BRSlot.Lounge.Delete" = "ลบ";
 "BRSlot.OK" = "ตกลง";

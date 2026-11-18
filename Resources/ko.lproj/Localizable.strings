@@ -480,6 +480,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld 코인";
 "BRSlot.Win.Jackpot" = "잭팟!";
 "BRSlot.Win.Winner" = "당첨!";
+"BRSlot.Win.BigWin" = "빅 윈!";
+"BRSlot.Win.MegaWin" = "메가 윈!";
+"BRSlot.Win.BigWinSub" = "+%ld 코인 · ×%ld";
 "BRSlot.Lounge.SignIn" = "라운지에 참여하려면 로그인하세요.";
 "BRSlot.Lounge.Delete" = "삭제";
 "BRSlot.OK" = "확인";

@@ -480,6 +480,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld COIN";
 "BRSlot.Win.Jackpot" = "İKRAMİYE!";
 "BRSlot.Win.Winner" = "KAZANAN!";
+"BRSlot.Win.BigWin" = "BÜYÜK KAZANÇ!";
+"BRSlot.Win.MegaWin" = "MEGA KAZANÇ!";
+"BRSlot.Win.BigWinSub" = "+%ld COIN · ×%ld";
 "BRSlot.Lounge.SignIn" = "Salona katılmak için oturum açın.";
 "BRSlot.Lounge.Delete" = "Sil";
 "BRSlot.OK" = "Tamam";

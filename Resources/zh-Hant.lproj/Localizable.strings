@@ -480,6 +480,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld 金幣";
 "BRSlot.Win.Jackpot" = "大獎！";
 "BRSlot.Win.Winner" = "贏家！";
+"BRSlot.Win.BigWin" = "大贏！";
+"BRSlot.Win.MegaWin" = "超級大贏！";
+"BRSlot.Win.BigWinSub" = "+%ld 金幣 · ×%ld";
 "BRSlot.Lounge.SignIn" = "登入以加入休息室。";
 "BRSlot.Lounge.Delete" = "刪除";
 "BRSlot.OK" = "確定";

@@ -480,6 +480,9 @@
 "BRSlot.Win.Overlay" = "%@\n+%ld KOIN";
 "BRSlot.Win.Jackpot" = "JACKPOT!";
 "BRSlot.Win.Winner" = "PEMENANG!";
+"BRSlot.Win.BigWin" = "MENANG BESAR!";
+"BRSlot.Win.MegaWin" = "MEGA MENANG!";
+"BRSlot.Win.BigWinSub" = "+%ld KOIN · ×%ld";
 "BRSlot.Lounge.SignIn" = "Masuk untuk bergabung ke lounge.";
 "BRSlot.Lounge.Delete" = "Hapus";
 "BRSlot.OK" = "OK";
