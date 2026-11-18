@@ -32,6 +32,9 @@ void BRSlotSetSoundEnabled(BOOL enabled);
 /// The signed URL of the player's own lounge avatar, once any profile
 /// payload has provided it; nil while the player has no photo.
 @property (nonatomic, copy, readonly) NSString *profileAvatarURL;
+/// The signed-in player's lifetime VIP points (from the profile
+/// response), for VIP unlock displays like the slot picker.
+@property (nonatomic, readonly) NSInteger profileVipPoints;
 
 /// Loads an avatar photo and hands back a thumbnail decoded at the
 /// display size (a square-cover render at points × screen scale), cached

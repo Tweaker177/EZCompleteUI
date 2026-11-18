@@ -20,6 +20,7 @@ static NSArray<NSString *> *PlunderSymbols(void) {
     return @[@"captain", @"galleon", @"map", @"cannon", @"parrot", @"anchor", @"compass", @"rum", @"doubloon", @"hook", @"wild", @"scatter"];
 }
 static NSArray<NSNumber *> *PlunderBets(void) { return @[@10, @20, @50, @100]; }
+static NSArray<NSNumber *> *PlunderVIPBets(void) { return @[@10, @20, @50, @100, @250, @500]; }
 
 // The spin payload is server JSON: any of these may be absent or
 // NSNull, and messaging integerValue/boolValue to NSNull crashes —
@@ -115,10 +116,11 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     // so the last controls (Spin) can always scroll clear of it.
     scroll.contentInset = UIEdgeInsetsMake(0, 0, 50, 0); scroll.scrollIndicatorInsets = scroll.contentInset;
     UIView *content = [UIView new]; content.translatesAutoresizingMaskIntoConstraints = NO; [scroll addSubview:content];
-    UILabel *title = [UILabel new]; title.text = NSLocalizedString(@"BRSlot.Plunder.Heading", nil); title.font = [UIFont systemFontOfSize:23 weight:UIFontWeightBlack]; title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .55; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; title.textAlignment = NSTextAlignmentCenter;
+    UILabel *title = [UILabel new]; title.text = self.vipMode ? NSLocalizedStringWithDefaultValue(@"BRSlot.Plunder.HeadingVIP", nil, NSBundle.mainBundle, @"Plunder Bay VIP", nil) : NSLocalizedString(@"BRSlot.Plunder.Heading", nil); title.font = [UIFont systemFontOfSize:23 weight:UIFontWeightBlack]; title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .55; title.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1]; title.textAlignment = NSTextAlignmentCenter;
     self.balanceLabel = [UILabel new]; self.balanceLabel.text = NSLocalizedString(@"BRSlot.Balance.Loading", nil); self.balanceLabel.font = [UIFont monospacedDigitSystemFontOfSize:17 weight:UIFontWeightBold]; self.balanceLabel.textColor = UIColor.whiteColor; self.balanceLabel.textAlignment = NSTextAlignmentCenter;
     self.bonusLabel = [UILabel new]; self.bonusLabel.text = NSLocalizedString(@"BRSlot.Plunder.ScatterReward", nil); self.bonusLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBold]; self.bonusLabel.textColor = [UIColor colorWithRed:1 green:.83 blue:.3 alpha:1]; self.bonusLabel.textAlignment = NSTextAlignmentCenter; self.bonusLabel.numberOfLines = 2; self.bonusLabel.backgroundColor = [UIColor colorWithRed:.05 green:.16 blue:.28 alpha:1]; self.bonusLabel.layer.cornerRadius = 10; self.bonusLabel.clipsToBounds = YES;
     self.machineView = [UIView new]; self.machineView.backgroundColor = [UIColor colorWithRed:.05 green:.09 blue:.22 alpha:1]; self.machineView.layer.cornerRadius = 21; self.machineView.layer.borderWidth = 3; self.machineView.layer.borderColor = [UIColor colorWithRed:1 green:.71 blue:.12 alpha:1].CGColor;
+    if (self.vipMode) self.machineView.layer.borderWidth = 5; // the VIP cabinet wears a heavier gold frame
     UIStackView *columns = [UIStackView new]; columns.axis = UILayoutConstraintAxisHorizontal; columns.distribution = UIStackViewDistributionFillEqually; columns.spacing = 5;
     self.reels = [NSMutableArray array];
     for (NSInteger col=0; col<5; col++) {
@@ -163,9 +165,10 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     glyph.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBlack]; glyph.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1];
     glyph.textAlignment = NSTextAlignmentCenter; glyph.frame = tile.bounds; glyph.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [tile addSubview:glyph];
 }
-- (NSInteger)betCoins { return PlunderBets()[self.betIndex].integerValue; }
-- (void)cycleBet { if (self.spinning || self.freeSpinsRemaining) return; self.betIndex = (self.betIndex+1)%PlunderBets().count; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; [self checkBalanceSilently]; }
-- (void)maxBet { if (self.spinning) return; if (self.freeSpinsRemaining == 0) { self.betIndex = (NSInteger)PlunderBets().count-1; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; [self checkBalanceSilently]; } [self spin]; }
+- (NSArray<NSNumber *> *)betLadder { return self.vipMode ? PlunderVIPBets() : PlunderBets(); }
+- (NSInteger)betCoins { return [self betLadder][self.betIndex].integerValue; }
+- (void)cycleBet { if (self.spinning || self.freeSpinsRemaining) return; self.betIndex = (self.betIndex+1)%[self betLadder].count; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; [self checkBalanceSilently]; }
+- (void)maxBet { if (self.spinning) return; if (self.freeSpinsRemaining == 0) { self.betIndex = (NSInteger)[self betLadder].count-1; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; [self checkBalanceSilently]; } [self spin]; }
 // Silent balance verification: refreshes the cached balance the spin path
 // trusts. Runs on screen entry paths and whenever the bet changes; never
 // blocks a spin and never puts a "checking" message on screen.
@@ -220,7 +223,7 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
         if (error) { self.messageLabel.text = error; return; }
         self.freeSpinsRemaining = PlunderInteger(result[@"free_spins_remaining"]);
         if (self.freeSpinsRemaining > 0) {
-            NSInteger found = [PlunderBets() indexOfObject:result[@"bet_coins"]]; if (found != NSNotFound) self.betIndex = found;
+            NSInteger found = [[self betLadder] indexOfObject:result[@"bet_coins"]]; if (found != NSNotFound) self.betIndex = found;
             [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal];
         }
         [self updateBonusLabel];
@@ -347,7 +350,8 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     self.preSpinBoard = before;
     [self startReelsSound]; [self playWhoosh];
     for (NSInteger tick=0;tick<5;tick++) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(tick*.11*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (!self.spinning || self.animationID != animationID) return; for (NSArray *col in self.reels) for (UIImageView *tile in col) [self setSymbol:PlunderSymbols()[arc4random_uniform((uint32_t)PlunderSymbols().count)] onTile:tile]; });
-    [self request:@{@"bet_coins":@(self.betCoins)} completion:^(NSDictionary *result, NSString *error) {
+    NSMutableDictionary *spinBody = [@{ @"bet_coins": @(self.betCoins) } mutableCopy]; if (self.vipMode) spinBody[@"vip"] = @YES;
+    [self request:spinBody completion:^(NSDictionary *result, NSString *error) {
         if (error || ![result[@"reels"] isKindOfClass:NSArray.class]) { [EZAppErrorReporter reportSource:@"plunder_bay" code:@"spin_failed" message:error]; [self finishWithError:error ?: @"Spin failed; balance unchanged."]; [self refreshState]; if ([error.localizedLowercaseString containsString:@"insufficient"]) [self showCoinStore]; return; }
         [self reveal:result];
     }];
