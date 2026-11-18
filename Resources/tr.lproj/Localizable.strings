@@ -317,6 +317,7 @@
 
 /* Annual subscription offer */
 "EZCoinStore.Upsell.Message" = "Yıllık ödeyin ve aylık faturalamaya kıyasla %25 tasarruf edin.";
+"EZCoinStore.Upsell.Or" = "veya";
 "EZCoinStore.Upsell.StandardTitle" = "Standard ile Yıllığa Geçin";
 "EZCoinStore.Upsell.StandardMonthlyButton" = "$10.00/ay";
 "EZCoinStore.Upsell.StandardAnnualButton" = "$89.99/yıl — $30 Tasarruf Edin";

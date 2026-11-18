@@ -20,6 +20,8 @@
 "EZCoinStore.Tier.UltraSubtitle" = "2.500 moedas / mês\nPara usuários avançados";
 "EZCoinStore.Tier.UltraPrice" = "$20 / mês";
 "EZCoinStore.Badge.Ultra" = "ULTRA";
+"EZCoinStore.Badge.Power" = "POWER";
+"EZCoinStore.Badge.Enterprise" = "ENTERPRISE";
 "EZCoinStore.TopUp.Starter" = "Pacote Inicial de Moedas";
 "EZCoinStore.TopUp.StarterSubtitle" = "400 moedas, uma vez\nNunca expira";
 "EZCoinStore.TopUp.Value" = "Pacote Econômico de Moedas";

@@ -302,6 +302,7 @@
 "ElevenLabsClone.DeleteFailedMessage" = "فشل الحذف.";
 "ElevenLabsClone.DeleteFailed" = "فشل الحذف";
 "EZCoinStore.Upsell.Message" = "ادفع سنويًا ووفر 25٪ مقارنة بالفوترة الشهرية.";
+"EZCoinStore.Upsell.Or" = "أو";
 "EZCoinStore.Upsell.AnnualTitleFormat" = "%@ سنوي";
 "EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/شهريًا";
 "EZCoinStore.Upsell.AnnualButtonFormat" = "%@/سنويًا — وفر %@";

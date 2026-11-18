@@ -317,6 +317,7 @@
 
 /* Annual subscription offer */
 "EZCoinStore.Upsell.Message" = "改為年繳，較月繳省 25%。";
+"EZCoinStore.Upsell.Or" = "或";
 "EZCoinStore.Upsell.StandardTitle" = "改用 Standard 年繳方案";
 "EZCoinStore.Upsell.StandardMonthlyButton" = "$10.00/月";
 "EZCoinStore.Upsell.StandardAnnualButton" = "$89.99/年 — 省 $30";

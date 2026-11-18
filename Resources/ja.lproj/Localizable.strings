@@ -302,6 +302,7 @@
 "ElevenLabsClone.DeleteFailedMessage" = "削除に失敗しました。";
 "ElevenLabsClone.DeleteFailed" = "削除に失敗しました";
 "EZCoinStore.Upsell.Message" = "年払いなら月払いと比べて25%お得です。";
+"EZCoinStore.Upsell.Or" = "または";
 "EZCoinStore.Upsell.AnnualTitleFormat" = "%@ 年間プラン";
 "EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/月";
 "EZCoinStore.Upsell.AnnualButtonFormat" = "%@/年 — %@ お得";

@@ -302,6 +302,7 @@
 "ElevenLabsClone.DeleteFailedMessage" = "ลบไม่สำเร็จ";
 "ElevenLabsClone.DeleteFailed" = "ลบไม่สำเร็จ";
 "EZCoinStore.Upsell.Message" = "ชำระรายปีและประหยัด 25% เมื่อเทียบกับการเรียกเก็บเงินรายเดือน";
+"EZCoinStore.Upsell.Or" = "หรือ";
 "EZCoinStore.Upsell.AnnualTitleFormat" = "%@ รายปี";
 "EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/เดือน";
 "EZCoinStore.Upsell.AnnualButtonFormat" = "%@/ปี — ประหยัด %@";

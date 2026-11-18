@@ -43,6 +43,8 @@
 "EZCoinStore.Tier.UltraPrice" = "$20 / شهر";
 
 "EZCoinStore.Badge.Ultra" = "ألترا";
+"EZCoinStore.Badge.Power" = "باور";
+"EZCoinStore.Badge.Enterprise" = "إنتربرايز";
 
 "EZCoinStore.TopUp.Starter" = "حزمة بداية العملات";
 

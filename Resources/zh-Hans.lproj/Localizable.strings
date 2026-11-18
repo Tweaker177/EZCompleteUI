@@ -302,6 +302,7 @@
 "ElevenLabsClone.DeleteFailedMessage" = "删除失败。";
 "ElevenLabsClone.DeleteFailed" = "删除失败";
 "EZCoinStore.Upsell.Message" = "按年付费比按月付费节省 25%。";
+"EZCoinStore.Upsell.Or" = "或";
 "EZCoinStore.Upsell.AnnualTitleFormat" = "%@ 年度版";
 "EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/月";
 "EZCoinStore.Upsell.AnnualButtonFormat" = "%@/年 — 省 %@";

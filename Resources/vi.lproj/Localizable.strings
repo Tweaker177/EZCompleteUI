@@ -302,6 +302,7 @@
 "ElevenLabsClone.DeleteFailedMessage" = "Xóa thất bại.";
 "ElevenLabsClone.DeleteFailed" = "Xóa thất bại";
 "EZCoinStore.Upsell.Message" = "Thanh toán hằng năm và tiết kiệm 25% so với thanh toán hằng tháng.";
+"EZCoinStore.Upsell.Or" = "hoặc";
 "EZCoinStore.Upsell.AnnualTitleFormat" = "%@ hằng năm";
 "EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/tháng";
 "EZCoinStore.Upsell.AnnualButtonFormat" = "%@/năm — Tiết kiệm %@";

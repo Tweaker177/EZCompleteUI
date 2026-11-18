@@ -315,6 +315,7 @@
 
 /* Annual subscription offer */
 "EZCoinStore.Upsell.Message" = "Платите ежегодно и экономьте 25% по сравнению с ежемесячным выставлением счетов.";
+"EZCoinStore.Upsell.Or" = "или";
 "EZCoinStore.Upsell.StandardTitle" = "Переходите на год со стандартной версией";
 "EZCoinStore.Upsell.StandardMonthlyButton" = "10,00 долл. США в месяц";
 "EZCoinStore.Upsell.StandardAnnualButton" = "89,99 долл. США в год — сэкономьте 30 долл. США";
