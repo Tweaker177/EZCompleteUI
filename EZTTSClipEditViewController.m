@@ -20,6 +20,7 @@
 
 static CGFloat const kEZMinSelectionFractionToShowActions = 0.02;
 static const Float64 kEZSceneBackgroundTailSeconds = 3.0;
+static NSUInteger const kEZClipUndoMaxSnapshots = 10;
 
 // Accent name kept for the existing call sites; the value is now the
 // shared EZTheme gold so the editor matches the rest of the app.
@@ -64,6 +65,7 @@ static UIColor *EZEditElectricBlue(void) {
 
 // Speed
 @property (nonatomic, strong) UILabel *speedSectionLabel;
+@property (nonatomic, strong) UIBarButtonItem *undoButtonItem;
 @property (nonatomic, strong) UISlider *speedSlider;
 @property (nonatomic, strong) UILabel *speedValueLabel;
 @property (nonatomic, strong) UIButton *speedPreviewButton;
@@ -77,9 +79,9 @@ static UIColor *EZEditElectricBlue(void) {
 
 @property (nonatomic, strong, nullable) AVAudioPlayer *previewPlayer;
 
-// Effects — apply to the whole clip regardless of the current selection, and always
-// save as a new clip (these are creative transformations, not the kind of small
-// reversible enhancement Normalize is).
+// Effects — apply to the whole clip regardless of the current selection, in
+// place like every other edit in this editor (the pre-edit audio is kept on
+// the undo stack, so any of them can be walked back).
 @property (nonatomic, strong) UILabel *effectsSectionLabel;
 @property (nonatomic, strong) UILabel *pitchValueLabel;
 @property (nonatomic, strong) UISlider *pitchSlider;
@@ -147,49 +149,23 @@ static UIColor *EZEditElectricBlue(void) {
                                             metadata:sound.metadata];
 }
 
-/// Archives edited audio as a BRAND-NEW entry in the host library —
-/// the save convention for every edit except in-place normalize. The
-/// original entry is never touched.
-- (void)archiveEditedAudioData:(NSData *)data
-                        prompt:(NSString *)prompt
-                     extension:(NSString *)extension
-                    completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion {
-    if (self.soundEntry) {
-        EZSoundManifestEntry *source = self.soundEntry;
-        // Carry the source's metadata onto the copy: its loop flag, custom
-        // title, and playback rate are properties of the sound, not of the
-        // file being replaced — dropping them (the old metadata:nil) made
-        // an edited looping sound stop looping on paper, a renamed sound
-        // fall back to its prompt, and a sped-up sound play at 1.0x.
-        // (coinsSpent / requestedSeconds ride along as provenance; nothing
-        // reads them back.)
-        [[EZSoundLibraryManager sharedManager] saveAudioData:data
-                                                        prompt:prompt
-                                                      provider:source.provider
-                                                         model:source.model
-                                                     extension:extension
-                                                      metadata:source.metadata
-                                                    completion:^(EZSoundManifestEntry *saved, NSError *error) {
-            completion(saved ? [self mirrorEntryForSoundEntry:saved] : nil, error);
-        }];
-        return;
-    }
-    [[EZTTSLibraryManager sharedManager] saveAudioData:data
-                                                  prompt:prompt
-                                               voiceName:self.entry.voiceName
-                                                 voiceID:self.entry.voiceID
-                                                provider:self.entry.provider
-                                                   model:self.entry.model
-                                               extension:extension
-                                              completion:completion];
-}
 
-/// Replaces the audio underneath the SAME entry (in-place normalize).
-/// The entry keeps its position, title, favorite flag, and metadata;
-/// self.audioURL is refreshed to the replacement file either way.
+
+/// Replaces the audio underneath the SAME entry — the save convention for
+/// every edit in this editor. The entry keeps its position, title, favorite
+/// flag, and metadata; self.audioURL is refreshed to the replacement file
+/// either way. Unless the caller is Undo itself, the current audio is
+/// snapshotted first so the edit can be walked back.
 - (void)replaceEditedAudioData:(NSData *)data
                      extension:(NSString *)extension
                     completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion {
+    [self replaceEditedAudioData:data extension:extension snapshotForUndo:YES completion:completion];
+}
+- (void)replaceEditedAudioData:(NSData *)data
+                     extension:(NSString *)extension
+               snapshotForUndo:(BOOL)snapshotForUndo
+                    completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion {
+    if (snapshotForUndo) [self snapshotCurrentAudioForUndo];
     if (self.soundEntry) {
         [[EZSoundLibraryManager sharedManager] replaceAudioForSoundUUID:self.soundEntry.uuid
                                                                  withData:data
@@ -214,8 +190,100 @@ static UIColor *EZEditElectricBlue(void) {
     }];
 }
 
-/// Speed is metadata-only in both libraries ("playbackRate"); each
-/// library's list applies it when handing the entry to the player.
+#pragma mark - Undo (in-place edits)
+
+/// On-disk undo history for this clip: the audio as it was before each
+/// in-place edit, oldest first, kept in a subfolder of the host library's
+/// root (both libraries index by manifest, so the extra folder is invisible
+/// to them). Survives leaving the editor; capped at kEZClipUndoMaxSnapshots.
+- (NSURL *)undoDirectoryURLCreating:(BOOL)create {
+    NSURL *root = self.soundEntry ? [EZSoundLibraryManager sharedManager].libraryRootURL
+                                  : self.libraryRootURL;
+    if (!root || self.entry.uuid.length == 0) return nil;
+    NSURL *dir = [[root URLByAppendingPathComponent:@"EZClipUndo" isDirectory:YES]
+        URLByAppendingPathComponent:self.entry.uuid isDirectory:YES];
+    if (create) {
+        [[NSFileManager defaultManager] createDirectoryAtURL:dir
+                                 withIntermediateDirectories:YES
+                                                  attributes:nil
+                                                       error:nil];
+    } else if (![[NSFileManager defaultManager] fileExistsAtPath:dir.path]) {
+        return nil;
+    }
+    return dir;
+}
+- (NSArray<NSURL *> *)undoSnapshotURLs {
+    NSURL *dir = [self undoDirectoryURLCreating:NO];
+    if (!dir) return @[];
+    NSArray<NSURL *> *files = [[NSFileManager defaultManager]
+        contentsOfDirectoryAtURL:dir
+      includingPropertiesForKeys:@[NSURLContentModificationDateKey]
+                         options:0
+                           error:nil];
+    NSMutableArray<NSURL *> *snapshots = [NSMutableArray array];
+    for (NSURL *file in files) {
+        if ([file.lastPathComponent hasPrefix:@"undo-"]) [snapshots addObject:file];
+    }
+    [snapshots sortUsingComparator:^NSComparisonResult(NSURL *a, NSURL *b) {
+        NSDate *da = nil, *db = nil;
+        [a getResourceValue:&da forKey:NSURLContentModificationDateKey error:nil];
+        [b getResourceValue:&db forKey:NSURLContentModificationDateKey error:nil];
+        return [(da ?: [NSDate distantPast]) compare:(db ?: [NSDate distantPast])];
+    }];
+    return snapshots;
+}
+- (void)snapshotCurrentAudioForUndo {
+    NSURL *dir = [self undoDirectoryURLCreating:YES];
+    NSData *data = self.audioURL ? [NSData dataWithContentsOfURL:self.audioURL] : nil;
+    if (!dir || !data) {
+        EZLogf(EZLogLevelWarning, @"TTSLibrary", @"Undo snapshot skipped: current audio unreadable.");
+        return;
+    }
+    NSString *ext = self.audioURL.pathExtension.length > 0 ? self.audioURL.pathExtension : @"m4a";
+    NSString *name = [NSString stringWithFormat:@"undo-%lld.%@",
+                      (long long)([NSDate date].timeIntervalSince1970 * 1000.0), ext];
+    if (![data writeToURL:[dir URLByAppendingPathComponent:name] atomically:YES]) {
+        EZLogf(EZLogLevelWarning, @"TTSLibrary", @"Undo snapshot failed to write.");
+        return;
+    }
+    NSArray<NSURL *> *snapshots = [self undoSnapshotURLs];
+    while (snapshots.count > kEZClipUndoMaxSnapshots) {
+        [[NSFileManager defaultManager] removeItemAtURL:snapshots.firstObject error:nil];
+        snapshots = [snapshots subarrayWithRange:NSMakeRange(1, snapshots.count - 1)];
+    }
+}
+- (void)refreshUndoButton {
+    self.undoButtonItem.enabled = [self undoSnapshotURLs].count > 0;
+}
+- (void)handleUndoTapped {
+    NSArray<NSURL *> *snapshots = [self undoSnapshotURLs];
+    NSURL *latest = snapshots.lastObject;
+    if (!latest) { [self refreshUndoButton]; return; }
+    NSData *data = [NSData dataWithContentsOfURL:latest];
+    if (!data) {
+        [[NSFileManager defaultManager] removeItemAtURL:latest error:nil];
+        [self refreshUndoButton];
+        return;
+    }
+    [self.previewPlayer stop];
+    self.previewPlayer = nil;
+    [self beginEffectUI];
+    self.speedSlider.enabled = NO;
+    self.backgroundLevelSlider.enabled = NO;
+    NSString *ext = latest.pathExtension.length > 0 ? latest.pathExtension : @"m4a";
+    [self replaceEditedAudioData:data extension:ext snapshotForUndo:NO
+                      completion:^(EZTTSManifestEntry * _Nullable entry, NSError * _Nullable error) {
+        if (!error) [[NSFileManager defaultManager] removeItemAtURL:latest error:nil];
+        self.speedSlider.enabled = YES;
+        self.backgroundLevelSlider.enabled = YES;
+        [self endExportUIWithEntry:entry error:error];
+    }];
+}
+
+/// Persists the legacy playback-rate metadata ("playbackRate"). The editor
+/// now bakes speed into the audio itself (see handleSpeedSliderReleased:)
+/// and keeps this cleared to 1.0 so list playback never applies a rate
+/// twice; the managers still honor it for clips saved before the bake.
 - (void)persistPlaybackRate:(float)rate {
     if (self.soundEntry) {
         [[EZSoundLibraryManager sharedManager] setPlaybackRate:rate
@@ -276,6 +344,18 @@ static UIColor *EZEditElectricBlue(void) {
                                                                               target:self
                                                                               action:@selector(copyPromptTapped:)];
     self.navigationItem.rightBarButtonItem.tintColor = EZEditElectricBlue();
+    self.navigationItem.standardAppearance = [EZTheme navigationBarAppearance];
+    self.navigationItem.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.tintColor = [EZTheme goldColor];
+    self.navigationItem.leftItemsSupplementBackButton = YES;
+    self.undoButtonItem = [[UIBarButtonItem alloc]
+        initWithImage:[UIImage systemImageNamed:@"arrow.uturn.backward"]
+                style:UIBarButtonItemStylePlain
+               target:self
+               action:@selector(handleUndoTapped)];
+    self.undoButtonItem.accessibilityLabel = @"Undo last edit";
+    self.navigationItem.leftBarButtonItem = self.undoButtonItem;
+    [self refreshUndoButton];
 
     // Waveform sits directly under the prompt text now — it's the most important thing
     // on this screen, so it gets first billing.
@@ -471,12 +551,12 @@ static UIColor *EZEditElectricBlue(void) {
             [self presentErrorAlert:error ?: [self errorWithCode:-40 message:@"Could not render the new background level."] title:@"Couldn't update background audio"];
             return;
         }
-        [[EZTTSLibraryManager sharedManager] replaceAudioForClipUUID:self.entry.uuid withData:audioData extension:@"m4a" completion:^(EZTTSManifestEntry *entry, NSError *replaceError) {
+        [self replaceEditedAudioData:audioData extension:@"m4a" completion:^(EZTTSManifestEntry *entry, NSError *replaceError) {
             if (replaceError) { slider.enabled = YES; [self.exportSpinner stopAnimating]; [self presentErrorAlert:replaceError title:@"Couldn't update background audio"]; return; }
             [[EZTTSLibraryManager sharedManager] setSceneBackgroundLevel:slider.value forClipUUID:self.entry.uuid completion:^(EZTTSManifestEntry *updated, NSError *metadataError) {
                 slider.enabled = YES; [self.exportSpinner stopAnimating];
                 if (metadataError) { [self presentErrorAlert:metadataError title:@"Couldn't save background level"]; return; }
-                self.entry = updated; [self loadWaveform];
+                self.entry = updated; [self loadWaveform]; [self refreshUndoButton];
             }];
         }];
     }];
@@ -532,13 +612,14 @@ static UIColor *EZEditElectricBlue(void) {
 
     [self beginExportUI];
     [self insertSilenceAtFraction:fraction duration:silenceDuration completion:^(EZTTSManifestEntry * _Nullable newEntry, NSError * _Nullable error) {
-        [self endExportUIWithResult:newEntry error:error successMessage:@"A silent gap was inserted where you had selected." replacedInPlace:NO];
+        [self endExportUIWithEntry:newEntry error:error];
     }];
 }
 
 /// Splices a true silent gap into a copy of the clip using AVMutableComposition (an
 /// empty time range on a composition track plays back as silence — no separately
-/// generated silent audio file is needed), then exports and archives as a new clip.
+/// generated silent audio file is needed), then exports and writes the result
+/// back over the same clip.
 - (void)insertSilenceAtFraction:(CGFloat)fraction
                         duration:(NSTimeInterval)silenceDuration
                       completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
@@ -571,7 +652,7 @@ static UIColor *EZEditElectricBlue(void) {
     [compTrack insertTimeRange:CMTimeRangeMake(insertTime, secondPartDuration) ofTrack:sourceTrack atTime:secondPartDestination error:&insertError];
     if (insertError) { completion(nil, insertError); return; }
 
-    [self exportComposition:composition promptSuffix:@" (edited)" completion:completion];
+    [self exportComposition:composition completion:completion];
 }
 
 #pragma mark - Trim (keeps only the selected range, discards the rest)
@@ -582,7 +663,7 @@ static UIColor *EZEditElectricBlue(void) {
 
     [self beginExportUI];
     [self trimToStartFraction:start endFraction:end completion:^(EZTTSManifestEntry * _Nullable newEntry, NSError * _Nullable error) {
-        [self endExportUIWithResult:newEntry error:error successMessage:@"Saved a new clip containing just your selection." replacedInPlace:NO];
+        [self endExportUIWithEntry:newEntry error:error];
     }];
 }
 
@@ -611,52 +692,23 @@ static UIColor *EZEditElectricBlue(void) {
     [compTrack insertTimeRange:CMTimeRangeMake(startTime, selectionDuration) ofTrack:sourceTrack atTime:kCMTimeZero error:&insertError];
     if (insertError) { completion(nil, insertError); return; }
 
-    [self exportComposition:composition promptSuffix:@" (trimmed)" completion:completion];
+    [self exportComposition:composition completion:completion];
 }
 
 #pragma mark - Normalize (real peak analysis + gain applied only within the selection)
 
 - (void)handleNormalizeTapped {
-    CGFloat start = self.rangeSelector.startFraction;
-    CGFloat end = self.rangeSelector.endFraction;
-    // Normalizing is non-destructive and idempotent — running it again on the same
-    // range converges on the same result rather than compounding — so when the whole
-    // clip is selected there's little reason to keep the pre-normalized original around
-    // as a separate clip. A partial selection is more like a targeted edit, so that case
-    // still gets the choice.
-    BOOL isFullClip = (start <= 0.01 && end >= 0.99);
-
-    if (isFullClip) {
-        [self performNormalizeStart:start end:end saveAsNew:NO];
-        return;
-    }
-
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Save normalized audio"
-        message:@"You normalized part of the clip. Save it as a new clip to keep the original untouched, or overwrite this clip's audio."
-        preferredStyle:UIAlertControllerStyleActionSheet];
-    __weak typeof(self) weakSelf = self;
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Save as New Clip" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-        [weakSelf performNormalizeStart:start end:end saveAsNew:YES];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Overwrite This Clip" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
-        [weakSelf performNormalizeStart:start end:end saveAsNew:NO];
-    }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [self presentViewController:sheet animated:YES completion:nil];
+    // Every edit in this editor applies to this clip in place now (the
+    // pre-edit audio is snapshotted for Undo), so there is no save-as-new
+    // choice to offer — partial selections work exactly like full ones.
+    [self performNormalizeStart:self.rangeSelector.startFraction
+                            end:self.rangeSelector.endFraction];
 }
 
-- (void)performNormalizeStart:(CGFloat)start end:(CGFloat)end saveAsNew:(BOOL)saveAsNew {
+- (void)performNormalizeStart:(CGFloat)start end:(CGFloat)end {
     [self beginExportUI];
-    [self normalizeStartFraction:start endFraction:end saveAsNew:saveAsNew completion:^(EZTTSManifestEntry * _Nullable newEntry, NSError * _Nullable error) {
-        if (!error && !saveAsNew && newEntry) {
-            // Same clip, new audio underneath it — keep this screen in sync so the
-            // waveform and any further edits reflect what's actually on disk now.
-            self.entry = newEntry;
-        }
-        NSString *message = saveAsNew
-            ? @"Saved a new clip with your selection normalized."
-            : @"This clip's audio has been normalized in place — its position in History, favorite status, and tags are all unchanged.";
-        [self endExportUIWithResult:newEntry error:error successMessage:message replacedInPlace:!saveAsNew];
+    [self normalizeStartFraction:start endFraction:end completion:^(EZTTSManifestEntry * _Nullable newEntry, NSError * _Nullable error) {
+        [self endExportUIWithEntry:newEntry error:error];
     }];
 }
 
@@ -666,7 +718,6 @@ static UIColor *EZEditElectricBlue(void) {
 /// it touches every sample in the file.
 - (void)normalizeStartFraction:(CGFloat)startFraction
                      endFraction:(CGFloat)endFraction
-                       saveAsNew:(BOOL)saveAsNew
                       completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
 {
     NSURL *sourceURL = self.audioURL;
@@ -747,14 +798,7 @@ static UIColor *EZEditElectricBlue(void) {
             return;
         }
 
-        if (saveAsNew) {
-            [self archiveEditedAudioData:audioData
-                                  prompt:[self.entry.prompt stringByAppendingString:@" (normalized)"]
-                               extension:@"caf"
-                              completion:completion];
-        } else {
-            [self replaceEditedAudioData:audioData extension:@"caf" completion:completion];
-        }
+        [self replaceEditedAudioData:audioData extension:@"caf" completion:completion];
     });
 }
 
@@ -767,11 +811,10 @@ static UIColor *EZEditElectricBlue(void) {
     });
 }
 
-#pragma mark - Shared export/archive plumbing (Insert Silence + Trim both build a composition
-#pragma mark   and just need it exported to m4a and archived as a new clip)
+#pragma mark - Shared export plumbing (Insert Silence + Trim both build a composition
+#pragma mark   and just need it exported to m4a and written back over the same clip)
 
 - (void)exportComposition:(AVMutableComposition *)composition
-              promptSuffix:(NSString *)suffix
                 completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
 {
     NSString *tempName = [NSString stringWithFormat:@"edit_%.0f.m4a", [[NSDate date] timeIntervalSince1970]];
@@ -797,10 +840,7 @@ static UIColor *EZEditElectricBlue(void) {
             return;
         }
 
-        [self archiveEditedAudioData:audioData
-                              prompt:[self.entry.prompt stringByAppendingString:suffix]
-                           extension:@"m4a"
-                          completion:completion];
+        [self replaceEditedAudioData:audioData extension:@"m4a" completion:completion];
     }];
 }
 
@@ -812,13 +852,12 @@ static UIColor *EZEditElectricBlue(void) {
     self.insertSilenceButton.enabled = NO;
     self.normalizeButton.enabled = NO;
     self.trimButton.enabled = NO;
+    self.undoButtonItem.enabled = NO;
     [self.exportSpinner startAnimating];
 }
 
-- (void)endExportUIWithResult:(EZTTSManifestEntry * _Nullable)newEntry
-                         error:(NSError * _Nullable)error
-                successMessage:(NSString *)successMessage
-               replacedInPlace:(BOOL)replacedInPlace
+- (void)endExportUIWithEntry:(EZTTSManifestEntry * _Nullable)entry
+                       error:(NSError * _Nullable)error
 {
     dispatch_async(dispatch_get_main_queue(), ^{
         self.insertSilenceButton.enabled = YES;
@@ -829,30 +868,17 @@ static UIColor *EZEditElectricBlue(void) {
         self.echoButton.enabled = YES;
         self.eqButton.enabled = YES;
         [self.exportSpinner stopAnimating];
-
         if (error) {
             [self presentErrorAlert:error title:@"Couldn't complete that edit"];
+            [self refreshUndoButton];
             return;
         }
-
-        if (replacedInPlace) {
-            // Same clip, new audio — refresh what's on screen instead of leaving.
-            [self loadWaveform];
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Done"
-                                                                             message:successMessage
-                                                                      preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-            [self presentViewController:alert animated:YES completion:nil];
-            return;
-        }
-
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Saved as a new clip"
-                                                                         message:[successMessage stringByAppendingString:@" The original clip was left untouched — check History for the edited version."]
-                                                                  preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-            [self.navigationController popViewControllerAnimated:YES];
-        }]];
-        [self presentViewController:alert animated:YES completion:nil];
+        // Every edit lands on this same clip now: sync the screen with the
+        // updated entry and redraw the waveform. No confirmation alert —
+        // the change is simply there, and Undo can walk it back.
+        if (entry) self.entry = entry;
+        [self loadWaveform];
+        [self refreshUndoButton];
     });
 }
 
@@ -860,7 +886,7 @@ static UIColor *EZEditElectricBlue(void) {
 
 - (void)setupSpeedSection {
     self.speedSectionLabel = [self sectionHeaderLabel];
-    self.speedSectionLabel.text = @"SPEED (PLAYBACK ONLY)";
+    self.speedSectionLabel.text = @"SPEED";
     [self.scrollView addSubview:self.speedSectionLabel];
 
     self.speedSlider = [[UISlider alloc] init];
@@ -898,7 +924,36 @@ static UIColor *EZEditElectricBlue(void) {
 }
 
 - (void)handleSpeedSliderReleased:(UISlider *)slider {
-    [self persistPlaybackRate:slider.value];
+    float rate = slider.value;
+    if (fabsf(rate - 1.0f) < 0.005f) {
+        [self persistPlaybackRate:1.0f];
+        return;
+    }
+    // Bake the rate into the clip's audio (in place, undoable) instead of
+    // storing a playback-only flag that other players ignore. The render
+    // scales its frame count by 1/rate so nothing is padded or cut off.
+    if (self.previewPlayer) {
+        [self.previewPlayer stop];
+        self.previewPlayer = nil;
+        [self.speedPreviewButton setImage:[UIImage systemImageNamed:@"play.circle"] forState:UIControlStateNormal];
+    }
+    AVAudioUnitTimePitch *rateUnit = [[AVAudioUnitTimePitch alloc] init];
+    rateUnit.rate = rate;
+    slider.enabled = NO;
+    [self beginExportUI];
+    [self applyEffectNodes:@[rateUnit] tailSeconds:0 frameScale:(1.0 / rate)
+                completion:^(EZTTSManifestEntry * _Nullable newEntry, NSError * _Nullable error) {
+        slider.enabled = YES;
+        if (!error) {
+            // The rate now lives in the audio itself: clear the legacy
+            // playback-only flag so list playback doesn't apply it twice,
+            // and re-baseline the slider on the baked clip.
+            [self persistPlaybackRate:1.0f];
+            self.speedSlider.value = 1.0f;
+            [self updateSpeedValueLabel];
+        }
+        [self endExportUIWithEntry:newEntry error:error];
+    }];
 }
 
 - (void)handleSpeedPreviewTapped {
@@ -1008,7 +1063,7 @@ static UIColor *EZEditElectricBlue(void) {
     [self.navigationController pushViewController:composeVC animated:YES];
 }
 
-#pragma mark - Effects (apply to the whole clip, always save as a new clip)
+#pragma mark - Effects (apply to the whole clip, in place)
 
 - (void)setupEffectsSection {
     self.effectsSectionLabel = [self sectionHeaderLabel];
@@ -1069,9 +1124,9 @@ static UIColor *EZEditElectricBlue(void) {
     pitchUnit.rate = 1.0;
 
     [self beginEffectUI];
-    [self applyEffectNodes:@[pitchUnit] tailSeconds:0.2 promptSuffix:@" (pitch shifted)"
+    [self applyEffectNodes:@[pitchUnit] tailSeconds:0.2 frameScale:1.0
                 completion:^(EZTTSManifestEntry * _Nullable newEntry, NSError * _Nullable error) {
-        [self endExportUIWithResult:newEntry error:error successMessage:@"Saved a new clip with the pitch shifted." replacedInPlace:NO];
+        [self endExportUIWithEntry:newEntry error:error];
     }];
 }
 
@@ -1081,9 +1136,9 @@ static UIColor *EZEditElectricBlue(void) {
     reverb.wetDryMix = 35;
 
     [self beginEffectUI];
-    [self applyEffectNodes:@[reverb] tailSeconds:2.5 promptSuffix:@" (reverb)"
+    [self applyEffectNodes:@[reverb] tailSeconds:2.5 frameScale:1.0
                 completion:^(EZTTSManifestEntry * _Nullable newEntry, NSError * _Nullable error) {
-        [self endExportUIWithResult:newEntry error:error successMessage:@"Saved a new clip with reverb added." replacedInPlace:NO];
+        [self endExportUIWithEntry:newEntry error:error];
     }];
 }
 
@@ -1095,9 +1150,9 @@ static UIColor *EZEditElectricBlue(void) {
     delay.wetDryMix = 30;
 
     [self beginEffectUI];
-    [self applyEffectNodes:@[delay] tailSeconds:2.0 promptSuffix:@" (echo)"
+    [self applyEffectNodes:@[delay] tailSeconds:2.0 frameScale:1.0
                 completion:^(EZTTSManifestEntry * _Nullable newEntry, NSError * _Nullable error) {
-        [self endExportUIWithResult:newEntry error:error successMessage:@"Saved a new clip with echo added." replacedInPlace:NO];
+        [self endExportUIWithEntry:newEntry error:error];
     }];
 }
 
@@ -1141,10 +1196,9 @@ static UIColor *EZEditElectricBlue(void) {
     }
 
     [self beginEffectUI];
-    [self applyEffectNodes:@[eq] tailSeconds:0.2 promptSuffix:[NSString stringWithFormat:@" (%@)", preset]
+    [self applyEffectNodes:@[eq] tailSeconds:0.2 frameScale:1.0
                 completion:^(EZTTSManifestEntry * _Nullable newEntry, NSError * _Nullable error) {
-        [self endExportUIWithResult:newEntry error:error
-                     successMessage:[NSString stringWithFormat:@"Saved a new clip with %@ applied.", preset] replacedInPlace:NO];
+        [self endExportUIWithEntry:newEntry error:error];
     }];
 }
 
@@ -1157,13 +1211,15 @@ static UIColor *EZEditElectricBlue(void) {
 }
 
 /// Runs the source audio through an offline AVAudioEngine graph containing the given
-/// effect node(s), then archives the rendered result as a new clip. This is the one
-/// piece of plumbing all four effects share — each just configures its own AVAudioUnit
-/// and hands it to this. `tailSeconds` extends the render past the source's natural
-/// length so effects with a decay (reverb, echo) don't get cut off mid-tail.
+/// effect node(s), then writes the rendered result back over the same clip. This is
+/// the one piece of plumbing all four effects (and the speed bake) share — each just
+/// configures its own AVAudioUnit and hands it to this. `tailSeconds` extends the
+/// render past the source's natural length so effects with a decay (reverb, echo)
+/// don't get cut off mid-tail. `frameScale` scales the render length for nodes that
+/// change the duration (the speed bake renders source/rate frames); effects pass 1.0.
 - (void)applyEffectNodes:(NSArray<AVAudioUnit *> *)effectNodes
               tailSeconds:(NSTimeInterval)tailSeconds
-             promptSuffix:(NSString *)suffix
+               frameScale:(CGFloat)frameScale
                completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
 {
     NSURL *sourceURL = self.audioURL;
@@ -1220,7 +1276,7 @@ static UIColor *EZEditElectricBlue(void) {
                                                                  error:&writeSetupError];
         if (!outputFile) { [self finishBackgroundWork:completion entry:nil error:writeSetupError]; return; }
 
-        AVAudioFrameCount totalFramesToRender = sourceFrameCount + (AVAudioFrameCount)(tailSeconds * format.sampleRate);
+        AVAudioFrameCount totalFramesToRender = (AVAudioFrameCount)(sourceFrameCount * frameScale) + (AVAudioFrameCount)(tailSeconds * format.sampleRate);
         AVAudioFrameCount framesRendered = 0;
         AVAudioPCMBuffer *renderBuffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:engine.manualRenderingFormat
                                                                         frameCapacity:engine.manualRenderingMaximumFrameCount];
@@ -1256,10 +1312,7 @@ static UIColor *EZEditElectricBlue(void) {
         NSData *audioData = [NSData dataWithContentsOfURL:outputURL];
         if (!audioData) { [self finishBackgroundWork:completion entry:nil error:[self errorWithCode:-32 message:@"Couldn't read back the processed audio."]]; return; }
 
-        [self archiveEditedAudioData:audioData
-                              prompt:[self.entry.prompt stringByAppendingString:suffix]
-                           extension:@"caf"
-                          completion:completion];
+        [self replaceEditedAudioData:audioData extension:@"caf" completion:completion];
     });
 }
 
