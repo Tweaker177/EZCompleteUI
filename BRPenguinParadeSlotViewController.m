@@ -1538,7 +1538,7 @@ static NSArray<UIColor *> *PGLineColors(void) {
 
     // Wobble.
     [UIView animateKeyframesWithDuration:0.6 delay:0 options:0 animations:^{
-        CGFloat angles[5] = { -0.22, 0.22, -0.3, 0.3, 0 };
+        static const CGFloat angles[5] = { -0.22, 0.22, -0.3, 0.3, 0 };
         for (int k = 0; k < 5; k++)
             [UIView addKeyframeWithRelativeStartTime:k * 0.2 relativeDuration:0.2 animations:^{ egg.transform = CGAffineTransformMakeRotation(angles[k]); }];
     } completion:nil];
