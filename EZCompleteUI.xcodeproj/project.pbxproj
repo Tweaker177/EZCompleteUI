@@ -37,6 +37,7 @@
 		A2000000000000000000001C /* EZSystemCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* EZSystemCell.m */; };
 		A2000000000000000000001D /* EZCodeBlockCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* EZCodeBlockCell.m */; };
 		A2000000000000000000001E /* EZCoinStoreViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* EZCoinStoreViewController.m */; };
+		A200000000000000000000FF /* EZStoreKitManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000FF /* EZStoreKitManager.m */; };
 		A2000000000000000000001F /* EZCoinPotView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* EZCoinPotView.m */; };
 		A20000000000000000000020 /* EZPhotoGalleryViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* EZPhotoGalleryViewController.m */; };
 		A20000000000000000000021 /* EZImageGridCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* EZImageGridCell.m */; };
@@ -119,6 +120,8 @@
 		A1000000000000000000001C /* EZSystemCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZSystemCell.m; sourceTree = "<group>"; };
 		A1000000000000000000001D /* EZCodeBlockCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCodeBlockCell.m; sourceTree = "<group>"; };
 		A1000000000000000000001E /* EZCoinStoreViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCoinStoreViewController.m; sourceTree = "<group>"; };
+		A100000000000000000000FE /* EZStoreKitManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EZStoreKitManager.h; sourceTree = "<group>"; };
+		A100000000000000000000FF /* EZStoreKitManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZStoreKitManager.m; sourceTree = "<group>"; };
 		A1000000000000000000001F /* EZCoinPotView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCoinPotView.m; sourceTree = "<group>"; };
 		A10000000000000000000020 /* EZPhotoGalleryViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZPhotoGalleryViewController.m; sourceTree = "<group>"; };
 		A10000000000000000000021 /* EZImageGridCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZImageGridCell.m; sourceTree = "<group>"; };
@@ -255,6 +258,8 @@
 				A1000000000000000000001C /* EZSystemCell.m */,
 				A1000000000000000000001D /* EZCodeBlockCell.m */,
 				A1000000000000000000001E /* EZCoinStoreViewController.m */,
+				A100000000000000000000FE /* EZStoreKitManager.h */,
+				A100000000000000000000FF /* EZStoreKitManager.m */,
 				A1000000000000000000001F /* EZCoinPotView.m */,
 				A10000000000000000000020 /* EZPhotoGalleryViewController.m */,
 				A10000000000000000000021 /* EZImageGridCell.m */,
@@ -476,6 +481,7 @@
 				A2000000000000000000001C /* EZSystemCell.m in Sources */,
 				A2000000000000000000001D /* EZCodeBlockCell.m in Sources */,
 				A2000000000000000000001E /* EZCoinStoreViewController.m in Sources */,
+				A200000000000000000000FF /* EZStoreKitManager.m in Sources */,
 				A2000000000000000000001F /* EZCoinPotView.m in Sources */,
 				A20000000000000000000020 /* EZPhotoGalleryViewController.m in Sources */,
 				A20000000000000000000021 /* EZImageGridCell.m in Sources */,
@@ -718,6 +724,8 @@
 					UserNotifications,
 					"-framework",
 					MediaPlayer,
+					"-framework",
+					StoreKit,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui;
 				PRODUCT_NAME = EZCompleteUI;
