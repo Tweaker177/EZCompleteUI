@@ -9435,12 +9435,10 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
 //     GitHub until the user approves it here; the same request is then re-sent
 //     with confirmed:YES. Declining is reported back to the model as a fact.
 //
-// Loop guard: at most kEZChatGitHubMaxRounds GitHub steps per user message
-// (githubRoundCount is reset by -callChatCompletions, the user-send entry
-// point). After the model's final answer lands, old results are trimmed
+// githubRoundCount is reset by -callChatCompletions, the user-send entry
+// point. After the model's final answer lands, old results are trimmed
 // (-ez_compactGitHubResults) so later turns don't re-send whole files.
 
-static NSInteger const kEZChatGitHubMaxRounds = 8;
 static NSInteger const kEZChatLocalFileMaxRounds = 8;
 /// Characters of each local file result kept in history after the model
 /// has used it (mirrors kEZGitHubResultKeepChars).
@@ -9452,13 +9450,9 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
 - (void)performChatGitHubRequest:(NSDictionary *)githubRequest
                          summary:(NSString *)summary
                         threadID:(NSString *)threadID {
-    if (self.githubRoundCount >= kEZChatGitHubMaxRounds) {
-        self.sendButton.enabled = YES;
-        [self appendToChat:[NSString stringWithFormat:
-            @"[System: Stopped after %ld GitHub steps for this message. Ask again to keep going.]",
-            (long)kEZChatGitHubMaxRounds]];
-        return;
-    }
+    // No step cap: a task runs until the model finishes it. The counter is
+    // kept because the usage-label logic uses it to tell a tool follow-up
+    // round from a fresh user send.
     self.githubRoundCount += 1;
     self.sendButton.enabled = NO;
     NSString *shown = summary.length > 0 ? summary : @"Running a GitHub action";
