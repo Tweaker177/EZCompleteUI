@@ -495,6 +495,12 @@ static NSError *EZSoundLibraryError(EZSoundLibraryErrorCode code, NSString *desc
             return;
         }
         [[NSFileManager defaultManager] removeItemAtURL:fileURL error:nil];
+        // The clip editor keeps up to 10 undo snapshots under
+        // EZClipUndo/<uuid> — the sound is gone, so its undo history goes
+        // with it instead of lingering on disk invisible to the library.
+        NSURL *undoDir = [[self.libraryRootURL URLByAppendingPathComponent:@"EZClipUndo" isDirectory:YES]
+            URLByAppendingPathComponent:uuid isDirectory:YES];
+        [[NSFileManager defaultManager] removeItemAtURL:undoDir error:nil];
         [self refreshSnapshotLocked_NoLock:YES];
         if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(YES, nil); });
     });

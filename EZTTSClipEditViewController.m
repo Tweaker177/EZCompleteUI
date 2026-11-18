@@ -268,14 +268,10 @@ static UIColor *EZEditElectricBlue(void) {
     [self.previewPlayer stop];
     self.previewPlayer = nil;
     [self beginEffectUI];
-    self.speedSlider.enabled = NO;
-    self.backgroundLevelSlider.enabled = NO;
     NSString *ext = latest.pathExtension.length > 0 ? latest.pathExtension : @"m4a";
     [self replaceEditedAudioData:data extension:ext snapshotForUndo:NO
                       completion:^(EZTTSManifestEntry * _Nullable entry, NSError * _Nullable error) {
         if (!error) [[NSFileManager defaultManager] removeItemAtURL:latest error:nil];
-        self.speedSlider.enabled = YES;
-        self.backgroundLevelSlider.enabled = YES;
         [self endExportUIWithEntry:entry error:error];
     }];
 }
@@ -543,19 +539,20 @@ static UIColor *EZEditElectricBlue(void) {
     NSURL *narrationURL = [self sceneAssetURLForMetadataKey:@"sceneNarrationPath"];
     NSURL *backgroundURL = [self sceneAssetURLForMetadataKey:@"sceneBackgroundPath"];
     if (!narrationURL || !backgroundURL) return;
-    slider.enabled = NO;
-    [self.exportSpinner startAnimating];
+    // Same gate as every other edit: the remix renders on a background
+    // queue and replaces the clip, so no other edit may start meanwhile.
+    [self beginExportUI];
     [self remixNarrationURL:narrationURL backgroundURL:backgroundURL level:slider.value completion:^(NSData *audioData, NSError *error) {
         if (error || !audioData.length) {
-            slider.enabled = YES; [self.exportSpinner stopAnimating];
+            [self setEditControlsEnabled:YES]; [self.exportSpinner stopAnimating]; [self refreshUndoButton];
             [self presentErrorAlert:error ?: [self errorWithCode:-40 message:@"Could not render the new background level."] title:@"Couldn't update background audio"];
             return;
         }
         [self replaceEditedAudioData:audioData extension:@"m4a" completion:^(EZTTSManifestEntry *entry, NSError *replaceError) {
-            if (replaceError) { slider.enabled = YES; [self.exportSpinner stopAnimating]; [self presentErrorAlert:replaceError title:@"Couldn't update background audio"]; return; }
+            if (replaceError) { [self setEditControlsEnabled:YES]; [self.exportSpinner stopAnimating]; [self refreshUndoButton]; [self presentErrorAlert:replaceError title:@"Couldn't update background audio"]; return; }
             [[EZTTSLibraryManager sharedManager] setSceneBackgroundLevel:slider.value forClipUUID:self.entry.uuid completion:^(EZTTSManifestEntry *updated, NSError *metadataError) {
-                slider.enabled = YES; [self.exportSpinner stopAnimating];
-                if (metadataError) { [self presentErrorAlert:metadataError title:@"Couldn't save background level"]; return; }
+                [self setEditControlsEnabled:YES]; [self.exportSpinner stopAnimating];
+                if (metadataError) { [self presentErrorAlert:metadataError title:@"Couldn't save background level"]; [self refreshUndoButton]; return; }
                 self.entry = updated; [self loadWaveform]; [self refreshUndoButton];
             }];
         }];
@@ -817,7 +814,7 @@ static UIColor *EZEditElectricBlue(void) {
 - (void)exportComposition:(AVMutableComposition *)composition
                 completion:(void (^)(EZTTSManifestEntry * _Nullable, NSError * _Nullable))completion
 {
-    NSString *tempName = [NSString stringWithFormat:@"edit_%.0f.m4a", [[NSDate date] timeIntervalSince1970]];
+    NSString *tempName = [NSString stringWithFormat:@"edit-%@.m4a", [[NSUUID UUID] UUIDString]];
     NSURL *exportURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:tempName]];
     [[NSFileManager defaultManager] removeItemAtURL:exportURL error:nil];
 
@@ -848,10 +845,28 @@ static UIColor *EZEditElectricBlue(void) {
     return [NSError errorWithDomain:@"EZTTSClipEditViewController" code:code userInfo:@{NSLocalizedDescriptionKey: message}];
 }
 
+/// The one gate for every edit render: while any render is running, no
+/// other edit may start. Before the in-place model this mattered less
+/// (effects saved as new clips), but now every edit replaces the same
+/// audio — two concurrent renders snapshot the same pre-edit audio, both
+/// replace the clip, and the loser's edit is silently discarded (a speed
+/// bake racing an effect render could even share the same effect_*.caf
+/// temp file). beginExportUI disables the lot; endExportUIWithEntry
+/// re-enables it. The background-level remix goes through the same gate.
+- (void)setEditControlsEnabled:(BOOL)enabled {
+    self.insertSilenceButton.enabled = enabled;
+    self.normalizeButton.enabled = enabled;
+    self.trimButton.enabled = enabled;
+    self.applyPitchButton.enabled = enabled;
+    self.reverbButton.enabled = enabled;
+    self.echoButton.enabled = enabled;
+    self.eqButton.enabled = enabled;
+    self.speedSlider.enabled = enabled;
+    self.backgroundLevelSlider.enabled = enabled;
+}
+
 - (void)beginExportUI {
-    self.insertSilenceButton.enabled = NO;
-    self.normalizeButton.enabled = NO;
-    self.trimButton.enabled = NO;
+    [self setEditControlsEnabled:NO];
     self.undoButtonItem.enabled = NO;
     [self.exportSpinner startAnimating];
 }
@@ -860,13 +875,7 @@ static UIColor *EZEditElectricBlue(void) {
                        error:(NSError * _Nullable)error
 {
     dispatch_async(dispatch_get_main_queue(), ^{
-        self.insertSilenceButton.enabled = YES;
-        self.normalizeButton.enabled = YES;
-        self.trimButton.enabled = YES;
-        self.applyPitchButton.enabled = YES;
-        self.reverbButton.enabled = YES;
-        self.echoButton.enabled = YES;
-        self.eqButton.enabled = YES;
+        [self setEditControlsEnabled:YES];
         [self.exportSpinner stopAnimating];
         if (error) {
             [self presentErrorAlert:error title:@"Couldn't complete that edit"];
@@ -939,11 +948,9 @@ static UIColor *EZEditElectricBlue(void) {
     }
     AVAudioUnitTimePitch *rateUnit = [[AVAudioUnitTimePitch alloc] init];
     rateUnit.rate = rate;
-    slider.enabled = NO;
     [self beginExportUI];
     [self applyEffectNodes:@[rateUnit] tailSeconds:0 frameScale:(1.0 / rate)
                 completion:^(EZTTSManifestEntry * _Nullable newEntry, NSError * _Nullable error) {
-        slider.enabled = YES;
         if (!error) {
             // The rate now lives in the audio itself: clear the legacy
             // playback-only flag so list playback doesn't apply it twice,
@@ -1264,7 +1271,9 @@ static UIColor *EZEditElectricBlue(void) {
         [player scheduleBuffer:sourceBuffer completionHandler:nil];
         [player play];
 
-        NSString *tempName = [NSString stringWithFormat:@"effect_%.0f.caf", [[NSDate date] timeIntervalSince1970]];
+        // UUID name, not a seconds-resolution timestamp: two renders in
+        // the same second used to share one temp file.
+        NSString *tempName = [NSString stringWithFormat:@"effect-%@.caf", [[NSUUID UUID] UUIDString]];
         NSURL *outputURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:tempName]];
         [[NSFileManager defaultManager] removeItemAtURL:outputURL error:nil];
 

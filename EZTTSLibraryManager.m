@@ -505,6 +505,12 @@ static NSError *EZLibraryError(EZTTSLibraryErrorCode code, NSString *description
         if (![[NSFileManager defaultManager] removeItemAtURL:fileURL error:&fileError]) {
             EZLogf(EZLogLevelWarning, @"TTSLibrary", @"Deleted manifest entry %@ but could not remove file: %@", uuid, fileError.localizedDescription);
         }
+        // The clip editor keeps up to 10 undo snapshots under
+        // EZClipUndo/<uuid> — the clip is gone, so its undo history goes
+        // with it instead of lingering on disk invisible to the library.
+        NSURL *undoDir = [[self.libraryRootURL URLByAppendingPathComponent:@"EZClipUndo" isDirectory:YES]
+            URLByAppendingPathComponent:uuid isDirectory:YES];
+        [[NSFileManager defaultManager] removeItemAtURL:undoDir error:nil];
 
         [self refreshSnapshotLocked_NoLock:YES];
         if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(YES, nil); });
