@@ -555,6 +555,15 @@
 			};
 			name = Release;
 		};
+		A80000000000000000000005 /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				SDKROOT = iphoneos;
+			};
+			name = AppStore;
+		};
 		A80000000000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -663,6 +672,60 @@
 			};
 			name = Release;
 		};
+		A80000000000000000000006 /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGN_ENTITLEMENTS = EZCompleteUI.entitlements;
+				EXECUTABLE_NAME = EZCompleteUI;
+				GCC_PREPROCESSOR_DEFINITIONS = "APPSTORE=1";
+				INFOPLIST_FILE = Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					UIKit,
+					"-framework",
+					Foundation,
+					"-framework",
+					AVFoundation,
+					"-framework",
+					CoreMIDI,
+					"-framework",
+					Speech,
+					"-framework",
+					QuickLook,
+					"-framework",
+					LinkPresentation,
+					"-framework",
+					UniformTypeIdentifiers,
+					"-framework",
+					PDFKit,
+					"-framework",
+					QuickLookThumbnailing,
+					"-framework",
+					Security,
+					"-framework",
+					PhotosUI,
+					"-framework",
+					QuartzCore,
+					"-framework",
+					SafariServices,
+					"-framework",
+					ImageIO,
+					"-framework",
+					UserNotifications,
+					"-framework",
+					MediaPlayer,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui;
+				PRODUCT_NAME = EZCompleteUI;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = AppStore;
+		};
 		B80000000000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -699,6 +762,24 @@
 			};
 			name = Release;
 		};
+		B80000000000000000000003 /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/EZCompleteUIShare.entitlements;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui.share;
+				PRODUCT_NAME = EZCompleteUIShare;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = AppStore;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -707,6 +788,7 @@
 			buildConfigurations = (
 				A80000000000000000000001 /* Debug */,
 				A80000000000000000000002 /* Release */,
+				A80000000000000000000005 /* AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -716,6 +798,7 @@
 			buildConfigurations = (
 				A80000000000000000000003 /* Debug */,
 				A80000000000000000000004 /* Release */,
+				A80000000000000000000006 /* AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -725,6 +808,7 @@
 			buildConfigurations = (
 				B80000000000000000000001 /* Debug */,
 				B80000000000000000000002 /* Release */,
+				B80000000000000000000003 /* AppStore */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
