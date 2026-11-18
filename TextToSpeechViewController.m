@@ -82,6 +82,9 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
 
 @interface TextToSpeechViewController ()
 @property (nonatomic, strong) UIView *container;
+@property (nonatomic, strong) UISegmentedControl *tabControl;
+@property (nonatomic, strong) UIView *historyContainer;
+@property (nonatomic, strong) EZTTSLibraryViewController *libraryViewController;
 @property (nonatomic, strong) UILabel *promptSectionLabel;
 @property (nonatomic, strong) UITextView *textView;
 @property (nonatomic, strong) UILabel *charCountLabel;
@@ -313,11 +316,19 @@ static NSString *timestampString(void) {
     self.title = NSLocalizedString(@"EZTTS.Title", nil);
     self.view.backgroundColor = EZTTSNeonBackground();
 
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
-        initWithImage:[UIImage systemImageNamed:@"clock.arrow.circlepath"]
-                 style:UIBarButtonItemStylePlain
-                target:self
-                action:@selector(historyButtonTapped)];
+    // History / Create tabs in the nav bar, mirroring Music's tab control —
+    // History is the left segment and the default view (see showTTSTab:).
+    self.tabControl = [[UISegmentedControl alloc] initWithItems:@[@"History", @"Create"]];
+    self.tabControl.selectedSegmentIndex = 0;
+    [self.tabControl addTarget:self action:@selector(ttsTabChanged:) forControlEvents:UIControlEventValueChanged];
+    self.tabControl.backgroundColor = [EZTheme cardColor];
+    self.tabControl.selectedSegmentTintColor = [EZTheme goldColor];
+    [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme secondaryTextColor]} forState:UIControlStateNormal];
+    [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme userBubbleTextColor]} forState:UIControlStateSelected];
+    self.navigationItem.titleView = self.tabControl;
+    self.historyContainer = [[UIView alloc] initWithFrame:self.view.bounds];
+    self.historyContainer.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.view addSubview:self.historyContainer];
 
     NSString *savedID = [[NSUserDefaults standardUserDefaults] stringForKey:kVoiceIDDefaultsKey];
     self.selectedVoiceID = savedID.length > 0 ? savedID : kDefaultVoiceID;
@@ -486,8 +497,12 @@ static NSString *timestampString(void) {
 
     EZLog(EZLogLevelInfo, @"TTS_UI", @"TextToSpeechViewController loaded");
 
+    // A prefill (Regenerate / Change Voice from a clip) is compose intent —
+    // open on Create for it; every other arrival opens on History.
+    NSInteger initialTab = (self.pendingPrefillText != nil || self.hasPendingVoicePrefill) ? 1 : 0;
     [self applyPendingPrefillIfNeeded];
     [self recoverPendingTTSRequestsIfNeeded];
+    [self showTTSTab:initialTab];
 }
 
 - (UILabel *)sectionHeaderLabel {
@@ -556,6 +571,8 @@ static NSString *timestampString(void) {
     // are all gone.
     CGFloat containerHeight = curY;
     self.container.frame = CGRectMake(side, topInset, containerWidth, containerHeight);
+    self.historyContainer.frame = self.view.bounds;
+    self.libraryViewController.view.frame = self.historyContainer.bounds;
 
     self.spinner.center = CGPointMake(containerWidth / 2.0, containerHeight - 30);
 }
@@ -1099,6 +1116,7 @@ static NSString *timestampString(void) {
     }
     if (self.isViewLoaded) {
         [self applyPendingPrefillIfNeeded];
+        [self showTTSTab:1];
     }
 }
 
@@ -1130,16 +1148,53 @@ static NSString *timestampString(void) {
 
 #pragma mark - Library archiving / History
 
-- (void)historyButtonTapped {
-    EZTTSLibraryViewController *libraryVC = [[EZTTSLibraryViewController alloc] init];
-    if (self.navigationController) {
-        [self.navigationController pushViewController:libraryVC animated:YES];
+#pragma mark - History / Create tabs
+
+- (void)ttsTabChanged:(UISegmentedControl *)sender {
+    [self showTTSTab:sender.selectedSegmentIndex];
+}
+/// Tab 0 = History (the clip library, embedded as a child view controller),
+/// tab 1 = Create (this screen's compose panel). History is the default.
+- (void)showTTSTab:(NSInteger)tab {
+    [self.view endEditing:YES];
+    BOOL history = (tab == 0);
+    if (self.tabControl.selectedSegmentIndex != tab) self.tabControl.selectedSegmentIndex = tab;
+    self.container.hidden = history;
+    self.historyContainer.hidden = !history;
+    if (history) {
+        BOOL alreadyInstalled = (self.libraryViewController != nil);
+        [self ensureLibraryChild];
+        // The library's own nav items (search + Select) ride on this
+        // screen's nav bar while its tab is showing.
+        self.navigationItem.searchController = self.libraryViewController.navigationItem.searchController;
+        self.navigationItem.hidesSearchBarWhenScrolling = NO;
+        self.navigationItem.rightBarButtonItem = self.libraryViewController.navigationItem.rightBarButtonItem;
+        self.navigationItem.backBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"History"
+                                                                                  style:UIBarButtonItemStylePlain
+                                                                                 target:nil
+                                                                                 action:nil];
+        if (alreadyInstalled) {
+            // A hidden child receives no appearance callbacks, so forward
+            // one: the library refreshes its rows in viewWillAppear, which
+            // is what makes a clip generated on the Create tab show up.
+            [self.libraryViewController beginAppearanceTransition:YES animated:NO];
+            [self.libraryViewController endAppearanceTransition];
+        }
     } else {
-        // Not embedded in a navigation controller — fall back to a modal presentation
-        // wrapped in its own nav bar so the user still has a way back.
-        UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:libraryVC];
-        [self presentViewController:nav animated:YES completion:nil];
+        self.navigationItem.searchController = nil;
+        self.navigationItem.rightBarButtonItem = nil;
+        self.navigationItem.backBarButtonItem = nil;
     }
+}
+- (void)ensureLibraryChild {
+    if (self.libraryViewController) return;
+    EZTTSLibraryViewController *library = [[EZTTSLibraryViewController alloc] init];
+    [self addChildViewController:library];
+    library.view.frame = self.historyContainer.bounds;
+    library.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.historyContainer addSubview:library.view];
+    [library didMoveToParentViewController:self];
+    self.libraryViewController = library;
 }
 
 /// The one call this view controller makes into EZTTSLibraryManager. No manifest or
