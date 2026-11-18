@@ -281,6 +281,7 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
 @property (nonatomic, copy) NSString *profileName;
 @property (nonatomic, copy) NSString *profileStatus;
 @property (nonatomic, copy) NSString *profileAvatarURL;
+@property (nonatomic) NSInteger profileVipPoints;
 @end
 
 @implementation BRSlotChatBar
@@ -508,7 +509,7 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
 
 - (void)showWinnersBoard { [self showLeaderboard]; }
 + (void)loadAvatarThumbnailForURL:(NSString *)urlString points:(CGFloat)points completion:(void (^)(UIImage *))completion { if (!completion) return; if (!urlString.length) { completion(nil); return; } NSString *key = [NSString stringWithFormat:@"%@|%.0f", urlString, points]; UIImage *cached = [BRChatAvatarCache() objectForKey:key]; if (cached) { completion(cached); return; } NSURL *url = [NSURL URLWithString:urlString]; if (!url) { completion(nil); return; } [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) { UIImage *image = BRChatThumbnailFromData(data, points); if (image) [BRChatAvatarCache() setObject:image forKey:key]; dispatch_async(dispatch_get_main_queue(), ^{ completion(image); }); }] resume]; }
-- (void)fetchOwnProfile { [self request:@{ @"action": @"profile" } completion:^(NSDictionary *json, NSString *error) { if (error || !json) return; NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; if (!profile) return; self.hasProfile = YES; self.profileName = BRChatString(profile[@"display_name"]); self.profileStatus = BRChatString(profile[@"status"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSString *avatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(avatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = avatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } }]; }
+- (void)fetchOwnProfile { [self request:@{ @"action": @"profile" } completion:^(NSDictionary *json, NSString *error) { if (error || !json) return; NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; if (!profile) return; self.hasProfile = YES; self.profileName = BRChatString(profile[@"display_name"]); self.profileStatus = BRChatString(profile[@"status"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSInteger vipPoints = BRChatInteger(profile[@"vip_points"]); if (vipPoints != self.profileVipPoints) { self.profileVipPoints = vipPoints; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } NSString *avatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(avatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = avatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } }]; }
 - (void)showProfileEditor {
     if (self.profileName.length) { [self editProfile]; return; }
     // A bar that never started (the game picker's logic owner) has not seen
