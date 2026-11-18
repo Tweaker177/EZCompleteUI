@@ -304,6 +304,7 @@
 
 /* Offre d’abonnement annuel */
 "EZCoinStore.Upsell.Message" = "Payez à l’année et économisez 25 % par rapport à la facturation mensuelle.";
+"EZCoinStore.Upsell.Or" = "ou";
 "EZCoinStore.Upsell.StandardTitle" = "Passez à l’année avec Standard";
 "EZCoinStore.Upsell.StandardMonthlyButton" = "$10.00/mois";
 "EZCoinStore.Upsell.StandardAnnualButton" = "$89.99/an — Économisez $30";

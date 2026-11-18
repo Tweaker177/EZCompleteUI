@@ -20,6 +20,8 @@
 "EZCoinStore.Tier.UltraSubtitle" = "毎月2,500コイン\nヘビーユーザー向け";
 "EZCoinStore.Tier.UltraPrice" = "$20 / 月";
 "EZCoinStore.Badge.Ultra" = "ウルトラ";
+"EZCoinStore.Badge.Power" = "パワー";
+"EZCoinStore.Badge.Enterprise" = "エンタープライズ";
 "EZCoinStore.TopUp.Starter" = "コインスターターパック";
 "EZCoinStore.TopUp.StarterSubtitle" = "400コイン、1回限り\n有効期限なし";
 "EZCoinStore.TopUp.Value" = "コインバリューパック";

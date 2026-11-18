@@ -20,6 +20,8 @@
 "EZCoinStore.Tier.UltraSubtitle" = "2,500 कॉइन / माह\nपावर उपयोगकर्ताओं के लिए";
 "EZCoinStore.Tier.UltraPrice" = "$20 / माह";
 "EZCoinStore.Badge.Ultra" = "अल्ट्रा";
+"EZCoinStore.Badge.Power" = "पावर";
+"EZCoinStore.Badge.Enterprise" = "एंटरप्राइज़";
 "EZCoinStore.TopUp.Starter" = "कॉइन स्टार्टर पैक";
 "EZCoinStore.TopUp.StarterSubtitle" = "400 कॉइन, एक बार\nकभी समाप्त नहीं";
 "EZCoinStore.TopUp.Value" = "कॉइन वैल्यू पैक";

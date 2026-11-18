@@ -302,6 +302,7 @@
 "ElevenLabsClone.DeleteFailedMessage" = "हटाना विफल.";
 "ElevenLabsClone.DeleteFailed" = "हटाना विफल";
 "EZCoinStore.Upsell.Message" = "मासिक बिलिंग की तुलना में सालाना भुगतान करके 25% बचाएं।";
+"EZCoinStore.Upsell.Or" = "या";
 "EZCoinStore.Upsell.AnnualTitleFormat" = "%@ वार्षिक";
 "EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/माह";
 "EZCoinStore.Upsell.AnnualButtonFormat" = "%@/वर्ष — %@ बचाएं";

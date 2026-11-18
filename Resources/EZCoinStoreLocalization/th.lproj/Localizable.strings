@@ -20,6 +20,8 @@
 "EZCoinStore.Tier.UltraSubtitle" = "2,500 เหรียญ / เดือน\nสำหรับผู้ใช้หนัก";
 "EZCoinStore.Tier.UltraPrice" = "$20 / เดือน";
 "EZCoinStore.Badge.Ultra" = "อัลตร้า";
+"EZCoinStore.Badge.Power" = "พาวเวอร์";
+"EZCoinStore.Badge.Enterprise" = "เอนเทอร์ไพรซ์";
 "EZCoinStore.TopUp.Starter" = "แพ็กเริ่มต้นเหรียญ";
 "EZCoinStore.TopUp.StarterSubtitle" = "400 เหรียญ ครั้งเดียว\nไม่มีวันหมดอายุ";
 "EZCoinStore.TopUp.Value" = "แพ็กคุ้มค่าเหรียญ";

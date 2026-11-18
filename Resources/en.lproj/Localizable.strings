@@ -320,6 +320,7 @@
 
 /* Annual subscription offer */
 "EZCoinStore.Upsell.Message" = "Pay annually and save 25% compared with monthly billing.";
+"EZCoinStore.Upsell.Or" = "or";
 "EZCoinStore.Upsell.StandardTitle" = "Go Annual with Standard";
 "EZCoinStore.Upsell.StandardMonthlyButton" = "$10.00/mo";
 "EZCoinStore.Upsell.StandardAnnualButton" = "$89.99/yr — Save $30";

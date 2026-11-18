@@ -43,6 +43,8 @@
 "EZCoinStore.Tier.UltraPrice" = "$20 / 月";
 
 "EZCoinStore.Badge.Ultra" = "ULTRA";
+"EZCoinStore.Badge.Power" = "POWER";
+"EZCoinStore.Badge.Enterprise" = "ENTERPRISE";
 
 "EZCoinStore.TopUp.Starter" = "金幣入門包";
 

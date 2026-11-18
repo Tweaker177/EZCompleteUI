@@ -302,6 +302,7 @@
 "ElevenLabsClone.DeleteFailedMessage" = "Eliminazione non riuscita.";
 "ElevenLabsClone.DeleteFailed" = "Eliminazione non riuscita";
 "EZCoinStore.Upsell.Message" = "Paga annualmente e risparmia il 25% rispetto alla fatturazione mensile.";
+"EZCoinStore.Upsell.Or" = "o";
 "EZCoinStore.Upsell.AnnualTitleFormat" = "%@ annuale";
 "EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/mese";
 "EZCoinStore.Upsell.AnnualButtonFormat" = "%@/anno — Risparmia %@";

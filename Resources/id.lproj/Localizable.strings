@@ -317,6 +317,7 @@
 
 /* Annual subscription offer */
 "EZCoinStore.Upsell.Message" = "Bayar tahunan dan hemat 25% dibandingkan tagihan bulanan.";
+"EZCoinStore.Upsell.Or" = "atau";
 "EZCoinStore.Upsell.StandardTitle" = "Beralih ke Tahunan dengan Standard";
 "EZCoinStore.Upsell.StandardMonthlyButton" = "$10.00/bln";
 "EZCoinStore.Upsell.StandardAnnualButton" = "$89.99/thn — Hemat $30";

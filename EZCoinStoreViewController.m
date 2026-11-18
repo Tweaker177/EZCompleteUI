@@ -495,37 +495,13 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.titleLabel.text      = item.title;
 
-    self.subtitleLabel.text   = item.subtitle;
+    self.subtitleLabel.text   = [item.subtitle componentsSeparatedByString:@"\n"].firstObject;
 
     self.priceLabel.text      = item.priceString;
 
     self.priceLabel.textColor = accentColor;
 
-    if (item.badgeText) {
-
-        self.badgeLabel.hidden          = NO;
-
-        self.badgeLabel.text            = [NSString stringWithFormat:@" %@ ", item.badgeText];
-
-        self.badgeLabel.backgroundColor = accentColor;
-
-    } else {
-
-        self.badgeLabel.hidden = YES;
-
-    }
-
-    if (item.badgeFootnoteText) {
-
-        self.footnoteLabel.hidden = NO;
-
-        self.footnoteLabel.text   = item.badgeFootnoteText;
-
-    } else {
-
-        self.footnoteLabel.hidden = YES;
-
-    }
+    self.badgeLabel.hidden = YES;
 
     if (item.isCurrentPlan) {
 
@@ -987,7 +963,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     enterprise.planOrPackageID = kTierEnterprise;
     enterprise.type            = EZStoreItemTypeSubscription;
     enterprise.coins            = 12500;
-    enterprise.accentColor     = [UIColor colorWithRed:0.0 green:0.0 blue:0.0 alpha:1.0]; // black — top-tier accent
+    enterprise.accentColor     = [UIColor colorWithRed:0.0 green:0.58 blue:0.42 alpha:1.0]; // deep emerald — top-tier accent
     enterprise.isCurrentPlan   = isActive && ([currentTier isEqualToString:@"enterprise"] || [currentTier isEqualToString:@"enterprise_annual"]);
     if (([currentTier isEqualToString:@"enterprise"] || [currentTier isEqualToString:@"enterprise_annual"]) && !isActive && currentStatus)
         enterprise.badgeText   = currentStatus.uppercaseString;
