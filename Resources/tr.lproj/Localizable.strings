@@ -785,11 +785,11 @@
 "BRSlot.Plunder.Title" = "Plunder Bay";
 "BRSlot.Plunder.Heading" = "☠  PLUNDER BAY  ☠";
 "BRSlot.Plunder.Description" = "Yirmi çizgi, bir hazine sandığı. Üç sandık bonusu uyandırır.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Sandıklar her yerde öder — 3 veya daha fazlası, çizgi kazançları ×3 olan ücretsiz dönüşleri başlatır";
+"BRSlot.Plunder.ScatterReward" = "3 veya daha fazla sandık ücretsiz dönüşleri başlatır";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld ÜCRETSİZ DÖNÜŞ KALDI — ÇİZGİ KAZANÇLARI ×3";
 "BRSlot.Plunder.FreeSpin" = "Ücretsiz dönüş — bahis alınmaz";
 "BRSlot.Plunder.BetValue" = "BAHİS\n%ld";
-"BRSlot.Plunder.MaxBet" = "MAKSİMUM BAHİS\n100 + DÖNDÜR";
+"BRSlot.Plunder.MaxBet" = "MAKSİMUM BAHİS\n%ld + DÖNDÜR";
 "BRSlot.Plunder.NeedCoins" = "Bu bahis için %ld coin gerekli.";
 "BRSlot.Plunder.SignIn" = "Plunder Bay oynamak için oturum açın.";
 "BRSlot.Plunder.StoreFeature" = "Plunder Bay";

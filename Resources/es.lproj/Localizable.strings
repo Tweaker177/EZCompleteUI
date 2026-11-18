@@ -766,11 +766,11 @@
 "BRSlot.Plunder.Title" = "Plunder Bay";
 "BRSlot.Plunder.Heading" = "☠ PLUNDER BAY ☠";
 "BRSlot.Plunder.Description" = "Veinte líneas, un cofre del tesoro. Tres cofres despiertan el bono.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Los cofres pagan en cualquier posición — 3 o más inician giros gratis con ganancias de línea ×3";
+"BRSlot.Plunder.ScatterReward" = "3 o más cofres inician giros gratis";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld GIROS GRATIS QUEDAN — GANANCIAS DE LÍNEA ×3";
 "BRSlot.Plunder.FreeSpin" = "Giro gratis — sin apuesta";
 "BRSlot.Plunder.BetValue" = "APUESTA\n%ld";
-"BRSlot.Plunder.MaxBet" = "APUESTA MÁXIMA\n100 + GIRO";
+"BRSlot.Plunder.MaxBet" = "APUESTA MÁXIMA\n%ld + GIRO";
 "BRSlot.Plunder.NeedCoins" = "Necesitas %ld monedas para esa apuesta.";
 "BRSlot.Plunder.SignIn" = "Inicia sesión para jugar a Plunder Bay.";
 "BRSlot.Plunder.StoreFeature" = "Plunder Bay";

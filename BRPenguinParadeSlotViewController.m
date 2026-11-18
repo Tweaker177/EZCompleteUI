@@ -388,6 +388,7 @@ static UIImage *PGParticleImage(BOOL coin) {
     title.attributedText = [[NSAttributedString alloc] initWithString:@"PENGUIN PARADE" attributes:@{
         NSFontAttributeName: [UIFont systemFontOfSize:34 weight:UIFontWeightHeavy],
         NSForegroundColorAttributeName: PGGold(), NSKernAttributeName: @6}];
+    title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .6;
     title.layer.shadowColor = PGC(0x6FC3F0).CGColor;
     title.layer.shadowOpacity = .7; title.layer.shadowRadius = 10; title.layer.shadowOffset = CGSizeZero;
     UILabel *subtitle = [UILabel new];
@@ -408,6 +409,7 @@ static UIImage *PGParticleImage(BOOL coin) {
     self.bannerLabel = [UILabel new];
     self.bannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.bannerLabel.numberOfLines = 2;
+    self.bannerLabel.adjustsFontSizeToFitWidth = YES; self.bannerLabel.minimumScaleFactor = .85;
     self.bannerLabel.textAlignment = NSTextAlignmentCenter;
     self.bannerLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy];
     self.bannerLabel.textColor = PGGold();
@@ -670,7 +672,7 @@ static UIImage *PGParticleImage(BOOL coin) {
         self.bannerLabel.text = [NSString stringWithFormat:PGLoc(@"BRSlot.PG.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, PGNum(_bonusTotal)];
         self.bannerLabel.textColor = PGC(0xFFE48F);
     } else {
-        self.bannerLabel.text = self.vipMode ? PGLoc(@"BRSlot.PG.HintVIP", @"PENGUIN PARADE VIP \u00b7 BETS TO 125 A LINE \u00b7 RICHER LINE PAYS\n3+ GOLDEN EGGS = FREE SPINS") : PGLoc(@"BRSlot.PG.Hint", @"3+ GOLDEN EGGS = FREE SPINS\nHATCH A ×2 / ×3 / ×5 MULTIPLIER");
+        self.bannerLabel.text = self.vipMode ? PGLoc(@"BRSlot.PG.HintVIP", @"PENGUIN PARADE VIP \u00b7 BETS TO 125 A LINE\nRICHER LINE PAYS \u00b7 3+ GOLDEN EGGS = FREE SPINS") : PGLoc(@"BRSlot.PG.Hint", @"3+ GOLDEN EGGS = FREE SPINS\nHATCH A ×2 / ×3 / ×5 MULTIPLIER");
         self.bannerLabel.textColor = PGGold();
     }
 }

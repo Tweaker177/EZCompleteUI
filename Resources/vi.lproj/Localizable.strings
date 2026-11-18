@@ -744,11 +744,11 @@
 "BRSlot.Plunder.Title" = "Plunder Bay";
 "BRSlot.Plunder.Heading" = "☠ Plunder Bay ☠";
 "BRSlot.Plunder.Description" = "Hai mươi dòng, một rương kho báu. Ba rương đánh thức vòng thưởng.";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ Rương trả thưởng ở mọi vị trí — 3 rương trở lên bắt đầu quay miễn phí với thắng dòng ×3";
+"BRSlot.Plunder.ScatterReward" = "3 rương trở lên bắt đầu quay miễn phí";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ CÒN %ld LƯỢT QUAY MIỄN PHÍ — THẮNG DÒNG ×3";
 "BRSlot.Plunder.FreeSpin" = "Quay miễn phí — không trừ cược";
 "BRSlot.Plunder.BetValue" = "CƯỢC\n%ld";
-"BRSlot.Plunder.MaxBet" = "CƯỢC TỐI ĐA\n100 + QUAY";
+"BRSlot.Plunder.MaxBet" = "CƯỢC TỐI ĐA\n%ld + QUAY";
 "BRSlot.Plunder.NeedCoins" = "Cần %ld xu cho cược này.";
 "BRSlot.Plunder.SignIn" = "Đăng nhập để chơi Plunder Bay.";
 "BRSlot.Plunder.StoreFeature" = "Plunder Bay";

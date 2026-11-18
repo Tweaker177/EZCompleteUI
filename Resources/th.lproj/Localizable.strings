@@ -744,11 +744,11 @@
 "BRSlot.Plunder.Title" = "พลันเดอร์ เบย์";
 "BRSlot.Plunder.Heading" = "☠ พลันเดอร์ เบย์ ☠";
 "BRSlot.Plunder.Description" = "ยี่สิบไลน์ หนึ่งหีบสมบัติ หีบสามใบปลุกโบนัส";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ หีบสมบัติจ่ายทุกตำแหน่ง — 3 ใบขึ้นไปเริ่มหมุนฟรี ชนะตามไลน์ ×3";
+"BRSlot.Plunder.ScatterReward" = "หีบสมบัติ 3 ใบขึ้นไปเริ่มหมุนฟรี";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ เหลือ %ld หมุนฟรี — ชนะตามไลน์ ×3";
 "BRSlot.Plunder.FreeSpin" = "หมุนฟรี — ไม่หักเดิมพัน";
 "BRSlot.Plunder.BetValue" = "เดิมพัน\n%ld";
-"BRSlot.Plunder.MaxBet" = "เดิมพันสูงสุด\n100 + หมุน";
+"BRSlot.Plunder.MaxBet" = "เดิมพันสูงสุด\n%ld + หมุน";
 "BRSlot.Plunder.NeedCoins" = "ต้องการ %ld เหรียญสำหรับการเดิมพันนี้";
 "BRSlot.Plunder.SignIn" = "ลงชื่อเข้าใช้เพื่อเล่นพลันเดอร์ เบย์";
 "BRSlot.Plunder.StoreFeature" = "พลันเดอร์ เบย์";

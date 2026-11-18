@@ -744,11 +744,11 @@
 "BRSlot.Plunder.Title" = "プランダーベイ";
 "BRSlot.Plunder.Heading" = "☠プランダーベイ☠";
 "BRSlot.Plunder.Description" = "20ライン、1つの宝箱。宝箱3つでボーナス覚醒。";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ 宝箱はどこでも配当 — 3つ以上でライン勝利×3のフリースピン開始";
+"BRSlot.Plunder.ScatterReward" = "宝箱3つ以上でフリースピン開始";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ %ld フリースピンが残っています • ライン勝利 ×3";
 "BRSlot.Plunder.FreeSpin" = "フリースピン — ベットなし";
 "BRSlot.Plunder.BetValue" = "ベット\n%ld";
-"BRSlot.Plunder.MaxBet" = "最大ベット\n100 + スピン";
+"BRSlot.Plunder.MaxBet" = "最大ベット\n%ld + スピン";
 "BRSlot.Plunder.NeedCoins" = "このベットには %ld コインが必要です。";
 "BRSlot.Plunder.SignIn" = "プランダーベイをプレイするにはサインインしてください。";
 "BRSlot.Plunder.StoreFeature" = "プランダーベイ";

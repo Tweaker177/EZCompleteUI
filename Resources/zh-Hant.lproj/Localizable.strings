@@ -785,11 +785,11 @@
 "BRSlot.Plunder.Title" = "掠奪灣";
 "BRSlot.Plunder.Heading" = "☠  掠奪灣  ☠";
 "BRSlot.Plunder.Description" = "二十條線，一個寶箱。三個寶箱喚醒獎勵。";
-"BRSlot.Plunder.ScatterReward" = "🏴‍☠️ 寶箱任意位置賠付 — 3 個以上開啟免費旋轉，連線獎金 ×3";
+"BRSlot.Plunder.ScatterReward" = "3 個以上寶箱開啟免費旋轉";
 "BRSlot.Plunder.FreeSpinsRemaining" = "⚓ 剩餘 %ld 次免費旋轉 — 連線獎金 ×3";
 "BRSlot.Plunder.FreeSpin" = "免費旋轉 — 不扣除投注";
 "BRSlot.Plunder.BetValue" = "投注\n%ld";
-"BRSlot.Plunder.MaxBet" = "最大投注\n100 + 旋轉";
+"BRSlot.Plunder.MaxBet" = "最大投注\n%ld + 旋轉";
 "BRSlot.Plunder.NeedCoins" = "此投注需要 %ld 金幣。";
 "BRSlot.Plunder.SignIn" = "登入以遊玩掠奪灣。";
 "BRSlot.Plunder.StoreFeature" = "掠奪灣";
