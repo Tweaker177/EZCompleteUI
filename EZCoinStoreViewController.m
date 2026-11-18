@@ -695,7 +695,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     // only affects what the store *advertises*, never what gets paid out.
 
-    self.isPromoActive = YES;
+    self.isPromoActive = NO; // 2026-11-18: x2 signs/mentions deliberately removed from the store. The server STILL grants the bonuses for now, so older builds (which still show these badges) don't become false advertising — new builds just don't advertise it. Flip to YES only for a future advertised sale.
 
     [self buildItems];
 
