@@ -23,6 +23,7 @@
 //     handled so the reset flow works with or without the edge function deployed.
 
 #import "AppDelegate.h"
+#import "EZTheme.h"
 #import "ViewController.h"
 #import "EZKeyVault.h"
 #import "LoginViewController.h"
@@ -44,6 +45,9 @@ static NSString *const kEZShareManifestName = @"pending-image-import.plist";
     didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
 
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
+    // Global tint: alerts, action sheets, and any control that inherits the
+    // window tint use the theme gold instead of leftover system blue.
+    self.window.tintColor = [EZTheme goldColor];
     [EZKeyVault seedSupportEmailIfNeeded];
 
     // Show login screen while we check session
