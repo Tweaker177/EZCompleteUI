@@ -31,6 +31,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.12",
+          "buildVersion": "7.2.12",
+          "date": "2026-11-18",
+          "localizedDescription": "## What's Changed\n* Theme: Voice Clone screen full EZTheme makeover by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/174\n* Set window tint to theme gold (alerts drop system blue) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/175\n* Remove the 8-step cap on GitHub tool rounds by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/176\n* Clip editor: in-place edits with Undo, baked-in speed by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/177\n* TTS: History / Create tabs by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/178\n* Localize the big-win celebration banner by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/179\n* Player status + tappable leaderboard profiles by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/180\n\n\n**Full Changelog**: https://github.com/Tweaker177/EZCompleteUI/compare/7.2.11...7.2.12",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.12/EZCompleteUI-7.2.12-release.ipa",
+          "size": 16979430,
+          "sha256": "8582ba3a47207b2b7b67e5fc1d1fa3af40ffac44c2b7c3ba56c9a6c5bf7d5b7a",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.11",
           "buildVersion": "7.2.11",
           "date": "2026-11-17",
