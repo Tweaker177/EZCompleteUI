@@ -189,7 +189,6 @@ static UIImage *PGParticleImage(BOOL coin) {
 @property (nonatomic, strong) UIView *machine;
 @property (nonatomic, strong) UIView *meterView, *meterFill;      // the oval egg meter above the reels
 @property (nonatomic, strong) CAGradientLayer *meterGradient;
-@property (nonatomic, strong) UILabel *meterCount;
 @property (nonatomic, strong) NSMutableArray<UIView *> *reelViews;
 @property (nonatomic, strong) NSMutableArray<UIView *> *strips;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIImageView *> *> *stripCells;
@@ -441,24 +440,13 @@ static UIImage *PGParticleImage(BOOL coin) {
     self.meterGradient.colors = @[(id)PGC(0x1E8FE0).CGColor, (id)PGC(0x6FD6FF).CGColor, (id)PGC(0xFFE48F).CGColor];
     self.meterGradient.startPoint = CGPointMake(0, .5); self.meterGradient.endPoint = CGPointMake(1, .5);
     [self.meterFill.layer addSublayer:self.meterGradient];
-    self.meterCount = [UILabel new];
-    self.meterCount.translatesAutoresizingMaskIntoConstraints = NO;
-    self.meterCount.font = [UIFont monospacedDigitSystemFontOfSize:12 weight:UIFontWeightHeavy];
-    self.meterCount.textColor = UIColor.whiteColor;
-    self.meterCount.textAlignment = NSTextAlignmentRight;
-    self.meterCount.shadowColor = [UIColor colorWithWhite:0 alpha:.8];
-    self.meterCount.shadowOffset = CGSizeMake(0, 1);
     [self.meterView addSubview:self.meterFill];
     [self.meterView addSubview:self.bannerLabel];
-    [self.meterView addSubview:self.meterCount];
     [NSLayoutConstraint activateConstraints:@[
         [self.bannerLabel.leadingAnchor constraintEqualToAnchor:self.meterView.leadingAnchor constant:18],
-        [self.bannerLabel.trailingAnchor constraintEqualToAnchor:self.meterView.trailingAnchor constant:-72],
+        [self.bannerLabel.trailingAnchor constraintEqualToAnchor:self.meterView.trailingAnchor constant:-18],
         [self.bannerLabel.topAnchor constraintEqualToAnchor:self.meterView.topAnchor],
         [self.bannerLabel.bottomAnchor constraintEqualToAnchor:self.meterView.bottomAnchor],
-        [self.meterCount.trailingAnchor constraintEqualToAnchor:self.meterView.trailingAnchor constant:-16],
-        [self.meterCount.centerYAnchor constraintEqualToAnchor:self.meterView.centerYAnchor],
-        [self.meterCount.widthAnchor constraintEqualToConstant:56],
     ]];
 
     // Cabinet
@@ -714,7 +702,7 @@ static UIImage *PGParticleImage(BOOL coin) {
         self.bannerLabel.text = [NSString stringWithFormat:PGLoc(@"BRSlot.PG.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, PGNum(_bonusTotal)];
         self.bannerLabel.textColor = PGC(0xFFE48F);
     } else {
-        self.bannerLabel.text = self.vipMode ? PGLoc(@"BRSlot.PG.HintVIP", @"PENGUIN PARADE VIP \u00b7 BETS TO 125 A LINE\nRICHER LINE PAYS \u00b7 3+ GOLDEN EGGS = FREE SPINS") : PGLoc(@"BRSlot.PG.Hint", @"3+ GOLDEN EGGS = FREE SPINS\nHATCH A ×2 / ×3 / ×5 MULTIPLIER");
+        self.bannerLabel.text = PGLoc(@"BRSlot.PG.Hint", @"3 golden eggs triggers bonus game");
         self.bannerLabel.textColor = PGGold();
     }
 }
@@ -1118,7 +1106,6 @@ static UIImage *PGParticleImage(BOOL coin) {
     CGFloat w = self.meterView.bounds.size.width, h = self.meterView.bounds.size.height;
     if (w < 1) return;
     self.meterGradient.frame = CGRectMake(0, 0, w, h);          // fixed, so colour maps to meter position
-    self.meterCount.text = [NSString stringWithFormat:@"🥚 %ld/%ld", (long)MIN(_meterEggs, _meterSize), (long)_meterSize];
     [NSUserDefaults.standardUserDefaults setInteger:_meterEggs forKey:kPGMeterKey];
     CGRect target = CGRectMake(0, 0, [self meterFillWidthForEggs:_meterEggs], h);
     if (animated) {
