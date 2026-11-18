@@ -1,6 +1,7 @@
 #import "BRSlotChatBar.h"
 #import "EZAuthManager.h"
 #import "EZSupabaseConfig.h"
+#import <objc/runtime.h>
 
 // br-slot-social replies are parsed JSON: any field can be NSNull or the
 // wrong type, and messaging boolValue/integerValue — or subscripting a
@@ -62,12 +63,17 @@ static UIImage *BRChatThumbnailFromData(NSData *data, CGFloat points) {
 static NSString *BRChatAvatarIdentity(NSString *url) { return url ? ([url componentsSeparatedByString:@"?"].firstObject ?: url) : nil; }
 static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache *cache; static dispatch_once_t once; dispatch_once(&once, ^{ cache = [NSCache new]; cache.countLimit = 64; }); return cache; }
 
-@interface BRSlotChatPromptController : UIViewController <UITextFieldDelegate>
+@interface BRSlotChatPromptController : UIViewController <UITextFieldDelegate, UITextViewDelegate>
 @property (nonatomic, copy) NSString *promptTitle, *promptBody, *initialText;
 @property (nonatomic, strong) UIImage *avatarImage;
 @property (nonatomic, copy) NSString *avatarURLString;
 @property (nonatomic, copy) NSArray<NSString *> *actions;
 @property (nonatomic, copy) void (^selection)(NSInteger action, NSString *text);
+@property (nonatomic, copy) NSString *initialStatus;
+@property (nonatomic, copy) void (^selectionWithStatus)(NSInteger action, NSString *text, NSString *status);
+@property (nonatomic, strong) UITextView *statusView;
+@property (nonatomic, strong) UILabel *statusPlaceholderLabel;
+@property (nonatomic, strong) UILabel *statusCountLabel;
 @property (nonatomic, strong) UITextField *textField;
 @property (nonatomic, strong) UIView *cardView;
 @property (nonatomic, strong) NSLayoutConstraint *cardCenterYConstraint;
@@ -81,9 +87,19 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     UIImageView *avatarView = nil;
     if (self.avatarImage || self.avatarURLString.length) { avatarView = [UIImageView new]; avatarView.image = self.avatarImage ?: [UIImage systemImageNamed:@"person.crop.circle.fill"]; avatarView.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; avatarView.contentMode = UIViewContentModeScaleAspectFill; avatarView.clipsToBounds = YES; avatarView.layer.cornerRadius = 38; avatarView.layer.borderWidth = 1; avatarView.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.62].CGColor; avatarView.backgroundColor = [UIColor colorWithWhite:1 alpha:.07]; avatarView.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:avatarView]; if (!self.avatarImage && self.avatarURLString.length) { __weak UIImageView *weakAvatar = avatarView; [BRSlotChatBar loadAvatarThumbnailForURL:self.avatarURLString points:76 completion:^(UIImage *image) { if (image) weakAvatar.image = image; }]; } }
     self.textField = [UITextField new]; self.textField.text = self.initialText; self.textField.placeholder = NSLocalizedString(@"BRSlot.Lounge.DisplayName", nil); self.textField.textColor = UIColor.whiteColor; self.textField.backgroundColor = [UIColor colorWithWhite:1 alpha:.09]; self.textField.layer.cornerRadius = 12; self.textField.leftView = [[UIView alloc] initWithFrame:CGRectMake(0,0,12,1)]; self.textField.leftViewMode = UITextFieldViewModeAlways; self.textField.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:self.textField]; self.textField.hidden = !self.initialText; self.textField.delegate = self; self.textField.returnKeyType = UIReturnKeyDone;
+    if (self.initialStatus) {
+        self.statusView = [UITextView new]; self.statusView.text = self.initialStatus; self.statusView.font = [UIFont systemFontOfSize:15]; self.statusView.textColor = UIColor.whiteColor; self.statusView.backgroundColor = [UIColor colorWithWhite:1 alpha:.09]; self.statusView.layer.cornerRadius = 12; self.statusView.textContainerInset = UIEdgeInsetsMake(10, 8, 10, 8); self.statusView.translatesAutoresizingMaskIntoConstraints = NO; self.statusView.delegate = self; [card addSubview:self.statusView];
+        self.statusPlaceholderLabel = [UILabel new]; self.statusPlaceholderLabel.text = @"Add a status\u2026"; self.statusPlaceholderLabel.font = [UIFont systemFontOfSize:15]; self.statusPlaceholderLabel.textColor = [UIColor colorWithWhite:.55 alpha:1]; self.statusPlaceholderLabel.translatesAutoresizingMaskIntoConstraints = NO; self.statusPlaceholderLabel.hidden = self.initialStatus.length > 0; [card addSubview:self.statusPlaceholderLabel];
+        self.statusCountLabel = [UILabel new]; self.statusCountLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium]; self.statusCountLabel.textColor = [UIColor colorWithWhite:.55 alpha:1]; self.statusCountLabel.textAlignment = NSTextAlignmentRight; self.statusCountLabel.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:self.statusCountLabel];
+        [self updateStatusCount];
+    }
     UIStackView *buttons = [UIStackView new]; buttons.axis = UILayoutConstraintAxisVertical; buttons.spacing = 9; buttons.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:buttons]; [self.actions enumerateObjectsUsingBlock:^(NSString *name, NSUInteger index, BOOL *stop) { UIButton *b = [UIButton buttonWithType:UIButtonTypeSystem]; [b setTitle:name forState:UIControlStateNormal]; [b setTitleColor:index == self.actions.count - 1 ? [UIColor colorWithWhite:.72 alpha:1] : UIColor.whiteColor forState:UIControlStateNormal]; b.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBlack]; b.backgroundColor = index == self.actions.count - 1 ? [UIColor colorWithWhite:1 alpha:.07] : [UIColor colorWithRed:.58 green:.12 blue:.42 alpha:1]; b.layer.cornerRadius = 12; b.tag = index; [b addTarget:self action:@selector(tapped:) forControlEvents:UIControlEventTouchUpInside]; [buttons addArrangedSubview:b]; [b.heightAnchor constraintEqualToConstant:43].active = YES; }];
-    self.cardCenterYConstraint = [card.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor]; [NSLayoutConstraint activateConstraints:@[[card.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:18], [card.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-18], self.cardCenterYConstraint, [title.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [title.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [title.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [body.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:7], [body.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [body.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [self.textField.topAnchor constraintEqualToAnchor:avatarView ? avatarView.bottomAnchor : body.bottomAnchor constant:avatarView ? 14 : 16], [self.textField.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [self.textField.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [self.textField.heightAnchor constraintEqualToConstant:46], [buttons.topAnchor constraintEqualToAnchor:self.textField.hidden ? (avatarView ? avatarView.bottomAnchor : body.bottomAnchor) : self.textField.bottomAnchor constant:18], [buttons.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [buttons.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [buttons.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-20]]]; if (avatarView) [NSLayoutConstraint activateConstraints:@[[avatarView.topAnchor constraintEqualToAnchor:body.bottomAnchor constant:14], [avatarView.centerXAnchor constraintEqualToAnchor:card.centerXAnchor], [avatarView.widthAnchor constraintEqualToConstant:76], [avatarView.heightAnchor constraintEqualToConstant:76]]]; }
-- (void)tapped:(UIButton *)sender { NSString *text = self.textField.text ?: @""; NSInteger action = sender.tag; [self dismissViewControllerAnimated:YES completion:^{ if (self.selection) self.selection(action, text); }]; }
+    NSLayoutYAxisAnchor *buttonsTop = self.statusCountLabel ? self.statusCountLabel.bottomAnchor : (self.textField.hidden ? (avatarView ? avatarView.bottomAnchor : body.bottomAnchor) : self.textField.bottomAnchor); CGFloat buttonsGap = self.statusCountLabel ? 14 : 18;
+    self.cardCenterYConstraint = [card.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor]; [NSLayoutConstraint activateConstraints:@[[card.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:18], [card.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-18], self.cardCenterYConstraint, [title.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [title.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [title.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [body.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:7], [body.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [body.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [self.textField.topAnchor constraintEqualToAnchor:avatarView ? avatarView.bottomAnchor : body.bottomAnchor constant:avatarView ? 14 : 16], [self.textField.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [self.textField.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [self.textField.heightAnchor constraintEqualToConstant:46], [buttons.topAnchor constraintEqualToAnchor:buttonsTop constant:buttonsGap], [buttons.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [buttons.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [buttons.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-20]]]; if (self.statusView) [NSLayoutConstraint activateConstraints:@[[self.statusView.topAnchor constraintEqualToAnchor:self.textField.bottomAnchor constant:10], [self.statusView.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [self.statusView.trailingAnchor constraintEqualToAnchor:title.trailingAnchor], [self.statusView.heightAnchor constraintEqualToConstant:66], [self.statusPlaceholderLabel.topAnchor constraintEqualToAnchor:self.statusView.topAnchor constant:10], [self.statusPlaceholderLabel.leadingAnchor constraintEqualToAnchor:self.statusView.leadingAnchor constant:13], [self.statusCountLabel.topAnchor constraintEqualToAnchor:self.statusView.bottomAnchor constant:5], [self.statusCountLabel.leadingAnchor constraintEqualToAnchor:title.leadingAnchor], [self.statusCountLabel.trailingAnchor constraintEqualToAnchor:title.trailingAnchor]]]; if (avatarView) [NSLayoutConstraint activateConstraints:@[[avatarView.topAnchor constraintEqualToAnchor:body.bottomAnchor constant:14], [avatarView.centerXAnchor constraintEqualToAnchor:card.centerXAnchor], [avatarView.widthAnchor constraintEqualToConstant:76], [avatarView.heightAnchor constraintEqualToConstant:76]]]; }
+- (void)tapped:(UIButton *)sender { NSString *text = self.textField.text ?: @""; NSString *status = self.statusView ? (self.statusView.text ?: @"") : nil; NSInteger action = sender.tag; [self dismissViewControllerAnimated:YES completion:^{ if (self.selectionWithStatus) self.selectionWithStatus(action, text, status); else if (self.selection) self.selection(action, text); }]; }
+- (void)updateStatusCount { self.statusCountLabel.text = [NSString stringWithFormat:@"%lu / 280", (unsigned long)self.statusView.text.length]; self.statusPlaceholderLabel.hidden = self.statusView.text.length > 0; }
+- (void)textViewDidChange:(UITextView *)textView { [self updateStatusCount]; }
+- (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text { NSString *next = [textView.text stringByReplacingCharactersInRange:range withString:text]; return next.length <= 280; }
 // Keyboard handling: the card is centered in a medium sheet and the
 // action buttons sit at its bottom, so an open keyboard covers them
 // and the name cannot be saved. While the keyboard is up, shift the
@@ -94,8 +110,153 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
 - (void)br_keyboardWillShow:(NSNotification *)note { if (self.textField.hidden) return; [self.view layoutIfNeeded]; CGRect kb = [self.view convertRect:[note.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue] fromView:nil]; CGFloat overlap = CGRectGetMaxY(self.cardView.frame) - CGRectGetMinY(kb) + 16; if (overlap <= 0) return; self.cardCenterYConstraint.constant = -overlap; [UIView animateWithDuration:[note.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue] delay:0 options:([note.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue] << 16) animations:^{ [self.view layoutIfNeeded]; } completion:nil]; }
 - (void)br_keyboardWillHide:(NSNotification *)note { if (self.cardCenterYConstraint.constant == 0) return; self.cardCenterYConstraint.constant = 0; [UIView animateWithDuration:[note.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue] delay:0 options:([note.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue] << 16) animations:^{ [self.view layoutIfNeeded]; } completion:nil]; }
 - (BOOL)textFieldShouldReturn:(UITextField *)textField { [textField resignFirstResponder]; return YES; }
-- (void)br_backgroundTapped:(UITapGestureRecognizer *)tap { if (!CGRectContainsPoint(self.cardView.frame, [tap locationInView:self.view])) [self.textField resignFirstResponder]; }
+- (void)br_backgroundTapped:(UITapGestureRecognizer *)tap { if (!CGRectContainsPoint(self.cardView.frame, [tap locationInView:self.view])) { [self.textField resignFirstResponder]; [self.statusView resignFirstResponder]; } }
 @end
+
+// Full-screen player profile, opened by tapping a leaderboard row: big
+// picture, their status, and their numbers for the day and all time. All
+// data rides on the leaderboard row itself (br-slot-social enriches every
+// row), so opening it needs no extra request.
+@interface BRSlotPlayerProfileController : UIViewController
+@property (nonatomic, copy) NSString *playerName;
+@property (nonatomic, copy) NSString *avatarURLString;
+@property (nonatomic, copy) NSString *statusText;
+@property (nonatomic, copy) NSDictionary *stats;
+@end
+@implementation BRSlotPlayerProfileController
+- (NSString *)formattedNumber:(id)value {
+    NSNumberFormatter *formatter = [NSNumberFormatter new];
+    formatter.numberStyle = NSNumberFormatterDecimalStyle;
+    return [formatter stringFromNumber:BRChatNumber(value)] ?: @"0";
+}
+- (void)addStatRowToStack:(UIStackView *)stack label:(NSString *)label value:(NSString *)value {
+    UIView *row = [UIView new];
+    row.translatesAutoresizingMaskIntoConstraints = NO;
+    UILabel *name = [UILabel new];
+    name.text = label;
+    name.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
+    name.textColor = [UIColor colorWithWhite:.72 alpha:1];
+    name.translatesAutoresizingMaskIntoConstraints = NO;
+    [row addSubview:name];
+    UILabel *amount = [UILabel new];
+    amount.text = value;
+    amount.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
+    amount.textColor = UIColor.whiteColor;
+    amount.textAlignment = NSTextAlignmentRight;
+    amount.translatesAutoresizingMaskIntoConstraints = NO;
+    [row addSubview:amount];
+    [NSLayoutConstraint activateConstraints:@[
+        [name.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+        [name.topAnchor constraintEqualToAnchor:row.topAnchor constant:7],
+        [name.bottomAnchor constraintEqualToAnchor:row.bottomAnchor constant:-7],
+        [amount.trailingAnchor constraintEqualToAnchor:row.trailingAnchor],
+        [amount.leadingAnchor constraintGreaterThanOrEqualToAnchor:name.trailingAnchor constant:12],
+        [amount.centerYAnchor constraintEqualToAnchor:name.centerYAnchor]]];
+    [stack addArrangedSubview:row];
+}
+- (void)addSectionHeaderToStack:(UIStackView *)stack text:(NSString *)text {
+    UILabel *header = [UILabel new];
+    header.text = text;
+    header.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBlack];
+    header.textColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+    [stack addArrangedSubview:header];
+}
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.view.backgroundColor = [UIColor colorWithRed:.055 green:.02 blue:.12 alpha:1];
+    UIScrollView *scroll = [UIScrollView new];
+    scroll.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:scroll];
+    UIStackView *stack = [UIStackView new];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.spacing = 14;
+    stack.alignment = UIStackViewAlignmentFill;
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [scroll addSubview:stack];
+    UIButton *close = [UIButton buttonWithType:UIButtonTypeSystem];
+    [close setImage:[UIImage systemImageNamed:@"xmark.circle.fill"] forState:UIControlStateNormal];
+    close.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+    close.translatesAutoresizingMaskIntoConstraints = NO;
+    [close addTarget:self action:@selector(closeTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:close];
+    UIImageView *avatar = [UIImageView new];
+    avatar.image = [UIImage systemImageNamed:@"person.crop.circle.fill"];
+    avatar.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+    avatar.contentMode = UIViewContentModeScaleAspectFill;
+    avatar.clipsToBounds = YES;
+    avatar.layer.cornerRadius = 28;
+    avatar.layer.borderWidth = 1;
+    avatar.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.62].CGColor;
+    avatar.backgroundColor = [UIColor colorWithWhite:1 alpha:.07];
+    avatar.translatesAutoresizingMaskIntoConstraints = NO;
+    [avatar.heightAnchor constraintEqualToConstant:280].active = YES;
+    [stack addArrangedSubview:avatar];
+    if (self.avatarURLString.length) {
+        __weak UIImageView *weakAvatar = avatar;
+        [BRSlotChatBar loadAvatarThumbnailForURL:self.avatarURLString points:280 completion:^(UIImage *image) { if (image) { weakAvatar.image = image; weakAvatar.tintColor = nil; } }];
+    }
+    UILabel *name = [UILabel new];
+    name.text = self.playerName;
+    name.font = [UIFont systemFontOfSize:26 weight:UIFontWeightBlack];
+    name.textColor = UIColor.whiteColor;
+    name.textAlignment = NSTextAlignmentCenter;
+    name.numberOfLines = 0;
+    [stack addArrangedSubview:name];
+    NSString *status = [self.statusText stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (status.length) {
+        UILabel *statusLabel = [UILabel new];
+        statusLabel.text = status;
+        statusLabel.font = [UIFont systemFontOfSize:16];
+        statusLabel.textColor = [UIColor colorWithWhite:.88 alpha:1];
+        statusLabel.textAlignment = NSTextAlignmentCenter;
+        statusLabel.numberOfLines = 0;
+        [stack addArrangedSubview:statusLabel];
+    }
+    UIView *card = [UIView new];
+    card.backgroundColor = [UIColor colorWithRed:.13 green:.045 blue:.23 alpha:1];
+    card.layer.cornerRadius = 18;
+    card.layer.borderWidth = 1;
+    card.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.4].CGColor;
+    card.translatesAutoresizingMaskIntoConstraints = NO;
+    UIStackView *statsStack = [UIStackView new];
+    statsStack.axis = UILayoutConstraintAxisVertical;
+    statsStack.spacing = 2;
+    statsStack.translatesAutoresizingMaskIntoConstraints = NO;
+    [card addSubview:statsStack];
+    [NSLayoutConstraint activateConstraints:@[
+        [statsStack.topAnchor constraintEqualToAnchor:card.topAnchor constant:14],
+        [statsStack.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-14],
+        [statsStack.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:18],
+        [statsStack.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18]]];
+    [self addSectionHeaderToStack:statsStack text:@"TODAY"];
+    [self addStatRowToStack:statsStack label:@"Won" value:[self formattedNumber:self.stats[@"won_24h"]]];
+    [self addStatRowToStack:statsStack label:@"Best hit" value:[self formattedNumber:self.stats[@"best_24h"]]];
+    [self addSectionHeaderToStack:statsStack text:@"ALL TIME"];
+    [self addStatRowToStack:statsStack label:@"Winnings" value:[self formattedNumber:self.stats[@"won_all"]]];
+    [self addStatRowToStack:statsStack label:@"Biggest win" value:[self formattedNumber:self.stats[@"best_all"]]];
+    [self addStatRowToStack:statsStack label:@"Total spins" value:[self formattedNumber:self.stats[@"spins_all"]]];
+    [self addStatRowToStack:statsStack label:@"Recorded wins" value:[self formattedNumber:self.stats[@"wins_all"]]];
+    NSString *favorite = BRChatString(self.stats[@"favorite_game"]);
+    [self addStatRowToStack:statsStack label:@"Favorite slot" value:favorite.length ? favorite : @"—"];
+    [stack addArrangedSubview:card];
+    UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [scroll.topAnchor constraintEqualToAnchor:safe.topAnchor],
+        [scroll.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [scroll.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [scroll.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [stack.topAnchor constraintEqualToAnchor:scroll.topAnchor constant:24],
+        [stack.bottomAnchor constraintEqualToAnchor:scroll.bottomAnchor constant:-32],
+        [stack.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:22],
+        [stack.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-22],
+        [close.topAnchor constraintEqualToAnchor:safe.topAnchor constant:10],
+        [close.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
+        [close.widthAnchor constraintEqualToConstant:36],
+        [close.heightAnchor constraintEqualToConstant:36]]];
+}
+- (void)closeTapped { [self dismissViewControllerAnimated:YES completion:nil]; }
+@end
+
 
 @interface BRSlotChatBar () <UITableViewDataSource, UITableViewDelegate, UITextFieldDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate>
 @property (nonatomic, copy) NSString *roomID;
@@ -118,6 +279,7 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
 @property (nonatomic, strong) UIImage *pendingAvatar;
 @property (nonatomic) BOOL musicEnabled;
 @property (nonatomic, copy) NSString *profileName;
+@property (nonatomic, copy) NSString *profileStatus;
 @property (nonatomic, copy) NSString *profileAvatarURL;
 @end
 
@@ -318,7 +480,7 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     }];
 }
 
-- (void)refresh { if (self.loading || !self.started) return; self.loading = YES; [self request:@{ @"action": @"room_state", @"room_id": self.roomID } completion:^(NSDictionary *json, NSString *error) { self.loading = NO; if (error || !json) { self.presenceLabel.text = @"● Lounge reconnecting…"; self.presenceLabel.textColor = UIColor.systemOrangeColor; if (!self.messages.count) self.latestLabel.text = @"● Lounge reconnecting…"; return; } NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; self.hasProfile = profile != nil; self.profileName = BRChatString(profile[@"display_name"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSString *stateAvatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(stateAvatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = stateAvatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } NSInteger active = BRChatInteger(json[@"active_players"]); self.presenceLabel.text = [NSString stringWithFormat:@"● %ld player%@ in the lounge", (long)active, active == 1 ? @"" : @"s"]; self.presenceLabel.textColor = [UIColor colorWithRed:.55 green:1 blue:.72 alpha:1]; BOOL nearBottom = YES; if (self.expanded && self.messages.count) { CGFloat distance = self.table.contentSize.height - (self.table.contentOffset.y + self.table.bounds.size.height); nearBottom = distance < 90; } self.messages = [json[@"messages"] isKindOfClass:NSArray.class] ? json[@"messages"] : @[]; [self updateLatestLine]; if (self.expanded) { [self.table reloadData]; if (nearBottom || self.justSent) [self scrollToBottomAnimated:NO]; if (!self.hasProfile) [self offerProfileSetup]; } self.justSent = NO; }]; }
+- (void)refresh { if (self.loading || !self.started) return; self.loading = YES; [self request:@{ @"action": @"room_state", @"room_id": self.roomID } completion:^(NSDictionary *json, NSString *error) { self.loading = NO; if (error || !json) { self.presenceLabel.text = @"● Lounge reconnecting…"; self.presenceLabel.textColor = UIColor.systemOrangeColor; if (!self.messages.count) self.latestLabel.text = @"● Lounge reconnecting…"; return; } NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; self.hasProfile = profile != nil; self.profileName = BRChatString(profile[@"display_name"]); self.profileStatus = BRChatString(profile[@"status"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSString *stateAvatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(stateAvatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = stateAvatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } NSInteger active = BRChatInteger(json[@"active_players"]); self.presenceLabel.text = [NSString stringWithFormat:@"● %ld player%@ in the lounge", (long)active, active == 1 ? @"" : @"s"]; self.presenceLabel.textColor = [UIColor colorWithRed:.55 green:1 blue:.72 alpha:1]; BOOL nearBottom = YES; if (self.expanded && self.messages.count) { CGFloat distance = self.table.contentSize.height - (self.table.contentOffset.y + self.table.bounds.size.height); nearBottom = distance < 90; } self.messages = [json[@"messages"] isKindOfClass:NSArray.class] ? json[@"messages"] : @[]; [self updateLatestLine]; if (self.expanded) { [self.table reloadData]; if (nearBottom || self.justSent) [self scrollToBottomAnimated:NO]; if (!self.hasProfile) [self offerProfileSetup]; } self.justSent = NO; }]; }
 
 - (void)updateLatestLine {
     NSDictionary *message = self.messages.lastObject;
@@ -335,17 +497,18 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
 
 - (void)offerProfileSetup { // No static "showing" flag: a swipe-dismissed sheet never ran the selection block, so the flag stuck and the prompt never appeared again. The presented controller is the guard — it clears itself on any dismissal.
     if (!self.hostViewController || self.hostViewController.presentedViewController) return; BRSlotChatPromptController *sheet = [BRSlotChatPromptController new]; sheet.promptTitle = @"Join the lounge"; sheet.promptBody = @"Choose a public display name. Your email and account details stay private."; sheet.initialText = @""; sheet.actions = @[@"Save Profile", @"Not Now"]; sheet.selection = ^(NSInteger action, NSString *text) { if (action == 0) [self saveProfileName:text music:NO]; }; [self.hostViewController presentViewController:sheet animated:YES completion:nil]; }
-- (void)editProfile { if (!self.hostViewController) return; BRSlotChatPromptController *sheet = [BRSlotChatPromptController new]; sheet.promptTitle = @"Your lounge profile"; sheet.promptBody = @"Your profile is shown only in game lounges."; sheet.initialText = self.profileName ?: @""; sheet.avatarImage = self.pendingAvatar; sheet.avatarURLString = self.pendingAvatar ? nil : self.profileAvatarURL; sheet.actions = @[@"Choose Photo", @"Save Profile", @"Cancel"]; __weak typeof(self) weakSelf = self; sheet.selection = ^(NSInteger action, NSString *text) { __strong typeof(weakSelf) self = weakSelf; if (!self) return; NSString *name = text.length ? text : (self.profileName ?: @"Player"); if (action == 0) { UIImagePickerController *picker = [UIImagePickerController new]; picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary; picker.delegate = self; [self.hostViewController presentViewController:picker animated:YES completion:nil]; } else if (action == 1) { [self saveProfileName:name music:self.musicEnabled]; } }; [self.hostViewController presentViewController:sheet animated:YES completion:nil]; }
+- (void)editProfile { if (!self.hostViewController) return; BRSlotChatPromptController *sheet = [BRSlotChatPromptController new]; sheet.promptTitle = @"Your lounge profile"; sheet.promptBody = @"Your profile is shown only in game lounges."; sheet.initialText = self.profileName ?: @""; sheet.initialStatus = self.profileStatus ?: @""; sheet.avatarImage = self.pendingAvatar; sheet.avatarURLString = self.pendingAvatar ? nil : self.profileAvatarURL; sheet.actions = @[@"Choose Photo", @"Save Profile", @"Cancel"]; __weak typeof(self) weakSelf = self; sheet.selectionWithStatus = ^(NSInteger action, NSString *text, NSString *status) { __strong typeof(weakSelf) self = weakSelf; if (!self) return; NSString *name = text.length ? text : (self.profileName ?: @"Player"); if (action == 0) { UIImagePickerController *picker = [UIImagePickerController new]; picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary; picker.delegate = self; [self.hostViewController presentViewController:picker animated:YES completion:nil]; } else if (action == 1) { [self saveProfileName:name status:status music:self.musicEnabled]; } }; [self.hostViewController presentViewController:sheet animated:YES completion:nil]; }
 - (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey,id> *)info { self.pendingAvatar = info[UIImagePickerControllerOriginalImage]; [picker dismissViewControllerAnimated:YES completion:^{ [self editProfile]; }]; }
 - (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker { [picker dismissViewControllerAnimated:YES completion:nil]; }
-- (void)saveProfileName:(NSString *)name music:(BOOL)music { // A too-short name used to return silently, so the setup sheet was re-offered on every 6s poll until the user typed 2+ characters or tapped Not Now. Fall back to "Player" like the edit-profile path already does.
-    if (name.length < 2) name = @"Player"; NSMutableDictionary *body = [@{ @"action": @"save_profile", @"display_name": name, @"music_enabled": @(music) } mutableCopy]; UIImage *avatar = BRChatScaledAvatar(self.pendingAvatar); NSData *image = avatar ? UIImageJPEGRepresentation(avatar, .78) : nil; if (image.length) body[@"avatar_b64"] = [image base64EncodedStringWithOptions:0]; [self request:body completion:^(NSDictionary *json, NSString *error) { if (!error) { self.pendingAvatar = nil; self.hasProfile = YES; NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; if (profile) { self.profileName = BRChatString(profile[@"display_name"]); NSString *savedAvatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(savedAvatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) self.profileAvatarURL = savedAvatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } [self refresh]; } }]; }
+- (void)saveProfileName:(NSString *)name music:(BOOL)music { [self saveProfileName:name status:nil music:music]; }
+- (void)saveProfileName:(NSString *)name status:(NSString *)status music:(BOOL)music { // A too-short name used to return silently, so the setup sheet was re-offered on every 6s poll until the user typed 2+ characters or tapped Not Now. Fall back to "Player" like the edit-profile path already does.
+    if (name.length < 2) name = @"Player"; NSMutableDictionary *body = [@{ @"action": @"save_profile", @"display_name": name, @"music_enabled": @(music) } mutableCopy]; if (status) body[@"status"] = status; UIImage *avatar = BRChatScaledAvatar(self.pendingAvatar); NSData *image = avatar ? UIImageJPEGRepresentation(avatar, .78) : nil; if (image.length) body[@"avatar_b64"] = [image base64EncodedStringWithOptions:0]; [self request:body completion:^(NSDictionary *json, NSString *error) { if (!error) { self.pendingAvatar = nil; self.hasProfile = YES; NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; if (profile) { self.profileName = BRChatString(profile[@"display_name"]); self.profileStatus = BRChatString(profile[@"status"]); NSString *savedAvatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(savedAvatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) self.profileAvatarURL = savedAvatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } [self refresh]; } }]; }
 
 - (void)showLeaderboard { [self request:@{ @"action": @"leaderboard" } completion:^(NSDictionary *json, NSString *error) { NSDictionary *board = [json[@"leaderboard"] isKindOfClass:NSDictionary.class] ? json[@"leaderboard"] : nil; if (error || !board) return; [self presentLeaderboard:board]; }]; }
 
 - (void)showWinnersBoard { [self showLeaderboard]; }
 + (void)loadAvatarThumbnailForURL:(NSString *)urlString points:(CGFloat)points completion:(void (^)(UIImage *))completion { if (!completion) return; if (!urlString.length) { completion(nil); return; } NSString *key = [NSString stringWithFormat:@"%@|%.0f", urlString, points]; UIImage *cached = [BRChatAvatarCache() objectForKey:key]; if (cached) { completion(cached); return; } NSURL *url = [NSURL URLWithString:urlString]; if (!url) { completion(nil); return; } [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) { UIImage *image = BRChatThumbnailFromData(data, points); if (image) [BRChatAvatarCache() setObject:image forKey:key]; dispatch_async(dispatch_get_main_queue(), ^{ completion(image); }); }] resume]; }
-- (void)fetchOwnProfile { [self request:@{ @"action": @"profile" } completion:^(NSDictionary *json, NSString *error) { if (error || !json) return; NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; if (!profile) return; self.hasProfile = YES; self.profileName = BRChatString(profile[@"display_name"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSString *avatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(avatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = avatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } }]; }
+- (void)fetchOwnProfile { [self request:@{ @"action": @"profile" } completion:^(NSDictionary *json, NSString *error) { if (error || !json) return; NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; if (!profile) return; self.hasProfile = YES; self.profileName = BRChatString(profile[@"display_name"]); self.profileStatus = BRChatString(profile[@"status"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSString *avatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(avatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = avatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } }]; }
 - (void)showProfileEditor {
     if (self.profileName.length) { [self editProfile]; return; }
     // A bar that never started (the game picker's logic owner) has not seen
@@ -353,9 +516,21 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     // current name instead of an empty field.
     [self request:@{ @"action": @"room_state", @"room_id": self.roomID } completion:^(NSDictionary *json, NSString *error) {
         NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil;
-        if (!error && profile) { self.hasProfile = YES; self.profileName = BRChatString(profile[@"display_name"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSString *loadedAvatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(loadedAvatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = loadedAvatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } }
+        if (!error && profile) { self.hasProfile = YES; self.profileName = BRChatString(profile[@"display_name"]); self.profileStatus = BRChatString(profile[@"status"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSString *loadedAvatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(loadedAvatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = loadedAvatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } }
         [self editProfile];
     }];
+}
+- (void)leaderboardRowTapped:(UITapGestureRecognizer *)tap {
+    NSDictionary *row = objc_getAssociatedObject(tap.view, @"br_profileRow");
+    if (![row isKindOfClass:NSDictionary.class]) return;
+    BRSlotPlayerProfileController *profile = [BRSlotPlayerProfileController new];
+    profile.modalPresentationStyle = UIModalPresentationFullScreen;
+    profile.playerName = BRChatString(row[@"name"]) ?: NSLocalizedString(@"BRSlot.Lounge.PlayerFallback", nil);
+    profile.avatarURLString = BRChatString(row[@"avatar_url"]);
+    profile.statusText = BRChatString(row[@"status"]);
+    profile.stats = row;
+    UIViewController *presenter = self.hostViewController.presentedViewController ?: self.hostViewController;
+    if (presenter) [presenter presentViewController:profile animated:YES completion:nil];
 }
 - (void)presentLeaderboard:(NSDictionary *)board {
     if (!self.hostViewController) return;
@@ -440,6 +615,9 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
             [label.centerYAnchor constraintEqualToAnchor:line.centerYAnchor]]];
         [stack addArrangedSubview:line];
         NSString *avatarURL = BRChatString(row[@"avatar_url"]);
+        line.userInteractionEnabled = YES;
+        objc_setAssociatedObject(line, @"br_profileRow", entry, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [line addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(leaderboardRowTapped:)]];
         if (avatarURL.length) { __weak UIImageView *weakAvatar = avatar; [BRSlotChatBar loadAvatarThumbnailForURL:avatarURL points:76 completion:^(UIImage *image) { if (image) weakAvatar.image = image; }]; }
     };
     void (^addSection)(NSString *, NSArray *, NSString *, NSString *) = ^(NSString *headerKey, NSArray *entries, NSString *amountKey, NSString *emptyKey) {
