@@ -695,7 +695,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     // only affects what the store *advertises*, never what gets paid out.
 
-    self.isPromoActive = YES;
+    self.isPromoActive = NO; // 2026-11-18: the always-on x2 promos were retired server-side (all promotions rows inactive) so coins stop being devalued; limited-time login sales replace them. Flip back to YES only while a sale's rows are actually active in the table.
 
     [self buildItems];
 
