@@ -18,6 +18,12 @@ static NSString *const kSKSupabaseURL       = @"https://spuoimtqofhbdzosrbng.sup
 static NSString *const kSKVerifyEndpoint    = @"/functions/v1/verify-appstore-purchase";
 static NSInteger const kSKMaxVerifyAttempts = 3;
 
+/// NSNull-safe JSON readers. The verify response should always carry real
+/// numbers, but a null or mistyped value must fail closed, never crash on
+/// integerValue / boolValue (NSNull answers neither).
+static NSInteger SKInteger(id value) { return [value respondsToSelector:@selector(integerValue)] ? [value integerValue] : 0; }
+static BOOL SKBool(id value) { return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO; }
+
 // Forward declaration; defined at the bottom of the implementation.
 static NSString *EZStoreKitProductIDForTierReverseLookup(NSString *productID);
 
@@ -385,14 +391,14 @@ NSString *EZStoreKitProductIDForTier(NSString *tier) {
             NSDictionary *json = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
             BOOL granted = (http.statusCode == 200) &&
                            [json isKindOfClass:[NSDictionary class]] &&
-                           [json[@"success"] boolValue];
+                           SKBool(json[@"success"]);
 
             if (granted) {
                 [self.verifyAttempts removeObjectForKey:attemptKey];
                 [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
-                NSInteger coinsAdded = [json[@"coins_added"] integerValue];
-                NSInteger balance    = [json[@"balance"] integerValue];
-                BOOL already         = [json[@"already_granted"] boolValue];
+                NSInteger coinsAdded = SKInteger(json[@"coins_added"]);
+                NSInteger balance    = SKInteger(json[@"balance"]);
+                BOOL already         = SKBool(json[@"already_granted"]);
                 [self completePendingForProductID:productID
                                           outcome:EZStoreKitOutcomeSuccess
                                        coinsAdded:coinsAdded balance:balance

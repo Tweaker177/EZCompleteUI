@@ -716,6 +716,13 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     // from a previous session redeliver and verify here) and add the
     // Restore Purchases button Apple requires for auto-renewable subs.
     [[EZStoreKitManager shared] startObserving];
+    // A purchase verified on redelivery (or a deferred purchase approved
+    // later) has no in-flight completion waiting — refresh on the grant
+    // notification so the coins show without leaving and re-entering.
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(storeKitVerifiedGrant:)
+                                                 name:@"EZStoreKitVerifiedGrant"
+                                               object:nil];
     [self addRestorePurchasesButton];
 #endif
 
@@ -2046,6 +2053,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     } else {
         self.navigationItem.rightBarButtonItem = restoreItem;
     }
+}
+
+- (void)storeKitVerifiedGrant:(NSNotification *)note {
+    [self refreshBalance];
 }
 
 - (void)restorePurchasesTapped:(UIButton *)sender {
