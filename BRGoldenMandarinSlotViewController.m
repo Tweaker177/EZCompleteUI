@@ -28,10 +28,12 @@
 static NSString *const kGMMutedKey = @"BRGoldenMandarinMuted";
 static NSString *const kGMLinesKey = @"BRGoldenMandarinLines";
 static NSString *const kGMBetKey = @"BRGoldenMandarinBetIndex";
+static NSString *const kGMVIPBetKey = @"BRGoldenMandarinVIPBetIndex";
 static const NSInteger kGMLoopPeriod = 8;        // cells in the seamless blur loop
 static const CGFloat kGMLoopSpeed = 22.0;        // cells per second while blurring
 
 static NSArray<NSNumber *> *GMBets(void) { return @[@1, @5, @10, @15, @25]; }
+static NSArray<NSNumber *> *GMVIPBets(void) { return @[@1, @5, @10, @15, @25, @50, @75, @125]; }
 static NSArray<NSString *> *GMSymbolNames(void) {
     return @[@"lantern", @"fan", @"bamboo", @"plum", @"koi", @"jade", @"ingot", @"dragon", @"hat"];
 }
@@ -222,9 +224,9 @@ static UIImage *GMParticleImage(BOOL coin) {
     [super viewDidLoad];
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
     _lines = [defaults objectForKey:kGMLinesKey] ? MAX(1, MIN(GM_MAX_LINES, [defaults integerForKey:kGMLinesKey])) : GM_MAX_LINES;
-    _betIndex = [defaults objectForKey:kGMBetKey] ? MAX(0, MIN((NSInteger)GMBets().count - 1, [defaults integerForKey:kGMBetKey])) : 0;
+    _betIndex = [defaults objectForKey:[self betDefaultsKey]] ? MAX(0, MIN((NSInteger)[self activeBets].count - 1, [defaults integerForKey:[self betDefaultsKey]])) : 0;
     _bonusLines = _lines;
-    _bonusBet = GMBets()[_betIndex].integerValue;
+    _bonusBet = [self activeBets][_betIndex].integerValue;
     self.reelViews = [NSMutableArray array];
     self.strips = [NSMutableArray array];
     self.stripCells = [NSMutableArray array];
@@ -407,6 +409,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.bannerLabel = [UILabel new];
     self.bannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.bannerLabel.numberOfLines = 2;
+    self.bannerLabel.adjustsFontSizeToFitWidth = YES; self.bannerLabel.minimumScaleFactor = .85;
     self.bannerLabel.textAlignment = NSTextAlignmentCenter;
     self.bannerLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy];
     self.bannerLabel.textColor = GMGold();
@@ -427,6 +430,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.machine.layer.shadowRadius = 18;
     self.machine.layer.shadowOffset = CGSizeZero;
     self.machine.layer.shadowOpacity = 0;
+    if (self.vipMode) { self.machine.layer.borderWidth = 6; self.machine.layer.shadowOpacity = .55; }
     UIStackView *reelStack = [UIStackView new];
     reelStack.translatesAutoresizingMaskIntoConstraints = NO;
     reelStack.axis = UILayoutConstraintAxisHorizontal;
@@ -647,7 +651,10 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 #pragma mark State and labels
 
-- (NSInteger)betPerLine { return GMBets()[_betIndex].integerValue; }
+- (NSInteger)betPerLine { return [self activeBets][_betIndex].integerValue; }
+
+- (NSArray<NSNumber *> *)activeBets { return self.vipMode ? GMVIPBets() : GMBets(); }
+- (NSString *)betDefaultsKey { return self.vipMode ? kGMVIPBetKey : kGMBetKey; }
 
 - (void)refreshLabels {
     self.balanceLabel.text = [NSString stringWithFormat:GMLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)_balance];
@@ -655,7 +662,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.linesButton.titleLabel.text = nil;
     [self.linesButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.Lines", @"LINES\n%ld"), (long)lines] forState:UIControlStateNormal];
     [self.betButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.Bet", @"BET / LINE\n%ld"), (long)bet] forState:UIControlStateNormal];
-    [self.maxButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(GM_MAX_LINES * GMBets().lastObject.integerValue)] forState:UIControlStateNormal];
+    [self.maxButton setTitle:[NSString stringWithFormat:GMLoc(@"BRSlot.GM.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(GM_MAX_LINES * [self activeBets].lastObject.integerValue)] forState:UIControlStateNormal];
     self.totalBetLabel.text = _bonusMode ? GMLoc(@"BRSlot.GM.FreeNoWager", @"FREE SPINS — NO WAGER TAKEN")
         : [NSString stringWithFormat:GMLoc(@"BRSlot.GM.TotalBet", @"TOTAL BET  %ld COINS"), (long)(lines * bet)];
 }
@@ -666,7 +673,7 @@ static UIImage *GMParticleImage(BOOL coin) {
         self.bannerLabel.text = [NSString stringWithFormat:GMLoc(@"BRSlot.GM.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, GMNum(_bonusTotal)];
         self.bannerLabel.textColor = GMC(0xFFE48F);
     } else {
-        self.bannerLabel.text = GMLoc(@"BRSlot.GM.Hint", @"3+ GOLDEN HATS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5");
+        self.bannerLabel.text = self.vipMode ? GMLoc(@"BRSlot.GM.HintVIP", @"GOLDEN MANDARIN VIP \u00b7 BETS TO 125 A LINE\nRICHER LINE PAYS \u00b7 3+ GOLDEN HATS = FREE SPINS") : GMLoc(@"BRSlot.GM.Hint", @"3+ GOLDEN HATS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5");
         self.bannerLabel.textColor = GMGold();
     }
 }
@@ -695,8 +702,8 @@ static UIImage *GMParticleImage(BOOL coin) {
 
 - (void)cycleBet {
     if (_busy || _bonusMode) return;
-    _betIndex = (_betIndex + 1) % (NSInteger)GMBets().count;
-    [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:kGMBetKey];
+    _betIndex = (_betIndex + 1) % (NSInteger)[self activeBets].count;
+    [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:[self betDefaultsKey]];
     [self refreshLabels];
     [self checkBalanceSilently];
 }
@@ -704,7 +711,7 @@ static UIImage *GMParticleImage(BOOL coin) {
 - (void)maxBet {
     if (_busy || _bonusMode) return;
     _lines = GM_MAX_LINES;
-    _betIndex = (NSInteger)GMBets().count - 1;
+    _betIndex = (NSInteger)[self activeBets].count - 1;
     [self refreshLabels];
     [self checkBalanceSilently];
     [self spinTapped];
@@ -877,6 +884,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     NSUInteger epoch = _epoch;
     NSMutableDictionary *spinBody = [@{@"lines": @(lines), @"bet_per_line": @(bet)} mutableCopy];
     if (_forceBonusArmed && !free) { spinBody[@"force_bonus"] = @YES; _forceBonusArmed = NO; }
+    if (self.vipMode) spinBody[@"vip"] = @YES;
     [self request:spinBody completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_epoch != epoch || self->_leaving) return;
         if (error || ![self parseResult:result]) {
@@ -1322,7 +1330,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
         self.machine.layer.borderColor = GMGold().CGColor;
         self.machine.backgroundColor = GMC(0x4A0810);
     }];
-    self.machine.layer.shadowOpacity = 0;
+    self.machine.layer.shadowOpacity = self.vipMode ? .55 : 0;
     self.background.gradientLayer.colors = @[(id)GMC(0x3B0610).CGColor, (id)GMC(0x12030A).CGColor];
     [self.audio startThemeBonus:NO];
     [self refreshLabels];

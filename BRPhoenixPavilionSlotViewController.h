@@ -10,6 +10,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// award, the multiplier pick and all EZ Coins; this screen renders what it is
 /// told. Symbols and sound are generated in code, so there are no asset files.
 @interface BRPhoenixPavilionSlotViewController : UIViewController
+/// VIP mode: extended bet ladder (to 50/line) and richer line pays.
+@property (nonatomic) BOOL vipMode;
 @end
 
 NS_ASSUME_NONNULL_END

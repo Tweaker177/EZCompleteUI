@@ -28,10 +28,12 @@
 static NSString *const kPPMutedKey = @"BRPhoenixPavilionMuted";
 static NSString *const kPPLinesKey = @"BRPhoenixPavilionLines";
 static NSString *const kPPBetKey = @"BRPhoenixPavilionBetIndex";
+static NSString *const kPPVIPBetKey = @"BRPhoenixPavilionVIPBetIndex";
 static const NSInteger kPPLoopPeriod = 8;        // cells in the seamless blur loop
 static const CGFloat kPPLoopSpeed = 22.0;        // cells per second while blurring
 
 static NSArray<NSNumber *> *PPBets(void) { return @[@1, @2, @5, @10]; }
+static NSArray<NSNumber *> *PPVIPBets(void) { return @[@1, @2, @5, @10, @25, @50]; }
 /// Line counts the LINES button steps through (the server accepts any 1...25).
 static NSArray<NSNumber *> *PPLineChoices(void) { return @[@1, @5, @10, @15, @20, @25]; }
 static NSArray<NSString *> *PPSymbolNames(void) {
@@ -224,9 +226,9 @@ static UIImage *PPParticleImage(BOOL coin) {
     [super viewDidLoad];
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
     _lines = [defaults objectForKey:kPPLinesKey] ? MAX(1, MIN(PP_MAX_LINES, [defaults integerForKey:kPPLinesKey])) : PP_MAX_LINES;
-    _betIndex = [defaults objectForKey:kPPBetKey] ? MAX(0, MIN((NSInteger)PPBets().count - 1, [defaults integerForKey:kPPBetKey])) : 0;
+    _betIndex = [defaults objectForKey:[self betDefaultsKey]] ? MAX(0, MIN((NSInteger)[self activeBets].count - 1, [defaults integerForKey:[self betDefaultsKey]])) : 0;
     _bonusLines = _lines;
-    _bonusBet = PPBets()[_betIndex].integerValue;
+    _bonusBet = [self activeBets][_betIndex].integerValue;
     self.reelViews = [NSMutableArray array];
     self.strips = [NSMutableArray array];
     self.stripCells = [NSMutableArray array];
@@ -409,6 +411,7 @@ static UIImage *PPParticleImage(BOOL coin) {
     self.bannerLabel = [UILabel new];
     self.bannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.bannerLabel.numberOfLines = 2;
+    self.bannerLabel.adjustsFontSizeToFitWidth = YES; self.bannerLabel.minimumScaleFactor = .85;
     self.bannerLabel.textAlignment = NSTextAlignmentCenter;
     self.bannerLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy];
     self.bannerLabel.textColor = PPGold();
@@ -429,6 +432,7 @@ static UIImage *PPParticleImage(BOOL coin) {
     self.machine.layer.shadowRadius = 18;
     self.machine.layer.shadowOffset = CGSizeZero;
     self.machine.layer.shadowOpacity = 0;
+    if (self.vipMode) { self.machine.layer.borderWidth = 6; self.machine.layer.shadowOpacity = .55; }
     UIStackView *reelStack = [UIStackView new];
     reelStack.translatesAutoresizingMaskIntoConstraints = NO;
     reelStack.axis = UILayoutConstraintAxisHorizontal;
@@ -649,7 +653,10 @@ static UIImage *PPParticleImage(BOOL coin) {
 
 #pragma mark State and labels
 
-- (NSInteger)betPerLine { return PPBets()[_betIndex].integerValue; }
+- (NSInteger)betPerLine { return [self activeBets][_betIndex].integerValue; }
+
+- (NSArray<NSNumber *> *)activeBets { return self.vipMode ? PPVIPBets() : PPBets(); }
+- (NSString *)betDefaultsKey { return self.vipMode ? kPPVIPBetKey : kPPBetKey; }
 
 - (void)refreshLabels {
     self.balanceLabel.text = [NSString stringWithFormat:PPLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)_balance];
@@ -657,7 +664,7 @@ static UIImage *PPParticleImage(BOOL coin) {
     self.linesButton.titleLabel.text = nil;
     [self.linesButton setTitle:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.Lines", @"LINES\n%ld"), (long)lines] forState:UIControlStateNormal];
     [self.betButton setTitle:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.Bet", @"BET / LINE\n%ld"), (long)bet] forState:UIControlStateNormal];
-    [self.maxButton setTitle:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(PP_MAX_LINES * PPBets().lastObject.integerValue)] forState:UIControlStateNormal];
+    [self.maxButton setTitle:[NSString stringWithFormat:PPLoc(@"BRSlot.PP.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(PP_MAX_LINES * [self activeBets].lastObject.integerValue)] forState:UIControlStateNormal];
     self.totalBetLabel.text = _bonusMode ? PPLoc(@"BRSlot.PP.FreeNoWager", @"FREE SPINS — NO WAGER TAKEN")
         : [NSString stringWithFormat:PPLoc(@"BRSlot.PP.TotalBet", @"TOTAL BET  %ld COINS"), (long)(lines * bet)];
 }
@@ -675,7 +682,7 @@ static UIImage *PPParticleImage(BOOL coin) {
         self.bannerLabel.text = [NSString stringWithFormat:PPLoc(@"BRSlot.PP.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, PPNum(_bonusTotal)];
         self.bannerLabel.textColor = PPC(0xFFE48F);
     } else {
-        self.bannerLabel.text = PPLoc(@"BRSlot.PP.Hint", @"3+ GOLDEN HATS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5");
+        self.bannerLabel.text = self.vipMode ? PPLoc(@"BRSlot.PP.HintVIP", @"PHOENIX PAVILION VIP \u00b7 BETS TO 50 A LINE\nRICHER LINE PAYS \u00b7 3+ GOLDEN HATS = FREE SPINS") : PPLoc(@"BRSlot.PP.Hint", @"3+ GOLDEN HATS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5");
         self.bannerLabel.textColor = PPGold();
     }
 }
@@ -706,8 +713,8 @@ static UIImage *PPParticleImage(BOOL coin) {
 
 - (void)cycleBet {
     if (_busy || _bonusMode) return;
-    _betIndex = (_betIndex + 1) % (NSInteger)PPBets().count;
-    [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:kPPBetKey];
+    _betIndex = (_betIndex + 1) % (NSInteger)[self activeBets].count;
+    [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:[self betDefaultsKey]];
     [self refreshLabels];
     [self checkBalanceSilently];
 }
@@ -715,7 +722,7 @@ static UIImage *PPParticleImage(BOOL coin) {
 - (void)maxBet {
     if (_busy || _bonusMode) return;
     _lines = PP_MAX_LINES;
-    _betIndex = (NSInteger)PPBets().count - 1;
+    _betIndex = (NSInteger)[self activeBets].count - 1;
     [self refreshLabels];
     [self checkBalanceSilently];
     [self spinTapped];
@@ -890,6 +897,7 @@ static UIImage *PPParticleImage(BOOL coin) {
     NSUInteger epoch = _epoch;
     NSMutableDictionary *spinBody = [@{@"lines": @(lines), @"bet_per_line": @(bet)} mutableCopy];
     if (_forceBonusArmed && !free) { spinBody[@"force_bonus"] = @YES; _forceBonusArmed = NO; }
+    if (self.vipMode) spinBody[@"vip"] = @YES;
     [self request:spinBody completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_epoch != epoch || self->_leaving) return;
         if (error || ![self parseResult:result]) {
@@ -1347,7 +1355,7 @@ static NSArray<UIColor *> *PPLineColors(void) {
         self.machine.layer.borderColor = PPGold().CGColor;
         self.machine.backgroundColor = PPC(0x0B3F45);
     }];
-    self.machine.layer.shadowOpacity = 0;
+    self.machine.layer.shadowOpacity = self.vipMode ? .55 : 0;
     self.background.gradientLayer.colors = @[(id)PPC(0x0C3A44).CGColor, (id)PPC(0x04141A).CGColor];
     [self.audio startThemeBonus:NO];
     [self refreshLabels];
