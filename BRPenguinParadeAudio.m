@@ -466,6 +466,64 @@ static AVAudioPCMBuffer *RenderChirp(AVAudioFormat *fmt) {
     return BufferFromTrack(&t, fmt, t.frames);
 }
 
+/// Egg-to-meter whoosh: a swept noise rush with a rising whistle. `pitch` 0-4
+/// nudges each successive egg a little higher.
+static AVAudioPCMBuffer *RenderMeterWhoosh(AVAudioFormat *fmt, int pitch) {
+    BRTrack t = TrackMake(0.6);
+    NSInteger n = (NSInteger)(0.5 * kSR);
+    double lp = 0, phase = 0;
+    for (NSInteger i = 0; i < n; i++) {
+        double u = (double)i / n;
+        double env = sin(M_PI * pow(u, 0.7));
+        double alpha = 0.04 + 0.5 * u;                       // filter opens as it flies
+        lp += alpha * ((double)NoiseNext(&t.noise) - lp);
+        phase += 2 * M_PI * (500.0 + 1500.0 * u * u) * (1.0 + 0.06 * pitch) / kSR;
+        t.data[i] += (float)((lp * 1.6 + sin(phase) * 0.18) * env);
+    }
+    Normalize(&t, 0.7f);
+    return BufferFromTrack(&t, fmt, t.frames);
+}
+
+/// Meter full: a rising, pulsing charge-up (1.4 s).
+static AVAudioPCMBuffer *RenderMeterCharge(AVAudioFormat *fmt) {
+    BRTrack t = TrackMake(1.5);
+    NSInteger n = (NSInteger)(1.4 * kSR);
+    double phase = 0, phase2 = 0;
+    for (NSInteger i = 0; i < n; i++) {
+        double u = (double)i / n;
+        double f = 180.0 * pow(8.0, u);                      // 180 Hz -> ~1.4 kHz
+        phase += 2 * M_PI * f / kSR;
+        phase2 += 2 * M_PI * f * 1.5 / kSR;
+        double trem = 0.6 + 0.4 * sin(2 * M_PI * (6.0 + 18.0 * u) * (double)i / kSR);
+        t.data[i] += (float)((sin(phase) + 0.5 * sin(phase2)) * (0.15 + 0.85 * u) * trem * 0.5);
+    }
+    Normalize(&t, 0.7f);
+    return BufferFromTrack(&t, fmt, t.frames);
+}
+
+/// Meter explosion: sub drop, noise burst, then a glittering bell cascade.
+static AVAudioPCMBuffer *RenderMeterBoom(AVAudioFormat *fmt) {
+    BRTrack t = TrackMake(3.4);
+    NSInteger n = (NSInteger)(1.4 * kSR);
+    double phase = 0;
+    for (NSInteger i = 0; i < n; i++) {
+        double u = (double)i / n;
+        phase += 2 * M_PI * (140.0 * (1.0 - 0.75 * u)) / kSR;
+        t.data[i] += (float)(sin(phase) * pow(1.0 - u, 2.0) * 0.9);
+    }
+    AddNoise(&t, 0.0, 0.9, 0.9, 0.22, 0.25);
+    AddTom(&t, 0.02, 60, 0.9, 0.5);
+    static const int notes[8] = { 84, 88, 91, 93, 96, 100, 103, 108 };
+    for (int i = 0; i < 8; i++) {
+        AddBell(&t, 0.25 + i * 0.11, MidiHz(notes[i]), 0.2, 1.4);
+        AddPluck(&t, 0.25 + i * 0.11, MidiHz(notes[i] - 12), 0.18, 0.6, 4, 0.5);
+    }
+    for (int i = 0; i < 14; i++) AddBell(&t, 1.2 + i * 0.12, MidiHz(96 + (int[]){0,2,4,7,9}[i % 5]), 0.07, 0.8);
+    AddEcho(&t, 0.21, 0.28f);
+    Normalize(&t, 0.9f);
+    return BufferFromTrack(&t, fmt, t.frames);
+}
+
 static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
     BRTrack t = TrackMake(bells * 0.14 + 2.6);
     static const int notes[5] = { 84, 88, 91, 93, 96 };
@@ -521,6 +579,9 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
         b[@"winSmall"] = RenderWin(fmt, 4, NO);
         b[@"winMedium"] = RenderWin(fmt, 8, YES);
         b[@"winBig"] = RenderWin(fmt, 14, YES);
+        for (int i = 0; i < 5; i++) b[[NSString stringWithFormat:@"whoosh%d", i]] = RenderMeterWhoosh(fmt, i);
+        b[@"charge"] = RenderMeterCharge(fmt);
+        b[@"boom"] = RenderMeterBoom(fmt);
         b[@"honk"] = RenderHonk(fmt);
         b[@"wobble"] = RenderEggWobble(fmt);
         b[@"crack"] = RenderEggCrack(fmt);
@@ -649,6 +710,9 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
     [self duckTheme:NO];
 }
 
+- (void)playEggWhooshAtIndex:(NSInteger)index { [self playName:[NSString stringWithFormat:@"whoosh%d", (int)MAX(0, MIN(4, index))] volume:0.85]; }
+- (void)playMeterCharge { [self playName:@"charge" volume:0.9]; }
+- (void)playMeterBoom { [self playName:@"boom" volume:1.0]; }
 - (void)playCrash { [self playName:@"crash" volume:1.0]; }
 - (void)playBonusFanfare { [self playName:@"fanfare" volume:1.0]; }
 - (void)playAlarmCelebration { [self playName:@"alarm" volume:1.0]; }
