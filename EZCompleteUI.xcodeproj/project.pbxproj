@@ -36,6 +36,11 @@
 		8C09ACF730AF8CDD00F964F8 /* EZFileItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACB830AF880400F964F8 /* EZFileItem.m */; };
 		8C09ACF830AF8CDD00F964F8 /* BRStarlightOdysseyArt.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACB930AF880400F964F8 /* BRStarlightOdysseyArt.m */; };
 		8C09ACF930AF8CDD00F964F8 /* BRStarlightOdysseyAudio.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACB330AF880300F964F8 /* BRStarlightOdysseyAudio.m */; };
+		8C09ACFE30AF8DF400F964F8 /* EZMemorySummaryViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACFA30AF8DF200F964F8 /* EZMemorySummaryViewController.m */; };
+		8C09ACFF30AF8DF400F964F8 /* EZFileExplorerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACFB30AF8DF300F964F8 /* EZFileExplorerViewController.m */; };
+		8C09AD0030AF8DF400F964F8 /* EZSoundsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACFC30AF8DF300F964F8 /* EZSoundsViewController.m */; };
+		8C09AD0130AF8DF400F964F8 /* SidewaysScrollView.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACFD30AF8DF300F964F8 /* SidewaysScrollView.m */; };
+		8C09AD0430AF8E1600F964F8 /* SSZipArchive.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0330AF8E1600F964F8 /* SSZipArchive.m */; };
 		A20000000000000000000001 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* main.m */; };
 		A20000000000000000000002 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AppDelegate.m */; };
 		A20000000000000000000003 /* helpers.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* helpers.m */; };
@@ -172,6 +177,12 @@
 		8C09ACBD30AF880500F964F8 /* EZFileInfoViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZFileInfoViewController.m; sourceTree = "<group>"; };
 		8C09ACBE30AF880500F964F8 /* BRPenguinParadeArt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRPenguinParadeArt.m; sourceTree = "<group>"; };
 		8C09ACBF30AF880500F964F8 /* EZLocalFileTools.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZLocalFileTools.m; sourceTree = "<group>"; };
+		8C09ACFA30AF8DF200F964F8 /* EZMemorySummaryViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMemorySummaryViewController.m; sourceTree = "<group>"; };
+		8C09ACFB30AF8DF300F964F8 /* EZFileExplorerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZFileExplorerViewController.m; sourceTree = "<group>"; };
+		8C09ACFC30AF8DF300F964F8 /* EZSoundsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZSoundsViewController.m; sourceTree = "<group>"; };
+		8C09ACFD30AF8DF300F964F8 /* SidewaysScrollView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SidewaysScrollView.m; sourceTree = "<group>"; };
+		8C09AD0230AF8E1500F964F8 /* minizip */ = {isa = PBXFileReference; lastKnownFileType = folder; name = minizip; path = SSZipArchive/minizip; sourceTree = "<group>"; };
+		8C09AD0330AF8E1600F964F8 /* SSZipArchive.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = SSZipArchive.m; path = SSZipArchive/SSZipArchive.m; sourceTree = "<group>"; };
 		A10000000000000000000001 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		A10000000000000000000002 /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		A10000000000000000000003 /* helpers.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = helpers.m; sourceTree = "<group>"; };
@@ -287,6 +298,12 @@
 			isa = PBXGroup;
 			children = (
 				8C09ACB230AF880300F964F8 /* BRGoldenMandarinArt.m */,
+				8C09AD0230AF8E1500F964F8 /* minizip */,
+				8C09AD0330AF8E1600F964F8 /* SSZipArchive.m */,
+				8C09ACFB30AF8DF300F964F8 /* EZFileExplorerViewController.m */,
+				8C09ACFA30AF8DF200F964F8 /* EZMemorySummaryViewController.m */,
+				8C09ACFC30AF8DF300F964F8 /* EZSoundsViewController.m */,
+				8C09ACFD30AF8DF300F964F8 /* SidewaysScrollView.m */,
 				8C09ACAA30AF880200F964F8 /* BRGoldenMandarinAudio.m */,
 				8C09ACB030AF880300F964F8 /* BRGoldenMandarinEngine.c */,
 				8C09ACBA30AF880500F964F8 /* BRGoldenMandarinSlotViewController.m */,
@@ -539,6 +556,7 @@
 				8C09ACE030AF8CDD00F964F8 /* EZReferralManager.m in Sources */,
 				8C09ACDF30AF8CDD00F964F8 /* BRStarlightOdysseyEngine.c in Sources */,
 				A20000000000000000000004 /* ViewController+EZTopButtons.m in Sources */,
+				8C09AD0130AF8DF400F964F8 /* SidewaysScrollView.m in Sources */,
 				A20000000000000000000005 /* ViewController+EZKeepAwake.m in Sources */,
 				A20000000000000000000006 /* ViewController.m in Sources */,
 				A20000000000000000000007 /* EZFirstRunTutorialViewController.m in Sources */,
@@ -563,6 +581,7 @@
 				A20000000000000000000015 /* WaveformView.m in Sources */,
 				A20000000000000000000016 /* EZAuthManager.m in Sources */,
 				A20000000000000000000017 /* EZEntitlementManager.m in Sources */,
+				8C09ACFF30AF8DF400F964F8 /* EZFileExplorerViewController.m in Sources */,
 				A20000000000000000000018 /* LoginViewController.m in Sources */,
 				A20000000000000000000019 /* HelperLogViewController.m in Sources */,
 				8C09ACE230AF8CDD00F964F8 /* EZAppErrorReporter.m in Sources */,
@@ -596,6 +615,7 @@
 				A2000000000000000000002D /* EZPoliciesViewController.m in Sources */,
 				A2000000000000000000002E /* BRGameLibrary.m in Sources */,
 				A2000000000000000000002F /* BRGamePickerViewController.m in Sources */,
+				8C09AD0430AF8E1600F964F8 /* SSZipArchive.m in Sources */,
 				A20000000000000000000030 /* BRCustomGameCreatorViewController.m in Sources */,
 				A20000000000000000000031 /* BRAssetSourceSheetViewController.m in Sources */,
 				8C09ACEC30AF8CDD00F964F8 /* BRPlunderBayViewController.m in Sources */,
@@ -630,6 +650,7 @@
 				A20000000000000000000047 /* BRSlotRoomViewController.m in Sources */,
 				8C09ACF730AF8CDD00F964F8 /* EZFileItem.m in Sources */,
 				A2000000000000000000004E /* EZMusicService.m in Sources */,
+				8C09AD0030AF8DF400F964F8 /* EZSoundsViewController.m in Sources */,
 				8C09ACDE30AF8CDD00F964F8 /* EZSoundLibraryManager.m in Sources */,
 				A2000000000000000000004F /* EZMusicViewController.m in Sources */,
 				8C09ACE730AF8CDD00F964F8 /* BRStarlightOdysseySlotViewController.m in Sources */,
@@ -637,6 +658,7 @@
 				A20000000000000000000051 /* EZMusicBubbleCell.m in Sources */,
 				A20000000000000000000052 /* EZMediaPlayerManager.m in Sources */,
 				A20000000000000000000053 /* EZMusicArtworkService.m in Sources */,
+				8C09ACFE30AF8DF400F964F8 /* EZMemorySummaryViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
