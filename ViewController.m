@@ -1154,6 +1154,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)resolveGitHubApprovalConfirmed:(BOOL)confirmed;
 - (NSString *)ez_chatMusicSummaryForEvent:(NSDictionary *)event;
 - (void)callGptImage1:(NSString *)prompt model:(NSString *)imageModel;
+#if !APPSTORE
 - (void)callSeahorseImage:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths;
 - (void)ezSeahorseFetchEligibilityWithPrompt:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths allowIDCheck:(BOOL)allowIDCheck;
 - (void)ezSeahorsePromptForIDWithPrompt:(NSString *)prompt referencePaths:(NSArray<NSString *> *)referencePaths ageAlreadyVerified:(BOOL)ageAlreadyVerified;
@@ -1166,6 +1167,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)ezSeahorseUploadReferenceAtPath:(NSString *)path completion:(void (^)(NSString * _Nullable assetURL))completion;
 - (void)ezSeahorseGenerateWithPrompt:(NSString *)prompt referenceAssetURLs:(NSArray<NSString *> *)referenceAssetURLs;
 - (void)ezSeahorseFailWithMessage:(NSString *)message prompt:(NSString *)prompt;
+#endif
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath
                model:(NSString *)imageModel preserveChatModel:(BOOL)preserveChatModel;
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath;
@@ -1193,6 +1195,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)closeDrawer;
 @end
 
+#if !APPSTORE
 // ── NSFW (Seahorse) ID-check helpers ─────────────────────────────────────
 // The ID photo picker has its own one-shot delegate so it never
 // interferes with the chat attachment pickers; it retains itself (via
@@ -1276,22 +1279,61 @@ static NSData * _Nullable EZSeahorseFaceCropJPEGData(UIImage *image) {
     CGImageRef cg = flat.CGImage;
     if (!cg) return nil;
 
+    CGFloat W = (CGFloat)CGImageGetWidth(cg);
+    CGFloat H = (CGFloat)CGImageGetHeight(cg);
+
+    // Face detection, largest face wins. The first pass scans the whole
+    // photo; the printed face on an ID is small in the frame and one
+    // full-frame pass can miss it on a clear photo, so a miss retries on
+    // tighter center crops, where the face is larger relative to the
+    // image, before giving up. Hits are mapped back into full-image
+    // normalized coordinates (origin at bottom-left).
+    CGRect bb = CGRectNull;
     VNDetectFaceRectanglesRequest *request = [[VNDetectFaceRectanglesRequest alloc] init];
     VNImageRequestHandler *handler = [[VNImageRequestHandler alloc] initWithCGImage:cg options:@{}];
     NSError *detectError = nil;
-    if (![handler performRequests:@[request] error:&detectError]) return nil;
-
-    VNFaceObservation *best = nil;
-    CGFloat bestArea = 0;
-    for (VNFaceObservation *obs in request.results) {
-        CGFloat area = obs.boundingBox.size.width * obs.boundingBox.size.height;
-        if (area > bestArea) { bestArea = area; best = obs; }
+    if ([handler performRequests:@[request] error:&detectError]) {
+        CGFloat bestArea = 0;
+        for (VNFaceObservation *obs in request.results) {
+            CGFloat area = obs.boundingBox.size.width * obs.boundingBox.size.height;
+            if (area > bestArea) { bestArea = area; bb = obs.boundingBox; }
+        }
     }
-    if (!best) return nil;
-
-    CGFloat W = (CGFloat)CGImageGetWidth(cg);
-    CGFloat H = (CGFloat)CGImageGetHeight(cg);
-    CGRect bb = best.boundingBox; // normalized, origin at bottom-left
+    if (CGRectIsNull(bb)) {
+        CGFloat zooms[2] = {0.7, 0.45};
+        for (int zi = 0; zi < 2 && CGRectIsNull(bb); zi++) {
+            CGFloat zw = W * zooms[zi];
+            CGFloat zh = H * zooms[zi];
+            CGFloat ox = (W - zw) / 2.0;
+            CGFloat oy = (H - zh) / 2.0;
+            UIGraphicsImageRendererFormat *zformat = [[UIGraphicsImageRendererFormat alloc] init];
+            zformat.scale = 1.0;
+            UIGraphicsImageRenderer *zrenderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(zw, zh) format:zformat];
+            UIImage *zoomed = [zrenderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull ctx) {
+                [flat drawInRect:CGRectMake(-ox, -oy, W, H)];
+            }];
+            CGImageRef zcg = zoomed.CGImage;
+            if (!zcg) continue;
+            VNDetectFaceRectanglesRequest *zrequest = [[VNDetectFaceRectanglesRequest alloc] init];
+            VNImageRequestHandler *zhandler = [[VNImageRequestHandler alloc] initWithCGImage:zcg options:@{}];
+            NSError *zerror = nil;
+            if (![zhandler performRequests:@[zrequest] error:&zerror]) continue;
+            VNFaceObservation *zbest = nil;
+            CGFloat zbestArea = 0;
+            for (VNFaceObservation *obs in zrequest.results) {
+                CGFloat area = obs.boundingBox.size.width * obs.boundingBox.size.height;
+                if (area > zbestArea) { zbestArea = area; zbest = obs; }
+            }
+            if (!zbest) continue;
+            CGRect zb = zbest.boundingBox;
+            CGFloat fxz = ox + zb.origin.x * zw;
+            CGFloat fyzTop = oy + (1.0 - zb.origin.y - zb.size.height) * zh;
+            CGFloat fwz = zb.size.width * zw;
+            CGFloat fhz = zb.size.height * zh;
+            bb = CGRectMake(fxz / W, 1.0 - (fyzTop + fhz) / H, fwz / W, fhz / H);
+        }
+    }
+    if (CGRectIsNull(bb)) return nil;
     CGFloat fx = bb.origin.x * W;
     CGFloat fw = bb.size.width * W;
     CGFloat fh = bb.size.height * H;
@@ -1354,6 +1396,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     if (recorded) return recorded;
     return EZSeahorseSHA256Hex([NSData dataWithContentsOfFile:path]);
 }
+#endif
 
 @interface ViewController (EZChatTTSPlayback) <AVAudioPlayerDelegate, AVSpeechSynthesizerDelegate>
 @end
@@ -1385,9 +1428,11 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     [[NSNotificationCenter defaultCenter] addObserver:self
         selector:@selector(handleOpenChatThread:)
         name:@"EZOpenChatThread" object:nil];
+#if !APPSTORE
     [[NSNotificationCenter defaultCenter] addObserver:self
         selector:@selector(handleSeahorseRerouteRequest:)
         name:@"EZSeahorseRerouteRequested" object:nil];
+#endif
     [[NSNotificationCenter defaultCenter] addObserver:self
         selector:@selector(handleSubscriptionUpdated)
         name:@"EZSubscriptionUpdated" object:nil];
@@ -1597,7 +1642,9 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
            @"gpt-image-2.5-flare",    // newest, fastest — low/medium/high/xhigh/max
            @"gpt-image-2",          // low/medium/high only
            @"gpt-image-1-mini",     // faster/cheaper image generation
+#if !APPSTORE
            @"seahorse-image",       // NSFW generation via Nureta Seahorse (18+, 50 coins, recent purchase required)
+#endif
         // ── Video ─────────────────────────────────────────────────────────
         // SORA — commented out, not deleted. User removed Sora from Settings;
         // OpenAI's Sora API is also scheduled for shutdown 2026-09-24
@@ -2013,6 +2060,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 /// extension, using dashes for the time component, e.g. "2026-04-05T14-29-20".
 /// EZChatThread.threadID uses colons internally ("2026-04-05T14:29:20"), so we
 /// normalise before calling EZThreadLoad.
+#if !APPSTORE
 /// Handles the "EZSeahorseRerouteRequested" notification posted by the
 /// gallery editor (EZPhotoDetailViewController) when a safety-refused
 /// edit is rerouted. userInfo carries the edit prompt and the edit's
@@ -2031,6 +2079,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     [[NSUserDefaults standardUserDefaults] setObject:@"seahorse-image" forKey:@"selectedModel"];
     [self callSeahorseImage:prompt referencePaths:referencePaths];
 }
+#endif
 
 - (void)handleOpenChatThread:(NSNotification *)notification {
     NSString *rawID = notification.userInfo[@"threadID"];
@@ -3428,8 +3477,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // model, and attached photos are its generation references, taken
     // from pendingImagePaths by the Seahorse branch at send time.
     if (![self modelSupportsVision:self.selectedModel] &&
-        ![self isGptImage1Family:self.selectedModel] &&
-        ![self.selectedModel isEqualToString:@"seahorse-image"]) {
+        ![self isGptImage1Family:self.selectedModel]
+#if !APPSTORE
+        && ![self.selectedModel isEqualToString:@"seahorse-image"]
+#endif
+        ) {
         NSString *prev     = self.selectedModel;
         self.selectedModel = @"gpt-4o";
         [self.modelButton setTitle:@"Model: gpt-4o" forState:UIControlStateNormal];
@@ -4548,6 +4600,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         return;
     }
 
+#if !APPSTORE
     // ── NSFW (Seahorse) generation ───────────────────────────────────────────
     // Photos attached to this message are treated as reference images and
     // go through the selfie check inside the Seahorse flow.
@@ -4557,6 +4610,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         [self callSeahorseImage:text referencePaths:referencePaths];
         return;
     }
+#endif
 
     // ── Image model intent check ──────────────────────────────────────────────
     BOOL isImageModel = !ezAutoEnabled && [self isGptImage1Family:self.selectedModel];
@@ -5184,8 +5238,11 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     // Under Auto the send goes out as a chat turn (model "auto"), so a
     // stale image pick must not suppress the reaction share-back either.
     BOOL reactionModelIsImage = ![[NSUserDefaults standardUserDefaults] boolForKey:@"EZAutoModelEnabled"] &&
-        ([self isGptImage1Family:self.selectedModel] ||
-         [self.selectedModel isEqualToString:@"seahorse-image"]);
+        ([self isGptImage1Family:self.selectedModel]
+#if !APPSTORE
+         || [self.selectedModel isEqualToString:@"seahorse-image"]
+#endif
+         );
     if (!reactionModelIsImage) {
         NSMutableArray<NSDictionary *> *pending = [NSMutableArray array];
         NSMutableString *reactionNote = [NSMutableString string];
@@ -5848,6 +5905,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 }
 
 // Explicit model argument lets a chat tool render without changing the picker.
+#if !APPSTORE
 // YES when an ez-image error message is a safety/content rejection
 // (already refunded server-side) rather than a real failure — those
 // get the one-tap Seahorse reroute instead of a dead-end error. The
@@ -5888,6 +5946,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         [self presentViewController:alert animated:YES completion:nil];
     });
 }
+#endif
 
 - (void)callGptImage1:(NSString *)prompt model:(NSString *)imageModel {
     self.sendButton.enabled = NO;
@@ -5953,6 +6012,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
             // generation failures until this fix.
             NSString *reason = json[@"reason"];
             NSString *fullMsg = reason.length ? [NSString stringWithFormat:@"%@ %@", errMsg, reason] : errMsg;
+#if !APPSTORE
             // Safety rejections (already refunded by ez-image) get a
             // one-tap reroute into the NSFW Seahorse path with the same
             // prompt. Any other error keeps the normal handling below.
@@ -5972,6 +6032,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                                           errorText:fullMsg];
                 return;
             }
+#endif
             [self handleAPIError:fullMsg];
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self hideStatusBanner];
@@ -6068,6 +6129,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+#if !APPSTORE
 // MARK: - NSFW Image Generation (Nureta Seahorse, 18+)
 // ─────────────────────────────────────────────────────────────────────────────
 // Selecting the "seahorse-image" model routes sends here instead of
@@ -6600,6 +6662,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         });
     }];
 }
+#endif
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MARK: - Image Edit (gpt-image-1/1.5/mini/2/2.5-flare/2.5-sunburst)
@@ -6695,6 +6758,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
             // for why this matters.
             NSString *reason = json[@"reason"];
             NSString *fullMsg = reason.length ? [NSString stringWithFormat:@"%@ %@", errMsg, reason] : errMsg;
+#if !APPSTORE
             // Safety rejections get the same one-tap Seahorse reroute
             // as generation — this path never had it, so a refused
             // edit was a dead end. The image being edited is the
@@ -6709,6 +6773,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                                           errorText:fullMsg];
                 return;
             }
+#endif
             [self handleAPIError:fullMsg];
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self hideStatusBanner];
