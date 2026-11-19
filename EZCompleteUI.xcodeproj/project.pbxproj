@@ -767,7 +767,16 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = RGTNQJLJBX;
 				EXECUTABLE_NAME = EZCompleteUI;
-				GCC_PREPROCESSOR_DEFINITIONS = "EZCOMPLETEUI_SIMULATOR=1";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"EZCOMPLETEUI_SIMULATOR=1",
+					HAVE_ARC4RANDOM_BUF,
+					HAVE_INTTYPES_H,
+					HAVE_PKCRYPT,
+					HAVE_STDINT_H,
+					HAVE_WZAES,
+					HAVE_ZLIB,
+					ZLIB_COMPAT,
+				);
 				INFOPLIST_FILE = Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				OTHER_LDFLAGS = (
@@ -805,6 +814,7 @@
 					UserNotifications,
 					"-framework",
 					MediaPlayer,
+					"-lz",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui;
 				PRODUCT_NAME = "EZCompleteUI-Simulator";
@@ -823,7 +833,16 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = RGTNQJLJBX;
 				EXECUTABLE_NAME = EZCompleteUI;
-				GCC_PREPROCESSOR_DEFINITIONS = "EZCOMPLETEUI_SIMULATOR=1";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"EZCOMPLETEUI_SIMULATOR=1",
+					HAVE_ARC4RANDOM_BUF,
+					HAVE_INTTYPES_H,
+					HAVE_PKCRYPT,
+					HAVE_STDINT_H,
+					HAVE_WZAES,
+					HAVE_ZLIB,
+					ZLIB_COMPAT,
+				);
 				INFOPLIST_FILE = Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				OTHER_LDFLAGS = (
@@ -861,6 +880,7 @@
 					UserNotifications,
 					"-framework",
 					MediaPlayer,
+					"-lz",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui;
 				PRODUCT_NAME = "EZCompleteUI-Simulator";
@@ -889,7 +909,16 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = RGTNQJLJBX;
 				EXECUTABLE_NAME = EZCompleteUI;
-				GCC_PREPROCESSOR_DEFINITIONS = "APPSTORE=1";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"APPSTORE=1",
+					HAVE_ARC4RANDOM_BUF,
+					HAVE_INTTYPES_H,
+					HAVE_PKCRYPT,
+					HAVE_STDINT_H,
+					HAVE_WZAES,
+					HAVE_ZLIB,
+					ZLIB_COMPAT,
+				);
 				INFOPLIST_FILE = Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				OTHER_LDFLAGS = (
@@ -929,6 +958,7 @@
 					MediaPlayer,
 					"-framework",
 					StoreKit,
+					"-lz",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui;
 				PRODUCT_NAME = EZCompleteUI;
