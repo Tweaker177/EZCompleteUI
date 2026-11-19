@@ -126,7 +126,6 @@
 		A20000000000000000000044 /* BRSlotMachineViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000046 /* BRSlotMachineViewController.m */; };
 		A20000000000000000000045 /* BRSlotGamePickerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000048 /* BRSlotGamePickerViewController.m */; };
 		A20000000000000000000046 /* BRPennySlotViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004A /* BRPennySlotViewController.m */; };
-		A20000000000000000000047 /* BRSlotRoomViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004C /* BRSlotRoomViewController.m */; };
 		A2000000000000000000004E /* EZMusicService.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004E /* EZMusicService.m */; };
 		A2000000000000000000004F /* EZMusicViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004F /* EZMusicViewController.m */; };
 		A20000000000000000000050 /* EZMusicLibraryManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000050 /* EZMusicLibraryManager.m */; };
@@ -287,8 +286,6 @@
 		A10000000000000000000049 /* BRSlotGamePickerViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRSlotGamePickerViewController.h; sourceTree = "<group>"; };
 		A1000000000000000000004A /* BRPennySlotViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRPennySlotViewController.m; sourceTree = "<group>"; };
 		A1000000000000000000004B /* BRPennySlotViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRPennySlotViewController.h; sourceTree = "<group>"; };
-		A1000000000000000000004C /* BRSlotRoomViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRSlotRoomViewController.m; sourceTree = "<group>"; };
-		A1000000000000000000004D /* BRSlotRoomViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRSlotRoomViewController.h; sourceTree = "<group>"; };
 		A1000000000000000000004E /* EZMusicService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicService.m; sourceTree = "<group>"; };
 		A1000000000000000000004F /* EZMusicViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicViewController.m; sourceTree = "<group>"; };
 		A10000000000000000000050 /* EZMusicLibraryManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicLibraryManager.m; sourceTree = "<group>"; };
@@ -462,14 +459,12 @@
 				A10000000000000000000049 /* BRSlotGamePickerViewController.h */,
 				A1000000000000000000004A /* BRPennySlotViewController.m */,
 				A1000000000000000000004B /* BRPennySlotViewController.h */,
-				A1000000000000000000004C /* BRSlotRoomViewController.m */,
 				A1000000000000000000004F /* EZMusicViewController.m */,
 				A1000000000000000000004E /* EZMusicService.m */,
 				A10000000000000000000050 /* EZMusicLibraryManager.m */,
 				A10000000000000000000051 /* EZMusicBubbleCell.m */,
 				A10000000000000000000052 /* EZMediaPlayerManager.m */,
 				A10000000000000000000053 /* EZMusicArtworkService.m */,
-				A1000000000000000000004D /* BRSlotRoomViewController.h */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -704,7 +699,6 @@
 				A20000000000000000000045 /* BRSlotGamePickerViewController.m in Sources */,
 				A20000000000000000000046 /* BRPennySlotViewController.m in Sources */,
 				8C09AD1430AF8FFB00F964F8 /* mz_os.c in Sources */,
-				A20000000000000000000047 /* BRSlotRoomViewController.m in Sources */,
 				8C09ACF730AF8CDD00F964F8 /* EZFileItem.m in Sources */,
 				A2000000000000000000004E /* EZMusicService.m in Sources */,
 				8C09AD0030AF8DF400F964F8 /* EZSoundsViewController.m in Sources */,
