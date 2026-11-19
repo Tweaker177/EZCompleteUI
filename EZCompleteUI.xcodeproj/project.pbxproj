@@ -55,6 +55,7 @@
 		8C09AD1F30AF8FFB00F964F8 /* mz_strm_zlib.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD1130AF8FFA00F964F8 /* mz_strm_zlib.c */; };
 		8C09AD2030AF8FFB00F964F8 /* mz_zip_rw.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD1230AF8FFB00F964F8 /* mz_zip_rw.c */; };
 		8C09AD2230AF912800F964F8 /* EZTextFileEditorViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD2130AF912800F964F8 /* EZTextFileEditorViewController.m */; };
+		8C09AD2430AF919200F964F8 /* mz_crypt_apple.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD2330AF919200F964F8 /* mz_crypt_apple.c */; };
 		A20000000000000000000001 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* main.m */; };
 		A20000000000000000000002 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AppDelegate.m */; };
 		A20000000000000000000003 /* helpers.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* helpers.m */; };
@@ -210,6 +211,7 @@
 		8C09AD1130AF8FFA00F964F8 /* mz_strm_zlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_strm_zlib.c; path = SSZipArchive/minizip/mz_strm_zlib.c; sourceTree = "<group>"; };
 		8C09AD1230AF8FFB00F964F8 /* mz_zip_rw.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_zip_rw.c; path = SSZipArchive/minizip/mz_zip_rw.c; sourceTree = "<group>"; };
 		8C09AD2130AF912800F964F8 /* EZTextFileEditorViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZTextFileEditorViewController.m; sourceTree = "<group>"; };
+		8C09AD2330AF919200F964F8 /* mz_crypt_apple.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_crypt_apple.c; path = SSZipArchive/minizip/mz_crypt_apple.c; sourceTree = "<group>"; };
 		A10000000000000000000001 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		A10000000000000000000002 /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		A10000000000000000000003 /* helpers.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = helpers.m; sourceTree = "<group>"; };
@@ -325,6 +327,7 @@
 			isa = PBXGroup;
 			children = (
 				8C09ACB230AF880300F964F8 /* BRGoldenMandarinArt.m */,
+				8C09AD2330AF919200F964F8 /* mz_crypt_apple.c */,
 				8C09AD2130AF912800F964F8 /* EZTextFileEditorViewController.m */,
 				8C09AD1030AF8FFA00F964F8 /* mz_compat.c */,
 				8C09AD0C30AF8FF900F964F8 /* mz_crypt.c */,
@@ -682,6 +685,7 @@
 				8C09ACEB30AF8CDD00F964F8 /* BRGoldenMandarinSlotViewController.m in Sources */,
 				A2000000000000000000003B /* EZTTSVoiceService.m in Sources */,
 				8C09ACE430AF8CDD00F964F8 /* EZTheme.m in Sources */,
+				8C09AD2430AF919200F964F8 /* mz_crypt_apple.c in Sources */,
 				A2000000000000000000003C /* EZVoicePickerViewController.m in Sources */,
 				A2000000000000000000003D /* EZWaveformRangeSelector.m in Sources */,
 				A2000000000000000000003E /* BRCommunityAdminViewController.m in Sources */,
