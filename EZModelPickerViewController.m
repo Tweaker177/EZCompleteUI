@@ -37,7 +37,9 @@ static NSDictionary<NSString *, NSString *> *EZModelLabels(void) {
         @"gpt-image-2.5-sunburst": EZLocalized(@"EZModelLabel.ImageGenEditPrecision"),
         @"gpt-image-2":            EZLocalized(@"EZModelLabel.ImageGenEdit"),
         @"gpt-image-1-mini":       EZLocalized(@"EZModelLabel.ImageGenFastCheap"),
+#if !APPSTORE
         @"seahorse-image":         EZLocalized(@"EZModelLabel.ImageGenNSFW"),
+#endif
         @"whisper-1":              EZLocalized(@"EZModelLabel.AudioTranscriptionOnly"),
     };
 }
@@ -56,7 +58,11 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
         @[@"gpt-6-astra", @"gpt-6.1-sol", @"gpt-6.1-terra", @"gpt-6-luna", //@"gpt-5-pro",
           @"gpt-5-mini"],
         @[@"gpt-4o", @"gpt-4o-mini"],
-        @[@"gpt-image-2.5-sunburst", @"gpt-image-2.5-flare", @"gpt-image-2", @"gpt-image-1-mini", @"seahorse-image"],
+        @[@"gpt-image-2.5-sunburst", @"gpt-image-2.5-flare", @"gpt-image-2", @"gpt-image-1-mini"
+#if !APPSTORE
+            , @"seahorse-image"
+#endif
+        ],
         @[@"whisper-1"]
     ];
 }
