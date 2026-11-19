@@ -692,13 +692,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     // from a previous session redeliver and verify here) and add the
     // Restore Purchases button Apple requires for auto-renewable subs.
     [[EZStoreKitManager shared] startObserving];
-    // A purchase verified on redelivery (or a deferred purchase approved
-    // later) has no in-flight completion waiting — refresh on the grant
-    // notification so the coins show without leaving and re-entering.
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(storeKitVerifiedGrant:)
-                                                 name:@"EZStoreKitVerifiedGrant"
-                                               object:nil];
     [self addRestorePurchasesButton];
 #endif
 
@@ -2031,10 +2024,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     }
 }
 
-- (void)storeKitVerifiedGrant:(NSNotification *)note {
-    [self refreshBalance];
-}
-
 - (void)restorePurchasesTapped:(UIButton *)sender {
     [self.spinner startAnimating];
     self.tableView.userInteractionEnabled = NO;
@@ -2353,7 +2342,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     orLabel.minimumScaleFactor = 0.5;
     orLabel.text          = NSLocalizedString(@"EZCoinStore.Upsell.Or", @"'or' divider text");
     orLabel.font          = [UIFont systemFontOfSize:12];
-    orLabel.textColor     = [UIColor tertiaryLabelColor];
+    orLabel.textColor     = [UIColor secondaryLabelColor];
     orLabel.textAlignment = NSTextAlignmentCenter;
     [card addSubview:orLabel];
 
@@ -2361,10 +2350,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     // compete visually with the annual CTA above it.
     UIButton *monthlyButton = [UIButton buttonWithType:UIButtonTypeSystem];
     monthlyButton.frame                  = CGRectMake(30, 240, 240, 56);
-    monthlyButton.backgroundColor        = [UIColor clearColor];
+    monthlyButton.backgroundColor        = [UIColor colorWithWhite:1 alpha:0.12];
     monthlyButton.layer.cornerRadius     = 14;
     monthlyButton.layer.borderWidth      = 1.5;
-    monthlyButton.layer.borderColor      = [UIColor colorWithWhite:1 alpha:0.2].CGColor;
+    monthlyButton.layer.borderColor      = [accent colorWithAlphaComponent:0.8].CGColor;
     monthlyButton.titleLabel.font        = [UIFont boldSystemFontOfSize:16];
     monthlyButton.titleLabel.numberOfLines = 2;
     monthlyButton.titleLabel.textAlignment = NSTextAlignmentCenter;
