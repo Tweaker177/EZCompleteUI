@@ -56,6 +56,7 @@
 		8C09AD2030AF8FFB00F964F8 /* mz_zip_rw.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD1230AF8FFB00F964F8 /* mz_zip_rw.c */; };
 		8C09AD2230AF912800F964F8 /* EZTextFileEditorViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD2130AF912800F964F8 /* EZTextFileEditorViewController.m */; };
 		8C09AD2430AF919200F964F8 /* mz_crypt_apple.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD2330AF919200F964F8 /* mz_crypt_apple.c */; };
+		8C09AD2630AFBF5600F964F8 /* EZInsuranceFilePreviewViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD2530AFBF5600F964F8 /* EZInsuranceFilePreviewViewController.m */; };
 		A20000000000000000000001 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* main.m */; };
 		A20000000000000000000002 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AppDelegate.m */; };
 		A20000000000000000000003 /* helpers.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* helpers.m */; };
@@ -211,6 +212,7 @@
 		8C09AD1230AF8FFB00F964F8 /* mz_zip_rw.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_zip_rw.c; path = SSZipArchive/minizip/mz_zip_rw.c; sourceTree = "<group>"; };
 		8C09AD2130AF912800F964F8 /* EZTextFileEditorViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZTextFileEditorViewController.m; sourceTree = "<group>"; };
 		8C09AD2330AF919200F964F8 /* mz_crypt_apple.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_crypt_apple.c; path = SSZipArchive/minizip/mz_crypt_apple.c; sourceTree = "<group>"; };
+		8C09AD2530AFBF5600F964F8 /* EZInsuranceFilePreviewViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZInsuranceFilePreviewViewController.m; sourceTree = "<group>"; };
 		A10000000000000000000001 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		A10000000000000000000002 /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		A10000000000000000000003 /* helpers.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = helpers.m; sourceTree = "<group>"; };
@@ -323,6 +325,7 @@
 		A40000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				8C09AD2530AFBF5600F964F8 /* EZInsuranceFilePreviewViewController.m */,
 				8C09ACB230AF880300F964F8 /* BRGoldenMandarinArt.m */,
 				8C09AD2330AF919200F964F8 /* mz_crypt_apple.c */,
 				8C09AD2130AF912800F964F8 /* EZTextFileEditorViewController.m */,
@@ -566,6 +569,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		A70000000000000000000002 /* Copy Runtime Resources */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -576,7 +580,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e; cd $SRCROOT/Resources; /usr/bin/ditto . $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH";
+			shellScript = "set -e; cd $SRCROOT/Resources; /usr/bin/ditto . $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -618,6 +622,7 @@
 				A20000000000000000000012 /* iCarousel.m in Sources */,
 				A20000000000000000000013 /* ViewController+EZTitleResolver.m in Sources */,
 				A20000000000000000000014 /* UIViewController+EZViewDidLayoutSwizzle.m in Sources */,
+				8C09AD2630AFBF5600F964F8 /* EZInsuranceFilePreviewViewController.m in Sources */,
 				8C09AD1630AF8FFB00F964F8 /* mz_strm.c in Sources */,
 				A20000000000000000000015 /* WaveformView.m in Sources */,
 				A20000000000000000000016 /* EZAuthManager.m in Sources */,
