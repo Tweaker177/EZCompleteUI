@@ -814,6 +814,10 @@
 					UserNotifications,
 					"-framework",
 					MediaPlayer,
+					"-framework",
+					AVKit,
+					"-framework",
+					Vision,
 					"-lz",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui;
@@ -880,6 +884,10 @@
 					UserNotifications,
 					"-framework",
 					MediaPlayer,
+					"-framework",
+					AVKit,
+					"-framework",
+					Vision,
 					"-lz",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui;
@@ -958,6 +966,10 @@
 					MediaPlayer,
 					"-framework",
 					StoreKit,
+					"-framework",
+					AVKit,
+					"-framework",
+					Vision,
 					"-lz",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui;
