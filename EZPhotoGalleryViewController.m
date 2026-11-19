@@ -852,7 +852,9 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 - (void)finishImageEditWithImage:(UIImage * _Nullable)editedImage
                             error:(NSString * _Nullable)errorMessage;
 - (void)showImageEditError:(NSString *)message;
+#if !APPSTORE
 - (void)presentSeahorseRerouteWithMessage:(NSString *)message;
+#endif
 - (UIImage *)shareImageWithBranding;
 - (UIImage *)shareImageWithBrandingForImage:(UIImage *)image showOriginalCard:(BOOL)showOriginalCard;
 - (CGRect)originalCardRectInImageArea:(CGRect)imageArea border:(CGFloat)border;
@@ -872,6 +874,7 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 // rather than a real failure — the same wording the chat image paths
 // check (ViewController's ezImageErrorIsSafetyRejection:), including
 // the underscore form of the API's raw error code.
+#if !APPSTORE
 static BOOL EZGalleryErrorIsSafetyRejection(NSString *message) {
     NSString *lowerMsg = [message lowercaseString];
     return [lowerMsg containsString:@"safety"] ||
@@ -879,6 +882,7 @@ static BOOL EZGalleryErrorIsSafetyRejection(NSString *message) {
            [lowerMsg containsString:@"content_policy"] ||
            [lowerMsg containsString:@"moderation"];
 }
+#endif
 
 @implementation EZPhotoDetailViewController {
     UIScrollView      *_scrollView;
@@ -2203,9 +2207,11 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         }
         [self stopProcessingAnimationWithCompletion:nil];
         [self showImageEditError:errorMessage ?: @"The image edit did not return an image."];
+#if !APPSTORE
         if (errorMessage.length > 0 && EZGalleryErrorIsSafetyRejection(errorMessage)) {
             [self presentSeahorseRerouteWithMessage:errorMessage];
         }
+#endif
         return;
     }
 
@@ -2286,6 +2292,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     EZLogf(EZLogLevelWarning, @"IMGEDIT", @"Gallery edit failed: %@", _editErrorLabel.text);
 }
 
+#if !APPSTORE
 // Gallery edits bypass the chat controller, so the Seahorse flow
 // (which lives there) can't be called directly. Offer the same
 // one-tap reroute the chat image paths show; on tap, dismiss the
@@ -2322,6 +2329,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
                                               style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
+#endif
 
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
