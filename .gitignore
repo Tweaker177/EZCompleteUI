@@ -10,7 +10,6 @@
 .cache
 .git
 /packages/
-EZKeyVault.m
 /junkcopies/
 *[0-9].*
 [0-9]*.*
@@ -23,10 +22,6 @@ EZKeyVault.m
 /files/
 /files 2/
 /patch.py
-EZAuthManager.m
-!EZAuthManager.m
-!EZAuthManager.h
-EZEntitlementManager.m
 /supabase/*
 make_icon_theme.py
 *.py
