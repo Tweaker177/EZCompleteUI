@@ -27,10 +27,12 @@
 static NSString *const kSOMutedKey = @"BRStarlightOdysseyMuted";
 static NSString *const kSOLinesKey = @"BRStarlightOdysseyLines";
 static NSString *const kSOBetKey = @"BRStarlightOdysseyBetIndex";
+static NSString *const kSOVIPBetKey = @"BRStarlightOdysseyVIPBetIndex";
 static const NSInteger kSOLoopPeriod = 8;        // cells in the seamless blur loop
 static const CGFloat kSOLoopSpeed = 22.0;        // cells per second while blurring
 
 static NSArray<NSNumber *> *SOBets(void) { return @[@1, @2, @5, @10]; }
+static NSArray<NSNumber *> *SOVIPBets(void) { return @[@1, @2, @5, @10, @25, @50]; }
 /// Line counts the LINES button steps through (the server accepts any 1...25).
 static NSArray<NSNumber *> *SOLineChoices(void) { return @[@1, @5, @10, @15, @20, @25]; }
 static NSArray<NSString *> *SOSymbolNames(void) {
@@ -226,9 +228,9 @@ static UIImage *SOParticleImage(BOOL coin) {
     [super viewDidLoad];
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
     _lines = [defaults objectForKey:kSOLinesKey] ? MAX(1, MIN(SO_MAX_LINES, [defaults integerForKey:kSOLinesKey])) : SO_MAX_LINES;
-    _betIndex = [defaults objectForKey:kSOBetKey] ? MAX(0, MIN((NSInteger)SOBets().count - 1, [defaults integerForKey:kSOBetKey])) : 0;
+    _betIndex = [defaults objectForKey:[self betDefaultsKey]] ? MAX(0, MIN((NSInteger)[self activeBets].count - 1, [defaults integerForKey:[self betDefaultsKey]])) : 0;
     _bonusLines = _lines;
-    _bonusBet = SOBets()[_betIndex].integerValue;
+    _bonusBet = [self activeBets][_betIndex].integerValue;
     self.reelViews = [NSMutableArray array];
     self.strips = [NSMutableArray array];
     self.stripCells = [NSMutableArray array];
@@ -419,6 +421,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     self.bannerLabel.layer.borderWidth = 1;
     self.bannerLabel.layer.borderColor = [SOGold() colorWithAlphaComponent:.6].CGColor;
     self.bannerLabel.clipsToBounds = YES;
+    self.bannerLabel.adjustsFontSizeToFitWidth = YES; self.bannerLabel.minimumScaleFactor = .85;
 
     // Cabinet
     self.machine = [UIView new];
@@ -431,6 +434,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     self.machine.layer.shadowRadius = 18;
     self.machine.layer.shadowOffset = CGSizeZero;
     self.machine.layer.shadowOpacity = 0;
+    if (self.vipMode) { self.machine.layer.borderWidth = 6; self.machine.layer.shadowOpacity = .55; }
     UIStackView *reelStack = [UIStackView new];
     reelStack.translatesAutoresizingMaskIntoConstraints = NO;
     reelStack.axis = UILayoutConstraintAxisHorizontal;
@@ -647,7 +651,10 @@ static UIImage *SOParticleImage(BOOL coin) {
 
 #pragma mark State and labels
 
-- (NSInteger)betPerLine { return SOBets()[_betIndex].integerValue; }
+- (NSInteger)betPerLine { return [self activeBets][_betIndex].integerValue; }
+
+- (NSArray<NSNumber *> *)activeBets { return self.vipMode ? SOVIPBets() : SOBets(); }
+- (NSString *)betDefaultsKey { return self.vipMode ? kSOVIPBetKey : kSOBetKey; }
 
 - (void)refreshLabels {
     self.balanceLabel.text = [NSString stringWithFormat:SOLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)_balance];
@@ -655,7 +662,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     self.linesButton.titleLabel.text = nil;
     [self.linesButton setTitle:[NSString stringWithFormat:SOLoc(@"BRSlot.SO.Lines", @"LINES\n%ld"), (long)lines] forState:UIControlStateNormal];
     [self.betButton setTitle:[NSString stringWithFormat:SOLoc(@"BRSlot.SO.Bet", @"BET / LINE\n%ld"), (long)bet] forState:UIControlStateNormal];
-    [self.maxButton setTitle:[NSString stringWithFormat:SOLoc(@"BRSlot.SO.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(SO_MAX_LINES * SOBets().lastObject.integerValue)] forState:UIControlStateNormal];
+    [self.maxButton setTitle:[NSString stringWithFormat:SOLoc(@"BRSlot.SO.MaxBet", @"MAX BET\n%ld + SPIN"), (long)(SO_MAX_LINES * [self activeBets].lastObject.integerValue)] forState:UIControlStateNormal];
     self.totalBetLabel.text = _bonusMode ? SOLoc(@"BRSlot.SO.FreeNoWager", @"FREE SPINS — NO WAGER TAKEN")
         : [NSString stringWithFormat:SOLoc(@"BRSlot.SO.TotalBet", @"TOTAL BET  %ld COINS"), (long)(lines * bet)];
 }
@@ -666,7 +673,7 @@ static UIImage *SOParticleImage(BOOL coin) {
         self.bannerLabel.text = [NSString stringWithFormat:SOLoc(@"BRSlot.SO.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, SONum(_bonusTotal)];
         self.bannerLabel.textColor = SOC(0xFFE48F);
     } else {
-        self.bannerLabel.text = SOLoc(@"BRSlot.SO.Hint", @"3+ WARP STARS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5");
+        self.bannerLabel.text = self.vipMode ? SOLoc(@"BRSlot.SO.HintVIP", @"STARLIGHT ODYSSEY VIP \u00b7 BETS TO 50 A LINE\nRICHER LINE PAYS \u00b7 3+ WARP STARS = FREE SPINS") : SOLoc(@"BRSlot.SO.Hint", @"3+ WARP STARS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5");
         self.bannerLabel.textColor = SOGold();
     }
 }
@@ -697,8 +704,8 @@ static UIImage *SOParticleImage(BOOL coin) {
 
 - (void)cycleBet {
     if (_busy || _bonusMode) return;
-    _betIndex = (_betIndex + 1) % (NSInteger)SOBets().count;
-    [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:kSOBetKey];
+    _betIndex = (_betIndex + 1) % (NSInteger)[self activeBets].count;
+    [NSUserDefaults.standardUserDefaults setInteger:_betIndex forKey:[self betDefaultsKey]];
     [self refreshLabels];
     [self checkBalanceSilently];
 }
@@ -706,7 +713,7 @@ static UIImage *SOParticleImage(BOOL coin) {
 - (void)maxBet {
     if (_busy || _bonusMode) return;
     _lines = SO_MAX_LINES;
-    _betIndex = (NSInteger)SOBets().count - 1;
+    _betIndex = (NSInteger)[self activeBets].count - 1;
     [self refreshLabels];
     [self checkBalanceSilently];
     [self spinTapped];
@@ -882,7 +889,9 @@ static UIImage *SOParticleImage(BOOL coin) {
     [self haptic:UIImpactFeedbackStyleMedium];
 
     NSUInteger epoch = _epoch;
-    [self request:@{@"lines": @(lines), @"bet_per_line": @(bet)} completion:^(NSDictionary *result, NSString *error, NSInteger status) {
+    NSMutableDictionary *spinBody = [@{@"lines": @(lines), @"bet_per_line": @(bet)} mutableCopy];
+    if (self.vipMode) spinBody[@"vip"] = @YES;
+    [self request:spinBody completion:^(NSDictionary *result, NSString *error, NSInteger status) {
         if (self->_epoch != epoch || self->_leaving) return;
         if (error || ![self parseResult:result]) {
             [self failSpin:error ?: SOLoc(@"BRSlot.SO.BadResponse", @"Unexpected response. Your balance is unchanged.") status:status];
@@ -1337,7 +1346,7 @@ static NSArray<UIColor *> *SOLineColors(void) {
         self.machine.layer.borderColor = SOGold().CGColor;
         self.machine.backgroundColor = SOC(0x17174A);
     }];
-    self.machine.layer.shadowOpacity = 0;
+    self.machine.layer.shadowOpacity = self.vipMode ? .55 : 0;
     self.background.gradientLayer.colors = @[(id)SOC(0x1B1B4B).CGColor, (id)SOC(0x07071C).CGColor];
     [self.audio startThemeBonus:NO];
     [self refreshLabels];
