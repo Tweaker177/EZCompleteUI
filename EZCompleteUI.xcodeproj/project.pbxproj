@@ -37,7 +37,6 @@
 		A2000000000000000000001C /* EZSystemCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* EZSystemCell.m */; };
 		A2000000000000000000001D /* EZCodeBlockCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* EZCodeBlockCell.m */; };
 		A2000000000000000000001E /* EZCoinStoreViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* EZCoinStoreViewController.m */; };
-		A200000000000000000000FF /* EZStoreKitManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000FF /* EZStoreKitManager.m */; };
 		A2000000000000000000001F /* EZCoinPotView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* EZCoinPotView.m */; };
 		A20000000000000000000020 /* EZPhotoGalleryViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* EZPhotoGalleryViewController.m */; };
 		A20000000000000000000021 /* EZImageGridCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* EZImageGridCell.m */; };
@@ -79,17 +78,71 @@
 		A20000000000000000000045 /* BRSlotGamePickerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000048 /* BRSlotGamePickerViewController.m */; };
 		A20000000000000000000046 /* BRPennySlotViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004A /* BRPennySlotViewController.m */; };
 		A20000000000000000000047 /* BRSlotRoomViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004C /* BRSlotRoomViewController.m */; };
-		B20000000000000000000001 /* ShareViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* ShareViewController.m */; };
-		B20000000000000000000002 /* EZCompleteUIShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* EZCompleteUIShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A2000000000000000000004E /* EZMusicService.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004E /* EZMusicService.m */; };
 		A2000000000000000000004F /* EZMusicViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004F /* EZMusicViewController.m */; };
 		A20000000000000000000050 /* EZMusicLibraryManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000050 /* EZMusicLibraryManager.m */; };
 		A20000000000000000000051 /* EZMusicBubbleCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000051 /* EZMusicBubbleCell.m */; };
 		A20000000000000000000052 /* EZMediaPlayerManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000052 /* EZMediaPlayerManager.m */; };
 		A20000000000000000000053 /* EZMusicArtworkService.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000053 /* EZMusicArtworkService.m */; };
+		A200000000000000000000FF /* EZStoreKitManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000FF /* EZStoreKitManager.m */; };
+		B20000000000000000000001 /* ShareExtension/ShareViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* ShareExtension/ShareViewController.m */; };
+		B20000000000000000000002 /* EZCompleteUIShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* EZCompleteUIShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		B91000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B50000000000000000000001;
+			remoteInfo = EZCompleteUIShare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B70000000000000000000001 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B20000000000000000000002 /* EZCompleteUIShare.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		8C09ACA330AF880100F964F8 /* EZTheme.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZTheme.m; sourceTree = "<group>"; };
+		8C09ACA430AF880100F964F8 /* BRStarlightOdysseySlotViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRStarlightOdysseySlotViewController.m; sourceTree = "<group>"; };
+		8C09ACA530AF880100F964F8 /* BRSlotChatBar.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRSlotChatBar.m; sourceTree = "<group>"; };
+		8C09ACA630AF880100F964F8 /* BRPenguinParadeAudio.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRPenguinParadeAudio.m; sourceTree = "<group>"; };
+		8C09ACA730AF880200F964F8 /* BRPhoenixPavilionArt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRPhoenixPavilionArt.m; sourceTree = "<group>"; };
+		8C09ACA830AF880200F964F8 /* EZReferralManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZReferralManager.m; sourceTree = "<group>"; };
+		8C09ACA930AF880200F964F8 /* BRPhoenixPavilionSlotViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRPhoenixPavilionSlotViewController.m; sourceTree = "<group>"; };
+		8C09ACAA30AF880200F964F8 /* BRGoldenMandarinAudio.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRGoldenMandarinAudio.m; sourceTree = "<group>"; };
+		8C09ACAB30AF880200F964F8 /* EZSoundLibraryManager.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZSoundLibraryManager.m; sourceTree = "<group>"; };
+		8C09ACAC30AF880200F964F8 /* EZGitHubService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZGitHubService.m; sourceTree = "<group>"; };
+		8C09ACAD30AF880300F964F8 /* BRPhoenixPavilionAudio.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRPhoenixPavilionAudio.m; sourceTree = "<group>"; };
+		8C09ACAE30AF880300F964F8 /* EZGitHubSettingsViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZGitHubSettingsViewController.m; sourceTree = "<group>"; };
+		8C09ACAF30AF880300F964F8 /* EZArchiveService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZArchiveService.m; sourceTree = "<group>"; };
+		8C09ACB030AF880300F964F8 /* BRGoldenMandarinEngine.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = BRGoldenMandarinEngine.c; sourceTree = "<group>"; };
+		8C09ACB130AF880300F964F8 /* EZSoundManifestEntry.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZSoundManifestEntry.m; sourceTree = "<group>"; };
+		8C09ACB230AF880300F964F8 /* BRGoldenMandarinArt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRGoldenMandarinArt.m; sourceTree = "<group>"; };
+		8C09ACB330AF880300F964F8 /* BRStarlightOdysseyAudio.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRStarlightOdysseyAudio.m; sourceTree = "<group>"; };
+		8C09ACB430AF880400F964F8 /* EZAppErrorReporter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZAppErrorReporter.m; sourceTree = "<group>"; };
+		8C09ACB530AF880400F964F8 /* BRPlunderBayViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRPlunderBayViewController.m; sourceTree = "<group>"; };
+		8C09ACB630AF880400F964F8 /* BRPenguinParadeSlotViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRPenguinParadeSlotViewController.m; sourceTree = "<group>"; };
+		8C09ACB730AF880400F964F8 /* BRPenguinParadeEngine.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = BRPenguinParadeEngine.c; sourceTree = "<group>"; };
+		8C09ACB830AF880400F964F8 /* EZFileItem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZFileItem.m; sourceTree = "<group>"; };
+		8C09ACB930AF880400F964F8 /* BRStarlightOdysseyArt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRStarlightOdysseyArt.m; sourceTree = "<group>"; };
+		8C09ACBA30AF880500F964F8 /* BRGoldenMandarinSlotViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRGoldenMandarinSlotViewController.m; sourceTree = "<group>"; };
+		8C09ACBB30AF880500F964F8 /* BRStarlightOdysseyEngine.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = BRStarlightOdysseyEngine.c; sourceTree = "<group>"; };
+		8C09ACBC30AF880500F964F8 /* BRPhoenixPavilionEngine.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = BRPhoenixPavilionEngine.c; sourceTree = "<group>"; };
+		8C09ACBD30AF880500F964F8 /* EZFileInfoViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZFileInfoViewController.m; sourceTree = "<group>"; };
+		8C09ACBE30AF880500F964F8 /* BRPenguinParadeArt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRPenguinParadeArt.m; sourceTree = "<group>"; };
+		8C09ACBF30AF880500F964F8 /* EZLocalFileTools.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZLocalFileTools.m; sourceTree = "<group>"; };
 		A10000000000000000000001 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		A10000000000000000000002 /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		A10000000000000000000003 /* helpers.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = helpers.m; sourceTree = "<group>"; };
@@ -120,8 +173,6 @@
 		A1000000000000000000001C /* EZSystemCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZSystemCell.m; sourceTree = "<group>"; };
 		A1000000000000000000001D /* EZCodeBlockCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCodeBlockCell.m; sourceTree = "<group>"; };
 		A1000000000000000000001E /* EZCoinStoreViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCoinStoreViewController.m; sourceTree = "<group>"; };
-		A100000000000000000000FE /* EZStoreKitManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EZStoreKitManager.h; sourceTree = "<group>"; };
-		A100000000000000000000FF /* EZStoreKitManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZStoreKitManager.m; sourceTree = "<group>"; };
 		A1000000000000000000001F /* EZCoinPotView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCoinPotView.m; sourceTree = "<group>"; };
 		A10000000000000000000020 /* EZPhotoGalleryViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZPhotoGalleryViewController.m; sourceTree = "<group>"; };
 		A10000000000000000000021 /* EZImageGridCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZImageGridCell.m; sourceTree = "<group>"; };
@@ -169,18 +220,20 @@
 		A1000000000000000000004B /* BRPennySlotViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRPennySlotViewController.h; sourceTree = "<group>"; };
 		A1000000000000000000004C /* BRSlotRoomViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRSlotRoomViewController.m; sourceTree = "<group>"; };
 		A1000000000000000000004D /* BRSlotRoomViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRSlotRoomViewController.h; sourceTree = "<group>"; };
-		A30000000000000000000001 /* EZCompleteUI-Simulator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EZCompleteUI-Simulator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A30000000000000000000002 /* Resources/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Resources/Info.plist; sourceTree = "<group>"; };
-		B10000000000000000000001 /* ShareViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ShareExtension/ShareViewController.m; sourceTree = "<group>"; };
-		B10000000000000000000002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = ShareExtension/Info.plist; sourceTree = "<group>"; };
-		B10000000000000000000003 /* EZCompleteUIShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension/EZCompleteUIShare.entitlements; sourceTree = "<group>"; };
-		B30000000000000000000002 /* EZCompleteUIShare.appex */ = {isa = PBXFileReference; explicitFileType = wrapper.app-extension; includeInIndex = 0; path = EZCompleteUIShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000000000000000000004E /* EZMusicService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicService.m; sourceTree = "<group>"; };
 		A1000000000000000000004F /* EZMusicViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicViewController.m; sourceTree = "<group>"; };
 		A10000000000000000000050 /* EZMusicLibraryManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicLibraryManager.m; sourceTree = "<group>"; };
 		A10000000000000000000051 /* EZMusicBubbleCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicBubbleCell.m; sourceTree = "<group>"; };
 		A10000000000000000000052 /* EZMediaPlayerManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMediaPlayerManager.m; sourceTree = "<group>"; };
 		A10000000000000000000053 /* EZMusicArtworkService.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMusicArtworkService.m; sourceTree = "<group>"; };
+		A100000000000000000000FE /* EZStoreKitManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EZStoreKitManager.h; sourceTree = "<group>"; };
+		A100000000000000000000FF /* EZStoreKitManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZStoreKitManager.m; sourceTree = "<group>"; };
+		A30000000000000000000001 /* EZCompleteUI-Simulator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "EZCompleteUI-Simulator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A30000000000000000000002 /* Resources/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Resources/Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000001 /* ShareExtension/ShareViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ShareExtension/ShareViewController.m; sourceTree = "<group>"; };
+		B10000000000000000000002 /* ShareExtension/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = ShareExtension/Info.plist; sourceTree = "<group>"; };
+		B10000000000000000000003 /* ShareExtension/EZCompleteUIShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension/EZCompleteUIShare.entitlements; sourceTree = "<group>"; };
+		B30000000000000000000002 /* EZCompleteUIShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EZCompleteUIShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -200,24 +253,39 @@
 		};
 /* End PBXFrameworksBuildPhase section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		B70000000000000000000001 /* Embed App Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				B20000000000000000000002 /* EZCompleteUIShare.appex in Embed App Extensions */,
-			);
-			name = "Embed App Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXGroup section */
 		A40000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				8C09ACB230AF880300F964F8 /* BRGoldenMandarinArt.m */,
+				8C09ACAA30AF880200F964F8 /* BRGoldenMandarinAudio.m */,
+				8C09ACB030AF880300F964F8 /* BRGoldenMandarinEngine.c */,
+				8C09ACBA30AF880500F964F8 /* BRGoldenMandarinSlotViewController.m */,
+				8C09ACBE30AF880500F964F8 /* BRPenguinParadeArt.m */,
+				8C09ACA630AF880100F964F8 /* BRPenguinParadeAudio.m */,
+				8C09ACB730AF880400F964F8 /* BRPenguinParadeEngine.c */,
+				8C09ACB630AF880400F964F8 /* BRPenguinParadeSlotViewController.m */,
+				8C09ACA730AF880200F964F8 /* BRPhoenixPavilionArt.m */,
+				8C09ACAD30AF880300F964F8 /* BRPhoenixPavilionAudio.m */,
+				8C09ACBC30AF880500F964F8 /* BRPhoenixPavilionEngine.c */,
+				8C09ACA930AF880200F964F8 /* BRPhoenixPavilionSlotViewController.m */,
+				8C09ACB530AF880400F964F8 /* BRPlunderBayViewController.m */,
+				8C09ACA530AF880100F964F8 /* BRSlotChatBar.m */,
+				8C09ACB930AF880400F964F8 /* BRStarlightOdysseyArt.m */,
+				8C09ACB330AF880300F964F8 /* BRStarlightOdysseyAudio.m */,
+				8C09ACBB30AF880500F964F8 /* BRStarlightOdysseyEngine.c */,
+				8C09ACA430AF880100F964F8 /* BRStarlightOdysseySlotViewController.m */,
+				8C09ACB430AF880400F964F8 /* EZAppErrorReporter.m */,
+				8C09ACAF30AF880300F964F8 /* EZArchiveService.m */,
+				8C09ACBD30AF880500F964F8 /* EZFileInfoViewController.m */,
+				8C09ACB830AF880400F964F8 /* EZFileItem.m */,
+				8C09ACAC30AF880200F964F8 /* EZGitHubService.m */,
+				8C09ACAE30AF880300F964F8 /* EZGitHubSettingsViewController.m */,
+				8C09ACBF30AF880500F964F8 /* EZLocalFileTools.m */,
+				8C09ACA830AF880200F964F8 /* EZReferralManager.m */,
+				8C09ACAB30AF880200F964F8 /* EZSoundLibraryManager.m */,
+				8C09ACB130AF880300F964F8 /* EZSoundManifestEntry.m */,
+				8C09ACA330AF880100F964F8 /* EZTheme.m */,
 				A40000000000000000000002 /* Sources */,
 				A30000000000000000000002 /* Resources/Info.plist */,
 				B40000000000000000000001 /* ShareExtension */,
@@ -329,9 +397,9 @@
 		B40000000000000000000001 /* ShareExtension */ = {
 			isa = PBXGroup;
 			children = (
-				B10000000000000000000001 /* ShareViewController.m */,
-				B10000000000000000000002 /* Info.plist */,
-				B10000000000000000000003 /* EZCompleteUIShare.entitlements */,
+				B10000000000000000000001 /* ShareExtension/ShareViewController.m */,
+				B10000000000000000000002 /* ShareExtension/Info.plist */,
+				B10000000000000000000003 /* ShareExtension/EZCompleteUIShare.entitlements */,
 			);
 			name = ShareExtension;
 			sourceTree = "<group>";
@@ -410,24 +478,6 @@
 			);
 		};
 /* End PBXProject section */
-
-/* Begin PBXContainerItemProxy section */
-		B91000000000000000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = A00000000000000000000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B50000000000000000000001;
-			remoteInfo = EZCompleteUIShare;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXTargetDependency section */
-		B90000000000000000000001 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = B50000000000000000000001 /* EZCompleteUIShare */;
-			targetProxy = B91000000000000000000001 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		A70000000000000000000002 /* Copy Runtime Resources */ = {
@@ -536,11 +586,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B20000000000000000000001 /* ShareViewController.m in Sources */,
+				B20000000000000000000001 /* ShareExtension/ShareViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B90000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B50000000000000000000001 /* EZCompleteUIShare */;
+			targetProxy = B91000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A80000000000000000000001 /* Debug */ = {
@@ -561,15 +619,6 @@
 			};
 			name = Release;
 		};
-		A80000000000000000000005 /* AppStore */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				SDKROOT = iphoneos;
-			};
-			name = AppStore;
-		};
 		A80000000000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -577,6 +626,8 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGN_ENTITLEMENTS = EZCompleteUI.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RGTNQJLJBX;
 				EXECUTABLE_NAME = EZCompleteUI;
 				GCC_PREPROCESSOR_DEFINITIONS = "EZCOMPLETEUI_SIMULATOR=1";
 				INFOPLIST_FILE = Resources/Info.plist;
@@ -631,6 +682,8 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGN_ENTITLEMENTS = EZCompleteUI.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RGTNQJLJBX;
 				EXECUTABLE_NAME = EZCompleteUI;
 				GCC_PREPROCESSOR_DEFINITIONS = "EZCOMPLETEUI_SIMULATOR=1";
 				INFOPLIST_FILE = Resources/Info.plist;
@@ -678,6 +731,15 @@
 			};
 			name = Release;
 		};
+		A80000000000000000000005 /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				SDKROOT = iphoneos;
+			};
+			name = AppStore;
+		};
 		A80000000000000000000006 /* AppStore */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -685,6 +747,9 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGN_ENTITLEMENTS = EZCompleteUI.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RGTNQJLJBX;
 				EXECUTABLE_NAME = EZCompleteUI;
 				GCC_PREPROCESSOR_DEFINITIONS = "APPSTORE=1";
 				INFOPLIST_FILE = Resources/Info.plist;
@@ -729,6 +794,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui;
 				PRODUCT_NAME = EZCompleteUI;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -742,6 +808,8 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/EZCompleteUIShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RGTNQJLJBX;
 				INFOPLIST_FILE = ShareExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui.share;
@@ -760,6 +828,8 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/EZCompleteUIShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RGTNQJLJBX;
 				INFOPLIST_FILE = ShareExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui.share;
@@ -778,10 +848,14 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGN_ENTITLEMENTS = ShareExtension/EZCompleteUIShare.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = RGTNQJLJBX;
 				INFOPLIST_FILE = ShareExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.i0stweak3r.ezcompleteui.share;
 				PRODUCT_NAME = EZCompleteUIShare;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
