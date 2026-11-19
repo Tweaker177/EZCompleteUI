@@ -1279,22 +1279,61 @@ static NSData * _Nullable EZSeahorseFaceCropJPEGData(UIImage *image) {
     CGImageRef cg = flat.CGImage;
     if (!cg) return nil;
 
+    CGFloat W = (CGFloat)CGImageGetWidth(cg);
+    CGFloat H = (CGFloat)CGImageGetHeight(cg);
+
+    // Face detection, largest face wins. The first pass scans the whole
+    // photo; the printed face on an ID is small in the frame and one
+    // full-frame pass can miss it on a clear photo, so a miss retries on
+    // tighter center crops, where the face is larger relative to the
+    // image, before giving up. Hits are mapped back into full-image
+    // normalized coordinates (origin at bottom-left).
+    CGRect bb = CGRectNull;
     VNDetectFaceRectanglesRequest *request = [[VNDetectFaceRectanglesRequest alloc] init];
     VNImageRequestHandler *handler = [[VNImageRequestHandler alloc] initWithCGImage:cg options:@{}];
     NSError *detectError = nil;
-    if (![handler performRequests:@[request] error:&detectError]) return nil;
-
-    VNFaceObservation *best = nil;
-    CGFloat bestArea = 0;
-    for (VNFaceObservation *obs in request.results) {
-        CGFloat area = obs.boundingBox.size.width * obs.boundingBox.size.height;
-        if (area > bestArea) { bestArea = area; best = obs; }
+    if ([handler performRequests:@[request] error:&detectError]) {
+        CGFloat bestArea = 0;
+        for (VNFaceObservation *obs in request.results) {
+            CGFloat area = obs.boundingBox.size.width * obs.boundingBox.size.height;
+            if (area > bestArea) { bestArea = area; bb = obs.boundingBox; }
+        }
     }
-    if (!best) return nil;
-
-    CGFloat W = (CGFloat)CGImageGetWidth(cg);
-    CGFloat H = (CGFloat)CGImageGetHeight(cg);
-    CGRect bb = best.boundingBox; // normalized, origin at bottom-left
+    if (CGRectIsNull(bb)) {
+        CGFloat zooms[2] = {0.7, 0.45};
+        for (int zi = 0; zi < 2 && CGRectIsNull(bb); zi++) {
+            CGFloat zw = W * zooms[zi];
+            CGFloat zh = H * zooms[zi];
+            CGFloat ox = (W - zw) / 2.0;
+            CGFloat oy = (H - zh) / 2.0;
+            UIGraphicsImageRendererFormat *zformat = [[UIGraphicsImageRendererFormat alloc] init];
+            zformat.scale = 1.0;
+            UIGraphicsImageRenderer *zrenderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(zw, zh) format:zformat];
+            UIImage *zoomed = [zrenderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull ctx) {
+                [flat drawInRect:CGRectMake(-ox, -oy, W, H)];
+            }];
+            CGImageRef zcg = zoomed.CGImage;
+            if (!zcg) continue;
+            VNDetectFaceRectanglesRequest *zrequest = [[VNDetectFaceRectanglesRequest alloc] init];
+            VNImageRequestHandler *zhandler = [[VNImageRequestHandler alloc] initWithCGImage:zcg options:@{}];
+            NSError *zerror = nil;
+            if (![zhandler performRequests:@[zrequest] error:&zerror]) continue;
+            VNFaceObservation *zbest = nil;
+            CGFloat zbestArea = 0;
+            for (VNFaceObservation *obs in zrequest.results) {
+                CGFloat area = obs.boundingBox.size.width * obs.boundingBox.size.height;
+                if (area > zbestArea) { zbestArea = area; zbest = obs; }
+            }
+            if (!zbest) continue;
+            CGRect zb = zbest.boundingBox;
+            CGFloat fxz = ox + zb.origin.x * zw;
+            CGFloat fyzTop = oy + (1.0 - zb.origin.y - zb.size.height) * zh;
+            CGFloat fwz = zb.size.width * zw;
+            CGFloat fhz = zb.size.height * zh;
+            bb = CGRectMake(fxz / W, 1.0 - (fyzTop + fhz) / H, fwz / W, fhz / H);
+        }
+    }
+    if (CGRectIsNull(bb)) return nil;
     CGFloat fx = bb.origin.x * W;
     CGFloat fw = bb.size.width * W;
     CGFloat fh = bb.size.height * H;
