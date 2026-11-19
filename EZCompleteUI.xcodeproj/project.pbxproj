@@ -39,8 +39,21 @@
 		8C09ACFE30AF8DF400F964F8 /* EZMemorySummaryViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACFA30AF8DF200F964F8 /* EZMemorySummaryViewController.m */; };
 		8C09ACFF30AF8DF400F964F8 /* EZFileExplorerViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACFB30AF8DF300F964F8 /* EZFileExplorerViewController.m */; };
 		8C09AD0030AF8DF400F964F8 /* EZSoundsViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACFC30AF8DF300F964F8 /* EZSoundsViewController.m */; };
-		8C09AD0130AF8DF400F964F8 /* SidewaysScrollView.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACFD30AF8DF300F964F8 /* SidewaysScrollView.m */; };
 		8C09AD0430AF8E1600F964F8 /* SSZipArchive.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0330AF8E1600F964F8 /* SSZipArchive.m */; };
+		8C09AD1330AF8FFB00F964F8 /* mz_strm_buf.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0530AF8FF800F964F8 /* mz_strm_buf.c */; };
+		8C09AD1430AF8FFB00F964F8 /* mz_os.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0630AF8FF800F964F8 /* mz_os.c */; };
+		8C09AD1530AF8FFB00F964F8 /* mz_strm_split.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0730AF8FF800F964F8 /* mz_strm_split.c */; };
+		8C09AD1630AF8FFB00F964F8 /* mz_strm.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0830AF8FF800F964F8 /* mz_strm.c */; };
+		8C09AD1730AF8FFB00F964F8 /* mz_zip.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0930AF8FF900F964F8 /* mz_zip.c */; };
+		8C09AD1830AF8FFB00F964F8 /* mz_strm_pkcrypt.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0A30AF8FF900F964F8 /* mz_strm_pkcrypt.c */; };
+		8C09AD1930AF8FFB00F964F8 /* mz_os_posix.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0B30AF8FF900F964F8 /* mz_os_posix.c */; };
+		8C09AD1A30AF8FFB00F964F8 /* mz_crypt.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0C30AF8FF900F964F8 /* mz_crypt.c */; };
+		8C09AD1B30AF8FFB00F964F8 /* mz_strm_mem.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0D30AF8FFA00F964F8 /* mz_strm_mem.c */; };
+		8C09AD1C30AF8FFB00F964F8 /* mz_strm_os_posix.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0E30AF8FFA00F964F8 /* mz_strm_os_posix.c */; };
+		8C09AD1D30AF8FFB00F964F8 /* mz_strm_wzaes.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD0F30AF8FFA00F964F8 /* mz_strm_wzaes.c */; };
+		8C09AD1E30AF8FFB00F964F8 /* mz_compat.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD1030AF8FFA00F964F8 /* mz_compat.c */; };
+		8C09AD1F30AF8FFB00F964F8 /* mz_strm_zlib.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD1130AF8FFA00F964F8 /* mz_strm_zlib.c */; };
+		8C09AD2030AF8FFB00F964F8 /* mz_zip_rw.c in Sources */ = {isa = PBXBuildFile; fileRef = 8C09AD1230AF8FFB00F964F8 /* mz_zip_rw.c */; };
 		A20000000000000000000001 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* main.m */; };
 		A20000000000000000000002 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AppDelegate.m */; };
 		A20000000000000000000003 /* helpers.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* helpers.m */; };
@@ -180,9 +193,21 @@
 		8C09ACFA30AF8DF200F964F8 /* EZMemorySummaryViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMemorySummaryViewController.m; sourceTree = "<group>"; };
 		8C09ACFB30AF8DF300F964F8 /* EZFileExplorerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZFileExplorerViewController.m; sourceTree = "<group>"; };
 		8C09ACFC30AF8DF300F964F8 /* EZSoundsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZSoundsViewController.m; sourceTree = "<group>"; };
-		8C09ACFD30AF8DF300F964F8 /* SidewaysScrollView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SidewaysScrollView.m; sourceTree = "<group>"; };
-		8C09AD0230AF8E1500F964F8 /* minizip */ = {isa = PBXFileReference; lastKnownFileType = folder; name = minizip; path = SSZipArchive/minizip; sourceTree = "<group>"; };
 		8C09AD0330AF8E1600F964F8 /* SSZipArchive.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = SSZipArchive.m; path = SSZipArchive/SSZipArchive.m; sourceTree = "<group>"; };
+		8C09AD0530AF8FF800F964F8 /* mz_strm_buf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_strm_buf.c; path = SSZipArchive/minizip/mz_strm_buf.c; sourceTree = "<group>"; };
+		8C09AD0630AF8FF800F964F8 /* mz_os.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_os.c; path = SSZipArchive/minizip/mz_os.c; sourceTree = "<group>"; };
+		8C09AD0730AF8FF800F964F8 /* mz_strm_split.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_strm_split.c; path = SSZipArchive/minizip/mz_strm_split.c; sourceTree = "<group>"; };
+		8C09AD0830AF8FF800F964F8 /* mz_strm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_strm.c; path = SSZipArchive/minizip/mz_strm.c; sourceTree = "<group>"; };
+		8C09AD0930AF8FF900F964F8 /* mz_zip.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_zip.c; path = SSZipArchive/minizip/mz_zip.c; sourceTree = "<group>"; };
+		8C09AD0A30AF8FF900F964F8 /* mz_strm_pkcrypt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_strm_pkcrypt.c; path = SSZipArchive/minizip/mz_strm_pkcrypt.c; sourceTree = "<group>"; };
+		8C09AD0B30AF8FF900F964F8 /* mz_os_posix.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_os_posix.c; path = SSZipArchive/minizip/mz_os_posix.c; sourceTree = "<group>"; };
+		8C09AD0C30AF8FF900F964F8 /* mz_crypt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_crypt.c; path = SSZipArchive/minizip/mz_crypt.c; sourceTree = "<group>"; };
+		8C09AD0D30AF8FFA00F964F8 /* mz_strm_mem.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_strm_mem.c; path = SSZipArchive/minizip/mz_strm_mem.c; sourceTree = "<group>"; };
+		8C09AD0E30AF8FFA00F964F8 /* mz_strm_os_posix.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_strm_os_posix.c; path = SSZipArchive/minizip/mz_strm_os_posix.c; sourceTree = "<group>"; };
+		8C09AD0F30AF8FFA00F964F8 /* mz_strm_wzaes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_strm_wzaes.c; path = SSZipArchive/minizip/mz_strm_wzaes.c; sourceTree = "<group>"; };
+		8C09AD1030AF8FFA00F964F8 /* mz_compat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_compat.c; path = SSZipArchive/minizip/mz_compat.c; sourceTree = "<group>"; };
+		8C09AD1130AF8FFA00F964F8 /* mz_strm_zlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_strm_zlib.c; path = SSZipArchive/minizip/mz_strm_zlib.c; sourceTree = "<group>"; };
+		8C09AD1230AF8FFB00F964F8 /* mz_zip_rw.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mz_zip_rw.c; path = SSZipArchive/minizip/mz_zip_rw.c; sourceTree = "<group>"; };
 		A10000000000000000000001 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		A10000000000000000000002 /* AppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		A10000000000000000000003 /* helpers.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = helpers.m; sourceTree = "<group>"; };
@@ -298,12 +323,24 @@
 			isa = PBXGroup;
 			children = (
 				8C09ACB230AF880300F964F8 /* BRGoldenMandarinArt.m */,
-				8C09AD0230AF8E1500F964F8 /* minizip */,
+				8C09AD1030AF8FFA00F964F8 /* mz_compat.c */,
+				8C09AD0C30AF8FF900F964F8 /* mz_crypt.c */,
+				8C09AD0B30AF8FF900F964F8 /* mz_os_posix.c */,
+				8C09AD0630AF8FF800F964F8 /* mz_os.c */,
+				8C09AD0530AF8FF800F964F8 /* mz_strm_buf.c */,
+				8C09AD0D30AF8FFA00F964F8 /* mz_strm_mem.c */,
+				8C09AD0E30AF8FFA00F964F8 /* mz_strm_os_posix.c */,
+				8C09AD0A30AF8FF900F964F8 /* mz_strm_pkcrypt.c */,
+				8C09AD0730AF8FF800F964F8 /* mz_strm_split.c */,
+				8C09AD0F30AF8FFA00F964F8 /* mz_strm_wzaes.c */,
+				8C09AD1130AF8FFA00F964F8 /* mz_strm_zlib.c */,
+				8C09AD0830AF8FF800F964F8 /* mz_strm.c */,
+				8C09AD1230AF8FFB00F964F8 /* mz_zip_rw.c */,
+				8C09AD0930AF8FF900F964F8 /* mz_zip.c */,
 				8C09AD0330AF8E1600F964F8 /* SSZipArchive.m */,
 				8C09ACFB30AF8DF300F964F8 /* EZFileExplorerViewController.m */,
 				8C09ACFA30AF8DF200F964F8 /* EZMemorySummaryViewController.m */,
 				8C09ACFC30AF8DF300F964F8 /* EZSoundsViewController.m */,
-				8C09ACFD30AF8DF300F964F8 /* SidewaysScrollView.m */,
 				8C09ACAA30AF880200F964F8 /* BRGoldenMandarinAudio.m */,
 				8C09ACB030AF880300F964F8 /* BRGoldenMandarinEngine.c */,
 				8C09ACBA30AF880500F964F8 /* BRGoldenMandarinSlotViewController.m */,
@@ -547,16 +584,18 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8C09AD1930AF8FFB00F964F8 /* mz_os_posix.c in Sources */,
 				8C09ACE130AF8CDD00F964F8 /* BRPenguinParadeArt.m in Sources */,
 				8C09ACF130AF8CDD00F964F8 /* BRPhoenixPavilionAudio.m in Sources */,
 				A20000000000000000000001 /* main.m in Sources */,
 				A20000000000000000000002 /* AppDelegate.m in Sources */,
 				8C09ACEF30AF8CDD00F964F8 /* EZFileInfoViewController.m in Sources */,
 				A20000000000000000000003 /* helpers.m in Sources */,
+				8C09AD1330AF8FFB00F964F8 /* mz_strm_buf.c in Sources */,
+				8C09AD1B30AF8FFB00F964F8 /* mz_strm_mem.c in Sources */,
 				8C09ACE030AF8CDD00F964F8 /* EZReferralManager.m in Sources */,
 				8C09ACDF30AF8CDD00F964F8 /* BRStarlightOdysseyEngine.c in Sources */,
 				A20000000000000000000004 /* ViewController+EZTopButtons.m in Sources */,
-				8C09AD0130AF8DF400F964F8 /* SidewaysScrollView.m in Sources */,
 				A20000000000000000000005 /* ViewController+EZKeepAwake.m in Sources */,
 				A20000000000000000000006 /* ViewController.m in Sources */,
 				A20000000000000000000007 /* EZFirstRunTutorialViewController.m in Sources */,
@@ -578,6 +617,7 @@
 				A20000000000000000000012 /* iCarousel.m in Sources */,
 				A20000000000000000000013 /* ViewController+EZTitleResolver.m in Sources */,
 				A20000000000000000000014 /* UIViewController+EZViewDidLayoutSwizzle.m in Sources */,
+				8C09AD1630AF8FFB00F964F8 /* mz_strm.c in Sources */,
 				A20000000000000000000015 /* WaveformView.m in Sources */,
 				A20000000000000000000016 /* EZAuthManager.m in Sources */,
 				A20000000000000000000017 /* EZEntitlementManager.m in Sources */,
@@ -592,6 +632,8 @@
 				A2000000000000000000001D /* EZCodeBlockCell.m in Sources */,
 				8C09ACE630AF8CDD00F964F8 /* BRGoldenMandarinAudio.m in Sources */,
 				A2000000000000000000001E /* EZCoinStoreViewController.m in Sources */,
+				8C09AD1730AF8FFB00F964F8 /* mz_zip.c in Sources */,
+				8C09AD1530AF8FFB00F964F8 /* mz_strm_split.c in Sources */,
 				8C09ACF930AF8CDD00F964F8 /* BRStarlightOdysseyAudio.m in Sources */,
 				A200000000000000000000FF /* EZStoreKitManager.m in Sources */,
 				A2000000000000000000001F /* EZCoinPotView.m in Sources */,
@@ -599,9 +641,11 @@
 				A20000000000000000000021 /* EZImageGridCell.m in Sources */,
 				A20000000000000000000022 /* EZCoinUsageViewController.m in Sources */,
 				A20000000000000000000023 /* BRGameModel.m in Sources */,
+				8C09AD1830AF8FFB00F964F8 /* mz_strm_pkcrypt.c in Sources */,
 				A20000000000000000000024 /* BrainRotViewController.m in Sources */,
 				A20000000000000000000025 /* BRGameView.m in Sources */,
 				8C09ACF830AF8CDD00F964F8 /* BRStarlightOdysseyArt.m in Sources */,
+				8C09AD1E30AF8FFB00F964F8 /* mz_compat.c in Sources */,
 				A20000000000000000000026 /* BRGameModePickerViewController.m in Sources */,
 				8C09ACF430AF8CDD00F964F8 /* BRGoldenMandarinEngine.c in Sources */,
 				A20000000000000000000027 /* BRRicochetGameModel.m in Sources */,
@@ -619,6 +663,7 @@
 				A20000000000000000000030 /* BRCustomGameCreatorViewController.m in Sources */,
 				A20000000000000000000031 /* BRAssetSourceSheetViewController.m in Sources */,
 				8C09ACEC30AF8CDD00F964F8 /* BRPlunderBayViewController.m in Sources */,
+				8C09AD1A30AF8FFB00F964F8 /* mz_crypt.c in Sources */,
 				A20000000000000000000032 /* BRTextInputSheetViewController.m in Sources */,
 				8C09ACF530AF8CDD00F964F8 /* EZGitHubSettingsViewController.m in Sources */,
 				A20000000000000000000033 /* BRGameResultViewController.m in Sources */,
@@ -637,6 +682,8 @@
 				A2000000000000000000003C /* EZVoicePickerViewController.m in Sources */,
 				A2000000000000000000003D /* EZWaveformRangeSelector.m in Sources */,
 				A2000000000000000000003E /* BRCommunityAdminViewController.m in Sources */,
+				8C09AD2030AF8FFB00F964F8 /* mz_zip_rw.c in Sources */,
+				8C09AD1D30AF8FFB00F964F8 /* mz_strm_wzaes.c in Sources */,
 				A2000000000000000000003F /* EZSupabaseConfig.m in Sources */,
 				8C09ACF630AF8CDD00F964F8 /* BRGoldenMandarinArt.m in Sources */,
 				A20000000000000000000040 /* EZCoinLedgerViewController.m in Sources */,
@@ -645,8 +692,10 @@
 				A20000000000000000000043 /* EZPhotoGalleryAnalysisService.m in Sources */,
 				A20000000000000000000044 /* BRSlotMachineViewController.m in Sources */,
 				8C09ACE930AF8CDD00F964F8 /* BRSlotChatBar.m in Sources */,
+				8C09AD1F30AF8FFB00F964F8 /* mz_strm_zlib.c in Sources */,
 				A20000000000000000000045 /* BRSlotGamePickerViewController.m in Sources */,
 				A20000000000000000000046 /* BRPennySlotViewController.m in Sources */,
+				8C09AD1430AF8FFB00F964F8 /* mz_os.c in Sources */,
 				A20000000000000000000047 /* BRSlotRoomViewController.m in Sources */,
 				8C09ACF730AF8CDD00F964F8 /* EZFileItem.m in Sources */,
 				A2000000000000000000004E /* EZMusicService.m in Sources */,
@@ -658,6 +707,7 @@
 				A20000000000000000000051 /* EZMusicBubbleCell.m in Sources */,
 				A20000000000000000000052 /* EZMediaPlayerManager.m in Sources */,
 				A20000000000000000000053 /* EZMusicArtworkService.m in Sources */,
+				8C09AD1C30AF8FFB00F964F8 /* mz_strm_os_posix.c in Sources */,
 				8C09ACFE30AF8DF400F964F8 /* EZMemorySummaryViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
