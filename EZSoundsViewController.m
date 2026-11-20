@@ -423,7 +423,10 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     self.tabControl.selectedSegmentIndex = EZSoundsTabLibrary;
     self.tabControl.translatesAutoresizingMaskIntoConstraints = NO;
     self.tabControl.backgroundColor = EZSoundsNeonPanel();
-    self.tabControl.selectedSegmentTintColor = EZSoundsNeonViolet();
+    self.tabControl.selectedSegmentTintColor = [UIColor clearColor];
+    [self.tabControl setBackgroundImage:[EZTheme selectedSegmentGradientImage]
+                               forState:UIControlStateSelected
+                             barMetrics:UIBarMetricsDefault];
     [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: EZSoundsNeonText()}
                                    forState:UIControlStateNormal];
     [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme userBubbleTextColor]}

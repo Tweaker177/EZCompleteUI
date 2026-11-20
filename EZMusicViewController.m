@@ -812,7 +812,10 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.tabControl.selectedSegmentIndex = EZMusicTabLibrary;
     [self.tabControl addTarget:self action:@selector(tabChanged:) forControlEvents:UIControlEventValueChanged];
     self.tabControl.backgroundColor = [EZTheme cardColor];
-    self.tabControl.selectedSegmentTintColor = [EZTheme goldColor];
+    self.tabControl.selectedSegmentTintColor = [UIColor clearColor];
+    [self.tabControl setBackgroundImage:[EZTheme selectedSegmentGradientImage]
+                               forState:UIControlStateSelected
+                             barMetrics:UIBarMetricsDefault];
     [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme secondaryTextColor]} forState:UIControlStateNormal];
     [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme userBubbleTextColor]} forState:UIControlStateSelected];
     self.navigationItem.titleView = self.tabControl;
