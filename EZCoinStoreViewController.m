@@ -2466,9 +2466,9 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     }
 
-}
-
 #endif
+
+}
 
 - (void)cancelCurrentSubscriptionWithToken:(NSString *)token
 
