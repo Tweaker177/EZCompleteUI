@@ -1,0 +1,71 @@
+name: Jailbreak Build (.deb)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag for the draft release (for example v7.2.16)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-deb:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: brew install ldid dpkg
+
+      - name: Checkout Theos
+        uses: actions/checkout@v4
+        with:
+          repository: theos/theos
+          path: theos
+          submodules: recursive
+
+      # If the local Theos install uses a newer SDK, change this one line to
+      # match it — the Makefile's TARGET (iphone:clang:latest:15.0) picks the
+      # newest SDK present in theos/sdks and keeps the iOS 15.0 floor.
+      - name: Checkout iOS SDK
+        uses: actions/checkout@v4
+        with:
+          repository: theos/sdks
+          ref: master
+          path: theos/sdks
+          sparse-checkout: iPhoneOS16.5.sdk
+
+      - name: Build release .deb and IPA
+        env:
+          THEOS: ${{ github.workspace }}/theos
+        run: ./build.sh release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: EZCompleteUI-jailbreak
+          path: |
+            packages/*.deb
+            EZCompleteUI-*-release.ipa
+          if-no-files-found: error
+
+      # Creates the release as a DRAFT with the .deb and the release IPA
+      # attached, so publishing it later is the only manual step — and
+      # publishing is what triggers the AltStore source update. If a release
+      # with this tag already exists, the assets are re-uploaded onto it
+      # instead of failing.
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" --clobber packages/*.deb EZCompleteUI-*-release.ipa
+          else
+            gh release create "$TAG" --draft --title "$TAG" --generate-notes \
+              packages/*.deb EZCompleteUI-*-release.ipa
+          fi
