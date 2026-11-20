@@ -283,8 +283,20 @@ static NSString *const kLastAuthDateKey = @"EZLastAuthenticatedDate";
         return;
     }
 
+    [self performRestoreWithToken:savedRefresh savedUserId:savedUserId isRetry:NO completion:completion];
+}
+
+// Same rotation rule as the refresh path: if the stored refresh token changed
+// while this request was in flight, a concurrent refresh rotated it and saved
+// the new one — retry once with the stored token instead of treating the
+// server's invalid_grant for the stale token as a rejection and signing out
+// a session that is still valid.
+- (void)performRestoreWithToken:(NSString *)refreshToken
+                    savedUserId:(NSString *)savedUserId
+                        isRetry:(BOOL)isRetry
+                     completion:(void(^)(BOOL loggedIn))completion {
     [self postToPath:@"/auth/v1/token?grant_type=refresh_token"
-                body:@{ @"refresh_token": savedRefresh }
+                body:@{ @"refresh_token": refreshToken }
           completion:^(NSDictionary *responseData, NSError *error) {
         if (responseData[@"access_token"]) {
             // Set the stored userId first so saveSession can use it as a fallback
@@ -292,17 +304,24 @@ static NSString *const kLastAuthDateKey = @"EZLastAuthenticatedDate";
             if (!self.userId) self.userId = savedUserId;
             [self saveSession:responseData];
             completion(YES);
-        } else {
-            // Same rule as the refresh path: only a clear rejection from the
-            // auth server clears the stored session. A launch restore that
-            // fails on the network leaves the credentials in place, so the
-            // next authenticated request can still recover the session.
-            BOOL rejected = (error && [error.domain isEqualToString:@"EZAuth"] && error.code == 401)
-                || responseData[@"error_code"] != nil
-                || responseData[@"error"] != nil;
-            if (rejected) [self signOut];
-            completion(NO);
+            return;
         }
+        if (!isRetry) {
+            NSString *storedToken = [EZKeyVault loadKeyForIdentifier:kRefreshTokenKey];
+            if (storedToken.length > 0 && ![storedToken isEqualToString:refreshToken]) {
+                [self performRestoreWithToken:storedToken savedUserId:savedUserId isRetry:YES completion:completion];
+                return;
+            }
+        }
+        // Same rule as the refresh path: only a clear rejection from the
+        // auth server clears the stored session. A launch restore that
+        // fails on the network leaves the credentials in place, so the
+        // next authenticated request can still recover the session.
+        BOOL rejected = (error && [error.domain isEqualToString:@"EZAuth"] && error.code == 401)
+            || responseData[@"error_code"] != nil
+            || responseData[@"error"] != nil;
+        if (rejected) [self signOut];
+        completion(NO);
     }];
 }
 
