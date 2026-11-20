@@ -6,6 +6,7 @@
 #import "EZSoundsViewController.h"
 #import "EZTheme.h"
 #import <AVFoundation/AVFoundation.h>
+#import <AVKit/AVKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "helpers.h"
 #import "EZAuthManager.h"
@@ -348,6 +349,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 
 @property (nonatomic, copy) NSArray<EZSoundManifestEntry *> *entries;
 @property (nonatomic, strong) EZSoundManifestEntry *pendingVideoEntry;
+@property (nonatomic, strong) NSURL *previewedVideoURL;
 @property (nonatomic, assign) BOOL generating;
 
 // In-flight mix bookkeeping: every mix finishes through one funnel
@@ -562,6 +564,8 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     self.durationSlider.minimumTrackTintColor = EZSoundsNeonCyan();
     self.durationSlider.maximumTrackTintColor = EZSoundsNeonField();
     self.durationSlider.thumbTintColor = EZSoundsNeonMint();
+    [self.durationSlider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateNormal];
+    [self.durationSlider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateHighlighted];
     self.durationSlider.translatesAutoresizingMaskIntoConstraints = NO;
     [self.durationSlider addTarget:self action:@selector(durationChanged) forControlEvents:UIControlEventValueChanged];
     [durationPanel addSubview:self.durationSlider];
@@ -600,8 +604,9 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [self.generateButton setTitle:NSLocalizedString(@"EZSounds.Generate", nil) forState:UIControlStateNormal];
     [self.generateButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateNormal];
     self.generateButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightBold];
-    self.generateButton.backgroundColor = EZSoundsNeonPink();
-    self.generateButton.layer.cornerRadius = 12;
+    [self.generateButton setBackgroundImage:[EZTheme primaryGradientImage] forState:UIControlStateNormal];
+    self.generateButton.layer.cornerRadius = 14;
+    self.generateButton.clipsToBounds = YES;
     self.generateButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.generateButton addTarget:self action:@selector(generateTapped) forControlEvents:UIControlEventTouchUpInside];
     [content addSubview:self.generateButton];
@@ -673,7 +678,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         [self.generateButton.topAnchor constraintEqualToAnchor:loopPanel.bottomAnchor constant:18],
         [self.generateButton.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
         [self.generateButton.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
-        [self.generateButton.heightAnchor constraintEqualToConstant:50],
+        [self.generateButton.heightAnchor constraintEqualToConstant:52],
 
         [self.spinner.topAnchor constraintEqualToAnchor:self.generateButton.bottomAnchor constant:14],
         [self.spinner.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
@@ -1098,22 +1103,45 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     NSDateFormatter *fmt = [[NSDateFormatter alloc] init];
     fmt.dateStyle = NSDateFormatterShortStyle;
     fmt.timeStyle = NSDateFormatterShortStyle;
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@%@%@%@%@",
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@%@%@%@",
         durationText,
         loop ? @" • ∞" : @"",
-        entry.isFavorite ? @" • ★" : @"",
         hasCustomTitle ? [NSString stringWithFormat:@" • %@", entry.preview ?: @""] : @"",
         [NSString stringWithFormat:@" • %@", [fmt stringFromDate:entry.created]]];
     cell.detailTextLabel.textColor = EZSoundsNeonDimText();
     cell.detailTextLabel.font = [UIFont systemFontOfSize:12.5];
 
+    // Share and Favorite live here as compact icons — everyone knows what
+    // they look like, so they don't need full-width rows in the menu.
+    UIView *actions = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 114, 44)];
+
+    UIButton *share = [UIButton buttonWithType:UIButtonTypeSystem];
+    share.frame = CGRectMake(0, 2, 38, 40);
+    [share setImage:[UIImage systemImageNamed:@"square.and.arrow.up"] forState:UIControlStateNormal];
+    share.tintColor = EZSoundsNeonDimText();
+    share.tag = indexPath.row;
+    share.accessibilityLabel = NSLocalizedString(@"EZSounds.Share", nil);
+    [share addTarget:self action:@selector(shareTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [actions addSubview:share];
+
+    UIButton *favorite = [UIButton buttonWithType:UIButtonTypeSystem];
+    favorite.frame = CGRectMake(38, 2, 38, 40);
+    [favorite setImage:[UIImage systemImageNamed:(entry.isFavorite ? @"star.fill" : @"star")] forState:UIControlStateNormal];
+    favorite.tintColor = entry.isFavorite ? EZSoundsNeonPink() : EZSoundsNeonDimText();
+    favorite.tag = indexPath.row;
+    favorite.accessibilityLabel = NSLocalizedString(entry.isFavorite ? @"EZSounds.Unfavorite" : @"EZSounds.Favorite", nil);
+    [favorite addTarget:self action:@selector(favoriteTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [actions addSubview:favorite];
+
     UIButton *more = [UIButton buttonWithType:UIButtonTypeSystem];
-    more.frame = CGRectMake(0, 0, 44, 44);
+    more.frame = CGRectMake(76, 2, 38, 40);
     [more setImage:[UIImage systemImageNamed:@"ellipsis.circle"] forState:UIControlStateNormal];
     more.tintColor = EZSoundsNeonDimText();
     more.tag = indexPath.row;
     [more addTarget:self action:@selector(moreTapped:) forControlEvents:UIControlEventTouchUpInside];
-    cell.accessoryView = more;
+    [actions addSubview:more];
+
+    cell.accessoryView = actions;
     return cell;
 }
 
@@ -1159,6 +1187,21 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [self presentActionsForEntry:self.entries[sender.tag]];
 }
 
+- (void)shareTapped:(UIButton *)sender {
+    if (sender.tag < 0 || sender.tag >= (NSInteger)self.entries.count) return;
+    [self shareEntry:self.entries[sender.tag]];
+}
+
+- (void)favoriteTapped:(UIButton *)sender {
+    if (sender.tag < 0 || sender.tag >= (NSInteger)self.entries.count) return;
+    EZSoundManifestEntry *entry = self.entries[sender.tag];
+    [[EZSoundLibraryManager sharedManager] setFavorite:!entry.isFavorite
+                                          forSoundUUID:entry.uuid
+                                            completion:^(EZSoundManifestEntry *updated, NSError *error) {
+        [self reloadEntries];
+    }];
+}
+
 - (void)presentActionsForEntry:(EZSoundManifestEntry *)entry {
     EZNeonSheet *sheet = [EZNeonSheet sheetInHostView:[self sheetHostView] centered:NO];
     sheet.dismissOnBackdropTap = YES;
@@ -1181,20 +1224,6 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         EZTTSClipEditViewController *editor =
             [[EZTTSClipEditViewController alloc] initWithSoundEntry:entry];
         [self.navigationController pushViewController:editor animated:YES];
-    }];
-    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Share", nil)
-                  destructive:NO
-                      handler:^{ [self shareEntry:entry]; }];
-    [sheet addButtonWithTitle:(entry.isFavorite
-                                ? NSLocalizedString(@"EZSounds.Unfavorite", nil)
-                                : NSLocalizedString(@"EZSounds.Favorite", nil))
-                  destructive:NO
-                      handler:^{
-        [[EZSoundLibraryManager sharedManager] setFavorite:!entry.isFavorite
-                                              forSoundUUID:entry.uuid
-                                                completion:^(EZSoundManifestEntry *updated, NSError *error) {
-            [self reloadEntries];
-        }];
     }];
     [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Delete", nil)
                   destructive:YES
@@ -1338,8 +1367,10 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 
 /// Lays the sound under a video: the video's own audio stays at full volume,
 /// the sound loops to fill the video's length at bed level and fades out over
-/// the last two seconds. Exports an .mp4 into the Sounds cache and offers it
-/// through the share sheet (Save Video lands it in Photos from there).
+/// the last two seconds. Exports an .mp4 into the Sounds cache and opens it
+/// in a preview player, so it can be watched before deciding to save it;
+/// the player's Share button offers the share sheet (Save Video lands it
+/// in Photos from there).
 /// Finishes through the watchdog-guarded funnel, like the TTS mix.
 - (void)muxVideoAtURL:(NSURL *)videoURL withBedEntry:(EZSoundManifestEntry *)entry {
     NSURL *bedURL = [[EZSoundLibraryManager sharedManager] absoluteURLForEntry:entry];
@@ -1425,23 +1456,16 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         [exporter exportAsynchronouslyWithCompletionHandler:^{
             if (exporter.status == AVAssetExportSessionStatusCompleted) {
                 // Success here has no message of its own — dismiss the
-                // progress UI and hand the file to the share sheet.
+                // progress UI and open the finished video in a preview
+                // player instead of forcing a save through the share sheet.
                 dispatch_async(dispatch_get_main_queue(), ^{
                     if (![self.activeMixToken isEqualToString:token]) return;
                     self.activeMixToken = nil;
                     self.activeExport = nil;
                     EZNeonSheet *sheet = self.progressSheet;
                     self.progressSheet = nil;
-                    void (^share)(void) = ^{
-                        UIActivityViewController *activity =
-                            [[UIActivityViewController alloc] initWithActivityItems:@[outURL]
-                                                              applicationActivities:nil];
-                        activity.popoverPresentationController.sourceView = self.view;
-                        activity.popoverPresentationController.sourceRect =
-                            CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 1, 1);
-                        [self presentViewController:activity animated:YES completion:nil];
-                    };
-                    if (sheet) [sheet dismissWithCompletion:share]; else share();
+                    void (^preview)(void) = ^{ [self presentVideoPreviewForURL:outURL]; };
+                    if (sheet) [sheet dismissWithCompletion:preview]; else preview();
                 });
             } else {
                 NSError *exportError = exporter.error ?: [NSError errorWithDomain:@"EZSounds" code:-44
@@ -1450,6 +1474,49 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
             }
         }];
     });
+}
+
+#pragma mark - Video preview
+
+/// Watch the exported video before saving it: a full-screen player in its
+/// own navigation shell so it can carry Done (close) and Share (the share
+/// sheet for the same file) buttons.
+- (void)presentVideoPreviewForURL:(NSURL *)url {
+    self.previewedVideoURL = url;
+    AVPlayer *player = [AVPlayer playerWithURL:url];
+    AVPlayerViewController *playerVC = [[AVPlayerViewController alloc] init];
+    playerVC.player = player;
+    playerVC.navigationItem.leftBarButtonItem =
+        [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
+                                                      target:self
+                                                      action:@selector(dismissVideoPreview:)];
+    playerVC.navigationItem.rightBarButtonItem =
+        [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"square.and.arrow.up"]
+                                         style:UIBarButtonItemStylePlain
+                                        target:self
+                                        action:@selector(sharePreviewedVideo:)];
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:playerVC];
+    [self presentViewController:nav animated:YES completion:^{ [player play]; }];
+}
+
+- (void)dismissVideoPreview:(id)sender {
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)sharePreviewedVideo:(UIBarButtonItem *)sender {
+    NSURL *url = self.previewedVideoURL;
+    UIViewController *host = self.presentedViewController;
+    if (!url || !host) return;
+    if ([host isKindOfClass:[UINavigationController class]]) {
+        AVPlayerViewController *playerVC =
+            (AVPlayerViewController *)[(UINavigationController *)host topViewController];
+        if ([playerVC isKindOfClass:[AVPlayerViewController class]]) [playerVC.player pause];
+    }
+    UIActivityViewController *activity =
+        [[UIActivityViewController alloc] initWithActivityItems:@[url]
+                                        applicationActivities:nil];
+    activity.popoverPresentationController.barButtonItem = sender;
+    [host presentViewController:activity animated:YES completion:nil];
 }
 
 #pragma mark - Use as TTS Background
