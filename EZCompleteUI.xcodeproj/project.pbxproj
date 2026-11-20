@@ -502,6 +502,7 @@
 			buildPhases = (
 				A70000000000000000000001 /* Sources */,
 				A70000000000000000000002 /* Copy Runtime Resources */,
+				C10000000000000000000004 /* Decode App Icon */,
 				C10000000000000000000003 /* Resources */,
 				A70000000000000000000003 /* Frameworks */,
 				B70000000000000000000001 /* Embed App Extensions */,
@@ -595,6 +596,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "set -e; cd $SRCROOT/Resources; /usr/bin/ditto . $TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\n";
+		};
+		C10000000000000000000004 /* Decode App Icon */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Decode App Icon";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "PNG=\"$SRCROOT/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon1024.png\"; if [ ! -f \"$PNG\" ]; then cat \"$SRCROOT\"/AppIcon1024.png.b64.part* | /usr/bin/fold -w 64 | /usr/bin/openssl base64 -d -out \"$PNG\"; fi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
