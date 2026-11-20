@@ -38,6 +38,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.15",
+          "buildVersion": "7.2.15",
+          "date": "2026-11-20",
+          "localizedDescription": "## What's Changed\n* Fix picker profile photo rendering as a solid gold square by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/183\n* Store: remove x2 mentions (server keeps honoring them for old builds) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/184\n* TestFlight prep: AppStore build configuration + archive scheme by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/181\n* Plunder Bay VIP: Silver-unlock machine variant (+1.5 RTP, bets to 500) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/186\n* StoreKit purchasing for the AppStore build (PayPal compiled out under APPSTORE) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/187\n* Add Penguin Parade slot (client): 9-line, golden-egg hatch bonus by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/188\n* Penguin Parade VIP: Silver-tier variant with extended bets and richer line pays by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/189\n* Fix picker build break in refreshProfileAvatarButton by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/190\n* Penguin Parade: fix block capture of the hatch wobble angles by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/191\n* StoreKit verify JSON guards + refresh on redelivered grant by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/192\n* Slots: Penguin title truncation, Plunder VIP max bet, shorter bonus banner by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/193\n* Slot picker: closing the community picker closes the whole picker by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/194\n* Coin store: one button per card, less text, Enterprise accent fix by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/195\n* Penguin Parade: egg meter with flying-egg animation, whoosh and explosion payout by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/198\n* Penguin Parade: drop the…",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.15/EZCompleteUI-7.2.15-release.ipa",
+          "size": 17145978,
+          "sha256": "cc0bee25cd15507ea3c2d64e4d83c48ab1373cee5bf0e1d3dacf587afd0b37ed",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.12",
           "buildVersion": "7.2.12",
           "date": "2026-11-18",
