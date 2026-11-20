@@ -69,6 +69,12 @@ NS_ASSUME_NONNULL_BEGIN
 /// corner radius clips it.
 + (UIImage *)primaryGradientImage;
 
+/// Solid gold slider thumb (28pt circle with a navy ring), drawn in code.
+/// Sliders that rely on thumbTintColor alone can render with a faint,
+/// washed-out thumb; an explicit thumb image keeps the thumb fully
+/// visible on the navy surfaces at any size the system renders it.
++ (UIImage *)sliderThumbImage;
+
 @end
 
 NS_ASSUME_NONNULL_END

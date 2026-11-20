@@ -46,8 +46,8 @@
         CGSize size = CGSizeMake(48, 32);
         UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
         UIImage *rendered = [renderer imageWithActions:^(UIGraphicsImageRendererContext *rendererContext) {
-            UIColor *top = [UIColor colorWithRed:1.0 green:0.87 blue:0.35 alpha:1.0];
-            UIColor *bottom = [UIColor colorWithRed:0.93 green:0.69 blue:0.06 alpha:1.0];
+            UIColor *top = [UIColor colorWithRed:1.0 green:0.81 blue:0.18 alpha:1.0];
+            UIColor *bottom = [UIColor colorWithRed:0.97 green:0.74 blue:0.07 alpha:1.0];
             NSArray *colors = @[(id)top.CGColor, (id)[EZTheme goldColor].CGColor, (id)bottom.CGColor];
             CGGradientRef gradient = CGGradientCreateWithColors(CGColorSpaceCreateDeviceRGB(),
                                                                 (__bridge CFArrayRef)colors, NULL);
@@ -99,8 +99,8 @@
         CGSize size = CGSizeMake(120, 56);
         UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
         UIImage *rendered = [renderer imageWithActions:^(UIGraphicsImageRendererContext *rendererContext) {
-            UIColor *top = [UIColor colorWithRed:1.0 green:0.87 blue:0.35 alpha:1.0];
-            UIColor *bottom = [UIColor colorWithRed:0.93 green:0.69 blue:0.06 alpha:1.0];
+            UIColor *top = [UIColor colorWithRed:1.0 green:0.84 blue:0.28 alpha:1.0];
+            UIColor *bottom = [UIColor colorWithRed:0.95 green:0.71 blue:0.05 alpha:1.0];
             NSArray *colors = @[(id)top.CGColor, (id)[EZTheme goldColor].CGColor, (id)bottom.CGColor];
             CGGradientRef gradient = CGGradientCreateWithColors(CGColorSpaceCreateDeviceRGB(),
                                                                 (__bridge CFArrayRef)colors, NULL);
@@ -110,6 +110,27 @@
         }];
         image = [rendered resizableImageWithCapInsets:UIEdgeInsetsMake(27, 27, 27, 27)
                                          resizingMode:UIImageResizingModeStretch];
+    });
+    return image;
+}
+
++ (UIImage *)sliderThumbImage {
+    static UIImage *image; static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        CGSize size = CGSizeMake(28, 28);
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *rendererContext) {
+            CGContextRef ctx = rendererContext.CGContext;
+            CGRect ring = CGRectInset(CGRectMake(0, 0, size.width, size.height), 1.0, 1.0);
+            CGContextSetFillColorWithColor(ctx, [EZTheme goldColor].CGColor);
+            CGContextFillEllipseInRect(ctx, ring);
+            CGContextSetStrokeColorWithColor(ctx, [EZTheme backgroundColor].CGColor);
+            CGContextSetLineWidth(ctx, 2.0);
+            CGContextStrokeEllipseInRect(ctx, ring);
+            CGRect shine = CGRectMake(8, 6, 12, 8);
+            CGContextSetFillColorWithColor(ctx, [[UIColor whiteColor] colorWithAlphaComponent:0.25].CGColor);
+            CGContextFillEllipseInRect(ctx, shine);
+        }];
     });
     return image;
 }
