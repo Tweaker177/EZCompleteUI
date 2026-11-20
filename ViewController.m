@@ -614,7 +614,6 @@
 #import "EZTheme.h"
 #import "EZFirstRunTutorialViewController.h"
 #import "EZPhotoGalleryViewController.h"
-#import "EZCoinPotView.h"
 #import "TextToSpeechViewController.h"
 #import "EZMusicViewController.h"
 #import "EZFileExplorerViewController.h"
@@ -914,7 +913,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UIButton      *modelButton;
 @property (nonatomic, strong) UIButton      *attachButton;
 @property (nonatomic, strong) UIButton      *settingsButton;
-@property (nonatomic, strong) UIButton      *clipboardButton;
 @property (nonatomic, strong) UIButton      *speakButton;
 @property (nonatomic, strong) UIButton      *clearButton;
 /// Appears in input area when an image model is active — opens image parameter sheet.
@@ -933,7 +931,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UILabel       *threadSelectionCountLabel;
 @property (nonatomic, strong) NSArray<UIButton *> *threadSelectionActionButtons;
 @property (nonatomic, strong) UIView        *threadActionOverlay;
-@property (nonatomic, strong) UIButton      *supportRequestButton;
 @property (nonatomic, strong) UIButton      *textToSpeechButton;
 @property (nonatomic, strong) UIButton      *cloningButton;
 @property (nonatomic, strong) UIButton      *galleryButton;
@@ -1063,8 +1060,7 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UINavigationController *memoriesDrawerNavController;
 @property (nonatomic, strong) NSLayoutConstraint     *memoriesDrawerTrailingConstraint;
 @property (nonatomic, assign) BOOL                    memoriesDrawerOpen;
-@property (nonatomic, strong) UILabel *coinBalanceLabel; // kept for compatibility
-@property (nonatomic, strong) EZCoinPotView *coinPotView;
+@property (nonatomic, strong) UILabel *coinBalanceLabel;
 @property (nonatomic, copy) NSString *chatImageSourcePath;
 // Songs a chat model asked for that are still composing, keyed by generation
 // ID, so each one is polled exactly once. Created on first use.
@@ -2271,15 +2267,10 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     // + New chat (save current, start fresh)
     self.addChatButton   = [self _iconButton:@"square.and.pencil" tint:[UIColor systemGreenColor]
                                       action:@selector(newChat)];
-    self.supportRequestButton = [self _iconButton:@"questionmark.circle.fill" tint:[UIColor systemRedColor] action:@selector(openTutorial)];
-    self.supportRequestButton.accessibilityLabel = @"Tutorial";
     // One compact entry point for app navigation and recent chats.
     self.historyButton   = [self _iconButton:@"line.3.horizontal" tint:nil
                                       action:@selector(openHistory)];
     self.historyButton.accessibilityLabel = @"Navigation and recent chats";
-    // Copy last AI response
-    self.clipboardButton = [self _iconButton:@"doc.on.doc" tint:nil
-                                      action:@selector(copyLastResponse)];
     // Speak last AI response
     self.speakButton     = [self _iconButton:@"speaker.wave.2.fill" tint:nil
                                       action:@selector(speakLastResponse)];
@@ -2320,58 +2311,43 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.renameButton  = [self _iconButton:@"pencil.line" tint:nil
                                     action:@selector(renameThread)];
 
-    // Create Coin Pot placeholder used inside the top row
-    self.coinPotView = [[EZCoinPotView alloc] init];
-    self.coinPotView.coinImage = [UIImage imageNamed:@"EZCoin"];
-    self.coinPotView.translatesAutoresizingMaskIntoConstraints = NO;
-    self.coinPotView.userInteractionEnabled = YES;
-    UITapGestureRecognizer *potTap = [[UITapGestureRecognizer alloc]
-        initWithTarget:self action:@selector(coinPotTapped)];
-    [self.coinPotView addGestureRecognizer:potTap];
-
-    // Keep navigation and response actions on the left, the balance centered,
-    // and distinct selection/memory actions on the right.
+    // Navigation and response actions on the left, distinct
+    // selection/memory actions on the right. The coin balance sits in its
+    // own row above this one, in the top-right corner.
     UIView *topStack = [[UIView alloc] init];
     topStack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:topStack];
     [topStack addSubview:self.historyButton];
-    [topStack addSubview:self.coinPotView];
-    [topStack addSubview:self.clipboardButton];
     [topStack addSubview:self.speakButton];
     [topStack addSubview:self.threadSelectionButton];
     [topStack addSubview:self.memoriesButton];
-    [topStack addSubview:self.supportRequestButton];
 
     [NSLayoutConstraint activateConstraints:@[
-        [self.coinPotView.widthAnchor constraintEqualToConstant:48],
-        [self.coinPotView.heightAnchor constraintEqualToConstant:52],
-        [self.coinPotView.centerXAnchor constraintEqualToAnchor:topStack.centerXAnchor],
-        [self.coinPotView.topAnchor constraintEqualToAnchor:topStack.topAnchor],
-        [self.coinPotView.bottomAnchor constraintEqualToAnchor:topStack.bottomAnchor],
+        [topStack.heightAnchor constraintEqualToConstant:52],
         [self.historyButton.leadingAnchor constraintEqualToAnchor:topStack.leadingAnchor],
-        [self.historyButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
-        [self.clipboardButton.leadingAnchor constraintEqualToAnchor:self.historyButton.trailingAnchor constant:8],
-        [self.clipboardButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
-        [self.speakButton.leadingAnchor constraintEqualToAnchor:self.clipboardButton.trailingAnchor constant:8],
-        [self.speakButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
+        [self.historyButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
+        [self.speakButton.leadingAnchor constraintEqualToAnchor:self.historyButton.trailingAnchor constant:8],
+        [self.speakButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
         [self.memoriesButton.trailingAnchor constraintEqualToAnchor:topStack.trailingAnchor],
+        [self.memoriesButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
         [self.threadSelectionButton.trailingAnchor constraintEqualToAnchor:self.memoriesButton.leadingAnchor constant:-8],
-        [self.supportRequestButton.trailingAnchor constraintEqualToAnchor:self.threadSelectionButton.leadingAnchor constant:-8],
-        [self.supportRequestButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
-        [self.threadSelectionButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
-        [self.memoriesButton.centerYAnchor constraintEqualToAnchor:self.coinPotView.centerYAnchor],
-        [self.speakButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.coinPotView.leadingAnchor constant:-8],
-        [self.supportRequestButton.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.coinPotView.trailingAnchor constant:8],
+        [self.threadSelectionButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
     ]];
-    [self.coinPotView setContentHuggingPriority:UILayoutPriorityRequired
-                                        forAxis:UILayoutConstraintAxisHorizontal];
-    [self.coinPotView setContentHuggingPriority:UILayoutPriorityRequired
-                                        forAxis:UILayoutConstraintAxisVertical];
 
-    // Legacy label — hidden, kept so any remaining references don't crash
+    // Coin balance — a plain label in the top-right corner above the top
+    // bar. Tapping it opens the coin store, as tapping the pot used to.
     self.coinBalanceLabel = [[UILabel alloc] init];
-    self.coinBalanceLabel.hidden = YES;
+    self.coinBalanceLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+    self.coinBalanceLabel.textColor = [EZTheme primaryTextColor];
+    self.coinBalanceLabel.textAlignment = NSTextAlignmentRight;
+    self.coinBalanceLabel.adjustsFontSizeToFitWidth = YES;
+    self.coinBalanceLabel.minimumScaleFactor = 0.5;
+    self.coinBalanceLabel.userInteractionEnabled = YES;
+    self.coinBalanceLabel.accessibilityLabel = @"Coin balance";
     self.coinBalanceLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    UITapGestureRecognizer *balanceTap = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(coinBalanceTapped)];
+    [self.coinBalanceLabel addGestureRecognizer:balanceTap];
     [self.view addSubview:self.coinBalanceLabel];
 
     // Thread title label — tappable, sits between top bar and chat table
@@ -2595,7 +2571,9 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [self.inputContainer.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor];
 
     [NSLayoutConstraint activateConstraints:@[
-        [topStack.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:5],
+        [self.coinBalanceLabel.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:5],
+        [self.coinBalanceLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-12],
+        [topStack.topAnchor constraintEqualToAnchor:self.coinBalanceLabel.bottomAnchor constant:4],
         [topStack.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:12],
         [topStack.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-12],
         [self.threadTitleLabel.topAnchor    constraintEqualToAnchor:topStack.bottomAnchor constant:4],
@@ -2698,29 +2676,13 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 }
 
 - (void)updateCoinBalanceDisplay {
-    NSInteger balance      = [EZEntitlementManager shared].coinBalance.integerValue;
-    NSString  *tier        = [EZEntitlementManager shared].currentTier ?: @"basic";
-    NSInteger includedCoins = 400; // default basic
-
-    NSDictionary *tierCoins = @{
-        @"basic":    @(400),
-        @"standard": @(900),
-        @"pro":      @(1600),
-        @"ultra":    @(2500),
-    };
-    NSNumber *included = tierCoins[tier.lowercaseString];
-    if (included) includedCoins = included.integerValue;
-
+    NSInteger balance = [EZEntitlementManager shared].coinBalance.integerValue;
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self.coinPotView updateBalance:balance
-                          includedCoins:includedCoins
-                               animated:YES];
-        // Legacy label kept in sync in case anything still reads it
         self.coinBalanceLabel.text = [NSString stringWithFormat:@"🪙 %ld", (long)balance];
     });
 }
 
-- (void)coinPotTapped {
+- (void)coinBalanceTapped {
     [self presentCoinStoreForFeature:nil];
 }
 
@@ -2736,25 +2698,12 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     }];
 }
 
-/// Called after coins are added (top-up or subscription) to play the toss animation
-/// then update the pot fill level.
+/// Called after coins are added (top-up or subscription) to refresh the
+/// balance display with the new total.
 - (void)animateCoinGain:(NSInteger)coinsAdded newBalance:(NSInteger)newBalance {
-    NSString  *tier         = [EZEntitlementManager shared].currentTier ?: @"basic";
-    NSDictionary *tierCoins = @{
-        @"basic":    @(400),
-        @"standard": @(900),
-        @"pro":      @(1600),
-        @"ultra":    @(2500),
-    };
-    NSInteger includedCoins = [tierCoins[tier.lowercaseString] integerValue] ?: 400;
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self.coinPotView animateCoinToss:coinsAdded completion:^{
-            [self.coinPotView updateBalance:newBalance
-                              includedCoins:includedCoins
-                                   animated:YES];
-        }];
-    });
+    (void)coinsAdded;
+    (void)newBalance;
+    [self updateCoinBalanceDisplay];
 }
 
 
@@ -7740,21 +7689,6 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     EZLog(EZLogLevelInfo, @"APP", @"Conversation cleared — new thread started");
 }
 
-- (void)copyLastResponse {
-    if (!self.lastAIResponse) return;
-    [UIPasteboard generalPasteboard].string = self.lastAIResponse;
-    EZLog(EZLogLevelInfo, @"APP", @"Last response copied to clipboard");
-
-    UIImage *checkImg = [UIImage systemImageNamed:@"checkmark.circle.fill"];
-    UIImage *origImg  = [UIImage systemImageNamed:@"doc.on.doc"];
-    [self.clipboardButton setImage:checkImg forState:UIControlStateNormal];
-    [self.clipboardButton setTintColor:[UIColor systemGreenColor]];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{
-        [self.clipboardButton setImage:origImg forState:UIControlStateNormal];
-        [self.clipboardButton setTintColor:nil];
-    });
-}
 
 - (void)showModelPicker {
     EZModelPickerViewController *picker = [[EZModelPickerViewController alloc]
@@ -11359,12 +11293,6 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
     }
 }
 
-- (void)openTutorial {
-    EZFirstRunTutorialViewController *tutorial = [EZFirstRunTutorialViewController new];
-    tutorial.modalPresentationStyle = UIModalPresentationFullScreen;
-    tutorial.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
-    [self presentViewController:tutorial animated:YES completion:nil];
-}
 
 - (void)openSupport {
     UINavigationController *nav = [[UINavigationController alloc]
