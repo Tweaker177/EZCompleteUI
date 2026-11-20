@@ -25,6 +25,13 @@ NS_ASSUME_NONNULL_BEGIN
 /// Fill color used to dim the region OUTSIDE the current selection.
 @property (nonatomic, strong) UIColor *highlightColor;
 
+/// When YES, a bar is drawn across the top connecting the two handles,
+/// marking the selection as a loop region.
+@property (nonatomic, assign) BOOL loopEnabled;
+/// Color of the loop bar. Defaults to system yellow; hosts override with
+/// their accent.
+@property (nonatomic, strong) UIColor *loopBarColor;
+
 /// Sent continuously while a handle is being dragged (drives live label/highlight updates).
 /// Standard UIControlEventValueChanged.
 ///
