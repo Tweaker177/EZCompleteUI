@@ -823,3 +823,6 @@
 "BRSlot.Picker.Phoenix.Detail" = "Cinco rolos, vinte e cinco linhas. Os chapéus dourados abrem uma escolha de carta e giros grátis de ×2, ×3 ou ×5.";
 "BRSlot.Lounge.WinningsMostChips" = "MAIS MOEDAS: TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "Ainda não há líderes em moedas.\n";
+"BRSlot.Lounge.WinningsAllTime" = "\nGANHOS DE TODOS OS TEMPOS\n\n";
+"BRSlot.Lounge.WinningsMineAllTime" = "Seu total de todos os tempos: %@ moedas";
+"BRSlot.Lounge.WinningsNoAllTime" = "Ainda não há ganhos registrados.\n";

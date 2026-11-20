@@ -823,3 +823,6 @@
 "BRSlot.Picker.Phoenix.Detail" = "Cinq rouleaux, vingt-cinq lignes. Les chapeaux dorés ouvrent un choix de carte et des tours gratuits ×2, ×3 ou ×5.";
 "BRSlot.Lounge.WinningsMostChips" = "PLUS DE PIÈCES : TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "Aucun leader en pièces pour le moment.\n";
+"BRSlot.Lounge.WinningsAllTime" = "\nGAINS DE TOUS LES TEMPS\n\n";
+"BRSlot.Lounge.WinningsMineAllTime" = "Votre total de tous les temps : %@ pièces";
+"BRSlot.Lounge.WinningsNoAllTime" = "Aucun gain enregistré pour le moment.\n";

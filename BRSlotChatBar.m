@@ -549,6 +549,7 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     [sheet.view addSubview:title];
     UILabel *mine = [UILabel new];
     mine.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.WinningsMine", nil), BRChatNumber(board[@"my_today_total"]), BRChatNumber(board[@"my_best_hit"])];
+    if (board[@"my_alltime_total"]) mine.text = [mine.text stringByAppendingFormat:@"\n%@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.WinningsMineAllTime", nil), BRChatNumber(board[@"my_alltime_total"])]];
     mine.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
     mine.textColor = UIColor.whiteColor;
     mine.textAlignment = NSTextAlignmentCenter;
@@ -635,6 +636,7 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
     };
     addSection(@"BRSlot.Lounge.WinningsTopTotals", board[@"daily_winnings"], @"total", @"BRSlot.Lounge.WinningsNoWins");
     addSection(@"BRSlot.Lounge.WinningsBiggestHits", board[@"biggest_hits"], @"payout", @"BRSlot.Lounge.WinningsNoHits");
+    addSection(@"BRSlot.Lounge.WinningsAllTime", board[@"all_time_winnings"], @"total", @"BRSlot.Lounge.WinningsNoAllTime");
     NSArray *chips = [board[@"top_chips"] isKindOfClass:NSArray.class] ? board[@"top_chips"] : @[];
     if (chips.count > 5) chips = [chips subarrayWithRange:NSMakeRange(0, 5)];
     addSection(@"BRSlot.Lounge.WinningsMostChips", chips, @"balance", @"BRSlot.Lounge.WinningsNoChips");

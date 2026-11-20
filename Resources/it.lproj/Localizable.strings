@@ -801,3 +801,6 @@
 "BRSlot.Picker.Phoenix.Detail" = "Cinque rulli, venticinque linee. I cappelli dorati aprono una scelta di carta e giri gratuiti ×2, ×3 o ×5.";
 "BRSlot.Lounge.WinningsMostChips" = "PIÙ MONETE: TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "Ancora nessun leader in monete.\n";
+"BRSlot.Lounge.WinningsAllTime" = "\nVINCITE DI TUTTI I TEMPI\n\n";
+"BRSlot.Lounge.WinningsMineAllTime" = "Il tuo totale di sempre: %@ monete";
+"BRSlot.Lounge.WinningsNoAllTime" = "Ancora nessuna vincita registrata.\n";

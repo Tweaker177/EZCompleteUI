@@ -859,3 +859,6 @@
 "BRSlot.PP.WonCoins" = "Won %ld coins!";
 "BRSlot.Lounge.WinningsMostChips" = "MOST CHIPS: TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "No chip leaders yet.\n";
+"BRSlot.Lounge.WinningsAllTime" = "\nALL-TIME WINNINGS\n\n";
+"BRSlot.Lounge.WinningsMineAllTime" = "Your all-time total: %@ coins";
+"BRSlot.Lounge.WinningsNoAllTime" = "No wins recorded yet.\n";
