@@ -136,6 +136,7 @@
 		A200000000000000000000FF /* EZStoreKitManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000FF /* EZStoreKitManager.m */; };
 		B20000000000000000000001 /* ShareExtension/ShareViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* ShareExtension/ShareViewController.m */; };
 		B20000000000000000000002 /* EZCompleteUIShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* EZCompleteUIShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C10000000000000000000002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000001 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -302,6 +303,7 @@
 		B10000000000000000000002 /* ShareExtension/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = ShareExtension/Info.plist; sourceTree = "<group>"; };
 		B10000000000000000000003 /* ShareExtension/EZCompleteUIShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension/EZCompleteUIShare.entitlements; sourceTree = "<group>"; };
 		B30000000000000000000002 /* EZCompleteUIShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EZCompleteUIShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000000000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -500,6 +502,7 @@
 			buildPhases = (
 				A70000000000000000000001 /* Sources */,
 				A70000000000000000000002 /* Copy Runtime Resources */,
+				C10000000000000000000003 /* Resources */,
 				A70000000000000000000003 /* Frameworks */,
 				B70000000000000000000001 /* Embed App Extensions */,
 			);
@@ -565,6 +568,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C10000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10000000000000000000002 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		A70000000000000000000002 /* Copy Runtime Resources */ = {
@@ -759,6 +773,7 @@
 		A80000000000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGNING_ALLOWED = NO;
@@ -829,6 +844,7 @@
 		A80000000000000000000004 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGNING_ALLOWED = NO;
@@ -908,6 +924,7 @@
 		A80000000000000000000006 /* AppStore */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGNING_ALLOWED = YES;
