@@ -147,6 +147,11 @@ static NSString *const kSupabaseURL = @"https://spuoimtqofhbdzosrbng.supabase.co
             NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)urlResponse;
             NSDictionary *json = [NSJSONSerialization
                 JSONObjectWithData:responseBody ?: [NSData data] options:0 error:nil];
+            // A non-dictionary payload (array, string, or a bare `null`)
+            // must never reach the field reads below: NSNull answers
+            // neither boolValue nor objectForKeyedSubscript:, so an
+            // unguarded read would crash. Treat it as no payload.
+            if (![json isKindOfClass:NSDictionary.class]) json = nil;
 
             if (httpResponse.statusCode == 401 && shouldRetry) {
                 // The server rejected our token. Force a session refresh and retry once.
@@ -190,7 +195,13 @@ static NSString *const kSupabaseURL = @"https://spuoimtqofhbdzosrbng.supabase.co
         return [prompt substringToIndex:sentenceEnd.location + 1];
     }
     if (prompt.length <= characterLimit) return prompt;
-    return [[prompt substringToIndex:characterLimit] stringByAppendingString:@"…"];
+    // Cut on a composed-character boundary: a hard cut at 120 can split
+    // a surrogate pair (emoji), leaving a lone surrogate that
+    // NSJSONSerialization refuses — the whole request body then encodes
+    // to nil and the check fails spuriously.
+    NSRange safeRange = [prompt rangeOfComposedCharacterSequencesForRange:
+        NSMakeRange(0, characterLimit)];
+    return [[prompt substringWithRange:safeRange] stringByAppendingString:@"…"];
 }
 
 // ── Apply server response fields ──────────────────────────────────────────────
@@ -290,8 +301,10 @@ static NSString *const kSupabaseURL = @"https://spuoimtqofhbdzosrbng.supabase.co
             completion(NO, self.coinBalance.integerValue, error.localizedDescription ?: @"Network error");
             return;
         }
-        BOOL allowed     = [json[@"allowed"] boolValue];
-        NSString *reason = json[@"reason"];
+        BOOL allowed = [json[@"allowed"] respondsToSelector:@selector(boolValue)]
+            ? [json[@"allowed"] boolValue] : NO;
+        NSString *reason = [json[@"reason"] isKindOfClass:NSString.class]
+            ? json[@"reason"] : nil;
         [self applyResponseFields:json];
         completion(allowed, self.coinBalance.integerValue, reason);
     }];
@@ -324,8 +337,10 @@ static NSString *const kSupabaseURL = @"https://spuoimtqofhbdzosrbng.supabase.co
             completion(NO, self.coinBalance.integerValue, error.localizedDescription ?: @"Network error");
             return;
         }
-        BOOL allowed     = [json[@"allowed"] boolValue];
-        NSString *reason = json[@"reason"];
+        BOOL allowed = [json[@"allowed"] respondsToSelector:@selector(boolValue)]
+            ? [json[@"allowed"] boolValue] : NO;
+        NSString *reason = [json[@"reason"] isKindOfClass:NSString.class]
+            ? json[@"reason"] : nil;
         [self applyResponseFields:json];
         completion(allowed, self.coinBalance.integerValue, reason);
     }];
@@ -394,7 +409,8 @@ static NSString *const kSupabaseURL = @"https://spuoimtqofhbdzosrbng.supabase.co
             return;
         }
         [self applyResponseFields:json];
-        NSInteger refundedCoins = [json[@"refunded"] integerValue];
+        NSInteger refundedCoins = [json[@"refunded"] respondsToSelector:@selector(integerValue)]
+            ? [json[@"refunded"] integerValue] : 0;
         if (refundedCoins > 0) {
             NSLog(@"[EZEntitlement] Refunded %ld coins, balance now: %ld",
                   (long)refundedCoins, (long)self.coinBalance.integerValue);
