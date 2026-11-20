@@ -37,6 +37,10 @@
     static NSString * const kPayPalPlanID = @"P-1HW38522AL709604TNHUUASA";
 
     // ── NSFW (Seahorse) enrollment helpers ────────────────────────────────
+    // Compiled out of the App Store build (PR #202): the whole Seahorse
+    // feature — helpers, Settings section, and enrollment calls — must
+    // not ship in the store build.
+#if !APPSTORE
     // Slim copies of the ID picker and the on-device face crop that live in
     // ViewController.m for the chat flow — file-local there, so these are
     // separate statics here. The picker class is renamed because
@@ -133,6 +137,7 @@
         CGImageRelease(croppedRef);
         return UIImageJPEGRepresentation(cropImage, 0.7);
     }
+#endif // !APPSTORE — Seahorse enrollment helpers
 
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -147,6 +152,7 @@
 
     // ── Subscription ──────────────────────────────────────────────────────────────
     @property (nonatomic, strong) UILabel  *subscriptionStatusLabel;
+#if !APPSTORE
     @property (nonatomic, strong) UILabel  *seahorseStatusLabel;
     @property (nonatomic, strong) UIButton *seahorseSlot1Button;
     @property (nonatomic, strong) UIButton *seahorsePartnerButton;
@@ -175,6 +181,7 @@
     - (void)seahorseRemoveMineTapped;
     - (void)seahorseConfirmRemoveSlot:(NSInteger)slot;
     - (void)seahorseRemoveSlot:(NSInteger)slot;
+#endif // !APPSTORE
     @property (nonatomic, strong) UILabel  *coinBalanceLabel;
     @property (nonatomic, strong) UILabel  *referralCodeLabel;
 
@@ -253,7 +260,9 @@
         [self refreshSubscriptionDisplay];
         [EZReferralManager applyPendingReferralCode];
         [self refreshReferralCodeLabel];
+#if !APPSTORE
         [self refreshSeahorseStatus];
+#endif
     }
 
     - (void)dealloc {
@@ -501,6 +510,8 @@
                       y:&y w:w];
 
         // ── NSFW Images (Seahorse) ────────────────────────────────────
+        // Compiled out of the App Store build with the rest of Seahorse.
+#if !APPSTORE
         [self addSection:@"🔞 NSFW Images (Seahorse)" y:&y];
         self.seahorseStatusLabel = [self addWrappingLabel:@"Checking enrollment…"
                                                         y:&y minHeight:40];
@@ -522,6 +533,7 @@
                                                                y:&y w:w];
         [self addWrappingLabel:@"Only add a partner who has agreed to have their ID checked and their likeness used in your images. Each ID is read once by AI to check the date of birth and is never stored; only the face crop from the ID photo is kept, privately, with your account."
                              y:&y minHeight:0];
+#endif // !APPSTORE
 
         self.scrollView.contentSize = CGSizeMake(self.view.frame.size.width, y + 30);
     }
@@ -1014,6 +1026,7 @@
 
 
     // ─────────────────────────────────────────────────────────────────────────
+#if !APPSTORE
     // MARK: - NSFW (Seahorse) enrollment
     //
     // Manages the ez-seahorse enrollment from Settings: status for both
@@ -1296,5 +1309,6 @@
             [self refreshSeahorseStatus];
         }];
     }
+#endif // !APPSTORE — Seahorse enrollment
 
     @end
