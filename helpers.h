@@ -119,6 +119,16 @@ void EZCreateSongMemory(NSString *userPrompt,
                         NSString * _Nullable entryID,
                         void (^completion)(NSString * _Nullable entry));
 
+/// Sound variant: the caller that created a sound passes its entry ID, which
+/// is stored on the memory as structured data (soundEntryIDs) — guaranteed by
+/// code, never left for the summarizer to keep or drop in the prose summary.
+void EZCreateSoundMemory(NSString *userPrompt,
+                         NSString *assistantReply,
+                         NSString *apiKey,
+                         NSString * _Nullable threadID,
+                         NSString * _Nullable entryID,
+                         void (^completion)(NSString * _Nullable entry));
+
 /// Explicit fact save for the chat memory tool (update_memory): stores
 /// `fact` verbatim as an important-memory entry WITHOUT the summarizer, so what the
 /// user asked to remember is exactly what is kept and later recalled.

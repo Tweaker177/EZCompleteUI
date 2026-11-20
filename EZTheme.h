@@ -33,6 +33,13 @@ NS_ASSUME_NONNULL_BEGIN
 /// Brand gold accent (buttons, highlights, links on dark).
 + (UIColor *)goldColor;
 
+/// Gold gradient for the selected segment of a segmented control, as a
+/// stretchable background image — selectedSegmentTintColor is flat-only,
+/// so the gradient has to arrive as an image, and the control clips it to
+/// the segment's pill shape. Mostly solid in feel: a lighter gold at the
+/// top settling through the brand gold to a deeper gold at the bottom.
++ (UIImage *)selectedSegmentGradientImage;
+
 /// 1pt borders on dark surfaces (white at 10%).
 + (UIColor *)hairlineColor;
 
@@ -54,6 +61,13 @@ NS_ASSUME_NONNULL_BEGIN
 /// Opaque navy navigation-bar appearance (white title text) for themed
 /// screens that live in their own navigation controller.
 + (UINavigationBarAppearance *)navigationBarAppearance;
+
+/// Gold gradient for large primary buttons (Sign In, Generate), as a
+/// stretchable background image: the segment gradient's stops — lighter
+/// gold at the top through the brand gold to a deeper gold at the bottom.
+/// Set it as a button's background image with navy text; the button's own
+/// corner radius clips it.
++ (UIImage *)primaryGradientImage;
 
 @end
 

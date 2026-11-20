@@ -38,6 +38,7 @@
 
 #import "LoginViewController.h"
 #import "EZAuthManager.h"
+#import "EZTheme.h"
 #import "EZReferralManager.h"
 #import "ViewController.h"
 
@@ -100,7 +101,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
     [self setupUI];
     [self prefillSavedEmail];
     [self registerForKeyboardNotifications];
@@ -137,7 +138,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     NSAttributedString *passwordHint = [[NSAttributedString alloc]
         initWithString:@"••••••••"
             attributes:@{
-                NSForegroundColorAttributeName: [UIColor tertiaryLabelColor],
+                NSForegroundColorAttributeName: [EZTheme secondaryTextColor],
                 NSFontAttributeName:            [UIFont systemFontOfSize:17],
             }];
     self.passwordField.attributedPlaceholder = passwordHint;
@@ -161,6 +162,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     self.titleLabel.minimumScaleFactor = 0.5;
     self.titleLabel.text = @"EZCompleteUI";
     self.titleLabel.font = [UIFont systemFontOfSize:32 weight:UIFontWeightBold];
+    self.titleLabel.textColor = [EZTheme primaryTextColor];
     self.titleLabel.textAlignment = NSTextAlignmentCenter;
     self.titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
 
@@ -170,7 +172,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     self.subtitleLabel.minimumScaleFactor = 0.5;
     self.subtitleLabel.text = @"Sign in to continue";
     self.subtitleLabel.font = [UIFont systemFontOfSize:16];
-    self.subtitleLabel.textColor = [UIColor secondaryLabelColor];
+    self.subtitleLabel.textColor = [EZTheme secondaryTextColor];
     self.subtitleLabel.textAlignment = NSTextAlignmentCenter;
     self.subtitleLabel.numberOfLines = 0;
     self.subtitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -180,7 +182,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     self.savedAccountLabel.adjustsFontSizeToFitWidth = YES;
     self.savedAccountLabel.minimumScaleFactor = 0.5;
     self.savedAccountLabel.font = [UIFont systemFontOfSize:12];
-    self.savedAccountLabel.textColor = [UIColor secondaryLabelColor];
+    self.savedAccountLabel.textColor = [EZTheme secondaryTextColor];
     self.savedAccountLabel.textAlignment = NSTextAlignmentCenter;
     self.savedAccountLabel.hidden = YES;
     self.savedAccountLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -200,7 +202,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     self.buildLabel.minimumScaleFactor = 0.5;
     self.buildLabel.text = buildText;
     self.buildLabel.font = [UIFont monospacedDigitSystemFontOfSize:10 weight:UIFontWeightRegular];
-    self.buildLabel.textColor = [UIColor tertiaryLabelColor];
+    self.buildLabel.textColor = [EZTheme secondaryTextColor];
     self.buildLabel.textAlignment = NSTextAlignmentCenter;
     self.buildLabel.alpha = 0.82;
     self.buildLabel.accessibilityLabel = [NSString stringWithFormat:@"App build %@", buildText];
@@ -250,6 +252,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     self.forgotPasswordButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.forgotPasswordButton setTitle:@"Forgot Password?" forState:UIControlStateNormal];
     self.forgotPasswordButton.titleLabel.font = [UIFont systemFontOfSize:13];
+    [self.forgotPasswordButton setTitleColor:[EZTheme goldColor] forState:UIControlStateNormal];
     self.forgotPasswordButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.forgotPasswordButton addTarget:self
                                   action:@selector(handleForgotPassword)
@@ -259,9 +262,10 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     self.loginButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.loginButton setTitle:@"Sign In" forState:UIControlStateNormal];
     self.loginButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
-    self.loginButton.backgroundColor = [UIColor systemBlueColor];
-    [self.loginButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [self.loginButton setBackgroundImage:[EZTheme primaryGradientImage] forState:UIControlStateNormal];
+    [self.loginButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateNormal];
     self.loginButton.layer.cornerRadius = 12;
+    self.loginButton.clipsToBounds = YES;
     self.loginButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.loginButton addTarget:self
                          action:@selector(handleLogin)
@@ -271,6 +275,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     self.toggleModeButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.toggleModeButton setTitle:@"Don't have an account? Sign Up"
                            forState:UIControlStateNormal];
+    [self.toggleModeButton setTitleColor:[EZTheme goldColor] forState:UIControlStateNormal];
     self.toggleModeButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.toggleModeButton addTarget:self
                               action:@selector(toggleMode)
@@ -281,6 +286,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
         initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner.translatesAutoresizingMaskIntoConstraints = NO;
     self.spinner.hidesWhenStopped = YES;
+    self.spinner.color = [EZTheme goldColor];
 
     for (UIView *subview in @[
         self.titleLabel, self.subtitleLabel, self.savedAccountLabel,
@@ -371,7 +377,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
     // Full-screen cover — starts invisible and animates in
     UIView *overlayView = [[UIView alloc] init];
-    overlayView.backgroundColor = [UIColor systemBackgroundColor];
+    overlayView.backgroundColor = [EZTheme chatBackgroundColor];
     overlayView.translatesAutoresizingMaskIntoConstraints = NO;
     overlayView.alpha = 0;
     [self.view addSubview:overlayView];
@@ -394,6 +400,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     resetTitle.minimumScaleFactor = 0.5;
     resetTitle.text = @"EZCompleteUI";
     resetTitle.font = [UIFont systemFontOfSize:32 weight:UIFontWeightBold];
+    resetTitle.textColor = [EZTheme primaryTextColor];
     resetTitle.textAlignment = NSTextAlignmentCenter;
     resetTitle.translatesAutoresizingMaskIntoConstraints = NO;
 
@@ -403,7 +410,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     resetSubtitle.minimumScaleFactor = 0.5;
     resetSubtitle.text = @"Choose a new password for your account";
     resetSubtitle.font = [UIFont systemFontOfSize:16];
-    resetSubtitle.textColor = [UIColor secondaryLabelColor];
+    resetSubtitle.textColor = [EZTheme secondaryTextColor];
     resetSubtitle.textAlignment = NSTextAlignmentCenter;
     resetSubtitle.numberOfLines = 0;
     resetSubtitle.translatesAutoresizingMaskIntoConstraints = NO;
@@ -446,9 +453,10 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     self.setPasswordButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.setPasswordButton setTitle:@"Set New Password" forState:UIControlStateNormal];
     self.setPasswordButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
-    self.setPasswordButton.backgroundColor = [UIColor systemBlueColor];
-    [self.setPasswordButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [self.setPasswordButton setBackgroundImage:[EZTheme primaryGradientImage] forState:UIControlStateNormal];
+    [self.setPasswordButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateNormal];
     self.setPasswordButton.layer.cornerRadius = 12;
+    self.setPasswordButton.clipsToBounds = YES;
     self.setPasswordButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.setPasswordButton addTarget:self
                                action:@selector(handleSetPasswordSubmit)
@@ -458,6 +466,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     self.cancelResetButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.cancelResetButton setTitle:@"Cancel" forState:UIControlStateNormal];
     self.cancelResetButton.titleLabel.font = [UIFont systemFontOfSize:15];
+    [self.cancelResetButton setTitleColor:[EZTheme goldColor] forState:UIControlStateNormal];
     self.cancelResetButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.cancelResetButton addTarget:self
                                action:@selector(handleCancelPasswordReset)
@@ -693,7 +702,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
     if (self.isSignUpMode) {
         self.subtitleLabel.text = @"Create your account";
-        self.subtitleLabel.textColor = [UIColor secondaryLabelColor];
+        self.subtitleLabel.textColor = [EZTheme secondaryTextColor];
         [self.loginButton setTitle:@"Sign Up" forState:UIControlStateNormal];
         [self.toggleModeButton setTitle:@"Already have an account? Sign In"
                                forState:UIControlStateNormal];
@@ -704,7 +713,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
         self.referralHeightConstraint.constant = 52;
     } else {
         self.subtitleLabel.text = @"Sign in to continue";
-        self.subtitleLabel.textColor = [UIColor secondaryLabelColor];
+        self.subtitleLabel.textColor = [EZTheme secondaryTextColor];
         [self.loginButton setTitle:@"Sign In" forState:UIControlStateNormal];
         [self.toggleModeButton setTitle:@"Don't have an account? Sign Up"
                                forState:UIControlStateNormal];
@@ -862,10 +871,14 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
 
 - (UITextField *)makeTextField:(NSString *)placeholder secure:(BOOL)secure {
     UITextField *textField = [[UITextField alloc] init];
-    textField.placeholder        = placeholder;
+    textField.attributedPlaceholder = [[NSAttributedString alloc]
+        initWithString:placeholder
+            attributes:@{ NSForegroundColorAttributeName: [[EZTheme secondaryTextColor] colorWithAlphaComponent:0.7] }];
     textField.secureTextEntry    = secure;
     textField.borderStyle        = UITextBorderStyleNone;
-    textField.backgroundColor    = [UIColor secondarySystemBackgroundColor];
+    textField.backgroundColor    = [EZTheme cardColor];
+    textField.textColor          = [EZTheme primaryTextColor];
+    textField.tintColor          = [EZTheme goldColor];
     textField.layer.cornerRadius = 12;
     textField.leftView           = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 16, 0)];
     textField.leftViewMode       = UITextFieldViewModeAlways;
@@ -880,7 +893,7 @@ static NSString *const kLastEmailKey = @"EZLastSignedInEmail";
     UIButton *visibilityButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [visibilityButton setImage:[UIImage systemImageNamed:@"eye.slash"]
                       forState:UIControlStateNormal];
-    visibilityButton.tintColor = [UIColor secondaryLabelColor];
+    visibilityButton.tintColor = [EZTheme secondaryTextColor];
     visibilityButton.frame     = CGRectMake(0, 0, 44, 44);
     return visibilityButton;
 }

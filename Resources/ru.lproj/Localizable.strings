@@ -841,3 +841,6 @@
 "BRSlot.Picker.Phoenix.Detail" = "Пять барабанов, двадцать пять линий. Золотые шляпы открывают выбор карты и бесплатные вращения ×2, ×3 или ×5.";
 "BRSlot.Lounge.WinningsMostChips" = "БОЛЬШЕ ВСЕГО МОНЕТ: ТОП 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "Лидеров по монетам пока нет.\n";
+"BRSlot.Lounge.WinningsAllTime" = "\nВЫИГРЫШИ ЗА ВСЁ ВРЕМЯ\n\n";
+"BRSlot.Lounge.WinningsMineAllTime" = "Ваш выигрыш за всё время: %@ монет";
+"BRSlot.Lounge.WinningsNoAllTime" = "Выигрышей пока не записано.\n";

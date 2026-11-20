@@ -54,7 +54,6 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
         @"addChatButton":        @"New Chat",
         @"memoriesButton":       @"Memories",
         @"textToSpeechButton":   @"TTS",
-        @"supportRequestButton": @"Support",
         @"cloningButton":        @"Clone Voice",
         @"galleryButton":        @"Gallery",
         @"settingsButton":       @"Settings",
@@ -66,7 +65,6 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
         @"addChatButton":        @"NewChatButton.png",
         @"memoriesButton":       @"MemoriesButton.PNG",
         @"textToSpeechButton":   @"TTSButton.PNG",
-        @"supportRequestButton": @"SupportButton.PNG",
         @"cloningButton":        @"VoiceCloneButton.PNG",
         @"galleryButton":        @"galleryButton.png",
         @"settingsButton":       @"SettingsButton.png",
@@ -77,7 +75,6 @@ static const void *kTableTopConstraint = &kTableTopConstraint;
     NSArray<NSString *> *buttonOrder = @[
         @"memoriesButton",
         @"speakButton",
-        @"supportRequestButton",
         @"textToSpeechButton",
         @"webSearchButton",
         @"helperDirectAnswersButton",

@@ -801,3 +801,6 @@
 "BRSlot.Picker.Phoenix.Detail" = "पाँच रील, पच्चीस लाइनें. सुनहरी टोपियाँ कार्ड चयन और ×2, ×3 या ×5 मुफ़्त स्पिन खोलती हैं.";
 "BRSlot.Lounge.WinningsMostChips" = "सबसे अधिक सिक्के: शीर्ष 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "अभी कोई सिक्का लीडर नहीं है।\n";
+"BRSlot.Lounge.WinningsAllTime" = "\nसर्वकालिक जीत\n\n";
+"BRSlot.Lounge.WinningsMineAllTime" = "आपकी सर्वकालिक कुल जीत: %@ सिक्के";
+"BRSlot.Lounge.WinningsNoAllTime" = "अभी कोई जीत दर्ज नहीं है।\n";

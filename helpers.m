@@ -3161,6 +3161,7 @@ static void EZCreateMemoryEntryInternal(NSString *userPrompt,
                                         NSString * _Nullable threadID,
                                         NSArray<NSString *> * _Nullable attachmentPaths,
                                         NSArray<NSString *> * _Nullable songEntryIDs,
+                                        NSArray<NSString *> * _Nullable soundEntryIDs,
                                         void (^completion)(NSString * _Nullable entry)) {
 
     NSCParameterAssert(userPrompt);
@@ -3195,6 +3196,16 @@ static void EZCreateMemoryEntryInternal(NSString *userPrompt,
             NSString *songID = _safeString(obj);
             if (songID.length > 0 && ![validSongIDs containsObject:songID]) {
                 [validSongIDs addObject:songID];
+            }
+        }
+
+        // Sound entry IDs get the same treatment, under their own key so a
+        // sound ID is never mistaken for a song ID by later lookups.
+        NSMutableArray<NSString *> *validSoundIDs = [NSMutableArray array];
+        for (id obj in soundEntryIDs) {
+            NSString *soundID = _safeString(obj);
+            if (soundID.length > 0 && ![validSoundIDs containsObject:soundID]) {
+                [validSoundIDs addObject:soundID];
             }
         }
 
@@ -3266,6 +3277,7 @@ static void EZCreateMemoryEntryInternal(NSString *userPrompt,
         if (promptID.length > 0)       newEntry[@"promptID"]        = promptID;
         if (validPaths.count > 0)      newEntry[@"attachmentPaths"] = [validPaths copy];
         if (validSongIDs.count > 0)    newEntry[@"songEntryIDs"]    = [validSongIDs copy];
+        if (validSoundIDs.count > 0)   newEntry[@"soundEntryIDs"]   = [validSoundIDs copy];
 
         // Duplicate check and write — both happen inside a dispatch_sync on the
         // file-write queue to prevent a race condition where two background threads
@@ -3349,7 +3361,7 @@ void EZCreateMemoryEntry(NSString *userPrompt,
                          NSArray<NSString *> * _Nullable attachmentPaths,
                          void (^completion)(NSString * _Nullable entry)) {
     EZCreateMemoryEntryInternal(userPrompt, assistantReply, apiKey, promptID,
-                                threadID, attachmentPaths, nil, completion);
+                                threadID, attachmentPaths, nil, nil, completion);
 }
 
 void EZCreateSongMemory(NSString *userPrompt,
@@ -3360,7 +3372,18 @@ void EZCreateSongMemory(NSString *userPrompt,
                         void (^completion)(NSString * _Nullable entry)) {
     NSArray<NSString *> *songIDs = entryID.length > 0 ? @[entryID] : nil;
     EZCreateMemoryEntryInternal(userPrompt, assistantReply, apiKey, nil,
-                                threadID, nil, songIDs, completion);
+                                threadID, nil, songIDs, nil, completion);
+}
+
+void EZCreateSoundMemory(NSString *userPrompt,
+                         NSString *assistantReply,
+                         NSString *apiKey,
+                         NSString * _Nullable threadID,
+                         NSString * _Nullable entryID,
+                         void (^completion)(NSString * _Nullable entry)) {
+    NSArray<NSString *> *soundIDs = entryID.length > 0 ? @[entryID] : nil;
+    EZCreateMemoryEntryInternal(userPrompt, assistantReply, apiKey, nil,
+                                threadID, nil, nil, soundIDs, completion);
 }
 
 // EZCreateExplicitMemory — stores a fact the user explicitly asked to
