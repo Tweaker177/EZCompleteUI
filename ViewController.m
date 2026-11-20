@@ -9337,6 +9337,23 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
                         saveError.localizedDescription ?: @"please try again."]];
                     return;
                 }
+                // Index the finished sound as a memory, the same way a
+                // completed chat song is indexed (see
+                // indexCompletedChatMusicEvent:threadID:): the sound's entry
+                // ID rides as structured data, so memory search can find the
+                // sound later. Indexed against the thread that asked for it,
+                // even if the user has since switched threads.
+                NSString *memoryToken = [EZAuthManager shared].accessToken;
+                if (memoryToken.length) {
+                    NSString *memoryReply = [NSString stringWithFormat:
+                        @"Created the sound \"%@\" and saved it in Sounds. Sound ID: %@. The sound is available in this chat with a Play button.",
+                        prompt, entry.uuid.length ? entry.uuid : @"unavailable"];
+                    EZCreateSoundMemory(prompt, memoryReply, memoryToken, capturedThreadID, entry.uuid, ^(NSString *memoryEntry) {
+                        if (memoryEntry) {
+                            EZLogf(EZLogLevelInfo, @"MEMORY", @"Indexed completed chat sound %@", entry.uuid.length ? entry.uuid : prompt);
+                        }
+                    });
+                }
                 NSString *shownPrompt = prompt.length > 60 ? [[prompt substringToIndex:60] stringByAppendingString:@"\u2026"] : prompt;
                 if (![strongSelf.activeThread.threadID isEqualToString:capturedThreadID]) return;
                 // The sound joins the conversation: a context note (so
