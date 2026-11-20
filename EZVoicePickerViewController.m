@@ -4,6 +4,7 @@
 //
 
 #import "EZVoicePickerViewController.h"
+#import "EZTheme.h"
 #import "EZTTSVoiceService.h"
 #import <AVFoundation/AVFoundation.h>
 #import <objc/runtime.h>
@@ -35,7 +36,8 @@ static char kEZVoicePreviewVoiceKey;
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"Choose a Voice";
-    self.view.backgroundColor = [UIColor systemBackgroundColor];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
+    self.view.tintColor = [EZTheme goldColor];
     self.allVoices = @[];
     self.filteredVoices = @[];
 
@@ -48,7 +50,12 @@ static char kEZVoicePreviewVoiceKey;
     self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
+    self.tableView.backgroundColor = [EZTheme chatBackgroundColor];
+    self.tableView.tintColor = [EZTheme goldColor];
+    self.tableView.separatorColor = [EZTheme hairlineColor];
     [self.view addSubview:self.tableView];
+    self.navigationController.navigationBar.standardAppearance = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
 
     self.searchController = [[UISearchController alloc] initWithSearchResultsController:nil];
     self.searchController.searchResultsUpdater = self;
@@ -56,12 +63,15 @@ static char kEZVoicePreviewVoiceKey;
     self.searchController.searchBar.placeholder = @"Search voices";
     self.navigationItem.searchController = self.searchController;
     self.navigationItem.hidesSearchBarWhenScrolling = NO;
+    self.searchController.searchBar.tintColor = [EZTheme goldColor];
+    self.searchController.searchBar.searchTextField.backgroundColor = [EZTheme cardColor];
+    self.searchController.searchBar.searchTextField.textColor = [EZTheme primaryTextColor];
 
     self.emptyStateLabel = [[UILabel alloc] init];
     self.emptyStateLabel.adjustsFontSizeToFitWidth = YES;
     self.emptyStateLabel.minimumScaleFactor = 0.5;
     self.emptyStateLabel.text = @"No voices found.";
-    self.emptyStateLabel.textColor = [UIColor secondaryLabelColor];
+    self.emptyStateLabel.textColor = [EZTheme secondaryTextColor];
     self.emptyStateLabel.textAlignment = NSTextAlignmentCenter;
     self.emptyStateLabel.hidden = YES;
     [self.view addSubview:self.emptyStateLabel];
@@ -153,6 +163,8 @@ static char kEZVoicePreviewVoiceKey;
     if (!cell) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:kEZVoicePickerCellID];
     }
+    cell.backgroundColor = [EZTheme cardColor];
+    cell.textLabel.textColor = [EZTheme primaryTextColor];
     NSDictionary *voice = self.filteredVoices[indexPath.row];
     cell.textLabel.text = [self displayNameForVoice:voice];
 
@@ -162,7 +174,7 @@ static char kEZVoicePreviewVoiceKey;
     } else {
         cell.detailTextLabel.text = nil;
     }
-    cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
+    cell.detailTextLabel.textColor = [EZTheme secondaryTextColor];
 
     NSString *previewURL = [self previewURLForVoice:voice];
     UIButton *previewButton = [self previewButtonForVoice:voice hasPreview:(previewURL.length > 0)];
@@ -190,8 +202,8 @@ static char kEZVoicePreviewVoiceKey;
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
     button.frame = CGRectMake(0, 0, 44, 44);
     button.layer.cornerRadius = 18.0;
-    button.backgroundColor = hasPreview ? [UIColor systemFillColor] : [UIColor clearColor];
-    button.tintColor = hasPreview ? self.view.tintColor : [UIColor tertiaryLabelColor];
+    button.backgroundColor = hasPreview ? [EZTheme backgroundColor] : [UIColor clearColor];
+    button.tintColor = hasPreview ? self.view.tintColor : [EZTheme secondaryTextColor];
     button.enabled = hasPreview;
     button.alpha = hasPreview ? 1.0 : 0.45;
 
