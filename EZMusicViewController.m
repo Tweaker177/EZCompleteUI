@@ -82,6 +82,7 @@
 #import "EZMediaPlayerManager.h"
 #import "EZPhotoGalleryViewController.h"
 #import "EZMusicService.h"
+#import "EZAuthManager.h"
 #import "EZEntitlementManager.h"
 #import "EZCoinStoreViewController.h"
 #import "helpers.h"
@@ -2042,7 +2043,14 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 #pragma mark - Library loading
 
 - (void)libraryPulledToRefresh {
-    [self loadLibraryResetting:YES];
+    // The empty state tells the user this pull refreshes the session, so
+    // restore it first — stored credentials are reloaded and a fresh token
+    // minted — then load against the result. With no stored session the
+    // restore reports NO and the load shows the sign-in message as before.
+    __weak typeof(self) weakSelf = self;
+    [[EZAuthManager shared] restoreSessionWithCompletion:^(__unused BOOL loggedIn) {
+        [weakSelf loadLibraryResetting:YES];
+    }];
 }
 
 - (void)loadLibraryResetting:(BOOL)reset {
