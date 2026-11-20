@@ -28,6 +28,7 @@ typedef NS_ENUM(NSInteger, EZActiveHandle) {
         _startHandleColor = [UIColor systemGreenColor];
         _endHandleColor = [UIColor systemRedColor];
         _highlightColor = [UIColor colorWithWhite:0.0 alpha:0.35];
+        _loopBarColor = [UIColor systemYellowColor];
         self.backgroundColor = [UIColor clearColor];
     }
     return self;
@@ -40,6 +41,16 @@ typedef NS_ENUM(NSInteger, EZActiveHandle) {
 
 - (void)setEndFraction:(CGFloat)endFraction {
     _endFraction = MIN(1.0, MAX(endFraction, _startFraction + kEZMinGapFraction));
+    [self setNeedsDisplay];
+}
+
+- (void)setLoopEnabled:(BOOL)loopEnabled {
+    _loopEnabled = loopEnabled;
+    [self setNeedsDisplay];
+}
+
+- (void)setLoopBarColor:(UIColor *)loopBarColor {
+    _loopBarColor = loopBarColor;
     [self setNeedsDisplay];
 }
 
@@ -105,6 +116,16 @@ typedef NS_ENUM(NSInteger, EZActiveHandle) {
     }
     if (endX < width) {
         [[UIBezierPath bezierPathWithRect:CGRectMake(endX, 0, width - endX, height)] fill];
+    }
+
+    if (self.loopEnabled && endX > startX) {
+        // A bar across the top connecting the two handles — the selection
+        // is a loop. Drawn at the handle tabs' mid-height so it reads as
+        // linking them, and under the handles themselves.
+        CGFloat barHeight = 4.0;
+        CGRect barRect = CGRectMake(startX, 2.5, endX - startX, barHeight);
+        [self.loopBarColor setFill];
+        [[UIBezierPath bezierPathWithRoundedRect:barRect cornerRadius:barHeight / 2.0] fill];
     }
 
     [self drawHandleAtX:startX color:self.startHandleColor height:height];
