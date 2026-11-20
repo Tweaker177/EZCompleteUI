@@ -183,7 +183,8 @@ static NSString *const kLastAuthDateKey = @"EZLastAuthenticatedDate";
 // Checks the current token's expiry claim without a network call. If the token
 // is still good (> 60 seconds remaining), calls completion immediately.
 // If expired or missing, attempts a refresh_token grant.
-// On unrecoverable failure, calls signOut before returning the error.
+// The stored session is cleared only when the auth server clearly rejected
+// the refresh token; a network failure leaves it in place for the next try.
 
 - (void)refreshSessionIfNeeded:(void(^)(NSString * _Nullable token, NSError * _Nullable error))completion {
     NSString *currentToken = self.accessToken;
@@ -222,18 +223,47 @@ static NSString *const kLastAuthDateKey = @"EZLastAuthenticatedDate";
         return;
     }
 
+    [self performRefreshWithToken:refreshToken isRetry:NO completion:completion];
+}
+
+// Runs one refresh_token grant and reports the outcome. The session is only
+// cleared when the auth server clearly rejected the refresh token (a 401, or
+// a reply body naming the error). A network error or an unreadable reply
+// keeps the stored credentials: the session was never refused, and deleting
+// it would strand the user on sign-in messages that no retry can fix. If the
+// stored refresh token changed while the request was in flight, a concurrent
+// refresh rotated it and saved the new one — retry once with the stored
+// token instead of failing.
+- (void)performRefreshWithToken:(NSString *)refreshToken
+                        isRetry:(BOOL)isRetry
+                     completion:(void(^)(NSString * _Nullable token, NSError * _Nullable error))completion {
     [self postToPath:@"/auth/v1/token?grant_type=refresh_token"
                 body:@{ @"refresh_token": refreshToken }
           completion:^(NSDictionary *responseData, NSError *error) {
         if (responseData[@"access_token"]) {
             [self saveSession:responseData];
             completion(self.accessToken, nil);
-        } else {
+            return;
+        }
+        if (!isRetry) {
+            NSString *storedToken = [EZKeyVault loadKeyForIdentifier:kRefreshTokenKey];
+            if (storedToken.length > 0 && ![storedToken isEqualToString:refreshToken]) {
+                [self performRefreshWithToken:storedToken isRetry:YES completion:completion];
+                return;
+            }
+        }
+        BOOL rejected = (error && [error.domain isEqualToString:@"EZAuth"] && error.code == 401)
+            || responseData[@"error_code"] != nil
+            || responseData[@"error"] != nil;
+        if (rejected) {
             // Refresh token is expired or revoked — clear the session so the app
             // can detect the logged-out state and show the login screen
             [self signOut];
             completion(nil, error ?: [NSError errorWithDomain:@"EZAuth" code:401
                 userInfo:@{NSLocalizedDescriptionKey: @"Session expired. Please sign in again."}]);
+        } else {
+            completion(nil, error ?: [NSError errorWithDomain:@"EZAuth" code:0
+                userInfo:@{NSLocalizedDescriptionKey: @"Couldn't refresh the session. Check your connection and try again."}]);
         }
     }];
 }
@@ -263,7 +293,14 @@ static NSString *const kLastAuthDateKey = @"EZLastAuthenticatedDate";
             [self saveSession:responseData];
             completion(YES);
         } else {
-            [self signOut];
+            // Same rule as the refresh path: only a clear rejection from the
+            // auth server clears the stored session. A launch restore that
+            // fails on the network leaves the credentials in place, so the
+            // next authenticated request can still recover the session.
+            BOOL rejected = (error && [error.domain isEqualToString:@"EZAuth"] && error.code == 401)
+                || responseData[@"error_code"] != nil
+                || responseData[@"error"] != nil;
+            if (rejected) [self signOut];
             completion(NO);
         }
     }];
