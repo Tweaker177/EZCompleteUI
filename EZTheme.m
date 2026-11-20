@@ -93,6 +93,27 @@
     return [self cardColor];
 }
 
++ (UIImage *)primaryGradientImage {
+    static UIImage *image; static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        CGSize size = CGSizeMake(120, 56);
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
+        UIImage *rendered = [renderer imageWithActions:^(UIGraphicsImageRendererContext *rendererContext) {
+            UIColor *top = [UIColor colorWithRed:1.0 green:0.87 blue:0.35 alpha:1.0];
+            UIColor *bottom = [UIColor colorWithRed:0.93 green:0.69 blue:0.06 alpha:1.0];
+            NSArray *colors = @[(id)top.CGColor, (id)[EZTheme goldColor].CGColor, (id)bottom.CGColor];
+            CGGradientRef gradient = CGGradientCreateWithColors(CGColorSpaceCreateDeviceRGB(),
+                                                                (__bridge CFArrayRef)colors, NULL);
+            CGContextDrawLinearGradient(rendererContext.CGContext, gradient,
+                                        CGPointMake(0, 0), CGPointMake(0, size.height), 0);
+            CGGradientRelease(gradient);
+        }];
+        image = [rendered resizableImageWithCapInsets:UIEdgeInsetsMake(27, 27, 27, 27)
+                                         resizingMode:UIImageResizingModeStretch];
+    });
+    return image;
+}
+
 + (UINavigationBarAppearance *)navigationBarAppearance {
     UINavigationBarAppearance *appearance = [[UINavigationBarAppearance alloc] init];
     [appearance configureWithOpaqueBackground];

@@ -62,6 +62,13 @@ NS_ASSUME_NONNULL_BEGIN
 /// screens that live in their own navigation controller.
 + (UINavigationBarAppearance *)navigationBarAppearance;
 
+/// Gold gradient for large primary buttons (Sign In, Generate), as a
+/// stretchable background image: the segment gradient's stops — lighter
+/// gold at the top through the brand gold to a deeper gold at the bottom.
+/// Set it as a button's background image with navy text; the button's own
+/// corner radius clips it.
++ (UIImage *)primaryGradientImage;
+
 @end
 
 NS_ASSUME_NONNULL_END
