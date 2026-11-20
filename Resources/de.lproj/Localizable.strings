@@ -801,3 +801,6 @@
 "BRSlot.Picker.Phoenix.Detail" = "Fünf Walzen, fünfundzwanzig Linien. Goldene Hüte öffnen eine Kartenwahl und ×2-, ×3- oder ×5-Freispiele.";
 "BRSlot.Lounge.WinningsMostChips" = "MEISTE MÜNZEN: TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "Noch keine Münz-Spitzenreiter.\n";
+"BRSlot.Lounge.WinningsAllTime" = "\nGEWINNE ALLER ZEITEN\n\n";
+"BRSlot.Lounge.WinningsMineAllTime" = "Deine Gewinne aller Zeiten: %@ Münzen";
+"BRSlot.Lounge.WinningsNoAllTime" = "Noch keine Gewinne verzeichnet.\n";

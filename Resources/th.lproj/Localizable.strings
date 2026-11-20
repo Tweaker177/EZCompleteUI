@@ -801,3 +801,6 @@
 "BRSlot.Picker.Phoenix.Detail" = "ห้าวงล้อ ยี่สิบห้าไลน์ หมวกทองเปิดการเลือกการ์ดและฟรีสปิน ×2, ×3 หรือ ×5";
 "BRSlot.Lounge.WinningsMostChips" = "เหรียญมากที่สุด: 5 อันดับแรก\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "ยังไม่มีผู้นำเหรียญ\n";
+"BRSlot.Lounge.WinningsAllTime" = "\nชนะตลอดกาล\n\n";
+"BRSlot.Lounge.WinningsMineAllTime" = "ยอดชนะตลอดกาลของคุณ: %@ เหรียญ";
+"BRSlot.Lounge.WinningsNoAllTime" = "ยังไม่มีการบันทึกการชนะ\n";

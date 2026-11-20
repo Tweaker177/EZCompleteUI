@@ -823,3 +823,6 @@
 "BRSlot.Picker.Phoenix.Detail" = "Cinco rodillos, veinticinco líneas. Los sombreros dorados abren una elección de carta y giros gratis de ×2, ×3 o ×5.";
 "BRSlot.Lounge.WinningsMostChips" = "MÁS MONEDAS: TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "Aún no hay líderes en monedas.\n";
+"BRSlot.Lounge.WinningsAllTime" = "\nGANANCIAS DE TODOS LOS TIEMPOS\n\n";
+"BRSlot.Lounge.WinningsMineAllTime" = "Tu total de todos los tiempos: %@ monedas";
+"BRSlot.Lounge.WinningsNoAllTime" = "Aún no hay ganancias registradas.\n";

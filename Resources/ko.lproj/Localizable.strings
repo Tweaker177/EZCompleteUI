@@ -842,3 +842,6 @@
 "BRSlot.Picker.Phoenix.Detail" = "릴 5개, 라인 25개. 황금 모자가 카드 선택과 ×2, ×3, ×5 프리스핀을 엽니다.";
 "BRSlot.Lounge.WinningsMostChips" = "코인 최다: TOP 5\n\n";
 "BRSlot.Lounge.WinningsNoChips" = "아직 코인 리더가 없습니다.\n";
+"BRSlot.Lounge.WinningsAllTime" = "\n역대 총 당첨금\n\n";
+"BRSlot.Lounge.WinningsMineAllTime" = "역대 합계: %@ 코인";
+"BRSlot.Lounge.WinningsNoAllTime" = "아직 기록된 당첨이 없습니다.\n";
