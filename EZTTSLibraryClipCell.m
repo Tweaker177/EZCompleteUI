@@ -29,8 +29,7 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
 
 @property (nonatomic, strong) UIButton *playButton;
 @property (nonatomic, strong) UIButton *favoriteButton;
-@property (nonatomic, strong) UIButton *regenerateButton;
-@property (nonatomic, strong) UIButton *editButton;
+@property (nonatomic, strong) UIButton *shareButton;
 @property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UILabel *subtitleLabel;
 @property (nonatomic, strong) WaveformView *waveformView;
@@ -44,12 +43,17 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
 - (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier {
     self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
     if (self) {
-        self.selectionStyle = UITableViewCellSelectionStyleNone;
+        // Default selection style: with SelectionStyleNone the table's
+        // multi-select editing mode shows no check circles at all, which
+        // made Select mode look broken — no visible way to pick clips.
+        self.selectionStyle = UITableViewCellSelectionStyleDefault;
         self.backgroundColor = EZTTSNeonPanel();
         self.contentView.backgroundColor = EZTTSNeonPanel();
 
         _playButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [_playButton setImage:[UIImage systemImageNamed:kEZClipCellPlayGlyph] forState:UIControlStateNormal];
+        UIImageSymbolConfiguration *playConfig = [UIImageSymbolConfiguration configurationWithPointSize:30
+                                                                                                 weight:UIImageSymbolWeightRegular];
+        [_playButton setImage:[[UIImage systemImageNamed:kEZClipCellPlayGlyph] imageWithConfiguration:playConfig] forState:UIControlStateNormal];
         _playButton.tintColor = EZTTSNeonPink();
         [_playButton addTarget:self action:@selector(handlePlayTapped) forControlEvents:UIControlEventTouchUpInside];
         [self.contentView addSubview:_playButton];
@@ -81,24 +85,14 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
         _waveformView.progressColor = EZTTSNeonCyan();
         [self.contentView addSubview:_waveformView];
 
-        _regenerateButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [_regenerateButton setImage:[UIImage systemImageNamed:@"arrow.clockwise"] forState:UIControlStateNormal];
-        [_regenerateButton setTitle:@" Regenerate" forState:UIControlStateNormal];
-        _regenerateButton.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
-        _regenerateButton.tintColor = EZTTSNeonCyan();
-        _regenerateButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
-        [_regenerateButton addTarget:self action:@selector(handleRegenerateTapped) forControlEvents:UIControlEventTouchUpInside];
-        [self.contentView addSubview:_regenerateButton];
-
-        _editButton = [UIButton buttonWithType:UIButtonTypeSystem];
-        [_editButton setImage:[UIImage systemImageNamed:@"slider.horizontal.3"] forState:UIControlStateNormal];
-        [_editButton setTitle:@" Edit" forState:UIControlStateNormal];
-        _editButton.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
-        _editButton.tintColor = EZTTSNeonCyan();
-        _editButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentRight;
-        _editButton.semanticContentAttribute = UISemanticContentAttributeForceRightToLeft;
-        [_editButton addTarget:self action:@selector(handleEditTapped) forControlEvents:UIControlEventTouchUpInside];
-        [self.contentView addSubview:_editButton];
+        _shareButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        UIImageSymbolConfiguration *shareConfig = [UIImageSymbolConfiguration configurationWithPointSize:18
+                                                                                                  weight:UIImageSymbolWeightMedium];
+        [_shareButton setImage:[[UIImage systemImageNamed:@"square.and.arrow.up"] imageWithConfiguration:shareConfig] forState:UIControlStateNormal];
+        _shareButton.tintColor = EZTTSNeonCyan();
+        _shareButton.accessibilityLabel = @"Share and more";
+        [_shareButton addTarget:self action:@selector(handleShareTapped) forControlEvents:UIControlEventTouchUpInside];
+        [self.contentView addSubview:_shareButton];
     }
     return self;
 }
@@ -111,35 +105,30 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
     CGFloat margin = 12;
     CGFloat playSize = 40;
     CGFloat favSize = 28;
-    CGFloat actionRowHeight = 24;
+    CGFloat shareSize = 32;
 
-    self.playButton.frame = CGRectMake(margin, (height - actionRowHeight - playSize) / 2.0, playSize, playSize);
+    self.playButton.frame = CGRectMake(margin, (height - playSize) / 2.0, playSize, playSize);
 
     CGFloat textX = CGRectGetMaxX(self.playButton.frame) + 10;
     CGFloat textWidth = width - textX - favSize - margin * 2;
 
     self.favoriteButton.frame = CGRectMake(width - margin - favSize, margin - 4, favSize, favSize);
 
-    // Title first, then the voice/duration/date subtitle, then the waveform, then the
-    // action row pinned to the bottom.
+    // Title first, then the voice/duration/date subtitle, then the waveform
+    // filling the rest of the row; the share button sits at the bottom-right.
     self.titleLabel.frame = CGRectMake(textX, 8, textWidth, 22);
     self.subtitleLabel.frame = CGRectMake(textX, CGRectGetMaxY(self.titleLabel.frame) + 2, textWidth, 14);
 
-    CGFloat actionRowY = height - actionRowHeight - 6;
     CGFloat waveY = CGRectGetMaxY(self.subtitleLabel.frame) + 6;
-    self.waveformView.frame = CGRectMake(textX, waveY, textWidth, actionRowY - waveY - 4);
-
-    self.regenerateButton.frame = CGRectMake(textX, actionRowY, textWidth * 0.55, actionRowHeight);
-    CGFloat editWidth = textWidth * 0.4;
-    self.editButton.frame = CGRectMake(textX + textWidth - editWidth, actionRowY, editWidth, actionRowHeight);
+    self.waveformView.frame = CGRectMake(textX, waveY, textWidth - shareSize - 6, height - waveY - 8);
+    self.shareButton.frame = CGRectMake(width - margin - shareSize, height - shareSize - 6, shareSize, shareSize);
 }
 
 - (void)prepareForReuse {
     [super prepareForReuse];
     self.onPlayTapped = nil;
     self.onFavoriteTapped = nil;
-    self.onRegenerateTapped = nil;
-    self.onEditTapped = nil;
+    self.onShareTapped = nil;
     self.currentAudioPath = nil;
     [self.waveformView clear];
     [self setPlaying:NO];
@@ -179,7 +168,9 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
 
 - (void)setPlaying:(BOOL)playing {
     NSString *glyph = playing ? kEZClipCellPauseGlyph : kEZClipCellPlayGlyph;
-    [self.playButton setImage:[UIImage systemImageNamed:glyph] forState:UIControlStateNormal];
+    UIImageSymbolConfiguration *playConfig = [UIImageSymbolConfiguration configurationWithPointSize:30
+                                                                                             weight:UIImageSymbolWeightRegular];
+    [self.playButton setImage:[[UIImage systemImageNamed:glyph] imageWithConfiguration:playConfig] forState:UIControlStateNormal];
     if (!playing) {
         [self.waveformView setProgress:0 animated:NO];
     }
@@ -204,12 +195,8 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
     if (self.onFavoriteTapped) self.onFavoriteTapped();
 }
 
-- (void)handleRegenerateTapped {
-    if (self.onRegenerateTapped) self.onRegenerateTapped();
-}
-
-- (void)handleEditTapped {
-    if (self.onEditTapped) self.onEditTapped();
+- (void)handleShareTapped {
+    if (self.onShareTapped) self.onShareTapped();
 }
 
 #pragma mark - Formatting
