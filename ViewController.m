@@ -2439,8 +2439,12 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     // Attach button
     self.attachButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [self.attachButton setImage:[UIImage systemImageNamed:@"paperclip.circle.fill"]
+    [self.attachButton setImage:[UIImage systemImageNamed:@"paperclip"]
                        forState:UIControlStateNormal];
+    self.attachButton.backgroundColor = [EZTheme goldColor];
+    self.attachButton.tintColor = [EZTheme userBubbleTextColor];
+    self.attachButton.layer.cornerRadius = 24.0;
+    self.attachButton.accessibilityLabel = @"Attach a file or image";
     [self.attachButton addTarget:self action:@selector(showAttachMenu)
                 forControlEvents:UIControlEventTouchUpInside];
     self.attachButton.translatesAutoresizingMaskIntoConstraints = NO;
@@ -2568,26 +2572,24 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [self.modelButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
         [self.imageSettingsButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
         [self.attachButton.leadingAnchor constraintEqualToAnchor:self.inputContainer.leadingAnchor constant:12],
-        [self.attachButton.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
+        [self.attachButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
         [self.attachButton.widthAnchor constraintEqualToConstant:48],
         [self.attachButton.heightAnchor constraintEqualToConstant:48],
         [self.dictateButton.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
         [self.dictateButton.centerYAnchor constraintEqualToAnchor:self.attachButton.centerYAnchor],
-        [self.dictateButton.widthAnchor constraintEqualToConstant:32],
-        [self.dictateButton.heightAnchor constraintEqualToConstant:32],
+        [self.dictateButton.widthAnchor constraintEqualToConstant:44],
+        [self.dictateButton.heightAnchor constraintEqualToConstant:44],
         [inputWrapper.leadingAnchor constraintEqualToAnchor:self.dictateButton.trailingAnchor constant:8],
-        [inputWrapper.topAnchor     constraintEqualToAnchor:self.attachButton.topAnchor],
+        [inputWrapper.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
         [inputWrapper.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-8],
         [self.sendButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
         [self.sendButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
         [self.sendButton.heightAnchor constraintEqualToConstant:44],
         [self.inputContainer.bottomAnchor constraintEqualToAnchor:inputWrapper.bottomAnchor constant:12],
     ]];
-    // Collapsed height: 88pt — a taller field, and it clears the
-    // 48pt attach button beside it with room to spare.
-    // Expanded: ~4 lines.
-    // The constraint is animated in textViewDidBeginEditing / textViewDidEndEditing.
-    self.messageInputHeightConstraint = [inputWrapper.heightAnchor constraintEqualToConstant:88.0];
+    // A compact composer at rest expands while editing. The attach and
+    // dictation controls stay vertically centered alongside it.
+    self.messageInputHeightConstraint = [inputWrapper.heightAnchor constraintEqualToConstant:56.0];
     self.messageInputHeightConstraint.active = YES;
 
     [NSLayoutConstraint activateConstraints:@[
@@ -2691,7 +2693,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
 - (void)textViewDidEndEditing:(UITextView *)textView {
     if (textView != self.messageTextField) return;
-    self.messageInputHeightConstraint.constant = 88.0;
+    self.messageInputHeightConstraint.constant = 56.0;
     [UIView animateWithDuration:0.25
                           delay:0
          usingSpringWithDamping:0.85
