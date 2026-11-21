@@ -597,6 +597,112 @@ static void DrawFloe(CGContextRef c) {
     Fill(Oval(20, 8, 24, 5), HX(0xFFFFFF, .8));
 }
 
+#pragma mark - Header scenery
+
+/// The arctic header backdrop on a 400 x 250 grid: night sky, stars, a
+/// moon, three aurora ribbons, layered icebergs and a penguin standing
+/// on the right-hand berg, all above a snowy shore.
+static void DrawBackdrop(CGContextRef c) {
+    // Sky.
+    UIBezierPath *sky = [UIBezierPath bezierPathWithRect:CGRectMake(0, 0, 400, 250)];
+    LinearFill(c, sky, @[HEX(0x0A2C55), HEX(0x12447A), HEX(0x1B5E9E), HEX(0x0A2C55)],
+               CGPointMake(200, 0), CGPointMake(200, 250));
+    // Stars: fixed pseudo-random scatter so every render matches.
+    for (int i = 0; i < 42; i++) {
+        CGFloat x = (i * 67 + 23) % 400, y = (i * 41 + 11) % 128;
+        CGFloat r = 0.7 + (i % 3) * 0.5;
+        Fill(Disc(x, y, r), HX(0xFFFFFF, .3 + (i % 4) * .18));
+    }
+    // Moon with a soft halo.
+    RadialFill(c, Disc(52, 44, 30), @[HX(0xDFF2FF, .5), HX(0xDFF2FF, 0)], CGPointMake(52, 44), 30);
+    UIBezierPath *moon = Disc(52, 44, 14);
+    RadialFill(c, moon, @[HEX(0xFFFFFF), HEX(0xD5E8F7)], CGPointMake(47, 39), 18);
+    Fill(Disc(47, 40, 3), HX(0x9ACBEA, .5));
+    Fill(Disc(57, 49, 2.2), HX(0x9ACBEA, .45));
+    // Aurora ribbons: wavy bands that fade out at their lower edge,
+    // each drawn twice, offset, to soften the fall.
+    NSArray<NSArray *> *bands = @[ @[@0x3DFF9A, @46, @.50], @[@0x2BD9C7, @78, @.38], @[@0x8A6CFF, @24, @.26] ];
+    for (NSArray *band in bands) {
+        uint32_t hex = [band[0] unsignedIntValue];
+        CGFloat top = [band[1] doubleValue], alpha = [band[2] doubleValue];
+        for (int pass = 0; pass < 2; pass++) {
+            CGFloat y0 = top + pass * 7;
+            UIBezierPath *ribbon = [UIBezierPath bezierPath];
+            [ribbon moveToPoint:CGPointMake(-10, y0 + 18)];
+            [ribbon addCurveToPoint:CGPointMake(130, y0 - 8) controlPoint1:CGPointMake(50, y0 - 12) controlPoint2:CGPointMake(80, y0 + 16)];
+            [ribbon addCurveToPoint:CGPointMake(280, y0 + 14) controlPoint1:CGPointMake(180, y0 - 22) controlPoint2:CGPointMake(230, y0 + 22)];
+            [ribbon addCurveToPoint:CGPointMake(410, y0 - 4) controlPoint1:CGPointMake(330, y0 + 6) controlPoint2:CGPointMake(370, y0 - 14)];
+            [ribbon addLineToPoint:CGPointMake(410, y0 + 34)];
+            [ribbon addCurveToPoint:CGPointMake(280, y0 + 44) controlPoint1:CGPointMake(360, y0 + 22) controlPoint2:CGPointMake(320, y0 + 48)];
+            [ribbon addCurveToPoint:CGPointMake(130, y0 + 24) controlPoint1:CGPointMake(220, y0 + 40) controlPoint2:CGPointMake(180, y0 + 14)];
+            [ribbon addCurveToPoint:CGPointMake(-10, y0 + 48) controlPoint1:CGPointMake(70, y0 + 34) controlPoint2:CGPointMake(40, y0 + 40)];
+            [ribbon closePath];
+            LinearFill(c, ribbon, @[HX(hex, alpha * (pass ? .45 : 1)), HX(hex, 0)],
+                       CGPointMake(200, y0 - 14), CGPointMake(200, y0 + 50));
+        }
+    }
+    // Distant berg, centre-left, kept dark so it sits behind the others.
+    UIBezierPath *far = [UIBezierPath bezierPath];
+    [far moveToPoint:CGPointMake(84, 250)]; [far addLineToPoint:CGPointMake(112, 178)];
+    [far addLineToPoint:CGPointMake(150, 156)]; [far addLineToPoint:CGPointMake(188, 182)];
+    [far addLineToPoint:CGPointMake(214, 250)]; [far closePath];
+    Fill(far, HX(0x2A5A8C, .8));
+    // Left berg.
+    UIBezierPath *left = [UIBezierPath bezierPath];
+    [left moveToPoint:CGPointMake(-6, 250)]; [left addLineToPoint:CGPointMake(-6, 208)];
+    [left addLineToPoint:CGPointMake(34, 170)]; [left addLineToPoint:CGPointMake(84, 184)];
+    [left addLineToPoint:CGPointMake(118, 208)]; [left addLineToPoint:CGPointMake(128, 250)];
+    [left closePath];
+    LinearFill(c, left, @[HEX(0xEAF6FF), HEX(0x9CC8EA)], CGPointMake(50, 168), CGPointMake(50, 250));
+    UIBezierPath *leftRidge = [UIBezierPath bezierPath];
+    [leftRidge moveToPoint:CGPointMake(-6, 208)]; [leftRidge addLineToPoint:CGPointMake(34, 170)];
+    [leftRidge addLineToPoint:CGPointMake(84, 184)]; [leftRidge addLineToPoint:CGPointMake(118, 208)];
+    Stroke(leftRidge, HX(0xFFFFFF, .9), 3);
+    // Right berg, the big one the penguin stands on.
+    UIBezierPath *right = [UIBezierPath bezierPath];
+    [right moveToPoint:CGPointMake(238, 250)]; [right addLineToPoint:CGPointMake(262, 178)];
+    [right addLineToPoint:CGPointMake(300, 152)]; [right addLineToPoint:CGPointMake(344, 166)];
+    [right addLineToPoint:CGPointMake(378, 158)]; [right addLineToPoint:CGPointMake(406, 192)];
+    [right addLineToPoint:CGPointMake(406, 250)]; [right closePath];
+    LinearFill(c, right, @[HEX(0xF2FAFF), HEX(0x8FC0E8)], CGPointMake(320, 150), CGPointMake(320, 250));
+    UIBezierPath *rightRidge = [UIBezierPath bezierPath];
+    [rightRidge moveToPoint:CGPointMake(262, 178)]; [rightRidge addLineToPoint:CGPointMake(300, 152)];
+    [rightRidge addLineToPoint:CGPointMake(344, 166)]; [rightRidge addLineToPoint:CGPointMake(378, 158)];
+    [rightRidge addLineToPoint:CGPointMake(406, 192)];
+    Stroke(rightRidge, HX(0xFFFFFF, .95), 3.5);
+    // The penguin, feet planted on the ridge between the two peaks.
+    CGContextSaveGState(c);
+    CGContextTranslateCTM(c, 297, 90);
+    CGContextScaleCTM(c, .56, .56);
+    DrawPenguinFront(c, 0xE0191F, NO);
+    CGContextRestoreGState(c);
+    // Snowy shore along the bottom.
+    UIBezierPath *sea = [UIBezierPath bezierPathWithRect:CGRectMake(0, 216, 400, 34)];
+    LinearFill(c, sea, @[HX(0x1E6FB0, .55), HX(0x041226, .95)], CGPointMake(200, 216), CGPointMake(200, 250));
+    Fill(Oval(-16, 208, 120, 20), HX(0xFFFFFF, .92));
+    Fill(Oval(96, 214, 130, 18), HX(0xEAF6FF, .9));
+    Fill(Oval(214, 210, 120, 20), HX(0xFFFFFF, .92));
+    Fill(Oval(322, 215, 110, 17), HX(0xEAF6FF, .9));
+    DrawSparkle(150, 60, 6, HX(0xFFFFFF, .95));
+    DrawSparkle(238, 96, 5, HX(0xBFE6FF, .9));
+    DrawSparkle(36, 128, 5, HX(0xFFFFFF, .85));
+}
+
+/// Snow drifts on a 400 x 36 grid, bottoms aligned so the strip can sit
+/// on a top edge and read as snow settled on it.
+static void DrawSnowCap(CGContextRef c) {
+    NSArray<NSArray *> *drifts = @[ @[@-12, @12, @96, @30], @[@58, @5, @116, @38], @[@148, @13, @96, @29],
+                                    @[@218, @7, @124, @35], @[@318, @11, @104, @30] ];
+    for (NSArray *d in drifts) {
+        UIBezierPath *drift = Oval([d[0] doubleValue], [d[1] doubleValue], [d[2] doubleValue], [d[3] doubleValue]);
+        RadialFill(c, drift, @[HEX(0xFFFFFF), HEX(0xD5E8F7)], CGPointMake([d[0] doubleValue] + [d[2] doubleValue] / 2, [d[1] doubleValue] + 4), [d[2] doubleValue] * .55);
+    }
+    Fill([UIBezierPath bezierPathWithRect:CGRectMake(0, 33.5, 400, 2.5)], HX(0x4A7AA8, .3));
+    DrawSparkle(70, 10, 4.5, HX(0xFFFFFF, .95));
+    DrawSparkle(212, 8, 4, HX(0xFFFFFF, .9));
+    DrawSparkle(332, 13, 4.5, HX(0xBFE6FF, .95));
+}
+
 #pragma mark - Public API
 
 static NSCache<NSString *, UIImage *> *ArtCache(void) {
@@ -682,6 +788,14 @@ static UIImage *Rendered(NSString *key, CGSize size, CGFloat gw, CGFloat gh, voi
 
 + (UIImage *)floeWithSize:(CGSize)size {
     return Rendered(@"floe", size, 100, 30, ^(CGContextRef c) { DrawFloe(c); });
+}
+
++ (UIImage *)arcticBackdropWithSize:(CGSize)size {
+    return Rendered(@"backdrop", size, 400, 250, ^(CGContextRef c) { DrawBackdrop(c); });
+}
+
++ (UIImage *)snowCapWithSize:(CGSize)size {
+    return Rendered(@"snowcap", size, 400, 36, ^(CGContextRef c) { DrawSnowCap(c); });
 }
 
 + (void)purgeCache { [ArtCache() removeAllObjects]; }

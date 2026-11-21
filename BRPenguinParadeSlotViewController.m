@@ -86,6 +86,29 @@ static UIImage *PGParticleImage(BOOL coin) {
     }];
 }
 
+/// One soft six-arm flake for the ambient snowfall.
+static UIImage *PGSnowImage(void) {
+    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
+    format.scale = 2;
+    CGSize size = CGSizeMake(14, 14);
+    return [[[UIGraphicsImageRenderer alloc] initWithSize:size format:format] imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+        CGContextRef c = ctx.CGContext;
+        CGContextTranslateCTM(c, 7, 7);
+        [[UIColor colorWithWhite:1 alpha:.95] setStroke];
+        for (int k = 0; k < 3; k++) {
+            CGContextSaveGState(c);
+            CGContextRotateCTM(c, k * M_PI / 3);
+            UIBezierPath *arm = [UIBezierPath bezierPath];
+            [arm moveToPoint:CGPointMake(0, -5.5)]; [arm addLineToPoint:CGPointMake(0, 5.5)];
+            arm.lineWidth = 1.4; arm.lineCapStyle = kCGLineCapRound;
+            [arm stroke];
+            CGContextRestoreGState(c);
+        }
+        [UIColor.whiteColor setFill];
+        [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(-1.2, -1.2, 2.4, 2.4)] fill];
+    }];
+}
+
 #pragma mark - Gradient view
 
 @interface PGGradientView : UIView
@@ -94,6 +117,52 @@ static UIImage *PGParticleImage(BOOL coin) {
 @implementation PGGradientView
 + (Class)layerClass { return [CAGradientLayer class]; }
 - (CAGradientLayer *)gradientLayer { return (CAGradientLayer *)self.layer; }
+@end
+
+#pragma mark - Gradient button
+
+/// A button filled with a vertical gradient instead of a flat colour,
+/// with an optional glossy sheen across its top half and a small
+/// press-down scale while it is held.
+@interface PGControlButton : UIButton
+@property (nonatomic, strong) CAGradientLayer *fillGradient;
+@property (nonatomic, strong) CAGradientLayer *glossGradient;
+@end
+
+@implementation PGControlButton
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        _fillGradient = [CAGradientLayer layer];
+        _fillGradient.startPoint = CGPointMake(.5, 0);
+        _fillGradient.endPoint = CGPointMake(.5, 1);
+        [self.layer insertSublayer:_fillGradient atIndex:0];
+        _glossGradient = [CAGradientLayer layer];
+        _glossGradient.colors = @[(id)[UIColor colorWithWhite:1 alpha:.38].CGColor, (id)[UIColor colorWithWhite:1 alpha:0].CGColor];
+        _glossGradient.startPoint = CGPointMake(.5, 0);
+        _glossGradient.endPoint = CGPointMake(.5, 1);
+        _glossGradient.hidden = YES;
+        [self.layer insertSublayer:_glossGradient atIndex:1];
+    }
+    return self;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    self.fillGradient.frame = self.bounds;
+    self.fillGradient.cornerRadius = self.layer.cornerRadius;
+    self.glossGradient.frame = CGRectMake(0, 0, self.bounds.size.width, self.bounds.size.height * .55);
+    self.glossGradient.cornerRadius = self.layer.cornerRadius;
+}
+
+- (void)setHighlighted:(BOOL)highlighted {
+    [super setHighlighted:highlighted];
+    [UIView animateWithDuration:.14 animations:^{
+        self.transform = highlighted ? CGAffineTransformMakeScale(.965, .965) : CGAffineTransformIdentity;
+    }];
+}
+
 @end
 
 #pragma mark - Pay table sheet
@@ -184,8 +253,16 @@ static UIImage *PGParticleImage(BOOL coin) {
 @property (nonatomic, strong) BRPenguinParadeAudio *audio;
 @property (nonatomic, strong) BRSlotChatBar *chatBar;
 @property (nonatomic, strong) PGGradientView *background;
+@property (nonatomic, strong) UIImageView *sceneryView;          // code-drawn arctic backdrop behind the header
+@property (nonatomic, assign) CGFloat backdropWidth;            // width the backdrop was last rendered at
+@property (nonatomic, strong) CAEmitterLayer *snowEmitter;      // ambient snowfall over the whole screen
 @property (nonatomic, strong) UIScrollView *scroll;
 @property (nonatomic, strong) UILabel *balanceLabel, *winLabel, *bannerLabel, *messageLabel, *totalBetLabel;
+@property (nonatomic, strong) PGGradientView *infoCard;         // elevated card behind the balance / win blocks
+@property (nonatomic, strong) UIStackView *meterEggStack;       // the three golden eggs on the feature bar
+@property (nonatomic, strong) NSMutableArray<UIImageView *> *meterEggViews;
+@property (nonatomic, strong) UILabel *meterChevron;
+@property (nonatomic, strong) NSLayoutConstraint *bannerLeading, *bannerTrailing;
 @property (nonatomic, strong) UIView *machine;
 @property (nonatomic, strong) UIView *meterView, *meterFill;      // the oval egg meter above the reels
 @property (nonatomic, strong) CAGradientLayer *meterGradient;
@@ -256,6 +333,16 @@ static UIImage *PGParticleImage(BOOL coin) {
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     self.background.frame = self.view.bounds;
+    CGFloat width = self.view.bounds.size.width;
+    if (width > 10 && fabs(width - self.backdropWidth) > 1) {
+        self.backdropWidth = width;
+        // The scenery view bleeds 10pt past each edge so its parallax
+        // drift never uncovers a gap.
+        self.sceneryView.image = [BRPenguinParadeArt arcticBackdropWithSize:CGSizeMake(width + 20, 250)];
+    }
+    self.snowEmitter.frame = self.view.bounds;
+    self.snowEmitter.emitterPosition = CGPointMake(width / 2, -12);
+    self.snowEmitter.emitterSize = CGSizeMake(width, 2);
     [self layoutReelsIfNeeded];
     [self updateMeterAnimated:NO];
 }
@@ -320,18 +407,26 @@ static UIImage *PGParticleImage(BOOL coin) {
     [button setTitle:title forState:UIControlStateNormal];
     button.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack];
     button.tintColor = PGGold();
-    button.backgroundColor = [PGC(0x143A66) colorWithAlphaComponent:.96];
+    button.backgroundColor = [PGC(0x9FD8FF) colorWithAlphaComponent:.16];
     button.layer.cornerRadius = 9;
     button.layer.borderWidth = 1;
-    button.layer.borderColor = [PGGold() colorWithAlphaComponent:.72].CGColor;
+    button.layer.borderColor = [PGC(0xBFE6FF) colorWithAlphaComponent:.55].CGColor;
     button.contentEdgeInsets = UIEdgeInsetsMake(7, 10, 7, 10);
     [button sizeToFit];
+    // Frosted glass: a blur plate behind the title, clipped to the
+    // button's rounded corners.
+    button.clipsToBounds = YES;
+    UIVisualEffectView *frost = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark]];
+    frost.frame = button.bounds;
+    frost.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    frost.userInteractionEnabled = NO;
+    [button insertSubview:frost atIndex:0];
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
     return button;
 }
 
 - (UIButton *)controlButton:(NSString *)title color:(UIColor *)color action:(SEL)action {
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    PGControlButton *button = [PGControlButton buttonWithType:UIButtonTypeSystem];
     button.translatesAutoresizingMaskIntoConstraints = NO;
     button.titleLabel.numberOfLines = 2;
     button.titleLabel.textAlignment = NSTextAlignmentCenter;
@@ -339,28 +434,50 @@ static UIImage *PGParticleImage(BOOL coin) {
     [button setTitle:title forState:UIControlStateNormal];
     [button setTitleColor:PGGold() forState:UIControlStateNormal];
     [button setTitleColor:[UIColor colorWithWhite:1 alpha:.4] forState:UIControlStateDisabled];
-    button.backgroundColor = color;
+    // The flat colour becomes a mostly-solid vertical gradient: a
+    // lighter tint of it at the top, a deeper shade at the bottom.
+    CGFloat hue = 0, saturation = 0, brightness = 0, alpha = 1;
+    [color getHue:&hue saturation:&saturation brightness:&brightness alpha:&alpha];
+    UIColor *top = [UIColor colorWithHue:hue saturation:MAX(0, saturation - .08) brightness:MIN(1, brightness + .22) alpha:1];
+    UIColor *bottom = [UIColor colorWithHue:hue saturation:saturation brightness:MAX(0, brightness - .12) alpha:1];
+    button.fillGradient.colors = @[(id)top.CGColor, (id)color.CGColor, (id)bottom.CGColor];
+    button.backgroundColor = UIColor.clearColor;
     button.layer.cornerRadius = 14;
     button.layer.borderWidth = 1.5;
     button.layer.borderColor = [PGGold() colorWithAlphaComponent:.8].CGColor;
+    button.layer.shadowColor = UIColor.blackColor.CGColor;
+    button.layer.shadowOpacity = .35;
+    button.layer.shadowRadius = 6;
+    button.layer.shadowOffset = CGSizeMake(0, 3);
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
     return button;
 }
 
-- (UIView *)statBlockCaption:(NSString *)caption value:(UILabel *)value alignment:(NSTextAlignment)alignment {
+- (UIView *)statBlockCaption:(NSString *)caption value:(UILabel *)value alignment:(NSTextAlignment)alignment icon:(UIImage *)icon {
     UILabel *cap = [UILabel new];
     cap.text = caption;
     cap.font = [UIFont systemFontOfSize:10 weight:UIFontWeightHeavy];
     cap.textColor = [PGGold() colorWithAlphaComponent:.8];
     cap.textAlignment = alignment;
+    UIImageView *iconView = [[UIImageView alloc] initWithImage:icon];
+    iconView.contentMode = UIViewContentModeScaleAspectFit;
+    iconView.tintColor = PGGold();
+    iconView.translatesAutoresizingMaskIntoConstraints = NO;
+    [iconView.widthAnchor constraintEqualToConstant:15].active = YES;
+    [iconView.heightAnchor constraintEqualToConstant:15].active = YES;
+    UIStackView *capRow = [[UIStackView alloc] initWithArrangedSubviews:@[iconView, cap]];
+    capRow.axis = UILayoutConstraintAxisHorizontal;
+    capRow.spacing = 4;
+    capRow.alignment = UIStackViewAlignmentCenter;
     value.font = [UIFont monospacedDigitSystemFontOfSize:19 weight:UIFontWeightHeavy];
     value.textColor = UIColor.whiteColor;
     value.textAlignment = alignment;
     value.adjustsFontSizeToFitWidth = YES;
     value.minimumScaleFactor = .6;
-    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[cap, value]];
+    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[capRow, value]];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 1;
+    stack.alignment = alignment == NSTextAlignmentRight ? UIStackViewAlignmentTrailing : UIStackViewAlignmentLeading;
     return stack;
 }
 
@@ -389,6 +506,31 @@ static UIImage *PGParticleImage(BOOL coin) {
     content.translatesAutoresizingMaskIntoConstraints = NO;
     [self.scroll addSubview:content];
 
+    // The illustrated header: a code-drawn arctic backdrop (aurora,
+    // icebergs, a penguin) behind the title, balance card and meter.
+    // Its image is rendered at the real width in viewDidLayoutSubviews.
+    self.sceneryView = [UIImageView new];
+    self.sceneryView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.sceneryView.contentMode = UIViewContentModeScaleToFill;
+    self.sceneryView.userInteractionEnabled = NO;
+    UIInterpolatingMotionEffect *driftX = [[UIInterpolatingMotionEffect alloc] initWithKeyPath:@"center.x" type:UIInterpolatingMotionEffectTypeTiltAlongHorizontalAxis];
+    driftX.minimumRelativeValue = @(-6); driftX.maximumRelativeValue = @(6);
+    UIInterpolatingMotionEffect *driftY = [[UIInterpolatingMotionEffect alloc] initWithKeyPath:@"center.y" type:UIInterpolatingMotionEffectTypeTiltAlongVerticalAxis];
+    driftY.minimumRelativeValue = @(-4); driftY.maximumRelativeValue = @(4);
+    [self.sceneryView addMotionEffect:driftX];
+    [self.sceneryView addMotionEffect:driftY];
+
+    // A hard offset copy of the title behind the real one, so the
+    // lettering reads as extruded 3D type over the scenery.
+    UILabel *titleExtrusion = [UILabel new];
+    titleExtrusion.translatesAutoresizingMaskIntoConstraints = NO;
+    titleExtrusion.textAlignment = NSTextAlignmentCenter;
+    titleExtrusion.attributedText = [[NSAttributedString alloc] initWithString:@"PENGUIN PARADE" attributes:@{
+        NSFontAttributeName: [UIFont systemFontOfSize:34 weight:UIFontWeightHeavy],
+        NSForegroundColorAttributeName: PGC(0x0A2A52), NSKernAttributeName: @6}];
+    titleExtrusion.adjustsFontSizeToFitWidth = YES; titleExtrusion.minimumScaleFactor = .6;
+    titleExtrusion.userInteractionEnabled = NO;
+
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
     title.textAlignment = NSTextAlignmentCenter;
@@ -407,11 +549,26 @@ static UIImage *PGParticleImage(BOOL coin) {
 
     self.balanceLabel = [UILabel new];
     self.winLabel = [UILabel new];
-    UIView *balanceBlock = [self statBlockCaption:PGLoc(@"BRSlot.PG.Balance", @"BALANCE") value:self.balanceLabel alignment:NSTextAlignmentLeft];
-    UIView *winBlock = [self statBlockCaption:PGLoc(@"BRSlot.PG.Win", @"WIN") value:self.winLabel alignment:NSTextAlignmentRight];
+    UIView *balanceBlock = [self statBlockCaption:PGLoc(@"BRSlot.PG.Balance", @"BALANCE") value:self.balanceLabel alignment:NSTextAlignmentLeft icon:PGParticleImage(YES)];
+    UIView *winBlock = [self statBlockCaption:PGLoc(@"BRSlot.PG.Win", @"WIN") value:self.winLabel alignment:NSTextAlignmentRight icon:[UIImage systemImageNamed:@"crown.fill"]];
     UIStackView *info = [[UIStackView alloc] initWithArrangedSubviews:@[balanceBlock, winBlock]];
     info.translatesAutoresizingMaskIntoConstraints = NO;
     info.distribution = UIStackViewDistributionFillEqually;
+    // Balance and win live on one elevated card: deep-blue gradient
+    // fill, a gold rim and a soft gold glow under it.
+    self.infoCard = [[PGGradientView alloc] init];
+    self.infoCard.translatesAutoresizingMaskIntoConstraints = NO;
+    self.infoCard.gradientLayer.colors = @[(id)PGC(0x16406E).CGColor, (id)PGC(0x0A2344).CGColor];
+    self.infoCard.gradientLayer.startPoint = CGPointMake(.5, 0);
+    self.infoCard.gradientLayer.endPoint = CGPointMake(.5, 1);
+    self.infoCard.layer.cornerRadius = 16;
+    self.infoCard.layer.borderWidth = 1.5;
+    self.infoCard.layer.borderColor = [PGGold() colorWithAlphaComponent:.55].CGColor;
+    self.infoCard.layer.shadowColor = PGGold().CGColor;
+    self.infoCard.layer.shadowOpacity = .35;
+    self.infoCard.layer.shadowRadius = 12;
+    self.infoCard.layer.shadowOffset = CGSizeMake(0, 4);
+    [self.infoCard addSubview:info];
 
     self.bannerLabel = [UILabel new];
     self.bannerLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -441,12 +598,47 @@ static UIImage *PGParticleImage(BOOL coin) {
     self.meterGradient.startPoint = CGPointMake(0, .5); self.meterGradient.endPoint = CGPointMake(1, .5);
     [self.meterFill.layer addSublayer:self.meterGradient];
     [self.meterView addSubview:self.meterFill];
+    // Three golden eggs and a chevron dress the bar in its idle state;
+    // refreshBanner hides them and gives the label the full width
+    // whenever the bar is carrying free-spin or meter news instead.
+    self.meterEggViews = [NSMutableArray array];
+    NSMutableArray *eggViews = [NSMutableArray array];
+    for (int i = 0; i < 3; i++) {
+        UIImageView *egg = [[UIImageView alloc] initWithImage:[BRPenguinParadeArt imageForSymbol:PGSymbolEgg size:CGSizeMake(20, 20)]];
+        egg.contentMode = UIViewContentModeScaleAspectFit;
+        egg.layer.shadowColor = PGC(0xFFD86B).CGColor;
+        egg.layer.shadowOpacity = .9;
+        egg.layer.shadowRadius = 5;
+        egg.layer.shadowOffset = CGSizeZero;
+        [egg.widthAnchor constraintEqualToConstant:20].active = YES;
+        [egg.heightAnchor constraintEqualToConstant:20].active = YES;
+        [self.meterEggViews addObject:egg];
+        [eggViews addObject:egg];
+    }
+    self.meterEggStack = [[UIStackView alloc] initWithArrangedSubviews:eggViews];
+    self.meterEggStack.translatesAutoresizingMaskIntoConstraints = NO;
+    self.meterEggStack.axis = UILayoutConstraintAxisHorizontal;
+    self.meterEggStack.spacing = 3;
+    self.meterEggStack.alignment = UIStackViewAlignmentCenter;
+    [self.meterView addSubview:self.meterEggStack];
+    self.meterChevron = [UILabel new];
+    self.meterChevron.translatesAutoresizingMaskIntoConstraints = NO;
+    self.meterChevron.text = @"›";
+    self.meterChevron.font = [UIFont systemFontOfSize:20 weight:UIFontWeightHeavy];
+    self.meterChevron.textColor = [PGGold() colorWithAlphaComponent:.8];
+    [self.meterView addSubview:self.meterChevron];
     [self.meterView addSubview:self.bannerLabel];
+    self.bannerLeading = [self.bannerLabel.leadingAnchor constraintEqualToAnchor:self.meterView.leadingAnchor constant:18];
+    self.bannerTrailing = [self.bannerLabel.trailingAnchor constraintEqualToAnchor:self.meterView.trailingAnchor constant:-18];
     [NSLayoutConstraint activateConstraints:@[
-        [self.bannerLabel.leadingAnchor constraintEqualToAnchor:self.meterView.leadingAnchor constant:18],
-        [self.bannerLabel.trailingAnchor constraintEqualToAnchor:self.meterView.trailingAnchor constant:-18],
+        self.bannerLeading,
+        self.bannerTrailing,
         [self.bannerLabel.topAnchor constraintEqualToAnchor:self.meterView.topAnchor],
         [self.bannerLabel.bottomAnchor constraintEqualToAnchor:self.meterView.bottomAnchor],
+        [self.meterEggStack.leadingAnchor constraintEqualToAnchor:self.meterView.leadingAnchor constant:12],
+        [self.meterEggStack.centerYAnchor constraintEqualToAnchor:self.meterView.centerYAnchor],
+        [self.meterChevron.trailingAnchor constraintEqualToAnchor:self.meterView.trailingAnchor constant:-12],
+        [self.meterChevron.centerYAnchor constraintEqualToAnchor:self.meterView.centerYAnchor],
     ]];
 
     // Cabinet
@@ -470,9 +662,9 @@ static UIImage *PGParticleImage(BOOL coin) {
     for (int r = 0; r < PG_REELS; r++) {
         UIView *reel = [UIView new];
         reel.clipsToBounds = YES;
-        reel.layer.cornerRadius = 6;
-        reel.layer.borderWidth = 1;
-        reel.layer.borderColor = [PGGold() colorWithAlphaComponent:.6].CGColor;
+        reel.layer.cornerRadius = 8;
+        reel.layer.borderWidth = 1.5;
+        reel.layer.borderColor = [PGC(0x9FD8FF) colorWithAlphaComponent:.85].CGColor;
         PGGradientView *paper = [[PGGradientView alloc] initWithFrame:CGRectZero];
         paper.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         paper.gradientLayer.colors = @[(id)PGC(0xF4FAFF).CGColor, (id)PGC(0xD5E8F7).CGColor];
@@ -516,6 +708,34 @@ static UIImage *PGParticleImage(BOOL coin) {
     self.totalBetLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightHeavy];
     self.totalBetLabel.textColor = [PGGold() colorWithAlphaComponent:.85];
 
+    // The result line and the total-bet line sit on one frosted panel
+    // under the cabinet.
+    UIView *messagePanel = [UIView new];
+    messagePanel.translatesAutoresizingMaskIntoConstraints = NO;
+    messagePanel.layer.cornerRadius = 14;
+    messagePanel.layer.borderWidth = 1;
+    messagePanel.layer.borderColor = [PGC(0x9FD8FF) colorWithAlphaComponent:.3].CGColor;
+    messagePanel.clipsToBounds = YES;
+    UIVisualEffectView *panelFrost = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark]];
+    panelFrost.translatesAutoresizingMaskIntoConstraints = NO;
+    panelFrost.contentView.backgroundColor = [PGC(0x0A2344) colorWithAlphaComponent:.35];
+    [messagePanel addSubview:panelFrost];
+    [messagePanel addSubview:self.messageLabel];
+    [messagePanel addSubview:self.totalBetLabel];
+    [NSLayoutConstraint activateConstraints:@[
+        [panelFrost.leadingAnchor constraintEqualToAnchor:messagePanel.leadingAnchor],
+        [panelFrost.trailingAnchor constraintEqualToAnchor:messagePanel.trailingAnchor],
+        [panelFrost.topAnchor constraintEqualToAnchor:messagePanel.topAnchor],
+        [panelFrost.bottomAnchor constraintEqualToAnchor:messagePanel.bottomAnchor],
+        [self.messageLabel.topAnchor constraintEqualToAnchor:messagePanel.topAnchor constant:8],
+        [self.messageLabel.leadingAnchor constraintEqualToAnchor:messagePanel.leadingAnchor constant:14],
+        [self.messageLabel.trailingAnchor constraintEqualToAnchor:messagePanel.trailingAnchor constant:-14],
+        [self.totalBetLabel.topAnchor constraintEqualToAnchor:self.messageLabel.bottomAnchor constant:2],
+        [self.totalBetLabel.leadingAnchor constraintEqualToAnchor:messagePanel.leadingAnchor constant:14],
+        [self.totalBetLabel.trailingAnchor constraintEqualToAnchor:messagePanel.trailingAnchor constant:-14],
+        [self.totalBetLabel.bottomAnchor constraintEqualToAnchor:messagePanel.bottomAnchor constant:-8],
+    ]];
+
     UIColor *deepRed = PGC(0x14487F);
     self.linesButton = [self controlButton:@"" color:deepRed action:@selector(cycleLines)];
     self.betButton = [self controlButton:@"" color:deepRed action:@selector(cycleBet)];
@@ -525,16 +745,48 @@ static UIImage *PGParticleImage(BOOL coin) {
     controls.axis = UILayoutConstraintAxisHorizontal;
     controls.distribution = UIStackViewDistributionFillEqually;
     controls.spacing = 10;
-    self.spinButton = [self controlButton:PGLoc(@"BRSlot.PG.Spin", @"SPIN") color:PGC(0x1E8FE0) action:@selector(spinTapped)];
+    self.spinButton = [self controlButton:PGLoc(@"BRSlot.PG.Spin", @"SPIN") color:PGC(0x1FA055) action:@selector(spinTapped)];
     self.spinButton.titleLabel.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
     self.spinButton.layer.borderWidth = 2.5;
+    // Spin is the hero control: a glossy sheen across its top half and
+    // a green glow in place of the plain drop shadow.
+    ((PGControlButton *)self.spinButton).glossGradient.hidden = NO;
+    self.spinButton.layer.shadowColor = PGC(0x2BD97B).CGColor;
+    self.spinButton.layer.shadowOpacity = .5;
+    self.spinButton.layer.shadowRadius = 16;
+    self.spinButton.layer.shadowOffset = CGSizeMake(0, 4);
     UILongPressGestureRecognizer *forceBonusHold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(forceBonusHold:)];
     forceBonusHold.minimumPressDuration = 10.0;
     forceBonusHold.cancelsTouchesInView = YES;
     [self.spinButton addGestureRecognizer:forceBonusHold];
 
-    [content addSubview:title]; [content addSubview:subtitle]; [content addSubview:info]; [content addSubview:self.meterView];
-    [content addSubview:self.machine]; [content addSubview:self.messageLabel]; [content addSubview:self.totalBetLabel];
+    // Snow settled along the cabinet's top edge, and a decorative
+    // arrow at each side of the reels. Neither takes touches.
+    UIImageView *snowCap = [[UIImageView alloc] initWithImage:[BRPenguinParadeArt snowCapWithSize:CGSizeMake(400, 36)]];
+    snowCap.translatesAutoresizingMaskIntoConstraints = NO;
+    snowCap.contentMode = UIViewContentModeScaleToFill;
+    snowCap.userInteractionEnabled = NO;
+    UILabel *leftArrow = [UILabel new];
+    leftArrow.translatesAutoresizingMaskIntoConstraints = NO;
+    leftArrow.text = @"◀";
+    leftArrow.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
+    leftArrow.textColor = [PGGold() colorWithAlphaComponent:.8];
+    leftArrow.shadowColor = [UIColor colorWithWhite:0 alpha:.6];
+    leftArrow.shadowOffset = CGSizeMake(0, 1);
+    leftArrow.userInteractionEnabled = NO;
+    UILabel *rightArrow = [UILabel new];
+    rightArrow.translatesAutoresizingMaskIntoConstraints = NO;
+    rightArrow.text = @"▶";
+    rightArrow.font = [UIFont systemFontOfSize:15 weight:UIFontWeightHeavy];
+    rightArrow.textColor = [PGGold() colorWithAlphaComponent:.8];
+    rightArrow.shadowColor = [UIColor colorWithWhite:0 alpha:.6];
+    rightArrow.shadowOffset = CGSizeMake(0, 1);
+    rightArrow.userInteractionEnabled = NO;
+
+    [content addSubview:self.sceneryView]; [content addSubview:titleExtrusion]; [content addSubview:title]; [content addSubview:subtitle];
+    [content addSubview:self.infoCard]; [content addSubview:self.meterView];
+    [content addSubview:self.machine]; [content addSubview:snowCap]; [content addSubview:leftArrow]; [content addSubview:rightArrow];
+    [content addSubview:messagePanel];
     [content addSubview:controls]; [content addSubview:self.spinButton];
 
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
@@ -549,16 +801,27 @@ static UIImage *PGParticleImage(BOOL coin) {
         [content.trailingAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.trailingAnchor],
         [content.widthAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.widthAnchor],
 
+        [self.sceneryView.topAnchor constraintEqualToAnchor:content.topAnchor],
+        [self.sceneryView.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:-10],
+        [self.sceneryView.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:10],
+        [self.sceneryView.heightAnchor constraintEqualToConstant:250],
+        [titleExtrusion.topAnchor constraintEqualToAnchor:content.topAnchor constant:9],
+        [titleExtrusion.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
+        [titleExtrusion.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
         [title.topAnchor constraintEqualToAnchor:content.topAnchor constant:6],
         [title.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
         [title.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
         [subtitle.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:0],
         [subtitle.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
         [subtitle.trailingAnchor constraintEqualToAnchor:title.trailingAnchor],
-        [info.topAnchor constraintEqualToAnchor:subtitle.bottomAnchor constant:10],
-        [info.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:22],
-        [info.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-22],
-        [self.meterView.topAnchor constraintEqualToAnchor:info.bottomAnchor constant:10],
+        [self.infoCard.topAnchor constraintEqualToAnchor:subtitle.bottomAnchor constant:10],
+        [self.infoCard.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
+        [self.infoCard.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
+        [info.topAnchor constraintEqualToAnchor:self.infoCard.topAnchor constant:10],
+        [info.bottomAnchor constraintEqualToAnchor:self.infoCard.bottomAnchor constant:-10],
+        [info.leadingAnchor constraintEqualToAnchor:self.infoCard.leadingAnchor constant:14],
+        [info.trailingAnchor constraintEqualToAnchor:self.infoCard.trailingAnchor constant:-14],
+        [self.meterView.topAnchor constraintEqualToAnchor:self.infoCard.bottomAnchor constant:10],
         [self.meterView.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
         [self.meterView.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
         [self.meterView.heightAnchor constraintEqualToConstant:44],
@@ -569,14 +832,19 @@ static UIImage *PGParticleImage(BOOL coin) {
         [reelStack.bottomAnchor constraintEqualToAnchor:self.machine.bottomAnchor constant:-12],
         [reelStack.leadingAnchor constraintEqualToAnchor:self.machine.leadingAnchor constant:12],
         [reelStack.trailingAnchor constraintEqualToAnchor:self.machine.trailingAnchor constant:-12],
-        [self.messageLabel.topAnchor constraintEqualToAnchor:self.machine.bottomAnchor constant:10],
-        [self.messageLabel.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:18],
-        [self.messageLabel.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-18],
+        [snowCap.leadingAnchor constraintEqualToAnchor:self.machine.leadingAnchor constant:-4],
+        [snowCap.trailingAnchor constraintEqualToAnchor:self.machine.trailingAnchor constant:4],
+        [snowCap.bottomAnchor constraintEqualToAnchor:self.machine.topAnchor constant:12],
+        [snowCap.heightAnchor constraintEqualToConstant:20],
+        [leftArrow.centerYAnchor constraintEqualToAnchor:self.machine.centerYAnchor],
+        [leftArrow.centerXAnchor constraintEqualToAnchor:self.machine.leadingAnchor constant:2],
+        [rightArrow.centerYAnchor constraintEqualToAnchor:self.machine.centerYAnchor],
+        [rightArrow.centerXAnchor constraintEqualToAnchor:self.machine.trailingAnchor constant:-2],
+        [messagePanel.topAnchor constraintEqualToAnchor:self.machine.bottomAnchor constant:10],
+        [messagePanel.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
+        [messagePanel.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
         [self.messageLabel.heightAnchor constraintGreaterThanOrEqualToConstant:36],
-        [self.totalBetLabel.topAnchor constraintEqualToAnchor:self.messageLabel.bottomAnchor constant:2],
-        [self.totalBetLabel.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:18],
-        [self.totalBetLabel.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-18],
-        [controls.topAnchor constraintEqualToAnchor:self.totalBetLabel.bottomAnchor constant:8],
+        [controls.topAnchor constraintEqualToAnchor:messagePanel.bottomAnchor constant:8],
         [controls.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
         [controls.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
         [controls.heightAnchor constraintEqualToConstant:52],
@@ -586,6 +854,28 @@ static UIImage *PGParticleImage(BOOL coin) {
         [self.spinButton.heightAnchor constraintEqualToConstant:56],
         [self.spinButton.bottomAnchor constraintEqualToAnchor:content.bottomAnchor constant:-18],
     ]];
+
+    // Ambient snowfall over the whole screen, kept gentle: a few
+    // small flakes drifting down with a slight sideways wander. It is
+    // a layer, so it never intercepts touches, and it sits above the
+    // scroll content but below any overlay added later.
+    self.snowEmitter = [CAEmitterLayer layer];
+    self.snowEmitter.emitterShape = kCAEmitterLayerLine;
+    self.snowEmitter.renderMode = kCAEmitterLayerUnordered;
+    CAEmitterCell *flake = [CAEmitterCell emitterCell];
+    flake.contents = (id)PGSnowImage().CGImage;
+    flake.birthRate = 5;
+    flake.lifetime = 16; flake.lifetimeRange = 4;
+    flake.velocity = 34; flake.velocityRange = 18;
+    flake.emissionLongitude = M_PI_2; flake.emissionRange = .35;
+    flake.yAcceleration = 10;
+    flake.xAcceleration = 2;
+    flake.spin = 1; flake.spinRange = 2;
+    flake.scale = .8; flake.scaleRange = .45;
+    flake.alphaRange = .35; flake.alphaSpeed = -.02;
+    self.snowEmitter.emitterCells = @[flake];
+    [self.view.layer addSublayer:self.snowEmitter];
+
     [self refreshBanner];
 }
 
@@ -701,10 +991,43 @@ static UIImage *PGParticleImage(BOOL coin) {
         NSString *mult = _bonusMult > 0 ? [NSString stringWithFormat:@"%ld", (long)_bonusMult] : @"?";
         self.bannerLabel.text = [NSString stringWithFormat:PGLoc(@"BRSlot.PG.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, PGNum(_bonusTotal)];
         self.bannerLabel.textColor = PGC(0xFFE48F);
+        // The free-spin readout needs the whole bar.
+        self.meterEggStack.hidden = YES;
+        self.meterChevron.hidden = YES;
+        self.bannerLeading.constant = 18;
+        self.bannerTrailing.constant = -18;
+        for (UIImageView *egg in self.meterEggViews) [egg.layer removeAnimationForKey:@"pgEggShine"];
     } else {
         self.bannerLabel.text = PGLoc(@"BRSlot.PG.Hint", @"3 golden eggs triggers bonus game");
         self.bannerLabel.textColor = PGGold();
+        self.meterEggStack.hidden = NO;
+        self.meterChevron.hidden = NO;
+        self.bannerLeading.constant = 86;
+        self.bannerTrailing.constant = -32;
+        // A slow shine rolling across the three eggs, one after another.
+        for (NSUInteger i = 0; i < self.meterEggViews.count; i++) {
+            CALayer *layer = self.meterEggViews[i].layer;
+            if ([layer animationForKey:@"pgEggShine"]) continue;
+            CABasicAnimation *shine = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+            shine.fromValue = @1; shine.toValue = @1.18;
+            shine.duration = .55; shine.autoreverses = YES; shine.repeatCount = HUGE_VALF;
+            shine.beginTime = CACurrentMediaTime() + i * .16;
+            [layer addAnimation:shine forKey:@"pgEggShine"];
+        }
     }
+}
+
+/// A springy pop on the win figure and a flash of the card's glow
+/// whenever a win lands.
+- (void)pulseWin {
+    self.winLabel.transform = CGAffineTransformMakeScale(1.25, 1.25);
+    [UIView animateWithDuration:.45 delay:0 usingSpringWithDamping:.4 initialSpringVelocity:.6 options:0 animations:^{
+        self.winLabel.transform = CGAffineTransformIdentity;
+    } completion:nil];
+    CABasicAnimation *glow = [CABasicAnimation animationWithKeyPath:@"shadowOpacity"];
+    glow.fromValue = @.35; glow.toValue = @.95;
+    glow.duration = .22; glow.autoreverses = YES; glow.repeatCount = 1;
+    [self.infoCard.layer addAnimation:glow forKey:@"pgWinGlow"];
 }
 
 - (void)setMessage:(NSString *)text highlight:(BOOL)highlight {
@@ -1430,6 +1753,7 @@ static NSArray<UIColor *> *PGLineColors(void) {
     }
     [self.audio playWinForPayoutRatio:(double)payout / (double)MAX(1, lines * bet)];
     [self countLabel:self.winLabel from:0 to:payout duration:0.9 formatter:^NSString *(NSInteger v) { return PGNum(v); }];
+    [self pulseWin];
     [self countLabel:self.balanceLabel from:fromBalance to:balance duration:0.9 formatter:^NSString *(NSInteger v) {
         return [NSString stringWithFormat:PGLoc(@"BRSlot.Balance.Value", @"🪙 %ld EZ Coins"), (long)v];
     }];
