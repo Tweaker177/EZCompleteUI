@@ -30,7 +30,7 @@
 //   max_tokens}), and response parsing ({result: string}) to match ez-helper API
 // - NSCParameterAssert on jwtToken retained — a missing JWT is still a programming
 //   error (caller should guard before calling into the pipeline)
-
+#import <UIKit/UIKit.h>
 #import "helpers.h"   // Import our own header so the compiler can verify we
                       // implement everything that was promised there.
 #import "EZAuthManager.h"
