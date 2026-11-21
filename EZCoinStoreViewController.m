@@ -605,6 +605,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, strong) NSArray<EZStoreItem *>  *items;
 
+@property (nonatomic, assign) NSInteger               visibleSubscriptionCount; // subscriptions at the head of items; the rest are top-ups
+
 @property (nonatomic, strong) UIImage                 *coinImage;
 
 @property (nonatomic, strong) NSString                *pendingPurchaseType;  // @"subscription" or @"topup"
@@ -1072,6 +1074,17 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     }
     self.items = [visible copy];
 
+    // The visible list is subscriptions first, then top-ups (build
+    // order, kept by the filter). The table's two sections split the
+    // list at this count, so the sections must be measured from the
+    // filtered list itself — a fixed split puts top-ups under the
+    // Subscriptions header whenever the trim hides a tier.
+    NSInteger subscriptionCount = 0;
+    for (EZStoreItem *item in visible) {
+        if (item.type == EZStoreItemTypeSubscription) subscriptionCount++;
+    }
+    self.visibleSubscriptionCount = subscriptionCount;
+
 }
 
 // ── UI Setup ──────────────────────────────────────────────────────────────────
@@ -1351,9 +1364,9 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
 
-    if (section == 0) return 6; // subscription tiers
+    if (section == 0) return self.visibleSubscriptionCount; // subscription tiers
 
-    return 5;                   // top-up packages
+    return (NSInteger)self.items.count - self.visibleSubscriptionCount; // top-up packages
 
 }
 
@@ -1421,7 +1434,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
                                                         forIndexPath:indexPath];
 
-    NSInteger itemIndex = indexPath.section == 0 ? indexPath.row : 6 + indexPath.row;
+    NSInteger itemIndex = indexPath.section == 0 ? indexPath.row : self.visibleSubscriptionCount + indexPath.row;
 
     if (itemIndex < (NSInteger)self.items.count) {
 
