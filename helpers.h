@@ -3,7 +3,7 @@
 //
 // Replacement header focused on safer routing, saner memory metadata,
 // and backwards-compatible decoding of legacy memory entries.
-
+#import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
