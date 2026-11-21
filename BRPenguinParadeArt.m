@@ -600,8 +600,7 @@ static void DrawFloe(CGContextRef c) {
 #pragma mark - Header scenery
 
 /// The arctic header backdrop on a 400 x 250 grid: night sky, stars, a
-/// moon, three aurora ribbons, layered icebergs and a penguin standing
-/// on the right-hand berg, all above a snowy shore.
+/// moon, three aurora ribbons and layered icebergs above a snowy shore.
 static void DrawBackdrop(CGContextRef c) {
     // Sky.
     UIBezierPath *sky = [UIBezierPath bezierPathWithRect:CGRectMake(0, 0, 400, 250)];
@@ -641,6 +640,10 @@ static void DrawBackdrop(CGContextRef c) {
                        CGPointMake(200, y0 - 14), CGPointMake(200, y0 + 50));
         }
     }
+    // Raise the bergs into the visible header. The balance and feature
+    // cards cover much of the lower backdrop on compact screens.
+    CGContextSaveGState(c);
+    CGContextTranslateCTM(c, 0, -55);
     // Distant berg, centre-left, kept dark so it sits behind the others.
     UIBezierPath *far = [UIBezierPath bezierPath];
     [far moveToPoint:CGPointMake(84, 250)]; [far addLineToPoint:CGPointMake(112, 178)];
@@ -670,12 +673,9 @@ static void DrawBackdrop(CGContextRef c) {
     [rightRidge addLineToPoint:CGPointMake(344, 166)]; [rightRidge addLineToPoint:CGPointMake(378, 158)];
     [rightRidge addLineToPoint:CGPointMake(406, 192)];
     Stroke(rightRidge, HX(0xFFFFFF, .95), 3.5);
-    // The penguin, feet planted on the ridge between the two peaks.
-    CGContextSaveGState(c);
-    CGContextTranslateCTM(c, 297, 90);
-    CGContextScaleCTM(c, .56, .56);
-    DrawPenguinFront(c, 0xE0191F, NO);
     CGContextRestoreGState(c);
+    // The header has its own foreground penguin; avoid a second, partially
+    // obscured penguin behind the feature meter.
     // Snowy shore along the bottom.
     UIBezierPath *sea = [UIBezierPath bezierPathWithRect:CGRectMake(0, 216, 400, 34)];
     LinearFill(c, sea, @[HX(0x1E6FB0, .55), HX(0x041226, .95)], CGPointMake(200, 216), CGPointMake(200, 250));
