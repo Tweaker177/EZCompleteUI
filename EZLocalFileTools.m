@@ -1,6 +1,7 @@
 #import "EZLocalFileTools.h"
 #import "helpers.h"
 #import <PDFKit/PDFKit.h>
+#import <ImageIO/ImageIO.h>
 
 /// Text files are sent to the model in full up to this many characters
 /// (the same ceiling the GitHub tool uses). Over it, the model gets the
@@ -136,7 +137,14 @@ static NSArray<NSString *> *EZLocalFileRootNames(void) {
 }
 
 + (NSDictionary *)textResult:(NSString *)header body:(NSString *)body {
-    return @{ @"kind": @"text", @"text": [self framed:header body:body] };
+    // Every text result passes through the base64 redactor before it
+    // is framed: a text file can carry an encoded image (a .b64 file,
+    // a data: URL inside JSON or HTML) and its bytes decode as text,
+    // so content classification alone would hand the model page after
+    // page of base64. The redactor collapses only the blobs — data:
+    // URLs, long runs, line-wrapped blocks — to a short marker with
+    // the size; ordinary text returns complete and untouched.
+    return @{ @"kind": @"text", @"text": [self framed:header body:EZBase64RedactedString(body)] };
 }
 
 + (NSDictionary *)outsideResult:(NSString *)what {
@@ -424,11 +432,32 @@ static NSArray<NSString *> *EZLocalFileRootNames(void) {
             return [self textResult:header body:[NSString stringWithFormat:
                 @"[Local file: %@ — %llu bytes]\nThis image is too large to send as image context, so it was not attached.", displayName, byteSize]];
         }
-        return @{ @"kind": @"image",
+        // Pixel dimensions from the image header alone (no full
+        // decode), so the text result can identify the image fully:
+        // name, format, size, dimensions.
+        NSString *dimensions = nil;
+        CGImageSourceRef source = CGImageSourceCreateWithData((__bridge CFDataRef)data, NULL);
+        if (source) {
+            CFDictionaryRef props = CGImageSourceCopyPropertiesAtIndex(source, 0, NULL);
+            if (props) {
+                CFNumberRef w = CFDictionaryGetValue(props, kCGImagePropertyPixelWidth);
+                CFNumberRef h = CFDictionaryGetValue(props, kCGImagePropertyPixelHeight);
+                long width = 0, height = 0;
+                if (w && h && CFNumberGetValue(w, kCFNumberLongType, &width) &&
+                    CFNumberGetValue(h, kCFNumberLongType, &height) && width > 0 && height > 0) {
+                    dimensions = [NSString stringWithFormat:@"%ld × %ld", width, height];
+                }
+                CFRelease(props);
+            }
+            CFRelease(source);
+        }
+        NSMutableDictionary *imageResult = [@{ @"kind": @"image",
                   @"fileName": displayName,
                   @"data": data,
                   @"extension": [self isImageExtension:ext] ? ext : sniffedImageExt,
-                  @"byteSize": @(byteSize) };
+                  @"byteSize": @(byteSize) } mutableCopy];
+        if (dimensions) imageResult[@"dimensions"] = dimensions;
+        return [imageResult copy];
     }
 
     if ([self isPDFData:data]) {
