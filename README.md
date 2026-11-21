@@ -5,6 +5,11 @@ EZCompleteUI is a native iOS AI workspace built with Objective-C and Theos. It c
 EZCompleteUI targets iOS 15.0 and later. See [CHANGELOG.md](CHANGELOG.md) for
 release notes.
 
+## Website
+
+[ezcompleteai.wordpress.com](https://ezcompleteai.wordpress.com) — subscription
+plans and coin top-ups, FAQ, privacy policy, and terms of service.
+
 ## Install
 
 - **AltStore / SideStore:** add the source
