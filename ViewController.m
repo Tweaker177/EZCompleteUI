@@ -1634,6 +1634,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
            @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
            @"gpt-4o", @"gpt-4o-mini",
            // ── Image Generation & Edit ───────────────────────────────────────
+           @"gpt-image-2.6-sunburst", // precision image editing — low/medium/high/xhigh/max + complexity, GIF
+           @"gpt-image-2.6-flare",    // newest, fastest — low/medium/high/xhigh/max + complexity, GIF
            @"gpt-image-2.5-sunburst", // recommended precision image editing — low/medium/high/xhigh/max
            @"gpt-image-2.5-flare",    // newest, fastest — low/medium/high/xhigh/max
            @"gpt-image-2",          // low/medium/high only
@@ -5909,8 +5911,14 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     NSString *imgQuality = [d stringForKey:@"imgQuality"]    ?: @"auto";
     NSString *imgFormat  = [d stringForKey:@"imgFormat"]     ?: @"png";
     NSString *imgBg      = [d stringForKey:@"imgBackground"] ?: @"auto";
-    NSString *imgExtension = [imgFormat isEqualToString:@"jpeg"] ? @"jpg" : imgFormat;
     NSString *imgModel   = imageModel;
+    BOOL isImage26 = [imgModel isEqualToString:@"gpt-image-2.6-flare"] ||
+                     [imgModel isEqualToString:@"gpt-image-2.6-sunburst"];
+    // GIF output exists only on the 2.6 models — a GIF left selected
+    // from a 2.6 session falls back to PNG on anything else instead of
+    // failing at the server.
+    if ([imgFormat isEqualToString:@"gif"] && !isImage26) imgFormat = @"png";
+    NSString *imgExtension = [imgFormat isEqualToString:@"jpeg"] ? @"jpg" : imgFormat;
     NSInteger imgN = [d integerForKey:@"imgVariations"];
     if (imgN < 1 || imgN > 4) imgN = 1;
 
@@ -5926,6 +5934,15 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         @"output_format": imgFormat,
         @"background":    imgBg,
     } mutableCopy];
+
+    // Complexity is a 2.6-only axis — how much the model plans before
+    // drawing, independent of quality. Default high, the API's own
+    // default when the key is omitted.
+    if (isImage26) {
+        NSString *imgComplexity = [d stringForKey:@"imgComplexity"] ?: @"high";
+        if (![@[@"high", @"medium", @"low"] containsObject:imgComplexity]) imgComplexity = @"high";
+        body[@"complexity"] = imgComplexity;
+    }
 
     NSString *savedPrompt = prompt;
     [self showImageGenStatusBanner];
@@ -6653,13 +6670,14 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     NSString *editFmt  = [d stringForKey:@"imgFormat"]      ?: @"png";
     NSString *editBg   = [d stringForKey:@"imgBackground"]  ?: @"auto";
     NSString *editMod  = [d stringForKey:@"imgModeration"]  ?: @"low";
+    if ([editFmt isEqualToString:@"gif"]) editFmt = @"png"; // edits are stills — GIF is generate-only
     NSString *editExtension = [editFmt isEqualToString:@"jpeg"] ? @"jpg" : editFmt;
     NSInteger editN    = [d integerForKey:@"imgVariations"];
     if (editN < 1 || editN > 4) editN = 1;
 
     NSString *b64Image = [pngData base64EncodedStringWithOptions:0];
 
-    NSDictionary *body = @{
+    NSMutableDictionary *body = [@{
         @"action":        @"edit",
         // Was hardcoded to gpt-image-1 regardless of what the user picked —
         // now sends whatever enterImageEditModeFromCurrentSelection
@@ -6673,7 +6691,15 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         @"output_format": editFmt,
         @"background":    editBg,
         @"moderation":    editMod,
-    };
+    } mutableCopy];
+
+    // Complexity rides along on the 2.6 models (see callGptImage1).
+    if ([imageModel isEqualToString:@"gpt-image-2.6-flare"] ||
+        [imageModel isEqualToString:@"gpt-image-2.6-sunburst"]) {
+        NSString *editComplexity = [d stringForKey:@"imgComplexity"] ?: @"high";
+        if (![@[@"high", @"medium", @"low"] containsObject:editComplexity]) editComplexity = @"high";
+        body[@"complexity"] = editComplexity;
+    }
 
     [self showImageGenStatusBanner];
     [self updateImageGenerationProgress:0.14]; // edit request accepted locally

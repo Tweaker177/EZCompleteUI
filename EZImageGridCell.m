@@ -4,6 +4,7 @@
 
 #import "EZImageGridCell.h"
 #import "EZPhotoGalleryViewController.h"
+#import "helpers.h"
 #import "BrainRotViewController.h"
 
 // ── Layout constants ──────────────────────────────────────────────────────────
@@ -407,7 +408,7 @@ static CGFloat const kIGCCardPad     = 16.0;  // left/right margin from cell edg
         // Load image async
         NSString *path = paths[(NSUInteger)i];
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-            UIImage *img = [UIImage imageWithContentsOfFile:path];
+            UIImage *img = EZImageFromFilePath(path);
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (iv.tag == i) iv.image = img;
             });
@@ -501,7 +502,7 @@ static CGFloat const kIGCCardPad     = 16.0;  // left/right margin from cell edg
 - (void)imageTapped:(UITapGestureRecognizer *)tap {
     NSInteger idx = tap.view.tag;
     if (idx >= (NSInteger)self.currentPaths.count) return;
-    UIImage *img = [UIImage imageWithContentsOfFile:self.currentPaths[(NSUInteger)idx]];
+    UIImage *img = EZImageFromFilePath(self.currentPaths[(NSUInteger)idx]);
     if (!img || !self.presenter) return;
     EZFullScreenImageVC *fsvc = [EZFullScreenImageVC new];
     fsvc.image = img;
@@ -513,10 +514,15 @@ static CGFloat const kIGCCardPad     = 16.0;  // left/right margin from cell edg
 - (void)perImageShareTapped:(UIButton *)btn {
     NSInteger idx = btn.tag;
     if (idx >= (NSInteger)self.currentPaths.count || !self.presenter) return;
-    UIImage *img = [UIImage imageWithContentsOfFile:self.currentPaths[(NSUInteger)idx]];
-    if (!img) return;
+    NSString *sharePath = self.currentPaths[(NSUInteger)idx];
+    // Share a GIF as its file so the animation survives; anything else
+    // shares as an image, as before.
+    id shareItem = [sharePath.pathExtension.lowercaseString isEqualToString:@"gif"]
+        ? (id)[NSURL fileURLWithPath:sharePath]
+        : (id)EZImageFromFilePath(sharePath);
+    if (!shareItem) return;
     UIActivityViewController *ac = [[UIActivityViewController alloc]
-        initWithActivityItems:@[img] applicationActivities:nil];
+        initWithActivityItems:@[shareItem] applicationActivities:nil];
     ac.popoverPresentationController.sourceView = btn;
     [self.presenter presentViewController:ac animated:YES completion:nil];
 }
@@ -525,7 +531,11 @@ static CGFloat const kIGCCardPad     = 16.0;  // left/right margin from cell edg
     if (!self.presenter) return;
     NSMutableArray *images = [NSMutableArray array];
     for (NSString *path in self.currentPaths) {
-        UIImage *img = [UIImage imageWithContentsOfFile:path];
+        if ([path.pathExtension.lowercaseString isEqualToString:@"gif"]) {
+            [images addObject:[NSURL fileURLWithPath:path]];
+            continue;
+        }
+        UIImage *img = EZImageFromFilePath(path);
         if (img) [images addObject:img];
     }
     if (images.count == 0) return;
@@ -594,7 +604,7 @@ static CGFloat const kIGCCardPad     = 16.0;  // left/right margin from cell edg
 
 - (void)configureWithImagePath:(NSString *)path {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        UIImage *img = [UIImage imageWithContentsOfFile:path];
+        UIImage *img = EZImageFromFilePath(path);
         dispatch_async(dispatch_get_main_queue(), ^{
             self->_thumbView.image = img;
         });

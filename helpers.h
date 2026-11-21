@@ -245,6 +245,12 @@ NSString * _Nullable EZAttachmentPath(NSString *savedFileName);
 NSString *EZPhotoGalleryDirectory(void);
 NSString * _Nullable EZPhotoGallerySave(NSData *data, NSString *fileName);
 NSString * _Nullable EZPhotoGalleryPath(NSString *savedFileName);
+// Loads an image file for display. GIF files come back as an animated
+// image (frames and timing decoded via ImageIO); every other format
+// loads as a normal still. Use this wherever a saved image is shown —
+// chat grids, the gallery, full-screen views — so generated GIFs play
+// instead of sitting on their first frame.
+UIImage * _Nullable EZImageFromFilePath(NSString *path);
 
 NSString *EZHelperStats(void);
 

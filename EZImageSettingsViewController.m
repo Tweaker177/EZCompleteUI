@@ -23,6 +23,20 @@
 //     (a) wouldn't show a checkmark against any visible option here, and
 //     (b) would get rejected with a 400 the next time an image is
 //     actually generated with the new model.
+//   - gpt-image-2.6-flare / gpt-image-2.6-sunburst join the picker.
+//     They support everything the 2.5 pair does, plus two things of
+//     their own: a Complexity setting and GIF output. Complexity is
+//     its OWN section next to Quality, never folded into it — quality
+//     is fidelity, complexity is how much the model plans before it
+//     draws, and the two are independent axes. It is stored under
+//     imgComplexity (high/medium/low, default high — the API's own
+//     default when the key is omitted, so a missing value must never
+//     quietly undercut a quality pick) and is not purchase-gated.
+//     GIF is generate-only and 2.6-only: it joins the Format options
+//     only while a 2.6 model is selected, frames are fixed at
+//     512x512 server-side, and a GIF left selected after switching to
+//     another model is clamped back to PNG below, the same treatment
+//     stale xhigh/max quality values already get.
 //   - EZModelsSupportingXhighMax's model list must be kept in sync with
 //     MODELS_SUPPORTING_XHIGH_MAX in ez-image/index.ts and
 //     check-entitlement/index.ts — duplicated here rather than shared
@@ -38,7 +52,17 @@ static NSSet<NSString *> *EZModelsSupportingXhighMax(void) {
     static NSSet<NSString *> *models;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        models = [NSSet setWithObjects:@"gpt-image-2.5-flare", @"gpt-image-2.5-sunburst", nil];
+        models = [NSSet setWithObjects:@"gpt-image-2.5-flare", @"gpt-image-2.5-sunburst",
+                                        @"gpt-image-2.6-flare", @"gpt-image-2.6-sunburst", nil];
+    });
+    return models;
+}
+
+static NSSet<NSString *> *EZModelsSupportingImage26(void) {
+    static NSSet<NSString *> *models;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        models = [NSSet setWithObjects:@"gpt-image-2.6-flare", @"gpt-image-2.6-sunburst", nil];
     });
     return models;
 }
@@ -60,6 +84,7 @@ static BOOL EZImageSettingRequiresSubscription(NSString *key, NSString *value) {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     NSString *selectedModel  = self.modelIdentifier ?: [defaults stringForKey:@"selectedModel"] ?: @"";
     BOOL supportsXhighMax    = [EZModelsSupportingXhighMax() containsObject:selectedModel];
+    BOOL supports26          = [EZModelsSupportingImage26() containsObject:selectedModel];
 
     NSArray<NSString *> *qualityOptions = supportsXhighMax
         ? @[@"auto", @"max", @"xhigh", @"high", @"medium", @"low"]
@@ -83,6 +108,27 @@ static BOOL EZImageSettingRequiresSubscription(NSString *key, NSString *value) {
             [defaults setObject:@"medium" forKey:@"imgQuality"];
     }
 
+    // Same stale-value treatment for the 2.6-only settings: a GIF
+    // format picked under a 2.6 model falls back to PNG once the model
+    // no longer supports it, and an unrecognized complexity value
+    // falls back to high.
+    if (!supports26 && [[defaults stringForKey:@"imgFormat"] isEqualToString:@"gif"]) {
+        [defaults setObject:@"png" forKey:@"imgFormat"];
+        EZLogf(EZLogLevelInfo, @"IMGSET", @"Reset imgFormat (gif not valid for %@) → png", selectedModel);
+    }
+    NSString *storedComplexity = [defaults stringForKey:@"imgComplexity"];
+    if (storedComplexity.length > 0 &&
+        ![@[@"high", @"medium", @"low"] containsObject:storedComplexity]) {
+        [defaults setObject:@"high" forKey:@"imgComplexity"];
+    }
+
+    NSArray<NSString *> *formatOptions = supports26
+        ? @[@"png", @"jpeg", @"webp", @"gif"]
+        : @[@"png", @"jpeg", @"webp"];
+    NSArray<NSString *> *formatLabels = supports26
+        ? @[@"PNG — lossless, transparency OK", @"JPEG — lossy, no transparency", @"WebP — modern, transparency OK", @"GIF — animated, 512 × 512"]
+        : @[@"PNG — lossless, transparency OK", @"JPEG — lossy, no transparency", @"WebP — modern, transparency OK"];
+
     _sections = @[
         @{ @"title": @"Size",       @"key": @"imgSize",       @"default": @"1024x1024",
            @"options": @[@"1024x1024", @"1024x1536", @"1536x1024"],
@@ -91,8 +137,8 @@ static BOOL EZImageSettingRequiresSubscription(NSString *key, NSString *value) {
            @"options": qualityOptions,
            @"labels":  qualityLabels },
         @{ @"title": @"Format",     @"key": @"imgFormat",     @"default": @"png",
-           @"options": @[@"png", @"jpeg", @"webp"],
-           @"labels":  @[@"PNG — lossless, transparency OK", @"JPEG — lossy, no transparency", @"WebP — modern, transparency OK"] },
+           @"options": formatOptions,
+           @"labels":  formatLabels },
         @{ @"title": @"Background", @"key": @"imgBackground", @"default": @"auto",
            @"options": @[@"auto", @"transparent", @"opaque"],
            @"labels":  @[@"Auto", @"Transparent (PNG/WebP only)", @"Opaque"] },
@@ -103,6 +149,16 @@ static BOOL EZImageSettingRequiresSubscription(NSString *key, NSString *value) {
            @"options": @[@"1", @"2", @"4"],
            @"labels":  @[@"1 — Single result", @"2 — Two variations", @"4 — Four variations (grid)"] },
     ];
+    if (supports26) {
+        // Complexity sits directly under Quality as its own section —
+        // an independent axis, not another quality preset.
+        NSMutableArray *withComplexity = [_sections mutableCopy];
+        [withComplexity insertObject:@{ @"title": @"Complexity", @"key": @"imgComplexity", @"default": @"high",
+                                        @"options": @[@"high", @"medium", @"low"],
+                                        @"labels":  @[@"High — plans the most", @"Medium", @"Low — plans the least"] }
+                             atIndex:2];
+        _sections = [withComplexity copy];
+    }
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
         initWithBarButtonSystemItem:UIBarButtonSystemItemDone
                              target:self action:@selector(_dismiss)];
