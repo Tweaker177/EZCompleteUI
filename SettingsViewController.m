@@ -17,6 +17,7 @@
     #import "EZCoinStoreViewController.h"
     #import "EZPoliciesViewController.h"
     #import "EZGitHubSettingsViewController.h"
+    #import "EZTheme.h"
     #import "EZAuthManager.h"
     #import "EZEntitlementManager.h"
     #import "EZReferralManager.h"
@@ -228,7 +229,10 @@
     - (void)viewDidLoad {
         [super viewDidLoad];
         self.title = @"Settings";
-        self.view.backgroundColor = [UIColor systemBackgroundColor];
+        self.view.backgroundColor = [EZTheme chatBackgroundColor];
+        self.navigationController.navigationBar.standardAppearance   = [EZTheme navigationBarAppearance];
+        self.navigationController.navigationBar.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
+        self.navigationController.navigationBar.tintColor            = [EZTheme goldColor];
         self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc]
             initWithBarButtonSystemItem:UIBarButtonSystemItemDone
                                  target:self
@@ -323,7 +327,7 @@
         versionLabel.text        = [NSString stringWithFormat:@"EZCompleteUI  v%@  (build %@)",
                                      appVersion, buildNumber];
         versionLabel.font        = [UIFont systemFontOfSize:12];
-        versionLabel.textColor   = [UIColor tertiaryLabelColor];
+        versionLabel.textColor   = [EZTheme secondaryTextColor];
         versionLabel.textAlignment = NSTextAlignmentCenter;
         [self.scrollView addSubview:versionLabel];
         y += 30;
@@ -342,7 +346,7 @@
         self.subscriptionStatusLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 33)];
         self.subscriptionStatusLabel.numberOfLines = 2;
         self.subscriptionStatusLabel.font = [UIFont systemFontOfSize:13];
-        self.subscriptionStatusLabel.textColor = [UIColor secondaryLabelColor];
+        self.subscriptionStatusLabel.textColor = [EZTheme secondaryTextColor];
         self.subscriptionStatusLabel.text = @"Loading...";
         [self.scrollView addSubview:self.subscriptionStatusLabel];
         y += 39;
@@ -351,7 +355,7 @@
         self.coinBalanceLabel.adjustsFontSizeToFitWidth = YES;
         self.coinBalanceLabel.minimumScaleFactor = 0.5;
         self.coinBalanceLabel.font = [UIFont systemFontOfSize:13];
-        self.coinBalanceLabel.textColor = [UIColor secondaryLabelColor];
+        self.coinBalanceLabel.textColor = [EZTheme secondaryTextColor];
         self.coinBalanceLabel.text = @"";
         [self.scrollView addSubview:self.coinBalanceLabel];
         y += 30;
@@ -394,8 +398,10 @@
         self.systemMsgView.delegate      = self;
         self.systemMsgView.layer.cornerRadius  = 8;
         self.systemMsgView.layer.borderWidth   = 1.0;
-        self.systemMsgView.layer.borderColor   = [UIColor systemGray4Color].CGColor;
-        self.systemMsgView.backgroundColor     = [UIColor secondarySystemBackgroundColor];
+        self.systemMsgView.layer.borderColor   = [EZTheme hairlineColor].CGColor;
+        self.systemMsgView.backgroundColor     = [EZTheme cardColor];
+        self.systemMsgView.textColor           = [EZTheme primaryTextColor];
+        self.systemMsgView.tintColor           = [EZTheme goldColor];
         self.systemMsgView.textContainerInset  = UIEdgeInsetsMake(8, 6, 8, 6);
         self.systemMsgView.scrollEnabled       = NO;
         self.systemMsgViewHeight               = minTextViewHeight;
@@ -423,6 +429,7 @@
         [self addSection:@"🌐 Web Search" y:&y];
         [self addLabel:@"Enable web search by default:" y:&y];
         self.webSearchSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(w - 30, y - 28, 51, 31)];
+        self.webSearchSwitch.onTintColor = [EZTheme goldColor];
         [self.scrollView addSubview:self.webSearchSwitch];
         [self addLabel:@"Location hint (optional city):" y:&y];
         self.webLocationField = [self addField:w y:&y placeholder:@"e.g. Miami, FL"];
@@ -563,7 +570,7 @@
                     self.subscriptionStatusLabel.text = [status isEqualToString:@"coins_only"]
                         ? @"🪙 Coins only — no active subscription"
                         : @"❌ No active subscription";
-                    self.subscriptionStatusLabel.textColor = [UIColor secondaryLabelColor];
+                    self.subscriptionStatusLabel.textColor = [EZTheme secondaryTextColor];
                 }
                 self.coinBalanceLabel.text = [NSString stringWithFormat:
                     @"🪙 Coin balance: %ld", (long)balance];
@@ -648,7 +655,7 @@
 
     - (void)refreshSubscription {
         self.subscriptionStatusLabel.text      = @"Checking...";
-        self.subscriptionStatusLabel.textColor = [UIColor secondaryLabelColor];
+        self.subscriptionStatusLabel.textColor = [EZTheme secondaryTextColor];
         [self refreshSubscriptionDisplay];
     }
 
@@ -730,7 +737,7 @@
         label.minimumScaleFactor = 0.5;
         label.text      = title;
         label.font      = [UIFont boldSystemFontOfSize:15];
-        label.textColor = [UIColor systemBlueColor];
+        label.textColor = [EZTheme goldColor];
         [self.scrollView addSubview:label];
         *y += 34;
     }
@@ -742,7 +749,7 @@
         label.minimumScaleFactor = 0.5;
         label.text          = text;
         label.font          = [UIFont systemFontOfSize:13];
-        label.textColor     = [UIColor secondaryLabelColor];
+        label.textColor     = [EZTheme secondaryTextColor];
         label.numberOfLines = 0;
         [self.scrollView addSubview:label];
         *y += 22;
@@ -751,7 +758,13 @@
 
     - (UITextField *)addField:(CGFloat)width y:(CGFloat *)y placeholder:(NSString *)placeholder {
         UITextField *field  = [[UITextField alloc] initWithFrame:CGRectMake(20, *y, width, 40)];
-        field.borderStyle   = UITextBorderStyleRoundedRect;
+        field.borderStyle   = UITextBorderStyleNone;
+        field.backgroundColor = [EZTheme cardColor];
+        field.textColor     = [EZTheme primaryTextColor];
+        field.tintColor     = [EZTheme goldColor];
+        field.layer.cornerRadius = 10;
+        field.leftView      = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 10, 0)];
+        field.leftViewMode  = UITextFieldViewModeAlways;
         field.placeholder   = placeholder;
         field.delegate      = self;
         field.returnKeyType = UIReturnKeyDone;
@@ -765,6 +778,9 @@
         UISlider *slider    = [[UISlider alloc] initWithFrame:CGRectMake(20, *y, width, 30)];
         slider.minimumValue = minVal;
         slider.maximumValue = maxVal;
+        slider.minimumTrackTintColor = [EZTheme goldColor];
+        slider.maximumTrackTintColor = [EZTheme hairlineColor];
+        slider.thumbTintColor        = [EZTheme goldColor];
         [slider addTarget:self action:@selector(updateLabels)
          forControlEvents:UIControlEventValueChanged];
         [self.scrollView addSubview:slider];
@@ -776,9 +792,18 @@
                     y:(CGFloat *)y w:(CGFloat)width {
         UIButton *button          = [UIButton buttonWithType:UIButtonTypeSystem];
         button.frame              = CGRectMake(20, *y, width, 44);
-        button.backgroundColor    = color;
-        button.tintColor          = [UIColor whiteColor];
+        button.backgroundColor    = [EZTheme cardColor];
         button.layer.cornerRadius = 10;
+        button.layer.borderWidth  = 1.0;
+        button.layer.borderColor  = [EZTheme hairlineColor].CGColor;
+        // The caller's color survives as the title color, resolved to its
+        // dark-appearance variant so it stays readable on the navy card —
+        // the rainbow of solid fills becomes quiet navy buttons whose
+        // labels keep their identity (including red for removals).
+        UIColor *ezTitleColor = [color resolvedColorWithTraitCollection:
+            [UITraitCollection traitCollectionWithUserInterfaceStyle:UIUserInterfaceStyleDark]];
+        [button setTitleColor:ezTitleColor forState:UIControlStateNormal];
+        button.tintColor          = ezTitleColor;
         [button setTitle:title forState:UIControlStateNormal];
         [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
         [self.scrollView addSubview:button];
@@ -1047,7 +1072,7 @@
         label.minimumScaleFactor = 0.5;
         label.text          = text;
         label.font          = [UIFont systemFontOfSize:13];
-        label.textColor     = [UIColor secondaryLabelColor];
+        label.textColor     = [EZTheme secondaryTextColor];
         label.numberOfLines = 0;
         [label sizeToFit];
         if (label.frame.size.height < minHeight) {
@@ -1064,9 +1089,18 @@
                              action:(SEL)action y:(CGFloat *)y w:(CGFloat)width {
         UIButton *button          = [UIButton buttonWithType:UIButtonTypeSystem];
         button.frame              = CGRectMake(20, *y, width, 44);
-        button.backgroundColor    = color;
-        button.tintColor          = [UIColor whiteColor];
+        button.backgroundColor    = [EZTheme cardColor];
         button.layer.cornerRadius = 10;
+        button.layer.borderWidth  = 1.0;
+        button.layer.borderColor  = [EZTheme hairlineColor].CGColor;
+        // The caller's color survives as the title color, resolved to its
+        // dark-appearance variant so it stays readable on the navy card —
+        // the rainbow of solid fills becomes quiet navy buttons whose
+        // labels keep their identity (including red for removals).
+        UIColor *ezTitleColor = [color resolvedColorWithTraitCollection:
+            [UITraitCollection traitCollectionWithUserInterfaceStyle:UIUserInterfaceStyleDark]];
+        [button setTitleColor:ezTitleColor forState:UIControlStateNormal];
+        button.tintColor          = ezTitleColor;
         [button setTitle:title forState:UIControlStateNormal];
         [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
         [self.scrollView addSubview:button];
