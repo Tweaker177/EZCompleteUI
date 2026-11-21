@@ -490,7 +490,17 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
     UIImage *titleImage = [self titleImageForWidth:w];
     CGRect titleRect = CGRectMake(0, 34, w, 38);
     CGContextSaveGState(ctx);
+    // ClipToMask reads the mask in Core Graphics' bottom-left space,
+    // which lands the letterforms upside down in this flipped UIKit
+    // context. Flip the context around the title rect while clipping,
+    // then flip back — a clip, once set, is not moved by later
+    // transform changes, so the gradient below draws normally.
+    CGFloat flipSpan = CGRectGetMinY(titleRect) + CGRectGetMaxY(titleRect);
+    CGContextTranslateCTM(ctx, 0, flipSpan);
+    CGContextScaleCTM(ctx, 1, -1);
     CGContextClipToMask(ctx, titleRect, titleImage.CGImage);
+    CGContextScaleCTM(ctx, 1, -1);
+    CGContextTranslateCTM(ctx, 0, -flipSpan);
     CGGradientRef gold = CGGradientCreateWithColors(NULL, (__bridge CFArrayRef)@[
         (id)[UIColor colorWithRed:1 green:.93 blue:.48 alpha:1].CGColor,
         (id)[UIColor colorWithRed:1 green:.74 blue:.14 alpha:1].CGColor,
