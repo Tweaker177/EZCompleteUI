@@ -30,12 +30,13 @@
 //   max_tokens}), and response parsing ({result: string}) to match ez-helper API
 // - NSCParameterAssert on jwtToken retained — a missing JWT is still a programming
 //   error (caller should guard before calling into the pipeline)
-
+#import <UIKit/UIKit.h>
 #import "helpers.h"   // Import our own header so the compiler can verify we
                       // implement everything that was promised there.
 #import "EZAuthManager.h"
 #import "EZPhotoGalleryAnalysisService.h"
 #import <AVFoundation/AVFoundation.h>
+#import <ImageIO/ImageIO.h>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODULE-LEVEL CONSTANTS
@@ -898,30 +899,85 @@ static BOOL _EZLogStringIsBase64Run(NSString *candidate) {
     return [[NSData alloc] initWithBase64EncodedString:candidate options:0] != nil;
 }
 
-NSString *EZLogRedactedString(NSString *text) {
+static NSString *_EZBase64OmittedPlaceholder(NSUInteger base64Chars) {
+    return [NSString stringWithFormat:@"[base64 omitted, ~%@]", _EZLogSizeString((base64Chars * 3) / 4)];
+}
+
+// A line-wrapped base64 block (the .b64 file shape: short lines of
+// base64 characters, newline after newline) is the same bulk as one
+// long run, just with newlines in it. The candidate only counts when,
+// whitespace stripped, it carries a '+' or '/' or '=' padding — real
+// encoded binary virtually always does within a few lines, while a
+// block of hex hashes or identifiers never does — and the stripped
+// text still strictly decodes.
+static BOOL _EZStringIsWrappedBase64Block(NSString *candidate) {
+    NSString *stripped = [candidate stringByReplacingOccurrencesOfString:@" " withString:@""];
+    stripped = [stripped stringByReplacingOccurrencesOfString:@"\t" withString:@""];
+    stripped = [stripped stringByReplacingOccurrencesOfString:@"\r" withString:@""];
+    stripped = [stripped stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+    if (stripped.length < 120) return NO;
+    if (![stripped containsString:@"+"] && ![stripped containsString:@"/"] &&
+        ![stripped hasSuffix:@"="]) return NO;
+    return _EZLogStringIsBase64Run(stripped);
+}
+
+// The one base64-redaction core. logStyle picks the placeholder:
+// YES gives the log wording ("<image attached: ...>"), NO gives the
+// result wording ("[base64 omitted, ~...]"). Detection is shared —
+// data: URLs, single long runs, and line-wrapped blocks — so logs
+// and model-bound results can never drift apart on what counts as
+// an image payload.
+static NSString *_EZRedactBase64(NSString *text, BOOL logStyle) {
     if (!text.length) return text ?: @"";
     static NSRegularExpression *dataURLRegex = nil;
     static NSRegularExpression *base64RunRegex = nil;
+    static NSRegularExpression *wrappedBase64Regex = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         dataURLRegex = [NSRegularExpression regularExpressionWithPattern:@"data:([A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+)?;base64,([A-Za-z0-9+/=]+)" options:0 error:nil];
         base64RunRegex = [NSRegularExpression regularExpressionWithPattern:@"[A-Za-z0-9+/]{256,}={0,2}" options:0 error:nil];
+        wrappedBase64Regex = [NSRegularExpression regularExpressionWithPattern:@"(?:[A-Za-z0-9+/]{40,}={0,2}[ \\t]*(?:\\r\\n|\\r|\\n)){2,}[A-Za-z0-9+/]{40,}={0,2}" options:0 error:nil];
     });
     NSString *result = text;
     // Replace from the end so earlier match ranges stay valid.
     NSArray<NSTextCheckingResult *> *matches = [dataURLRegex matchesInString:result options:0 range:NSMakeRange(0, result.length)];
     for (NSTextCheckingResult *m in matches.reverseObjectEnumerator) {
         NSString *mime = [m rangeAtIndex:1].location != NSNotFound ? [result substringWithRange:[m rangeAtIndex:1]] : nil;
-        result = [result stringByReplacingCharactersInRange:m.range
-                                                 withString:_EZLogImagePlaceholder(mime, [m rangeAtIndex:2].length)];
+        NSString *placeholder = logStyle
+            ? _EZLogImagePlaceholder(mime, [m rangeAtIndex:2].length)
+            : _EZBase64OmittedPlaceholder([m rangeAtIndex:2].length);
+        result = [result stringByReplacingCharactersInRange:m.range withString:placeholder];
+    }
+    matches = [wrappedBase64Regex matchesInString:result options:0 range:NSMakeRange(0, result.length)];
+    for (NSTextCheckingResult *m in matches.reverseObjectEnumerator) {
+        NSString *candidate = [result substringWithRange:m.range];
+        if (!_EZStringIsWrappedBase64Block(candidate)) continue;
+        NSUInteger base64Chars = candidate.length;
+        for (NSString *ws in @[@" ", @"\t", @"\r", @"\n"]) {
+            base64Chars -= [candidate componentsSeparatedByString:ws].count - 1;
+        }
+        NSString *placeholder = logStyle
+            ? _EZLogImagePlaceholder(nil, base64Chars)
+            : _EZBase64OmittedPlaceholder(base64Chars);
+        result = [result stringByReplacingCharactersInRange:m.range withString:placeholder];
     }
     matches = [base64RunRegex matchesInString:result options:0 range:NSMakeRange(0, result.length)];
     for (NSTextCheckingResult *m in matches.reverseObjectEnumerator) {
         if (!_EZLogStringIsBase64Run([result substringWithRange:m.range])) continue;
-        result = [result stringByReplacingCharactersInRange:m.range
-                                                 withString:_EZLogImagePlaceholder(nil, m.range.length)];
+        NSString *placeholder = logStyle
+            ? _EZLogImagePlaceholder(nil, m.range.length)
+            : _EZBase64OmittedPlaceholder(m.range.length);
+        result = [result stringByReplacingCharactersInRange:m.range withString:placeholder];
     }
     return result;
+}
+
+NSString *EZLogRedactedString(NSString *text) {
+    return _EZRedactBase64(text, YES);
+}
+
+NSString *EZBase64RedactedString(NSString *text) {
+    return _EZRedactBase64(text, NO);
 }
 
 id EZLogRedactedObject(id object) {
@@ -3806,6 +3862,45 @@ static NSObject *_attachmentSaveLock(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{ lock = [NSObject new]; });
     return lock;
+}
+
+UIImage * _Nullable EZImageFromFilePath(NSString *path) {
+    if (path.length == 0) return nil;
+    NSData *data = [NSData dataWithContentsOfFile:path];
+    if (!data) return nil;
+    const unsigned char *bytes = data.bytes;
+    BOOL isGIF = data.length > 3 && bytes[0] == 'G' && bytes[1] == 'I' && bytes[2] == 'F';
+    if (!isGIF) return [UIImage imageWithData:data];
+
+    CGImageSourceRef source = CGImageSourceCreateWithData((__bridge CFDataRef)data, NULL);
+    if (!source) return [UIImage imageWithData:data];
+    size_t count = CGImageSourceGetCount(source);
+    if (count < 2) { CFRelease(source); return [UIImage imageWithData:data]; }
+    NSMutableArray<UIImage *> *frames = [NSMutableArray arrayWithCapacity:count];
+    NSTimeInterval total = 0;
+    for (size_t i = 0; i < count; i++) {
+        CGImageRef cg = CGImageSourceCreateImageAtIndex(source, i, NULL);
+        if (!cg) continue;
+        [frames addObject:[UIImage imageWithCGImage:cg]];
+        CGImageRelease(cg);
+        NSTimeInterval delay = 0.1;
+        CFDictionaryRef props = CGImageSourceCopyPropertiesAtIndex(source, i, NULL);
+        if (props) {
+            CFDictionaryRef gifProps = CFDictionaryGetValue(props, kCGImagePropertyGIFDictionary);
+            if (gifProps) {
+                CFNumberRef num = CFDictionaryGetValue(gifProps, kCGImagePropertyGIFUnclampedDelayTime);
+                if (!num) num = CFDictionaryGetValue(gifProps, kCGImagePropertyGIFDelayTime);
+                double v = 0;
+                if (num && CFNumberGetValue(num, kCFNumberDoubleType, &v) && v > 0) delay = v;
+            }
+            CFRelease(props);
+        }
+        if (delay < 0.02) delay = 0.1; // sub-20ms delays are read as 100ms, same as browsers
+        total += delay;
+    }
+    CFRelease(source);
+    if (frames.count < 2 || total <= 0) return [UIImage imageWithData:data];
+    return [UIImage animatedImageWithImages:frames duration:total];
 }
 
 NSString * _Nullable EZPhotoGallerySave(NSData *data, NSString *fileName) {

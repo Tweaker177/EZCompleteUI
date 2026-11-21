@@ -165,8 +165,16 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 #pragma mark - Library row
 
-@interface EZMusicWaveformView : UIView
+@interface EZMusicWaveformView : UIView {
+    CADisplayLink *_ezDisplayLink;
+    CGFloat _ezPhase;
+}
 @property (nonatomic, copy) NSString *representedIdentifier;
+/// While YES, the bars pulse (heights breathe around a travelling sine
+/// wave). Driven by a display link owned by the view; pauses off-window.
+@property (nonatomic, assign) BOOL animating;
+/// 0..1 — bars before the playhead draw bright, the rest dim.
+@property (nonatomic, assign) double playbackProgress;
 - (void)showWaveformForURL:(nullable NSURL *)url identifier:(NSString *)identifier;
 @end
 
@@ -182,6 +190,35 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     return self;
 }
 
+- (void)setAnimating:(BOOL)animating {
+    if (_animating == animating) return;
+    _animating = animating;
+    if (animating) {
+        _ezDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(ezWaveformTick:)];
+        _ezDisplayLink.paused = (self.window == nil);
+        [_ezDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+    } else {
+        [_ezDisplayLink invalidate];
+        _ezDisplayLink = nil;
+    }
+    [self setNeedsDisplay];
+}
+
+- (void)ezWaveformTick:(CADisplayLink *)link {
+    _ezPhase += 0.14;
+    [self setNeedsDisplay];
+}
+
+- (void)didMoveToWindow {
+    [super didMoveToWindow];
+    _ezDisplayLink.paused = (self.window == nil);
+}
+
+- (void)setPlaybackProgress:(double)playbackProgress {
+    _playbackProgress = playbackProgress;
+    [self setNeedsDisplay];
+}
+
 - (void)drawRect:(CGRect)rect {
     NSArray<NSNumber *> *levels = objc_getAssociatedObject(self, @selector(drawRect:));
     if (!levels.count) return;
@@ -189,10 +226,17 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     CGFloat count = levels.count, gap = 2.0;
     CGFloat width = MAX(1.0, (CGRectGetWidth(rect) - gap * (count - 1)) / count);
     CGFloat middle = CGRectGetMidY(rect);
-    UIColor *color = [EZTheme goldColor];
-    CGContextSetFillColorWithColor(context, [color colorWithAlphaComponent:0.68].CGColor);
+    CGFloat fullHeight = CGRectGetHeight(rect);
+    UIColor *gold = [EZTheme goldColor];
+    BOOL hasProgress = self.playbackProgress > 0.0;
     for (NSUInteger index = 0; index < levels.count; index++) {
-        CGFloat height = MAX(3.0, MIN(CGRectGetHeight(rect), levels[index].doubleValue * CGRectGetHeight(rect)));
+        CGFloat height = MAX(3.0, MIN(fullHeight, levels[index].doubleValue * fullHeight));
+        if (_animating) {
+            height = MIN(fullHeight, height * (1.0 + 0.35 * sin(_ezPhase + index * 0.55)));
+        }
+        BOOL played = hasProgress && ((CGFloat)index / count) < self.playbackProgress;
+        CGFloat alpha = hasProgress ? (played ? 0.95 : 0.38) : 0.68;
+        CGContextSetFillColorWithColor(context, [gold colorWithAlphaComponent:alpha].CGColor);
         CGRect bar = CGRectMake(index * (width + gap), middle - height / 2.0, width, height);
         UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:bar cornerRadius:width / 2.0];
         [path fill];
@@ -281,17 +325,12 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, strong) UIProgressView *progressView;
 @property (nonatomic, strong) UIImageView *favoriteView;
 @property (nonatomic, strong) UIButton *editButton;
-// Square cover art (or a music-note placeholder) between the play button and the title.
-@property (nonatomic, strong) UIImageView *artworkView;
-@property (nonatomic, strong) UIActivityIndicatorView *artworkSpinner;
 @property (nonatomic, copy, nullable) void (^artworkGenerateHandler)(void);
 @property (nonatomic, copy, nullable) void (^artworkLyricsHandler)(void);
 @property (nonatomic, copy, nullable) void (^artworkPromptHandler)(void);
 @property (nonatomic, copy, nullable) void (^artworkRemixHandler)(void);
 /// Set for finished songs only; also drives the edit button's visibility.
 @property (nonatomic, copy, nullable) void (^renameHandler)(void);
-@property (nonatomic, strong) EZMusicWaveformView *waveformView;
-@property (nonatomic, strong) NSLayoutConstraint *waveformHeightConstraint;
 @property (nonatomic, copy, nullable) void (^playHandler)(void);
 - (void)configureWithTitle:(NSString *)title
                     detail:(NSString *)detail
@@ -300,11 +339,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
                  isPlaying:(BOOL)isPlaying
             isLoadingAudio:(BOOL)isLoadingAudio
                   favorite:(BOOL)favorite
-             detailIsError:(BOOL)detailIsError
-             waveformURL:(nullable NSURL *)waveformURL
-      waveformIdentifier:(NSString *)waveformIdentifier;
-- (void)setArtwork:(nullable UIImage *)artwork;
-- (void)setArtworkBusy:(BOOL)busy;
+             detailIsError:(BOOL)detailIsError;
 @end
 
 @implementation EZMusicTrackCell
@@ -323,24 +358,15 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _spinner.hidesWhenStopped = YES;
     [self.contentView addSubview:_spinner];
 
-    _artworkView = [[UIImageView alloc] init];
-    _artworkView.translatesAutoresizingMaskIntoConstraints = NO;
-    _artworkView.tintColor = [EZTheme secondaryTextColor];
-    _artworkView.backgroundColor = [EZTheme backgroundColor];
-    _artworkView.layer.cornerRadius = 0;
-    _artworkView.layer.borderWidth = 1.0;
-    _artworkView.layer.borderColor = [[EZTheme goldColor] colorWithAlphaComponent:0.60].CGColor;
-    _artworkView.clipsToBounds = YES;
-    _artworkView.isAccessibilityElement = NO;
-    // Long-press the cover for a context menu whose Generate action makes a
-    // new cover (the handler is set per row). Two deliberate steps on purpose:
-    // a stray double-tap used to spend coins on art nobody asked for.
-    _artworkView.userInteractionEnabled = YES;
-    UIContextMenuInteraction *artworkMenu = [[UIContextMenuInteraction alloc] initWithDelegate:self];
-    [_artworkView addInteraction:artworkMenu];
-    [self.contentView addSubview:_artworkView];
+    // Long-press the row for a context menu whose Generate action makes a
+    // new cover (the handler is set per row). Two deliberate steps on
+    // purpose: a stray double-tap used to spend coins on art nobody asked
+    // for. The menu used to hang off the row's cover art; rows are
+    // titles-only now, so it hangs off the row itself.
+    UIContextMenuInteraction *rowMenu = [[UIContextMenuInteraction alloc] initWithDelegate:self];
+    [self.contentView addInteraction:rowMenu];
 
-    // Animated wash shown over the artwork while a song is generating — big,
+    // Animated wash over the whole row while a song is generating — big,
     // saturated, and cycling, so a composing row is obvious at a glance.
     _generatingGradient = [CAGradientLayer layer];
     _generatingGradient.colors = @[
@@ -352,18 +378,7 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _generatingGradient.startPoint = CGPointMake(0, 0);
     _generatingGradient.endPoint = CGPointMake(1, 1);
     _generatingGradient.hidden = YES;
-    [_artworkView.layer addSublayer:_generatingGradient];
-
-    _artworkSpinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
-    _artworkSpinner.color = [UIColor whiteColor];
-    _artworkSpinner.translatesAutoresizingMaskIntoConstraints = NO;
-    _artworkSpinner.hidesWhenStopped = YES;
-    _artworkSpinner.userInteractionEnabled = NO;
-    [_artworkView addSubview:_artworkSpinner];
-    [NSLayoutConstraint activateConstraints:@[
-        [_artworkSpinner.centerXAnchor constraintEqualToAnchor:_artworkView.centerXAnchor],
-        [_artworkSpinner.centerYAnchor constraintEqualToAnchor:_artworkView.centerYAnchor],
-    ]];
+    [self.contentView.layer insertSublayer:_generatingGradient atIndex:0];
 
     _titleLabel = [[UILabel alloc] init];
     _titleLabel.adjustsFontSizeToFitWidth = YES;
@@ -382,11 +397,6 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _detailLabel.numberOfLines = 1;
     _detailLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     [self.contentView addSubview:_detailLabel];
-
-    _waveformView = [[EZMusicWaveformView alloc] initWithFrame:CGRectZero];
-    _waveformView.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.contentView addSubview:_waveformView];
-    _waveformHeightConstraint = [_waveformView.heightAnchor constraintEqualToConstant:0];
 
     _favoriteView = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"star.fill"]];
     _favoriteView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -410,11 +420,11 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [self.contentView addSubview:_progressView];
 
     [NSLayoutConstraint activateConstraints:@[
-        [_spinner.centerXAnchor constraintEqualToAnchor:_artworkView.centerXAnchor],
-        [_spinner.centerYAnchor constraintEqualToAnchor:_artworkView.centerYAnchor],
+        [_spinner.centerXAnchor constraintEqualToAnchor:self.contentView.centerXAnchor],
+        [_spinner.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
 
         [_favoriteView.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-14],
-        [_favoriteView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:12],
+        [_favoriteView.centerYAnchor constraintEqualToAnchor:self.contentView.centerYAnchor],
         [_favoriteView.widthAnchor constraintEqualToConstant:18],
         [_favoriteView.heightAnchor constraintEqualToConstant:18],
 
@@ -423,22 +433,13 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         [_editButton.widthAnchor constraintEqualToConstant:22],
         [_editButton.heightAnchor constraintEqualToConstant:22],
 
-        [_artworkView.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
-        [_artworkView.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],
-        [_artworkView.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor],
-        [_artworkView.widthAnchor constraintEqualToAnchor:_artworkView.heightAnchor],
-
-        [_titleLabel.leadingAnchor constraintEqualToAnchor:_artworkView.trailingAnchor constant:10],
+        [_titleLabel.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:16],
         [_titleLabel.trailingAnchor constraintEqualToAnchor:_editButton.leadingAnchor constant:-6],
-        [_titleLabel.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:10],
+        [_titleLabel.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:12],
 
         [_detailLabel.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],
         [_detailLabel.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-14],
-        [_waveformView.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],
-        [_waveformView.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-14],
-        [_waveformView.topAnchor constraintEqualToAnchor:_titleLabel.bottomAnchor constant:5],
-        _waveformHeightConstraint,
-        [_detailLabel.topAnchor constraintEqualToAnchor:_waveformView.bottomAnchor constant:3],
+        [_detailLabel.topAnchor constraintEqualToAnchor:_titleLabel.bottomAnchor constant:3],
         // No bottom pin on the detail label: rows are a fixed height (see
         // the table setup), so the text column is anchored from the top only.
 
@@ -451,11 +452,11 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 - (void)layoutSubviews {
     [super layoutSubviews];
-    self.generatingGradient.frame = self.artworkView.bounds;
+    self.generatingGradient.frame = self.contentView.bounds;
 }
 
 /// Generating state: a saturated gradient wash cycling violet -> pink -> cyan
-/// over the whole (now full-height) cover, with a large white spinner on top.
+/// over the whole row, with a large white spinner on top.
 /// Deliberately loud — the old medium gray spinner over the play button was
 /// nearly invisible against the row background.
 - (void)setGenerating:(BOOL)generating {
@@ -479,18 +480,6 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     } else {
         [self.spinner stopAnimating];
         [self.generatingGradient removeAllAnimations];
-    }
-}
-
-/// Shows `artwork`, or the music-note placeholder when the song has no cover.
-- (void)setArtwork:(nullable UIImage *)artwork {
-    if (artwork) {
-        self.artworkView.contentMode = UIViewContentModeScaleAspectFill;
-        self.artworkView.image = artwork;
-    } else {
-        self.artworkView.contentMode = UIViewContentModeCenter;
-        self.artworkView.image = [UIImage systemImageNamed:@"music.note"
-                                         withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22]];
     }
 }
 
@@ -557,12 +546,6 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     }];
 }
 
-/// Dims the cover and shows a spinner while a new one is being made.
-- (void)setArtworkBusy:(BOOL)busy {
-    self.artworkView.alpha = busy ? 0.45 : 1.0;
-    if (busy) [self.artworkSpinner startAnimating]; else [self.artworkSpinner stopAnimating];
-}
-
 - (void)prepareForReuse {
     [super prepareForReuse];
     self.playHandler = nil;
@@ -572,7 +555,6 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     self.artworkRemixHandler = nil;
     self.renameHandler = nil;
     self.accessibilityCustomActions = nil;
-    [self setArtworkBusy:NO];
     [self setGenerating:NO];
     self.progressView.progress = 0;
     self.progressView.hidden = YES;
@@ -585,23 +567,17 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
                  isPlaying:(BOOL)isPlaying
             isLoadingAudio:(BOOL)isLoadingAudio
                   favorite:(BOOL)favorite
-             detailIsError:(BOOL)detailIsError
-             waveformURL:(NSURL *)waveformURL
-      waveformIdentifier:(NSString *)waveformIdentifier {
+             detailIsError:(BOOL)detailIsError {
     self.titleLabel.text = title;
     self.detailLabel.text = detail;
     self.detailLabel.textColor = detailIsError ? [UIColor systemOrangeColor] : [EZTheme secondaryTextColor];
     self.favoriteView.hidden = !favorite;
-    BOOL showWaveform = [status isEqualToString:@"complete"];
-    self.waveformHeightConstraint.constant = showWaveform ? 30 : 0;
-    self.waveformView.hidden = !showWaveform;
-    if (showWaveform) [self.waveformView showWaveformForURL:waveformURL identifier:waveformIdentifier];
 
     BOOL showSpinner = [status isEqualToString:@"pending"] || isLoadingAudio;
     [self setGenerating:showSpinner];
 
-    // Playback lives on the artwork tap / row tap now that the play button is
-    // gone, so the Play/Pause affordance moves to a cell custom action.
+    // Playback lives on the row tap now that the play button is gone, so the
+    // Play/Pause affordance moves to a cell custom action.
     if ([status isEqualToString:@"failed"]) {
         self.accessibilityCustomActions = nil;
     } else {
@@ -732,6 +708,12 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 @property (nonatomic, strong) UIButton *playlistPreviousButton;
 @property (nonatomic, strong) UIButton *playlistPlayButton;
 @property (nonatomic, strong) UIButton *playlistNextButton;
+// Fixed player bar pinned above the library table — the only artwork on
+// the screen lives here, for the now-playing song.
+@property (nonatomic, strong) UIView *playerBar;
+@property (nonatomic, strong) UIImageView *playerArtworkView;
+@property (nonatomic, strong) UIActivityIndicatorView *playerArtworkSpinner;
+@property (nonatomic, strong) EZMusicWaveformView *playerWaveformView;
 
 // Overlays
 @property (nonatomic, strong, nullable) UIView *busyOverlay;
@@ -1097,8 +1079,9 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [stack addArrangedSubview:self.quoteLabel];
 
     self.generateButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    self.generateButton.backgroundColor = [EZTheme goldColor];
+    [self.generateButton setBackgroundImage:[EZTheme primaryGradientImage] forState:UIControlStateNormal];
     self.generateButton.layer.cornerRadius = 14;
+    self.generateButton.clipsToBounds = YES;
     self.generateButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
     [self.generateButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateNormal];
     [self.generateButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateDisabled];
@@ -1190,14 +1173,12 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.libraryTable.translatesAutoresizingMaskIntoConstraints = NO;
     self.libraryTable.dataSource = self;
     self.libraryTable.delegate = self;
-    // Fixed row height. The cover fills the row's full height, so when rows
-    // self-sized, wrapping text stretched the row and the cover with it —
-    // every cover a different size and text squeezed or clipped. At a fixed
-    // 108 every row, and every cover, is the same size, and long titles or
-    // details truncate instead of stretching anything.
-    self.libraryTable.rowHeight = 108;
-    self.libraryTable.estimatedRowHeight = 108;
-    self.libraryTable.separatorInset = UIEdgeInsetsMake(0, 64, 0, 0);
+    // Fixed row height: rows are titles-only now, so 64 fits the title and
+    // detail lines with even padding, and a fixed height keeps every row
+    // identical instead of self-sizing around wrapping text.
+    self.libraryTable.rowHeight = 64;
+    self.libraryTable.estimatedRowHeight = 64;
+    self.libraryTable.separatorInset = UIEdgeInsetsMake(0, 16, 0, 0);
     self.libraryTable.backgroundColor = [EZTheme chatBackgroundColor];
     self.libraryTable.separatorColor = [EZTheme hairlineColor];
     self.libraryTable.tableFooterView = [[UIView alloc] init];
@@ -1219,7 +1200,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
     [self.view addSubview:self.libraryTable];
     [NSLayoutConstraint activateConstraints:@[
-        [self.libraryTable.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [self.libraryTable.topAnchor constraintEqualToAnchor:self.playerBar.bottomAnchor],
         [self.libraryTable.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.libraryTable.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.libraryTable.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
@@ -1228,8 +1209,41 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 }
 
 - (void)buildPlaylistHeader {
-    UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 76)];
+    // A fixed bar above the table, not a table header: the playback
+    // controls stay on screen while the list scrolls, and they can't be
+    // scrolled or rebuilt away (the old header view vanished after a trip
+    // to the Create tab and back).
+    UIView *header = [[UIView alloc] init];
+    header.translatesAutoresizingMaskIntoConstraints = NO;
     header.backgroundColor = [EZTheme cardColor];
+    [self.view addSubview:header];
+    self.playerBar = header;
+
+    UIImageView *artwork = [[UIImageView alloc] init];
+    artwork.translatesAutoresizingMaskIntoConstraints = NO;
+    artwork.tintColor = [EZTheme secondaryTextColor];
+    artwork.backgroundColor = [EZTheme backgroundColor];
+    artwork.layer.cornerRadius = 8;
+    artwork.layer.borderWidth = 1.0;
+    artwork.layer.borderColor = [[EZTheme goldColor] colorWithAlphaComponent:0.60].CGColor;
+    artwork.clipsToBounds = YES;
+    artwork.isAccessibilityElement = NO;
+    [header addSubview:artwork];
+    self.playerArtworkView = artwork;
+
+    UIActivityIndicatorView *artworkSpinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    artworkSpinner.color = [UIColor whiteColor];
+    artworkSpinner.translatesAutoresizingMaskIntoConstraints = NO;
+    artworkSpinner.hidesWhenStopped = YES;
+    artworkSpinner.userInteractionEnabled = NO;
+    [artwork addSubview:artworkSpinner];
+    self.playerArtworkSpinner = artworkSpinner;
+
+    EZMusicWaveformView *waveform = [[EZMusicWaveformView alloc] initWithFrame:CGRectZero];
+    waveform.translatesAutoresizingMaskIntoConstraints = NO;
+    [header addSubview:waveform];
+    self.playerWaveformView = waveform;
+
     UILabel *title = [[UILabel alloc] init];
     title.adjustsFontSizeToFitWidth = YES;
     title.minimumScaleFactor = 0.5;
@@ -1265,12 +1279,29 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.playlistPlayButton = buttons[1];
     self.playlistNextButton = buttons[2];
     [NSLayoutConstraint activateConstraints:@[
-        [title.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:16],
+        [header.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [header.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [header.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [header.heightAnchor constraintEqualToConstant:76],
+
+        [artwork.leadingAnchor constraintEqualToAnchor:header.leadingAnchor constant:12],
+        [artwork.centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
+        [artwork.widthAnchor constraintEqualToConstant:56],
+        [artwork.heightAnchor constraintEqualToConstant:56],
+        [artworkSpinner.centerXAnchor constraintEqualToAnchor:artwork.centerXAnchor],
+        [artworkSpinner.centerYAnchor constraintEqualToAnchor:artwork.centerYAnchor],
+
+        [title.leadingAnchor constraintEqualToAnchor:artwork.trailingAnchor constant:12],
         [title.trailingAnchor constraintLessThanOrEqualToAnchor:buttons[0].leadingAnchor constant:-8],
-        [title.topAnchor constraintEqualToAnchor:header.topAnchor constant:13],
+        [title.topAnchor constraintEqualToAnchor:header.topAnchor constant:9],
         [detail.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
         [detail.trailingAnchor constraintLessThanOrEqualToAnchor:buttons[0].leadingAnchor constant:-8],
-        [detail.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:3],
+        [detail.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:2],
+        [waveform.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
+        [waveform.trailingAnchor constraintEqualToAnchor:buttons[0].leadingAnchor constant:-8],
+        [waveform.topAnchor constraintEqualToAnchor:detail.bottomAnchor constant:4],
+        [waveform.heightAnchor constraintEqualToConstant:16],
+
         [buttons[2].trailingAnchor constraintEqualToAnchor:header.trailingAnchor constant:-14],
         [buttons[2].centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
         [buttons[1].trailingAnchor constraintEqualToAnchor:buttons[2].leadingAnchor constant:-13],
@@ -1278,7 +1309,6 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         [buttons[0].trailingAnchor constraintEqualToAnchor:buttons[1].leadingAnchor constant:-13],
         [buttons[0].centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
     ]];
-    self.libraryTable.tableHeaderView = header;
     [self updatePlaylistHeader];
 }
 
@@ -1292,6 +1322,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [self.view endEditing:YES];
     self.createScrollView.hidden = (tab != EZMusicTabCreate);
     self.libraryTable.hidden = (tab != EZMusicTabLibrary);
+    self.playerBar.hidden = (tab != EZMusicTabLibrary);
     if (self.tabControl.selectedSegmentIndex != tab) self.tabControl.selectedSegmentIndex = tab;
     if (tab == EZMusicTabLibrary && !self.libraryLoadedOnce && !self.isLoadingPage) {
         [self loadLibraryResetting:YES];
@@ -2203,6 +2234,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [self.regeneratingArtworkEntryIDs addObject:entryID];
     [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium] impactOccurred];
     [self reloadRowForEntryID:entryID];
+    [self updatePlaylistHeader];
 
     // The library row may not carry the lyrics; fill in anything missing from
     // the copy saved on this device so the new cover is based on them.
@@ -2220,6 +2252,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         if (!strongSelf) return;
         [strongSelf.regeneratingArtworkEntryIDs removeObject:entryID];
         [strongSelf reloadRowForEntryID:entryID];
+        [strongSelf updatePlaylistHeader];
         if (success) {
             [[[UINotificationFeedbackGenerator alloc] init] notificationOccurred:UINotificationFeedbackTypeSuccess];
         } else {
@@ -2450,12 +2483,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
                    isPlaying:self.isPlaybackActive
               isLoadingAudio:[self isEntryIDLoadingAudio:entryID]
                     favorite:[entry[@"is_favorite"] boolValue]
-               detailIsError:detailIsError
-                 waveformURL:[[EZMusicLibraryManager sharedManager] localSongURLForEntryID:entryID]
-          waveformIdentifier:entryID];
-
-    [cell setArtwork:[[EZMusicArtworkService sharedService] cachedArtworkForEntryID:entryID]];
-    [cell setArtworkBusy:[self.regeneratingArtworkEntryIDs containsObject:entryID]];
+               detailIsError:detailIsError];
 
     __weak typeof(self) weakSelf = self;
     cell.playHandler = ^{ [weakSelf togglePlaybackForEntryID:entryID]; };
@@ -2896,7 +2924,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.playlistTitleLabel.text = title.length ? title : EZMusicText(@"EZMusic.Playlist.Title", @"Local playlist");
     NSInteger currentIndex = current.length ? [playlist indexOfObject:current] + 1 : 0;
     self.playlistDetailLabel.text = playlist.count
-        ? (currentIndex ? [NSString stringWithFormat:@"%ld of %ld  •  plays next automatically", (long)currentIndex, (long)playlist.count]
+        ? (currentIndex ? [NSString stringWithFormat:@"%ld of %ld", (long)currentIndex, (long)playlist.count]
                         : [NSString stringWithFormat:@"%ld downloaded songs", (long)playlist.count])
         : EZMusicText(@"EZMusic.Playlist.Empty", @"Downloaded songs will appear here");
     NSString *symbol = self.isPlaybackActive ? @"pause.fill" : @"play.fill";
@@ -2905,6 +2933,29 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.playlistPlayButton.enabled = hasSongs;
     self.playlistPreviousButton.enabled = hasSongs;
     self.playlistNextButton.enabled = hasSongs;
+
+    // The bar is the only place artwork shows: the current song's cover, or
+    // the music-note placeholder when nothing is loaded. A cover being
+    // remade dims it and spins, the way the row used to.
+    UIImage *artwork = current.length ? [[EZMusicArtworkService sharedService] cachedArtworkForEntryID:current] : nil;
+    if (artwork) {
+        self.playerArtworkView.contentMode = UIViewContentModeScaleAspectFill;
+        self.playerArtworkView.image = artwork;
+    } else {
+        self.playerArtworkView.contentMode = UIViewContentModeCenter;
+        self.playerArtworkView.image = [UIImage systemImageNamed:@"music.note"
+                                                 withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22]];
+    }
+    BOOL coverBusy = current.length && [self.regeneratingArtworkEntryIDs containsObject:current];
+    self.playerArtworkView.alpha = coverBusy ? 0.45 : 1.0;
+    if (coverBusy) [self.playerArtworkSpinner startAnimating]; else [self.playerArtworkSpinner stopAnimating];
+    if (current.length) {
+        [self.playerWaveformView showWaveformForURL:[[EZMusicLibraryManager sharedManager] localSongURLForEntryID:current]
+                                         identifier:current];
+    } else {
+        self.playerWaveformView.playbackProgress = 0;
+    }
+    self.playerWaveformView.animating = self.isPlaybackActive;
 }
 
 - (nullable NSString *)playingEntryID {
@@ -3074,11 +3125,12 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 - (void)updatePlaybackProgress {
     NSString *currentID = self.playingEntryID;
     if (!currentID) return;
-    NSInteger row = [self rowForEntryID:currentID];
-    if (row == NSNotFound) return;
     EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
     double duration = player.duration;
     float progress = duration > 0 ? (float)(player.currentTime / duration) : 0.0f;
+    self.playerWaveformView.playbackProgress = progress;
+    NSInteger row = [self rowForEntryID:currentID];
+    if (row == NSNotFound) return;
     EZMusicTrackCell *cell = (EZMusicTrackCell *)[self.libraryTable cellForRowAtIndexPath:[NSIndexPath indexPathForRow:row inSection:0]];
     [cell.progressView setProgress:MIN(MAX(progress, 0.0f), 1.0f) animated:NO];
 }

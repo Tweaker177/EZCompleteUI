@@ -4,6 +4,7 @@
 //
 
 #import "EZModelPickerViewController.h"
+#import "EZTheme.h"
 #import "EZCoinStoreViewController.h"
 #import "EZEntitlementManager.h"
 
@@ -33,6 +34,8 @@ static NSDictionary<NSString *, NSString *> *EZModelLabels(void) {
         @"gpt-5-mini":             EZLocalized(@"EZModelLabel.ChatVision"),
         @"gpt-4o":                 EZLocalized(@"EZModelLabel.ChatVision"),
         @"gpt-4o-mini":            EZLocalized(@"EZModelLabel.ChatVisionFastCheap"),
+        @"gpt-image-2.6-flare":    EZLocalized(@"EZModelLabel.ImageGenNewestFast"),
+        @"gpt-image-2.6-sunburst": EZLocalized(@"EZModelLabel.ImageGenEditPrecision"),
         @"gpt-image-2.5-flare":    EZLocalized(@"EZModelLabel.ImageGenNewestFast"),
         @"gpt-image-2.5-sunburst": EZLocalized(@"EZModelLabel.ImageGenEditPrecision"),
         @"gpt-image-2":            EZLocalized(@"EZModelLabel.ImageGenEdit"),
@@ -58,7 +61,7 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
         @[@"gpt-6-astra", @"gpt-6.1-sol", @"gpt-6.1-terra", @"gpt-6-luna", //@"gpt-5-pro",
           @"gpt-5-mini"],
         @[@"gpt-4o", @"gpt-4o-mini"],
-        @[@"gpt-image-2.5-sunburst", @"gpt-image-2.5-flare", @"gpt-image-2", @"gpt-image-1-mini"
+        @[@"gpt-image-2.6-sunburst", @"gpt-image-2.6-flare", @"gpt-image-2.5-sunburst", @"gpt-image-2.5-flare", @"gpt-image-2", @"gpt-image-1-mini"
 #if !APPSTORE
             , @"seahorse-image"
 #endif
@@ -85,6 +88,12 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = EZLocalized(@"EZModelPicker.Title");
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
+    self.tableView.backgroundColor = [EZTheme chatBackgroundColor];
+    self.tableView.tintColor = [EZTheme goldColor];
+    self.tableView.separatorColor = [EZTheme hairlineColor];
+    self.navigationController.navigationBar.standardAppearance = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
     self.navigationItem.rightBarButtonItem =
         [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
                                                       target:self action:@selector(_dismiss)];
@@ -160,15 +169,18 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
     if (!cell) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"ModelCell"];
     }
+    cell.backgroundColor = [EZTheme cardColor];
+    cell.textLabel.textColor = [EZTheme primaryTextColor];
     if (ip.section == 0) {
         cell.textLabel.text            = EZLocalized(@"EZModelPicker.AutoTitle");
         cell.textLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
         cell.detailTextLabel.text      = EZLocalized(@"EZModelPicker.AutoDetail");
         cell.detailTextLabel.font      = [UIFont systemFontOfSize:12];
-        cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
+        cell.detailTextLabel.textColor = [EZTheme secondaryTextColor];
         cell.accessoryType             = UITableViewCellAccessoryNone;
         UISwitch *toggle = [[UISwitch alloc] init];
         toggle.on = self.autoEnabled;
+        toggle.onTintColor = [EZTheme goldColor];
         [toggle addTarget:self action:@selector(autoSwitchChanged:)
          forControlEvents:UIControlEventValueChanged];
         cell.accessoryView = toggle;
@@ -180,11 +192,18 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
     cell.textLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     cell.detailTextLabel.text      = EZModelLabels()[model] ?: @"";
     cell.detailTextLabel.font      = [UIFont systemFontOfSize:12];
-    cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
+    cell.detailTextLabel.textColor = [EZTheme secondaryTextColor];
     cell.accessoryType             = [model isEqualToString:self.selectedModel]
                                      ? UITableViewCellAccessoryCheckmark
                                      : UITableViewCellAccessoryNone;
     return cell;
+}
+
+
+- (void)tableView:(UITableView *)tv willDisplayHeaderView:(UIView *)view forSection:(NSInteger)section {
+    UITableViewHeaderFooterView *header = (UITableViewHeaderFooterView *)view;
+    header.textLabel.textColor = [EZTheme secondaryTextColor];
+    header.contentView.backgroundColor = [UIColor clearColor];
 }
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {

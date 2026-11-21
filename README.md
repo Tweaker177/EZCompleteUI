@@ -5,12 +5,26 @@ EZCompleteUI is a native iOS AI workspace built with Objective-C and Theos. It c
 EZCompleteUI targets iOS 15.0 and later. See [CHANGELOG.md](CHANGELOG.md) for
 release notes.
 
+## Website
+
+[ezcompleteai.wordpress.com](https://ezcompleteai.wordpress.com) — subscription
+plans and coin top-ups, FAQ, privacy policy, and terms of service.
+
 ## Install
 
+- **TestFlight (beta):** install the TestFlight app from the App Store, then
+  open the beta link —
+  [testflight.apple.com/join/cKdEWqsU](https://testflight.apple.com/join/cKdEWqsU) —
+  and tap Install. No jailbreak or computer needed.
 - **AltStore / SideStore:** add the source
   `https://raw.githubusercontent.com/Tweaker177/EZCompleteUI/main/apps.json`
   and install from there. See [ALTSTORE_SETUP.md](ALTSTORE_SETUP.md) for how the source is maintained.
 - **Jailbroken devices:** install the rootless `.deb` (package `com.i0stweak3r.ezcompleteui`) from the author's repo on YouRepo.
+
+**Plans and coin top-ups:** subscribe or top up on the website,
+[ezcompleteai.wordpress.com](https://ezcompleteai.wordpress.com). Check out with
+the PayPal account whose email matches your app account so your coins land
+automatically, then open the app and check your balance.
 
 ## What it includes
 

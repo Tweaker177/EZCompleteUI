@@ -17,8 +17,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, copy, nullable) void (^onPlayTapped)(void);
 @property (nonatomic, copy, nullable) void (^onFavoriteTapped)(void);
-@property (nonatomic, copy, nullable) void (^onRegenerateTapped)(void);
-@property (nonatomic, copy, nullable) void (^onEditTapped)(void);
+/// The row's one action button: a share glyph that opens the clip's
+/// action menu (Share / Edit / Regenerate / Rename) in the controller.
+@property (nonatomic, copy, nullable) void (^onShareTapped)(void);
 
 /// Populates labels and kicks off an async waveform render from `audioURL`.
 /// `audioURL` is the absolute file URL (from EZTTSLibraryManager -absoluteURLForEntry:).

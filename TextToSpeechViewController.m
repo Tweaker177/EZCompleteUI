@@ -322,7 +322,10 @@ static NSString *timestampString(void) {
     self.tabControl.selectedSegmentIndex = 0;
     [self.tabControl addTarget:self action:@selector(ttsTabChanged:) forControlEvents:UIControlEventValueChanged];
     self.tabControl.backgroundColor = [EZTheme cardColor];
-    self.tabControl.selectedSegmentTintColor = [EZTheme goldColor];
+    self.tabControl.selectedSegmentTintColor = [UIColor clearColor];
+    [self.tabControl setBackgroundImage:[EZTheme selectedSegmentGradientImage]
+                   forState:UIControlStateSelected
+                         barMetrics:UIBarMetricsDefault];
     [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme secondaryTextColor]} forState:UIControlStateNormal];
     [self.tabControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme userBubbleTextColor]} forState:UIControlStateSelected];
     self.navigationItem.titleView = self.tabControl;
@@ -416,6 +419,8 @@ static NSString *timestampString(void) {
     self.speedSlider.maximumTrackTintColor = [UIColor colorWithRed:0.25 green:0.20 blue:0.45 alpha:1.0];
     self.speedSlider.thumbTintColor = EZTTSNeonPink();
     self.speedSlider.tintColor = EZTTSNeonPink();
+    [self.speedSlider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateNormal];
+    [self.speedSlider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateHighlighted];
     [self.speedSlider addTarget:self
                           action:@selector(speedSliderChanged:)
                 forControlEvents:UIControlEventValueChanged];

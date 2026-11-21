@@ -102,6 +102,7 @@
 //   - Whole file wrapped in #if DEBUG
 
 #import "EZCoinLedgerViewController.h"
+#import "EZTheme.h"
 #import "EZAuthManager.h"
 
 #if DEBUG
@@ -122,13 +123,13 @@ static double const kBreakevenWorst = 1.25;  // Basic tier
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 
-static UIColor *EZGold(void)  { return [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0]; }
-static UIColor *EZBg(void)    { return [UIColor colorWithRed:0.04 green:0.04 blue:0.10 alpha:1.0]; }
-static UIColor *EZCard(void)  { return [UIColor colorWithRed:0.09 green:0.09 blue:0.14 alpha:1.0]; }
-static UIColor *EZMuted(void) { return [UIColor colorWithWhite:0.45 alpha:1]; }
+static UIColor *EZGold(void)  { return [EZTheme goldColor]; }
+static UIColor *EZBg(void)    { return [EZTheme backgroundColor]; }
+static UIColor *EZCard(void)  { return [EZTheme cardColor]; }
+static UIColor *EZMuted(void) { return [[EZTheme secondaryTextColor] colorWithAlphaComponent:0.75]; }
 // Lighter than EZMuted — for the date/time and IP fields, which were
 // previously near-illegible against the dark card background.
-static UIColor *EZMutedLight(void) { return [UIColor colorWithWhite:0.70 alpha:1]; }
+static UIColor *EZMutedLight(void) { return [EZTheme secondaryTextColor]; }
 
 // ── Efficiency color ──────────────────────────────────────────────────────────
 
@@ -344,7 +345,7 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     // Double-tap (not single-tap) opens the grant-coins sheet, since this
     // moves real value onto an account and shouldn't fire on a stray touch.
     _grantButton = [UIView new];
-    _grantButton.backgroundColor    = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.16];
+    _grantButton.backgroundColor    = [[EZTheme goldColor] colorWithAlphaComponent:0.16];
     _grantButton.layer.borderWidth  = 1;
     _grantButton.layer.borderColor  = [EZGold() colorWithAlphaComponent:0.55].CGColor;
     _grantButton.userInteractionEnabled = YES;
@@ -561,7 +562,7 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
 
     UIColor *originalColor = _card.backgroundColor;
     [UIView animateWithDuration:0.12 animations:^{
-        self->_card.backgroundColor = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.25];
+        self->_card.backgroundColor = [[EZTheme goldColor] colorWithAlphaComponent:0.25];
     } completion:^(BOOL finished) {
         [UIView animateWithDuration:0.25 animations:^{
             self->_card.backgroundColor = originalColor;
@@ -579,7 +580,7 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
 
     UIColor *originalColor = view.backgroundColor;
     [UIView animateWithDuration:0.10 animations:^{
-        view.backgroundColor = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.30];
+        view.backgroundColor = [[EZTheme goldColor] colorWithAlphaComponent:0.30];
     } completion:^(BOOL finished) {
         [UIView animateWithDuration:0.22 animations:^{
             view.backgroundColor = originalColor;
@@ -815,13 +816,13 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
 
     // Gold divider line (above the per-call stats)
     UIView *divider = [UIView new];
-    divider.backgroundColor = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.25];
+    divider.backgroundColor = [[EZTheme goldColor] colorWithAlphaComponent:0.25];
     divider.tag = 99;
     [self addSubview:divider];
 
     // Second divider, between margin and the circulation total
     UIView *circulationDivider = [UIView new];
-    circulationDivider.backgroundColor = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.15];
+    circulationDivider.backgroundColor = [[EZTheme goldColor] colorWithAlphaComponent:0.15];
     circulationDivider.tag = 100;
     [self addSubview:circulationDivider];
 

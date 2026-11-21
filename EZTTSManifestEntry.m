@@ -25,18 +25,21 @@ static NSString * const kEZKeyTags         = @"tags";
 static NSString * const kEZKeyMetadata     = @"metadata";
 static NSString * const kEZKeyUnknownBucket = @"__unknown";
 
-static NSInteger const kEZPreviewMaxLength = 80;
 
+/// The auto-generated clip name: the first three words of the prompt.
+/// A clip's name is a name, not a summary — the full prompt stays one
+/// tap away in the editor, and Rename covers anything longer.
 static NSString *EZDerivePreview(NSString *prompt) {
     if (prompt.length == 0) return @"";
-    if (prompt.length <= kEZPreviewMaxLength) return prompt;
-    NSString *truncated = [prompt substringToIndex:kEZPreviewMaxLength];
-    // Avoid cutting mid-word where reasonably possible.
-    NSRange lastSpace = [truncated rangeOfString:@" " options:NSBackwardsSearch];
-    if (lastSpace.location != NSNotFound && lastSpace.location > kEZPreviewMaxLength / 2) {
-        truncated = [truncated substringToIndex:lastSpace.location];
+    NSArray<NSString *> *words = [prompt componentsSeparatedByCharactersInSet:
+                                  [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSMutableArray<NSString *> *kept = [NSMutableArray array];
+    for (NSString *word in words) {
+        if (word.length == 0) continue;
+        [kept addObject:word];
+        if (kept.count == 3) break;
     }
-    return [truncated stringByAppendingString:@"…"];
+    return kept.count > 0 ? [kept componentsJoinedByString:@" "] : @"";
 }
 
 static NSError *EZManifestEntryError(NSInteger code, NSString *description) {

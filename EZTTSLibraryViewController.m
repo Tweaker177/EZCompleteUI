@@ -221,8 +221,7 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
     __weak typeof(self) weakSelf = self;
     cell.onPlayTapped = ^{ [weakSelf togglePlaybackForEntry:entry]; };
     cell.onFavoriteTapped = ^{ [weakSelf toggleFavoriteForEntry:entry]; };
-    cell.onRegenerateTapped = ^{ [weakSelf regenerateEntry:entry]; };
-    cell.onEditTapped = ^{ [weakSelf editEntry:entry]; };
+    cell.onShareTapped = ^{ [weakSelf presentClipActionsForEntry:entry sourceView:cell]; };
 
     return cell;
 }
@@ -500,6 +499,14 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
         UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace
                                                                                 target:nil action:NULL];
         self.toolbarItems = @[flex, self.combineBarButtonItem];
+        // This controller is a child embedded in the TTS screen, and a
+        // navigation controller's toolbar shows the TOP controller's
+        // items — setting them only here left the toolbar empty, so the
+        // Combine button never appeared and merge was unreachable.
+        // Mirror them onto the parent so they actually render.
+        self.parentViewController.toolbarItems = self.toolbarItems;
+    } else {
+        self.parentViewController.toolbarItems = nil;
     }
     [self.navigationController setToolbarHidden:!active animated:YES];
     [self updateCombineButtonState];
@@ -683,6 +690,71 @@ static UIColor *EZTTSNeonDimText(void) { return [EZTheme secondaryTextColor]; }
             [strongSelf togglePlaybackForEntry:newEntry];
         });
     }];
+}
+
+#pragma mark - Clip actions (share button menu)
+
+/// One menu behind the row's share button: the plain share sheet, plus
+/// the actions that used to be their own row buttons (Edit, Regenerate)
+/// and Rename.
+- (void)presentClipActionsForEntry:(EZTTSManifestEntry *)entry sourceView:(UIView *)sourceView {
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:nil
+                                                                   message:nil
+                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    __weak typeof(self) weakSelf = self;
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Share" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        [weakSelf presentShareSheetForEntry:entry sourceView:sourceView];
+    }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Edit" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        [weakSelf editEntry:entry];
+    }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Regenerate" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        [weakSelf regenerateEntry:entry];
+    }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Rename" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        [weakSelf presentRenameAlertForEntry:entry];
+    }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    if (sheet.popoverPresentationController) {
+        sheet.popoverPresentationController.sourceView = sourceView;
+        sheet.popoverPresentationController.sourceRect = sourceView.bounds;
+    }
+    [self presentViewController:sheet animated:YES completion:nil];
+}
+
+- (void)presentRenameAlertForEntry:(EZTTSManifestEntry *)entry {
+    NSString *current = entry.metadata[@"title"];
+    if (![current isKindOfClass:[NSString class]] || current.length == 0) {
+        current = entry.preview.length > 0 ? entry.preview : entry.prompt;
+    }
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Rename clip"
+                                                                   message:nil
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+        textField.text = current;
+        textField.clearButtonMode = UITextFieldViewModeWhileEditing;
+    }];
+    __weak typeof(self) weakSelf = self;
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+        NSString *title = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:
+                           [NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        if (title.length == 0) return;
+        [[EZTTSLibraryManager sharedManager] renameClipWithUUID:entry.uuid
+                                                          title:title
+                                                     completion:^(EZTTSManifestEntry * _Nullable updated, NSError * _Nullable error) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if (error || !updated) {
+                    [weakSelf presentErrorAlert:error ?: [NSError errorWithDomain:@"EZTTSLibrary" code:-9
+                        userInfo:@{NSLocalizedDescriptionKey: @"Could not rename the clip."}]
+                                          title:@"Couldn't rename clip"];
+                    return;
+                }
+                [weakSelf reloadClips];
+            });
+        }];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 #pragma mark - Sharing

@@ -3,7 +3,7 @@
 //
 // Replacement header focused on safer routing, saner memory metadata,
 // and backwards-compatible decoding of legacy memory entries.
-
+#import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
@@ -25,6 +25,14 @@ void EZLog(EZLogLevel level, NSString *tag, NSString *message);
 // entry at 8192 chars as a backstop.
 NSString *EZLogRedactedString(NSString *text);
 id EZLogRedactedObject(id object);
+// Result-facing sibling of the log redactor, sharing the same
+// detection: data: URLs, long base64 runs, and line-wrapped base64
+// blocks collapse to a short "[base64 omitted, ~<size>]" marker with
+// the decoded byte size. Used on text that is about to be handed to
+// a model (e.g. a local file result) so binary bulk never rides into
+// the conversation as page after page of base64, while the text
+// around a blob stays intact and complete.
+NSString *EZBase64RedactedString(NSString *text);
 #define EZLogf(level, tag, fmt, ...) EZLog((level),(tag),[NSString stringWithFormat:(fmt),##__VA_ARGS__])
 void EZLogRotateIfNeeded(NSUInteger maxBytes);
 
@@ -245,6 +253,12 @@ NSString * _Nullable EZAttachmentPath(NSString *savedFileName);
 NSString *EZPhotoGalleryDirectory(void);
 NSString * _Nullable EZPhotoGallerySave(NSData *data, NSString *fileName);
 NSString * _Nullable EZPhotoGalleryPath(NSString *savedFileName);
+// Loads an image file for display. GIF files come back as an animated
+// image (frames and timing decoded via ImageIO); every other format
+// loads as a normal still. Use this wherever a saved image is shown —
+// chat grids, the gallery, full-screen views — so generated GIFs play
+// instead of sitting on their first frame.
+UIImage * _Nullable EZImageFromFilePath(NSString *path);
 
 NSString *EZHelperStats(void);
 

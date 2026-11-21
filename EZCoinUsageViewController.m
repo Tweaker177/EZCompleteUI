@@ -33,6 +33,7 @@
 //   - Added: raw response NSLog when JSON parse fails to aid edge function debugging
 
 #import "EZCoinUsageViewController.h"
+#import "EZTheme.h"
 #import "EZAuthManager.h"
 #import "EZEntitlementManager.h"
 
@@ -42,10 +43,10 @@ static NSInteger const kPageSize     = 100;
 
 // ── Colors & helpers ──────────────────────────────────────────────────────────
 
-static UIColor *EZUBg(void)   { return [UIColor colorWithRed:0.04 green:0.04 blue:0.10 alpha:1]; }
-static UIColor *EZUCard(void) { return [UIColor colorWithRed:0.09 green:0.09 blue:0.14 alpha:1]; }
-static UIColor *EZUGold(void) { return [UIColor colorWithRed:1.0 green:0.84 blue:0.0  alpha:1]; }
-static UIColor *EZUMuted(void){ return [UIColor colorWithWhite:0.45 alpha:1]; }
+static UIColor *EZUBg(void)   { return [EZTheme backgroundColor]; }
+static UIColor *EZUCard(void) { return [EZTheme cardColor]; }
+static UIColor *EZUGold(void) { return [EZTheme goldColor]; }
+static UIColor *EZUMuted(void){ return [[EZTheme secondaryTextColor] colorWithAlphaComponent:0.75]; }
 
 static NSString *friendlyFeatureName(NSString *feature) {
     NSDictionary *map = @{
@@ -432,7 +433,7 @@ static NSNumber *safeNumber(id value) {
     appearance.titleTextAttributes    = @{NSForegroundColorAttributeName: UIColor.whiteColor};
     self.navigationItem.standardAppearance   = appearance;
     self.navigationItem.scrollEdgeAppearance = appearance;
-    self.navigationController.navigationBar.tintColor = UIColor.whiteColor;
+    self.navigationController.navigationBar.tintColor = EZUGold();
 }
 
 - (void)setupTable {

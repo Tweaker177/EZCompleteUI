@@ -57,6 +57,11 @@ static UIColor *EZEditElectricBlue(void) {
 @property (nonatomic, strong) UIButton *insertSilenceButton;
 @property (nonatomic, strong) UIButton *normalizeButton;
 @property (nonatomic, strong) UIButton *trimButton;
+@property (nonatomic, strong) UIButton *loopButton;
+// Loop mode: previews loop the current selection, and the range selector
+// draws a bar across the top connecting the handles.
+@property (nonatomic, assign) BOOL loopSelectionEnabled;
+@property (nonatomic, strong, nullable) NSTimer *loopTimer;
 @property (nonatomic, strong) UIActivityIndicatorView *exportSpinner;
 
 @property (nonatomic, strong) UILabel *backgroundSectionLabel;
@@ -419,6 +424,7 @@ static UIColor *EZEditElectricBlue(void) {
     [self.scrollView addSubview:self.editWaveformView];
 
     self.rangeSelector = [[EZWaveformRangeSelector alloc] init];
+    self.rangeSelector.loopBarColor = [EZTheme goldColor];
     // Default to the whole clip selected — most of the range-based tools (Trim aside)
     // make sense applied to the entire clip out of the box, and it avoids the confusing
     // "both handles stuck together selecting nothing" starting state.
@@ -448,6 +454,14 @@ static UIColor *EZEditElectricBlue(void) {
     self.trimButton = [self smallActionButtonWithTitle:@"Trim" systemImage:@"scissors" color:[UIColor systemPinkColor]];
     [self.trimButton addTarget:self action:@selector(handleTrimTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:self.trimButton];
+
+    // Loop is a mode, not a one-shot action, so it stays visible even when
+    // the selection is too small for the edit actions to show.
+    self.loopButton = [self smallActionButtonWithTitle:@"Loop" systemImage:@"repeat" color:EZEditElectricBlue()];
+    self.loopButton.hidden = NO;
+    self.loopButton.accessibilityValue = @"Off";
+    [self.loopButton addTarget:self action:@selector(handleLoopTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.scrollView addSubview:self.loopButton];
 
     self.exportSpinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.exportSpinner.hidesWhenStopped = YES;
@@ -481,6 +495,44 @@ static UIColor *EZEditElectricBlue(void) {
 
 - (void)handleRangeDragEnded:(EZWaveformRangeSelector *)selector {
     [self startScrubPreviewFromFraction:selector.startFraction];
+}
+
+- (void)handleLoopTapped {
+    self.loopSelectionEnabled = !self.loopSelectionEnabled;
+    self.rangeSelector.loopEnabled = self.loopSelectionEnabled;
+    UIButtonConfiguration *config = self.loopButton.configuration;
+    config.baseBackgroundColor = [EZEditElectricBlue() colorWithAlphaComponent:self.loopSelectionEnabled ? 0.50 : 0.16];
+    self.loopButton.configuration = config;
+    self.loopButton.accessibilityValue = self.loopSelectionEnabled ? @"On" : @"Off";
+    if (!self.loopSelectionEnabled) [self stopLoopTimer];
+}
+
+- (void)startLoopTimer {
+    [self stopLoopTimer];
+    self.loopTimer = [NSTimer scheduledTimerWithTimeInterval:0.05
+                                                      target:self
+                                                    selector:@selector(loopTimerFired:)
+                                                    userInfo:nil
+                                                     repeats:YES];
+}
+
+- (void)stopLoopTimer {
+    [self.loopTimer invalidate];
+    self.loopTimer = nil;
+}
+
+/// While a preview plays in loop mode, jump back to the selection start at
+/// the selection end. Reads the live fractions, so dragging a handle
+/// mid-loop retargets the loop. Self-cleans: any of the several places
+/// that stop and release the preview leave the timer to notice and die.
+- (void)loopTimerFired:(NSTimer *)timer {
+    AVAudioPlayer *player = self.previewPlayer;
+    if (!player || !self.loopSelectionEnabled) { [self stopLoopTimer]; return; }
+    NSTimeInterval loopEnd = self.entry.duration * self.rangeSelector.endFraction;
+    if (player.currentTime >= loopEnd) {
+        player.currentTime = self.entry.duration * self.rangeSelector.startFraction;
+        if (!player.isPlaying) [player play];
+    }
 }
 
 - (void)updateActionRowVisibility {
@@ -968,6 +1020,14 @@ static UIColor *EZEditElectricBlue(void) {
 
 - (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
     if (player == self.previewPlayer) {
+        if (self.loopSelectionEnabled) {
+            // The selection runs to the end of the clip, so the player
+            // finished instead of the loop timer catching the end first —
+            // restart the loop from the selection start.
+            player.currentTime = self.entry.duration * self.rangeSelector.startFraction;
+            [player play];
+            return;
+        }
         self.previewPlayer = nil;
         [self.speedPreviewButton setImage:[UIImage systemImageNamed:@"play.circle"] forState:UIControlStateNormal];
     }
@@ -995,7 +1055,10 @@ static UIColor *EZEditElectricBlue(void) {
     player.delegate = self;
     player.enableRate = YES;
     player.rate = self.speedSlider.value;
-    player.currentTime = MAX(0, self.entry.duration * fraction);
+    // In loop mode a preview always starts at the selection start, whatever
+    // asked for it — the loop is the selection.
+    CGFloat startFraction = self.loopSelectionEnabled ? self.rangeSelector.startFraction : fraction;
+    player.currentTime = MAX(0, self.entry.duration * startFraction);
     [player prepareToPlay];
     if (![player play]) {
         NSError *playbackError = [self errorWithCode:-31 message:@"The audio player could not start playback."];
@@ -1003,6 +1066,7 @@ static UIColor *EZEditElectricBlue(void) {
         return;
     }
     self.previewPlayer = player;
+    if (self.loopSelectionEnabled) [self startLoopTimer]; else [self stopLoopTimer];
     [self.speedPreviewButton setImage:[UIImage systemImageNamed:@"stop.circle"] forState:UIControlStateNormal];
 }
 
@@ -1387,11 +1451,12 @@ static UIColor *EZEditElectricBlue(void) {
     self.selectionTimeLabel.frame = CGRectMake(margin, y, width, 16);
     y = CGRectGetMaxY(self.selectionTimeLabel.frame) + 12;
 
-    CGFloat actionButtonWidth = (width - 16) / 3.0;
+    CGFloat actionButtonWidth = (width - 24) / 4.0;
     CGFloat actionButtonHeight = 56;
     self.insertSilenceButton.frame = CGRectMake(margin, y, actionButtonWidth, actionButtonHeight);
     self.normalizeButton.frame = CGRectMake(margin + actionButtonWidth + 8, y, actionButtonWidth, actionButtonHeight);
     self.trimButton.frame = CGRectMake(margin + (actionButtonWidth + 8) * 2, y, actionButtonWidth, actionButtonHeight);
+    self.loopButton.frame = CGRectMake(margin + (actionButtonWidth + 8) * 3, y, actionButtonWidth, actionButtonHeight);
     self.exportSpinner.center = CGPointMake(self.view.bounds.size.width / 2.0, y + actionButtonHeight / 2.0);
     y += actionButtonHeight + 28;
 
