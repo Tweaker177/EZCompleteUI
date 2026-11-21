@@ -205,6 +205,9 @@
     @property (nonatomic, strong) UITextField  *webLocationField;
     @property (nonatomic, strong) UISwitch     *webSearchSwitch;
 
+    // ── Helper direct answers ─────────────────────────────────────────────────────
+    @property (nonatomic, strong) UISwitch     *helperDirectAnswersSwitch;
+
     // ── ElevenLabs TTS ────────────────────────────────────────────────────────────
     @property (nonatomic, strong) UITextField  *elVoiceField;
 
@@ -433,6 +436,13 @@
         [self.scrollView addSubview:self.webSearchSwitch];
         [self addLabel:@"Location hint (optional city):" y:&y];
         self.webLocationField = [self addField:w y:&y placeholder:@"e.g. Miami, FL"];
+
+        // ── Helper Direct Answers ─────────────────────────────────────────────────
+        [self addSection:@"⚡ Helper Direct Answers" y:&y];
+        [self addLabel:@"Enable helper direct answers:" y:&y];
+        self.helperDirectAnswersSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(w - 30, y - 28, 51, 31)];
+        self.helperDirectAnswersSwitch.onTintColor = [EZTheme goldColor];
+        [self.scrollView addSubview:self.helperDirectAnswersSwitch];
 
         // ── ElevenLabs TTS ────────────────────────────────────────────────────────
         [self addSection:@"🎙 ElevenLabs TTS" y:&y];
@@ -996,6 +1006,7 @@
         self.freqSlider.value         = [defaults floatForKey:@"frequency"];
         self.elVoiceField.text        = [defaults stringForKey:@"elevenVoiceID"];
         self.webSearchSwitch.on       = [defaults boolForKey:@"webSearchEnabled"];
+        self.helperDirectAnswersSwitch.on = [defaults boolForKey:@"HelperDirectAnswersEnabled"];
         NSUInteger savedSpeedIdx      = [EZSpeedModeValues() indexOfObject:[defaults stringForKey:kSpeedModeDefaultsKey] ?: @"standard"];
         self.speedModeControl.selectedSegmentIndex = (savedSpeedIdx == NSNotFound) ? 1 : (NSInteger)savedSpeedIdx;
         self.webLocationField.text    = [defaults stringForKey:@"webSearchLocation"];
@@ -1020,6 +1031,7 @@
         [defaults setFloat:self.freqSlider.value        forKey:@"frequency"];
         [defaults setObject:self.elVoiceField.text      forKey:@"elevenVoiceID"];
         [defaults setBool:self.webSearchSwitch.isOn     forKey:@"webSearchEnabled"];
+        [defaults setBool:self.helperDirectAnswersSwitch.isOn forKey:@"HelperDirectAnswersEnabled"];
         [defaults setObject:EZSpeedModeValues()[(NSUInteger)self.speedModeControl.selectedSegmentIndex] forKey:kSpeedModeDefaultsKey];
         [defaults setObject:self.webLocationField.text  forKey:@"webSearchLocation"];
       //  [defaults setObject:self.soraModelField.text    forKey:@"soraModel"];
