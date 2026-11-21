@@ -2431,14 +2431,14 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.inputContainer.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.inputContainer];
 
-    // These toggles belong with the message being composed, rather than in the
-    // app navigation bar. Keeping them adjacent makes their scope obvious.
-    [self.inputContainer addSubview:self.helperDirectAnswersButton];
-    
+    // The helper-direct-answer preference remains stored; its control belongs
+    // in Settings rather than occupying space in the composer.
+
         // Dictate button
         self.dictateButton = [UIButton buttonWithType:UIButtonTypeSystem];
         [self.dictateButton setImage:[UIImage systemImageNamed:@"mic.fill"] forState:UIControlStateNormal];
         [self.dictateButton setTintColor:[UIColor systemBlueColor]];
+        self.dictateButton.accessibilityLabel = @"Dictate message";
         [self.dictateButton addTarget:self action:@selector(toggleDictation)
                      forControlEvents:UIControlEventTouchUpInside];
         self.dictateButton.translatesAutoresizingMaskIntoConstraints = NO;
@@ -2455,8 +2455,13 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     // Attach button
     self.attachButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [self.attachButton setImage:[UIImage systemImageNamed:@"paperclip.circle.fill"]
+    [self.attachButton setImage:[UIImage systemImageNamed:@"paperclip"]
                        forState:UIControlStateNormal];
+    self.attachButton.backgroundColor = [EZTheme goldColor];
+    self.attachButton.tintColor = [EZTheme userBubbleTextColor];
+    self.attachButton.layer.cornerRadius = 24.0;
+    self.attachButton.clipsToBounds = YES;
+    self.attachButton.accessibilityLabel = @"Attach file or image";
     [self.attachButton addTarget:self action:@selector(showAttachMenu)
                 forControlEvents:UIControlEventTouchUpInside];
     self.attachButton.translatesAutoresizingMaskIntoConstraints = NO;
@@ -2468,7 +2473,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     // Wrapped in a rounded container view to replicate UITextBorderStyleRoundedRect look.
     UIView *inputWrapper = [[UIView alloc] init];
     inputWrapper.backgroundColor   = [EZTheme backgroundColor];
-    inputWrapper.layer.cornerRadius = 10.0;
+    inputWrapper.layer.cornerRadius = 24.0;
     inputWrapper.layer.borderWidth  = 1.5;
     inputWrapper.layer.borderColor  = [[EZTheme goldColor] colorWithAlphaComponent:0.35].CGColor;
     inputWrapper.clipsToBounds      = YES;
@@ -2479,28 +2484,27 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.messageTextField.textColor             = [EZTheme primaryTextColor];
     self.messageTextField.tintColor             = [EZTheme goldColor];
     self.messageTextField.backgroundColor       = [UIColor clearColor];
-    self.messageTextField.textContainerInset    = UIEdgeInsetsMake(8, 6, 8, 6);
+    self.messageTextField.textContainerInset    = UIEdgeInsetsMake(16, 14, 12, 14);
     self.messageTextField.textContainer.lineFragmentPadding = 0;
     self.messageTextField.scrollEnabled         = YES;
     self.messageTextField.delegate              = self;
     self.messageTextField.returnKeyType         = UIReturnKeyDefault;
     self.messageTextField.translatesAutoresizingMaskIntoConstraints = NO;
     
-    self.messageTextField.layer.cornerRadius = 10;
+    self.messageTextField.layer.cornerRadius = 0;
     self.messageTextField.layer.masksToBounds = YES;
-    self.messageTextField.layer.borderColor = [UIColor secondaryLabelColor].CGColor;
 
     // Placeholder label — UITextView has no built-in placeholder
     UILabel *placeholder = [[UILabel alloc] init];
-    placeholder.text      = @"Type message...";
+    placeholder.text      = @"Type a message...";
     placeholder.font      = [UIFont systemFontOfSize:16];
     placeholder.textColor = [UIColor placeholderTextColor];
     placeholder.tag       = 9001;   // retrieved to show/hide as user types
     placeholder.translatesAutoresizingMaskIntoConstraints = NO;
     [self.messageTextField addSubview:placeholder];
     [NSLayoutConstraint activateConstraints:@[
-        [placeholder.leadingAnchor  constraintEqualToAnchor:self.messageTextField.leadingAnchor  constant:10],
-        [placeholder.topAnchor      constraintEqualToAnchor:self.messageTextField.topAnchor      constant:9],
+        [placeholder.leadingAnchor  constraintEqualToAnchor:self.messageTextField.leadingAnchor  constant:14],
+        [placeholder.topAnchor      constraintEqualToAnchor:self.messageTextField.topAnchor      constant:16],
     ]];
 
     [inputWrapper addSubview:self.messageTextField];
@@ -2526,7 +2530,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     [self.sendButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateNormal];
     [self.sendButton setTitleColor:[[EZTheme userBubbleTextColor] colorWithAlphaComponent:0.45] forState:UIControlStateDisabled];
     self.sendButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
-    self.sendButton.layer.cornerRadius = 16.0;
+    self.sendButton.layer.cornerRadius = 24.0;
     self.sendButton.clipsToBounds = YES;
     self.sendButton.contentEdgeInsets = UIEdgeInsetsMake(7, 16, 7, 16);
     self.inputContainer.backgroundColor = [EZTheme cardColor];
@@ -2583,28 +2587,24 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [self.imageSettingsButton.heightAnchor constraintEqualToConstant:32],
         [self.modelButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
         [self.imageSettingsButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
+        [inputWrapper.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
         [self.attachButton.leadingAnchor constraintEqualToAnchor:self.inputContainer.leadingAnchor constant:12],
-        [self.attachButton.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
-        [self.attachButton.widthAnchor constraintEqualToConstant:32],
-        [self.attachButton.heightAnchor constraintEqualToConstant:32],
-        [self.dictateButton.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
-        [self.dictateButton.centerYAnchor constraintEqualToAnchor:self.attachButton.centerYAnchor],
-        [self.dictateButton.widthAnchor constraintEqualToConstant:32],
-        [self.dictateButton.heightAnchor constraintEqualToConstant:32],
-        [self.helperDirectAnswersButton.leadingAnchor constraintEqualToAnchor:self.dictateButton.leadingAnchor],
-        [self.helperDirectAnswersButton.topAnchor constraintEqualToAnchor:self.attachButton.bottomAnchor constant:4],
-        [self.helperDirectAnswersButton.widthAnchor constraintEqualToConstant:30],
-        [self.helperDirectAnswersButton.heightAnchor constraintEqualToConstant:30],
-        [inputWrapper.leadingAnchor constraintEqualToAnchor:self.helperDirectAnswersButton.trailingAnchor constant:8],
-        [inputWrapper.topAnchor     constraintEqualToAnchor:self.attachButton.topAnchor],
-        [inputWrapper.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-8],
-        [self.sendButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
+        [self.attachButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
+        [self.attachButton.widthAnchor constraintEqualToConstant:48],
+        [self.attachButton.heightAnchor constraintEqualToConstant:48],
+        [inputWrapper.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
+        [inputWrapper.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-6],
         [self.sendButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
+        [self.sendButton.heightAnchor constraintEqualToConstant:48],
+        [self.dictateButton.leadingAnchor constraintEqualToAnchor:self.sendButton.trailingAnchor constant:6],
+        [self.dictateButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
+        [self.dictateButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
+        [self.dictateButton.widthAnchor constraintEqualToConstant:44],
+        [self.dictateButton.heightAnchor constraintEqualToConstant:48],
         [self.inputContainer.bottomAnchor constraintEqualToAnchor:inputWrapper.bottomAnchor constant:12],
     ]];
-    // Collapsed height: ~2 lines (72pt). Expanded: ~4 lines (136pt).
-    // The constraint is animated in textViewDidBeginEditing / textViewDidEndEditing.
-    self.messageInputHeightConstraint = [inputWrapper.heightAnchor constraintEqualToConstant:72.0];
+    // The composer expands while editing and collapses when focus leaves.
+    self.messageInputHeightConstraint = [inputWrapper.heightAnchor constraintEqualToConstant:56.0];
     self.messageInputHeightConstraint.active = YES;
 
     [NSLayoutConstraint activateConstraints:@[
@@ -2708,7 +2708,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
 - (void)textViewDidEndEditing:(UITextView *)textView {
     if (textView != self.messageTextField) return;
-    self.messageInputHeightConstraint.constant = 72.0;
+    self.messageInputHeightConstraint.constant = 56.0;
     [UIView animateWithDuration:0.25
                           delay:0
          usingSpringWithDamping:0.85
