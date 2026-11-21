@@ -19,6 +19,7 @@ typedef NS_ENUM(NSInteger, BRSlotPickerCardKind) { BRSlotPickerCardKindClassic, 
 
 @interface BRSlotPickerCard : UICollectionViewCell
 - (void)configureWithTitle:(NSString *)title premise:(NSString *)premise image:(UIImage *)image kind:(BRSlotPickerCardKind)kind;
+- (void)setVIPLocked:(BOOL)locked;
 @end
 
 @implementation BRSlotPickerCard {
@@ -68,9 +69,12 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
     self.contentView.layer.borderWidth = 1;
     self.contentView.layer.borderColor = [UIColor colorWithWhite:1 alpha:.16].CGColor;
     self.contentView.clipsToBounds = YES;
+    self.isAccessibilityElement = YES;
+    self.accessibilityTraits = UIAccessibilityTraitButton;
 
     _art = [UIImageView new];
-    _art.contentMode = UIViewContentModeScaleAspectFill;
+    _art.contentMode = UIViewContentModeScaleAspectFit;
+    _art.backgroundColor = [UIColor colorWithRed:.04 green:.09 blue:.22 alpha:1];
     _art.clipsToBounds = YES;
     _art.translatesAutoresizingMaskIntoConstraints = NO;
     [self.contentView addSubview:_art];
@@ -166,7 +170,7 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
         [_art.topAnchor constraintEqualToAnchor:self.contentView.topAnchor],
         [_art.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
         [_art.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor],
-        [_art.heightAnchor constraintEqualToAnchor:self.contentView.heightAnchor multiplier:.53],
+        [_art.heightAnchor constraintEqualToAnchor:self.contentView.heightAnchor multiplier:.43],
         [_artFallback.topAnchor constraintEqualToAnchor:_art.topAnchor],
         [_artFallback.leadingAnchor constraintEqualToAnchor:_art.leadingAnchor],
         [_artFallback.trailingAnchor constraintEqualToAnchor:_art.trailingAnchor],
@@ -181,8 +185,8 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
         [_decorView.bottomAnchor constraintEqualToAnchor:_artFallback.bottomAnchor],
         [_fallbackIcon.centerXAnchor constraintEqualToAnchor:_artFallback.centerXAnchor],
         [_fallbackIcon.centerYAnchor constraintEqualToAnchor:_artFallback.centerYAnchor],
-        [_fallbackIcon.widthAnchor constraintEqualToAnchor:_artFallback.heightAnchor multiplier:.52],
-        [_fallbackIcon.heightAnchor constraintEqualToAnchor:_artFallback.heightAnchor multiplier:.52],
+        [_fallbackIcon.widthAnchor constraintEqualToAnchor:_artFallback.heightAnchor multiplier:.78],
+        [_fallbackIcon.heightAnchor constraintEqualToAnchor:_artFallback.heightAnchor multiplier:.78],
         [_vipBadge.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:8],
         [_vipBadge.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-8],
         [_vipBadge.heightAnchor constraintEqualToConstant:16],
@@ -324,6 +328,15 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
     _hasKind = YES;
     _titleLabel.text = title;
     _premiseLabel.text = premise;
+    self.accessibilityLabel = [NSString stringWithFormat:@"%@. %@", title ?: @"", premise ?: @""];
+    self.accessibilityHint = nil;
+    _vipLabel.text = @"VIP";
+    _playLabel.text = NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Play", nil, NSBundle.mainBundle, @"PLAY", nil);
+    if (kind == BRSlotPickerCardKindCreate) {
+        _playLabel.text = NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.CreateAction", nil, NSBundle.mainBundle, @"CREATE", nil);
+    } else if (kind == BRSlotPickerCardKindCommunity || kind == BRSlotPickerCardKindSaved) {
+        _playLabel.text = NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.OpenAction", nil, NSBundle.mainBundle, @"OPEN", nil);
+    }
     _art.image = image;
     _art.hidden = (image == nil);
     _artFallback.hidden = (image != nil);
@@ -360,6 +373,13 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
         [self rebuildDecor];
     }
 }
+
+- (void)setVIPLocked:(BOOL)locked {
+    if (!locked) return;
+    _vipLabel.text = NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.LockedBadge", nil, NSBundle.mainBundle, @"LOCKED", nil);
+    _playLabel.text = NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.LockedAction", nil, NSBundle.mainBundle, @"VIEW", nil);
+    self.accessibilityHint = NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.LockedHint", nil, NSBundle.mainBundle, @"Opens VIP unlock information.", nil);
+}
 @end
 
 // Full-width hero band for the top of the picker: a drawn
@@ -371,9 +391,7 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
 @end
 
 @implementation BRSlotPickerHeroView {
-    NSString *_title;
-    UIImage *_titleImage;
-    CGFloat _titleImageWidth;
+    UILabel *_titleLabel;
     UIImageView *_crownView;
     UILabel *_taglineLabel;
 }
@@ -381,8 +399,20 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
 - (instancetype)initWithTitle:(NSString *)title tagline:(NSString *)tagline {
     self = [super initWithFrame:CGRectZero];
     if (!self) return nil;
-    _title = [title copy];
     self.backgroundColor = UIColor.clearColor;
+    _titleLabel = [UILabel new];
+    _titleLabel.text = title;
+    _titleLabel.font = [UIFont systemFontOfSize:30 weight:UIFontWeightBlack];
+    _titleLabel.textColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1];
+    _titleLabel.textAlignment = NSTextAlignmentCenter;
+    _titleLabel.adjustsFontSizeToFitWidth = YES;
+    _titleLabel.minimumScaleFactor = .65;
+    _titleLabel.layer.shadowColor = [UIColor colorWithRed:.45 green:.20 blue:.02 alpha:1].CGColor;
+    _titleLabel.layer.shadowOpacity = .7;
+    _titleLabel.layer.shadowOffset = CGSizeMake(0, 2);
+    _titleLabel.layer.shadowRadius = 2;
+    _titleLabel.accessibilityTraits = UIAccessibilityTraitHeader;
+    [self addSubview:_titleLabel];
     self.contentMode = UIViewContentModeRedraw;
     _crownView = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"crown.fill"]];
     _crownView.tintColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:1];
@@ -403,31 +433,9 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
     [super layoutSubviews];
     CGFloat w = CGRectGetWidth(self.bounds);
     _crownView.frame = CGRectMake((w - 30) / 2, 8, 30, 20);
-    _taglineLabel.frame = CGRectMake(16, 78, w - 32, 16);
+    _titleLabel.frame = CGRectMake(32, 34, MAX(0, w - 64), 38);
+    _taglineLabel.frame = CGRectMake(16, 78, MAX(0, w - 32), 16);
     [self setNeedsDisplay];
-}
-
-// The title is rendered once per width so drawRect can use it as a
-// mask and wash the gold gradient through the letterforms.
-- (UIImage *)titleImageForWidth:(CGFloat)width {
-    if (_titleImage && fabs(_titleImageWidth - width) < 1) return _titleImage;
-    UILabel *label = [UILabel new];
-    label.text = _title;
-    label.font = [UIFont systemFontOfSize:30 weight:UIFontWeightBlack];
-    label.textColor = UIColor.whiteColor;
-    label.textAlignment = NSTextAlignmentCenter;
-    label.adjustsFontSizeToFitWidth = YES;
-    label.minimumScaleFactor = .55;
-    CGSize size = CGSizeMake(width, 38);
-    label.frame = CGRectMake(0, 0, size.width, size.height);
-    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat new];
-    format.opaque = NO;
-    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
-    _titleImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
-        [label.layer renderInContext:context.CGContext];
-    }];
-    _titleImageWidth = width;
-    return _titleImage;
 }
 
 - (void)drawRect:(CGRect)rect {
@@ -486,18 +494,6 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
         CGContextAddQuadCurveToPoint(ctx, c.x, c.y, c.x, c.y - s);
         CGContextFillPath(ctx);
     }
-    // Gold-gradient title, clipped through the rendered letterforms.
-    UIImage *titleImage = [self titleImageForWidth:w];
-    CGRect titleRect = CGRectMake(0, 34, w, 38);
-    CGContextSaveGState(ctx);
-    CGContextClipToMask(ctx, titleRect, titleImage.CGImage);
-    CGGradientRef gold = CGGradientCreateWithColors(NULL, (__bridge CFArrayRef)@[
-        (id)[UIColor colorWithRed:1 green:.93 blue:.48 alpha:1].CGColor,
-        (id)[UIColor colorWithRed:1 green:.74 blue:.14 alpha:1].CGColor,
-        (id)[UIColor colorWithRed:.83 green:.48 blue:.03 alpha:1].CGColor], (CGFloat[]){0, .55, 1});
-    CGContextDrawLinearGradient(ctx, gold, CGPointMake(0, 34), CGPointMake(0, 72), 0);
-    CGGradientRelease(gold);
-    CGContextRestoreGState(ctx);
 }
 @end
 
@@ -596,7 +592,7 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
 - (void)close { if (self.onReturnToBrainRotMenu) self.onReturnToBrainRotMenu(); else [self dismissViewControllerAnimated:YES completion:nil]; }
 - (NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section { return 14+self.importableGames.count; }
 - (BRSlotPickerCardKind)kindAtIndex:(NSInteger)index { static const BRSlotPickerCardKind order[14]={BRSlotPickerCardKindPlunder,BRSlotPickerCardKindPlunderVIP,BRSlotPickerCardKindGolden,BRSlotPickerCardKindGoldenVIP,BRSlotPickerCardKindPhoenix,BRSlotPickerCardKindPhoenixVIP,BRSlotPickerCardKindStarlight,BRSlotPickerCardKindStarlightVIP,BRSlotPickerCardKindPenguin,BRSlotPickerCardKindPenguinVIP,BRSlotPickerCardKindClassic,BRSlotPickerCardKindPenny,BRSlotPickerCardKindCreate,BRSlotPickerCardKindCommunity}; return index<14 ? order[index] : BRSlotPickerCardKindSaved; }
-- (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)path { BRSlotPickerCard *cell=[collectionView dequeueReusableCellWithReuseIdentifier:@"SlotCard" forIndexPath:path]; BRSlotPickerCardKind kind=[self kindAtIndex:path.item]; if (kind==BRSlotPickerCardKindClassic) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Classic.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Classic.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPenny) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Penny.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Penny.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPlunder) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Plunder.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Plunder.Detail", nil) image:[BRPlunderBayViewController plunderSymbolImage:@"scatter"] kind:kind]; else if (kind==BRSlotPickerCardKindPlunderVIP) { BOOL vipUnlocked = self.loungeHelper.profileVipPoints >= 50000; [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PlunderVIP.Title", nil, NSBundle.mainBundle, @"Plunder Bay VIP", nil) premise:vipUnlocked ? NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PlunderVIP.Detail", nil, NSBundle.mainBundle, @"The bay, first class. Bets up to 500 and richer line pays for Silver and up.", nil) : NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PlunderVIP.LockedDetail", nil, NSBundle.mainBundle, @"Locked — VIP machines open at Silver: 50,000 VIP points.", nil) image:[BRPlunderBayViewController plunderSymbolImage:@"scatter"] kind:kind]; } else if (kind==BRSlotPickerCardKindGolden) [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Golden.Title", nil, NSBundle.mainBundle, @"Golden Mandarin 金帽福运", nil) premise:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Golden.Detail", nil, NSBundle.mainBundle, @"Five reels, nine lines. Golden hats open a card pick and ×2, ×3 or ×5 free spins.", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindGoldenVIP) { BOOL vipUnlocked = self.loungeHelper.profileVipPoints >= 50000; [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.GoldenVIP.Title", nil, NSBundle.mainBundle, @"Golden Mandarin VIP", nil) premise:vipUnlocked ? NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.GoldenVIP.Detail", nil, NSBundle.mainBundle, @"The court, first class. Bets up to 125 a line and richer line pays for Silver and up.", nil) : NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.GoldenVIP.LockedDetail", nil, NSBundle.mainBundle, @"Locked \u2014 VIP machines open at Silver: 50,000 VIP points.", nil) image:nil kind:kind]; } else if (kind==BRSlotPickerCardKindPhoenix) [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Phoenix.Title", nil, NSBundle.mainBundle, @"Phoenix Pavilion 凤凰阁", nil) premise:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Phoenix.Detail", nil, NSBundle.mainBundle, @"Five reels, twenty-five lines. Golden hats open a card pick and ×2, ×3 or ×5 free spins.", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPhoenixVIP) { BOOL vipUnlocked = self.loungeHelper.profileVipPoints >= 50000; [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PhoenixVIP.Title", nil, NSBundle.mainBundle, @"Phoenix Pavilion VIP", nil) premise:vipUnlocked ? NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PhoenixVIP.Detail", nil, NSBundle.mainBundle, @"The pavilion, first class. Bets up to 50 a line and richer line pays for Silver and up.", nil) : NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PhoenixVIP.LockedDetail", nil, NSBundle.mainBundle, @"Locked \u2014 VIP machines open at Silver: 50,000 VIP points.", nil) image:nil kind:kind]; } else if (kind==BRSlotPickerCardKindStarlight) [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Starlight.Title", nil, NSBundle.mainBundle, @"Starlight Odyssey", nil) premise:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Starlight.Detail", nil, NSBundle.mainBundle, @"Five reels, twenty-five lines. Warp stars open a card pick and ×2, ×3 or ×5 free spins in deep space.", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindStarlightVIP) { BOOL vipUnlocked = self.loungeHelper.profileVipPoints >= 50000; [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.StarlightVIP.Title", nil, NSBundle.mainBundle, @"Starlight Odyssey VIP", nil) premise:vipUnlocked ? NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.StarlightVIP.Detail", nil, NSBundle.mainBundle, @"The odyssey, first class. Bets up to 50 a line and richer line pays for Silver and up.", nil) : NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.StarlightVIP.LockedDetail", nil, NSBundle.mainBundle, @"Locked \u2014 VIP machines open at Silver: 50,000 VIP points.", nil) image:nil kind:kind]; } else if (kind==BRSlotPickerCardKindPenguin) [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Penguin.Title", nil, NSBundle.mainBundle, @"Penguin Parade", nil) premise:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Penguin.Detail", nil, NSBundle.mainBundle, @"Five reels, nine lines. Golden eggs open a penguin egg hatch for ×2, ×3 or ×5 free spins.", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPenguinVIP) { BOOL vipUnlocked = self.loungeHelper.profileVipPoints >= 50000; [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PenguinVIP.Title", nil, NSBundle.mainBundle, @"Penguin Parade VIP", nil) premise:vipUnlocked ? NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PenguinVIP.Detail", nil, NSBundle.mainBundle, @"The parade, first class. Bets up to 125 a line and richer line pays for Silver and up.", nil) : NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PenguinVIP.LockedDetail", nil, NSBundle.mainBundle, @"Locked \u2014 VIP machines open at Silver: 50,000 VIP points.", nil) image:nil kind:kind]; } else if (kind==BRSlotPickerCardKindCreate) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Create.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Create.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindCommunity) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Community.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Community.Detail", nil) image:nil kind:kind]; else { BRGameRecord *record=self.importableGames[path.item-14]; [cell configureWithTitle:record.themeTitle.length?record.themeTitle:NSLocalizedString(@"BRSlot.Picker.Saved.Title", nil) premise:record.premise.length?record.premise:NSLocalizedString(@"BRSlot.Picker.Saved.Detail", nil) image:record.backgroundImage kind:kind]; } return cell; }
-- (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)layout sizeForItemAtIndexPath:(NSIndexPath *)path { CGFloat width=floor((CGRectGetWidth(collectionView.bounds)-49)/2.0); return CGSizeMake(MAX(142,width),356); }
+- (UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)path { BRSlotPickerCard *cell=[collectionView dequeueReusableCellWithReuseIdentifier:@"SlotCard" forIndexPath:path]; BRSlotPickerCardKind kind=[self kindAtIndex:path.item]; if (kind==BRSlotPickerCardKindClassic) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Classic.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Classic.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPenny) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Penny.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Penny.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPlunder) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Plunder.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Plunder.Detail", nil) image:[BRPlunderBayViewController plunderSymbolImage:@"scatter"] kind:kind]; else if (kind==BRSlotPickerCardKindPlunderVIP) { BOOL vipUnlocked = self.loungeHelper.profileVipPoints >= 50000; [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PlunderVIP.Title", nil, NSBundle.mainBundle, @"Plunder Bay VIP", nil) premise:vipUnlocked ? NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PlunderVIP.Detail", nil, NSBundle.mainBundle, @"The bay, first class. Bets up to 500 and richer line pays for Silver and up.", nil) : NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PlunderVIP.LockedDetail", nil, NSBundle.mainBundle, @"Locked — VIP machines open at Silver: 50,000 VIP points.", nil) image:[BRPlunderBayViewController plunderSymbolImage:@"scatter"] kind:kind]; } else if (kind==BRSlotPickerCardKindGolden) [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Golden.Title", nil, NSBundle.mainBundle, @"Golden Mandarin 金帽福运", nil) premise:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Golden.Detail", nil, NSBundle.mainBundle, @"Five reels, nine lines. Golden hats open a card pick and ×2, ×3 or ×5 free spins.", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindGoldenVIP) { BOOL vipUnlocked = self.loungeHelper.profileVipPoints >= 50000; [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.GoldenVIP.Title", nil, NSBundle.mainBundle, @"Golden Mandarin VIP", nil) premise:vipUnlocked ? NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.GoldenVIP.Detail", nil, NSBundle.mainBundle, @"The court, first class. Bets up to 125 a line and richer line pays for Silver and up.", nil) : NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.GoldenVIP.LockedDetail", nil, NSBundle.mainBundle, @"Locked \u2014 VIP machines open at Silver: 50,000 VIP points.", nil) image:nil kind:kind]; } else if (kind==BRSlotPickerCardKindPhoenix) [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Phoenix.Title", nil, NSBundle.mainBundle, @"Phoenix Pavilion 凤凰阁", nil) premise:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Phoenix.Detail", nil, NSBundle.mainBundle, @"Five reels, twenty-five lines. Golden hats open a card pick and ×2, ×3 or ×5 free spins.", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPhoenixVIP) { BOOL vipUnlocked = self.loungeHelper.profileVipPoints >= 50000; [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PhoenixVIP.Title", nil, NSBundle.mainBundle, @"Phoenix Pavilion VIP", nil) premise:vipUnlocked ? NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PhoenixVIP.Detail", nil, NSBundle.mainBundle, @"The pavilion, first class. Bets up to 50 a line and richer line pays for Silver and up.", nil) : NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PhoenixVIP.LockedDetail", nil, NSBundle.mainBundle, @"Locked \u2014 VIP machines open at Silver: 50,000 VIP points.", nil) image:nil kind:kind]; } else if (kind==BRSlotPickerCardKindStarlight) [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Starlight.Title", nil, NSBundle.mainBundle, @"Starlight Odyssey", nil) premise:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Starlight.Detail", nil, NSBundle.mainBundle, @"Five reels, twenty-five lines. Warp stars open a card pick and ×2, ×3 or ×5 free spins in deep space.", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindStarlightVIP) { BOOL vipUnlocked = self.loungeHelper.profileVipPoints >= 50000; [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.StarlightVIP.Title", nil, NSBundle.mainBundle, @"Starlight Odyssey VIP", nil) premise:vipUnlocked ? NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.StarlightVIP.Detail", nil, NSBundle.mainBundle, @"The odyssey, first class. Bets up to 50 a line and richer line pays for Silver and up.", nil) : NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.StarlightVIP.LockedDetail", nil, NSBundle.mainBundle, @"Locked \u2014 VIP machines open at Silver: 50,000 VIP points.", nil) image:nil kind:kind]; } else if (kind==BRSlotPickerCardKindPenguin) [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Penguin.Title", nil, NSBundle.mainBundle, @"Penguin Parade", nil) premise:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.Penguin.Detail", nil, NSBundle.mainBundle, @"Five reels, nine lines. Golden eggs open a penguin egg hatch for ×2, ×3 or ×5 free spins.", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindPenguinVIP) { BOOL vipUnlocked = self.loungeHelper.profileVipPoints >= 50000; [cell configureWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PenguinVIP.Title", nil, NSBundle.mainBundle, @"Penguin Parade VIP", nil) premise:vipUnlocked ? NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PenguinVIP.Detail", nil, NSBundle.mainBundle, @"The parade, first class. Bets up to 125 a line and richer line pays for Silver and up.", nil) : NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PenguinVIP.LockedDetail", nil, NSBundle.mainBundle, @"Locked \u2014 VIP machines open at Silver: 50,000 VIP points.", nil) image:nil kind:kind]; } else if (kind==BRSlotPickerCardKindCreate) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Create.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Create.Detail", nil) image:nil kind:kind]; else if (kind==BRSlotPickerCardKindCommunity) [cell configureWithTitle:NSLocalizedString(@"BRSlot.Picker.Community.Title", nil) premise:NSLocalizedString(@"BRSlot.Picker.Community.Detail", nil) image:nil kind:kind]; else { BRGameRecord *record=self.importableGames[path.item-14]; [cell configureWithTitle:record.themeTitle.length?record.themeTitle:NSLocalizedString(@"BRSlot.Picker.Saved.Title", nil) premise:record.premise.length?record.premise:NSLocalizedString(@"BRSlot.Picker.Saved.Detail", nil) image:record.backgroundImage kind:kind]; } BOOL isVIP = kind==BRSlotPickerCardKindPlunderVIP || kind==BRSlotPickerCardKindGoldenVIP || kind==BRSlotPickerCardKindPhoenixVIP || kind==BRSlotPickerCardKindStarlightVIP || kind==BRSlotPickerCardKindPenguinVIP; [cell setVIPLocked:(isVIP && self.loungeHelper.profileVipPoints < 50000)]; return cell; }
+- (CGSize)collectionView:(UICollectionView *)collectionView layout:(UICollectionViewLayout *)layout sizeForItemAtIndexPath:(NSIndexPath *)path { CGFloat available=MAX(1, CGRectGetWidth(collectionView.bounds)-36); BOOL singleColumn=available < 297 || UIContentSizeCategoryIsAccessibilityCategory(self.traitCollection.preferredContentSizeCategory); CGFloat width=singleColumn ? available : floor((available-13)/2.0); return CGSizeMake(width,356); }
 - (void)collectionView:(UICollectionView *)collectionView didSelectItemAtIndexPath:(NSIndexPath *)path { BRSlotPickerCardKind kind=[self kindAtIndex:path.item]; if (kind==BRSlotPickerCardKindPenny) { [self.navigationController pushViewController:[BRPennySlotViewController new] animated:YES]; return; } if (kind==BRSlotPickerCardKindPlunderVIP) { if (self.loungeHelper.profileVipPoints >= 50000) { BRPlunderBayViewController *vipMachine = [BRPlunderBayViewController new]; vipMachine.vipMode = YES; [self.navigationController pushViewController:vipMachine animated:YES]; } else { UIAlertController *locked = [UIAlertController alertControllerWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PlunderVIP.LockedTitle", nil, NSBundle.mainBundle, @"VIP — Silver and up", nil) message:[NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PlunderVIP.LockedMessage", nil, NSBundle.mainBundle, @"VIP machines unlock at 50,000 VIP points. You have %@.", nil), @(self.loungeHelper.profileVipPoints)] preferredStyle:UIAlertControllerStyleAlert]; [locked addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"OK", nil) style:UIAlertActionStyleDefault handler:nil]]; [self presentViewController:locked animated:YES completion:nil]; } return; } if (kind==BRSlotPickerCardKindPlunder) { [self.navigationController pushViewController:[BRPlunderBayViewController new] animated:YES]; return; } if (kind==BRSlotPickerCardKindGolden) { [self.navigationController pushViewController:[BRGoldenMandarinSlotViewController new] animated:YES]; return; } if (kind==BRSlotPickerCardKindGoldenVIP) { if (self.loungeHelper.profileVipPoints >= 50000) { BRGoldenMandarinSlotViewController *vipMachine = [BRGoldenMandarinSlotViewController new]; vipMachine.vipMode = YES; [self.navigationController pushViewController:vipMachine animated:YES]; } else { UIAlertController *locked = [UIAlertController alertControllerWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.GoldenVIP.LockedTitle", nil, NSBundle.mainBundle, @"VIP \u2014 Silver and up", nil) message:[NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.GoldenVIP.LockedMessage", nil, NSBundle.mainBundle, @"VIP machines unlock at 50,000 VIP points. You have %@.", nil), @(self.loungeHelper.profileVipPoints)] preferredStyle:UIAlertControllerStyleAlert]; [locked addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"OK", nil) style:UIAlertActionStyleDefault handler:nil]]; [self presentViewController:locked animated:YES completion:nil]; } return; } if (kind==BRSlotPickerCardKindPhoenix) { [self.navigationController pushViewController:[BRPhoenixPavilionSlotViewController new] animated:YES]; return; } if (kind==BRSlotPickerCardKindPhoenixVIP) { if (self.loungeHelper.profileVipPoints >= 50000) { BRPhoenixPavilionSlotViewController *vipMachine = [BRPhoenixPavilionSlotViewController new]; vipMachine.vipMode = YES; [self.navigationController pushViewController:vipMachine animated:YES]; } else { UIAlertController *locked = [UIAlertController alertControllerWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PhoenixVIP.LockedTitle", nil, NSBundle.mainBundle, @"VIP \u2014 Silver and up", nil) message:[NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PhoenixVIP.LockedMessage", nil, NSBundle.mainBundle, @"VIP machines unlock at 50,000 VIP points. You have %@.", nil), @(self.loungeHelper.profileVipPoints)] preferredStyle:UIAlertControllerStyleAlert]; [locked addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"OK", nil) style:UIAlertActionStyleDefault handler:nil]]; [self presentViewController:locked animated:YES completion:nil]; } return; } if (kind==BRSlotPickerCardKindStarlight) { [self.navigationController pushViewController:[BRStarlightOdysseySlotViewController new] animated:YES]; return; } if (kind==BRSlotPickerCardKindStarlightVIP) { if (self.loungeHelper.profileVipPoints >= 50000) { BRStarlightOdysseySlotViewController *vipMachine = [BRStarlightOdysseySlotViewController new]; vipMachine.vipMode = YES; [self.navigationController pushViewController:vipMachine animated:YES]; } else { UIAlertController *locked = [UIAlertController alertControllerWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.StarlightVIP.LockedTitle", nil, NSBundle.mainBundle, @"VIP \u2014 Silver and up", nil) message:[NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.StarlightVIP.LockedMessage", nil, NSBundle.mainBundle, @"VIP machines unlock at 50,000 VIP points. You have %@.", nil), @(self.loungeHelper.profileVipPoints)] preferredStyle:UIAlertControllerStyleAlert]; [locked addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"OK", nil) style:UIAlertActionStyleDefault handler:nil]]; [self presentViewController:locked animated:YES completion:nil]; } return; } if (kind==BRSlotPickerCardKindPenguin) { [self.navigationController pushViewController:[BRPenguinParadeSlotViewController new] animated:YES]; return; } if (kind==BRSlotPickerCardKindPenguinVIP) { if (self.loungeHelper.profileVipPoints >= 50000) { BRPenguinParadeSlotViewController *vipMachine = [BRPenguinParadeSlotViewController new]; vipMachine.vipMode = YES; [self.navigationController pushViewController:vipMachine animated:YES]; } else { UIAlertController *locked = [UIAlertController alertControllerWithTitle:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PenguinVIP.LockedTitle", nil, NSBundle.mainBundle, @"VIP \u2014 Silver and up", nil) message:[NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRSlot.Picker.PenguinVIP.LockedMessage", nil, NSBundle.mainBundle, @"VIP machines unlock at 50,000 VIP points. You have %@.", nil), @(self.loungeHelper.profileVipPoints)] preferredStyle:UIAlertControllerStyleAlert]; [locked addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"OK", nil) style:UIAlertActionStyleDefault handler:nil]]; [self presentViewController:locked animated:YES completion:nil]; } return; } if (kind==BRSlotPickerCardKindCommunity) { BRGamePickerViewController *community=[BRGamePickerViewController new]; community.startsOnCommunityTab=YES; __weak typeof(self) weakSelf=self; community.onSlotThemeSelection=^(BRGameRecord *record) { __strong typeof(weakSelf) self=weakSelf; if (self) [self.navigationController pushViewController:[[BRSlotMachineViewController alloc] initWithBrainRotGameRecord:record] animated:YES]; }; community.onClosedWithoutSelection=^{ __strong typeof(weakSelf) self=weakSelf; if (self) [self close]; }; community.modalPresentationStyle=UIModalPresentationFullScreen; [self presentViewController:community animated:YES completion:nil]; return; } BRSlotMachineViewController *slots=kind==BRSlotPickerCardKindSaved?[[BRSlotMachineViewController alloc] initWithBrainRotGameRecord:self.importableGames[path.item-14]]:[BRSlotMachineViewController new]; if (kind==BRSlotPickerCardKindCreate) slots.title=NSLocalizedString(@"BRSlot.Picker.NewGame", nil); [self.navigationController pushViewController:slots animated:YES]; }
 @end
