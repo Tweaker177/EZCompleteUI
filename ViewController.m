@@ -913,13 +913,11 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UIButton      *modelButton;
 @property (nonatomic, strong) UIButton      *attachButton;
 @property (nonatomic, strong) UIButton      *settingsButton;
-@property (nonatomic, strong) UIButton      *speakButton;
 @property (nonatomic, strong) UIButton      *clearButton;
 /// Appears in input area when an image model is active — opens image parameter sheet.
 @property (nonatomic, strong) UIButton      *imageSettingsButton;
 @property (nonatomic, strong) UIButton      *dictateButton;
 /// Lightning bolt: permits helper models to answer directly when enabled.
-@property (nonatomic, strong) UIButton      *helperDirectAnswersButton;
 @property (nonatomic, strong) UIButton      *historyButton;
 @property (nonatomic, strong) UIButton      *addChatButton;
 @property (nonatomic, assign) BOOL          threadSelectionActive;
@@ -1168,8 +1166,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath
                model:(NSString *)imageModel preserveChatModel:(BOOL)preserveChatModel;
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath;
-- (void)toggleHelperDirectAnswers;
-- (void)updateHelperDirectAnswersButton;
 - (void)callChatCompletionsWithRetryCount:(NSInteger)retryCount;
 - (void)recoverUndeliveredGalleryImagesIfNeeded;
 - (void)consumePendingExternalImageEdit;
@@ -1691,7 +1687,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [defaults setInteger:3 forKey:@"TriageUncertainTurns"];
     }
     if ([defaults objectForKey:@"HelperDirectAnswersEnabled"] == nil) {
-        [defaults setBool:YES forKey:@"HelperDirectAnswersEnabled"];
+        [defaults setBool:NO forKey:@"HelperDirectAnswersEnabled"];
     }
 
     // Restore persisted image/attachment paths so they survive app restarts.
@@ -2274,9 +2270,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.historyButton   = [self _iconButton:@"line.3.horizontal" tint:nil
                                       action:@selector(openHistory)];
     self.historyButton.accessibilityLabel = @"Navigation and recent chats";
-    // Speak last AI response
-    self.speakButton     = [self _iconButton:@"speaker.wave.2.fill" tint:nil
-                                      action:@selector(speakLastResponse)];
 
     
     self.cloningButton = [self _iconButton:@"doc.richtext" tint:nil action:@selector(openCloning)];
@@ -2291,10 +2284,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     // from a message's long-press menu, so neither needs a button here.
     // Web search is set in Settings; ez-chat's per-prompt gate decides
     // when it actually runs, so it needs no toggle here either.
-    self.helperDirectAnswersButton = [self _iconButton:@"bolt.fill" tint:nil
-                                                action:@selector(toggleHelperDirectAnswers)];
-    self.helperDirectAnswersButton.accessibilityLabel = @"Helper direct answers";
-    [self updateHelperDirectAnswersButton];
+    // Helper direct answers is a Settings toggle as well.
     // Settings
     self.settingsButton  = [self _iconButton:@"gearshape.fill" tint:nil
                                       action:@selector(openSettings)];
@@ -2312,14 +2302,11 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     topStack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:topStack];
     [topStack addSubview:self.historyButton];
-    [topStack addSubview:self.speakButton];
 
     [NSLayoutConstraint activateConstraints:@[
         [topStack.heightAnchor constraintEqualToConstant:52],
         [self.historyButton.leadingAnchor constraintEqualToAnchor:topStack.leadingAnchor],
         [self.historyButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
-        [self.speakButton.leadingAnchor constraintEqualToAnchor:self.historyButton.trailingAnchor constant:8],
-        [self.speakButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
     ]];
 
     // Coin balance — a plain label in the top-right corner above the top
@@ -2750,32 +2737,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
        shouldReceiveTouch:(UITouch *)touch {
     return ![touch.view isKindOfClass:[UIControl class]];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - Helper Direct-Answer Toggle
-// ─────────────────────────────────────────────────────────────────────────────
-
-- (void)toggleHelperDirectAnswers {
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    BOOL enabled = ![defaults boolForKey:@"HelperDirectAnswersEnabled"];
-    [defaults setBool:enabled forKey:@"HelperDirectAnswersEnabled"];
-    [self updateHelperDirectAnswersButton];
-    [self appendToChat:[NSString stringWithFormat:@"[System: Helper direct answers %@]",
-                        enabled ? @"ON ⚡" : @"OFF"]];
-    EZLogf(EZLogLevelInfo, @"TRIAGE", @"Helper direct answers %@",
-           enabled ? @"enabled" : @"disabled");
-}
-
-- (void)updateHelperDirectAnswersButton {
-    BOOL enabled = [[NSUserDefaults standardUserDefaults]
-        boolForKey:@"HelperDirectAnswersEnabled"];
-    [self.helperDirectAnswersButton setTintColor:enabled
-        ? [UIColor systemYellowColor] : [UIColor systemGrayColor]];
-    self.helperDirectAnswersButton.accessibilityValue = enabled ? @"On" : @"Off";
-    self.helperDirectAnswersButton.accessibilityHint = enabled
-        ? @"Tap to require the main model to answer every prompt"
-        : @"Tap to allow helper models to answer directly";
 }
 
 // A validated helper answer is a completed chat turn, not merely a routing
@@ -3550,75 +3511,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // MARK: - TTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-- (void)speakLastResponse {
-    if (!self.lastAIResponse) return;
-
-    NSString *voiceID     = [[NSUserDefaults standardUserDefaults] stringForKey:@"elevenVoiceID"];
-    NSString *textToSpeak = self.lastAIResponse;
-    NSInteger charCount   = (NSInteger)textToSpeak.length;
-
-    // ── Old user-API-key path — commented out, kept in case user keys return ──
-    // NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
-    // // CHANGED: ElevenLabs key now loaded from EZKeyVault (Keychain) instead of NSUserDefaults
-    // NSString *elKey   = [EZKeyVault loadKeyForIdentifier:EZVaultKeyElevenLabs];
-    // NSString *elVoice = [d stringForKey:@"elevenVoiceID"];
-    // if (elKey.length > 0 && elVoice.length > 0) {
-    //     [self speakWithElevenLabs:textToSpeak key:elKey voiceID:elVoice];
-    // } else {
-    //     [self speakWithApple:textToSpeak];
-    // }
-    // ─────────────────────────────────────────────────────────────────────────
-
-    // No voice configured — fall back to Apple TTS silently
-    if (voiceID.length == 0) {
-        [self speakWithApple:textToSpeak];
-        return;
-    }
-
-    // ── Long-response guard (> 160 chars) ────────────────────────────────────
-    // Coin cost mirrors the edge function: ceil(charCount / 50)
-    NSInteger estimatedCoins = (NSInteger)ceil(charCount / 50.0);
-
-    if (charCount > 160) {
-        NSString *alertMessage = [NSString stringWithFormat:
-            @"This response is %ld characters long.\n\n"
-            @"Reading it with ElevenLabs will cost approximately %ld coins.\n\n"
-            @"Choose an option:",
-            (long)charCount, (long)estimatedCoins];
-
-        UIAlertController *lengthAlert = [UIAlertController
-            alertControllerWithTitle:@"Long Response"
-                             message:alertMessage
-                      preferredStyle:UIAlertControllerStyleAlert];
-
-        NSString *elevenLabsLabel = [NSString stringWithFormat:
-            @"ElevenLabs (≈%ld coins)", (long)estimatedCoins];
-        [lengthAlert addAction:[UIAlertAction
-            actionWithTitle:elevenLabsLabel
-                      style:UIAlertActionStyleDefault
-                    handler:^(UIAlertAction *action) {
-            [self speakWithElevenLabsEdge:textToSpeak voiceID:voiceID];
-        }]];
-
-        [lengthAlert addAction:[UIAlertAction
-            actionWithTitle:@"Apple TTS (free)"
-                      style:UIAlertActionStyleDefault
-                    handler:^(UIAlertAction *action) {
-            [self speakWithApple:textToSpeak];
-        }]];
-
-        [lengthAlert addAction:[UIAlertAction
-            actionWithTitle:@"Don't Read"
-                      style:UIAlertActionStyleCancel
-                    handler:nil]];
-
-        [self presentViewController:lengthAlert animated:YES completion:nil];
-    } else {
-        // Short response — go straight to ElevenLabs, no warning needed
-        [self speakWithElevenLabsEdge:textToSpeak voiceID:voiceID];
-    }
-}
-
 - (void)speakWithApple:(NSString *)text {
     NSError *sessionError = nil;
     if (!EZActivatePlaybackAudioSession(&sessionError)) {
@@ -3829,8 +3721,8 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 
 /// Speaks a tts_request returned by ez-chat (the speak_text tool).
 /// Engine rule (user, 2026-11-15): always the user's ElevenLabs voice —
-/// the same ez-elevenlabs "tts" call speakLastResponse makes, at the
-/// same server price (1 coin per 50 characters) — EXCEPT the Apple
+/// the same ez-elevenlabs "tts" call, at the same server price
+/// (1 coin per 50 characters) — EXCEPT the Apple
 /// voice when (a) the request says engine "apple" (the model sets that
 /// only when the user explicitly asked for the free voice / to save
 /// coins), (b) no ElevenLabs voice is configured, or (c) ElevenLabs
