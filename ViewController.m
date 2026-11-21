@@ -2350,12 +2350,14 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     [self.coinBalanceLabel addGestureRecognizer:balanceTap];
     [self.view addSubview:self.coinBalanceLabel];
 
-    // Thread title label — tappable, sits between top bar and chat table
+    // Thread title label — tappable, sharing the top ledge with the
+    // coin balance (left, just under the island) instead of floating in
+    // its own row between the top bar and the chat table
     self.threadTitleLabel                 = [[UILabel alloc] init];
     self.threadTitleLabel.text            = NSLocalizedString(@"EZThread.NewConversation", nil);
     self.threadTitleLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     self.threadTitleLabel.textColor       = [UIColor secondaryLabelColor];
-    self.threadTitleLabel.textAlignment   = NSTextAlignmentCenter;
+    self.threadTitleLabel.textAlignment   = NSTextAlignmentLeft;
     self.threadTitleLabel.userInteractionEnabled = YES;
     self.threadTitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
     UITapGestureRecognizer *titleTap = [[UITapGestureRecognizer alloc]
@@ -2576,10 +2578,10 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [topStack.topAnchor constraintEqualToAnchor:self.coinBalanceLabel.bottomAnchor constant:4],
         [topStack.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:12],
         [topStack.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-12],
-        [self.threadTitleLabel.topAnchor    constraintEqualToAnchor:topStack.bottomAnchor constant:4],
+        [self.threadTitleLabel.topAnchor    constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:5],
         [self.threadTitleLabel.leadingAnchor  constraintEqualToAnchor:self.view.leadingAnchor constant:12],
-        [self.threadTitleLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-12],
-        [self.chatTableView.topAnchor constraintEqualToAnchor:self.threadTitleLabel.bottomAnchor constant:8],
+        [self.threadTitleLabel.trailingAnchor constraintLessThanOrEqualToAnchor:self.coinBalanceLabel.leadingAnchor constant:-12],
+        [self.chatTableView.topAnchor constraintEqualToAnchor:topStack.bottomAnchor constant:8],
         [self.chatTableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.chatTableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.chatTableView.bottomAnchor constraintEqualToAnchor:self.inputContainer.topAnchor],
