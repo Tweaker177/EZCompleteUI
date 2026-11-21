@@ -36,6 +36,7 @@
 #import "EZAuthManager.h"
 #import "EZPhotoGalleryAnalysisService.h"
 #import <AVFoundation/AVFoundation.h>
+#import <ImageIO/ImageIO.h>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODULE-LEVEL CONSTANTS
@@ -3806,6 +3807,45 @@ static NSObject *_attachmentSaveLock(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{ lock = [NSObject new]; });
     return lock;
+}
+
+UIImage * _Nullable EZImageFromFilePath(NSString *path) {
+    if (path.length == 0) return nil;
+    NSData *data = [NSData dataWithContentsOfFile:path];
+    if (!data) return nil;
+    const unsigned char *bytes = data.bytes;
+    BOOL isGIF = data.length > 3 && bytes[0] == 'G' && bytes[1] == 'I' && bytes[2] == 'F';
+    if (!isGIF) return [UIImage imageWithData:data];
+
+    CGImageSourceRef source = CGImageSourceCreateWithData((__bridge CFDataRef)data, NULL);
+    if (!source) return [UIImage imageWithData:data];
+    size_t count = CGImageSourceGetCount(source);
+    if (count < 2) { CFRelease(source); return [UIImage imageWithData:data]; }
+    NSMutableArray<UIImage *> *frames = [NSMutableArray arrayWithCapacity:count];
+    NSTimeInterval total = 0;
+    for (size_t i = 0; i < count; i++) {
+        CGImageRef cg = CGImageSourceCreateImageAtIndex(source, i, NULL);
+        if (!cg) continue;
+        [frames addObject:[UIImage imageWithCGImage:cg]];
+        CGImageRelease(cg);
+        NSTimeInterval delay = 0.1;
+        CFDictionaryRef props = CGImageSourceCopyPropertiesAtIndex(source, i, NULL);
+        if (props) {
+            CFDictionaryRef gifProps = CFDictionaryGetValue(props, kCGImagePropertyGIFDictionary);
+            if (gifProps) {
+                CFNumberRef num = CFDictionaryGetValue(gifProps, kCGImagePropertyGIFUnclampedDelayTime);
+                if (!num) num = CFDictionaryGetValue(gifProps, kCGImagePropertyGIFDelayTime);
+                double v = 0;
+                if (num && CFNumberGetValue(num, kCFNumberDoubleType, &v) && v > 0) delay = v;
+            }
+            CFRelease(props);
+        }
+        if (delay < 0.02) delay = 0.1; // sub-20ms delays are read as 100ms, same as browsers
+        total += delay;
+    }
+    CFRelease(source);
+    if (frames.count < 2 || total <= 0) return [UIImage imageWithData:data];
+    return [UIImage animatedImageWithImages:frames duration:total];
 }
 
 NSString * _Nullable EZPhotoGallerySave(NSData *data, NSString *fileName) {

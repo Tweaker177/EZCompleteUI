@@ -1062,6 +1062,10 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, assign) BOOL                    memoriesDrawerOpen;
 @property (nonatomic, strong) UILabel *coinBalanceLabel;
 @property (nonatomic, copy) NSString *chatImageSourcePath;
+// One-shot output-format override set by a chat image request (a GIF
+// ask) and consumed by the next callGptImage1:model: call, so a chat
+// request can pick a format without touching the stored setting.
+@property (nonatomic, copy) NSString *ez_chatImageFormatOverride;
 // Songs a chat model asked for that are still composing, keyed by generation
 // ID, so each one is polled exactly once. Created on first use.
 @property (nonatomic, strong) NSMutableDictionary<NSString *, EZMusicPollToken *> *chatMusicPollTokens;
@@ -1634,6 +1638,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
            @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
            @"gpt-4o", @"gpt-4o-mini",
            // ── Image Generation & Edit ───────────────────────────────────────
+           @"gpt-image-2.6-sunburst", // precision image editing — low/medium/high/xhigh/max + complexity, GIF
+           @"gpt-image-2.6-flare",    // newest, fastest — low/medium/high/xhigh/max + complexity, GIF
            @"gpt-image-2.5-sunburst", // recommended precision image editing — low/medium/high/xhigh/max
            @"gpt-image-2.5-flare",    // newest, fastest — low/medium/high/xhigh/max
            @"gpt-image-2",          // low/medium/high only
@@ -5811,7 +5817,12 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 
     // Keep billing/quality enforcement in the same pipeline as direct images.
     // Do not accept a renderer, price or source path supplied by a chat model.
-    NSString *imageModel = @"gpt-image-2.5-flare";
+    NSString *requestedFormat = [imageRequest[@"output_format"] isKindOfClass:[NSString class]] ? imageRequest[@"output_format"] : nil;
+    BOOL wantsGIF = [requestedFormat isEqualToString:@"gif"] && !isEdit;
+    // GIF output exists only on the 2.6 models, so a chat GIF request
+    // renders on 2.6 Flare — a fixed house choice like the 2.5 Flare
+    // default below, never a renderer the chat model picked.
+    NSString *imageModel = wantsGIF ? @"gpt-image-2.6-flare" : @"gpt-image-2.5-flare";
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     NSString *quality = [defaults stringForKey:@"imgQuality"] ?: @"auto";
     NSString *size = [defaults stringForKey:@"imgSize"] ?: @"1024x1024";
@@ -5822,7 +5833,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     NSInteger quantity = (NSInteger)ceil(count * ([size isEqualToString:@"1024x1024"] ? 1.0 : 1.25));
     NSString *threadID = self.activeThread.threadID;
     self.sendButton.enabled = NO;
-    [self appendToChat:@"[System: Using GPT Image 2.5 Flare for this image request. Your chat model stays selected. Normal image charges apply in addition to chat tokens.]"];
+    [self appendToChat:[NSString stringWithFormat:@"[System: Using %@ for this image request. Your chat model stays selected. Normal image charges apply in addition to chat tokens.]", wantsGIF ? @"GPT Image 2.6 Flare" : @"GPT Image 2.5 Flare"]];
     [[EZEntitlementManager shared] checkEntitlementForFeature:feature quantity:quantity
         prompt:prompt model:imageModel quality:quality size:size isEdit:isEdit
         completion:^(BOOL allowed, NSInteger balance, NSString *reason) {
@@ -5843,6 +5854,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
             if (isEdit) {
                 [self callImageEdit:prompt imagePath:sourcePath model:imageModel preserveChatModel:YES];
             } else {
+                self.ez_chatImageFormatOverride = wantsGIF ? @"gif" : nil;
                 [self callGptImage1:prompt model:imageModel];
             }
         });
@@ -5910,9 +5922,21 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     NSString *imgSize    = [d stringForKey:@"imgSize"]       ?: @"1024x1024";
     NSString *imgQuality = [d stringForKey:@"imgQuality"]    ?: @"auto";
     NSString *imgFormat  = [d stringForKey:@"imgFormat"]     ?: @"png";
+    // One-shot format override from a chat image request (a GIF ask),
+    // consumed here so it can never leak into a later direct request.
+    if (self.ez_chatImageFormatOverride.length) {
+        imgFormat = self.ez_chatImageFormatOverride;
+        self.ez_chatImageFormatOverride = nil;
+    }
     NSString *imgBg      = [d stringForKey:@"imgBackground"] ?: @"auto";
-    NSString *imgExtension = [imgFormat isEqualToString:@"jpeg"] ? @"jpg" : imgFormat;
     NSString *imgModel   = imageModel;
+    BOOL isImage26 = [imgModel isEqualToString:@"gpt-image-2.6-flare"] ||
+                     [imgModel isEqualToString:@"gpt-image-2.6-sunburst"];
+    // GIF output exists only on the 2.6 models — a GIF left selected
+    // from a 2.6 session falls back to PNG on anything else instead of
+    // failing at the server.
+    if ([imgFormat isEqualToString:@"gif"] && !isImage26) imgFormat = @"png";
+    NSString *imgExtension = [imgFormat isEqualToString:@"jpeg"] ? @"jpg" : imgFormat;
     NSInteger imgN = [d integerForKey:@"imgVariations"];
     if (imgN < 1 || imgN > 4) imgN = 1;
 
@@ -5928,6 +5952,15 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         @"output_format": imgFormat,
         @"background":    imgBg,
     } mutableCopy];
+
+    // Complexity is a 2.6-only axis — how much the model plans before
+    // drawing, independent of quality. Default high, the API's own
+    // default when the key is omitted.
+    if (isImage26) {
+        NSString *imgComplexity = [d stringForKey:@"imgComplexity"] ?: @"high";
+        if (![@[@"high", @"medium", @"low"] containsObject:imgComplexity]) imgComplexity = @"high";
+        body[@"complexity"] = imgComplexity;
+    }
 
     NSString *savedPrompt = prompt;
     [self showImageGenStatusBanner];
@@ -6655,13 +6688,14 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     NSString *editFmt  = [d stringForKey:@"imgFormat"]      ?: @"png";
     NSString *editBg   = [d stringForKey:@"imgBackground"]  ?: @"auto";
     NSString *editMod  = [d stringForKey:@"imgModeration"]  ?: @"low";
+    if ([editFmt isEqualToString:@"gif"]) editFmt = @"png"; // edits are stills — GIF is generate-only
     NSString *editExtension = [editFmt isEqualToString:@"jpeg"] ? @"jpg" : editFmt;
     NSInteger editN    = [d integerForKey:@"imgVariations"];
     if (editN < 1 || editN > 4) editN = 1;
 
     NSString *b64Image = [pngData base64EncodedStringWithOptions:0];
 
-    NSDictionary *body = @{
+    NSMutableDictionary *body = [@{
         @"action":        @"edit",
         // Was hardcoded to gpt-image-1 regardless of what the user picked —
         // now sends whatever enterImageEditModeFromCurrentSelection
@@ -6675,7 +6709,15 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         @"output_format": editFmt,
         @"background":    editBg,
         @"moderation":    editMod,
-    };
+    } mutableCopy];
+
+    // Complexity rides along on the 2.6 models (see callGptImage1).
+    if ([imageModel isEqualToString:@"gpt-image-2.6-flare"] ||
+        [imageModel isEqualToString:@"gpt-image-2.6-sunburst"]) {
+        NSString *editComplexity = [d stringForKey:@"imgComplexity"] ?: @"high";
+        if (![@[@"high", @"medium", @"low"] containsObject:editComplexity]) editComplexity = @"high";
+        body[@"complexity"] = editComplexity;
+    }
 
     [self showImageGenStatusBanner];
     [self updateImageGenerationProgress:0.14]; // edit request accepted locally

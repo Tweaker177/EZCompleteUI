@@ -2409,7 +2409,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 - (void)showPhotoAtGalleryIndex:(NSUInteger)index animated:(BOOL)animated {
     if (index >= self.galleryFilePaths.count || _isEditingImage) return;
     NSString *path = self.galleryFilePaths[index];
-    UIImage *image = [UIImage imageWithContentsOfFile:path];
+    UIImage *image = EZImageFromFilePath(path);
     if (!image) return;
 
     void (^applyPhoto)(void) = ^{
@@ -3357,7 +3357,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         [self presentViewController:player animated:YES completion:^{ [player.player play]; }];
         return;
     }
-    UIImage  *image = [UIImage imageWithContentsOfFile:path];
+    UIImage  *image = EZImageFromFilePath(path);
     if (!image) return;
 
     if (self.onSelectImage) {

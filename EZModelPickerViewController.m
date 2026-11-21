@@ -34,6 +34,8 @@ static NSDictionary<NSString *, NSString *> *EZModelLabels(void) {
         @"gpt-5-mini":             EZLocalized(@"EZModelLabel.ChatVision"),
         @"gpt-4o":                 EZLocalized(@"EZModelLabel.ChatVision"),
         @"gpt-4o-mini":            EZLocalized(@"EZModelLabel.ChatVisionFastCheap"),
+        @"gpt-image-2.6-flare":    EZLocalized(@"EZModelLabel.ImageGenNewestFast"),
+        @"gpt-image-2.6-sunburst": EZLocalized(@"EZModelLabel.ImageGenEditPrecision"),
         @"gpt-image-2.5-flare":    EZLocalized(@"EZModelLabel.ImageGenNewestFast"),
         @"gpt-image-2.5-sunburst": EZLocalized(@"EZModelLabel.ImageGenEditPrecision"),
         @"gpt-image-2":            EZLocalized(@"EZModelLabel.ImageGenEdit"),
@@ -59,7 +61,7 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
         @[@"gpt-6-astra", @"gpt-6.1-sol", @"gpt-6.1-terra", @"gpt-6-luna", //@"gpt-5-pro",
           @"gpt-5-mini"],
         @[@"gpt-4o", @"gpt-4o-mini"],
-        @[@"gpt-image-2.5-sunburst", @"gpt-image-2.5-flare", @"gpt-image-2", @"gpt-image-1-mini"
+        @[@"gpt-image-2.6-sunburst", @"gpt-image-2.6-flare", @"gpt-image-2.5-sunburst", @"gpt-image-2.5-flare", @"gpt-image-2", @"gpt-image-1-mini"
 #if !APPSTORE
             , @"seahorse-image"
 #endif
