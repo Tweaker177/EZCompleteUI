@@ -33,6 +33,15 @@ NS_ASSUME_NONNULL_BEGIN
 /// Ice floe the bonus penguins stand on (100x30 grid).
 + (UIImage *)floeWithSize:(CGSize)size;
 
+/// Wide arctic header backdrop — aurora ribbons, stars, iceberg
+/// silhouettes and a penguin standing on the right-hand berg —
+/// drawn on a 400x250 grid scaled to `size`.
++ (UIImage *)arcticBackdropWithSize:(CGSize)size;
+
+/// A strip of snow drifts with sparkles (400x36 grid), for laying
+/// along the top edge of the reel cabinet.
++ (UIImage *)snowCapWithSize:(CGSize)size;
+
 /// Drops cached images (call from didReceiveMemoryWarning).
 + (void)purgeCache;
 
