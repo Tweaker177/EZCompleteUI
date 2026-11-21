@@ -13,6 +13,8 @@
 #import "EZMediaPlayerManager.h"
 #import "TextToSpeechViewController.h"
 #import "EZVoicePickerViewController.h"
+#import "EZEntitlementManager.h"
+#import "EZCoinStoreViewController.h"
 #import "EZWaveformRangeSelector.h"
 #import "WaveformView.h"
 #import "helpers.h"
@@ -26,6 +28,16 @@ static NSUInteger const kEZClipUndoMaxSnapshots = 10;
 // shared EZTheme gold so the editor matches the rest of the app.
 static UIColor *EZEditElectricBlue(void) {
     return [EZTheme goldColor];
+}
+
+/// The mix slider's two sides, from its 0..1 position. The middle is
+/// 50/50 with both sides at their normal generated volume; sliding
+/// toward one side keeps that side at full and fades the other down.
+static float EZMixVoiceLevel(float mix) {
+    return mix <= 0.5f ? 1.0f : 1.0f - (mix - 0.5f) * 2.0f;
+}
+static float EZMixBackgroundLevel(float mix) {
+    return mix >= 0.5f ? 1.0f : 1.0f - (0.5f - mix) * 2.0f;
 }
 
 @interface EZTTSClipEditViewController () <AVAudioPlayerDelegate>
@@ -47,6 +59,7 @@ static UIColor *EZEditElectricBlue(void) {
 @property (nonatomic, strong) UIView *promptContainer;
 @property (nonatomic, strong) UILabel *promptLabel;
 @property (nonatomic, strong) UIImageView *promptDisclosureImage;
+@property (nonatomic, strong) UIButton *promptCopyButton;
 @property (nonatomic) BOOL promptExpanded;
 
 // Waveform + range selection — at the top of the screen, directly under the prompt.
@@ -73,7 +86,7 @@ static UIColor *EZEditElectricBlue(void) {
 @property (nonatomic, strong) UIBarButtonItem *undoButtonItem;
 @property (nonatomic, strong) UISlider *speedSlider;
 @property (nonatomic, strong) UILabel *speedValueLabel;
-@property (nonatomic, strong) UIButton *speedPreviewButton;
+@property (nonatomic, strong) UIButton *speedApplyButton;
 
 // Change voice
 @property (nonatomic, strong) UILabel *voiceSectionLabel;
@@ -286,7 +299,7 @@ static UIColor *EZEditElectricBlue(void) {
 }
 
 /// Persists the legacy playback-rate metadata ("playbackRate"). The editor
-/// now bakes speed into the audio itself (see handleSpeedSliderReleased:)
+/// now bakes speed into the audio itself (see handleSpeedApplyTapped)
 /// and keeps this cleared to 1.0 so list playback never applies a rate
 /// twice; the managers still honor it for clips saved before the bake.
 - (void)persistPlaybackRate:(float)rate {
@@ -344,11 +357,18 @@ static UIColor *EZEditElectricBlue(void) {
     self.promptDisclosureImage.tintColor = [EZTheme secondaryTextColor];
     self.promptDisclosureImage.contentMode = UIViewContentModeCenter;
     [self.promptContainer addSubview:self.promptDisclosureImage];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"doc.on.doc"]
+    self.promptCopyButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.promptCopyButton setImage:[UIImage systemImageNamed:@"doc.on.doc"] forState:UIControlStateNormal];
+    self.promptCopyButton.tintColor = [EZTheme secondaryTextColor];
+    self.promptCopyButton.accessibilityLabel = @"Copy prompt";
+    [self.promptCopyButton addTarget:self action:@selector(copyPromptTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [self.promptContainer addSubview:self.promptCopyButton];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"square.and.arrow.up"]
                                                                                style:UIBarButtonItemStylePlain
                                                                               target:self
-                                                                              action:@selector(copyPromptTapped:)];
+                                                                              action:@selector(exportClipTapped:)];
     self.navigationItem.rightBarButtonItem.tintColor = EZEditElectricBlue();
+    self.navigationItem.rightBarButtonItem.accessibilityLabel = @"Export clip";
     self.navigationItem.standardAppearance = [EZTheme navigationBarAppearance];
     self.navigationItem.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
     self.navigationController.navigationBar.tintColor = [EZTheme goldColor];
@@ -396,6 +416,7 @@ static UIColor *EZEditElectricBlue(void) {
 }
 
 - (void)handlePromptTapped:(UITapGestureRecognizer *)gesture {
+    if (CGRectContainsPoint(self.promptCopyButton.frame, [gesture locationInView:self.promptContainer])) return;
     self.promptExpanded = !self.promptExpanded;
     self.promptLabel.numberOfLines = self.promptExpanded ? 0 : 3;
     self.promptDisclosureImage.image = [UIImage systemImageNamed:self.promptExpanded ? @"chevron.up" : @"chevron.down"];
@@ -406,6 +427,44 @@ static UIColor *EZEditElectricBlue(void) {
     UIPasteboard.generalPasteboard.string = self.entry.prompt ?: @"";
     UINotificationFeedbackGenerator *feedback = [[UINotificationFeedbackGenerator alloc] init];
     [feedback notificationOccurred:UINotificationFeedbackTypeSuccess];
+}
+
+/// Export/share the clip file, guarded by an active subscription.
+- (void)exportClipTapped:(id)sender {
+    EZEntitlementManager *entitlements = [EZEntitlementManager shared];
+    BOOL subscribed = entitlements.currentTier.length > 0 &&
+                      [entitlements.currentStatus isEqualToString:@"active"];
+    if (!subscribed) {
+        UIAlertController *alert = [UIAlertController
+            alertControllerWithTitle:NSLocalizedString(@"EZSubscription.RequiredTitle", nil)
+                             message:@"Exporting a clip requires an active subscription."
+                      preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSubscription.NotNow", nil)
+                                                  style:UIAlertActionStyleCancel
+                                                handler:nil]];
+        __weak typeof(self) weakSelf = self;
+        [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZSubscription.ViewPlans", nil)
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(__unused UIAlertAction *action) {
+            [weakSelf.navigationController pushViewController:[[EZCoinStoreViewController alloc] init] animated:YES];
+        }]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+    }
+    NSURL *exportURL = self.audioURL;
+    if (!self.soundEntry) {
+        exportURL = [[EZTTSLibraryManager sharedManager] exportURLForClipWithUUID:self.entry.uuid] ?: self.audioURL;
+    }
+    if (!exportURL) {
+        [self presentErrorAlert:[self errorWithCode:-50 message:@"That clip's audio file could not be found on disk."] title:@"Couldn't export clip"];
+        return;
+    }
+    UIActivityViewController *activity = [[UIActivityViewController alloc] initWithActivityItems:@[exportURL]
+                                                                             applicationActivities:nil];
+    if (activity.popoverPresentationController) {
+        activity.popoverPresentationController.barButtonItem = sender;
+    }
+    [self presentViewController:activity animated:YES completion:nil];
 }
 
 #pragma mark - Waveform + range selection section
@@ -490,7 +549,6 @@ static UIColor *EZEditElectricBlue(void) {
     // selection while the user is still dragging to a new one.
     [self.previewPlayer stop];
     self.previewPlayer = nil;
-    [self.speedPreviewButton setImage:[UIImage systemImageNamed:@"play.circle"] forState:UIControlStateNormal];
 }
 
 - (void)handleRangeDragEnded:(EZWaveformRangeSelector *)selector {
@@ -565,7 +623,7 @@ static UIColor *EZEditElectricBlue(void) {
 
 - (void)setupBackgroundAudioSection {
     self.backgroundSectionLabel = [self sectionHeaderLabel];
-    self.backgroundSectionLabel.text = @"BACKGROUND AUDIO — SAVES TO THIS CLIP";
+    self.backgroundSectionLabel.text = @"MIX";
     [self.scrollView addSubview:self.backgroundSectionLabel];
     self.backgroundLevelLabel = [[UILabel alloc] init];
     self.backgroundLevelLabel.adjustsFontSizeToFitWidth = YES;
@@ -577,6 +635,8 @@ static UIColor *EZEditElectricBlue(void) {
     self.backgroundLevelSlider.minimumValue = 0.0;
     self.backgroundLevelSlider.maximumValue = 1.0;
     self.backgroundLevelSlider.tintColor = EZEditElectricBlue();
+    [self.backgroundLevelSlider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateNormal];
+    [self.backgroundLevelSlider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateHighlighted];
     id saved = self.entry.metadata[@"sceneBackgroundLevel"];
     self.backgroundLevelSlider.value = [saved isKindOfClass:NSNumber.class] ? [saved floatValue] : 0.5f;
     [self.backgroundLevelSlider addTarget:self action:@selector(handleBackgroundLevelChanged:) forControlEvents:UIControlEventValueChanged];
@@ -586,7 +646,9 @@ static UIColor *EZEditElectricBlue(void) {
 }
 
 - (void)updateBackgroundLevelLabel {
-    self.backgroundLevelLabel.text = [NSString stringWithFormat:@"%.0f%%", self.backgroundLevelSlider.value * 100.0f];
+    float mix = self.backgroundLevelSlider.value;
+    self.backgroundLevelLabel.text = [NSString stringWithFormat:@"Voice %.0f%% · Background %.0f%%",
+        EZMixVoiceLevel(mix) * 100.0f, EZMixBackgroundLevel(mix) * 100.0f];
 }
 
 - (void)handleBackgroundLevelChanged:(UISlider *)slider { [self updateBackgroundLevelLabel]; }
@@ -597,7 +659,7 @@ static UIColor *EZEditElectricBlue(void) {
     if (!narrationURL || !backgroundURL) return;
     slider.enabled = NO;
     [self.exportSpinner startAnimating];
-    [self remixNarrationURL:narrationURL backgroundURL:backgroundURL level:slider.value completion:^(NSData *audioData, NSError *error) {
+    [self remixNarrationURL:narrationURL backgroundURL:backgroundURL level:EZMixBackgroundLevel(slider.value) voiceLevel:EZMixVoiceLevel(slider.value) completion:^(NSData *audioData, NSError *error) {
         if (error || !audioData.length) {
             slider.enabled = YES; [self.exportSpinner stopAnimating];
             [self presentErrorAlert:error ?: [self errorWithCode:-40 message:@"Could not render the new background level."] title:@"Couldn't update background audio"];
@@ -614,7 +676,7 @@ static UIColor *EZEditElectricBlue(void) {
     }];
 }
 
-- (void)remixNarrationURL:(NSURL *)narrationURL backgroundURL:(NSURL *)backgroundURL level:(float)level completion:(void (^)(NSData * _Nullable, NSError * _Nullable))completion {
+- (void)remixNarrationURL:(NSURL *)narrationURL backgroundURL:(NSURL *)backgroundURL level:(float)level voiceLevel:(float)voiceLevel completion:(void (^)(NSData * _Nullable, NSError * _Nullable))completion {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
         AVURLAsset *narration = [AVURLAsset URLAssetWithURL:narrationURL options:nil];
         AVURLAsset *background = [AVURLAsset URLAssetWithURL:backgroundURL options:nil];
@@ -635,10 +697,12 @@ static UIColor *EZEditElectricBlue(void) {
             [bed insertTimeRange:CMTimeRangeMake(kCMTimeZero, part) ofTrack:backgroundTrack atTime:cursor error:&insertError]; cursor = CMTimeAdd(cursor, part);
         }
         if (insertError) { dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, insertError); }); return; }
+        AVMutableAudioMixInputParameters *voiceMix = [AVMutableAudioMixInputParameters audioMixInputParametersWithTrack:voice];
+        [voiceMix setVolume:voiceLevel atTime:kCMTimeZero];
         AVMutableAudioMixInputParameters *bedMix = [AVMutableAudioMixInputParameters audioMixInputParametersWithTrack:bed];
         [bedMix setVolume:level atTime:kCMTimeZero];
         [bedMix setVolumeRampFromStartVolume:level toEndVolume:0.0 timeRange:CMTimeRangeMake(narrationDuration, tailDuration)];
-        AVMutableAudioMix *mix = [AVMutableAudioMix audioMix]; mix.inputParameters = @[bedMix];
+        AVMutableAudioMix *mix = [AVMutableAudioMix audioMix]; mix.inputParameters = @[voiceMix, bedMix];
         NSURL *output = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"scene_remix_%@.m4a", NSUUID.UUID.UUIDString]]];
         AVAssetExportSession *exporter = [[AVAssetExportSession alloc] initWithAsset:composition presetName:AVAssetExportPresetAppleM4A]; exporter.outputURL = output; exporter.outputFileType = AVFileTypeAppleM4A; exporter.audioMix = mix;
         [exporter exportAsynchronouslyWithCompletionHandler:^{
@@ -945,10 +1009,11 @@ static UIColor *EZEditElectricBlue(void) {
     self.speedSlider.minimumValue = 0.5;
     self.speedSlider.maximumValue = 2.0;
     self.speedSlider.tintColor = EZEditElectricBlue();
+    [self.speedSlider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateNormal];
+    [self.speedSlider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateHighlighted];
     id storedRate = self.entry.metadata[@"playbackRate"];
     self.speedSlider.value = [storedRate isKindOfClass:[NSNumber class]] ? [storedRate floatValue] : 1.0f;
     [self.speedSlider addTarget:self action:@selector(handleSpeedSliderChanged:) forControlEvents:UIControlEventValueChanged];
-    [self.speedSlider addTarget:self action:@selector(handleSpeedSliderReleased:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
     [self.scrollView addSubview:self.speedSlider];
 
     self.speedValueLabel = [[UILabel alloc] init];
@@ -959,9 +1024,9 @@ static UIColor *EZEditElectricBlue(void) {
     [self updateSpeedValueLabel];
     [self.scrollView addSubview:self.speedValueLabel];
 
-    self.speedPreviewButton = [self actionButtonWithTitle:@"  Preview at this speed" systemImage:@"play.circle"];
-    [self.speedPreviewButton addTarget:self action:@selector(handleSpeedPreviewTapped) forControlEvents:UIControlEventTouchUpInside];
-    [self.scrollView addSubview:self.speedPreviewButton];
+    self.speedApplyButton = [self actionButtonWithTitle:@"  Apply" systemImage:@"checkmark.circle"];
+    [self.speedApplyButton addTarget:self action:@selector(handleSpeedApplyTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.scrollView addSubview:self.speedApplyButton];
 }
 
 - (void)updateSpeedValueLabel {
@@ -969,13 +1034,13 @@ static UIColor *EZEditElectricBlue(void) {
 }
 
 - (void)handleSpeedSliderChanged:(UISlider *)slider {
+    // Dragging only stages the new speed — nothing is applied, baked or
+    // previewed at the new rate until Apply is hit.
     [self updateSpeedValueLabel];
-    if (self.previewPlayer) {
-        self.previewPlayer.rate = slider.value;
-    }
 }
 
-- (void)handleSpeedSliderReleased:(UISlider *)slider {
+- (void)handleSpeedApplyTapped {
+    UISlider *slider = self.speedSlider;
     float rate = slider.value;
     if (fabsf(rate - 1.0f) < 0.005f) {
         [self persistPlaybackRate:1.0f];
@@ -987,8 +1052,7 @@ static UIColor *EZEditElectricBlue(void) {
     if (self.previewPlayer) {
         [self.previewPlayer stop];
         self.previewPlayer = nil;
-        [self.speedPreviewButton setImage:[UIImage systemImageNamed:@"play.circle"] forState:UIControlStateNormal];
-    }
+        }
     AVAudioUnitTimePitch *rateUnit = [[AVAudioUnitTimePitch alloc] init];
     rateUnit.rate = rate;
     slider.enabled = NO;
@@ -1008,16 +1072,6 @@ static UIColor *EZEditElectricBlue(void) {
     }];
 }
 
-- (void)handleSpeedPreviewTapped {
-    if (self.previewPlayer) {
-        [self.previewPlayer stop];
-        self.previewPlayer = nil;
-        [self.speedPreviewButton setImage:[UIImage systemImageNamed:@"play.circle"] forState:UIControlStateNormal];
-        return;
-    }
-    [self startScrubPreviewFromFraction:0.0];
-}
-
 - (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
     if (player == self.previewPlayer) {
         if (self.loopSelectionEnabled) {
@@ -1029,13 +1083,12 @@ static UIColor *EZEditElectricBlue(void) {
             return;
         }
         self.previewPlayer = nil;
-        [self.speedPreviewButton setImage:[UIImage systemImageNamed:@"play.circle"] forState:UIControlStateNormal];
-    }
+        }
 }
 
-/// Plays the clip starting from a given point — used both by the range selector's
-/// scrub-to-preview and the speed preview button. Only one preview is ever audible at a
-/// time; whichever control triggers this one takes over.
+/// Plays the clip starting from a given point, at the clip's applied
+/// playback rate — used by the range selector's scrub-to-preview. Only
+/// one preview is ever audible at a time.
 - (void)startScrubPreviewFromFraction:(CGFloat)fraction {
     // A clip may still be playing from History; the preview takes over.
     [[EZMediaPlayerManager sharedManager] stop];
@@ -1054,7 +1107,8 @@ static UIColor *EZEditElectricBlue(void) {
     }
     player.delegate = self;
     player.enableRate = YES;
-    player.rate = self.speedSlider.value;
+    id appliedRate = self.entry.metadata[@"playbackRate"];
+    player.rate = [appliedRate isKindOfClass:[NSNumber class]] ? [appliedRate floatValue] : 1.0f;
     // In loop mode a preview always starts at the selection start, whatever
     // asked for it — the loop is the selection.
     CGFloat startFraction = self.loopSelectionEnabled ? self.rangeSelector.startFraction : fraction;
@@ -1067,7 +1121,6 @@ static UIColor *EZEditElectricBlue(void) {
     }
     self.previewPlayer = player;
     if (self.loopSelectionEnabled) [self startLoopTimer]; else [self stopLoopTimer];
-    [self.speedPreviewButton setImage:[UIImage systemImageNamed:@"stop.circle"] forState:UIControlStateNormal];
 }
 
 #pragma mark - Change voice section
@@ -1089,7 +1142,7 @@ static UIColor *EZEditElectricBlue(void) {
     [self.voiceButton addTarget:self action:@selector(handleVoiceButtonTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:self.voiceButton];
 
-    self.regenerateWithVoiceButton = [self actionButtonWithTitle:@"  Regenerate with this voice" systemImage:@"arrow.clockwise"];
+    self.regenerateWithVoiceButton = [self actionButtonWithTitle:@"  Regenerate" systemImage:@"arrow.clockwise"];
     [self.regenerateWithVoiceButton addTarget:self action:@selector(handleRegenerateWithVoiceTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:self.regenerateWithVoiceButton];
 }
@@ -1131,7 +1184,7 @@ static UIColor *EZEditElectricBlue(void) {
 
 - (void)setupEffectsSection {
     self.effectsSectionLabel = [self sectionHeaderLabel];
-    self.effectsSectionLabel.text = @"EFFECTS — APPLIED TO WHOLE CLIP";
+    self.effectsSectionLabel.text = @"EFFECTS";
     [self.scrollView addSubview:self.effectsSectionLabel];
 
     self.pitchValueLabel = [[UILabel alloc] init];
@@ -1146,6 +1199,8 @@ static UIColor *EZEditElectricBlue(void) {
     self.pitchSlider.maximumValue = 1200;  // +12 semitones
     self.pitchSlider.value = 0;
     self.pitchSlider.tintColor = EZEditElectricBlue();
+    [self.pitchSlider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateNormal];
+    [self.pitchSlider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateHighlighted];
     self.pitchSlider.minimumValueImage = [UIImage systemImageNamed:@"arrow.down"];
     self.pitchSlider.maximumValueImage = [UIImage systemImageNamed:@"arrow.up"];
     [self.pitchSlider addTarget:self action:@selector(handlePitchSliderChanged:) forControlEvents:UIControlEventValueChanged];
@@ -1440,6 +1495,7 @@ static UIColor *EZEditElectricBlue(void) {
     self.promptContainer.frame = CGRectMake(margin, y, width, promptHeight);
     self.promptLabel.frame = CGRectMake(12, 10, promptTextWidth, promptHeight - 20);
     self.promptDisclosureImage.frame = CGRectMake(width - 32, 8, 24, 24);
+    self.promptCopyButton.frame = CGRectMake(width - 32, promptHeight - 28, 24, 24);
     y = CGRectGetMaxY(self.promptContainer.frame) + 20;
 
     // Waveform section — first, right under the prompt.
@@ -1463,8 +1519,9 @@ static UIColor *EZEditElectricBlue(void) {
     if (self.backgroundSectionLabel) {
         self.backgroundSectionLabel.frame = CGRectMake(margin, y, width, 16);
         y = CGRectGetMaxY(self.backgroundSectionLabel.frame) + 8;
-        self.backgroundLevelLabel.frame = CGRectMake(margin, y, 52, 24);
-        self.backgroundLevelSlider.frame = CGRectMake(margin + 60, y, width - 60, 24);
+        self.backgroundLevelLabel.frame = CGRectMake(margin, y, width, 20);
+        y = CGRectGetMaxY(self.backgroundLevelLabel.frame) + 4;
+        self.backgroundLevelSlider.frame = CGRectMake(margin, y, width, 24);
         y = CGRectGetMaxY(self.backgroundLevelSlider.frame) + 28;
     }
 
@@ -1474,8 +1531,8 @@ static UIColor *EZEditElectricBlue(void) {
     self.speedValueLabel.frame = CGRectMake(margin, y, 60, 24);
     self.speedSlider.frame = CGRectMake(margin + 68, y, width - 68, 24);
     y = CGRectGetMaxY(self.speedSlider.frame) + 10;
-    self.speedPreviewButton.frame = CGRectMake(margin, y, width, 32);
-    y = CGRectGetMaxY(self.speedPreviewButton.frame) + 28;
+    self.speedApplyButton.frame = CGRectMake(margin, y, width, 32);
+    y = CGRectGetMaxY(self.speedApplyButton.frame) + 28;
 
     // Voice section (TTS clips only — absent entirely for sounds)
     if (self.voiceSectionLabel) {
