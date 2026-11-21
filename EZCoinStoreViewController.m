@@ -605,6 +605,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, strong) NSArray<EZStoreItem *>  *items;
 
+@property (nonatomic, assign) NSInteger               visibleSubscriptionCount; // subscriptions at the head of items; the rest are top-ups
+
 @property (nonatomic, strong) UIImage                 *coinImage;
 
 @property (nonatomic, strong) NSString                *pendingPurchaseType;  // @"subscription" or @"topup"
@@ -1055,10 +1057,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [self applyPromoBadgeIfNeededToItem:topup5];
     [items addObject:topup5];
 
-    // Store trim (trial): only the seven products that are also sold
+    // Store trim (trial): only the products that are also sold
     // on the web store are offered for new purchases — Basic Weekly,
-    // Ultra, Power and Enterprise subscriptions, and the $20, $49.99
-    // and $99.99 top-ups. Every other tier and pack keeps its full
+    // Ultra, Power and Enterprise subscriptions, and the $5, $20,
+    // $49.99 and $99.99 top-ups. Every other tier and pack keeps its full
     // definition above; this filter only decides what is displayed
     // for sale, and removing it restores the full store. A card also
     // stays visible when it is the signed-in user's own active plan,
@@ -1067,7 +1069,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     // server-side and unaffected either way.
     NSSet<NSString *> *saleIDs = [NSSet setWithObjects:
         kTierBasic, kTierBasicWeekly, kTierUltra, kTierPower, kTierEnterprise,
-        @"TOPUP_2500", @"TOPUP_6250", @"TOPUP_12500", nil];
+        @"TOPUP_400", @"TOPUP_2500", @"TOPUP_6250", @"TOPUP_12500", nil];
     NSMutableArray<EZStoreItem *> *visible = [NSMutableArray array];
     for (EZStoreItem *item in items) {
         if ([saleIDs containsObject:item.planOrPackageID] || item.isCurrentPlan) {
@@ -1075,6 +1077,17 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         }
     }
     self.items = [visible copy];
+
+    // The visible list is subscriptions first, then top-ups (build
+    // order, kept by the filter). The table's two sections split the
+    // list at this count, so the sections must be measured from the
+    // filtered list itself — a fixed split puts top-ups under the
+    // Subscriptions header whenever the trim hides a tier.
+    NSInteger subscriptionCount = 0;
+    for (EZStoreItem *item in visible) {
+        if (item.type == EZStoreItemTypeSubscription) subscriptionCount++;
+    }
+    self.visibleSubscriptionCount = subscriptionCount;
 
 }
 
@@ -1355,9 +1368,9 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
 
-    if (section == 0) return 6; // subscription tiers
+    if (section == 0) return self.visibleSubscriptionCount; // subscription tiers
 
-    return 5;                   // top-up packages
+    return (NSInteger)self.items.count - self.visibleSubscriptionCount; // top-up packages
 
 }
 
@@ -1425,7 +1438,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
                                                         forIndexPath:indexPath];
 
-    NSInteger itemIndex = indexPath.section == 0 ? indexPath.row : 6 + indexPath.row;
+    NSInteger itemIndex = indexPath.section == 0 ? indexPath.row : self.visibleSubscriptionCount + indexPath.row;
 
     if (itemIndex < (NSInteger)self.items.count) {
 
