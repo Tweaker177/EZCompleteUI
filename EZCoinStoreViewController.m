@@ -1053,10 +1053,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [self applyPromoBadgeIfNeededToItem:topup5];
     [items addObject:topup5];
 
-    // Store trim (trial): only the seven products that are also sold
+    // Store trim (trial): only the products that are also sold
     // on the web store are offered for new purchases — Basic Weekly,
-    // Ultra, Power and Enterprise subscriptions, and the $20, $49.99
-    // and $99.99 top-ups. Every other tier and pack keeps its full
+    // Ultra, Power and Enterprise subscriptions, and the $5, $20,
+    // $49.99 and $99.99 top-ups. Every other tier and pack keeps its full
     // definition above; this filter only decides what is displayed
     // for sale, and removing it restores the full store. A card also
     // stays visible when it is the signed-in user's own active plan,
@@ -1065,7 +1065,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     // server-side and unaffected either way.
     NSSet<NSString *> *saleIDs = [NSSet setWithObjects:
         kTierBasic, kTierBasicWeekly, kTierUltra, kTierPower, kTierEnterprise,
-        @"TOPUP_2500", @"TOPUP_6250", @"TOPUP_12500", nil];
+        @"TOPUP_400", @"TOPUP_2500", @"TOPUP_6250", @"TOPUP_12500", nil];
     NSMutableArray<EZStoreItem *> *visible = [NSMutableArray array];
     for (EZStoreItem *item in items) {
         if ([saleIDs containsObject:item.planOrPackageID] || item.isCurrentPlan) {
