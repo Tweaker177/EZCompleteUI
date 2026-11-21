@@ -491,7 +491,7 @@ static UIImage *PGSnowImage(void) {
     self.navigationItem.hidesBackButton = YES;
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:PGLoc(@"BRSlot.Picker.Back", @"‹  BRAINROT") action:@selector(backTapped)]];
     UIButton *pays = [self navButton:PGLoc(@"BRSlot.PG.Pays", @"PAYS") action:@selector(showPays)];
-    self.soundButton = [self navButton:@"🔊" action:@selector(toggleSound)];
+    self.soundButton = [self navButton:@"" action:@selector(toggleSound)];
     self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithCustomView:self.soundButton],
                                                 [[UIBarButtonItem alloc] initWithCustomView:pays]];
 
@@ -525,27 +525,36 @@ static UIImage *PGSnowImage(void) {
     UILabel *titleExtrusion = [UILabel new];
     titleExtrusion.translatesAutoresizingMaskIntoConstraints = NO;
     titleExtrusion.textAlignment = NSTextAlignmentCenter;
-    titleExtrusion.attributedText = [[NSAttributedString alloc] initWithString:@"PENGUIN PARADE" attributes:@{
-        NSFontAttributeName: [UIFont systemFontOfSize:34 weight:UIFontWeightHeavy],
-        NSForegroundColorAttributeName: PGC(0x0A2A52), NSKernAttributeName: @6}];
+    titleExtrusion.numberOfLines = 2;
+    titleExtrusion.attributedText = [[NSAttributedString alloc] initWithString:@"PENGUIN\nPARADE" attributes:@{
+        NSFontAttributeName: [UIFont systemFontOfSize:31 weight:UIFontWeightBlack],
+        NSForegroundColorAttributeName: PGC(0x06366B), NSStrokeColorAttributeName: PGC(0x06366B), NSStrokeWidthAttributeName: @-4}];
     titleExtrusion.adjustsFontSizeToFitWidth = YES; titleExtrusion.minimumScaleFactor = .6;
     titleExtrusion.userInteractionEnabled = NO;
 
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
     title.textAlignment = NSTextAlignmentCenter;
-    title.attributedText = [[NSAttributedString alloc] initWithString:@"PENGUIN PARADE" attributes:@{
-        NSFontAttributeName: [UIFont systemFontOfSize:34 weight:UIFontWeightHeavy],
-        NSForegroundColorAttributeName: PGGold(), NSKernAttributeName: @6}];
+    title.numberOfLines = 2;
+    title.attributedText = [[NSAttributedString alloc] initWithString:@"PENGUIN\nPARADE" attributes:@{
+        NSFontAttributeName: [UIFont systemFontOfSize:31 weight:UIFontWeightBlack],
+        NSForegroundColorAttributeName: PGC(0xEAFBFF), NSStrokeColorAttributeName: PGC(0x2376BC), NSStrokeWidthAttributeName: @-2}];
     title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .6;
     title.layer.shadowColor = PGC(0x6FC3F0).CGColor;
     title.layer.shadowOpacity = .7; title.layer.shadowRadius = 10; title.layer.shadowOffset = CGSizeZero;
+    UIImageView *headerPenguin = [[UIImageView alloc] initWithImage:[BRPenguinParadeArt bonusPenguinWithVariant:0 size:CGSizeMake(68, 95)]];
+    headerPenguin.translatesAutoresizingMaskIntoConstraints = NO;
+    headerPenguin.contentMode = UIViewContentModeScaleAspectFit;
+    headerPenguin.userInteractionEnabled = NO;
+    headerPenguin.isAccessibilityElement = NO;
     UILabel *subtitle = [UILabel new];
     subtitle.translatesAutoresizingMaskIntoConstraints = NO;
     subtitle.textAlignment = NSTextAlignmentCenter;
     subtitle.attributedText = [[NSAttributedString alloc] initWithString:@"9 LINES · EGG HATCH BONUS" attributes:@{
         NSFontAttributeName: [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy],
-        NSForegroundColorAttributeName: [UIColor colorWithRed:1 green:.96 blue:.86 alpha:.85], NSKernAttributeName: @4}];
+        NSForegroundColorAttributeName: [UIColor colorWithRed:1 green:.96 blue:.86 alpha:.95], NSKernAttributeName: @1}];
+    subtitle.adjustsFontSizeToFitWidth = YES;
+    subtitle.minimumScaleFactor = .7;
 
     self.balanceLabel = [UILabel new];
     self.winLabel = [UILabel new];
@@ -647,7 +656,7 @@ static UIImage *PGSnowImage(void) {
     self.machine.backgroundColor = PGC(0x0F2E55);
     self.machine.layer.cornerRadius = 22;
     self.machine.layer.borderWidth = 4;
-    self.machine.layer.borderColor = PGGold().CGColor;
+    self.machine.layer.borderColor = PGC(0x9FE4FF).CGColor;
     if (self.vipMode) { self.machine.layer.borderWidth = 6; self.machine.layer.shadowOpacity = .55; }
     self.machine.layer.shadowColor = PGC(0x8EDBFF).CGColor;
     self.machine.layer.shadowRadius = 18;
@@ -684,8 +693,8 @@ static UIImage *PGSnowImage(void) {
         PGGradientView *shade = [[PGGradientView alloc] initWithFrame:CGRectZero];
         shade.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         shade.userInteractionEnabled = NO;
-        shade.gradientLayer.colors = @[(id)[UIColor colorWithWhite:0 alpha:.38].CGColor, (id)[UIColor colorWithWhite:0 alpha:0].CGColor,
-                                       (id)[UIColor colorWithWhite:0 alpha:0].CGColor, (id)[UIColor colorWithWhite:0 alpha:.38].CGColor];
+        shade.gradientLayer.colors = @[(id)[PGC(0x66B9E8) colorWithAlphaComponent:.12].CGColor, (id)[UIColor clearColor].CGColor,
+                                       (id)[UIColor clearColor].CGColor, (id)[PGC(0x66B9E8) colorWithAlphaComponent:.08].CGColor];
         shade.gradientLayer.locations = @[@0, @.22, @.78, @1];
         [reel addSubview:shade];
         [reelStack addArrangedSubview:reel];
@@ -714,12 +723,27 @@ static UIImage *PGSnowImage(void) {
     messagePanel.translatesAutoresizingMaskIntoConstraints = NO;
     messagePanel.layer.cornerRadius = 14;
     messagePanel.layer.borderWidth = 1;
-    messagePanel.layer.borderColor = [PGC(0x9FD8FF) colorWithAlphaComponent:.3].CGColor;
+    messagePanel.layer.borderColor = [PGC(0xB8ECFF) colorWithAlphaComponent:.7].CGColor;
+    messagePanel.backgroundColor = [PGC(0x16487C) colorWithAlphaComponent:.85];
     messagePanel.clipsToBounds = YES;
     UIVisualEffectView *panelFrost = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark]];
     panelFrost.translatesAutoresizingMaskIntoConstraints = NO;
     panelFrost.contentView.backgroundColor = [PGC(0x0A2344) colorWithAlphaComponent:.35];
     [messagePanel addSubview:panelFrost];
+    for (NSInteger side = 0; side < 2; side++) {
+        UIImageView *flake = [[UIImageView alloc] initWithImage:PGSnowImage()];
+        flake.translatesAutoresizingMaskIntoConstraints = NO;
+        flake.contentMode = UIViewContentModeScaleAspectFit;
+        flake.userInteractionEnabled = NO;
+        flake.alpha = .9;
+        [messagePanel addSubview:flake];
+        [NSLayoutConstraint activateConstraints:@[
+            [flake.widthAnchor constraintEqualToConstant:14],
+            [flake.heightAnchor constraintEqualToConstant:14],
+            [flake.centerYAnchor constraintEqualToAnchor:messagePanel.centerYAnchor],
+            side == 0 ? [flake.leadingAnchor constraintEqualToAnchor:messagePanel.leadingAnchor constant:8] : [flake.trailingAnchor constraintEqualToAnchor:messagePanel.trailingAnchor constant:-8]
+        ]];
+    }
     [messagePanel addSubview:self.messageLabel];
     [messagePanel addSubview:self.totalBetLabel];
     [NSLayoutConstraint activateConstraints:@[
@@ -728,8 +752,8 @@ static UIImage *PGSnowImage(void) {
         [panelFrost.topAnchor constraintEqualToAnchor:messagePanel.topAnchor],
         [panelFrost.bottomAnchor constraintEqualToAnchor:messagePanel.bottomAnchor],
         [self.messageLabel.topAnchor constraintEqualToAnchor:messagePanel.topAnchor constant:8],
-        [self.messageLabel.leadingAnchor constraintEqualToAnchor:messagePanel.leadingAnchor constant:14],
-        [self.messageLabel.trailingAnchor constraintEqualToAnchor:messagePanel.trailingAnchor constant:-14],
+        [self.messageLabel.leadingAnchor constraintEqualToAnchor:messagePanel.leadingAnchor constant:26],
+        [self.messageLabel.trailingAnchor constraintEqualToAnchor:messagePanel.trailingAnchor constant:-26],
         [self.totalBetLabel.topAnchor constraintEqualToAnchor:self.messageLabel.bottomAnchor constant:2],
         [self.totalBetLabel.leadingAnchor constraintEqualToAnchor:messagePanel.leadingAnchor constant:14],
         [self.totalBetLabel.trailingAnchor constraintEqualToAnchor:messagePanel.trailingAnchor constant:-14],
@@ -739,13 +763,31 @@ static UIImage *PGSnowImage(void) {
     UIColor *deepRed = PGC(0x14487F);
     self.linesButton = [self controlButton:@"" color:deepRed action:@selector(cycleLines)];
     self.betButton = [self controlButton:@"" color:deepRed action:@selector(cycleBet)];
-    self.maxButton = [self controlButton:@"" color:PGC(0x8A5A00) action:@selector(maxBet)];
+    self.maxButton = [self controlButton:@"" color:PGC(0xDF9900) action:@selector(maxBet)];
+    NSArray<NSString *> *controlIcons = @[@"list.bullet", @"circle.grid.2x2.fill", @"bolt.fill"];
+    NSArray<UIButton *> *betButtons = @[self.linesButton, self.betButton, self.maxButton];
+    for (NSUInteger i = 0; i < betButtons.count; i++) {
+        UIButton *button = betButtons[i];
+        UIImage *icon = [[UIImage systemImageNamed:controlIcons[i]] imageWithConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:12 weight:UIImageSymbolWeightBold]];
+        [button setImage:icon forState:UIControlStateNormal];
+        button.tintColor = UIColor.whiteColor;
+        [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+        button.titleLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightHeavy];
+        button.titleLabel.adjustsFontSizeToFitWidth = YES;
+        button.titleLabel.minimumScaleFactor = .7;
+        button.contentEdgeInsets = UIEdgeInsetsMake(2, 5, 2, 5);
+        button.imageEdgeInsets = UIEdgeInsetsMake(0, 0, 0, 4);
+    }
+    [self.maxButton setTitleColor:PGC(0x342000) forState:UIControlStateNormal];
+    self.maxButton.tintColor = PGC(0x342000);
     UIStackView *controls = [[UIStackView alloc] initWithArrangedSubviews:@[self.linesButton, self.betButton, self.maxButton]];
     controls.translatesAutoresizingMaskIntoConstraints = NO;
     controls.axis = UILayoutConstraintAxisHorizontal;
     controls.distribution = UIStackViewDistributionFillEqually;
     controls.spacing = 10;
-    self.spinButton = [self controlButton:PGLoc(@"BRSlot.PG.Spin", @"SPIN") color:PGC(0x1FA055) action:@selector(spinTapped)];
+    self.spinButton = [self controlButton:PGLoc(@"BRSlot.PG.Spin", @"SPIN") color:PGC(0x087C2D) action:@selector(spinTapped)];
+    [self.spinButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    self.spinButton.layer.borderColor = PGC(0xA8F7C0).CGColor;
     self.spinButton.titleLabel.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
     self.spinButton.layer.borderWidth = 2.5;
     // Spin is the hero control: a glossy sheen across its top half and
@@ -783,7 +825,7 @@ static UIImage *PGSnowImage(void) {
     rightArrow.shadowOffset = CGSizeMake(0, 1);
     rightArrow.userInteractionEnabled = NO;
 
-    [content addSubview:self.sceneryView]; [content addSubview:titleExtrusion]; [content addSubview:title]; [content addSubview:subtitle];
+    [content addSubview:self.sceneryView]; [content addSubview:headerPenguin]; [content addSubview:titleExtrusion]; [content addSubview:title]; [content addSubview:subtitle];
     [content addSubview:self.infoCard]; [content addSubview:self.meterView];
     [content addSubview:self.machine]; [content addSubview:snowCap]; [content addSubview:leftArrow]; [content addSubview:rightArrow];
     [content addSubview:messagePanel];
@@ -805,12 +847,16 @@ static UIImage *PGSnowImage(void) {
         [self.sceneryView.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:-10],
         [self.sceneryView.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:10],
         [self.sceneryView.heightAnchor constraintEqualToConstant:250],
-        [titleExtrusion.topAnchor constraintEqualToAnchor:content.topAnchor constant:9],
-        [titleExtrusion.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
-        [titleExtrusion.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
+        [headerPenguin.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:18],
+        [headerPenguin.topAnchor constraintEqualToAnchor:content.topAnchor constant:4],
+        [headerPenguin.widthAnchor constraintEqualToConstant:68],
+        [headerPenguin.heightAnchor constraintEqualToConstant:95],
+        [titleExtrusion.topAnchor constraintEqualToAnchor:title.topAnchor constant:3],
+        [titleExtrusion.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
+        [titleExtrusion.trailingAnchor constraintEqualToAnchor:title.trailingAnchor],
         [title.topAnchor constraintEqualToAnchor:content.topAnchor constant:6],
-        [title.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
-        [title.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
+        [title.leadingAnchor constraintEqualToAnchor:headerPenguin.trailingAnchor constant:4],
+        [title.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-18],
         [subtitle.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:0],
         [subtitle.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
         [subtitle.trailingAnchor constraintEqualToAnchor:title.trailingAnchor],
@@ -837,9 +883,9 @@ static UIImage *PGSnowImage(void) {
         [snowCap.bottomAnchor constraintEqualToAnchor:self.machine.topAnchor constant:12],
         [snowCap.heightAnchor constraintEqualToConstant:20],
         [leftArrow.centerYAnchor constraintEqualToAnchor:self.machine.centerYAnchor],
-        [leftArrow.centerXAnchor constraintEqualToAnchor:self.machine.leadingAnchor constant:2],
+        [leftArrow.centerXAnchor constraintEqualToAnchor:self.machine.leadingAnchor constant:8],
         [rightArrow.centerYAnchor constraintEqualToAnchor:self.machine.centerYAnchor],
-        [rightArrow.centerXAnchor constraintEqualToAnchor:self.machine.trailingAnchor constant:-2],
+        [rightArrow.centerXAnchor constraintEqualToAnchor:self.machine.trailingAnchor constant:-8],
         [messagePanel.topAnchor constraintEqualToAnchor:self.machine.bottomAnchor constant:10],
         [messagePanel.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
         [messagePanel.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
@@ -874,7 +920,7 @@ static UIImage *PGSnowImage(void) {
     flake.scale = .8; flake.scaleRange = .45;
     flake.alphaRange = .35; flake.alphaSpeed = -.02;
     self.snowEmitter.emitterCells = @[flake];
-    [self.view.layer addSublayer:self.snowEmitter];
+    [self.view.layer insertSublayer:self.snowEmitter below:self.scroll.layer];
 
     [self refreshBanner];
 }
@@ -1009,7 +1055,7 @@ static UIImage *PGSnowImage(void) {
             CALayer *layer = self.meterEggViews[i].layer;
             if ([layer animationForKey:@"pgEggShine"]) continue;
             CABasicAnimation *shine = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
-            shine.fromValue = @1; shine.toValue = @1.18;
+            shine.fromValue = @1; shine.toValue = @1.08;
             shine.duration = .55; shine.autoreverses = YES; shine.repeatCount = HUGE_VALF;
             shine.beginTime = CACurrentMediaTime() + i * .16;
             [layer addAnimation:shine forKey:@"pgEggShine"];
@@ -1088,7 +1134,10 @@ static UIImage *PGSnowImage(void) {
 }
 
 - (void)refreshSoundButton {
-    [self.soundButton setTitle:self.audio.muted ? @"🔇" : @"🔊" forState:UIControlStateNormal];
+    NSString *name = self.audio.muted ? @"speaker.slash.fill" : @"speaker.wave.2.fill";
+    UIImage *icon = [[UIImage systemImageNamed:name] imageWithConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:15 weight:UIImageSymbolWeightBold]];
+    [self.soundButton setImage:icon forState:UIControlStateNormal];
+    self.soundButton.accessibilityLabel = self.audio.muted ? PGLoc(@"BRSlot.PG.Unmute", @"Unmute sound") : PGLoc(@"BRSlot.PG.Mute", @"Mute sound");
     [self.soundButton sizeToFit];
 }
 
@@ -1966,7 +2015,7 @@ static NSArray<UIColor *> *PGLineColors(void) {
 - (void)exitBonusMode {
     _bonusMode = NO;
     [UIView animateWithDuration:0.4 animations:^{
-        self.machine.layer.borderColor = PGGold().CGColor;
+        self.machine.layer.borderColor = PGC(0x9FE4FF).CGColor;
         self.machine.backgroundColor = PGC(0x0F2E55);
     }];
     self.machine.layer.shadowOpacity = 0;
