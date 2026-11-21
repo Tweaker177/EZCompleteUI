@@ -93,6 +93,10 @@ NSString *EZStoreKitProductIDForTier(NSString *tier) {
     return instance;
 }
 
++ (NSString *)storefrontCountryCode {
+    return [SKPaymentQueue defaultQueue].storefront.countryCode;
+}
+
 - (instancetype)init {
     self = [super init];
     if (self) {
@@ -497,6 +501,7 @@ NSString *EZStoreKitProductIDForTier(NSString *tier) { return nil; }
     return instance;
 }
 
++ (NSString *)storefrontCountryCode { return nil; }
 - (void)startObserving {}
 - (void)purchaseTopUpPackage:(NSString *)packageID completion:(EZStoreKitPurchaseCompletion)completion {}
 - (void)purchaseSubscriptionTier:(NSString *)tier completion:(EZStoreKitPurchaseCompletion)completion {}

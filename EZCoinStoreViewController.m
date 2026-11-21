@@ -639,6 +639,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, assign) NSInteger  dailyCoinsPendingAmount; // 10 or 15 depending on membership; from server
 
+@property (nonatomic, copy)   NSString        *webStoreURLString; // web_store_url from the status response; nil or empty when the server sends none
+
+@property (nonatomic, strong) UIButton        *webStoreButton;    // Footer button that opens webStoreURLString in Safari
+
 //@property (nonatomic, strong) NSTimer   *countdownTimer;         // Fires every second to tick the "Next: Xh Ym Xs" label
 
 @end
@@ -1730,11 +1734,17 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (!token) return; // Not signed in — button stays disabled
 
+    NSString *statusSuffix = @"?check=1";
+
+    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
+
+    if (storefront.length) statusSuffix = [statusSuffix stringByAppendingFormat:@"&storefront=%@", storefront];
+
     NSURL *statusURL = [NSURL URLWithString:[[kStoreSupabaseURL
 
         stringByAppendingString:kDailyCoinsEndpoint]
 
-        stringByAppendingString:@"?check=1"]];
+        stringByAppendingString:statusSuffix]];
 
     NSMutableURLRequest *statusRequest = [NSMutableURLRequest requestWithURL:statusURL];
 
@@ -1764,6 +1774,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
             self.nextDailyClaimDate      = dateFromISO8601String(jsonString(json, @"next_claim_at"));
 
+            self.webStoreURLString = jsonString(json, @"web_store_url");
+
+            [self updateWebStoreButton];
+
             if (self.isDailyCoinsAvailable) {
                 [self cancelDailyCoinsReadyReminder];
             } else {
@@ -1775,6 +1789,84 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         });
 
     }] resume];
+
+}
+
+// Shows or hides the web store footer button under the store list. The
+
+// button exists only while the status response carries a web_store_url;
+
+// with no URL (older server, or a storefront the server does not send
+
+// one for) the footer is removed and the store looks exactly as before.
+
+- (void)updateWebStoreButton {
+
+    if (!self.webStoreURLString.length) {
+
+        self.tableView.tableFooterView = nil;
+
+        return;
+
+    }
+
+    CGFloat footerWidth = self.tableView.bounds.size.width;
+
+    if (!self.webStoreButton) {
+
+        self.webStoreButton = [UIButton buttonWithType:UIButtonTypeSystem];
+
+        [self.webStoreButton setTitle:@"Buy coins on our website" forState:UIControlStateNormal];
+
+        self.webStoreButton.titleLabel.font = [UIFont systemFontOfSize:15.0 weight:UIFontWeightSemibold];
+
+        [self.webStoreButton setTitleColor:[UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0] forState:UIControlStateNormal];
+
+        [self.webStoreButton addTarget:self
+
+                                action:@selector(webStoreTapped:)
+
+                      forControlEvents:UIControlEventTouchUpInside];
+
+    }
+
+    UIView *footerView = self.webStoreButton.superview;
+
+    if (!footerView) {
+
+        footerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, footerWidth, 64)];
+
+        [footerView addSubview:self.webStoreButton];
+
+    }
+
+    footerView.frame = CGRectMake(0, 0, footerWidth, 64);
+
+    self.webStoreButton.frame = CGRectMake(16, 10, footerWidth - 32, 44);
+
+    self.tableView.tableFooterView = footerView;
+
+}
+
+// Opens the web store in Safari, the same way the PayPal checkout does.
+
+- (void)webStoreTapped:(UIButton *)sender {
+
+    NSURL *url = [NSURL URLWithString:self.webStoreURLString];
+
+    if (!url) return;
+
+    SFSafariViewController *safari = [[SFSafariViewController alloc]
+
+        initWithURL:url];
+
+    safari.delegate                = self;
+
+    safari.preferredBarTintColor     = [UIColor colorWithRed:0.05 green:0.05 blue:0.12 alpha:1.0];
+
+    safari.preferredControlTintColor = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0];
+
+    [self presentViewController:safari animated:YES completion:nil];
 
 }
 

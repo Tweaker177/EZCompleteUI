@@ -1952,7 +1952,9 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 
     if ([serverCode isEqualToString:@"insufficient_coins"]) {
         [self coinBalanceMayHaveChanged];
-        [self presentInsufficientCoinsAlertRequiring:EZMusicInteger(error.userInfo[@"coins_required"])];
+        NSString *webStoreURL = EZMusicString(error.userInfo[@"web_store_url"]);
+        [self presentInsufficientCoinsAlertRequiring:EZMusicInteger(error.userInfo[@"coins_required"])
+                                          webStoreURL:(webStoreURL.length ? webStoreURL : nil)];
         return;
     }
     if ([serverCode isEqualToString:@"too_many_active"]) {
@@ -1977,6 +1979,10 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 }
 
 - (void)presentInsufficientCoinsAlertRequiring:(NSInteger)requiredCoins {
+    [self presentInsufficientCoinsAlertRequiring:requiredCoins webStoreURL:nil];
+}
+
+- (void)presentInsufficientCoinsAlertRequiring:(NSInteger)requiredCoins webStoreURL:(NSString *)webStoreURL {
     NSNumber *balance = [EZEntitlementManager shared].coinBalance;
     NSString *message;
     if (requiredCoins > 0 && balance) {
@@ -1988,7 +1994,12 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     __weak typeof(self) weakSelf = self;
     [self presentMusicDialogWithTitle:EZMusicText(@"EZMusic.Alert.CoinsTitle", @"Not Enough Coins")
                               message:message primaryTitle:EZMusicText(@"EZMusic.Alert.GetCoins", @"Get Coins")
-                       primaryHandler:^{ [weakSelf presentCoinStore]; }];
+                       primaryHandler:^{ [weakSelf presentCoinStore]; }
+                       secondaryTitle:(webStoreURL.length ? @"Buy coins on our website" : nil)
+                     secondaryHandler:^{
+        NSURL *url = [NSURL URLWithString:webStoreURL];
+        if (url) [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+    }];
 }
 
 - (void)presentCoinStore {
@@ -3138,6 +3149,12 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 #pragma mark - Alerts, toast, busy overlay
 
 - (void)presentMusicDialogWithTitle:(NSString *)title message:(NSString *)message primaryTitle:(NSString *)primaryTitle primaryHandler:(void (^)(void))primaryHandler {
+    [self presentMusicDialogWithTitle:title message:message primaryTitle:primaryTitle primaryHandler:primaryHandler secondaryTitle:nil secondaryHandler:nil];
+}
+
+// The same dialog with an optional second button under the primary
+// one, shown only when a secondary title is supplied.
+- (void)presentMusicDialogWithTitle:(NSString *)title message:(NSString *)message primaryTitle:(NSString *)primaryTitle primaryHandler:(void (^)(void))primaryHandler secondaryTitle:(NSString *)secondaryTitle secondaryHandler:(void (^)(void))secondaryHandler {
     if (self.musicDialogOverlay || self.view.window == nil) return;
     UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
     overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -3155,7 +3172,20 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     body.minimumScaleFactor = 0.5; body.translatesAutoresizingMaskIntoConstraints = NO; body.text = message; body.textColor = EZTheme.secondaryTextColor; body.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody]; body.numberOfLines = 0; [card addSubview:body];
     UIButton *dismiss = [UIButton buttonWithType:UIButtonTypeSystem]; dismiss.translatesAutoresizingMaskIntoConstraints = NO; [dismiss setTitle:primaryTitle ?: EZMusicText(@"EZMusic.OK", @"OK") forState:UIControlStateNormal]; dismiss.backgroundColor = EZTheme.goldColor; dismiss.tintColor = EZTheme.userBubbleTextColor; dismiss.layer.cornerRadius = 12; [card addSubview:dismiss];
     [dismiss addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; if (primaryHandler) primaryHandler(); }] forControlEvents:UIControlEventTouchUpInside];
+    UIButton *secondary = nil;
+    if (secondaryTitle.length) {
+        secondary = [UIButton buttonWithType:UIButtonTypeSystem]; secondary.translatesAutoresizingMaskIntoConstraints = NO; [secondary setTitle:secondaryTitle forState:UIControlStateNormal]; secondary.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold]; secondary.tintColor = EZTheme.goldColor; secondary.layer.cornerRadius = 12; secondary.layer.borderWidth = 1; secondary.layer.borderColor = EZTheme.goldColor.CGColor; [card addSubview:secondary];
+        [secondary addAction:[UIAction actionWithHandler:^(__kindof UIAction *action) { [overlay removeFromSuperview]; self.musicDialogOverlay = nil; if (secondaryHandler) secondaryHandler(); }] forControlEvents:UIControlEventTouchUpInside];
+    }
     [NSLayoutConstraint activateConstraints:@[[card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:28], [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-28], [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor], [closeButton.topAnchor constraintEqualToAnchor:card.topAnchor constant:12], [closeButton.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-12], [closeButton.widthAnchor constraintEqualToConstant:28], [closeButton.heightAnchor constraintEqualToConstant:28], [heading.topAnchor constraintEqualToAnchor:card.topAnchor constant:22], [heading.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [heading.trailingAnchor constraintEqualToAnchor:closeButton.leadingAnchor constant:-8], [body.topAnchor constraintEqualToAnchor:heading.bottomAnchor constant:9], [body.leadingAnchor constraintEqualToAnchor:heading.leadingAnchor], [body.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20], [dismiss.topAnchor constraintEqualToAnchor:body.bottomAnchor constant:22], [dismiss.leadingAnchor constraintEqualToAnchor:heading.leadingAnchor], [dismiss.trailingAnchor constraintEqualToAnchor:body.trailingAnchor], [dismiss.heightAnchor constraintEqualToConstant:46], [dismiss.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18]]];
+    if (secondary) {
+        // The primary button gives up its pin to the card's bottom
+        // edge; the secondary button takes that spot underneath it.
+        for (NSLayoutConstraint *constraint in [card.constraints copy]) {
+            if (constraint.firstItem == dismiss && constraint.firstAttribute == NSLayoutAttributeBottom) constraint.active = NO;
+        }
+        [NSLayoutConstraint activateConstraints:@[[secondary.topAnchor constraintEqualToAnchor:dismiss.bottomAnchor constant:10], [secondary.leadingAnchor constraintEqualToAnchor:dismiss.leadingAnchor], [secondary.trailingAnchor constraintEqualToAnchor:dismiss.trailingAnchor], [secondary.heightAnchor constraintEqualToConstant:46], [secondary.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18]]];
+    }
     overlay.alpha = 0; [UIView animateWithDuration:.18 animations:^{ overlay.alpha = 1; }];
 }
 

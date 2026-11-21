@@ -611,6 +611,7 @@
 #import "ViewController+EZKeepAwake.h"
 #import "ElevenLabsCloneViewController.h"
 #import "EZCoinStoreViewController.h"
+#import "EZStoreKitManager.h"
 #import "EZTheme.h"
 #import "EZFirstRunTutorialViewController.h"
 #import "EZPhotoGalleryViewController.h"
@@ -3968,13 +3969,16 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [req setValue:[NSString stringWithFormat:@"Bearer %@", jwt]
        forHTTPHeaderField:@"Authorization"];
-    req.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
+    NSMutableDictionary *ttsBody = [@{
         @"action":     @"tts",
         @"text":       text,
         @"voice_id":   voiceID,
         @"model_id":   kElevenLabsTTSModelID,
         @"char_count": @(charCount),
-    } options:0 error:nil];
+    } mutableCopy];
+    NSString *ttsStorefront = [EZStoreKitManager storefrontCountryCode];
+    if (ttsStorefront.length) ttsBody[@"storefront"] = ttsStorefront;
+    req.HTTPBody = [NSJSONSerialization dataWithJSONObject:ttsBody options:0 error:nil];
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:req
         completionHandler:^(NSData *responseData, NSURLResponse *response, NSError *networkError) {
@@ -4018,6 +4022,16 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                             handler:^(UIAlertAction *a) {
                     [self presentCoinStoreForFeature:nil];
                 }]];
+                NSString *webStoreURL = [json[@"web_store_url"] isKindOfClass:NSString.class] ? json[@"web_store_url"] : nil;
+                if (webStoreURL.length) {
+                    [coinAlert addAction:[UIAlertAction
+                        actionWithTitle:@"Buy coins on our website"
+                                  style:UIAlertActionStyleDefault
+                                handler:^(UIAlertAction *a) {
+                        NSURL *url = [NSURL URLWithString:webStoreURL];
+                        if (url) [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+                    }]];
+                }
                 [coinAlert addAction:[UIAlertAction
                     actionWithTitle:@"Cancel"
                               style:UIAlertActionStyleCancel handler:nil]];
@@ -5114,6 +5128,10 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     if ([fastMode isEqualToString:@"flex"] || [fastMode isEqualToString:@"fast"] || [fastMode isEqualToString:@"ultrafast"]) {
         ezBody[@"fast_mode"] = fastMode;
     }
+    // The App Store storefront decides whether an insufficient-coins
+    // reply may carry the web store link (US only, decided server-side).
+    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
+    if (storefront.length) ezBody[@"storefront"] = storefront;
     ezBody[@"image_tools"] = @YES;
     // Lets ez-chat offer the model its create_music tool. The server only ever
     // returns a music_request; it never generates or charges for a song.
@@ -5800,6 +5818,11 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         @"background":    imgBg,
     } mutableCopy];
 
+    // The App Store storefront decides whether an insufficient-coins
+    // reply may carry the web store link (US only, decided server-side).
+    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
+    if (storefront.length) body[@"storefront"] = storefront;
+
     // Complexity is a 2.6-only axis — how much the model plans before
     // drawing, independent of quality. Default high, the API's own
     // default when the key is omitted.
@@ -6012,7 +6035,12 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                             referencePaths:(NSArray<NSString *> *)referencePaths
                           allowIDCheck:(BOOL)allowIDCheck {
     NSString *token = [EZAuthManager shared].accessToken;
-    [self postToEZFunction:@"ez-seahorse" token:token body:@{ @"action": @"eligibility" }
+    NSMutableDictionary *eligibilityBody = [@{ @"action": @"eligibility" } mutableCopy];
+    // The App Store storefront decides whether the reply may carry
+    // the web store link (US only, decided server-side).
+    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
+    if (storefront.length) eligibilityBody[@"storefront"] = storefront;
+    [self postToEZFunction:@"ez-seahorse" token:token body:eligibilityBody
                 completion:^(NSDictionary *json, NSError *error) {
         if (error || !json) {
             [self ezSeahorseFailWithMessage:(error.localizedDescription ?: @"Could not reach the server")
@@ -6099,6 +6127,15 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                                                         handler:^(UIAlertAction *action) {
                     [self presentCoinStoreForFeature:@"NSFW images"];
                 }]];
+                NSString *webStoreURL = [json[@"web_store_url"] isKindOfClass:NSString.class] ? json[@"web_store_url"] : nil;
+                if (webStoreURL.length) {
+                    [alert addAction:[UIAlertAction actionWithTitle:@"Buy coins on our website"
+                                                              style:UIAlertActionStyleDefault
+                                                            handler:^(UIAlertAction *action) {
+                        NSURL *url = [NSURL URLWithString:webStoreURL];
+                        if (url) [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+                    }]];
+                }
                 [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
                                                           style:UIAlertActionStyleCancel handler:nil]];
                 [self presentViewController:alert animated:YES completion:nil];
@@ -6395,6 +6432,10 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     NSString *size = ([imgSize containsString:@"2048"] || [imgSize containsString:@"4096"]) ? @"4K" : @"2K";
     NSMutableDictionary *body = [@{ @"prompt": prompt, @"size": size, @"nsfw": @YES } mutableCopy];
     if (referenceAssetURLs.count) body[@"reference_asset_urls"] = referenceAssetURLs;
+    // The App Store storefront decides whether an insufficient-coins
+    // reply may carry the web store link (US only, decided server-side).
+    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
+    if (storefront.length) body[@"storefront"] = storefront;
     EZLogf(EZLogLevelInfo, @"SEAHORSE", @"generate: size=%@ refs_forwarded=%lu",
            size, (unsigned long)referenceAssetURLs.count);
     [self updateImageGenerationProgress:0.45];
@@ -6427,6 +6468,15 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                                                             handler:^(UIAlertAction *action) {
                         [self presentCoinStoreForFeature:@"NSFW images"];
                     }]];
+                    NSString *webStoreURL = [json[@"web_store_url"] isKindOfClass:NSString.class] ? json[@"web_store_url"] : nil;
+                    if (webStoreURL.length) {
+                        [alert addAction:[UIAlertAction actionWithTitle:@"Buy coins on our website"
+                                                                  style:UIAlertActionStyleDefault
+                                                                handler:^(UIAlertAction *action) {
+                            NSURL *url = [NSURL URLWithString:webStoreURL];
+                            if (url) [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+                        }]];
+                    }
                     [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
                                                               style:UIAlertActionStyleCancel handler:nil]];
                     [self presentViewController:alert animated:YES completion:nil];
@@ -6557,6 +6607,11 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         @"background":    editBg,
         @"moderation":    editMod,
     } mutableCopy];
+
+    // The App Store storefront decides whether an insufficient-coins
+    // reply may carry the web store link (US only, decided server-side).
+    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
+    if (storefront.length) body[@"storefront"] = storefront;
 
     // Complexity rides along on the 2.6 models (see callGptImage1).
     if ([imageModel isEqualToString:@"gpt-image-2.6-flare"] ||

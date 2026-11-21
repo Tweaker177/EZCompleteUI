@@ -13,6 +13,7 @@
 #import "EZMusicService.h"
 #import "EZAuthManager.h"
 #import "EZEntitlementManager.h"
+#import "EZStoreKitManager.h"
 #import "EZSupabaseConfig.h"
 #import "helpers.h"
 #import <AVFoundation/AVFoundation.h>
@@ -300,6 +301,7 @@ static void EZMusicPrepareVideosForUpload(NSArray<NSURL *> *sourceURLs,
                 NSMutableDictionary *info = [NSMutableDictionary dictionaryWithObject:serverCode
                                                                                 forKey:EZMusicServiceServerCodeKey];
                 if (json[@"coins_required"]) info[@"coins_required"] = json[@"coins_required"];
+                if (json[@"web_store_url"]) info[@"web_store_url"] = json[@"web_store_url"];
                 resultError = EZMusicError(EZMusicServiceErrorServer, message, info);
             } else if (!json) {
                 resultError = EZMusicError(EZMusicServiceErrorBadResponse, @"The server sent an unexpected reply.", nil);
@@ -436,6 +438,11 @@ static void EZMusicPrepareVideosForUpload(NSArray<NSURL *> *sourceURLs,
     }
     if (title.length > 0) payload[@"title"] = title;
 
+    // The App Store storefront decides whether an insufficient-coins
+    // reply may carry the web store link (US only, decided server-side).
+    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
+    if (storefront.length) payload[@"storefront"] = storefront;
+
     [self performAction:@"generate" payload:payload completion:^(NSDictionary *json, NSError *error) {
         if (error) { completion(nil, nil, 0, error); return; }
 
@@ -487,6 +494,11 @@ static void EZMusicPrepareVideosForUpload(NSArray<NSURL *> *sourceURLs,
     if (trimmedLyrics.length) payload[@"lyrics"] = trimmedLyrics;
     if (title.length) payload[@"title"] = title;
     if (forceInstrumental) payload[@"force_instrumental"] = @YES;
+
+    // The App Store storefront decides whether an insufficient-coins
+    // reply may carry the web store link (US only, decided server-side).
+    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
+    if (storefront.length) payload[@"storefront"] = storefront;
 
     if (referenceURL.isFileURL) {
         AVURLAsset *asset = [AVURLAsset URLAssetWithURL:referenceURL options:nil];
