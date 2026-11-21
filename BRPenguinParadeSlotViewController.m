@@ -413,6 +413,10 @@ static UIImage *PGSnowImage(void) {
     button.layer.borderColor = [PGC(0xBFE6FF) colorWithAlphaComponent:.55].CGColor;
     button.contentEdgeInsets = UIEdgeInsetsMake(7, 10, 7, 10);
     [button sizeToFit];
+    CGRect buttonFrame = button.frame;
+    buttonFrame.size.width = MAX(44, buttonFrame.size.width);
+    buttonFrame.size.height = MAX(44, buttonFrame.size.height);
+    button.frame = buttonFrame;
     // Frosted glass: a blur plate behind the title, clipped to the
     // button's rounded corners.
     button.clipsToBounds = YES;
@@ -431,6 +435,8 @@ static UIImage *PGSnowImage(void) {
     button.titleLabel.numberOfLines = 2;
     button.titleLabel.textAlignment = NSTextAlignmentCenter;
     button.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightHeavy];
+    button.titleLabel.adjustsFontSizeToFitWidth = YES;
+    button.titleLabel.minimumScaleFactor = .7;
     [button setTitle:title forState:UIControlStateNormal];
     [button setTitleColor:PGGold() forState:UIControlStateNormal];
     [button setTitleColor:[UIColor colorWithWhite:1 alpha:.4] forState:UIControlStateDisabled];
@@ -536,13 +542,15 @@ static UIImage *PGSnowImage(void) {
     title.textAlignment = NSTextAlignmentCenter;
     title.attributedText = [[NSAttributedString alloc] initWithString:@"PENGUIN PARADE" attributes:@{
         NSFontAttributeName: [UIFont systemFontOfSize:34 weight:UIFontWeightHeavy],
-        NSForegroundColorAttributeName: PGGold(), NSKernAttributeName: @6}];
+        NSForegroundColorAttributeName: PGC(0xE5F8FF), NSKernAttributeName: @6}];
     title.adjustsFontSizeToFitWidth = YES; title.minimumScaleFactor = .6;
     title.layer.shadowColor = PGC(0x6FC3F0).CGColor;
     title.layer.shadowOpacity = .7; title.layer.shadowRadius = 10; title.layer.shadowOffset = CGSizeZero;
     UILabel *subtitle = [UILabel new];
     subtitle.translatesAutoresizingMaskIntoConstraints = NO;
     subtitle.textAlignment = NSTextAlignmentCenter;
+    subtitle.adjustsFontSizeToFitWidth = YES;
+    subtitle.minimumScaleFactor = .6;
     subtitle.attributedText = [[NSAttributedString alloc] initWithString:@"9 LINES · EGG HATCH BONUS" attributes:@{
         NSFontAttributeName: [UIFont systemFontOfSize:12 weight:UIFontWeightHeavy],
         NSForegroundColorAttributeName: [UIColor colorWithRed:1 green:.96 blue:.86 alpha:.85], NSKernAttributeName: @4}];
@@ -558,7 +566,7 @@ static UIImage *PGSnowImage(void) {
     // fill, a gold rim and a soft gold glow under it.
     self.infoCard = [[PGGradientView alloc] init];
     self.infoCard.translatesAutoresizingMaskIntoConstraints = NO;
-    self.infoCard.gradientLayer.colors = @[(id)PGC(0x16406E).CGColor, (id)PGC(0x0A2344).CGColor];
+    self.infoCard.gradientLayer.colors = @[(id)PGC(0x1762A0).CGColor, (id)PGC(0x082849).CGColor];
     self.infoCard.gradientLayer.startPoint = CGPointMake(.5, 0);
     self.infoCard.gradientLayer.endPoint = CGPointMake(.5, 1);
     self.infoCard.layer.cornerRadius = 16;
@@ -647,12 +655,12 @@ static UIImage *PGSnowImage(void) {
     self.machine.backgroundColor = PGC(0x0F2E55);
     self.machine.layer.cornerRadius = 22;
     self.machine.layer.borderWidth = 4;
-    self.machine.layer.borderColor = PGGold().CGColor;
-    if (self.vipMode) { self.machine.layer.borderWidth = 6; self.machine.layer.shadowOpacity = .55; }
+    self.machine.layer.borderColor = PGC(0x91DFFF).CGColor;
+    if (self.vipMode) { self.machine.layer.borderWidth = 6; }
     self.machine.layer.shadowColor = PGC(0x8EDBFF).CGColor;
     self.machine.layer.shadowRadius = 18;
     self.machine.layer.shadowOffset = CGSizeZero;
-    self.machine.layer.shadowOpacity = 0;
+    self.machine.layer.shadowOpacity = self.vipMode ? .55 : .3;
     UIStackView *reelStack = [UIStackView new];
     reelStack.translatesAutoresizingMaskIntoConstraints = NO;
     reelStack.axis = UILayoutConstraintAxisHorizontal;
@@ -739,7 +747,10 @@ static UIImage *PGSnowImage(void) {
     UIColor *deepRed = PGC(0x14487F);
     self.linesButton = [self controlButton:@"" color:deepRed action:@selector(cycleLines)];
     self.betButton = [self controlButton:@"" color:deepRed action:@selector(cycleBet)];
-    self.maxButton = [self controlButton:@"" color:PGC(0x8A5A00) action:@selector(maxBet)];
+    self.maxButton = [self controlButton:@"" color:PGC(0xA96508) action:@selector(maxBet)];
+    self.linesButton.accessibilityHint = PGLoc(@"BRSlot.PG.Lines.Hint", @"Changes the number of active paylines.");
+    self.betButton.accessibilityHint = PGLoc(@"BRSlot.PG.Bet.Hint", @"Changes the bet per line.");
+    self.maxButton.accessibilityHint = PGLoc(@"BRSlot.PG.MaxBet.Hint", @"Sets the maximum bet and spins immediately.");
     UIStackView *controls = [[UIStackView alloc] initWithArrangedSubviews:@[self.linesButton, self.betButton, self.maxButton]];
     controls.translatesAutoresizingMaskIntoConstraints = NO;
     controls.axis = UILayoutConstraintAxisHorizontal;
@@ -1966,10 +1977,10 @@ static NSArray<UIColor *> *PGLineColors(void) {
 - (void)exitBonusMode {
     _bonusMode = NO;
     [UIView animateWithDuration:0.4 animations:^{
-        self.machine.layer.borderColor = PGGold().CGColor;
+        self.machine.layer.borderColor = PGC(0x91DFFF).CGColor;
         self.machine.backgroundColor = PGC(0x0F2E55);
     }];
-    self.machine.layer.shadowOpacity = 0;
+    self.machine.layer.shadowOpacity = self.vipMode ? .55 : .3;
     self.background.gradientLayer.colors = @[(id)PGC(0x12447A).CGColor, (id)PGC(0x041226).CGColor];
     [self.audio startThemeBonus:NO];
     [self refreshLabels];
