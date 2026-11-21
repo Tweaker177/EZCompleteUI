@@ -80,6 +80,10 @@ FOUNDATION_EXPORT NSString *_Nullable EZStoreKitProductIDForTier(NSString *tier)
 /// like new purchases.
 - (void)restorePurchasesWithCompletion:(EZStoreKitRestoreCompletion)completion;
 
+/// The App Store storefront's country code (e.g. @"USA"), or nil when
+/// StoreKit has no storefront for the current account.
++ (nullable NSString *)storefrontCountryCode;
+
 @end
 
 NS_ASSUME_NONNULL_END
