@@ -38,6 +38,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.17",
+          "buildVersion": "7.2.17",
+          "date": "2026-11-21",
+          "localizedDescription": "## What's Changed\n* Fix App Store upload validation: app icon catalog, orientations, launch screen by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/216\n* Index chat-created sounds as memories, like chat songs by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/217\n* Music player: non-mixable playback session so Now Playing works by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/218\n* Session refresh: stop deleting stored credentials on transient failures by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/219\n* Chat top bar: balance label replaces the coin pot; help and copy buttons removed by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/220\n* Segmented controls: gold gradient selected segment on Music and Sounds by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/221\n* Login screen: navy/gold theme, gradient primary buttons by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/222\n* Restore session: retry with the rotated refresh token instead of signing out by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/223\n* Rework gold gradients to near-solid stops; drawn slider thumb by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/224\n* Music: titles-only playlist with a fixed player bar by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/225\n* Sounds: slim row actions, watch-after-mux preview, gradient Generate by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/226\n* Edit Clip: loop the selected range by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/227\n* TTS History: working Select/Combine, one share button per row, Rename, short auto names by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/228\n* Chat: thread title moves onto the top ledge with the coin balance by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/229\n* Settings: navy and gold theme by @Tweaker177…",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/V7.2.17/EZCompleteUI-7.2.17-release.ipa",
+          "size": 15908818,
+          "sha256": "293d51156e235e4994154704e430e5c9d7851160520018f2a614f5b01fc9b247",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.15",
           "buildVersion": "7.2.15",
           "date": "2026-11-20",
