@@ -4,6 +4,7 @@
 //
 
 #import "EZModelPickerViewController.h"
+#import "EZTheme.h"
 #import "EZCoinStoreViewController.h"
 #import "EZEntitlementManager.h"
 
@@ -85,6 +86,12 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = EZLocalized(@"EZModelPicker.Title");
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
+    self.tableView.backgroundColor = [EZTheme chatBackgroundColor];
+    self.tableView.tintColor = [EZTheme goldColor];
+    self.tableView.separatorColor = [EZTheme hairlineColor];
+    self.navigationController.navigationBar.standardAppearance = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
     self.navigationItem.rightBarButtonItem =
         [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone
                                                       target:self action:@selector(_dismiss)];
@@ -160,15 +167,18 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
     if (!cell) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"ModelCell"];
     }
+    cell.backgroundColor = [EZTheme cardColor];
+    cell.textLabel.textColor = [EZTheme primaryTextColor];
     if (ip.section == 0) {
         cell.textLabel.text            = EZLocalized(@"EZModelPicker.AutoTitle");
         cell.textLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
         cell.detailTextLabel.text      = EZLocalized(@"EZModelPicker.AutoDetail");
         cell.detailTextLabel.font      = [UIFont systemFontOfSize:12];
-        cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
+        cell.detailTextLabel.textColor = [EZTheme secondaryTextColor];
         cell.accessoryType             = UITableViewCellAccessoryNone;
         UISwitch *toggle = [[UISwitch alloc] init];
         toggle.on = self.autoEnabled;
+        toggle.onTintColor = [EZTheme goldColor];
         [toggle addTarget:self action:@selector(autoSwitchChanged:)
          forControlEvents:UIControlEventValueChanged];
         cell.accessoryView = toggle;
@@ -180,11 +190,18 @@ static BOOL EZModelRequiresSubscription(NSString *model) {
     cell.textLabel.font            = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     cell.detailTextLabel.text      = EZModelLabels()[model] ?: @"";
     cell.detailTextLabel.font      = [UIFont systemFontOfSize:12];
-    cell.detailTextLabel.textColor = [UIColor secondaryLabelColor];
+    cell.detailTextLabel.textColor = [EZTheme secondaryTextColor];
     cell.accessoryType             = [model isEqualToString:self.selectedModel]
                                      ? UITableViewCellAccessoryCheckmark
                                      : UITableViewCellAccessoryNone;
     return cell;
+}
+
+
+- (void)tableView:(UITableView *)tv willDisplayHeaderView:(UIView *)view forSection:(NSInteger)section {
+    UITableViewHeaderFooterView *header = (UITableViewHeaderFooterView *)view;
+    header.textLabel.textColor = [EZTheme secondaryTextColor];
+    header.contentView.backgroundColor = [UIColor clearColor];
 }
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {

@@ -30,6 +30,7 @@
 //
 
 #import "EZImageSettingsViewController.h"
+#import "EZTheme.h"
 #import "EZCoinStoreViewController.h"
 #import "EZEntitlementManager.h"
 #import "helpers.h"
@@ -56,6 +57,12 @@ static BOOL EZImageSettingRequiresSubscription(NSString *key, NSString *value) {
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"Image Settings";
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
+    self.tableView.backgroundColor = [EZTheme chatBackgroundColor];
+    self.tableView.tintColor = [EZTheme goldColor];
+    self.tableView.separatorColor = [EZTheme hairlineColor];
+    self.navigationController.navigationBar.standardAppearance = [EZTheme navigationBarAppearance];
+    self.navigationController.navigationBar.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
 
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     NSString *selectedModel  = self.modelIdentifier ?: [defaults stringForKey:@"selectedModel"] ?: @"";
@@ -153,6 +160,8 @@ static BOOL EZImageSettingRequiresSubscription(NSString *key, NSString *value) {
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     UITableViewCell *cell = [tv dequeueReusableCellWithIdentifier:@"ImgCell"];
     if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"ImgCell"];
+    cell.backgroundColor = [EZTheme cardColor];
+    cell.textLabel.textColor = [EZTheme primaryTextColor];
     NSDictionary *sec  = _sections[(NSUInteger)ip.section];
     NSString *val      = sec[@"options"][(NSUInteger)ip.row];
     NSString *current  = [[NSUserDefaults standardUserDefaults] stringForKey:sec[@"key"]] ?: sec[@"default"];
@@ -176,6 +185,13 @@ static BOOL EZImageSettingRequiresSubscription(NSString *key, NSString *value) {
     EZLogf(EZLogLevelInfo, @"IMGSET", @"%@ → %@", sec[@"key"], val);
     [tv reloadSections:[NSIndexSet indexSetWithIndex:(NSUInteger)ip.section]
       withRowAnimation:UITableViewRowAnimationNone];
+}
+
+
+- (void)tableView:(UITableView *)tv willDisplayHeaderView:(UIView *)view forSection:(NSInteger)section {
+    UITableViewHeaderFooterView *header = (UITableViewHeaderFooterView *)view;
+    header.textLabel.textColor = [EZTheme secondaryTextColor];
+    header.contentView.backgroundColor = [UIColor clearColor];
 }
 
 @end
