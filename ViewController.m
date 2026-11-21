@@ -918,13 +918,10 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 /// Appears in input area when an image model is active — opens image parameter sheet.
 @property (nonatomic, strong) UIButton      *imageSettingsButton;
 @property (nonatomic, strong) UIButton      *dictateButton;
-@property (nonatomic, strong) UIButton      *webSearchButton;
 /// Lightning bolt: permits helper models to answer directly when enabled.
 @property (nonatomic, strong) UIButton      *helperDirectAnswersButton;
 @property (nonatomic, strong) UIButton      *historyButton;
 @property (nonatomic, strong) UIButton      *addChatButton;
-@property (nonatomic, strong) UIButton      *memoriesButton;
-@property (nonatomic, strong) UIButton      *threadSelectionButton;
 @property (nonatomic, assign) BOOL          threadSelectionActive;
 @property (nonatomic, strong) NSMutableIndexSet *selectedThreadMessageIndexes;
 @property (nonatomic, strong) UIView        *threadSelectionBar;
@@ -2290,19 +2287,10 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     self.textToSpeechButton = [self _iconButton:@"play.circle.fill" tint:nil action:@selector(openTTS)];
 
-    // Keep Memories and multi-select as separate, discoverable actions.
-    self.memoriesButton = [self _iconButton:@"brain.head.profile" tint:[UIColor systemTealColor]
-                                     action:@selector(openMemories)];
-    self.memoriesButton.accessibilityLabel = @"Memories";
-    self.threadSelectionButton = [self _iconButton:@"checkmark.circle" tint:[UIColor systemBlueColor]
-                                            action:@selector(toggleThreadSelection)];
-    [self.threadSelectionButton setTitle:@"SEL" forState:UIControlStateNormal];
-    self.threadSelectionButton.titleLabel.font = [UIFont systemFontOfSize:10 weight:UIFontWeightBold];
-    self.threadSelectionButton.accessibilityLabel = @"Select parts of this thread";
-    // Web search toggle
-    self.webSearchButton = [self _iconButton:@"globe" tint:nil
-                                      action:@selector(toggleWebSearch)];
-    [self updateWebSearchButtonTint];
+    // Memories lives in the nav drawer, and thread multi-select starts
+    // from a message's long-press menu, so neither needs a button here.
+    // Web search is set in Settings; ez-chat's per-prompt gate decides
+    // when it actually runs, so it needs no toggle here either.
     self.helperDirectAnswersButton = [self _iconButton:@"bolt.fill" tint:nil
                                                 action:@selector(toggleHelperDirectAnswers)];
     self.helperDirectAnswersButton.accessibilityLabel = @"Helper direct answers";
@@ -2317,16 +2305,14 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.renameButton  = [self _iconButton:@"pencil.line" tint:nil
                                     action:@selector(renameThread)];
 
-    // Navigation and response actions on the left, distinct
-    // selection/memory actions on the right. The coin balance sits in its
-    // own row above this one, in the top-right corner.
+    // Navigation and response actions on the left; the right side stays
+    // empty. The coin balance sits in its own row above this one, in the
+    // top-right corner.
     UIView *topStack = [[UIView alloc] init];
     topStack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:topStack];
     [topStack addSubview:self.historyButton];
     [topStack addSubview:self.speakButton];
-    [topStack addSubview:self.threadSelectionButton];
-    [topStack addSubview:self.memoriesButton];
 
     [NSLayoutConstraint activateConstraints:@[
         [topStack.heightAnchor constraintEqualToConstant:52],
@@ -2334,10 +2320,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [self.historyButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
         [self.speakButton.leadingAnchor constraintEqualToAnchor:self.historyButton.trailingAnchor constant:8],
         [self.speakButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
-        [self.memoriesButton.trailingAnchor constraintEqualToAnchor:topStack.trailingAnchor],
-        [self.memoriesButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
-        [self.threadSelectionButton.trailingAnchor constraintEqualToAnchor:self.memoriesButton.leadingAnchor constant:-8],
-        [self.threadSelectionButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
     ]];
 
     // Coin balance — a plain label in the top-right corner above the top
@@ -2451,7 +2433,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     // These toggles belong with the message being composed, rather than in the
     // app navigation bar. Keeping them adjacent makes their scope obvious.
-    [self.inputContainer addSubview:self.webSearchButton];
     [self.inputContainer addSubview:self.helperDirectAnswersButton];
     
         // Dictate button
@@ -2610,12 +2591,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [self.dictateButton.centerYAnchor constraintEqualToAnchor:self.attachButton.centerYAnchor],
         [self.dictateButton.widthAnchor constraintEqualToConstant:32],
         [self.dictateButton.heightAnchor constraintEqualToConstant:32],
-        [self.webSearchButton.leadingAnchor constraintEqualToAnchor:self.attachButton.leadingAnchor],
-        [self.webSearchButton.topAnchor constraintEqualToAnchor:self.attachButton.bottomAnchor constant:4],
-        [self.webSearchButton.widthAnchor constraintEqualToConstant:30],
-        [self.webSearchButton.heightAnchor constraintEqualToConstant:30],
         [self.helperDirectAnswersButton.leadingAnchor constraintEqualToAnchor:self.dictateButton.leadingAnchor],
-        [self.helperDirectAnswersButton.centerYAnchor constraintEqualToAnchor:self.webSearchButton.centerYAnchor],
+        [self.helperDirectAnswersButton.topAnchor constraintEqualToAnchor:self.attachButton.bottomAnchor constant:4],
         [self.helperDirectAnswersButton.widthAnchor constraintEqualToConstant:30],
         [self.helperDirectAnswersButton.heightAnchor constraintEqualToConstant:30],
         [inputWrapper.leadingAnchor constraintEqualToAnchor:self.helperDirectAnswersButton.trailingAnchor constant:8],
@@ -2773,24 +2750,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
        shouldReceiveTouch:(UITouch *)touch {
     return ![touch.view isKindOfClass:[UIControl class]];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - Web Search Toggle
-// ─────────────────────────────────────────────────────────────────────────────
-
-- (void)toggleWebSearch {
-    self.webSearchEnabled = !self.webSearchEnabled;
-    [[NSUserDefaults standardUserDefaults] setBool:self.webSearchEnabled forKey:@"webSearchEnabled"];
-    [self updateWebSearchButtonTint];
-    [self appendToChat:[NSString stringWithFormat:@"[System: Web Search %@]",
-                        self.webSearchEnabled ? @"ON 🌐" : @"OFF"]];
-    EZLogf(EZLogLevelInfo, @"WEBSEARCH", @"Toggled %@", self.webSearchEnabled ? @"ON" : @"OFF");
-}
-
-- (void)updateWebSearchButtonTint {
-    [self.webSearchButton setTintColor:self.webSearchEnabled
-        ? [UIColor systemGreenColor] : [UIColor systemGrayColor]];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -8474,8 +8433,6 @@ static NSString *EZThreadExportTimestampNow(void) {
     self.threadSelectionActive = !self.threadSelectionActive;
     if (!self.threadSelectionActive) [self.selectedThreadMessageIndexes removeAllIndexes];
     self.threadSelectionBar.hidden = !self.threadSelectionActive;
-    [self.threadSelectionButton setTitle:self.threadSelectionActive ? @"DONE" : @"SEL"
-                         forState:UIControlStateNormal];
     [self updateThreadSelectionUI];
 }
 
@@ -10455,8 +10412,20 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
             [UIPasteboard generalPasteboard].string = textToCopy;
             [self appendToChat:@"[System: Copied ✓]"];
         }];
+        // Select enters thread multi-select with this message as a pick,
+        // added the same way a tap on its selection dot adds it. Leaving
+        // the mode stays with the selection bar's Done button — this
+        // action only ever adds, it never turns the mode back off.
+        UIAction *selectAction = [UIAction actionWithTitle:@"Select"
+                                                      image:[UIImage systemImageNamed:@"checkmark.circle"]
+                                                 identifier:nil
+                                                    handler:^(__kindof UIAction *action) {
+            if (!self.threadSelectionActive) [self toggleThreadSelection];
+            [self.selectedThreadMessageIndexes addIndex:(NSUInteger)capturedRow];
+            [self updateThreadSelectionUI];
+        }];
         if (!isAssistantEntry) {
-            return [UIMenu menuWithTitle:@"" children:@[copyAction]];
+            return [UIMenu menuWithTitle:@"" children:@[copyAction, selectAction]];
         }
         // Model responses also offer reactions: one action per emoji from
         // the same whitelist the helper's tapbacks use, the current one
@@ -10485,6 +10454,7 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
             }]];
         }
         [children addObject:copyAction];
+        [children addObject:selectAction];
         return [UIMenu menuWithTitle:@"" children:children];
     }];
 }
