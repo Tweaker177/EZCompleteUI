@@ -918,7 +918,6 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 /// Appears in input area when an image model is active — opens image parameter sheet.
 @property (nonatomic, strong) UIButton      *imageSettingsButton;
 @property (nonatomic, strong) UIButton      *dictateButton;
-@property (nonatomic, strong) UIButton      *webSearchButton;
 /// Lightning bolt: permits helper models to answer directly when enabled.
 @property (nonatomic, strong) UIButton      *helperDirectAnswersButton;
 @property (nonatomic, strong) UIButton      *historyButton;
@@ -2290,10 +2289,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     // Memories lives in the nav drawer, and thread multi-select starts
     // from a message's long-press menu, so neither needs a button here.
-    // Web search toggle
-    self.webSearchButton = [self _iconButton:@"globe" tint:nil
-                                      action:@selector(toggleWebSearch)];
-    [self updateWebSearchButtonTint];
+    // Web search is set in Settings; ez-chat's per-prompt gate decides
+    // when it actually runs, so it needs no toggle here either.
     self.helperDirectAnswersButton = [self _iconButton:@"bolt.fill" tint:nil
                                                 action:@selector(toggleHelperDirectAnswers)];
     self.helperDirectAnswersButton.accessibilityLabel = @"Helper direct answers";
@@ -2436,7 +2433,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     // These toggles belong with the message being composed, rather than in the
     // app navigation bar. Keeping them adjacent makes their scope obvious.
-    [self.inputContainer addSubview:self.webSearchButton];
     [self.inputContainer addSubview:self.helperDirectAnswersButton];
     
         // Dictate button
@@ -2595,12 +2591,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [self.dictateButton.centerYAnchor constraintEqualToAnchor:self.attachButton.centerYAnchor],
         [self.dictateButton.widthAnchor constraintEqualToConstant:32],
         [self.dictateButton.heightAnchor constraintEqualToConstant:32],
-        [self.webSearchButton.leadingAnchor constraintEqualToAnchor:self.attachButton.leadingAnchor],
-        [self.webSearchButton.topAnchor constraintEqualToAnchor:self.attachButton.bottomAnchor constant:4],
-        [self.webSearchButton.widthAnchor constraintEqualToConstant:30],
-        [self.webSearchButton.heightAnchor constraintEqualToConstant:30],
         [self.helperDirectAnswersButton.leadingAnchor constraintEqualToAnchor:self.dictateButton.leadingAnchor],
-        [self.helperDirectAnswersButton.centerYAnchor constraintEqualToAnchor:self.webSearchButton.centerYAnchor],
+        [self.helperDirectAnswersButton.topAnchor constraintEqualToAnchor:self.attachButton.bottomAnchor constant:4],
         [self.helperDirectAnswersButton.widthAnchor constraintEqualToConstant:30],
         [self.helperDirectAnswersButton.heightAnchor constraintEqualToConstant:30],
         [inputWrapper.leadingAnchor constraintEqualToAnchor:self.helperDirectAnswersButton.trailingAnchor constant:8],
@@ -2758,24 +2750,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
        shouldReceiveTouch:(UITouch *)touch {
     return ![touch.view isKindOfClass:[UIControl class]];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARK: - Web Search Toggle
-// ─────────────────────────────────────────────────────────────────────────────
-
-- (void)toggleWebSearch {
-    self.webSearchEnabled = !self.webSearchEnabled;
-    [[NSUserDefaults standardUserDefaults] setBool:self.webSearchEnabled forKey:@"webSearchEnabled"];
-    [self updateWebSearchButtonTint];
-    [self appendToChat:[NSString stringWithFormat:@"[System: Web Search %@]",
-                        self.webSearchEnabled ? @"ON 🌐" : @"OFF"]];
-    EZLogf(EZLogLevelInfo, @"WEBSEARCH", @"Toggled %@", self.webSearchEnabled ? @"ON" : @"OFF");
-}
-
-- (void)updateWebSearchButtonTint {
-    [self.webSearchButton setTintColor:self.webSearchEnabled
-        ? [UIColor systemGreenColor] : [UIColor systemGrayColor]];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
