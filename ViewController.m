@@ -9668,8 +9668,10 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
                 }
                 [blocks addObject:@{@"type": @"text",
                                     @"text": [NSString stringWithFormat:
-                                        @"[Local file result — read_local_file]\n[Local file: %@ — %@ bytes]\nThe image itself is attached as image context.\n[End of local file result]",
-                                        result[@"fileName"], result[@"byteSize"]]}];
+                                        @"[Local file result — read_local_file]\n[Local file: %@ — %@ bytes, %@%@]\nThe image itself is attached as image context.\n[End of local file result]",
+                                        result[@"fileName"], result[@"byteSize"],
+                                        [result[@"extension"] isKindOfClass:[NSString class]] ? [result[@"extension"] uppercaseString] : @"IMAGE",
+                                        [result[@"dimensions"] isKindOfClass:[NSString class]] ? [NSString stringWithFormat:@", %@", result[@"dimensions"]] : @""]}];
                 [strongSelf.chatContext addObject:@{
                     @"role": @"user",
                     @"content": [blocks copy],
