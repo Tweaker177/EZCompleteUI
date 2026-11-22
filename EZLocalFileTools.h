@@ -45,6 +45,16 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)executeRequest:(NSDictionary *)request
             completion:(void (^)(NSDictionary *result))completion;
 
+/// Finds one existing file by the same addressing the read tool
+/// accepts — a path relative to one of the roots, or a bare file
+/// name searched across all five with the same match ladder — for
+/// callers that need the file itself rather than its contents
+/// (EZFileConvertTools). Returns
+///   @{ @"path": <absolute path>, @"display": <root-relative path>,
+///      @"byteSize": NSNumber }
+/// or @{ @"problem": <why no single file could be located> }.
++ (NSDictionary *)locateFileForName:(NSString *)name;
+
 @end
 
 NS_ASSUME_NONNULL_END
