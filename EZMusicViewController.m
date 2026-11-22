@@ -74,6 +74,7 @@
 #import "EZTheme.h"
 #import "EZMusicArtworkService.h"
 #import <AVFoundation/AVFoundation.h>
+#import <MediaPlayer/MediaPlayer.h>
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <PhotosUI/PhotosUI.h>
 #import <objc/runtime.h>
@@ -665,6 +666,548 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 @end
 
+#pragma mark - Full-screen player
+
+/// The full-screen player, modelled on the system music player's layout:
+/// the song's cover at full width over a blurred, navy-tinted take on the
+/// cover itself, the title with its star and menu, a scrub bar with the
+/// elapsed and remaining times, large transport controls, the system
+/// volume slider, and a bottom row with Lyrics, the output route and the
+/// rest of the playlist.
+///
+/// The screen owns no playback and no library state. The music view
+/// controller hands it providers for the current song and the playlist
+/// order and handlers for everything that changes state, so the playlist
+/// bar and this screen can never disagree about what is playing.
+@interface EZMusicNowPlayingViewController : UIViewController
+@property (nonatomic, copy, nullable) NSDictionary * (^currentEntryProvider)(void);
+@property (nonatomic, copy, nullable) NSString * (^subtitleProvider)(void);
+@property (nonatomic, copy, nullable) NSArray<NSDictionary *> * (^queueProvider)(void);
+@property (nonatomic, copy, nullable) void (^onPrevious)(void);
+@property (nonatomic, copy, nullable) void (^onPlayPause)(void);
+@property (nonatomic, copy, nullable) void (^onNext)(void);
+@property (nonatomic, copy, nullable) void (^onPlayEntry)(NSString *entryID);
+@property (nonatomic, copy, nullable) void (^onToggleFavorite)(NSString *entryID);
+@property (nonatomic, copy, nullable) void (^onRename)(NSString *entryID);
+@property (nonatomic, copy, nullable) void (^onShare)(NSString *entryID);
+/// Re-reads the current song and playback state. The owner calls this
+/// after changing state the screen shows (for example the favorite star).
+- (void)refresh;
+@end
+
+@interface EZMusicNowPlayingViewController ()
+@property (nonatomic, strong) UIImageView *backdropView;
+@property (nonatomic, strong) UIImageView *artworkView;
+@property (nonatomic, strong) UILabel *titleLabel;
+@property (nonatomic, strong) UILabel *detailLabel;
+@property (nonatomic, strong) UIButton *favoriteButton;
+@property (nonatomic, strong) UISlider *scrubSlider;
+@property (nonatomic, strong) UILabel *elapsedLabel;
+@property (nonatomic, strong) UILabel *remainingLabel;
+@property (nonatomic, strong) UIButton *playButton;
+@property (nonatomic, strong) UIButton *lyricsButton;
+@property (nonatomic, copy) NSString *shownEntryID;
+@property (nonatomic) BOOL scrubbing;
+@end
+
+@implementation EZMusicNowPlayingViewController
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.view.backgroundColor = [EZTheme chatBackgroundColor];
+
+    // Blurred cover backdrop under a navy tint; hidden until a song with
+    // a cover is showing, leaving the plain themed background.
+    self.backdropView = [[UIImageView alloc] init];
+    self.backdropView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.backdropView.contentMode = UIViewContentModeScaleAspectFill;
+    self.backdropView.clipsToBounds = YES;
+    self.backdropView.isAccessibilityElement = NO;
+    [self.view addSubview:self.backdropView];
+    UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+    blur.translatesAutoresizingMaskIntoConstraints = NO;
+    blur.isAccessibilityElement = NO;
+    [self.view addSubview:blur];
+    UIView *tint = [[UIView alloc] init];
+    tint.translatesAutoresizingMaskIntoConstraints = NO;
+    tint.backgroundColor = [[EZTheme backgroundColor] colorWithAlphaComponent:0.55];
+    tint.isAccessibilityElement = NO;
+    [self.view addSubview:tint];
+
+    // Grabber pill + chevron: one 44pt tap target that dismisses.
+    UIView *grabber = [[UIView alloc] init];
+    grabber.translatesAutoresizingMaskIntoConstraints = NO;
+    grabber.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.35];
+    grabber.layer.cornerRadius = 2.5;
+    grabber.userInteractionEnabled = NO;
+    [self.view addSubview:grabber];
+    UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    dismissButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [dismissButton setImage:[UIImage systemImageNamed:@"chevron.down"
+                                      withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:17 weight:UIImageSymbolWeightBold]]
+                   forState:UIControlStateNormal];
+    dismissButton.tintColor = [EZTheme secondaryTextColor];
+    dismissButton.accessibilityLabel = EZMusicText(@"EZMusic.NowPlaying.Dismiss", @"Close player");
+    [dismissButton addTarget:self action:@selector(dismissTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:dismissButton];
+
+    self.artworkView = [[UIImageView alloc] init];
+    self.artworkView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.artworkView.tintColor = [EZTheme secondaryTextColor];
+    self.artworkView.backgroundColor = [EZTheme cardColor];
+    self.artworkView.layer.cornerRadius = 12;
+    self.artworkView.layer.borderWidth = 1.0;
+    self.artworkView.layer.borderColor = [[EZTheme goldColor] colorWithAlphaComponent:0.60].CGColor;
+    self.artworkView.layer.shadowColor = [UIColor blackColor].CGColor;
+    self.artworkView.layer.shadowOpacity = 0.35;
+    self.artworkView.layer.shadowRadius = 18;
+    self.artworkView.layer.shadowOffset = CGSizeMake(0, 10);
+    self.artworkView.clipsToBounds = YES;
+    self.artworkView.isAccessibilityElement = NO;
+    [self.view addSubview:self.artworkView];
+
+    self.titleLabel = [[UILabel alloc] init];
+    self.titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    self.titleLabel.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBold];
+    self.titleLabel.textColor = [EZTheme primaryTextColor];
+    self.titleLabel.numberOfLines = 2;
+    [self.view addSubview:self.titleLabel];
+
+    self.detailLabel = [[UILabel alloc] init];
+    self.detailLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    self.detailLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
+    self.detailLabel.textColor = [EZTheme secondaryTextColor];
+    self.detailLabel.numberOfLines = 1;
+    self.detailLabel.adjustsFontSizeToFitWidth = YES;
+    self.detailLabel.minimumScaleFactor = 0.5;
+    [self.view addSubview:self.detailLabel];
+
+    self.favoriteButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.favoriteButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.favoriteButton addTarget:self action:@selector(favoriteTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.favoriteButton];
+
+    UIButton *menuButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    menuButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [menuButton setImage:[UIImage systemImageNamed:@"ellipsis.circle"
+                                   withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:22]]
+                forState:UIControlStateNormal];
+    menuButton.tintColor = [EZTheme primaryTextColor];
+    menuButton.accessibilityLabel = EZMusicText(@"EZMusic.NowPlaying.Menu", @"Song options");
+    [menuButton addTarget:self action:@selector(menuTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:menuButton];
+
+    self.scrubSlider = [[UISlider alloc] init];
+    self.scrubSlider.translatesAutoresizingMaskIntoConstraints = NO;
+    self.scrubSlider.minimumValue = 0;
+    self.scrubSlider.maximumValue = 1;
+    self.scrubSlider.minimumTrackTintColor = [EZTheme goldColor];
+    self.scrubSlider.maximumTrackTintColor = [UIColor colorWithWhite:1.0 alpha:0.25];
+    [self.scrubSlider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateNormal];
+    self.scrubSlider.accessibilityLabel = EZMusicText(@"EZMusic.NowPlaying.Scrub", @"Playback position");
+    [self.scrubSlider addTarget:self action:@selector(scrubBegan) forControlEvents:UIControlEventTouchDown];
+    [self.scrubSlider addTarget:self action:@selector(scrubChanged) forControlEvents:UIControlEventValueChanged];
+    [self.scrubSlider addTarget:self action:@selector(scrubEnded) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
+    [self.view addSubview:self.scrubSlider];
+
+    self.elapsedLabel = [self timeLabel];
+    self.remainingLabel = [self timeLabel];
+    self.remainingLabel.textAlignment = NSTextAlignmentRight;
+    [self.view addSubview:self.elapsedLabel];
+    [self.view addSubview:self.remainingLabel];
+
+    UIButton *previousButton = [self transportButtonWithSymbol:@"backward.end.fill" pointSize:26
+                                                          action:@selector(previousTapped)
+                                                           label:EZMusicText(@"EZMusic.NowPlaying.Previous", @"Previous song")];
+    self.playButton = [self transportButtonWithSymbol:@"play.fill" pointSize:36
+                                               action:@selector(playPauseTapped)
+                                                label:EZMusicText(@"EZMusic.NowPlaying.PlayPause", @"Play or pause")];
+    UIButton *nextButton = [self transportButtonWithSymbol:@"forward.end.fill" pointSize:26
+                                                      action:@selector(nextTapped)
+                                                       label:EZMusicText(@"EZMusic.NowPlaying.Next", @"Next song")];
+    [self.view addSubview:previousButton];
+    [self.view addSubview:self.playButton];
+    [self.view addSubview:nextButton];
+
+    UIImageView *quietIcon = [self volumeIconWithSymbol:@"speaker.fill"];
+    UIImageView *loudIcon = [self volumeIconWithSymbol:@"speaker.wave.3.fill"];
+    [self.view addSubview:quietIcon];
+    [self.view addSubview:loudIcon];
+    MPVolumeView *volumeView = [[MPVolumeView alloc] init];
+    volumeView.translatesAutoresizingMaskIntoConstraints = NO;
+    volumeView.showsRouteButton = NO;
+    volumeView.tintColor = [EZTheme secondaryTextColor];
+    [self.view addSubview:volumeView];
+
+    self.lyricsButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.lyricsButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.lyricsButton setImage:[UIImage systemImageNamed:@"quote.bubble"
+                                          withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:23]]
+                       forState:UIControlStateNormal];
+    self.lyricsButton.tintColor = [EZTheme secondaryTextColor];
+    self.lyricsButton.accessibilityLabel = EZMusicText(@"EZMusic.Menu.Lyrics", @"Lyrics");
+    [self.lyricsButton addTarget:self action:@selector(lyricsTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.lyricsButton];
+
+    AVRoutePickerView *routePicker = [[AVRoutePickerView alloc] init];
+    routePicker.translatesAutoresizingMaskIntoConstraints = NO;
+    routePicker.tintColor = [EZTheme secondaryTextColor];
+    routePicker.activeTintColor = [EZTheme goldColor];
+    [self.view addSubview:routePicker];
+
+    UIButton *queueButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    queueButton.translatesAutoresizingMaskIntoConstraints = NO;
+    [queueButton setImage:[UIImage systemImageNamed:@"list.bullet"
+                                    withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:23]]
+                 forState:UIControlStateNormal];
+    queueButton.tintColor = [EZTheme secondaryTextColor];
+    queueButton.accessibilityLabel = EZMusicText(@"EZMusic.NowPlaying.Queue", @"Up next");
+    [queueButton addTarget:self action:@selector(queueTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:queueButton];
+
+    UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
+    // Full width minus padding, unless the height cap bites first on a
+    // shorter screen — the cap wins, the cover just gets narrower.
+    NSLayoutConstraint *artworkWidth = [self.artworkView.widthAnchor constraintEqualToAnchor:self.view.widthAnchor constant:-48];
+    artworkWidth.priority = 750;
+    [NSLayoutConstraint activateConstraints:@[
+        artworkWidth,
+        [self.backdropView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [self.backdropView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [self.backdropView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [self.backdropView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [blur.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [blur.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [blur.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [blur.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [tint.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [tint.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [tint.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [tint.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+
+        [grabber.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [grabber.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
+        [grabber.widthAnchor constraintEqualToConstant:36],
+        [grabber.heightAnchor constraintEqualToConstant:5],
+        [dismissButton.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [dismissButton.topAnchor constraintEqualToAnchor:safe.topAnchor],
+        [dismissButton.widthAnchor constraintEqualToConstant:56],
+        [dismissButton.heightAnchor constraintEqualToConstant:44],
+
+        [self.artworkView.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [self.artworkView.topAnchor constraintEqualToAnchor:safe.topAnchor constant:56],
+        [self.artworkView.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.view.leadingAnchor constant:24],
+        [self.artworkView.trailingAnchor constraintLessThanOrEqualToAnchor:self.view.trailingAnchor constant:-24],
+        [self.artworkView.heightAnchor constraintEqualToAnchor:self.artworkView.widthAnchor],
+        [self.artworkView.heightAnchor constraintLessThanOrEqualToAnchor:self.view.heightAnchor multiplier:0.38],
+
+        [self.favoriteButton.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-64],
+        [self.favoriteButton.topAnchor constraintEqualToAnchor:self.artworkView.bottomAnchor constant:18],
+        [self.favoriteButton.widthAnchor constraintEqualToConstant:44],
+        [self.favoriteButton.heightAnchor constraintEqualToConstant:44],
+        [menuButton.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
+        [menuButton.centerYAnchor constraintEqualToAnchor:self.favoriteButton.centerYAnchor],
+        [menuButton.widthAnchor constraintEqualToConstant:44],
+        [menuButton.heightAnchor constraintEqualToConstant:44],
+
+        [self.titleLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
+        [self.titleLabel.trailingAnchor constraintEqualToAnchor:self.favoriteButton.leadingAnchor constant:-8],
+        [self.titleLabel.topAnchor constraintEqualToAnchor:self.artworkView.bottomAnchor constant:22],
+        [self.detailLabel.leadingAnchor constraintEqualToAnchor:self.titleLabel.leadingAnchor],
+        [self.detailLabel.trailingAnchor constraintEqualToAnchor:self.titleLabel.trailingAnchor],
+        [self.detailLabel.topAnchor constraintEqualToAnchor:self.titleLabel.bottomAnchor constant:3],
+
+        [self.scrubSlider.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
+        [self.scrubSlider.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
+        [self.scrubSlider.topAnchor constraintEqualToAnchor:self.detailLabel.bottomAnchor constant:16],
+        [self.elapsedLabel.leadingAnchor constraintEqualToAnchor:self.scrubSlider.leadingAnchor],
+        [self.elapsedLabel.topAnchor constraintEqualToAnchor:self.scrubSlider.bottomAnchor constant:2],
+        [self.remainingLabel.trailingAnchor constraintEqualToAnchor:self.scrubSlider.trailingAnchor],
+        [self.remainingLabel.topAnchor constraintEqualToAnchor:self.scrubSlider.bottomAnchor constant:2],
+
+        [self.playButton.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [self.playButton.topAnchor constraintEqualToAnchor:self.elapsedLabel.bottomAnchor constant:10],
+        [self.playButton.widthAnchor constraintEqualToConstant:84],
+        [self.playButton.heightAnchor constraintEqualToConstant:84],
+        [previousButton.trailingAnchor constraintEqualToAnchor:self.playButton.leadingAnchor constant:-26],
+        [previousButton.centerYAnchor constraintEqualToAnchor:self.playButton.centerYAnchor],
+        [previousButton.widthAnchor constraintEqualToConstant:60],
+        [previousButton.heightAnchor constraintEqualToConstant:60],
+        [nextButton.leadingAnchor constraintEqualToAnchor:self.playButton.trailingAnchor constant:26],
+        [nextButton.centerYAnchor constraintEqualToAnchor:self.playButton.centerYAnchor],
+        [nextButton.widthAnchor constraintEqualToConstant:60],
+        [nextButton.heightAnchor constraintEqualToConstant:60],
+
+        [quietIcon.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
+        [quietIcon.centerYAnchor constraintEqualToAnchor:volumeView.centerYAnchor],
+        [quietIcon.widthAnchor constraintEqualToConstant:20],
+        [quietIcon.heightAnchor constraintEqualToConstant:20],
+        [loudIcon.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
+        [loudIcon.centerYAnchor constraintEqualToAnchor:volumeView.centerYAnchor],
+        [loudIcon.widthAnchor constraintEqualToConstant:24],
+        [loudIcon.heightAnchor constraintEqualToConstant:24],
+        [volumeView.leadingAnchor constraintEqualToAnchor:quietIcon.trailingAnchor constant:10],
+        [volumeView.trailingAnchor constraintEqualToAnchor:loudIcon.leadingAnchor constant:-10],
+        [volumeView.topAnchor constraintEqualToAnchor:self.playButton.bottomAnchor constant:14],
+
+        [self.lyricsButton.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:36],
+        [self.lyricsButton.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-10],
+        [self.lyricsButton.widthAnchor constraintEqualToConstant:48],
+        [self.lyricsButton.heightAnchor constraintEqualToConstant:48],
+        [routePicker.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [routePicker.centerYAnchor constraintEqualToAnchor:self.lyricsButton.centerYAnchor],
+        [routePicker.widthAnchor constraintEqualToConstant:48],
+        [routePicker.heightAnchor constraintEqualToConstant:48],
+        [queueButton.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-36],
+        [queueButton.centerYAnchor constraintEqualToAnchor:self.lyricsButton.centerYAnchor],
+        [queueButton.widthAnchor constraintEqualToConstant:48],
+        [queueButton.heightAnchor constraintEqualToConstant:48],
+    ]];
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(refresh)
+                                                 name:EZMediaPlayerDidUpdateNotification
+                                               object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(refresh)
+                                                 name:EZMusicArtworkDidUpdateNotification
+                                               object:nil];
+    [self refresh];
+}
+
+- (UILabel *)timeLabel {
+    UILabel *label = [[UILabel alloc] init];
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+    label.textColor = [EZTheme secondaryTextColor];
+    label.text = @"0:00";
+    return label;
+}
+
+- (UIButton *)transportButtonWithSymbol:(NSString *)symbol pointSize:(CGFloat)pointSize
+                                   action:(SEL)action label:(NSString *)label {
+    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    button.translatesAutoresizingMaskIntoConstraints = NO;
+    [button setImage:[UIImage systemImageNamed:symbol
+                              withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:pointSize]]
+            forState:UIControlStateNormal];
+    button.tintColor = [EZTheme goldColor];
+    button.accessibilityLabel = label;
+    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+    return button;
+}
+
+- (UIImageView *)volumeIconWithSymbol:(NSString *)symbol {
+    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:symbol]];
+    icon.translatesAutoresizingMaskIntoConstraints = NO;
+    icon.tintColor = [EZTheme secondaryTextColor];
+    icon.contentMode = UIViewContentModeScaleAspectFit;
+    icon.isAccessibilityElement = NO;
+    return icon;
+}
+
+#pragma mark - Refresh
+
+- (void)refresh {
+    NSDictionary *entry = self.currentEntryProvider ? self.currentEntryProvider() : nil;
+    NSString *entryID = EZMusicString(entry[@"id"]);
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+
+    if (![entryID isEqualToString:self.shownEntryID]) {
+        self.shownEntryID = entryID;
+        self.titleLabel.text = EZMusicString(entry[@"title"]);
+        UIImage *artwork = entryID.length ? [[EZMusicArtworkService sharedService] cachedArtworkForEntryID:entryID] : nil;
+        if (artwork) {
+            self.artworkView.contentMode = UIViewContentModeScaleAspectFill;
+            self.artworkView.image = artwork;
+            self.backdropView.image = artwork;
+            self.backdropView.hidden = NO;
+        } else {
+            self.artworkView.contentMode = UIViewContentModeCenter;
+            self.artworkView.image = [UIImage systemImageNamed:@"music.note"
+                                             withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:64]];
+            self.backdropView.hidden = YES;
+        }
+        NSString *lyrics = entry ? [[EZMusicLibraryManager sharedManager] lyricsForEntry:entry] : @"";
+        self.lyricsButton.enabled = lyrics.length > 0;
+        self.lyricsButton.tintColor = lyrics.length > 0 ? [EZTheme primaryTextColor] : [EZTheme secondaryTextColor];
+    } else if (entryID.length) {
+        // Same song: a cover can still land (or be remade) under it.
+        UIImage *artwork = [[EZMusicArtworkService sharedService] cachedArtworkForEntryID:entryID];
+        if (artwork && self.artworkView.contentMode != UIViewContentModeScaleAspectFill) {
+            self.artworkView.contentMode = UIViewContentModeScaleAspectFill;
+            self.artworkView.image = artwork;
+            self.backdropView.image = artwork;
+            self.backdropView.hidden = NO;
+        }
+    }
+
+    self.detailLabel.text = self.subtitleProvider ? self.subtitleProvider() : nil;
+
+    BOOL favorite = [entry[@"is_favorite"] boolValue];
+    [self.favoriteButton setImage:[UIImage systemImageNamed:favorite ? @"star.fill" : @"star"
+                                            withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:21]]
+                         forState:UIControlStateNormal];
+    self.favoriteButton.tintColor = favorite ? [EZTheme goldColor] : [EZTheme primaryTextColor];
+    self.favoriteButton.accessibilityLabel = favorite ? EZMusicText(@"EZMusic.Action.Unfavorite", @"Unstar")
+                                                      : EZMusicText(@"EZMusic.Action.Favorite", @"Star");
+
+    BOOL playing = entryID.length && [player isCurrentItemWithIdentifier:entryID] &&
+                   player.state == EZMediaPlayerStatePlaying;
+    [self.playButton setImage:[UIImage systemImageNamed:playing ? @"pause.fill" : @"play.fill"
+                                        withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:36]]
+                     forState:UIControlStateNormal];
+
+    if (!self.scrubbing) {
+        NSTimeInterval duration = player.duration;
+        NSTimeInterval current = player.currentTime;
+        self.scrubSlider.value = duration > 0 ? (float)(current / duration) : 0;
+        self.elapsedLabel.text = [EZMediaPlayerManager formattedTime:current];
+        self.remainingLabel.text = duration > 0
+            ? [NSString stringWithFormat:@"-%@", [EZMediaPlayerManager formattedTime:MAX(0, duration - current)]]
+            : @"-0:00";
+    }
+}
+
+#pragma mark - Actions
+
+- (void)dismissTapped {
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)previousTapped { if (self.onPrevious) self.onPrevious(); }
+- (void)nextTapped { if (self.onNext) self.onNext(); }
+- (void)playPauseTapped { if (self.onPlayPause) self.onPlayPause(); }
+
+- (void)favoriteTapped {
+    if (self.shownEntryID.length && self.onToggleFavorite) self.onToggleFavorite(self.shownEntryID);
+}
+
+- (void)scrubBegan {
+    self.scrubbing = YES;
+}
+
+- (void)scrubChanged {
+    EZMediaPlayerManager *player = [EZMediaPlayerManager sharedManager];
+    NSTimeInterval duration = player.duration;
+    if (duration <= 0) return;
+    NSTimeInterval target = self.scrubSlider.value * duration;
+    self.elapsedLabel.text = [EZMediaPlayerManager formattedTime:target];
+    self.remainingLabel.text = [NSString stringWithFormat:@"-%@",
+        [EZMediaPlayerManager formattedTime:MAX(0, duration - target)]];
+}
+
+- (void)scrubEnded {
+    [[EZMediaPlayerManager sharedManager] seekToFraction:self.scrubSlider.value];
+    self.scrubbing = NO;
+    [self refresh];
+}
+
+- (void)lyricsTapped {
+    NSDictionary *entry = self.currentEntryProvider ? self.currentEntryProvider() : nil;
+    NSString *lyrics = entry ? [[EZMusicLibraryManager sharedManager] lyricsForEntry:entry] : @"";
+    if (!lyrics.length) return;
+    EZMusicTextSheetViewController *sheet = [[EZMusicTextSheetViewController alloc] init];
+    sheet.heading = EZMusicString(entry[@"title"]);
+    sheet.bodyText = lyrics;
+    sheet.accessibilityName = EZMusicText(@"EZMusic.A11y.Lyrics", @"Song lyrics");
+    UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:sheet];
+    navigation.modalPresentationStyle = UIModalPresentationPageSheet;
+    if (@available(iOS 15.0, *)) {
+        navigation.sheetPresentationController.detents = @[
+            UISheetPresentationControllerDetent.mediumDetent,
+            UISheetPresentationControllerDetent.largeDetent,
+        ];
+        navigation.sheetPresentationController.prefersGrabberVisible = YES;
+    }
+    [self presentViewController:navigation animated:YES completion:nil];
+}
+
+- (void)queueTapped {
+    NSArray<NSDictionary *> *queue = self.queueProvider ? self.queueProvider() : nil;
+    if (!queue.count) return;
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:EZMusicText(@"EZMusic.NowPlaying.Queue", @"Up next")
+                                                                   message:nil
+                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    __weak typeof(self) weakSelf = self;
+    for (NSDictionary *entry in queue) {
+        NSString *entryID = EZMusicString(entry[@"id"]);
+        NSString *title = EZMusicString(entry[@"title"]);
+        if (!entryID.length || !title.length) continue;
+        [sheet addAction:[UIAlertAction actionWithTitle:title
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *action) {
+            if (weakSelf.onPlayEntry) weakSelf.onPlayEntry(entryID);
+        }]];
+    }
+    [sheet addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Action.Cancel", @"Cancel")
+                                              style:UIAlertActionStyleCancel
+                                            handler:nil]];
+    sheet.popoverPresentationController.sourceView = self.view;
+    sheet.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMaxY(self.view.bounds) - 60, 1, 1);
+    [self presentViewController:sheet animated:YES completion:nil];
+}
+
+- (void)menuTapped {
+    NSDictionary *entry = self.currentEntryProvider ? self.currentEntryProvider() : nil;
+    NSString *entryID = EZMusicString(entry[@"id"]);
+    if (!entryID.length) return;
+    NSString *lyrics = [[EZMusicLibraryManager sharedManager] lyricsForEntry:entry];
+    NSString *prompt = EZMusicString(entry[@"prompt"]);
+    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:EZMusicString(entry[@"title"])
+                                                                   message:nil
+                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    __weak typeof(self) weakSelf = self;
+    if (lyrics.length) {
+        [sheet addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Lyrics", @"Lyrics")
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *action) { [weakSelf lyricsTapped]; }]];
+    }
+    if (prompt.length) {
+        [sheet addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Prompt", @"Prompt")
+                                                  style:UIAlertActionStyleDefault
+                                                handler:^(UIAlertAction *action) {
+            EZMusicTextSheetViewController *textSheet = [[EZMusicTextSheetViewController alloc] init];
+            textSheet.heading = EZMusicText(@"EZMusic.Prompt.Title", @"Prompt");
+            textSheet.bodyText = prompt;
+            textSheet.accessibilityName = EZMusicText(@"EZMusic.A11y.Prompt", @"Song prompt");
+            UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:textSheet];
+            navigation.modalPresentationStyle = UIModalPresentationPageSheet;
+            if (@available(iOS 15.0, *)) {
+                navigation.sheetPresentationController.detents = @[
+                    UISheetPresentationControllerDetent.mediumDetent,
+                    UISheetPresentationControllerDetent.largeDetent,
+                ];
+                navigation.sheetPresentationController.prefersGrabberVisible = YES;
+            }
+            [weakSelf presentViewController:navigation animated:YES completion:nil];
+        }]];
+    }
+    [sheet addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Menu.Rename", @"Rename")
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *action) {
+        if (weakSelf.onRename) weakSelf.onRename(entryID);
+    }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Action.Share", @"Share")
+                                              style:UIAlertActionStyleDefault
+                                            handler:^(UIAlertAction *action) {
+        if (weakSelf.onShare) weakSelf.onShare(entryID);
+    }]];
+    [sheet addAction:[UIAlertAction actionWithTitle:EZMusicText(@"EZMusic.Action.Cancel", @"Cancel")
+                                              style:UIAlertActionStyleCancel
+                                            handler:nil]];
+    sheet.popoverPresentationController.sourceView = self.view;
+    sheet.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(self.view.bounds), 80, 1, 1);
+    [self presentViewController:sheet animated:YES completion:nil];
+}
+
+@end
+
+
 #pragma mark - View controller
 
 static const NSTimeInterval kEZMusicMaximumReferenceSeconds = 120.0;
@@ -711,6 +1254,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 // Fixed player bar pinned above the library table — the only artwork on
 // the screen lives here, for the now-playing song.
 @property (nonatomic, strong) UIView *playerBar;
+@property (nonatomic, strong) UIButton *playerBarNowPlayingButton;
 @property (nonatomic, strong) UIImageView *playerArtworkView;
 @property (nonatomic, strong) UIActivityIndicatorView *playerArtworkSpinner;
 @property (nonatomic, strong) EZMusicWaveformView *playerWaveformView;
@@ -1309,6 +1853,22 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         [buttons[0].trailingAnchor constraintEqualToAnchor:buttons[1].leadingAnchor constant:-13],
         [buttons[0].centerYAnchor constraintEqualToAnchor:header.centerYAnchor],
     ]];
+    // Tapping the bar's song area (cover, titles, waveform) opens the
+    // full-screen player. The button stops short of the transport
+    // buttons, so previous / play / next keep their own taps.
+    UIButton *nowPlayingButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    nowPlayingButton.translatesAutoresizingMaskIntoConstraints = NO;
+    nowPlayingButton.accessibilityLabel = EZMusicText(@"EZMusic.NowPlaying.Open", @"Open full-screen player");
+    [nowPlayingButton addTarget:self action:@selector(presentNowPlaying) forControlEvents:UIControlEventTouchUpInside];
+    [header addSubview:nowPlayingButton];
+    self.playerBarNowPlayingButton = nowPlayingButton;
+    [NSLayoutConstraint activateConstraints:@[
+        [nowPlayingButton.leadingAnchor constraintEqualToAnchor:header.leadingAnchor],
+        [nowPlayingButton.trailingAnchor constraintEqualToAnchor:buttons[0].leadingAnchor constant:-8],
+        [nowPlayingButton.topAnchor constraintEqualToAnchor:header.topAnchor],
+        [nowPlayingButton.bottomAnchor constraintEqualToAnchor:header.bottomAnchor],
+    ]];
+
     [self updatePlaylistHeader];
 }
 
@@ -2926,6 +3486,75 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     if (entryID) [self togglePlaybackForEntryID:entryID];
 }
 
+/// Opens the full-screen player for the song the bar is showing (or the
+/// first playlist song when nothing is loaded yet, matching what the
+/// bar's play button would start). The player screen is a view over the
+/// same state this controller already owns: providers read the current
+/// entry and playlist order live, and every action routes back through
+/// the existing playlist, favorite, rename and share handlers.
+- (void)presentNowPlaying {
+    if (![self playlistEntryIDs].count) return;
+    EZMusicNowPlayingViewController *player = [[EZMusicNowPlayingViewController alloc] init];
+    player.modalPresentationStyle = UIModalPresentationFullScreen;
+    __weak typeof(self) weakSelf = self;
+    __weak EZMusicNowPlayingViewController *weakPlayer = player;
+
+    player.currentEntryProvider = ^NSDictionary *(void) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return nil;
+        NSString *current = strongSelf.playingEntryID ?: strongSelf.loadingEntryID ?: [strongSelf playlistEntryIDs].firstObject;
+        return current.length ? [strongSelf entryForID:current] : nil;
+    };
+    player.subtitleProvider = ^NSString *(void) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return nil;
+        NSArray<NSString *> *playlist = [strongSelf playlistEntryIDs];
+        NSString *current = strongSelf.playingEntryID ?: strongSelf.loadingEntryID;
+        NSInteger currentIndex = current.length ? (NSInteger)[playlist indexOfObject:current] + 1 : 0;
+        if (!playlist.count) return EZMusicText(@"EZMusic.Playlist.Empty", @"Downloaded songs will appear here");
+        return currentIndex ? [NSString stringWithFormat:@"%ld of %ld", (long)currentIndex, (long)playlist.count]
+                            : [NSString stringWithFormat:@"%ld downloaded songs", (long)playlist.count];
+    };
+    player.queueProvider = ^NSArray<NSDictionary *> *(void) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return nil;
+        NSArray<NSString *> *playlist = [strongSelf playlistEntryIDs];
+        NSString *current = strongSelf.playingEntryID ?: strongSelf.loadingEntryID ?: playlist.firstObject;
+        NSUInteger start = current.length ? [playlist indexOfObject:current] : NSNotFound;
+        if (start == NSNotFound) return nil;
+        NSMutableArray<NSDictionary *> *queue = [NSMutableArray array];
+        for (NSUInteger index = start + 1; index < playlist.count && queue.count < 8; index++) {
+            NSDictionary *entry = [strongSelf entryForID:playlist[index]];
+            if (entry) [queue addObject:entry];
+        }
+        return queue;
+    };
+    player.onPrevious = ^void(void) { [weakSelf playlistPreviousTapped]; };
+    player.onPlayPause = ^void(void) { [weakSelf playlistPlayTapped]; };
+    player.onNext = ^void(void) { [weakSelf playlistNextTapped]; };
+    player.onPlayEntry = ^void(NSString *entryID) { [weakSelf togglePlaybackForEntryID:entryID]; };
+    player.onToggleFavorite = ^void(NSString *entryID) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        BOOL favorite = [[strongSelf entryForID:entryID][@"is_favorite"] boolValue];
+        [strongSelf setFavorite:!favorite forEntryID:entryID];
+        [weakPlayer refresh];
+    };
+    // Rename and share present their own screens from this controller, so
+    // the player steps aside first and the action runs once it's gone.
+    player.onRename = ^void(NSString *entryID) {
+        [weakPlayer dismissViewControllerAnimated:YES completion:^{
+            [weakSelf renameEntryID:entryID];
+        }];
+    };
+    player.onShare = ^void(NSString *entryID) {
+        [weakPlayer dismissViewControllerAnimated:YES completion:^{
+            [weakSelf shareEntryID:entryID];
+        }];
+    };
+    [self presentViewController:player animated:YES completion:nil];
+}
+
 - (void)updatePlaylistHeader {
     if (!self.playlistTitleLabel) return;
     NSArray<NSString *> *playlist = [self playlistEntryIDs];
@@ -2944,6 +3573,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.playlistPlayButton.enabled = hasSongs;
     self.playlistPreviousButton.enabled = hasSongs;
     self.playlistNextButton.enabled = hasSongs;
+    self.playerBarNowPlayingButton.enabled = hasSongs;
 
     // The bar is the only place artwork shows: the current song's cover, or
     // the music-note placeholder when nothing is loaded. A cover being
