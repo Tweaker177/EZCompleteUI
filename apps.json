@@ -38,6 +38,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.18",
+          "buildVersion": "7.2.18",
+          "date": "2026-11-21",
+          "localizedDescription": "## What's Changed\n* Penguin Parade premium restyle (drawn in code) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/238\n* Slot Games picker: rich gallery redesign (drawn in code) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/239\n* Chat chrome: remove SEL, Memories and web search buttons; Select moves to the message menu by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/240\n\n\n**Full Changelog**: https://github.com/Tweaker177/EZCompleteUI/compare/V7.2.17...7.2.18",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.18/EZCompleteUI-7.2.18-release.ipa",
+          "size": 15947360,
+          "sha256": "694b1b837d4d0dab3e66f23a24054a7cfd744eda1e6934b910ff326cc7b35e31",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.17",
           "buildVersion": "7.2.17",
           "date": "2026-11-21",
