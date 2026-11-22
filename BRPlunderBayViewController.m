@@ -6,6 +6,7 @@
 #import "EZCoinStoreViewController.h"
 #import "BRSlotChatBar.h"
 #import <AVFoundation/AVFoundation.h>
+#import <objc/message.h>
 
 // Plunder Bay — the client half of ez-plunder-spin. The server owns
 // the reels, the free-spin award roll and every coin; this screen
@@ -80,10 +81,12 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
     // One title per page: the big in-view heading is this screen's only title; no nav-bar duplicate.
     self.view.backgroundColor = [UIColor colorWithRed:.02 green:.04 blue:.10 alpha:1];
     self.betIndex = 1; // 20 coins
-    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:NSLocalizedString(@"BRSlot.Navigation.Back", nil) action:@selector(backTapped)]];
-    self.navigationItem.rightBarButtonItems = @[
-        [[UIBarButtonItem alloc] initWithCustomView:[self navButton:NSLocalizedString(@"BRSlot.Navigation.Odds", nil) action:@selector(showOdds)]]
-    ];
+    UIBarButtonItem *backItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:NSLocalizedString(@"BRSlot.Navigation.Back", nil) action:@selector(backTapped)]];
+    UIBarButtonItem *oddsItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:NSLocalizedString(@"BRSlot.Navigation.Odds", nil) action:@selector(showOdds)]];
+    BRHideSharedBarBackground(backItem);
+    BRHideSharedBarBackground(oddsItem);
+    self.navigationItem.leftBarButtonItem = backItem;
+    self.navigationItem.rightBarButtonItems = @[oddsItem];
     [self buildUI]; [self setupAudio]; [self refreshState];
 }
 - (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (self.freeSpinsRemaining > 0) [self startBonusSong]; [self scheduleBonusAutoSpin]; if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"plunder-bay"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; } [self.chatBar start]; }
@@ -91,16 +94,28 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
 - (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; self.autoSpinToken++; [self stopAutoSpin]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController || self.navigationController.isBeingDismissed) { [self.chatBar stop]; [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
 
+// The current SDK wraps bar button items in a shared glass capsule
+// larger than the button itself, leaving the pill floating inside a
+// clear frame. Hide that shared background where it exists (the
+// property is newer than some toolchains, so it is set by selector)
+// and let the button's own pill be the only frame.
+static void BRHideSharedBarBackground(UIBarButtonItem *item) {
+    SEL hide = NSSelectorFromString(@"setHidesSharedBackground:");
+    if ([item respondsToSelector:hide]) {
+        ((void (*)(id, SEL, BOOL))objc_msgSend)(item, hide, YES);
+    }
+}
+
 - (UIButton *)navButton:(NSString *)title action:(SEL)action {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:title forState:UIControlStateNormal];
     [button setTitleColor:[UIColor colorWithRed:1 green:.8 blue:.2 alpha:1] forState:UIControlStateNormal];
-    button.titleLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightBlack];
+    button.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBlack];
     button.backgroundColor = [UIColor colorWithRed:.05 green:.10 blue:.22 alpha:1];
-    button.layer.cornerRadius = 10; button.layer.borderWidth = 1;
+    button.layer.cornerRadius = 14; button.layer.borderWidth = 1;
     button.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.14 alpha:1].CGColor;
-    button.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10);
+    button.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
     [button sizeToFit];
-    button.frame = CGRectMake(0, 0, MAX(53, CGRectGetWidth(button.bounds) + 20), 32);
+    button.frame = CGRectMake(0, 0, MAX(64, CGRectGetWidth(button.bounds) + 28), 44);
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; return button;
 }
 - (UIButton *)control:(NSString *)title color:(UIColor *)color action:(SEL)action {
