@@ -1,1 +1,0 @@
-git diff --cc -- ViewController.m >conflicts.txt
