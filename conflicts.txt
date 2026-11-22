@@ -1,0 +1,116 @@
+diff --cc ViewController.m
+index 0aa6091,fc8f1c5..0000000
+--- a/ViewController.m
++++ b/ViewController.m
+@@@ -2431,9 -2418,7 +2418,13 @@@ static NSString * _Nullable EZSeahorseR
+      self.inputContainer.translatesAutoresizingMaskIntoConstraints = NO;
+      [self.view addSubview:self.inputContainer];
+  
+++<<<<<<< HEAD
+ +    // The helper-direct-answer preference remains stored; its control belongs
+ +    // in Settings rather than occupying space in the composer.
+ +
+++=======
++     
+++>>>>>>> origin/main
+          // Dictate button
+          self.dictateButton = [UIButton buttonWithType:UIButtonTypeSystem];
+          [self.dictateButton setImage:[UIImage systemImageNamed:@"mic.fill"] forState:UIControlStateNormal];
+@@@ -2473,7 -2452,7 +2464,11 @@@
+      // Wrapped in a rounded container view to replicate UITextBorderStyleRoundedRect look.
+      UIView *inputWrapper = [[UIView alloc] init];
+      inputWrapper.backgroundColor   = [EZTheme backgroundColor];
+++<<<<<<< HEAD
+ +    inputWrapper.layer.cornerRadius = 24.0;
+++=======
++     inputWrapper.layer.cornerRadius = 26.0;
+++>>>>>>> origin/main
+      inputWrapper.layer.borderWidth  = 1.5;
+      inputWrapper.layer.borderColor  = [[EZTheme goldColor] colorWithAlphaComponent:0.35].CGColor;
+      inputWrapper.clipsToBounds      = YES;
+@@@ -2491,8 -2470,9 +2486,12 @@@
+      self.messageTextField.returnKeyType         = UIReturnKeyDefault;
+      self.messageTextField.translatesAutoresizingMaskIntoConstraints = NO;
+      
+++<<<<<<< HEAD
+ +    self.messageTextField.layer.cornerRadius = 0;
+++=======
++     self.messageTextField.layer.cornerRadius = 26;
+++>>>>>>> origin/main
+      self.messageTextField.layer.masksToBounds = YES;
+ -    self.messageTextField.layer.borderColor = [UIColor secondaryLabelColor].CGColor;
+  
+      // Placeholder label — UITextView has no built-in placeholder
+      UILabel *placeholder = [[UILabel alloc] init];
+@@@ -2530,7 -2510,7 +2529,11 @@@
+      [self.sendButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateNormal];
+      [self.sendButton setTitleColor:[[EZTheme userBubbleTextColor] colorWithAlphaComponent:0.45] forState:UIControlStateDisabled];
+      self.sendButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+++<<<<<<< HEAD
+ +    self.sendButton.layer.cornerRadius = 24.0;
+++=======
++     self.sendButton.layer.cornerRadius = 22.0;
+++>>>>>>> origin/main
+      self.sendButton.clipsToBounds = YES;
+      self.sendButton.contentEdgeInsets = UIEdgeInsetsMake(7, 16, 7, 16);
+      self.inputContainer.backgroundColor = [EZTheme cardColor];
+@@@ -2587,24 -2567,27 +2590,47 @@@
+          [self.imageSettingsButton.heightAnchor constraintEqualToConstant:32],
+          [self.modelButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
+          [self.imageSettingsButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
+ +        [inputWrapper.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
+          [self.attachButton.leadingAnchor constraintEqualToAnchor:self.inputContainer.leadingAnchor constant:12],
+++<<<<<<< HEAD
+ +        [self.attachButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
+ +        [self.attachButton.widthAnchor constraintEqualToConstant:48],
+ +        [self.attachButton.heightAnchor constraintEqualToConstant:48],
+ +        [inputWrapper.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
+ +        [inputWrapper.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-6],
+ +        [self.sendButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
+ +        [self.sendButton.heightAnchor constraintEqualToConstant:48],
+ +        [self.dictateButton.leadingAnchor constraintEqualToAnchor:self.sendButton.trailingAnchor constant:6],
+ +        [self.dictateButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
+ +        [self.dictateButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
+ +        [self.dictateButton.widthAnchor constraintEqualToConstant:44],
+ +        [self.dictateButton.heightAnchor constraintEqualToConstant:48],
+ +        [self.inputContainer.bottomAnchor constraintEqualToAnchor:inputWrapper.bottomAnchor constant:12],
+ +    ]];
+ +    // The composer expands while editing and collapses when focus leaves.
+ +    self.messageInputHeightConstraint = [inputWrapper.heightAnchor constraintEqualToConstant:56.0];
+++=======
++         [self.attachButton.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
++         [self.attachButton.widthAnchor constraintEqualToConstant:48],
++         [self.attachButton.heightAnchor constraintEqualToConstant:48],
++         [self.dictateButton.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
++         [self.dictateButton.centerYAnchor constraintEqualToAnchor:self.attachButton.centerYAnchor],
++         [self.dictateButton.widthAnchor constraintEqualToConstant:32],
++         [self.dictateButton.heightAnchor constraintEqualToConstant:32],
++         [inputWrapper.leadingAnchor constraintEqualToAnchor:self.dictateButton.trailingAnchor constant:8],
++         [inputWrapper.topAnchor     constraintEqualToAnchor:self.attachButton.topAnchor],
++         [inputWrapper.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-8],
++         [self.sendButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
++         [self.sendButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
++         [self.sendButton.heightAnchor constraintEqualToConstant:44],
++         [self.inputContainer.bottomAnchor constraintEqualToAnchor:inputWrapper.bottomAnchor constant:12],
++     ]];
++     // Collapsed height: 88pt — a taller field, and it clears the
++     // 48pt attach button beside it with room to spare.
++     // Expanded: ~4 lines.
++     // The constraint is animated in textViewDidBeginEditing / textViewDidEndEditing.
++     self.messageInputHeightConstraint = [inputWrapper.heightAnchor constraintEqualToConstant:88.0];
+++>>>>>>> origin/main
+      self.messageInputHeightConstraint.active = YES;
+  
+      [NSLayoutConstraint activateConstraints:@[
+@@@ -2708,7 -2691,7 +2734,11 @@@
+  
+  - (void)textViewDidEndEditing:(UITextView *)textView {
+      if (textView != self.messageTextField) return;
+++<<<<<<< HEAD
+ +    self.messageInputHeightConstraint.constant = 56.0;
+++=======
++     self.messageInputHeightConstraint.constant = 88.0;
+++>>>>>>> origin/main
+      [UIView animateWithDuration:0.25
+                            delay:0
+           usingSpringWithDamping:0.85
