@@ -214,7 +214,7 @@ NSString *const EZCurrentTermsVersion = @"2026-09-18";
     UIAlertController *confirm = [UIAlertController
         alertControllerWithTitle:@"Decline Terms?"
                          message:@"You must accept the Terms of Service and Privacy Policy to use "
-                                  "EZCompleteUI. Declining will sign you out."
+                                  "EZCompleteAI. Declining will sign you out."
                   preferredStyle:UIAlertControllerStyleAlert];
 
     [confirm addAction:[UIAlertAction
