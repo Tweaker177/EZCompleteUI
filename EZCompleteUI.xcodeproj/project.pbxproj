@@ -16,6 +16,7 @@
 		8C09ACE330AF8CDD00F964F8 /* BRPenguinParadeAudio.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACA630AF880100F964F8 /* BRPenguinParadeAudio.m */; };
 		8C09ACE430AF8CDD00F964F8 /* EZTheme.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACA330AF880100F964F8 /* EZTheme.m */; };
 		8C09ACE530AF8CDD00F964F8 /* EZLocalFileTools.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACBF30AF880500F964F8 /* EZLocalFileTools.m */; };
+		8EEBD25532A04606951452E7 /* EZFileConvertTools.m in Sources */ = {isa = PBXBuildFile; fileRef = C422045A8BFF4436A8EF73B8 /* EZFileConvertTools.m */; };
 		8C09ACE630AF8CDD00F964F8 /* BRGoldenMandarinAudio.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACAA30AF880200F964F8 /* BRGoldenMandarinAudio.m */; };
 		8C09ACE730AF8CDD00F964F8 /* BRStarlightOdysseySlotViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACA430AF880100F964F8 /* BRStarlightOdysseySlotViewController.m */; };
 		8C09ACE830AF8CDD00F964F8 /* EZSoundManifestEntry.m in Sources */ = {isa = PBXBuildFile; fileRef = 8C09ACB130AF880300F964F8 /* EZSoundManifestEntry.m */; };
@@ -193,6 +194,7 @@
 		8C09ACBD30AF880500F964F8 /* EZFileInfoViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZFileInfoViewController.m; sourceTree = "<group>"; };
 		8C09ACBE30AF880500F964F8 /* BRPenguinParadeArt.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BRPenguinParadeArt.m; sourceTree = "<group>"; };
 		8C09ACBF30AF880500F964F8 /* EZLocalFileTools.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZLocalFileTools.m; sourceTree = "<group>"; };
+		C422045A8BFF4436A8EF73B8 /* EZFileConvertTools.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EZFileConvertTools.m; sourceTree = "<group>"; };
 		8C09ACFA30AF8DF200F964F8 /* EZMemorySummaryViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZMemorySummaryViewController.m; sourceTree = "<group>"; };
 		8C09ACFB30AF8DF300F964F8 /* EZFileExplorerViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZFileExplorerViewController.m; sourceTree = "<group>"; };
 		8C09ACFC30AF8DF300F964F8 /* EZSoundsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZSoundsViewController.m; sourceTree = "<group>"; };
@@ -379,6 +381,7 @@
 				8C09ACBD30AF880500F964F8 /* EZFileInfoViewController.m */,
 				8C09ACB830AF880400F964F8 /* EZFileItem.m */,
 				8C09ACBF30AF880500F964F8 /* EZLocalFileTools.m */,
+				C422045A8BFF4436A8EF73B8 /* EZFileConvertTools.m */,
 				8C09ACAB30AF880200F964F8 /* EZSoundLibraryManager.m */,
 				8C09ACB130AF880300F964F8 /* EZSoundManifestEntry.m */,
 				8C09ACA330AF880100F964F8 /* EZTheme.m */,
@@ -655,6 +658,7 @@
 				A2000000000000000000000E /* EZKeyVault.m in Sources */,
 				A2000000000000000000000F /* SupportRequestViewController.m in Sources */,
 				8C09ACE530AF8CDD00F964F8 /* EZLocalFileTools.m in Sources */,
+				8EEBD25532A04606951452E7 /* EZFileConvertTools.m in Sources */,
 				A20000000000000000000010 /* TextToSpeechViewController.m in Sources */,
 				A20000000000000000000011 /* ElevenLabsCloneViewController.m in Sources */,
 				8C09ACE330AF8CDD00F964F8 /* BRPenguinParadeAudio.m in Sources */,
