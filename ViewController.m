@@ -2472,7 +2472,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.messageTextField.textColor             = [EZTheme primaryTextColor];
     self.messageTextField.tintColor             = [EZTheme goldColor];
     self.messageTextField.backgroundColor       = [UIColor clearColor];
-    self.messageTextField.textContainerInset    = UIEdgeInsetsMake(16, 14, 12, 14);
+    self.messageTextField.textContainerInset    = UIEdgeInsetsMake(16, 14, 12, 50);
     self.messageTextField.textContainer.lineFragmentPadding = 0;
     self.messageTextField.scrollEnabled         = YES;
     self.messageTextField.delegate              = self;
@@ -2503,6 +2503,9 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [self.messageTextField.trailingAnchor constraintEqualToAnchor:inputWrapper.trailingAnchor],
     ]];
     [self.inputContainer addSubview:inputWrapper];
+    // The dictate button was created before the wrapper existed; it
+    // lives inside the pill, at its right end, so it moves in here.
+    [inputWrapper addSubview:self.dictateButton];
 
     // Store inputWrapper so constraints can reference it below
     inputWrapper.tag = 9002;
@@ -2576,19 +2579,19 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [self.modelButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
         [self.imageSettingsButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
         [inputWrapper.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
-        [self.attachButton.leadingAnchor constraintEqualToAnchor:self.inputContainer.leadingAnchor constant:12],
+        [self.attachButton.leadingAnchor constraintEqualToAnchor:self.inputContainer.leadingAnchor constant:8],
         [self.attachButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
         [self.attachButton.widthAnchor constraintEqualToConstant:48],
         [self.attachButton.heightAnchor constraintEqualToConstant:48],
         [inputWrapper.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
         [inputWrapper.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-6],
         [self.sendButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
+        [self.sendButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-8],
         [self.sendButton.heightAnchor constraintEqualToConstant:48],
-        [self.dictateButton.leadingAnchor constraintEqualToAnchor:self.sendButton.trailingAnchor constant:6],
-        [self.dictateButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
+        [self.dictateButton.trailingAnchor constraintEqualToAnchor:inputWrapper.trailingAnchor constant:-4],
         [self.dictateButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
-        [self.dictateButton.widthAnchor constraintEqualToConstant:44],
-        [self.dictateButton.heightAnchor constraintEqualToConstant:48],
+        [self.dictateButton.widthAnchor constraintEqualToConstant:40],
+        [self.dictateButton.heightAnchor constraintEqualToConstant:44],
         [self.inputContainer.bottomAnchor constraintEqualToAnchor:inputWrapper.bottomAnchor constant:12],
     ]];
     // The composer expands while editing and collapses when focus leaves.
