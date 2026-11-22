@@ -26,7 +26,7 @@ static NSString *const kPolicyDate = @"September 18, 2026";
 static NSString *EZTermsText(void) {
     return
     @"TERMS OF SERVICE\n"
-    @"EZCompleteUI\n"
+    @"EZCompleteAI\n"
     @"Effective: "  kPolicyDate appended at call site
     ;
 }
@@ -41,15 +41,15 @@ static NSString *EZSupportEmail(void) {
 // We build the full strings at runtime so we can insert the date and email cleanly.
 static NSString *EZFullTermsText(void) {
     return [NSString stringWithFormat:
-    @"TERMS OF SERVICE — EZCompleteUI\n"
+    @"TERMS OF SERVICE — EZCompleteAI\n"
     @"Effective: %@\n"
     @"Developer: Brian Nooning (ios_tweak3r)\n\n"
 
     @"1. AGREEMENT\n"
-    @"By using EZCompleteUI you agree to these Terms. If you disagree, do not use the app.\n\n"
+    @"By using EZCompleteAI you agree to these Terms. If you disagree, do not use the app.\n\n"
 
     @"2. SERVICE DESCRIPTION\n"
-    @"EZCompleteUI provides AI-powered tools (chat, image generation, video, text-to-speech) "
+    @"EZCompleteAI provides AI-powered tools (chat, image generation, video, text-to-speech) "
     @"via a virtual coin system. Coins are purchased within the app and consumed when features are used.\n\n"
 
     @"3. ELIGIBILITY\n"
@@ -91,7 +91,7 @@ static NSString *EZFullTermsText(void) {
 
 static NSString *EZFullPrivacyText(void) {
     return [NSString stringWithFormat:
-    @"PRIVACY POLICY — EZCompleteUI\n"
+    @"PRIVACY POLICY — EZCompleteAI\n"
     @"Effective: %@\n"
     @"Developer: Brian Nooning (ios_tweak3r)\n\n"
 
@@ -130,7 +130,7 @@ static NSString *EZFullPrivacyText(void) {
     @"and password-reset emails. Resend processes the recipient email address, message content needed "
     @"to deliver the email, and delivery-related technical data on our behalf (resend.com/legal/privacy-policy).\n\n"
 
-    @"Cloudflare — Cloudflare provides domain-resolution and network/security services for EZCompleteUI. "
+    @"Cloudflare — Cloudflare provides domain-resolution and network/security services for EZCompleteAI. "
     @"When you access a domain, website, API, or other service routed through Cloudflare, Cloudflare may "
     @"process technical request information such as IP address, traffic-routing data, and device or system "
     @"configuration information (cloudflare.com/policies/privacy). Cloudflare may be used for additional "
@@ -139,7 +139,7 @@ static NSString *EZFullPrivacyText(void) {
     @"Namecheap — Namecheap provides domain registration and DNS-related infrastructure for our domain. "
     @"Namecheap may process limited technical DNS or service information needed to operate that infrastructure "
     @"under its privacy policy (namecheap.com/legal/general/privacy-policy). We do not provide Namecheap with "
-    @"your EZCompleteUI account profile, prompts, or payment information.\n\n"
+    @"your EZCompleteAI account profile, prompts, or payment information.\n\n"
 
     @"NO OTHER SHARING\n"
     @"Beyond the service providers identified above and disclosures required by law, your data is not sold, rented, or shared with anyone. "
@@ -166,7 +166,7 @@ static NSString *EZFullPrivacyText(void) {
 
 static NSString *EZFullRefundText(void) {
     return [NSString stringWithFormat:
-    @"REFUND POLICY — EZCompleteUI\n"
+    @"REFUND POLICY — EZCompleteAI\n"
     @"Effective: %@\n"
     @"Developer: Brian Nooning (ios_tweak3r)\n\n"
 
