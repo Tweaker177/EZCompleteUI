@@ -1,5 +1,5 @@
 // EZMediaPlayerManager.h
-// EZCompleteUI v1.3
+// EZCompleteUI v1.4
 //
 // Purpose:
 //   The app's single, shared audio player. Anything that wants to play a
@@ -31,6 +31,16 @@
 //   Speech screen and the Text to Speech History list. The only other audio
 //   player left in the app is the clip editor's short preview, which stops
 //   this one before it starts.
+//
+// Changes from v1.4:
+//   - Finishing an item advances Up Next only when the item was part of
+//     that flow (the Music screen's playlist). One-shot items — a TTS clip,
+//     a sound, a chat song card — stop when they end instead of starting
+//     whatever songs were still queued.
+//   - The player keeps the audio session on the non-mixable Playback
+//     category while its item plays and when it resumes, so the song keeps
+//     its lock-screen / Control Center player; the lock screen also gets a
+//     stop command.
 //
 // Changes from v1.0:
 //   - Items can carry a playback speed (Text to Speech clips remember one).

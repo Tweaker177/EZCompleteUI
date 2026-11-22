@@ -1,5 +1,5 @@
 // EZMediaPlayerManager.m
-// EZCompleteUI v1.3
+// EZCompleteUI v1.4
 //
 // Purpose:
 //   Implementation of the app's shared audio player described in
@@ -29,6 +29,17 @@
 //     - Callbacks arrive on background threads (KVO, lock-screen buttons):
 //       they all hop to the main queue before touching any state.
 //     - Items with a custom speed keep it after pause/resume and seeking.
+//
+// Changes from v1.4:
+//   - Up Next now belongs to whoever set it (the Music screen's playlist).
+//     Finishing an item only advances the queue when the item was part of
+//     that flow; a one-shot clip, sound or chat song that ends now stops
+//     instead of rolling into the queued songs.
+//   - The player re-asserts the non-mixable Playback category on resume and
+//     while an item is playing, so another feature's mixable session can no
+//     longer cost the song its lock-screen / Control Center presence.
+//   - Lock screen: a stop command, which unloads the item and releases the
+//     audio session.
 //
 // Changes from v1.0:
 //   - Per-item playback speed (pitch preserved).
@@ -119,6 +130,12 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 // YES once the user (or the lock screen) paused on purpose. An interruption
 // that ends must not restart something the user had paused.
 @property (nonatomic, assign) BOOL userRequestedPause;
+// YES when the loaded item belongs to the Up Next flow (the Music screen's
+// playlist), so finishing it should start the next queued item. One-shot
+// items played through -playItem: (a TTS clip, a sound, a chat song card)
+// leave this NO: when they finish, playback simply stops instead of
+// rolling into whatever playlist happens to still be queued.
+@property (nonatomic, assign) BOOL currentItemAdvancesQueue;
 @end
 
 @implementation EZMediaPlayerManager
@@ -196,12 +213,12 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 #pragma mark - Starting, queueing, stopping
 
 - (void)playItem:(EZMediaPlayerItem *)item {
-    [self startItem:item recordingHistory:YES];
+    [self startItem:item recordingHistory:YES advancesQueue:NO];
 }
 
 /// `recordHistory` is NO when going back, so "previous" doesn't pile up the
 /// item we just left as if it were new history.
-- (void)startItem:(EZMediaPlayerItem *)item recordingHistory:(BOOL)recordHistory {
+- (void)startItem:(EZMediaPlayerItem *)item recordingHistory:(BOOL)recordHistory advancesQueue:(BOOL)advancesQueue {
     if (!item || !item.fileURL) return;
 
     if (recordHistory && self.currentItem && ![self.currentItem.identifier isEqualToString:item.identifier]) {
@@ -211,6 +228,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 
     [self detachObservedItem];
     self.currentItem = item;
+    self.currentItemAdvancesQueue = advancesQueue;
     self.errorMessage = nil;
     self.userRequestedPause = NO;
     // It is playing now, so it should not also wait in line.
@@ -264,7 +282,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 
 - (void)enqueueItem:(EZMediaPlayerItem *)item {
     if (!item || !item.fileURL) return;
-    if (!self.currentItem) { [self playItem:item]; return; }
+    if (!self.currentItem) { [self startItem:item recordingHistory:YES advancesQueue:YES]; return; }
     if ([item.identifier isEqualToString:self.currentItem.identifier]) return;
     for (EZMediaPlayerItem *queued in self.queue) {
         if ([queued.identifier isEqualToString:item.identifier]) return;
@@ -280,7 +298,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     }
     EZMediaPlayerItem *next = self.queue.firstObject;
     [self.queue removeObjectAtIndex:0];
-    [self playItem:next];
+    [self startItem:next recordingHistory:YES advancesQueue:YES];
 }
 
 - (void)replaceUpNext:(NSArray<EZMediaPlayerItem *> *)items {
@@ -294,6 +312,11 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
         [cleaned addObject:item];
     }
     self.queue = cleaned;
+    // Only the Music screen replaces Up Next, right after starting a song:
+    // that anchors the playlist on the loaded song, so when it finishes the
+    // queue rolls on. A one-shot that is loaded later turns this back off
+    // (see -playItem:) without clearing the queue itself.
+    if (self.currentItem) self.currentItemAdvancesQueue = YES;
     [self publishChange];
 }
 
@@ -321,7 +344,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     }
     EZMediaPlayerItem *leaving = self.currentItem;
     [self.history removeLastObject];
-    [self startItem:previous recordingHistory:NO];
+    [self startItem:previous recordingHistory:NO advancesQueue:self.currentItemAdvancesQueue];
     // The one we left is next in line again.
     [self.queue insertObject:leaving atIndex:0];
     [self publishChange];
@@ -339,6 +362,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     [self detachObservedItem];
     [self.player replaceCurrentItemWithPlayerItem:nil];
     self.currentItem = nil;
+    self.currentItemAdvancesQueue = NO;
     self.errorMessage = nil;
     self.userRequestedPause = NO;
     if (deactivate) {
@@ -380,7 +404,12 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     if (!self.currentItem || self.state == EZMediaPlayerStateFailed) return;
     self.userRequestedPause = NO;
     NSError *sessionError = nil;
-    [[AVAudioSession sharedInstance] setActive:YES error:&sessionError];
+    // Re-assert the category, not just activation: another feature may have
+    // switched the shared session to a mixable category while this item was
+    // paused, and a mixable session never becomes the Now Playing app — the
+    // song would play with no lock-screen or Control Center controls.
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:&sessionError];
+    if (!sessionError) [[AVAudioSession sharedInstance] setActive:YES error:&sessionError];
     if (sessionError) {
         EZLogf(EZLogLevelWarning, @"Player", @"Could not reactivate audio session: %@", sessionError.localizedDescription);
     }
@@ -412,7 +441,9 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     double length = self.duration;
     double target = self.currentTime + seconds;
     if (length > 0 && target >= length - 0.1) {
-        [self playNext];   // Skipped past the end: same as finishing.
+        // Skipped past the end: same as finishing, including the queue rule.
+        if (self.currentItemAdvancesQueue) [self playNext];
+        else [self clearCurrentItemDeactivatingSession:YES];
         return;
     }
     [self seekToSeconds:target];
@@ -447,6 +478,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
         }
     }
     self.state = newState;
+    if (newState == EZMediaPlayerStatePlaying) [self reclaimPlaybackCategoryIfNeeded];
     [self publishChange];
 }
 
@@ -465,7 +497,27 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 /// Four times a second while playing, so progress bars move smoothly.
 - (void)playbackTick {
     if (self.state != EZMediaPlayerStatePlaying) return;
+    [self reclaimPlaybackCategoryIfNeeded];
     [[NSNotificationCenter defaultCenter] postNotificationName:EZMediaPlayerDidUpdateNotification object:self];
+}
+
+/// Other features share the audio session and set a mixable category for
+/// their own sounds. While an item from this player is sounding, take the
+/// policy back: a mixable session never becomes the Now Playing app, so a
+/// song that loses the category also loses its lock-screen and Control
+/// Center presence. Only acts when the category is actually wrong, so a
+/// feature's short sound effect is at most cut once, on the next tick.
+- (void)reclaimPlaybackCategoryIfNeeded {
+    if (!self.currentItem) return;
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    BOOL mixable = (session.categoryOptions & AVAudioSessionCategoryOptionMixWithOthers) != 0;
+    if ([session.category isEqualToString:AVAudioSessionCategoryPlayback] && !mixable) return;
+    NSError *sessionError = nil;
+    [session setCategory:AVAudioSessionCategoryPlayback error:&sessionError];
+    if (!sessionError) [session setActive:YES error:&sessionError];
+    if (sessionError) {
+        EZLogf(EZLogLevelWarning, @"Player", @"Could not reclaim playback category: %@", sessionError.localizedDescription);
+    }
 }
 
 #pragma mark - KVO and AVFoundation notifications
@@ -483,7 +535,13 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 - (void)playerItemDidPlayToEnd:(NSNotification *)note {
     dispatch_async(dispatch_get_main_queue(), ^{
         if (note.object != self.observedPlayerItem) return;   // a stale item
-        [self playNext];   // With nothing queued this unloads and releases the session.
+        if (self.currentItemAdvancesQueue) {
+            [self playNext];   // With nothing queued this unloads and releases the session.
+        } else {
+            // A one-shot finished. The Up Next list belongs to the Music
+            // screen's playlist; a clip or sound ending must not start it.
+            [self clearCurrentItemDeactivatingSession:YES];
+        }
     });
 }
 
@@ -542,6 +600,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     [commandCenter.playCommand addTarget:self action:@selector(handlePlayCommand:)];
     [commandCenter.pauseCommand addTarget:self action:@selector(handlePauseCommand:)];
     [commandCenter.togglePlayPauseCommand addTarget:self action:@selector(handleTogglePlayPauseCommand:)];
+    [commandCenter.stopCommand addTarget:self action:@selector(handleStopCommand:)];
     [commandCenter.nextTrackCommand addTarget:self action:@selector(handleNextTrackCommand:)];
     [commandCenter.previousTrackCommand addTarget:self action:@selector(handlePreviousTrackCommand:)];
     [commandCenter.changePlaybackPositionCommand addTarget:self action:@selector(handleChangePositionCommand:)];
@@ -583,6 +642,17 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     return MPRemoteCommandHandlerStatusSuccess;
 }
 
+- (MPRemoteCommandHandlerStatus)handleStopCommand:(MPRemoteCommandEvent *)event {
+    if (!self.currentItem) return MPRemoteCommandHandlerStatusNoActionableNowPlayingItem;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self stop];
+        [[AVAudioSession sharedInstance] setActive:NO
+                                       withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
+                                             error:nil];
+    });
+    return MPRemoteCommandHandlerStatusSuccess;
+}
+
 - (MPRemoteCommandHandlerStatus)handleNextTrackCommand:(MPRemoteCommandEvent *)event {
     if (self.queue.count == 0) return MPRemoteCommandHandlerStatusNoActionableNowPlayingItem;
     dispatch_async(dispatch_get_main_queue(), ^{ [self playNext]; });
@@ -606,6 +676,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     commandCenter.playCommand.enabled = hasItem;
     commandCenter.pauseCommand.enabled = hasItem;
     commandCenter.togglePlayPauseCommand.enabled = hasItem;
+    commandCenter.stopCommand.enabled = hasItem;
     commandCenter.changePlaybackPositionCommand.enabled = hasItem;
     commandCenter.nextTrackCommand.enabled = (self.queue.count > 0);
     // iOS swaps the skip buttons for track buttons whenever previous or next is
