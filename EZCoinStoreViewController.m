@@ -271,6 +271,10 @@ static NSString *const kTierUltraAnnual    = @"ultra_annual";
 
 static CGFloat const kPromoBannerHeight = 108.0;
 
+// Vertical space the big web store button takes at the top of the
+// header while it is showing: 12 above + 58 button + 12 below.
+static CGFloat const kWebStoreSlotHeight = 82.0;
+
 // Now 0 — the Daily Coins button moved into the nav bar, so nothing floats
 
 // over the header content anymore and the banner can sit flush at the top.
@@ -643,7 +647,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, copy)   NSString        *webStoreURLString; // web_store_url from the status response; nil or empty when the server sends none
 
-@property (nonatomic, strong) UIButton        *webStoreButton;    // Footer button that opens webStoreURLString in Safari
+@property (nonatomic, strong) UIButton        *webStoreButton;    // Big button at the top of the store; opens webStoreURLString in Safari
+@property (nonatomic, assign) BOOL            webStoreSlotVisible; // YES while the header is grown to fit webStoreButton
 
 //@property (nonatomic, strong) NSTimer   *countdownTimer;         // Fires every second to tick the "Next: Xh Ym Xs" label
 
@@ -1805,35 +1810,39 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 }
 
-// Shows or hides the web store footer button under the store list. The
-
-// button exists only while the status response carries a web_store_url;
-
-// with no URL (older server, or a storefront the server does not send
-
-// one for) the footer is removed and the store looks exactly as before.
-
+// Shows or hides the big web store button at the top of the store, right
+// under the controls row. The button exists only while the status response
+// carries a web_store_url; with no URL (older server, or a storefront the
+// server does not send one for) the header looks exactly as before. While
+// the button is showing the header grows by kWebStoreSlotHeight and every
+// frame-based header subview below the controls row shifts down with it;
+// the two utility buttons are constraint-anchored to the header top and
+// stay put. There is no footer button anymore.
 - (void)updateWebStoreButton {
 
-    if (!self.webStoreURLString.length) {
+    BOOL shouldShow = self.webStoreURLString.length > 0;
 
-        self.tableView.tableFooterView = nil;
+    if (shouldShow == self.webStoreSlotVisible) return;
 
-        return;
+    if (shouldShow && !self.webStoreButton) {
 
-    }
-
-    CGFloat footerWidth = self.tableView.bounds.size.width;
-
-    if (!self.webStoreButton) {
-
-        self.webStoreButton = [UIButton buttonWithType:UIButtonTypeSystem];
+        self.webStoreButton = [UIButton buttonWithType:UIButtonTypeCustom];
 
         [self.webStoreButton setTitle:@"Buy coins on our website" forState:UIControlStateNormal];
 
-        self.webStoreButton.titleLabel.font = [UIFont systemFontOfSize:15.0 weight:UIFontWeightSemibold];
+        self.webStoreButton.titleLabel.font = [UIFont systemFontOfSize:18.0 weight:UIFontWeightBold];
 
-        [self.webStoreButton setTitleColor:[UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0] forState:UIControlStateNormal];
+        self.webStoreButton.titleLabel.adjustsFontSizeToFitWidth = YES;
+
+        self.webStoreButton.titleLabel.minimumScaleFactor = 0.7;
+
+        [self.webStoreButton setTitleColor:[EZTheme backgroundColor] forState:UIControlStateNormal];
+
+        [self.webStoreButton setBackgroundImage:[EZTheme primaryGradientImage] forState:UIControlStateNormal];
+
+        self.webStoreButton.layer.cornerRadius = 29.0;
+
+        self.webStoreButton.layer.masksToBounds = YES;
 
         [self.webStoreButton addTarget:self
 
@@ -1843,21 +1852,49 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     }
 
-    UIView *footerView = self.webStoreButton.superview;
+    CGFloat delta = shouldShow ? kWebStoreSlotHeight : -kWebStoreSlotHeight;
 
-    if (!footerView) {
+    for (UIView *subview in self.headerView.subviews) {
 
-        footerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, footerWidth, 64)];
+        if (subview == self.webStoreButton) continue;
 
-        [footerView addSubview:self.webStoreButton];
+        if (!subview.translatesAutoresizingMaskIntoConstraints) continue;
+
+        CGRect frame = subview.frame;
+
+        if (frame.origin.y >= 48.0) {
+
+            frame.origin.y += delta;
+
+            subview.frame = frame;
+
+        }
 
     }
 
-    footerView.frame = CGRectMake(0, 0, footerWidth, 64);
+    CGRect headerFrame = self.headerView.frame;
 
-    self.webStoreButton.frame = CGRectMake(16, 10, footerWidth - 32, 44);
+    headerFrame.size.height += delta;
 
-    self.tableView.tableFooterView = footerView;
+    self.headerView.frame = headerFrame;
+
+    if (shouldShow) {
+
+        [self.headerView addSubview:self.webStoreButton];
+
+        self.webStoreButton.frame = CGRectMake(16, 48.0 + 12.0, self.headerView.bounds.size.width - 32, 58);
+
+    } else {
+
+        [self.webStoreButton removeFromSuperview];
+
+    }
+
+    self.webStoreSlotVisible = shouldShow;
+
+    self.tableView.tableHeaderView = self.headerView;
+
+    self.tableView.tableFooterView = nil;
 
 }
 
