@@ -7532,10 +7532,24 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                     NSUInteger chars = marker.location == NSNotFound ? url.length : url.length - NSMaxRange(marker);
                     logBlock[@"image_url"] = @{ @"url": [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)chars] };
                 }
-            } else if ([type isEqualToString:@"input_image"] && [block[@"data"] isKindOfClass:NSString.class]) {
-                NSString *data = block[@"data"];
-                NSString *mime = [block[@"media_type"] isKindOfClass:NSString.class] ? block[@"media_type"] : @"image";
-                logBlock[@"data"] = [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)data.length];
+            } else if ([type isEqualToString:@"input_image"]) {
+                if ([block[@"data"] isKindOfClass:NSString.class]) {
+                    NSString *data = block[@"data"];
+                    NSString *mime = [block[@"media_type"] isKindOfClass:NSString.class] ? block[@"media_type"] : @"image";
+                    logBlock[@"data"] = [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)data.length];
+                }
+                // History conversion emits input_image with the payload as a
+                // plain image_url data: string; that shape slipped past the
+                // redaction above and wrote whole images into the System Log.
+                id imageURL = block[@"image_url"];
+                NSString *url = [imageURL isKindOfClass:NSDictionary.class] ? imageURL[@"url"]
+                    : [imageURL isKindOfClass:NSString.class] ? imageURL : nil;
+                if ([url hasPrefix:@"data:"]) {
+                    NSRange marker = [url rangeOfString:@";base64,"];
+                    NSString *mime = marker.location == NSNotFound ? @"image" : [url substringWithRange:NSMakeRange(5, marker.location - 5)];
+                    NSUInteger chars = marker.location == NSNotFound ? url.length : url.length - NSMaxRange(marker);
+                    logBlock[@"image_url"] = [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)chars];
+                }
             }
             [logContent addObject:logBlock];
         }
