@@ -136,7 +136,7 @@
 		A200000000000000000000FF /* EZStoreKitManager.m in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000FF /* EZStoreKitManager.m */; };
 		B20000000000000000000001 /* ShareExtension/ShareViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* ShareExtension/ShareViewController.m */; };
 		B20000000000000000000002 /* EZCompleteUIShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B30000000000000000000002 /* EZCompleteUIShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		C10000000000000000000002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000001 /* Assets.xcassets */; };
+		C10000000000000000000002 /* Resources/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000001 /* Resources/Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -303,7 +303,7 @@
 		B10000000000000000000002 /* ShareExtension/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = ShareExtension/Info.plist; sourceTree = "<group>"; };
 		B10000000000000000000003 /* ShareExtension/EZCompleteUIShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension/EZCompleteUIShare.entitlements; sourceTree = "<group>"; };
 		B30000000000000000000002 /* EZCompleteUIShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EZCompleteUIShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		C10000000000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
+		C10000000000000000000001 /* Resources/Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -324,6 +324,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		8C5D3CC730B35C78003C2783 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				C10000000000000000000001 /* Resources/Assets.xcassets */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		A40000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
@@ -381,6 +389,7 @@
 				A30000000000000000000002 /* Resources/Info.plist */,
 				B40000000000000000000001 /* ShareExtension */,
 				A40000000000000000000003 /* Products */,
+				8C5D3CC730B35C78003C2783 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -575,7 +584,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C10000000000000000000002 /* Assets.xcassets in Resources */,
+				C10000000000000000000002 /* Resources/Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
