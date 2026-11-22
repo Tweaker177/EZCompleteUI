@@ -1636,8 +1636,9 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     // which takes this array as-is.
     self.models = @[
            // ── Chat / Reasoning ──────────────────────────────────────────────
-           @"gpt-6-astra", // newest flagship reasoning model
-           @"gpt-6.1-sol", @"gpt-6.1-terra", @"gpt-6-luna",
+           @"gpt-6.2-astra", // newest flagship reasoning model
+           @"gpt-6-astra",
+           @"gpt-6.2-sol", @"gpt-6.1-sol", @"gpt-6.1-terra", @"gpt-6-luna",
            @"gpt-5-pro", @"gpt-5", @"gpt-5-mini",
            @"gpt-4o", @"gpt-4o-mini",
            // ── Image Generation & Edit ───────────────────────────────────────
@@ -4279,7 +4280,9 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 - (BOOL)selectedModelRequiresPurchase {
-    return [self.selectedModel isEqualToString:@"gpt-6-astra"] ||
+    return [self.selectedModel isEqualToString:@"gpt-6.2-astra"] ||
+           [self.selectedModel isEqualToString:@"gpt-6-astra"] ||
+           [self.selectedModel isEqualToString:@"gpt-6.2-sol"] ||
            [self.selectedModel isEqualToString:@"gpt-6.1-sol"];
 }
 
@@ -4986,7 +4989,9 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     // matched by hasPrefix:@"gpt-5"; the GPT-6 family is matched by
     // the explicit equality checks in isGPT5 below.
     BOOL isGPT5 = [self.selectedModel hasPrefix:@"gpt-5"] ||
+                  [self.selectedModel isEqualToString:@"gpt-6.2-astra"] ||
                   [self.selectedModel isEqualToString:@"gpt-6-astra"] ||
+                  [self.selectedModel isEqualToString:@"gpt-6.2-sol"] ||
                   [self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
                   [self.selectedModel isEqualToString:@"gpt-6.1-terra"] ||
                   [self.selectedModel isEqualToString:@"gpt-6-luna"];
@@ -5107,7 +5112,8 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     // featureTier is only used for logging context in ez-chat.
     // Actual coin cost is computed per exact model string server-side.
     NSString *featureTier;
-    if ([self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
+    if ([self.selectedModel isEqualToString:@"gpt-6.2-sol"] ||
+        [self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
         [self.selectedModel isEqualToString:@"gpt-6.1-terra"]) {
         featureTier = @"chat_standard";
     } else if ([self.selectedModel hasPrefix:@"o1"] || [self.selectedModel hasPrefix:@"o3"]) {
@@ -5349,7 +5355,9 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     NSURL *ezURL = [NSURL URLWithString:@"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-chat"];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:ezURL];
     request.HTTPMethod = @"POST";
-    BOOL isHeavyReasoningModel = [self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
+    BOOL isHeavyReasoningModel = [self.selectedModel isEqualToString:@"gpt-6.2-sol"] ||
+                                  [self.selectedModel isEqualToString:@"gpt-6.1-sol"] ||
+                                  [self.selectedModel isEqualToString:@"gpt-6.2-astra"] ||
                                   [self.selectedModel isEqualToString:@"gpt-6-astra"];
     // Leave headroom beyond ez-chat's server-side OpenAI deadline. Previously
     // the 90s/180s client deadlines could cancel a request the server was still
@@ -7271,8 +7279,8 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 - (BOOL)modelSupportsVision:(NSString *)model {
     // gpt-5.x and gpt-4.1.x all support vision via the Responses API.
     // Prefix checks cover all variants (gpt-5, gpt-5.1-mini, gpt-4.1, gpt-4.1-mini, etc.)
-    if ([model hasPrefix:@"gpt-5"] || [model isEqualToString:@"gpt-6-astra"] ||
-        [model isEqualToString:@"gpt-6.1-sol"] || [model isEqualToString:@"gpt-6.1-terra"] ||
+    if ([model hasPrefix:@"gpt-5"] || [model isEqualToString:@"gpt-6.2-astra"] || [model isEqualToString:@"gpt-6-astra"] ||
+        [model isEqualToString:@"gpt-6.2-sol"] || [model isEqualToString:@"gpt-6.1-sol"] || [model isEqualToString:@"gpt-6.1-terra"] ||
         [model isEqualToString:@"gpt-6-luna"]) return YES;
     if ([model hasPrefix:@"gpt-4.1"]) return YES;
     if ([model hasPrefix:@"o3"])      return YES;
