@@ -163,6 +163,63 @@ static NSArray<NSString *> *EZLocalFileRootNames(void) {
                        body:[body stringByTrimmingCharactersInSet:[NSCharacterSet newlineCharacterSet]]];
 }
 
+/// Locates one file for a caller that needs the file itself (the
+/// converter), using exactly the addressing and the match ladder
+/// runRead uses, so a name that reads is a name that converts.
++ (NSDictionary *)locateFileForName:(NSString *)name {
+    name = [name isKindOfClass:[NSString class]]
+        ? [name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] : @"";
+    if (!name.length) return @{ @"problem": @"No file name was given." };
+    NSFileManager *fm = [NSFileManager defaultManager];
+    if ([name containsString:@"/"]) {
+        NSString *rootName = nil;
+        NSString *absolute = [self resolvedPathForRelativePath:name rootName:&rootName];
+        if (!absolute) {
+            return @{ @"problem": [NSString stringWithFormat:
+                @"\"%@\" is outside the allowed folders (EZAttachments, EZPhotoGallery, EZSounds, EZMusic, EZThreads).", name] };
+        }
+        NSDictionary *root = [self rootNamed:rootName];
+        NSDictionary *attrs = [fm attributesOfItemAtPath:absolute error:nil];
+        if (!attrs) {
+            return @{ @"problem": [NSString stringWithFormat:
+                @"No file at \"%@\" was found. Use list_local_files to browse what is available.", name] };
+        }
+        if ([attrs[NSFileType] isEqualToString:NSFileTypeDirectory]) {
+            return @{ @"problem": [NSString stringWithFormat:
+                @"\"%@\" is a folder, not a file.", [self displayPathForAbsolutePath:absolute root:root]] };
+        }
+        return @{ @"path": absolute,
+                  @"display": [self displayPathForAbsolutePath:absolute root:root],
+                  @"byteSize": attrs[NSFileSize] ?: @0 };
+    }
+    NSArray<NSDictionary *> *entries = [self fileEntries];
+    NSMutableArray<NSDictionary *> *exact = [NSMutableArray array];
+    NSMutableArray<NSDictionary *> *folded = [NSMutableArray array];
+    NSMutableArray<NSDictionary *> *partial = [NSMutableArray array];
+    for (NSDictionary *entry in entries) {
+        if ([entry[@"name"] isEqualToString:name]) [exact addObject:entry];
+        else if ([entry[@"name"] caseInsensitiveCompare:name] == NSOrderedSame) [folded addObject:entry];
+        else if ([entry[@"name"] rangeOfString:name options:NSCaseInsensitiveSearch].location != NSNotFound ||
+                 [entry[@"full"] rangeOfString:name options:NSCaseInsensitiveSearch].location != NSNotFound) [partial addObject:entry];
+    }
+    NSArray<NSDictionary *> *matches = exact.count ? exact : (folded.count ? folded : partial);
+    if (matches.count == 1) {
+        NSDictionary *match = matches.firstObject;
+        return @{ @"path": match[@"path"], @"display": match[@"full"], @"byteSize": match[@"size"] ?: @0 };
+    }
+    if (matches.count > 1) {
+        NSMutableString *body = [NSMutableString stringWithFormat:
+            @"Several files match \"%@\". Ask again with one full path:\n", name];
+        NSUInteger limit = MIN(matches.count, (NSUInteger)20);
+        for (NSUInteger i = 0; i < limit; i++) {
+            [body appendFormat:@"- %@ (%@ bytes)\n", matches[i][@"full"], matches[i][@"size"]];
+        }
+        return @{ @"problem": [body stringByTrimmingCharactersInSet:[NSCharacterSet newlineCharacterSet]] };
+    }
+    return @{ @"problem": [NSString stringWithFormat:
+        @"No file named \"%@\" was found in EZAttachments, EZPhotoGallery, EZSounds, EZMusic or EZThreads. Use list_local_files to see what is available.", name] };
+}
+
 #pragma mark - Classification (content, never extension)
 
 + (BOOL)isPDFData:(NSData *)data {

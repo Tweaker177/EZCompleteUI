@@ -611,7 +611,6 @@
 #import "ViewController+EZKeepAwake.h"
 #import "ElevenLabsCloneViewController.h"
 #import "EZCoinStoreViewController.h"
-#import "EZStoreKitManager.h"
 #import "EZTheme.h"
 #import "EZFirstRunTutorialViewController.h"
 #import "EZPhotoGalleryViewController.h"
@@ -622,6 +621,7 @@
 #import "EZMusicService.h"
 #import "EZGitHubService.h"
 #import "EZLocalFileTools.h"
+#import "EZFileConvertTools.h"
 #import "EZMusicLibraryManager.h"
 #import "EZSoundLibraryManager.h"
 #import "EZTTSLibraryManager.h"
@@ -914,13 +914,18 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UIButton      *modelButton;
 @property (nonatomic, strong) UIButton      *attachButton;
 @property (nonatomic, strong) UIButton      *settingsButton;
+@property (nonatomic, strong) UIButton      *speakButton;
 @property (nonatomic, strong) UIButton      *clearButton;
 /// Appears in input area when an image model is active — opens image parameter sheet.
 @property (nonatomic, strong) UIButton      *imageSettingsButton;
 @property (nonatomic, strong) UIButton      *dictateButton;
+@property (nonatomic, strong) UIButton      *webSearchButton;
 /// Lightning bolt: permits helper models to answer directly when enabled.
+@property (nonatomic, strong) UIButton      *helperDirectAnswersButton;
 @property (nonatomic, strong) UIButton      *historyButton;
 @property (nonatomic, strong) UIButton      *addChatButton;
+@property (nonatomic, strong) UIButton      *memoriesButton;
+@property (nonatomic, strong) UIButton      *threadSelectionButton;
 @property (nonatomic, assign) BOOL          threadSelectionActive;
 @property (nonatomic, strong) NSMutableIndexSet *selectedThreadMessageIndexes;
 @property (nonatomic, strong) UIView        *threadSelectionBar;
@@ -1133,7 +1138,9 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)performChatGitHubRequest:(NSDictionary *)githubRequest summary:(NSString *)summary threadID:(NSString *)threadID;
 - (void)ez_compactGitHubResults;
 @property (nonatomic, assign) NSInteger localFileRoundCount;
+@property (nonatomic, assign) NSInteger convertRoundCount;
 - (void)performChatLocalFileRequest:(NSDictionary *)request summary:(NSString *)summary threadID:(NSString *)threadID;
+- (void)performChatConvertRequest:(NSDictionary *)request summary:(NSString *)summary threadID:(NSString *)threadID;
 - (void)ez_compactLocalFileResults;
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *pendingForgetPrompts;
 @property (nonatomic, strong) NSDictionary *activeForgetPrompt;
@@ -1167,6 +1174,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath
                model:(NSString *)imageModel preserveChatModel:(BOOL)preserveChatModel;
 - (void)callImageEdit:(NSString *)prompt imagePath:(NSString *)imagePath;
+- (void)toggleHelperDirectAnswers;
+- (void)updateHelperDirectAnswersButton;
 - (void)callChatCompletionsWithRetryCount:(NSInteger)retryCount;
 - (void)recoverUndeliveredGalleryImagesIfNeeded;
 - (void)consumePendingExternalImageEdit;
@@ -1688,7 +1697,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [defaults setInteger:3 forKey:@"TriageUncertainTurns"];
     }
     if ([defaults objectForKey:@"HelperDirectAnswersEnabled"] == nil) {
-        [defaults setBool:NO forKey:@"HelperDirectAnswersEnabled"];
+        [defaults setBool:YES forKey:@"HelperDirectAnswersEnabled"];
     }
 
     // Restore persisted image/attachment paths so they survive app restarts.
@@ -2271,6 +2280,9 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.historyButton   = [self _iconButton:@"line.3.horizontal" tint:nil
                                       action:@selector(openHistory)];
     self.historyButton.accessibilityLabel = @"Navigation and recent chats";
+    // Speak last AI response
+    self.speakButton     = [self _iconButton:@"speaker.wave.2.fill" tint:nil
+                                      action:@selector(speakLastResponse)];
 
     
     self.cloningButton = [self _iconButton:@"doc.richtext" tint:nil action:@selector(openCloning)];
@@ -2281,11 +2293,23 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     self.textToSpeechButton = [self _iconButton:@"play.circle.fill" tint:nil action:@selector(openTTS)];
 
-    // Memories lives in the nav drawer, and thread multi-select starts
-    // from a message's long-press menu, so neither needs a button here.
-    // Web search is set in Settings; ez-chat's per-prompt gate decides
-    // when it actually runs, so it needs no toggle here either.
-    // Helper direct answers is a Settings toggle as well.
+    // Keep Memories and multi-select as separate, discoverable actions.
+    self.memoriesButton = [self _iconButton:@"brain.head.profile" tint:[UIColor systemTealColor]
+                                     action:@selector(openMemories)];
+    self.memoriesButton.accessibilityLabel = @"Memories";
+    self.threadSelectionButton = [self _iconButton:@"checkmark.circle" tint:[UIColor systemBlueColor]
+                                            action:@selector(toggleThreadSelection)];
+    [self.threadSelectionButton setTitle:@"SEL" forState:UIControlStateNormal];
+    self.threadSelectionButton.titleLabel.font = [UIFont systemFontOfSize:10 weight:UIFontWeightBold];
+    self.threadSelectionButton.accessibilityLabel = @"Select parts of this thread";
+    // Web search toggle
+    self.webSearchButton = [self _iconButton:@"globe" tint:nil
+                                      action:@selector(toggleWebSearch)];
+    [self updateWebSearchButtonTint];
+    self.helperDirectAnswersButton = [self _iconButton:@"bolt.fill" tint:nil
+                                                action:@selector(toggleHelperDirectAnswers)];
+    self.helperDirectAnswersButton.accessibilityLabel = @"Helper direct answers";
+    [self updateHelperDirectAnswersButton];
     // Settings
     self.settingsButton  = [self _iconButton:@"gearshape.fill" tint:nil
                                       action:@selector(openSettings)];
@@ -2296,18 +2320,27 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.renameButton  = [self _iconButton:@"pencil.line" tint:nil
                                     action:@selector(renameThread)];
 
-    // Navigation and response actions on the left; the right side stays
-    // empty. The coin balance sits in its own row above this one, in the
-    // top-right corner.
+    // Navigation and response actions on the left, distinct
+    // selection/memory actions on the right. The coin balance sits in its
+    // own row above this one, in the top-right corner.
     UIView *topStack = [[UIView alloc] init];
     topStack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:topStack];
     [topStack addSubview:self.historyButton];
+    [topStack addSubview:self.speakButton];
+    [topStack addSubview:self.threadSelectionButton];
+    [topStack addSubview:self.memoriesButton];
 
     [NSLayoutConstraint activateConstraints:@[
         [topStack.heightAnchor constraintEqualToConstant:52],
         [self.historyButton.leadingAnchor constraintEqualToAnchor:topStack.leadingAnchor],
         [self.historyButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
+        [self.speakButton.leadingAnchor constraintEqualToAnchor:self.historyButton.trailingAnchor constant:8],
+        [self.speakButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
+        [self.memoriesButton.trailingAnchor constraintEqualToAnchor:topStack.trailingAnchor],
+        [self.memoriesButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
+        [self.threadSelectionButton.trailingAnchor constraintEqualToAnchor:self.memoriesButton.leadingAnchor constant:-8],
+        [self.threadSelectionButton.centerYAnchor constraintEqualToAnchor:topStack.centerYAnchor],
     ]];
 
     // Coin balance — a plain label in the top-right corner above the top
@@ -2419,14 +2452,15 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.inputContainer.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.inputContainer];
 
-    // The helper-direct-answer preference remains stored; its control belongs
-    // in Settings rather than occupying space in the composer.
-
+    // These toggles belong with the message being composed, rather than in the
+    // app navigation bar. Keeping them adjacent makes their scope obvious.
+    [self.inputContainer addSubview:self.webSearchButton];
+    [self.inputContainer addSubview:self.helperDirectAnswersButton];
+    
         // Dictate button
         self.dictateButton = [UIButton buttonWithType:UIButtonTypeSystem];
         [self.dictateButton setImage:[UIImage systemImageNamed:@"mic.fill"] forState:UIControlStateNormal];
         [self.dictateButton setTintColor:[UIColor systemBlueColor]];
-        self.dictateButton.accessibilityLabel = @"Dictate message";
         [self.dictateButton addTarget:self action:@selector(toggleDictation)
                      forControlEvents:UIControlEventTouchUpInside];
         self.dictateButton.translatesAutoresizingMaskIntoConstraints = NO;
@@ -2443,13 +2477,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
     // Attach button
     self.attachButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [self.attachButton setImage:[UIImage systemImageNamed:@"paperclip"]
+    [self.attachButton setImage:[UIImage systemImageNamed:@"paperclip.circle.fill"]
                        forState:UIControlStateNormal];
-    self.attachButton.backgroundColor = [EZTheme goldColor];
-    self.attachButton.tintColor = [EZTheme userBubbleTextColor];
-    self.attachButton.layer.cornerRadius = 24.0;
-    self.attachButton.clipsToBounds = YES;
-    self.attachButton.accessibilityLabel = @"Attach file or image";
     [self.attachButton addTarget:self action:@selector(showAttachMenu)
                 forControlEvents:UIControlEventTouchUpInside];
     self.attachButton.translatesAutoresizingMaskIntoConstraints = NO;
@@ -2461,7 +2490,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     // Wrapped in a rounded container view to replicate UITextBorderStyleRoundedRect look.
     UIView *inputWrapper = [[UIView alloc] init];
     inputWrapper.backgroundColor   = [EZTheme backgroundColor];
-    inputWrapper.layer.cornerRadius = 24.0;
+    inputWrapper.layer.cornerRadius = 10.0;
     inputWrapper.layer.borderWidth  = 1.5;
     inputWrapper.layer.borderColor  = [[EZTheme goldColor] colorWithAlphaComponent:0.35].CGColor;
     inputWrapper.clipsToBounds      = YES;
@@ -2472,27 +2501,28 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     self.messageTextField.textColor             = [EZTheme primaryTextColor];
     self.messageTextField.tintColor             = [EZTheme goldColor];
     self.messageTextField.backgroundColor       = [UIColor clearColor];
-    self.messageTextField.textContainerInset    = UIEdgeInsetsMake(16, 14, 12, 50);
+    self.messageTextField.textContainerInset    = UIEdgeInsetsMake(8, 6, 8, 6);
     self.messageTextField.textContainer.lineFragmentPadding = 0;
     self.messageTextField.scrollEnabled         = YES;
     self.messageTextField.delegate              = self;
     self.messageTextField.returnKeyType         = UIReturnKeyDefault;
     self.messageTextField.translatesAutoresizingMaskIntoConstraints = NO;
     
-    self.messageTextField.layer.cornerRadius = 0;
+    self.messageTextField.layer.cornerRadius = 10;
     self.messageTextField.layer.masksToBounds = YES;
+    self.messageTextField.layer.borderColor = [UIColor secondaryLabelColor].CGColor;
 
     // Placeholder label — UITextView has no built-in placeholder
     UILabel *placeholder = [[UILabel alloc] init];
-    placeholder.text      = @"Type a message...";
+    placeholder.text      = @"Type message...";
     placeholder.font      = [UIFont systemFontOfSize:16];
     placeholder.textColor = [UIColor placeholderTextColor];
     placeholder.tag       = 9001;   // retrieved to show/hide as user types
     placeholder.translatesAutoresizingMaskIntoConstraints = NO;
     [self.messageTextField addSubview:placeholder];
     [NSLayoutConstraint activateConstraints:@[
-        [placeholder.leadingAnchor  constraintEqualToAnchor:self.messageTextField.leadingAnchor  constant:14],
-        [placeholder.topAnchor      constraintEqualToAnchor:self.messageTextField.topAnchor      constant:16],
+        [placeholder.leadingAnchor  constraintEqualToAnchor:self.messageTextField.leadingAnchor  constant:10],
+        [placeholder.topAnchor      constraintEqualToAnchor:self.messageTextField.topAnchor      constant:9],
     ]];
 
     [inputWrapper addSubview:self.messageTextField];
@@ -2503,9 +2533,6 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [self.messageTextField.trailingAnchor constraintEqualToAnchor:inputWrapper.trailingAnchor],
     ]];
     [self.inputContainer addSubview:inputWrapper];
-    // The dictate button was created before the wrapper existed; it
-    // lives inside the pill, at its right end, so it moves in here.
-    [inputWrapper addSubview:self.dictateButton];
 
     // Store inputWrapper so constraints can reference it below
     inputWrapper.tag = 9002;
@@ -2521,7 +2548,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     [self.sendButton setTitleColor:[EZTheme userBubbleTextColor] forState:UIControlStateNormal];
     [self.sendButton setTitleColor:[[EZTheme userBubbleTextColor] colorWithAlphaComponent:0.45] forState:UIControlStateDisabled];
     self.sendButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
-    self.sendButton.layer.cornerRadius = 24.0;
+    self.sendButton.layer.cornerRadius = 16.0;
     self.sendButton.clipsToBounds = YES;
     self.sendButton.contentEdgeInsets = UIEdgeInsetsMake(7, 16, 7, 16);
     self.inputContainer.backgroundColor = [EZTheme cardColor];
@@ -2578,24 +2605,32 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [self.imageSettingsButton.heightAnchor constraintEqualToConstant:32],
         [self.modelButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
         [self.imageSettingsButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
-        [inputWrapper.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
         [self.attachButton.leadingAnchor constraintEqualToAnchor:self.inputContainer.leadingAnchor constant:12],
-        [self.attachButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
-        [self.attachButton.widthAnchor constraintEqualToConstant:48],
-        [self.attachButton.heightAnchor constraintEqualToConstant:48],
-        [inputWrapper.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
-        [inputWrapper.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-6],
-        [self.sendButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
+        [self.attachButton.topAnchor constraintEqualToAnchor:self.modelButton.bottomAnchor constant:12],
+        [self.attachButton.widthAnchor constraintEqualToConstant:32],
+        [self.attachButton.heightAnchor constraintEqualToConstant:32],
+        [self.dictateButton.leadingAnchor constraintEqualToAnchor:self.attachButton.trailingAnchor constant:6],
+        [self.dictateButton.centerYAnchor constraintEqualToAnchor:self.attachButton.centerYAnchor],
+        [self.dictateButton.widthAnchor constraintEqualToConstant:32],
+        [self.dictateButton.heightAnchor constraintEqualToConstant:32],
+        [self.webSearchButton.leadingAnchor constraintEqualToAnchor:self.attachButton.leadingAnchor],
+        [self.webSearchButton.topAnchor constraintEqualToAnchor:self.attachButton.bottomAnchor constant:4],
+        [self.webSearchButton.widthAnchor constraintEqualToConstant:30],
+        [self.webSearchButton.heightAnchor constraintEqualToConstant:30],
+        [self.helperDirectAnswersButton.leadingAnchor constraintEqualToAnchor:self.dictateButton.leadingAnchor],
+        [self.helperDirectAnswersButton.centerYAnchor constraintEqualToAnchor:self.webSearchButton.centerYAnchor],
+        [self.helperDirectAnswersButton.widthAnchor constraintEqualToConstant:30],
+        [self.helperDirectAnswersButton.heightAnchor constraintEqualToConstant:30],
+        [inputWrapper.leadingAnchor constraintEqualToAnchor:self.helperDirectAnswersButton.trailingAnchor constant:8],
+        [inputWrapper.topAnchor     constraintEqualToAnchor:self.attachButton.topAnchor],
+        [inputWrapper.trailingAnchor constraintEqualToAnchor:self.sendButton.leadingAnchor constant:-8],
         [self.sendButton.trailingAnchor constraintEqualToAnchor:self.inputContainer.trailingAnchor constant:-12],
-        [self.sendButton.heightAnchor constraintEqualToConstant:48],
-        [self.dictateButton.trailingAnchor constraintEqualToAnchor:inputWrapper.trailingAnchor constant:-4],
-        [self.dictateButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
-        [self.dictateButton.widthAnchor constraintEqualToConstant:40],
-        [self.dictateButton.heightAnchor constraintEqualToConstant:44],
+        [self.sendButton.centerYAnchor constraintEqualToAnchor:inputWrapper.centerYAnchor],
         [self.inputContainer.bottomAnchor constraintEqualToAnchor:inputWrapper.bottomAnchor constant:12],
     ]];
-    // The composer expands while editing and collapses when focus leaves.
-    self.messageInputHeightConstraint = [inputWrapper.heightAnchor constraintEqualToConstant:56.0];
+    // Collapsed height: ~2 lines (72pt). Expanded: ~4 lines (136pt).
+    // The constraint is animated in textViewDidBeginEditing / textViewDidEndEditing.
+    self.messageInputHeightConstraint = [inputWrapper.heightAnchor constraintEqualToConstant:72.0];
     self.messageInputHeightConstraint.active = YES;
 
     [NSLayoutConstraint activateConstraints:@[
@@ -2699,7 +2734,7 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 
 - (void)textViewDidEndEditing:(UITextView *)textView {
     if (textView != self.messageTextField) return;
-    self.messageInputHeightConstraint.constant = 56.0;
+    self.messageInputHeightConstraint.constant = 72.0;
     [UIView animateWithDuration:0.25
                           delay:0
          usingSpringWithDamping:0.85
@@ -2741,6 +2776,50 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
        shouldReceiveTouch:(UITouch *)touch {
     return ![touch.view isKindOfClass:[UIControl class]];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Web Search Toggle
+// ─────────────────────────────────────────────────────────────────────────────
+
+- (void)toggleWebSearch {
+    self.webSearchEnabled = !self.webSearchEnabled;
+    [[NSUserDefaults standardUserDefaults] setBool:self.webSearchEnabled forKey:@"webSearchEnabled"];
+    [self updateWebSearchButtonTint];
+    [self appendToChat:[NSString stringWithFormat:@"[System: Web Search %@]",
+                        self.webSearchEnabled ? @"ON 🌐" : @"OFF"]];
+    EZLogf(EZLogLevelInfo, @"WEBSEARCH", @"Toggled %@", self.webSearchEnabled ? @"ON" : @"OFF");
+}
+
+- (void)updateWebSearchButtonTint {
+    [self.webSearchButton setTintColor:self.webSearchEnabled
+        ? [UIColor systemGreenColor] : [UIColor systemGrayColor]];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Helper Direct-Answer Toggle
+// ─────────────────────────────────────────────────────────────────────────────
+
+- (void)toggleHelperDirectAnswers {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    BOOL enabled = ![defaults boolForKey:@"HelperDirectAnswersEnabled"];
+    [defaults setBool:enabled forKey:@"HelperDirectAnswersEnabled"];
+    [self updateHelperDirectAnswersButton];
+    [self appendToChat:[NSString stringWithFormat:@"[System: Helper direct answers %@]",
+                        enabled ? @"ON ⚡" : @"OFF"]];
+    EZLogf(EZLogLevelInfo, @"TRIAGE", @"Helper direct answers %@",
+           enabled ? @"enabled" : @"disabled");
+}
+
+- (void)updateHelperDirectAnswersButton {
+    BOOL enabled = [[NSUserDefaults standardUserDefaults]
+        boolForKey:@"HelperDirectAnswersEnabled"];
+    [self.helperDirectAnswersButton setTintColor:enabled
+        ? [UIColor systemYellowColor] : [UIColor systemGrayColor]];
+    self.helperDirectAnswersButton.accessibilityValue = enabled ? @"On" : @"Off";
+    self.helperDirectAnswersButton.accessibilityHint = enabled
+        ? @"Tap to require the main model to answer every prompt"
+        : @"Tap to allow helper models to answer directly";
 }
 
 // A validated helper answer is a completed chat turn, not merely a routing
@@ -3515,6 +3594,75 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 // MARK: - TTS
 // ─────────────────────────────────────────────────────────────────────────────
 
+- (void)speakLastResponse {
+    if (!self.lastAIResponse) return;
+
+    NSString *voiceID     = [[NSUserDefaults standardUserDefaults] stringForKey:@"elevenVoiceID"];
+    NSString *textToSpeak = self.lastAIResponse;
+    NSInteger charCount   = (NSInteger)textToSpeak.length;
+
+    // ── Old user-API-key path — commented out, kept in case user keys return ──
+    // NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    // // CHANGED: ElevenLabs key now loaded from EZKeyVault (Keychain) instead of NSUserDefaults
+    // NSString *elKey   = [EZKeyVault loadKeyForIdentifier:EZVaultKeyElevenLabs];
+    // NSString *elVoice = [d stringForKey:@"elevenVoiceID"];
+    // if (elKey.length > 0 && elVoice.length > 0) {
+    //     [self speakWithElevenLabs:textToSpeak key:elKey voiceID:elVoice];
+    // } else {
+    //     [self speakWithApple:textToSpeak];
+    // }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // No voice configured — fall back to Apple TTS silently
+    if (voiceID.length == 0) {
+        [self speakWithApple:textToSpeak];
+        return;
+    }
+
+    // ── Long-response guard (> 160 chars) ────────────────────────────────────
+    // Coin cost mirrors the edge function: ceil(charCount / 50)
+    NSInteger estimatedCoins = (NSInteger)ceil(charCount / 50.0);
+
+    if (charCount > 160) {
+        NSString *alertMessage = [NSString stringWithFormat:
+            @"This response is %ld characters long.\n\n"
+            @"Reading it with ElevenLabs will cost approximately %ld coins.\n\n"
+            @"Choose an option:",
+            (long)charCount, (long)estimatedCoins];
+
+        UIAlertController *lengthAlert = [UIAlertController
+            alertControllerWithTitle:@"Long Response"
+                             message:alertMessage
+                      preferredStyle:UIAlertControllerStyleAlert];
+
+        NSString *elevenLabsLabel = [NSString stringWithFormat:
+            @"ElevenLabs (≈%ld coins)", (long)estimatedCoins];
+        [lengthAlert addAction:[UIAlertAction
+            actionWithTitle:elevenLabsLabel
+                      style:UIAlertActionStyleDefault
+                    handler:^(UIAlertAction *action) {
+            [self speakWithElevenLabsEdge:textToSpeak voiceID:voiceID];
+        }]];
+
+        [lengthAlert addAction:[UIAlertAction
+            actionWithTitle:@"Apple TTS (free)"
+                      style:UIAlertActionStyleDefault
+                    handler:^(UIAlertAction *action) {
+            [self speakWithApple:textToSpeak];
+        }]];
+
+        [lengthAlert addAction:[UIAlertAction
+            actionWithTitle:@"Don't Read"
+                      style:UIAlertActionStyleCancel
+                    handler:nil]];
+
+        [self presentViewController:lengthAlert animated:YES completion:nil];
+    } else {
+        // Short response — go straight to ElevenLabs, no warning needed
+        [self speakWithElevenLabsEdge:textToSpeak voiceID:voiceID];
+    }
+}
+
 - (void)speakWithApple:(NSString *)text {
     NSError *sessionError = nil;
     if (!EZActivatePlaybackAudioSession(&sessionError)) {
@@ -3725,8 +3873,8 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
 
 /// Speaks a tts_request returned by ez-chat (the speak_text tool).
 /// Engine rule (user, 2026-11-15): always the user's ElevenLabs voice —
-/// the same ez-elevenlabs "tts" call, at the same server price
-/// (1 coin per 50 characters) — EXCEPT the Apple
+/// the same ez-elevenlabs "tts" call speakLastResponse makes, at the
+/// same server price (1 coin per 50 characters) — EXCEPT the Apple
 /// voice when (a) the request says engine "apple" (the model sets that
 /// only when the user explicitly asked for the free voice / to save
 /// coins), (b) no ElevenLabs voice is configured, or (c) ElevenLabs
@@ -3976,16 +4124,13 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     [req setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
     [req setValue:[NSString stringWithFormat:@"Bearer %@", jwt]
        forHTTPHeaderField:@"Authorization"];
-    NSMutableDictionary *ttsBody = [@{
+    req.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
         @"action":     @"tts",
         @"text":       text,
         @"voice_id":   voiceID,
         @"model_id":   kElevenLabsTTSModelID,
         @"char_count": @(charCount),
-    } mutableCopy];
-    NSString *ttsStorefront = [EZStoreKitManager storefrontCountryCode];
-    if (ttsStorefront.length) ttsBody[@"storefront"] = ttsStorefront;
-    req.HTTPBody = [NSJSONSerialization dataWithJSONObject:ttsBody options:0 error:nil];
+    } options:0 error:nil];
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:req
         completionHandler:^(NSData *responseData, NSURLResponse *response, NSError *networkError) {
@@ -4029,16 +4174,6 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                             handler:^(UIAlertAction *a) {
                     [self presentCoinStoreForFeature:nil];
                 }]];
-                NSString *webStoreURL = [json[@"web_store_url"] isKindOfClass:NSString.class] ? json[@"web_store_url"] : nil;
-                if (webStoreURL.length) {
-                    [coinAlert addAction:[UIAlertAction
-                        actionWithTitle:@"Buy coins on our website"
-                                  style:UIAlertActionStyleDefault
-                                handler:^(UIAlertAction *a) {
-                        NSURL *url = [NSURL URLWithString:webStoreURL];
-                        if (url) [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
-                    }]];
-                }
                 [coinAlert addAction:[UIAlertAction
                     actionWithTitle:@"Cancel"
                               style:UIAlertActionStyleCancel handler:nil]];
@@ -4821,6 +4956,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     // A new user message starts a fresh budget of GitHub tool steps.
     self.githubRoundCount = 0;
     self.localFileRoundCount = 0;
+    self.convertRoundCount = 0;
     [self callChatCompletionsWithRetryCount:0];
 }
 
@@ -5135,10 +5271,6 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     if ([fastMode isEqualToString:@"flex"] || [fastMode isEqualToString:@"fast"] || [fastMode isEqualToString:@"ultrafast"]) {
         ezBody[@"fast_mode"] = fastMode;
     }
-    // The App Store storefront decides whether an insufficient-coins
-    // reply may carry the web store link (US only, decided server-side).
-    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
-    if (storefront.length) ezBody[@"storefront"] = storefront;
     ezBody[@"image_tools"] = @YES;
     // Lets ez-chat offer the model its create_music tool. The server only ever
     // returns a music_request; it never generates or charges for a song.
@@ -5164,11 +5296,12 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     // user's approval.
     ezBody[@"github_tools"] = @YES;
     ezBody[@"local_file_tools"] = @YES;
+    ezBody[@"file_convert_tools"] = @YES;
     ezBody[@"image_source_available"] = @(capturedImageSource.length > 0);
     if (userPreferences.length > 0) ezBody[@"user_preferences"] = userPreferences;
     if (useWebSearch)           ezBody[@"web_search"] = @YES;
     NSString *previewText = capturedPrompt;
-    if (self.githubRoundCount > 0 || self.localFileRoundCount > 0) {
+    if (self.githubRoundCount > 0 || self.localFileRoundCount > 0 || self.convertRoundCount > 0) {
         // Tool follow-up round: this charge pays for the model step that
         // consumed a tool result, so label it with the same one-line summary
         // the chat shows as its system entry ("Reading pull request #46 in
@@ -5548,6 +5681,38 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
             return;
         }
 
+        // File conversion tool: a convert_file_request is the same
+        // kind of handoff — the app converts the file on-device (see
+        // performChatConvertRequest:) and the result rides back as
+        // the next round of this turn.
+        NSDictionary *convertRequest = [json[@"convert_file_request"] isKindOfClass:[NSDictionary class]]
+            ? json[@"convert_file_request"] : nil;
+        if (convertRequest) {
+            NSString *introReply = [json[@"reply"] isKindOfClass:[NSString class]] ? json[@"reply"] : @"";
+            NSString *convertSummary = [json[@"convert_file_summary"] isKindOfClass:[NSString class]]
+                ? json[@"convert_file_summary"] : @"";
+            dispatch_async(dispatch_get_main_queue(), ^{
+                id convertBalance = json[@"balance"];
+                if ([convertBalance respondsToSelector:@selector(integerValue)]) {
+                    [[EZEntitlementManager shared] applyKnownBalance:[convertBalance integerValue]];
+                }
+                [self updateCoinBalanceDisplay];
+                if (![self.activeThread.threadID isEqualToString:capturedThreadID]) {
+                    self.sendButton.enabled = YES;
+                    [self appendToChat:@"[System: Convert request stopped because the conversation changed. Please resend it in the original chat.]"];
+                    return;
+                }
+                if (introReply.length > 0) {
+                    [self.chatContext addObject:@{@"role": @"assistant", @"content": introReply}];
+                    [self appendToChat:[NSString stringWithFormat:@"AI: %@", introReply]];
+                }
+                [self ez_stampReactionEntriesShared:pendingReactionEntries];
+                [self saveActiveThread];
+                [self performChatConvertRequest:convertRequest summary:convertSummary threadID:capturedThreadID];
+            });
+            return;
+        }
+
         NSString *reply = json[@"reply"];
         if (!reply.length && ttsRequest) {
             // A speak-only turn: the words the user just heard are the reply.
@@ -5614,6 +5779,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
             self.githubRoundCount = 0;
             [self ez_compactLocalFileResults];
             self.localFileRoundCount = 0;
+            self.convertRoundCount = 0;
             if (ttsInfo) {
                 // Mark the turn as spoken so its bubble carries the
                 // play/pause replay button. The _ keys are stripped by
@@ -5824,11 +5990,6 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         @"output_format": imgFormat,
         @"background":    imgBg,
     } mutableCopy];
-
-    // The App Store storefront decides whether an insufficient-coins
-    // reply may carry the web store link (US only, decided server-side).
-    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
-    if (storefront.length) body[@"storefront"] = storefront;
 
     // Complexity is a 2.6-only axis — how much the model plans before
     // drawing, independent of quality. Default high, the API's own
@@ -6042,12 +6203,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                             referencePaths:(NSArray<NSString *> *)referencePaths
                           allowIDCheck:(BOOL)allowIDCheck {
     NSString *token = [EZAuthManager shared].accessToken;
-    NSMutableDictionary *eligibilityBody = [@{ @"action": @"eligibility" } mutableCopy];
-    // The App Store storefront decides whether the reply may carry
-    // the web store link (US only, decided server-side).
-    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
-    if (storefront.length) eligibilityBody[@"storefront"] = storefront;
-    [self postToEZFunction:@"ez-seahorse" token:token body:eligibilityBody
+    [self postToEZFunction:@"ez-seahorse" token:token body:@{ @"action": @"eligibility" }
                 completion:^(NSDictionary *json, NSError *error) {
         if (error || !json) {
             [self ezSeahorseFailWithMessage:(error.localizedDescription ?: @"Could not reach the server")
@@ -6134,15 +6290,6 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                                                         handler:^(UIAlertAction *action) {
                     [self presentCoinStoreForFeature:@"NSFW images"];
                 }]];
-                NSString *webStoreURL = [json[@"web_store_url"] isKindOfClass:NSString.class] ? json[@"web_store_url"] : nil;
-                if (webStoreURL.length) {
-                    [alert addAction:[UIAlertAction actionWithTitle:@"Buy coins on our website"
-                                                              style:UIAlertActionStyleDefault
-                                                            handler:^(UIAlertAction *action) {
-                        NSURL *url = [NSURL URLWithString:webStoreURL];
-                        if (url) [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
-                    }]];
-                }
                 [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
                                                           style:UIAlertActionStyleCancel handler:nil]];
                 [self presentViewController:alert animated:YES completion:nil];
@@ -6439,10 +6586,6 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     NSString *size = ([imgSize containsString:@"2048"] || [imgSize containsString:@"4096"]) ? @"4K" : @"2K";
     NSMutableDictionary *body = [@{ @"prompt": prompt, @"size": size, @"nsfw": @YES } mutableCopy];
     if (referenceAssetURLs.count) body[@"reference_asset_urls"] = referenceAssetURLs;
-    // The App Store storefront decides whether an insufficient-coins
-    // reply may carry the web store link (US only, decided server-side).
-    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
-    if (storefront.length) body[@"storefront"] = storefront;
     EZLogf(EZLogLevelInfo, @"SEAHORSE", @"generate: size=%@ refs_forwarded=%lu",
            size, (unsigned long)referenceAssetURLs.count);
     [self updateImageGenerationProgress:0.45];
@@ -6475,15 +6618,6 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                                                             handler:^(UIAlertAction *action) {
                         [self presentCoinStoreForFeature:@"NSFW images"];
                     }]];
-                    NSString *webStoreURL = [json[@"web_store_url"] isKindOfClass:NSString.class] ? json[@"web_store_url"] : nil;
-                    if (webStoreURL.length) {
-                        [alert addAction:[UIAlertAction actionWithTitle:@"Buy coins on our website"
-                                                                  style:UIAlertActionStyleDefault
-                                                                handler:^(UIAlertAction *action) {
-                            NSURL *url = [NSURL URLWithString:webStoreURL];
-                            if (url) [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
-                        }]];
-                    }
                     [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"EZImageNSFW.Cancel", nil)
                                                               style:UIAlertActionStyleCancel handler:nil]];
                     [self presentViewController:alert animated:YES completion:nil];
@@ -6614,11 +6748,6 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         @"background":    editBg,
         @"moderation":    editMod,
     } mutableCopy];
-
-    // The App Store storefront decides whether an insufficient-coins
-    // reply may carry the web store link (US only, decided server-side).
-    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
-    if (storefront.length) body[@"storefront"] = storefront;
 
     // Complexity rides along on the 2.6 models (see callGptImage1).
     if ([imageModel isEqualToString:@"gpt-image-2.6-flare"] ||
@@ -7532,24 +7661,10 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                     NSUInteger chars = marker.location == NSNotFound ? url.length : url.length - NSMaxRange(marker);
                     logBlock[@"image_url"] = @{ @"url": [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)chars] };
                 }
-            } else if ([type isEqualToString:@"input_image"]) {
-                if ([block[@"data"] isKindOfClass:NSString.class]) {
-                    NSString *data = block[@"data"];
-                    NSString *mime = [block[@"media_type"] isKindOfClass:NSString.class] ? block[@"media_type"] : @"image";
-                    logBlock[@"data"] = [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)data.length];
-                }
-                // History conversion emits input_image with the payload as a
-                // plain image_url data: string; that shape slipped past the
-                // redaction above and wrote whole images into the System Log.
-                id imageURL = block[@"image_url"];
-                NSString *url = [imageURL isKindOfClass:NSDictionary.class] ? imageURL[@"url"]
-                    : [imageURL isKindOfClass:NSString.class] ? imageURL : nil;
-                if ([url hasPrefix:@"data:"]) {
-                    NSRange marker = [url rangeOfString:@";base64,"];
-                    NSString *mime = marker.location == NSNotFound ? @"image" : [url substringWithRange:NSMakeRange(5, marker.location - 5)];
-                    NSUInteger chars = marker.location == NSNotFound ? url.length : url.length - NSMaxRange(marker);
-                    logBlock[@"image_url"] = [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)chars];
-                }
+            } else if ([type isEqualToString:@"input_image"] && [block[@"data"] isKindOfClass:NSString.class]) {
+                NSString *data = block[@"data"];
+                NSString *mime = [block[@"media_type"] isKindOfClass:NSString.class] ? block[@"media_type"] : @"image";
+                logBlock[@"data"] = [NSString stringWithFormat:@"<%@ Base64 omitted: %lu chars>", mime, (unsigned long)data.length];
             }
             [logContent addObject:logBlock];
         }
@@ -8397,6 +8512,8 @@ static NSString *EZThreadExportTimestampNow(void) {
     self.threadSelectionActive = !self.threadSelectionActive;
     if (!self.threadSelectionActive) [self.selectedThreadMessageIndexes removeAllIndexes];
     self.threadSelectionBar.hidden = !self.threadSelectionActive;
+    [self.threadSelectionButton setTitle:self.threadSelectionActive ? @"DONE" : @"SEL"
+                         forState:UIControlStateNormal];
     [self updateThreadSelectionUI];
 }
 
@@ -9421,6 +9538,7 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
 // (-ez_compactGitHubResults) so later turns don't re-send whole files.
 
 static NSInteger const kEZChatLocalFileMaxRounds = 8;
+static NSInteger const kEZChatConvertMaxRounds = 8;
 /// Characters of each local file result kept in history after the model
 /// has used it (mirrors kEZGitHubResultKeepChars).
 static NSUInteger const kEZLocalFileResultKeepChars = 1500;
@@ -9657,6 +9775,90 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
             ? result[@"text"]
             : @"[Local file result — read_local_file: error]\nThe file could not be read.\n[End of local file result]";
         [strongSelf ez_appendLocalFileResultToContext:content summary:shown];
+        [strongSelf saveActiveThread];
+        [strongSelf callChatCompletionsWithRetryCount:0];
+    }];
+}
+
+/// Adds a file conversion result to the model's context only,
+/// stamped like a local file result so context compaction and the
+/// follow-up round's summary label treat it the same way.
+- (void)ez_appendConvertResultToContext:(NSString *)content summary:(NSString *)summary {
+    [self.chatContext addObject:@{
+        @"role": @"user",
+        @"content": content,
+        @"_localFileResult": @YES,
+        @"_localFileSummary": summary ?: @"",
+    }];
+}
+
+/// Runs one convert_file_request from ez-chat: EZFileConvertTools
+/// converts the file on-device and writes the result next to the
+/// original. A visible line names the new file in the chat, an image
+/// result also rides back as image context, and every outcome feeds
+/// the model so it can continue the turn.
+- (void)performChatConvertRequest:(NSDictionary *)request
+                           summary:(NSString *)summary
+                          threadID:(NSString *)threadID {
+    if (self.convertRoundCount >= kEZChatConvertMaxRounds) {
+        self.sendButton.enabled = YES;
+        [self appendToChat:[NSString stringWithFormat:
+            @"[System: Stopped after %ld file conversion steps for this message. Ask again to keep going.]",
+            (long)kEZChatConvertMaxRounds]];
+        return;
+    }
+    self.convertRoundCount += 1;
+    self.sendButton.enabled = NO;
+    NSString *shown = summary.length > 0 ? summary : @"Converting a file";
+    [self appendToChat:[NSString stringWithFormat:@"[System: 🔄 %@…]", shown]];
+    __weak typeof(self) weakSelf = self;
+    [EZFileConvertTools executeRequest:request completion:^(NSDictionary *result) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        if (![strongSelf.activeThread.threadID isEqualToString:threadID]) {
+            strongSelf.sendButton.enabled = YES;
+            return;
+        }
+        NSString *content = [result[@"text"] isKindOfClass:[NSString class]]
+            ? result[@"text"]
+            : @"[File conversion result — convert_file: error]\nThe file could not be converted.\n[End of file conversion result]";
+        if ([result[@"kind"] isEqualToString:@"converted"]) {
+            NSString *displayLine = [result[@"displayLine"] isKindOfClass:[NSString class]]
+                ? result[@"displayLine"] : @"";
+            if (displayLine.length) {
+                [strongSelf appendToChat:[NSString stringWithFormat:@"[System: ✅ %@]", displayLine]];
+            }
+            NSData *data = [result[@"data"] isKindOfClass:[NSData class]] ? result[@"data"] : nil;
+            if ([result[@"isImage"] boolValue] && data.length) {
+                NSString *ext = [result[@"extension"] isKindOfClass:[NSString class]] ? result[@"extension"] : @"jpg";
+                NSError *prepError = nil;
+                NSArray<NSDictionary<NSString *, id> *> *prepared =
+                    [EZImageAttachmentPreparer preparedImagesFromData:@[data]
+                                                           extensions:@[ext]
+                                                maximumTotalByteCount:kEZChatImageAttachmentBudget
+                                                                error:&prepError];
+                if (prepared.count) {
+                    NSMutableArray *blocks = [NSMutableArray array];
+                    for (NSDictionary *item in prepared) {
+                        NSString *b64 = [item[@"data"] base64EncodedStringWithOptions:0];
+                        [blocks addObject:@{@"type": @"image_url",
+                                            @"image_url": @{@"url": [NSString stringWithFormat:@"data:%@;base64,%@", item[@"mimeType"], b64]}}];
+                    }
+                    [blocks addObject:@{@"type": @"text", @"text": content}];
+                    [strongSelf.chatContext addObject:@{
+                        @"role": @"user",
+                        @"content": [blocks copy],
+                        @"_isVisionAttachment": @YES,
+                        @"_localFileResult": @YES,
+                        @"_localFileSummary": shown,
+                    }];
+                    [strongSelf saveActiveThread];
+                    [strongSelf callChatCompletionsWithRetryCount:0];
+                    return;
+                }
+            }
+        }
+        [strongSelf ez_appendConvertResultToContext:content summary:shown];
         [strongSelf saveActiveThread];
         [strongSelf callChatCompletionsWithRetryCount:0];
     }];
@@ -10376,20 +10578,8 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
             [UIPasteboard generalPasteboard].string = textToCopy;
             [self appendToChat:@"[System: Copied ✓]"];
         }];
-        // Select enters thread multi-select with this message as a pick,
-        // added the same way a tap on its selection dot adds it. Leaving
-        // the mode stays with the selection bar's Done button — this
-        // action only ever adds, it never turns the mode back off.
-        UIAction *selectAction = [UIAction actionWithTitle:@"Select"
-                                                      image:[UIImage systemImageNamed:@"checkmark.circle"]
-                                                 identifier:nil
-                                                    handler:^(__kindof UIAction *action) {
-            if (!self.threadSelectionActive) [self toggleThreadSelection];
-            [self.selectedThreadMessageIndexes addIndex:(NSUInteger)capturedRow];
-            [self updateThreadSelectionUI];
-        }];
         if (!isAssistantEntry) {
-            return [UIMenu menuWithTitle:@"" children:@[copyAction, selectAction]];
+            return [UIMenu menuWithTitle:@"" children:@[copyAction]];
         }
         // Model responses also offer reactions: one action per emoji from
         // the same whitelist the helper's tapbacks use, the current one
@@ -10418,7 +10608,6 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
             }]];
         }
         [children addObject:copyAction];
-        [children addObject:selectAction];
         return [UIMenu menuWithTitle:@"" children:children];
     }];
 }
