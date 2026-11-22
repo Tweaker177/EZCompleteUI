@@ -88,6 +88,8 @@
 #import "EZCoinStoreViewController.h"
 #import "helpers.h"
 
+#import <AVKit/AVKit.h>
+
 // Looks up a localized string and falls back to the English text when a
 // translation doesn't exist yet, so untranslated languages show English
 // instead of a raw key.
