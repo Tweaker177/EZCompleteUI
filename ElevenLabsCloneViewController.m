@@ -206,7 +206,7 @@ static NSString * const kEZElevenLabsURL         =
     self.recordButton.titleLabel.font =
         [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
     self.recordButton.layer.cornerRadius = 10;
-    self.recordButton.backgroundColor = [UIColor systemRedColor];
+    self.recordButton.backgroundColor = [EZTheme cardColor];
     [self.recordButton setTitleColor:UIColor.whiteColor
                             forState:UIControlStateNormal];
     [self.recordButton addTarget:self
@@ -588,7 +588,7 @@ static NSString * const kEZElevenLabsURL         =
     self.timerLabel.text = @"00:00";
 
     [self.recordButton setTitle:NSLocalizedString(@"ElevenLabsClone.StopRecording", @"Stop recording button") forState:UIControlStateNormal];
-    self.recordButton.backgroundColor = [EZTheme cardColor];
+    self.recordButton.backgroundColor = [UIColor systemRedColor];
     [self setFileActionsEnabled:NO];
 
     [self startMeterTimer];
@@ -603,7 +603,7 @@ static NSString * const kEZElevenLabsURL         =
     [self stopMeterTimer];
 
     [self.recordButton setTitle:NSLocalizedString(@"ElevenLabsClone.StartRecording", @"Start recording button") forState:UIControlStateNormal];
-    self.recordButton.backgroundColor = [UIColor systemRedColor];
+    self.recordButton.backgroundColor = [EZTheme cardColor];
 
     if (self.recordedFileURL) {
         // Render the full waveform from the finished file
