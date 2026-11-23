@@ -10,8 +10,6 @@
     #import "helpers.h"
 
     // Public identifiers
-    NSString * const EZVaultKeyOpenAI     = @"ezui.openai.apikey";
-    NSString * const EZVaultKeyElevenLabs = @"ezui.elevenlabs.apikey";
 NSString * const EZVaultKeyAccessToken  = @"com.ezcompelteui.auth.accesstoken";
 NSString * const EZVaultKeyRefreshToken = @"com.ezcompleteui.auth.refreshtoken";
 NSString * const EZVaultKeyUserId       = @"com.ezcompleteui.auth.userid";
