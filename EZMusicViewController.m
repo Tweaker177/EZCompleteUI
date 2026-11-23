@@ -720,6 +720,11 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    // The volume row is an MPVolumeView: it only responds while the audio
+    // session is a non-mixable Playback session. Another feature may have
+    // left the shared session mixable, so claim the category on the way in.
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
+    [[AVAudioSession sharedInstance] setActive:YES error:nil];
     self.view.backgroundColor = [EZTheme chatBackgroundColor];
 
     // Blurred cover backdrop under a navy tint; hidden until a song with
