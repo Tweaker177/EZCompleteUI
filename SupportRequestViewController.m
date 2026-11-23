@@ -349,13 +349,6 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
         [snapshot appendFormat:@"%@: %@\n", paddedName, valueString];
     }
 
-    // Keychain presence indicators (no values, just "saved" or "not set")
-    [snapshot appendString:@"\n── Key Storage (vault presence only) ────\n"];
-    [snapshot appendFormat:@"OpenAI Key          : %@\n",
-     [EZKeyVault hasKeyForIdentifier:EZVaultKeyOpenAI]      ? @"saved in vault" : @"not saved"];
-    [snapshot appendFormat:@"ElevenLabs Key      : %@\n",
-     [EZKeyVault hasKeyForIdentifier:EZVaultKeyElevenLabs]  ? @"saved in vault" : @"not saved"];
-
     return [snapshot copy];
 }
 
