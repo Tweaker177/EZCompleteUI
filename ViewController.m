@@ -11328,31 +11328,12 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
 }
 
 - (void)openBrainRot {
-    BRGameModePickerViewController *picker = [BRGameModePickerViewController new];
-    __weak typeof(self) weakSelf = self;
-    picker.onMazeSelected = ^{
-        BrainRotViewController *maze = [BrainRotViewController new];
-        maze.onReturnToBrainRotMenu = ^{
-            [weakSelf dismissViewControllerAnimated:YES completion:^{ [weakSelf openBrainRot]; }];
-        };
-        [weakSelf presentGameController:maze];
-    };
-    picker.onRicochetSelected = ^{
-        BRRicochetViewController *ricochet = [BRRicochetViewController ricochetController];
-        ricochet.onReturnToBrainRotMenu = ^{
-            [weakSelf dismissViewControllerAnimated:YES completion:^{ [weakSelf openBrainRot]; }];
-        };
-        [weakSelf presentGameController:ricochet];
-    };
-    picker.onSlotsSelected = ^{
-        BRSlotGamePickerViewController *slots = [BRSlotGamePickerViewController new];
-        slots.onReturnToBrainRotMenu = ^{
-            [weakSelf dismissViewControllerAnimated:YES completion:^{ [weakSelf openBrainRot]; }];
-        };
-        [weakSelf presentGameController:slots];
-    };
-    picker.modalPresentationStyle = UIModalPresentationFormSheet;
-    [self presentViewController:picker animated:YES completion:nil];
+    // The Choose-a-game page is gone for now: this goes straight to the
+    // slots. Maze Adventure and Ricochet Blast stay in the app,
+    // unpresented, until they are better. The slot picker's close button
+    // dismisses on its own when no return block is set.
+    BRSlotGamePickerViewController *slots = [BRSlotGamePickerViewController new];
+    [self presentGameController:slots];
 }
 
 - (void)presentGameController:(UIViewController *)gameController {
