@@ -40,6 +40,8 @@
 //     longer cost the song its lock-screen / Control Center presence.
 //   - Lock screen: a stop command, which unloads the item and releases the
 //     audio session.
+//   - Previous restores the queue rule the earlier item had while it was
+//     playing (recorded with the history), not the current item's rule.
 //
 // Changes from v1.0:
 //   - Per-item playback speed (pitch preserved).
@@ -125,6 +127,10 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 @property (nonatomic, strong) NSMutableArray<EZMediaPlayerItem *> *queue;
 // Items that played before the current one, oldest first. Used by -playPrevious.
 @property (nonatomic, strong) NSMutableArray<EZMediaPlayerItem *> *history;
+// The queue-flow flag each history item had while it was current, kept in
+// step with `history`: going back to an item restores ITS rule for what
+// happens when it ends, not the rule of whatever replaced it.
+@property (nonatomic, strong) NSMutableArray<NSNumber *> *historyAdvancesQueue;
 @property (nonatomic, strong) id timeObserver;
 @property (nonatomic, assign) BOOL commandsConfigured;
 // YES once the user (or the lock screen) paused on purpose. An interruption
@@ -153,6 +159,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 
     _queue = [NSMutableArray array];
     _history = [NSMutableArray array];
+    _historyAdvancesQueue = [NSMutableArray array];
     _player = [[AVPlayer alloc] init];
     // Stop (rather than blank or loop) when an item ends; we decide what is next.
     _player.actionAtItemEnd = AVPlayerActionAtItemEndPause;
@@ -223,7 +230,11 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 
     if (recordHistory && self.currentItem && ![self.currentItem.identifier isEqualToString:item.identifier]) {
         [self.history addObject:self.currentItem];
-        if (self.history.count > kEZMediaPlayerHistoryLimit) [self.history removeObjectAtIndex:0];
+        [self.historyAdvancesQueue addObject:@(self.currentItemAdvancesQueue)];
+        if (self.history.count > kEZMediaPlayerHistoryLimit) {
+            [self.history removeObjectAtIndex:0];
+            [self.historyAdvancesQueue removeObjectAtIndex:0];
+        }
     }
 
     [self detachObservedItem];
@@ -327,7 +338,9 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
         return [item.identifier isEqualToString:identifier];
     };
     [self.queue removeObjectsAtIndexes:[self.queue indexesOfObjectsPassingTest:matches]];
-    [self.history removeObjectsAtIndexes:[self.history indexesOfObjectsPassingTest:matches]];
+    NSIndexSet *historyIndexes = [self.history indexesOfObjectsPassingTest:matches];
+    [self.history removeObjectsAtIndexes:historyIndexes];
+    [self.historyAdvancesQueue removeObjectsAtIndexes:historyIndexes];
     if (isCurrent) {
         [self playNext];   // Starts the next item, or stops and releases the session.
     } else {
@@ -343,8 +356,10 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
         return;
     }
     EZMediaPlayerItem *leaving = self.currentItem;
+    BOOL previousAdvancesQueue = self.historyAdvancesQueue.lastObject.boolValue;
     [self.history removeLastObject];
-    [self startItem:previous recordingHistory:NO advancesQueue:self.currentItemAdvancesQueue];
+    [self.historyAdvancesQueue removeLastObject];
+    [self startItem:previous recordingHistory:NO advancesQueue:previousAdvancesQueue];
     // The one we left is next in line again.
     [self.queue insertObject:leaving atIndex:0];
     [self publishChange];
@@ -352,6 +367,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 
 - (void)stop {
     [self.history removeAllObjects];
+    [self.historyAdvancesQueue removeAllObjects];
     [self.queue removeAllObjects];
     [self clearCurrentItemDeactivatingSession:NO];
 }

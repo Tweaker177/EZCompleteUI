@@ -41,6 +41,8 @@
 //     category while its item plays and when it resumes, so the song keeps
 //     its lock-screen / Control Center player; the lock screen also gets a
 //     stop command.
+//   - Previous restores the queue rule the earlier item had while it was
+//     playing, not the current item's rule.
 //
 // Changes from v1.0:
 //   - Items can carry a playback speed (Text to Speech clips remember one).
