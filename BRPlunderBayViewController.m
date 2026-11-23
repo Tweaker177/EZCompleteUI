@@ -78,6 +78,8 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
 - (void)viewDidLoad {
     [super viewDidLoad];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(br_slotSoundSettingChanged) name:BRSlotSoundSettingChangedNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(br_appDidEnterBackground) name:UIApplicationDidEnterBackgroundNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(br_appDidBecomeActive) name:UIApplicationDidBecomeActiveNotification object:nil];
     // One title per page: the big in-view heading is this screen's only title; no nav-bar duplicate.
     self.view.backgroundColor = [UIColor colorWithRed:.02 green:.04 blue:.10 alpha:1];
     self.betIndex = 1; // 20 coins
@@ -671,6 +673,11 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
 - (void)playBells { if (!BRSlotSoundEnabled()) return; if (self.bellsPlayer) { self.bellsPlayer.currentTime = 0; [self.bellsPlayer play]; } }
 - (void)playCoins { if (!BRSlotSoundEnabled()) return; if (self.coinsPlayer) { self.coinsPlayer.currentTime = 0; [self.coinsPlayer play]; } }
 - (void)startAmbience { if (!BRSlotSoundEnabled() || self.inBonus || !self.view.window) return; [self plunderStartLoopNode:self.ambienceNode]; }
+// The app's audio background mode (kept for music) would otherwise keep
+// the sea ambience looping on the lock screen. Pause the loops when the
+// app backgrounds; on return, restart whichever loop the mode calls for.
+- (void)br_appDidEnterBackground { [self.ambienceNode pause]; [self.songNode pause]; [self.reelsPlayer pause]; }
+- (void)br_appDidBecomeActive { if (!self.view.window) return; if (self.inBonus) [self startBonusSong]; else [self startAmbience]; }
 - (void)stopAmbience { [self.ambienceNode pause]; }
 - (void)startBonusSong { if (!BRSlotSoundEnabled()) return; [self plunderStartLoopNode:self.songNode]; }
 // A jackpot gets its own compact banner above the reels so the winning
