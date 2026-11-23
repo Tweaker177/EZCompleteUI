@@ -686,7 +686,7 @@ static UIImage *SOParticleImage(BOOL coin) {
 }
 
 - (void)updateControls {
-    BOOL idle = !_busy && !_bonusMode && _freeRemaining == 0;
+    BOOL idle = !_busy && !_bonusMode && _freeRemaining == 0 && !_pickPending;
     for (UIButton *button in @[self.linesButton, self.betButton, self.maxButton, self.spinButton]) {
         button.enabled = idle;
         button.alpha = idle ? 1 : 0.5;
@@ -829,6 +829,14 @@ static UIImage *SOParticleImage(BOOL coin) {
             [self resumeBonus];
         } else {
             [self refreshLabels]; [self refreshBanner]; [self updateControls];
+            // A pick owed with no free spins left to count: the
+            // server still rejects every spin until the card is
+            // picked, so enter the bonus presentation and show the
+            // cards instead of leaving SPIN live with no way to pick.
+            if (self->_pickPending && !self.pickOverlay) {
+                [self enterBonusMode];
+                [self after:0.8 do:^{ [self presentCardPick]; }];
+            }
         }
         [self dispatchQueuedSpin];
     }];
@@ -858,7 +866,7 @@ static UIImage *SOParticleImage(BOOL coin) {
 }
 
 - (void)spinTapped {
-    if (_busy || _bonusMode || _freeRemaining > 0) return;
+    if (_busy || _bonusMode || _freeRemaining > 0 || _pickPending) return;
     if (!_statusLoaded) {
         // The first status of the visit hasn't landed yet. A spin started
         // now would invalidate that response and a banked bonus or owed
