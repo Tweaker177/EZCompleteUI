@@ -327,7 +327,6 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 @property (nonatomic, strong) CAGradientLayer *generatingGradient;
 @property (nonatomic, strong) UIProgressView *progressView;
 @property (nonatomic, strong) UIImageView *favoriteView;
-@property (nonatomic, strong) UIButton *editButton;
 @property (nonatomic, copy, nullable) void (^artworkGenerateHandler)(void);
 @property (nonatomic, copy, nullable) void (^artworkLyricsHandler)(void);
 @property (nonatomic, copy, nullable) void (^artworkPromptHandler)(void);
@@ -407,15 +406,6 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     _favoriteView.hidden = YES;
     [self.contentView addSubview:_favoriteView];
 
-    _editButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    _editButton.translatesAutoresizingMaskIntoConstraints = NO;
-    [_editButton setImage:[UIImage systemImageNamed:@"pencil"] forState:UIControlStateNormal];
-    _editButton.tintColor = [EZTheme secondaryTextColor];
-    _editButton.accessibilityLabel = EZMusicText(@"EZMusic.A11y.Rename", @"Rename song");
-    _editButton.hidden = YES;
-    [_editButton addTarget:self action:@selector(editButtonTapped) forControlEvents:UIControlEventTouchUpInside];
-    [self.contentView addSubview:_editButton];
-
     // Thin playback progress line along the bottom edge of the row.
     _progressView = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleBar];
     _progressView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -431,13 +421,8 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         [_favoriteView.widthAnchor constraintEqualToConstant:18],
         [_favoriteView.heightAnchor constraintEqualToConstant:18],
 
-        [_editButton.trailingAnchor constraintEqualToAnchor:_favoriteView.leadingAnchor constant:-10],
-        [_editButton.centerYAnchor constraintEqualToAnchor:_favoriteView.centerYAnchor],
-        [_editButton.widthAnchor constraintEqualToConstant:22],
-        [_editButton.heightAnchor constraintEqualToConstant:22],
-
         [_titleLabel.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:16],
-        [_titleLabel.trailingAnchor constraintEqualToAnchor:_editButton.leadingAnchor constant:-6],
+        [_titleLabel.trailingAnchor constraintEqualToAnchor:_favoriteView.leadingAnchor constant:-6],
         [_titleLabel.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:12],
 
         [_detailLabel.leadingAnchor constraintEqualToAnchor:_titleLabel.leadingAnchor],
@@ -488,11 +473,6 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
 
 - (void)setRenameHandler:(void (^)(void))renameHandler {
     _renameHandler = [renameHandler copy];
-    _editButton.hidden = (renameHandler == nil);
-}
-
-- (void)editButtonTapped {
-    if (self.renameHandler) self.renameHandler();
 }
 
 - (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction
