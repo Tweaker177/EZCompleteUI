@@ -1483,6 +1483,12 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 /// sheet for the same file) buttons.
 - (void)presentVideoPreviewForURL:(NSURL *)url {
     self.previewedVideoURL = url;
+    // This player has its own AVPlayer, outside the shared player: if the
+    // shared session is still in a mixable category from another feature,
+    // the player's volume slider is dead — system volume UI needs a
+    // non-mixable Playback session. Claim it before presenting.
+    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
+    [[AVAudioSession sharedInstance] setActive:YES error:nil];
     AVPlayer *player = [AVPlayer playerWithURL:url];
     AVPlayerViewController *playerVC = [[AVPlayerViewController alloc] init];
     playerVC.player = player;
