@@ -28,6 +28,7 @@ static UIColor *EZSoundsNeonViolet(void) { return [EZTheme goldColor]; }
 static UIColor *EZSoundsNeonCyan(void) { return [EZTheme goldColor]; }
 static UIColor *EZSoundsNeonMint(void) { return [EZTheme goldColor]; }
 static UIColor *EZSoundsNeonPink(void) { return [EZTheme goldColor]; }
+static UIColor *EZSoundsDangerColor(void) { return [UIColor colorWithRed:0.85 green:0.22 blue:0.26 alpha:1.0]; }
 static UIColor *EZSoundsNeonText(void) { return [EZTheme primaryTextColor]; }
 static UIColor *EZSoundsNeonDimText(void) { return [EZTheme secondaryTextColor]; }
 
@@ -92,19 +93,19 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
 
     _panel = [[UIView alloc] init];
     _panel.backgroundColor = EZSoundsNeonPanel();
-    _panel.layer.cornerRadius = 18;
-    _panel.layer.borderWidth = 1.0;
-    _panel.layer.borderColor = EZSoundsNeonViolet().CGColor;
+    _panel.layer.cornerRadius = 16;
+    _panel.layer.borderWidth = 0.5;
+    _panel.layer.borderColor = [[EZSoundsNeonViolet() colorWithAlphaComponent:0.35] CGColor];
     _panel.layer.shadowColor = EZSoundsNeonViolet().CGColor;
-    _panel.layer.shadowOpacity = 0.45;
-    _panel.layer.shadowRadius = 12;
+    _panel.layer.shadowOpacity = 0.20;
+    _panel.layer.shadowRadius = 8;
     _panel.layer.shadowOffset = CGSizeZero;
     _panel.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:_panel];
 
     _stack = [[UIStackView alloc] init];
     _stack.axis = UILayoutConstraintAxisVertical;
-    _stack.spacing = 10;
+    _stack.spacing = 8;
     _stack.translatesAutoresizingMaskIntoConstraints = NO;
     [_panel addSubview:_stack];
 
@@ -114,8 +115,8 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
         [NSLayoutConstraint activateConstraints:@[
             [_panel.centerXAnchor constraintEqualToAnchor:self.centerXAnchor],
             [_panel.centerYAnchor constraintEqualToAnchor:self.centerYAnchor],
-            [_panel.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:24],
-            [_panel.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-24],
+            [_panel.leadingAnchor constraintEqualToAnchor:self.leadingAnchor constant:44],
+            [_panel.trailingAnchor constraintEqualToAnchor:self.trailingAnchor constant:-44],
         ]];
     } else {
         _panel.layer.maskedCorners = kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner;
@@ -125,11 +126,11 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
             [_panel.bottomAnchor constraintEqualToAnchor:self.bottomAnchor],
         ]];
     }
-    CGFloat bottomPad = _centered ? 16 : 16 + host.safeAreaInsets.bottom;
+    CGFloat bottomPad = _centered ? 14 : 16 + host.safeAreaInsets.bottom;
     [NSLayoutConstraint activateConstraints:@[
-        [_stack.topAnchor constraintEqualToAnchor:_panel.topAnchor constant:16],
-        [_stack.leadingAnchor constraintEqualToAnchor:_panel.leadingAnchor constant:16],
-        [_stack.trailingAnchor constraintEqualToAnchor:_panel.trailingAnchor constant:-16],
+        [_stack.topAnchor constraintEqualToAnchor:_panel.topAnchor constant:14],
+        [_stack.leadingAnchor constraintEqualToAnchor:_panel.leadingAnchor constant:14],
+        [_stack.trailingAnchor constraintEqualToAnchor:_panel.trailingAnchor constant:-14],
         [_stack.bottomAnchor constraintEqualToAnchor:_panel.bottomAnchor constant:-bottomPad],
     ]];
 
@@ -153,7 +154,7 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
         label.minimumScaleFactor = 0.5;
         label.text = title;
         label.textColor = EZSoundsNeonText();
-        label.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+        label.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
         label.textAlignment = NSTextAlignmentCenter;
         label.numberOfLines = 0;
         [_stack addArrangedSubview:label];
@@ -164,7 +165,7 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
         label.minimumScaleFactor = 0.5;
         label.text = message;
         label.textColor = EZSoundsNeonDimText();
-        label.font = [UIFont systemFontOfSize:14];
+        label.font = [UIFont systemFontOfSize:13];
         label.textAlignment = NSTextAlignmentCenter;
         label.numberOfLines = 0;
         [_stack addArrangedSubview:label];
@@ -183,23 +184,48 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
                    handler:(void (^)(void))handler {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
     [button setTitle:title forState:UIControlStateNormal];
+    button.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+    button.layer.cornerRadius = 12;
+    button.clipsToBounds = YES;
+    // The first button of a centered alert is the action: give it real
+    // color instead of another thin gold outline. Bottom sheets are all
+    // equal choices, so their buttons stay quiet.
+    BOOL isPrimary = _centered && _handlers.count == 0;
+    UIColor *iconTint;
+    if (destructive && isPrimary) {
+        [button setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        button.backgroundColor = EZSoundsDangerColor();
+        button.layer.borderWidth = 0;
+        iconTint = [UIColor whiteColor];
+    } else if (destructive) {
+        [button setTitleColor:EZSoundsDangerColor() forState:UIControlStateNormal];
+        button.backgroundColor = EZSoundsNeonField();
+        button.layer.borderWidth = 1.0;
+        button.layer.borderColor = [[EZSoundsDangerColor() colorWithAlphaComponent:0.6] CGColor];
+        iconTint = EZSoundsDangerColor();
+    } else if (isPrimary) {
+        [button setBackgroundImage:[EZTheme primaryGradientImage] forState:UIControlStateNormal];
+        [button setTitleColor:[UIColor colorWithRed:0.20 green:0.13 blue:0.01 alpha:1.0]
+                     forState:UIControlStateNormal];
+        button.layer.borderWidth = 0;
+        iconTint = [UIColor colorWithRed:0.20 green:0.13 blue:0.01 alpha:1.0];
+    } else {
+        [button setTitleColor:EZSoundsNeonText() forState:UIControlStateNormal];
+        button.backgroundColor = EZSoundsNeonField();
+        button.layer.borderWidth = 1.0;
+        button.layer.borderColor = [[UIColor whiteColor] colorWithAlphaComponent:0.22].CGColor;
+        iconTint = EZSoundsNeonText();
+    }
     if (iconName.length) {
         UIImageSymbolConfiguration *config =
             [UIImageSymbolConfiguration configurationWithPointSize:17
                                                             weight:UIImageSymbolWeightSemibold];
         [button setImage:[UIImage systemImageNamed:iconName withConfiguration:config]
                 forState:UIControlStateNormal];
-        button.tintColor = destructive ? EZSoundsNeonPink() : EZSoundsNeonCyan();
+        button.tintColor = iconTint;
         button.imageEdgeInsets = UIEdgeInsetsMake(0, 0, 0, 8);
     }
-    [button setTitleColor:(destructive ? EZSoundsNeonPink() : EZSoundsNeonText())
-                 forState:UIControlStateNormal];
-    button.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
-    button.backgroundColor = EZSoundsNeonField();
-    button.layer.cornerRadius = 12;
-    button.layer.borderWidth = 1.0;
-    button.layer.borderColor = (destructive ? EZSoundsNeonPink() : EZSoundsNeonCyan()).CGColor;
-    [button.heightAnchor constraintEqualToConstant:48].active = YES;
+    [button.heightAnchor constraintEqualToConstant:44].active = YES;
     button.tag = (NSInteger)_handlers.count;
     [_handlers addObject:(handler ?: ^{})];
     [button addTarget:self action:@selector(buttonTapped:) forControlEvents:UIControlEventTouchUpInside];
@@ -215,7 +241,7 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
     field.backgroundColor = EZSoundsNeonField();
     field.layer.cornerRadius = 10;
     field.layer.borderWidth = 1.0;
-    field.layer.borderColor = EZSoundsNeonCyan().CGColor;
+    field.layer.borderColor = [[UIColor whiteColor] colorWithAlphaComponent:0.25].CGColor;
     field.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 10, 1)];
     field.leftViewMode = UITextFieldViewModeAlways;
     field.returnKeyType = UIReturnKeyDone;
