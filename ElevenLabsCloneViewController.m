@@ -884,20 +884,24 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)showCloneRetentionSubscriptionPrompt {
     NSString *title = NSLocalizedString(@"ElevenLabsClone.CloneRetentionTitle", @"Clone retention subscription prompt title");
-    NSString *message = NSLocalizedString(@"ElevenLabsClone.CloneRetentionMessage", @"Clone retention subscription prompt message");
+    NSString *message = NSLocalizedString(@"ElevenLabsClone.CloneStorageMessage", @"Clone storage subscription prompt message");
     // Keep the prompt understandable in existing localizations until their
     // translated string tables receive these new entries.
     if ([title isEqualToString:@"ElevenLabsClone.CloneRetentionTitle"]) {
         title = @"Keep Your Clone";
     }
-    if ([message isEqualToString:@"ElevenLabsClone.CloneRetentionMessage"]) {
-        message = @"Your clone was created with coins. Without an active subscription, clones may be deleted after 7 days to make room for additional slots for subscribers.";
+    if ([message isEqualToString:@"ElevenLabsClone.CloneStorageMessage"]) {
+        message = @"Your clone was created with coins. Subscriptions include additional clone slots.";
     }
     UIAlertController *alert = [UIAlertController
         alertControllerWithTitle:title
                          message:message
                   preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"ElevenLabsClone.NotNow", @"Subscription alert cancel button")
+    NSString *laterTitle = NSLocalizedString(@"ElevenLabsClone.AskMeLater", @"Subscription alert ask later button");
+    if ([laterTitle isEqualToString:@"ElevenLabsClone.AskMeLater"]) {
+        laterTitle = @"Ask me Later";
+    }
+    [alert addAction:[UIAlertAction actionWithTitle:laterTitle
                                               style:UIAlertActionStyleCancel
                                             handler:nil]];
     __weak typeof(self) weakSelf = self;
