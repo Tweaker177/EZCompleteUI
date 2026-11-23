@@ -884,14 +884,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)showCloneRetentionSubscriptionPrompt {
     NSString *title = NSLocalizedString(@"ElevenLabsClone.CloneRetentionTitle", @"Clone retention subscription prompt title");
-    NSString *message = NSLocalizedString(@"ElevenLabsClone.CloneStorageMessage", @"Clone storage subscription prompt message");
+    NSString *message = NSLocalizedString(@"ElevenLabsClone.CloneStorageMessageV2", @"Clone storage subscription prompt message");
     // Keep the prompt understandable in existing localizations until their
     // translated string tables receive these new entries.
     if ([title isEqualToString:@"ElevenLabsClone.CloneRetentionTitle"]) {
         title = @"Keep Your Clone";
     }
-    if ([message isEqualToString:@"ElevenLabsClone.CloneStorageMessage"]) {
-        message = @"Your clone was created with coins. Subscriptions include additional clone slots.";
+    if ([message isEqualToString:@"ElevenLabsClone.CloneStorageMessageV2"]) {
+        message = @"Your clone was created and will remain available for the next seven days. Keep your clone longer by purchasing a subscription.";
     }
     UIAlertController *alert = [UIAlertController
         alertControllerWithTitle:title
@@ -1005,11 +1005,6 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             }
             if (statusCode == 403) {
                 NSString *errKey = responseDict[@"error"] ?: @"";
-                if ([errKey isEqualToString:@"clone_slot_limit"] &&
-                    [responseDict[@"limit"] integerValue] == 1) {
-                    [self showCloneRetentionSubscriptionPrompt];
-                    return;
-                }
                 NSString *reason = responseDict[@"reason"] ?: NSLocalizedString(@"ElevenLabsClone.AccessDenied", @"Access denied fallback message");
                 NSString *title  = [errKey isEqualToString:@"clone_slot_limit"]
                                  ? NSLocalizedString(@"ElevenLabsClone.VoiceSlotFull", @"Voice clone slot limit title")

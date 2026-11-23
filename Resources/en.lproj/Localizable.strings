@@ -305,6 +305,7 @@
 "ElevenLabsClone.VoiceClonedMessage" = "Voice ID: %@%@";
 "ElevenLabsClone.CloneRetentionTitle" = "Keep Your Clone";
 "ElevenLabsClone.CloneStorageMessage" = "Your clone was created with coins. Subscriptions include additional clone slots.";
+"ElevenLabsClone.CloneStorageMessageV2" = "Your clone was created and will remain available for the next seven days. Keep your clone longer by purchasing a subscription.";
 "ElevenLabsClone.UnnamedVoice" = "Unnamed Voice";
 "ElevenLabsClone.NoClonedVoices" = "No cloned voices found. Record and upload to create one.";
 "ElevenLabsClone.ShowingVoicesFormat" = "Showing %lu of %lu voices";
