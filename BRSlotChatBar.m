@@ -412,7 +412,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         [self.presenceLabel.trailingAnchor constraintLessThanOrEqualToAnchor:collapse.leadingAnchor constant:-8],
         [collapse.trailingAnchor constraintEqualToAnchor:self.expandedView.trailingAnchor constant:-8],
         [collapse.centerYAnchor constraintEqualToAnchor:self.presenceLabel.centerYAnchor],
-        [collapse.widthAnchor constraintEqualToConstant:30], [collapse.heightAnchor constraintEqualToConstant:26],
+        [collapse.heightAnchor constraintEqualToConstant:26],
         [self.table.topAnchor constraintEqualToAnchor:self.presenceLabel.bottomAnchor constant:6],
         [self.table.leadingAnchor constraintEqualToAnchor:self.expandedView.leadingAnchor constant:6],
         [self.table.trailingAnchor constraintEqualToAnchor:self.expandedView.trailingAnchor constant:-6],
