@@ -38,6 +38,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.22",
+          "buildVersion": "7.2.22",
+          "date": "2026-11-23",
+          "localizedDescription": "## What's Changed\n* Chat composer: mic inside the input pill, wider row by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/248\n* System Log: redact input_image payloads in the outgoing-request log copy by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/250\n* Add convert_file chat tool for local files by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/252\n* Coin store: move the web store button to the top and make it big by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/253\n* Add GPT-6.2 Astra and Sol to the model picker by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/251\n* Bump version to 7.2.21 by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/254\n* Add EZFileConvertTools to the Xcode project so the archive links by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/255\n* Policies: use the EZCompleteAI name in the policy text by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/256\n* Shared player: one-shots no longer roll into the playlist, songs keep the lock screen by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/257\n* ViewController: restore the work the convert_file merge overwrote by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/258\n* Coin store: guard the storefront call so the jailbreak build compiles by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/259\n\n\n**Full Changelog**: https://github.com/Tweaker177/EZCompleteUI/compare/7.2.18...7.2.22",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.22/EZCompleteUI-7.2.22-release.ipa",
+          "size": 16008316,
+          "sha256": "736798d16a2bd8738fc92e64dbb5735f4202ae1fe2496b07d7b9324296fbe9dd",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.18",
           "buildVersion": "7.2.18",
           "date": "2026-11-21",
