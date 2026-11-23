@@ -426,6 +426,7 @@
 "BRSlot.Lounge.Connecting" = "● Connecting to lounge…";
 "BRSlot.Lounge.Composer" = "Say something nice…";
 "BRSlot.Lounge.Note" = "Be kind. Report messages by holding one. House hosts are characters, not players.";
+"BRSlot.Lounge.Close" = "Close";
 "BRSlot.Lounge.Wins" = "🏆 WINS";
 "BRSlot.Classic.ThemeTitle" = "%@ Slots";
 "BRSlot.Classic.CommunityTitle" = "Community Slots";
