@@ -47,7 +47,7 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
 @property (nonatomic, strong) AVAudioFile *boomFile;
 @property (nonatomic, strong) NSArray<NSArray<NSString *> *> *preSpinBoard;
 @property (nonatomic) NSInteger betIndex, freeSpinsRemaining, freeSpinSessionTotal, scatterStep;
-@property (nonatomic) BOOL spinning, celebrating, inBonus, slamRequested, spinSettled, bonusLightsRunning;
+@property (nonatomic) BOOL spinning, celebrating, jackpotActive, inBonus, slamRequested, spinSettled, bonusLightsRunning;
 @property (nonatomic, strong) NSDictionary *pendingSpinResult;
 @property (nonatomic) NSUInteger autoSpinToken;
 @property (nonatomic, strong) UIButton *autoButton;
@@ -91,7 +91,7 @@ static BOOL PlunderBool(id value) { return [value respondsToSelector:@selector(b
 }
 - (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated]; [self refreshState]; if (self.freeSpinsRemaining > 0) [self startBonusSong]; [self scheduleBonusAutoSpin]; if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"plunder-bay"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; } [self.chatBar start]; }
 - (void)br_slotSoundSettingChanged { if (BRSlotSoundEnabled()) return; [self.ambienceNode pause]; [self.songNode pause]; [self stopDrumRoll]; [self.boomNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.bellsPlayer stop]; [self.coinsPlayer stop]; [self.cannonPlayer stop]; }
-- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; self.autoSpinToken++; [self stopAutoSpin]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.isMovingFromParentViewController || self.navigationController.isBeingDismissed) { [self.chatBar stop]; [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
+- (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; self.autoSpinToken++; [self stopAutoSpin]; [self clearLineHighlights]; [self stopDrumRoll]; if (self.jackpotActive) { self.jackpotActive = NO; self.celebrating = NO; [self.winOverlay removeFromSuperview]; self.winOverlay = nil; } if (self.isMovingFromParentViewController || self.navigationController.isBeingDismissed) { [self.chatBar stop]; [self.songNode pause]; [self.ambienceNode pause]; [self.drumNode stop]; [self.reelsPlayer stop]; [self.whooshPlayer stop]; [self.loopEngine stop]; [self.sfxEngine stop]; } }
 - (void)backTapped { [self.navigationController popViewControllerAnimated:YES]; }
 
 // The current SDK wraps bar button items in a shared glass capsule
@@ -182,8 +182,8 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
 }
 - (NSArray<NSNumber *> *)betLadder { return self.vipMode ? PlunderVIPBets() : PlunderBets(); }
 - (NSInteger)betCoins { return [self betLadder][self.betIndex].integerValue; }
-- (void)cycleBet { if (self.spinning || self.freeSpinsRemaining) return; self.betIndex = (self.betIndex+1)%[self betLadder].count; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; [self checkBalanceSilently]; }
-- (void)maxBet { if (self.spinning) return; if (self.freeSpinsRemaining == 0) { self.betIndex = (NSInteger)[self betLadder].count-1; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; [self checkBalanceSilently]; } [self spin]; }
+- (void)cycleBet { if (self.spinning || self.jackpotActive || self.freeSpinsRemaining) return; self.betIndex = (self.betIndex+1)%[self betLadder].count; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; [self checkBalanceSilently]; }
+- (void)maxBet { if (self.spinning || self.jackpotActive) return; if (self.freeSpinsRemaining == 0) { self.betIndex = (NSInteger)[self betLadder].count-1; [self.betButton setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.BetValue", nil),(long)self.betCoins] forState:UIControlStateNormal]; [self checkBalanceSilently]; } [self spin]; }
 // Silent balance verification: refreshes the cached balance the spin path
 // trusts. Runs on screen entry paths and whenever the bet changes; never
 // blocks a spin and never puts a "checking" message on screen.
@@ -209,7 +209,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
 }
 - (void)autoButtonHeld:(UILongPressGestureRecognizer *)gesture {
     if (gesture.state != UIGestureRecognizerStateBegan) return;
-    if (self.autoSpinActive || self.spinning || self.freeSpinsRemaining > 0) return;
+    if (self.autoSpinActive || self.spinning || self.jackpotActive || self.freeSpinsRemaining > 0) return;
     self.autoSpinActive = YES; self.autoSpinsRemaining = self.autoSpinChoice; [self updateAutoButton];
     [self fireAutoSpin];
 }
@@ -222,11 +222,11 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
 }
 - (void)stopAutoSpin { self.autoSpinActive = NO; self.autoSpinsRemaining = 0; self.autoSpinPaidToken++; [self updateAutoButton]; }
 - (void)schedulePaidAutoSpin {
-    if (!self.autoSpinActive || self.spinning || self.freeSpinsRemaining > 0) return;
+    if (!self.autoSpinActive || self.spinning || self.jackpotActive || self.freeSpinsRemaining > 0) return;
     if (self.autoSpinsRemaining <= 0) { [self stopAutoSpin]; return; }
     NSUInteger token = ++self.autoSpinPaidToken;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.45*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
-        if (self.autoSpinPaidToken != token || !self.autoSpinActive || self.spinning || self.freeSpinsRemaining > 0 || !self.view.window) return;
+        if (self.autoSpinPaidToken != token || !self.autoSpinActive || self.spinning || self.jackpotActive || self.freeSpinsRemaining > 0 || !self.view.window) return;
         [self fireAutoSpin];
     });
 }
@@ -250,7 +250,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
 }
 - (void)updateBonusLabel {
     self.bonusLabel.text = self.freeSpinsRemaining > 0 ? [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Plunder.FreeSpinsRemaining", nil),(long)self.freeSpinsRemaining] : NSLocalizedString(@"BRSlot.Plunder.ScatterReward", nil);
-    self.betButton.enabled = self.maxButton.enabled = self.freeSpinsRemaining == 0 && !self.spinning;
+    self.betButton.enabled = self.maxButton.enabled = self.freeSpinsRemaining == 0 && !self.spinning && !self.jackpotActive;
     [self applyBonusPresentation:self.freeSpinsRemaining > 0];
 }
 // Bonus light show: while free spins are live the cabinet flashes
@@ -290,10 +290,10 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
 // a short beat while any remain. Leaving the screen cancels the
 // chain via the token.
 - (void)scheduleBonusAutoSpin {
-    if (self.freeSpinsRemaining == 0 || self.spinning) return;
+    if (self.freeSpinsRemaining == 0 || self.spinning || self.jackpotActive) return;
     NSUInteger token = ++self.autoSpinToken;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.15*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
-        if (self.autoSpinToken != token || self.spinning || self.freeSpinsRemaining == 0 || !self.view.window) return;
+        if (self.autoSpinToken != token || self.spinning || self.jackpotActive || self.freeSpinsRemaining == 0 || !self.view.window) return;
         [self spin];
     });
 }
@@ -335,6 +335,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
     }];
 }
 - (void)spin {
+    if (self.jackpotActive) { if (self.autoSpinActive) [self stopAutoSpin]; return; }
     if (self.spinning) { [self slamStop]; return; }
     if (self.autoSpinActive && !self.autoSpinFromDriver && self.freeSpinsRemaining == 0) { [self stopAutoSpin]; return; }
     self.autoSpinFromDriver = NO;
@@ -474,17 +475,26 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
             if ([paySymbol isEqualToString:@"cannon"]) { cannonLine = YES; break; }
         }
         if (cannonLine) [self playCannon];
-        if (winLines.count) [self celebrateWinLines:winLines step:0 passes:(winLines.count<=2?3:winLines.count<=4?2:1) celebrationID:self.lineCelebrationID];
+        NSInteger totalBet = MAX(1, PlunderInteger(result[@"wager"]));
+        BOOL jackpot = payout > 0 && payout / totalBet >= 75;
+        NSInteger linePasses = jackpot ? MAX(1, (NSInteger)ceil(7.0 / (1.35 * winLines.count))) : (winLines.count<=2?3:winLines.count<=4?2:1);
+        if (winLines.count) [self celebrateWinLines:winLines step:0 passes:linePasses celebrationID:self.lineCelebrationID];
         NSInteger winLineCount = PlunderInteger(result[@"win_lines"]);
         self.messageLabel.text = awarded ? [NSString stringWithFormat:@"🧭 %@%@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.FreeSpinsAward", nil), (long)awarded], payout ? [NSString stringWithFormat:@" %@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.Coins", nil), (long)payout]] : @""] : payout ? [NSString stringWithFormat:NSLocalizedString(winLineCount == 1 ? @"BRSlot.Win.LinesResultOne" : @"BRSlot.Win.LinesResult", nil), (long)payout, (long)winLineCount] : wasFreeSpin ? NSLocalizedString(@"BRSlot.Win.FreeSpinNoWin", nil) : [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.NoWin", nil), (long)PlunderInteger(result[@"wager"])];
         self.messageLabel.textColor=(payout || awarded) ? UIColor.systemYellowColor : [UIColor colorWithWhite:.8 alpha:1];
         if (payout > 0) [self playCoins];
-        if (payout > 0) [BRSlotCelebration celebrateBigWinInView:self.view payout:payout totalBet:MAX(1, PlunderInteger(result[@"wager"]))];
-        if (payout || awarded) [self showWin:payout awarded:awarded];
+        BOOL showSessionTotal = wasFreeSpin && self.freeSpinsRemaining == 0 && self.freeSpinSessionTotal > 0;
+        if (jackpot) {
+            [self showJackpot:payout pauseForFreeSpinSummary:showSessionTotal];
+        } else {
+            if (payout > 0) [BRSlotCelebration celebrateBigWinInView:self.view payout:payout totalBet:totalBet];
+            if (payout || awarded) [self showWin:payout awarded:awarded];
+        }
         self.pendingSpinResult = nil;
         self.spinning=NO; self.spinButton.enabled=self.maxButton.enabled=YES; [self updateBonusLabel];
-        if (balance==0 && self.freeSpinsRemaining==0) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.5*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self showCoinStore]; });
-        if (wasFreeSpin && self.freeSpinsRemaining==0 && self.freeSpinSessionTotal>0) { NSInteger total=self.freeSpinSessionTotal; self.freeSpinSessionTotal=0; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(.75*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self showFreeSpinsComplete:total]; }); }
+        NSTimeInterval presentationDelay = jackpot ? 7.05 : 0;
+        if (balance==0 && self.freeSpinsRemaining==0) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)((presentationDelay + .5)*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (self.view.window) [self showCoinStore]; });
+        if (showSessionTotal) { NSInteger total=self.freeSpinSessionTotal; self.freeSpinSessionTotal=0; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)((presentationDelay + .75)*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (self.view.window) [self showFreeSpinsComplete:total]; }); }
         [self scheduleBonusAutoSpin]; [self schedulePaidAutoSpin];
 }
 - (void)clearLineHighlights { self.lineCelebrationID++; for (NSArray *col in self.reels) for (UIImageView *tile in col) { [tile.layer removeAllAnimations]; tile.transform=CGAffineTransformIdentity; tile.layer.borderWidth=0; tile.layer.borderColor=nil; } }
@@ -661,6 +671,103 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
 - (void)startAmbience { if (!BRSlotSoundEnabled() || self.inBonus || !self.view.window) return; [self plunderStartLoopNode:self.ambienceNode]; }
 - (void)stopAmbience { [self.ambienceNode pause]; }
 - (void)startBonusSong { if (!BRSlotSoundEnabled()) return; [self plunderStartLoopNode:self.songNode]; }
+// A jackpot gets its own compact banner above the reels so the winning
+// symbols remain visible. The server-settled payout is never changed by
+// the display-only count-up.
+- (void)showJackpot:(NSInteger)payout pauseForFreeSpinSummary:(BOOL)pauseForSummary {
+    [self.winOverlay removeFromSuperview];
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+    overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.userInteractionEnabled = NO;
+    self.winOverlay = overlay;
+    self.celebrating = YES;
+    self.jackpotActive = YES;
+    [self.view addSubview:overlay];
+
+    UIView *card = [UIView new];
+    card.translatesAutoresizingMaskIntoConstraints = NO;
+    card.backgroundColor = [UIColor colorWithRed:.02 green:.04 blue:.13 alpha:.96];
+    card.layer.cornerRadius = 18;
+    card.layer.borderWidth = 2.5;
+    card.layer.borderColor = [UIColor colorWithRed:1 green:.78 blue:.08 alpha:1].CGColor;
+    [overlay addSubview:card];
+    UILabel *title = [UILabel new];
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    title.text = @"JACKPOT!";
+    title.textAlignment = NSTextAlignmentCenter;
+    title.textColor = [UIColor colorWithRed:1 green:.80 blue:.12 alpha:1];
+    title.font = [UIFont systemFontOfSize:42 weight:UIFontWeightBlack];
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = .6;
+    [card addSubview:title];
+    UILabel *amount = [UILabel new];
+    amount.translatesAutoresizingMaskIntoConstraints = NO;
+    amount.text = @"0";
+    amount.textAlignment = NSTextAlignmentCenter;
+    amount.textColor = UIColor.whiteColor;
+    amount.font = [UIFont monospacedDigitSystemFontOfSize:46 weight:UIFontWeightBlack];
+    amount.adjustsFontSizeToFitWidth = YES;
+    amount.minimumScaleFactor = .45;
+    [card addSubview:amount];
+    UILabel *coins = [UILabel new];
+    coins.translatesAutoresizingMaskIntoConstraints = NO;
+    coins.text = NSLocalizedStringWithDefaultValue(@"BRSlot.Jackpot.Coins", nil, NSBundle.mainBundle, @"COINS", nil);
+    coins.textColor = [UIColor colorWithRed:1 green:.86 blue:.4 alpha:1];
+    coins.textAlignment = NSTextAlignmentCenter;
+    coins.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
+    [card addSubview:coins];
+    [NSLayoutConstraint activateConstraints:@[
+        [card.topAnchor constraintEqualToAnchor:overlay.safeAreaLayoutGuide.topAnchor constant:8],
+        [card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:22],
+        [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-22],
+        [card.heightAnchor constraintEqualToConstant:150],
+        [title.topAnchor constraintEqualToAnchor:card.topAnchor constant:6],
+        [title.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:8],
+        [title.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-8],
+        [title.heightAnchor constraintEqualToConstant:48],
+        [amount.topAnchor constraintEqualToAnchor:title.bottomAnchor],
+        [amount.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:8],
+        [amount.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-8],
+        [amount.heightAnchor constraintEqualToConstant:56],
+        [coins.topAnchor constraintEqualToAnchor:amount.bottomAnchor],
+        [coins.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:8],
+        [coins.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-8],
+        [coins.heightAnchor constraintEqualToConstant:24]
+    ]];
+    [self coinWave:overlay];
+    [self updateJackpotAmount:amount payout:payout startTime:CACurrentMediaTime() overlay:overlay];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(7.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (self.winOverlay != overlay || !self.jackpotActive) return;
+        self.jackpotActive = NO;
+        self.celebrating = NO;
+        [overlay removeFromSuperview];
+        self.winOverlay = nil;
+        [self updateBonusLabel];
+        // Let the end-of-free-spins banner finish before paid auto-play resumes.
+        NSTimeInterval resumeDelay = pauseForSummary ? 4.1 : 0;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(resumeDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (!self.view.window || self.jackpotActive) return;
+            [self scheduleBonusAutoSpin];
+            [self schedulePaidAutoSpin];
+        });
+    });
+}
+
+- (void)updateJackpotAmount:(UILabel *)label payout:(NSInteger)payout startTime:(CFTimeInterval)startTime overlay:(UIView *)overlay {
+    if (self.winOverlay != overlay || !self.jackpotActive) return;
+    double progress = MIN(1.0, MAX(0.0, (CACurrentMediaTime() - startTime) / 4.5));
+    double eased = 1.0 - pow(1.0 - progress, 2.0);
+    NSInteger displayed = progress >= 1.0 ? payout : (NSInteger)((long double)payout * eased);
+    NSNumberFormatter *formatter = [NSNumberFormatter new];
+    formatter.numberStyle = NSNumberFormatterDecimalStyle;
+    label.text = [formatter stringFromNumber:@(displayed)] ?: [NSString stringWithFormat:@"%ld", (long)displayed];
+    if (progress < 1.0) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self updateJackpotAmount:label payout:payout startTime:startTime overlay:overlay];
+        });
+    }
+}
+
 - (void)showWin:(NSInteger)payout awarded:(NSInteger)awarded {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; [self.winOverlay removeFromSuperview]; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
     NSString *winTitle = awarded ? [NSString stringWithFormat:@"🧭 %ld FREE SPINS", (long)awarded] : @"WINNER!";
