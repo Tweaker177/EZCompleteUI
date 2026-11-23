@@ -1,0 +1,80 @@
+name: Bump version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New version (for example 7.2.24)"
+        required: true
+        type: string
+      next:
+        description: "What to run once the bump is pushed"
+        required: true
+        type: choice
+        options:
+          - Just bump
+          - TestFlight upload
+          - Jailbreak build
+        default: Just bump
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch version files
+        env:
+          NEW_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if ! echo "$NEW_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Version must look like 7.2.24" >&2
+            exit 1
+          fi
+          for plist in Resources/Info.plist ShareExtension/Info.plist; do
+            sed -i "/<key>CFBundleShortVersionString<\/key>/{n;s|<string>[^<]*</string>|<string>$NEW_VERSION</string>|}" "$plist"
+            sed -i "/<key>CFBundleVersion<\/key>/{n;s|<string>[^<]*</string>|<string>$NEW_VERSION</string>|}" "$plist"
+          done
+          sed -i "s/^Version:.*/Version: $NEW_VERSION/" control
+          echo "Resources/Info.plist:"
+          grep -A1 "CFBundleShortVersionString\|CFBundleVersion" Resources/Info.plist
+          echo "ShareExtension/Info.plist:"
+          grep -A1 "CFBundleShortVersionString\|CFBundleVersion" ShareExtension/Info.plist
+          echo "control:"
+          grep "^Version:" control
+          test "$(grep -c "<string>$NEW_VERSION</string>" Resources/Info.plist)" -ge 2
+          test "$(grep -c "<string>$NEW_VERSION</string>" ShareExtension/Info.plist)" -ge 2
+          grep -q "^Version: $NEW_VERSION$" control
+
+      - name: Commit and push
+        env:
+          NEW_VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Resources/Info.plist ShareExtension/Info.plist control
+          if git diff --cached --quiet; then
+            echo "Already at $NEW_VERSION - nothing to commit."
+            exit 0
+          fi
+          git commit -m "Bump version to $NEW_VERSION"
+          git push
+
+      - name: Run TestFlight upload
+        if: ${{ inputs.next == 'TestFlight upload' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run testflight.yml --ref main -f upload=true
+
+      - name: Run jailbreak build
+        if: ${{ inputs.next == 'Jailbreak build' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEW_VERSION: ${{ inputs.version }}
+        run: gh workflow run jailbreak-build.yml --ref main -f tag="v$NEW_VERSION"
