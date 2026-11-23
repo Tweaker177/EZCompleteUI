@@ -382,6 +382,7 @@
 "BRSlot.Lounge.Connecting" = "● Verbindung zur Lounge…";
 "BRSlot.Lounge.Composer" = "Sag etwas Nettes ...";
 "BRSlot.Lounge.Note" = "Sei nett. Melden Sie Nachrichten, indem Sie eine davon gedrückt halten. Hauswirte sind Charaktere, keine Spieler.";
+"BRSlot.Lounge.Close" = "Schließen";
 "BRSlot.Lounge.Wins" = "🏆 GEWINNT";
 "BRSlot.Classic.ThemeTitle" = "%@ Slots";
 "BRSlot.Classic.CommunityTitle" = "Community-Slots";

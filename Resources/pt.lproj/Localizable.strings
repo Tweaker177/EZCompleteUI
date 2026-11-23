@@ -404,6 +404,7 @@
 "BRSlot.Lounge.Connecting" = "● Conectando-se ao lounge…";
 "BRSlot.Lounge.Composer" = "Diga algo legal…";
 "BRSlot.Lounge.Note" = "Seja gentil. Denuncie mensagens segurando uma. Os anfitriões são personagens, não jogadores.";
+"BRSlot.Lounge.Close" = "Fechar";
 "BRSlot.Lounge.Wins" = "🏆 GANHA";
 "BRSlot.Classic.ThemeTitle" = "%@ Slots";
 "BRSlot.Classic.CommunityTitle" = "Slots da comunidade";

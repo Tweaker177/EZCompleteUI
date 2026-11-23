@@ -382,6 +382,7 @@
 "BRSlot.Lounge.Connecting" = "● लाउंज से कनेक्ट हो रहा है…";
 "BRSlot.Lounge.Composer" = "कुछ अच्छा कहो...";
 "BRSlot.Lounge.Note" = "दयालु बनो. किसी एक को पकड़कर संदेशों की रिपोर्ट करें. हाउस होस्ट पात्र हैं, खिलाड़ी नहीं।";
+"BRSlot.Lounge.Close" = "बंद करें";
 "BRSlot.Lounge.Wins" = "🏆 जीतता है";
 "BRSlot.Classic.ThemeTitle" = "%@ स्लॉट";
 "BRSlot.Classic.CommunityTitle" = "सामुदायिक स्लॉट";

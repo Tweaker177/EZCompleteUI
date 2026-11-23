@@ -423,6 +423,7 @@
 "BRSlot.Lounge.Connecting" = "● Salona bağlanılıyor…";
 "BRSlot.Lounge.Composer" = "Güzel bir şeyler söyleyin…";
 "BRSlot.Lounge.Note" = "Nazik olun. Bir mesaja basılı tutarak bildirin. Salon sahipleri karakterlerdir, oyuncu değil.";
+"BRSlot.Lounge.Close" = "Kapat";
 "BRSlot.Lounge.Wins" = "🏆 KAZANÇLAR";
 "BRSlot.Classic.ThemeTitle" = "%@ Slots";
 "BRSlot.Classic.CommunityTitle" = "Topluluk Slotları";

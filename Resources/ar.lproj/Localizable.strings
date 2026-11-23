@@ -382,6 +382,7 @@
 "BRSlot.Lounge.Connecting" = "● الاتصال بالصالة…";
 "BRSlot.Lounge.Composer" = "قل شيئاً جميلاً...";
 "BRSlot.Lounge.Note" = "كن لطيفا. الإبلاغ عن الرسائل بالضغط على واحدة. مضيفو المنزل هم شخصيات وليسوا لاعبين.";
+"BRSlot.Lounge.Close" = "إغلاق";
 "BRSlot.Lounge.Wins" = "🏆 يفوز";
 "BRSlot.Classic.ThemeTitle" = "%@ فتحات";
 "BRSlot.Classic.CommunityTitle" = "فتحات المجتمع";

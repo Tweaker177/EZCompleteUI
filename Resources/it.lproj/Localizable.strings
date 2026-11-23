@@ -382,6 +382,7 @@
 "BRSlot.Lounge.Connecting" = "● Connessione alla lounge...";
 "BRSlot.Lounge.Composer" = "Dì qualcosa di carino...";
 "BRSlot.Lounge.Note" = "Sii gentile. Segnala i messaggi tenendone uno. I padroni di casa sono personaggi, non giocatori.";
+"BRSlot.Lounge.Close" = "Chiudi";
 "BRSlot.Lounge.Wins" = "🏆 VINCE";
 "BRSlot.Classic.ThemeTitle" = "%@ Slot";
 "BRSlot.Classic.CommunityTitle" = "Slot comunitari";

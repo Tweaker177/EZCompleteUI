@@ -382,6 +382,7 @@
 "BRSlot.Lounge.Connecting" = "● Đang kết nối với phòng chờ…";
 "BRSlot.Lounge.Composer" = "Nói điều gì đó tốt đẹp…";
 "BRSlot.Lounge.Note" = "Hãy tử tế. Báo cáo tin nhắn bằng cách giữ một tin nhắn. Chủ nhà là nhân vật chứ không phải người chơi.";
+"BRSlot.Lounge.Close" = "Đóng";
 "BRSlot.Lounge.Wins" = "🏆 THẮNG";
 "BRSlot.Classic.ThemeTitle" = "%@ Máy đánh bạc";
 "BRSlot.Classic.CommunityTitle" = "Slot cộng đồng";

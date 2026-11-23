@@ -422,6 +422,7 @@
 "BRSlot.Lounge.Connecting" = "● Подключение к гостиной…";
 "BRSlot.Lounge.Composer" = "Скажи что-нибудь приятное…";
 "BRSlot.Lounge.Note" = "Будьте добры. Сообщите о сообщениях, удерживая одну. Хозяева дома — это персонажи, а не игроки.";
+"BRSlot.Lounge.Close" = "Закрыть";
 "BRSlot.Lounge.Wins" = "🏆 ПОБЕДЫ";
 "BRSlot.Classic.ThemeTitle" = "%@ Слоты";
 "BRSlot.Classic.CommunityTitle" = "Слоты сообщества";

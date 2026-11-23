@@ -382,6 +382,7 @@
 "BRSlot.Lounge.Connecting" = "● ラウンジに接続中…";
 "BRSlot.Lounge.Composer" = "いいこと言って…";
 "BRSlot.Lounge.Note" = "親切にしてください。メッセージを長押しして報告します。ハウスホストはプレイヤーではなくキャラクターです。";
+"BRSlot.Lounge.Close" = "閉じる";
 "BRSlot.Lounge.Wins" = "🏆勝ち";
 "BRSlot.Classic.ThemeTitle" = "%@ スロット";
 "BRSlot.Classic.CommunityTitle" = "コミュニティスロット";
