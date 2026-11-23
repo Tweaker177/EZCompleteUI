@@ -456,12 +456,26 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 - (void)expandTapped { [self setExpanded:YES animated:YES]; }
 - (void)collapseTapped { [self setExpanded:NO animated:YES]; }
 
+// The expanded panel is 62% of the host height, capped at 560pt. With the
+// keyboard up that height pushes the panel's top - Close button and grabber -
+// off the screen, so the keyboard-up height is capped to leave the top row
+// visible.
+- (CGFloat)expandedPanelHeightForKeyboardOverlap:(CGFloat)overlap {
+    CGFloat hostHeight = self.superview.bounds.size.height;
+    CGFloat height = hostHeight > 0 ? MIN(MAX(hostHeight * 0.62, 320), 560) : 420;
+    if (overlap > 0) {
+        CGFloat topMargin = 16;
+        CGFloat maxHeight = hostHeight - overlap + self.superview.safeAreaInsets.bottom - 6 - topMargin;
+        height = MIN(height, MAX(maxHeight, 240));
+    }
+    return height;
+}
+
 - (void)setExpanded:(BOOL)expanded animated:(BOOL)animated {
     if (self.expanded == expanded) return;
     self.expanded = expanded;
     if (expanded) {
-        CGFloat hostHeight = self.superview.bounds.size.height;
-        self.heightConstraint.constant = hostHeight > 0 ? MIN(MAX(hostHeight * 0.62, 320), 560) : 420;
+        self.heightConstraint.constant = [self expandedPanelHeightForKeyboardOverlap:0];
         self.expandedView.hidden = NO;
         [self refresh];
     } else {
@@ -489,6 +503,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     CGRect keyboard = [self.superview convertRect:endFrame fromView:nil];
     CGFloat overlap = MAX(0, CGRectGetHeight(self.superview.bounds) - CGRectGetMinY(keyboard));
     self.bottomConstraint.constant = overlap > 0 ? -(overlap - self.superview.safeAreaInsets.bottom + 6) : -6;
+    self.heightConstraint.constant = [self expandedPanelHeightForKeyboardOverlap:overlap];
     NSTimeInterval duration = [notification.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
     UIViewAnimationOptions options = [notification.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue] << 16;
     [UIView animateWithDuration:duration delay:0 options:options animations:^{ [self.superview layoutIfNeeded]; [self scrollToBottomAnimated:NO]; } completion:nil];
