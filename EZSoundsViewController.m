@@ -55,6 +55,10 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
 - (void)addButtonWithTitle:(NSString *)title
                destructive:(BOOL)destructive
                    handler:(nullable void (^)(void))handler;
+- (void)addButtonWithTitle:(NSString *)title
+                  iconName:(nullable NSString *)iconName
+               destructive:(BOOL)destructive
+                   handler:(nullable void (^)(void))handler;
 - (void)addTextFieldWithText:(nullable NSString *)text placeholder:(nullable NSString *)placeholder;
 - (void)addSpinner;
 - (void)present;
@@ -170,8 +174,24 @@ static NSInteger EZSoundsEstimatedCost(NSInteger seconds) {
 - (void)addButtonWithTitle:(NSString *)title
                destructive:(BOOL)destructive
                    handler:(void (^)(void))handler {
+    [self addButtonWithTitle:title iconName:nil destructive:destructive handler:handler];
+}
+
+- (void)addButtonWithTitle:(NSString *)title
+                  iconName:(NSString *)iconName
+               destructive:(BOOL)destructive
+                   handler:(void (^)(void))handler {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
     [button setTitle:title forState:UIControlStateNormal];
+    if (iconName.length) {
+        UIImageSymbolConfiguration *config =
+            [UIImageSymbolConfiguration configurationWithPointSize:17
+                                                            weight:UIImageSymbolWeightSemibold];
+        [button setImage:[UIImage systemImageNamed:iconName withConfiguration:config]
+                forState:UIControlStateNormal];
+        button.tintColor = destructive ? EZSoundsNeonPink() : EZSoundsNeonCyan();
+        button.imageEdgeInsets = UIEdgeInsetsMake(0, 0, 0, 8);
+    }
     [button setTitleColor:(destructive ? EZSoundsNeonPink() : EZSoundsNeonText())
                  forState:UIControlStateNormal];
     button.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
@@ -1229,34 +1249,26 @@ static NSString *EZSoundsShortAutoName(NSString *text) {
 }
 
 - (void)presentActionsForEntry:(EZSoundManifestEntry *)entry {
+    // Favorite and Delete live on the row swipes (leading + trailing), so
+    // they are not repeated here. The outward actions sit one level down
+    // under Export.
     EZNeonSheet *sheet = [EZNeonSheet sheetInHostView:[self sheetHostView] centered:NO];
     sheet.dismissOnBackdropTap = YES;
     [sheet setTitle:[self displayTitleForEntry:entry] message:nil];
-    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Share", nil)
+    [sheet addButtonWithTitle:NSLocalizedStringWithDefaultValue(@"EZSounds.Export", nil, [NSBundle mainBundle], @"Export", nil)
+                     iconName:@"tray.and.arrow.up"
                   destructive:NO
-                      handler:^{ [self shareEntry:entry]; }];
-    [sheet addButtonWithTitle:NSLocalizedString(entry.isFavorite ? @"EZSounds.Unfavorite" : @"EZSounds.Favorite", nil)
-                  destructive:NO
-                      handler:^{
-        [[EZSoundLibraryManager sharedManager] setFavorite:!entry.isFavorite
-                                              forSoundUUID:entry.uuid
-                                                completion:^(EZSoundManifestEntry *updated, NSError *error) {
-            [self reloadEntries];
-        }];
-    }];
+                      handler:^{ [self presentExportForEntry:entry]; }];
     [sheet addButtonWithTitle:NSLocalizedStringWithDefaultValue(@"EZSounds.Regenerate", nil, [NSBundle mainBundle], @"Regenerate", nil)
+                     iconName:@"arrow.clockwise"
                   destructive:NO
                       handler:^{ [self regenerateEntry:entry]; }];
-    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.AddToVideo", nil)
-                  destructive:NO
-                      handler:^{ [self beginAddToVideoForEntry:entry]; }];
-    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.UseAsTTSBackground", nil)
-                  destructive:NO
-                      handler:^{ [self beginTTSBackgroundForEntry:entry]; }];
     [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Rename", nil)
+                     iconName:@"pencil"
                   destructive:NO
                       handler:^{ [self presentRenameForEntry:entry]; }];
     [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Edit", nil)
+                     iconName:@"scissors"
                   destructive:NO
                       handler:^{
         // The app's existing clip editor, opened on this sound: its
@@ -1266,10 +1278,30 @@ static NSString *EZSoundsShortAutoName(NSString *text) {
             [[EZTTSClipEditViewController alloc] initWithSoundEntry:entry];
         [self.navigationController pushViewController:editor animated:YES];
     }];
-    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Delete", nil)
-                  destructive:YES
-                      handler:^{ [self confirmDeleteEntry:entry]; }];
     [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Cancel", nil)
+                     iconName:@"xmark"
+                  destructive:NO handler:nil];
+    [sheet present];
+}
+
+- (void)presentExportForEntry:(EZSoundManifestEntry *)entry {
+    EZNeonSheet *sheet = [EZNeonSheet sheetInHostView:[self sheetHostView] centered:NO];
+    sheet.dismissOnBackdropTap = YES;
+    [sheet setTitle:[self displayTitleForEntry:entry] message:nil];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Share", nil)
+                     iconName:@"square.and.arrow.up"
+                  destructive:NO
+                      handler:^{ [self shareEntry:entry]; }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.AddToVideo", nil)
+                     iconName:@"film"
+                  destructive:NO
+                      handler:^{ [self beginAddToVideoForEntry:entry]; }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.UseAsTTSBackground", nil)
+                     iconName:@"waveform"
+                  destructive:NO
+                      handler:^{ [self beginTTSBackgroundForEntry:entry]; }];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Cancel", nil)
+                     iconName:@"xmark"
                   destructive:NO handler:nil];
     [sheet present];
 }
