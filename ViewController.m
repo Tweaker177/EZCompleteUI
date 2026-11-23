@@ -928,6 +928,9 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event);
 @property (nonatomic, strong) UILabel       *threadSelectionCountLabel;
 @property (nonatomic, strong) NSArray<UIButton *> *threadSelectionActionButtons;
 @property (nonatomic, strong) UIView        *threadActionOverlay;
+@property (nonatomic, strong) UIView        *threadActionCard;
+@property (nonatomic, strong) NSLayoutConstraint *threadActionCardCenterY;
+@property (nonatomic, assign) CGFloat        lastKeyboardHeight;
 @property (nonatomic, strong) UIButton      *textToSpeechButton;
 @property (nonatomic, strong) UIButton      *cloningButton;
 @property (nonatomic, strong) UIButton      *galleryButton;
@@ -2806,6 +2809,8 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
 - (void)dismissThreadActionOverlay {
     UIView *overlay = self.threadActionOverlay;
     self.threadActionOverlay = nil;
+    self.threadActionCard = nil;
+    self.threadActionCardCenterY = nil;
     [UIView animateWithDuration:0.18 animations:^{ overlay.alpha = 0; }
                      completion:^(__unused BOOL finished) { [overlay removeFromSuperview]; }];
 }
@@ -2839,10 +2844,13 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
     detailLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
     detailLabel.numberOfLines = 0;
     [card addSubview:detailLabel];
+    NSLayoutConstraint *cardCenterY = [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor];
+    self.threadActionCard = card;
+    self.threadActionCardCenterY = cardCenterY;
     [NSLayoutConstraint activateConstraints:@[
         [card.leadingAnchor constraintEqualToAnchor:overlay.leadingAnchor constant:20],
         [card.trailingAnchor constraintEqualToAnchor:overlay.trailingAnchor constant:-20],
-        [card.centerYAnchor constraintEqualToAnchor:overlay.centerYAnchor],
+        cardCenterY,
         [titleLabel.topAnchor constraintEqualToAnchor:card.topAnchor constant:22],
         [titleLabel.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:22],
         [titleLabel.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-22],
@@ -2850,8 +2858,33 @@ static NSString * _Nullable EZSeahorseReferenceHashForPath(NSString *path) {
         [detailLabel.leadingAnchor constraintEqualToAnchor:titleLabel.leadingAnchor],
         [detailLabel.trailingAnchor constraintEqualToAnchor:titleLabel.trailingAnchor],
     ]];
+    if (self.lastKeyboardHeight > 0) {
+        // The keyboard is already up (the export card focuses its field
+        // immediately): start above it instead of sliding up afterwards.
+        // Callers add their fields and buttons after this returns, which
+        // grows the card, so settle it once more on the next runloop.
+        [self shiftThreadActionCardAboveKeyboardTop:CGRectGetHeight(self.view.bounds) - self.lastKeyboardHeight];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (self.threadActionCard && self.lastKeyboardHeight > 0) {
+                [self shiftThreadActionCardAboveKeyboardTop:CGRectGetHeight(self.view.bounds) - self.lastKeyboardHeight];
+                [self.view layoutIfNeeded];
+            }
+        });
+    }
     [UIView animateWithDuration:0.20 animations:^{ overlay.alpha = 1; }];
     return card;
+}
+
+// Moves the thread action card so its bottom edge (buttons included)
+// clears the keyboard's top edge by 16pt; a keyboard top at or below the
+// card's resting position settles it back to centre. Overlap is measured
+// from the card's unshifted position so repeat calls stay stable.
+- (void)shiftThreadActionCardAboveKeyboardTop:(CGFloat)keyboardTop {
+    if (!self.threadActionCard || !self.threadActionCardCenterY) return;
+    [self.view layoutIfNeeded];
+    CGFloat restingMaxY = CGRectGetMaxY(self.threadActionCard.frame) - self.threadActionCardCenterY.constant;
+    CGFloat overlap = restingMaxY - keyboardTop + 16;
+    self.threadActionCardCenterY.constant = overlap > 0 ? -overlap : 0;
 }
 
 - (UIButton *)threadActionButtonWithTitle:(NSString *)title symbol:(NSString *)symbol color:(UIColor *)color {
@@ -7643,6 +7676,15 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     BOOL isHiding   = [notification.name isEqualToString:UIKeyboardWillHideNotification];
     self.containerBottomConstraint.constant = isHiding
         ? 0 : -(kbFrame.size.height - self.view.safeAreaInsets.bottom);
+    self.lastKeyboardHeight = isHiding ? 0 : kbFrame.size.height;
+    if (self.threadActionCard) {
+        if (isHiding) {
+            self.threadActionCardCenterY.constant = 0;
+        } else {
+            CGRect kbInView = [self.view convertRect:kbFrame fromView:nil];
+            [self shiftThreadActionCardAboveKeyboardTop:CGRectGetMinY(kbInView)];
+        }
+    }
     [UIView animateWithDuration:duration animations:^{ [self.view layoutIfNeeded]; }];
 }
 
