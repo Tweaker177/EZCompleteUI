@@ -2,6 +2,7 @@
 #import "EZAuthManager.h"
 #import "EZSupabaseConfig.h"
 #import <objc/runtime.h>
+#import <CommonCrypto/CommonDigest.h>
 
 // br-slot-social replies are parsed JSON: any field can be NSNull or the
 // wrong type, and messaging boolValue/integerValue — or subscripting a
@@ -62,6 +63,28 @@ static UIImage *BRChatThumbnailFromData(NSData *data, CGFloat points) {
 }
 static NSString *BRChatAvatarIdentity(NSString *url) { return url ? ([url componentsSeparatedByString:@"?"].firstObject ?: url) : nil; }
 static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache *cache; static dispatch_once_t once; dispatch_once(&once, ^{ cache = [NSCache new]; cache.countLimit = 64; }); return cache; }
+
+// Avatars are also cached on disk (Library/Caches/BRChatAvatars), keyed by
+// the same URL|points string as the memory cache, so the leaderboard shows
+// real photos on a cold start instead of the gold placeholder while every
+// avatar re-downloads. Caches is not backed up and the system may purge it;
+// a miss just downloads again. A changed photo gets a new URL, so a stale
+// file can never serve the wrong face.
+static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
+    static NSString *dir;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSString *caches = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
+        dir = [caches stringByAppendingPathComponent:@"BRChatAvatars"];
+        [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    });
+    unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+    NSData *keyData = [key dataUsingEncoding:NSUTF8StringEncoding];
+    CC_SHA256(keyData.bytes, (CC_LONG)keyData.length, digest);
+    NSMutableString *hex = [NSMutableString stringWithCapacity:CC_SHA256_DIGEST_LENGTH * 2];
+    for (int j = 0; j < CC_SHA256_DIGEST_LENGTH; j++) [hex appendFormat:@"%02x", digest[j]];
+    return [dir stringByAppendingPathComponent:[hex stringByAppendingString:@".jpg"]];
+}
 
 @interface BRSlotChatPromptController : UIViewController <UITextFieldDelegate, UITextViewDelegate>
 @property (nonatomic, copy) NSString *promptTitle, *promptBody, *initialText;
@@ -517,7 +540,30 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
 - (void)showLeaderboard { [self request:@{ @"action": @"leaderboard" } completion:^(NSDictionary *json, NSString *error) { NSDictionary *board = [json[@"leaderboard"] isKindOfClass:NSDictionary.class] ? json[@"leaderboard"] : nil; if (error || !board) return; [self presentLeaderboard:board]; }]; }
 
 - (void)showWinnersBoard { [self showLeaderboard]; }
-+ (void)loadAvatarThumbnailForURL:(NSString *)urlString points:(CGFloat)points completion:(void (^)(UIImage *))completion { if (!completion) return; if (!urlString.length) { completion(nil); return; } NSString *key = [NSString stringWithFormat:@"%@|%.0f", urlString, points]; UIImage *cached = [BRChatAvatarCache() objectForKey:key]; if (cached) { completion(cached); return; } NSURL *url = [NSURL URLWithString:urlString]; if (!url) { completion(nil); return; } [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) { UIImage *image = BRChatThumbnailFromData(data, points); if (image) [BRChatAvatarCache() setObject:image forKey:key]; dispatch_async(dispatch_get_main_queue(), ^{ completion(image); }); }] resume]; }
++ (void)loadAvatarThumbnailForURL:(NSString *)urlString points:(CGFloat)points completion:(void (^)(UIImage *))completion {
+    if (!completion) return;
+    if (!urlString.length) { completion(nil); return; }
+    NSString *key = [NSString stringWithFormat:@"%@|%.0f", urlString, points];
+    UIImage *cached = [BRChatAvatarCache() objectForKey:key];
+    if (cached) { completion(cached); return; }
+    NSString *diskPath = BRChatAvatarDiskPathForKey(key);
+    NSData *diskData = [NSData dataWithContentsOfFile:diskPath];
+    if (diskData.length) {
+        UIImage *diskImage = [UIImage imageWithData:diskData];
+        if (diskImage) { [BRChatAvatarCache() setObject:diskImage forKey:key]; completion(diskImage); return; }
+    }
+    NSURL *url = [NSURL URLWithString:urlString];
+    if (!url) { completion(nil); return; }
+    [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        UIImage *image = BRChatThumbnailFromData(data, points);
+        if (image) {
+            [BRChatAvatarCache() setObject:image forKey:key];
+            NSData *jpeg = UIImageJPEGRepresentation(image, 0.85);
+            if (jpeg.length) [jpeg writeToFile:diskPath atomically:YES];
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{ completion(image); });
+    }] resume];
+}
 - (void)fetchOwnProfile { [self request:@{ @"action": @"profile" } completion:^(NSDictionary *json, NSString *error) { if (error || !json) return; NSDictionary *profile = [json[@"profile"] isKindOfClass:NSDictionary.class] ? json[@"profile"] : nil; if (!profile) return; self.hasProfile = YES; self.profileName = BRChatString(profile[@"display_name"]); self.profileStatus = BRChatString(profile[@"status"]); self.musicEnabled = BRChatBool(profile[@"music_enabled"]); NSInteger vipPoints = BRChatInteger(profile[@"vip_points"]); if (vipPoints != self.profileVipPoints) { self.profileVipPoints = vipPoints; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } NSString *avatarURL = BRChatString(profile[@"avatar_url"]); if (![BRChatAvatarIdentity(avatarURL) isEqualToString:BRChatAvatarIdentity(self.profileAvatarURL)]) { self.profileAvatarURL = avatarURL; [NSNotificationCenter.defaultCenter postNotificationName:BRSlotProfileDidUpdateNotification object:self]; } }]; }
 - (void)showProfileEditor {
     if (self.profileName.length) { [self editProfile]; return; }
@@ -677,7 +723,7 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.messages.count + 1; }
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath { if (indexPath.row == 0) { UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]; cell.backgroundColor = [UIColor colorWithRed:.30 green:.08 blue:.42 alpha:.55]; cell.textLabel.text = @"🎰 Cherry Queen · Live house host"; cell.textLabel.textColor = [UIColor colorWithRed:1 green:.79 blue:.25 alpha:1]; cell.textLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBlack]; cell.detailTextLabel.text = @"A room character who keeps the lounge welcoming. Spin responsibly and celebrate each other."; cell.detailTextLabel.textColor = [UIColor colorWithWhite:.78 alpha:1]; cell.detailTextLabel.numberOfLines = 0; return cell; } NSDictionary *message = BRChatDictionary(self.messages[indexPath.row - 1]); UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]; BOOL mine = BRChatBool(message[@"is_mine"]); BOOL host = BRChatBool(message[@"is_house_host"]); cell.backgroundColor = host ? [UIColor colorWithRed:.30 green:.08 blue:.42 alpha:.55] : (mine ? [UIColor colorWithRed:.22 green:.10 blue:.39 alpha:.65] : [UIColor colorWithWhite:1 alpha:.055]); cell.layer.cornerRadius = 12; NSString *displayName = BRChatString(message[@"display_name"]) ?: (host ? @"Cherry Queen" : @"Player"); cell.textLabel.text = host ? [NSString stringWithFormat:@"🎰 %@ · Live house host", displayName] : displayName; cell.textLabel.textColor = (mine || host) ? [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1] : UIColor.whiteColor; cell.textLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBlack]; cell.detailTextLabel.text = BRChatString(message[@"body"]) ?: @""; cell.detailTextLabel.textColor = [UIColor colorWithWhite:.83 alpha:1]; cell.detailTextLabel.numberOfLines = 0; cell.imageView.image = host ? [UIImage systemImageNamed:@"sparkles"] : [UIImage systemImageNamed:@"person.crop.circle.fill"]; cell.imageView.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; cell.imageView.layer.cornerRadius = 17; cell.imageView.clipsToBounds = YES; NSString *avatarURL = BRChatString(message[@"avatar_url"]); if (!host && avatarURL.length) { NSURL *url = [NSURL URLWithString:avatarURL]; if (!url) return cell; __weak UITableViewCell *weakCell = cell; [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) { UIImage *image = data ? [UIImage imageWithData:data] : nil; if (!image) return; dispatch_async(dispatch_get_main_queue(), ^{ weakCell.imageView.image = image; weakCell.imageView.contentMode = UIViewContentModeScaleAspectFill; }); }] resume]; } return cell; }
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath { if (indexPath.row == 0) { UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]; cell.backgroundColor = [UIColor colorWithRed:.30 green:.08 blue:.42 alpha:.55]; cell.textLabel.text = @"🎰 Cherry Queen · Live house host"; cell.textLabel.textColor = [UIColor colorWithRed:1 green:.79 blue:.25 alpha:1]; cell.textLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBlack]; cell.detailTextLabel.text = @"A room character who keeps the lounge welcoming. Spin responsibly and celebrate each other."; cell.detailTextLabel.textColor = [UIColor colorWithWhite:.78 alpha:1]; cell.detailTextLabel.numberOfLines = 0; return cell; } NSDictionary *message = BRChatDictionary(self.messages[indexPath.row - 1]); UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]; BOOL mine = BRChatBool(message[@"is_mine"]); BOOL host = BRChatBool(message[@"is_house_host"]); cell.backgroundColor = host ? [UIColor colorWithRed:.30 green:.08 blue:.42 alpha:.55] : (mine ? [UIColor colorWithRed:.22 green:.10 blue:.39 alpha:.65] : [UIColor colorWithWhite:1 alpha:.055]); cell.layer.cornerRadius = 12; NSString *displayName = BRChatString(message[@"display_name"]) ?: (host ? @"Cherry Queen" : @"Player"); cell.textLabel.text = host ? [NSString stringWithFormat:@"🎰 %@ · Live house host", displayName] : displayName; cell.textLabel.textColor = (mine || host) ? [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1] : UIColor.whiteColor; cell.textLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBlack]; cell.detailTextLabel.text = BRChatString(message[@"body"]) ?: @""; cell.detailTextLabel.textColor = [UIColor colorWithWhite:.83 alpha:1]; cell.detailTextLabel.numberOfLines = 0; cell.imageView.image = host ? [UIImage systemImageNamed:@"sparkles"] : [UIImage systemImageNamed:@"person.crop.circle.fill"]; cell.imageView.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; cell.imageView.layer.cornerRadius = 17; cell.imageView.clipsToBounds = YES; NSString *avatarURL = BRChatString(message[@"avatar_url"]); if (!host && avatarURL.length) { __weak UITableViewCell *weakCell = cell; [BRSlotChatBar loadAvatarThumbnailForURL:avatarURL points:34 completion:^(UIImage *image) { if (!image) return; weakCell.imageView.image = image; weakCell.imageView.contentMode = UIViewContentModeScaleAspectFill; }]; } return cell; }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath { return indexPath.row == 0 ? 62 : UITableViewAutomaticDimension; }
 - (UISwipeActionsConfiguration *)tableView:(UITableView *)tableView trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath API_AVAILABLE(ios(11.0)) {
     if (indexPath.row == 0) return [UISwipeActionsConfiguration configurationWithActions:@[]];
