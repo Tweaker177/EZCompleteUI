@@ -907,7 +907,7 @@ static UIImage *PGSnowImage(void) {
         [titleExtrusion.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
         [titleExtrusion.trailingAnchor constraintEqualToAnchor:title.trailingAnchor],
         [title.topAnchor constraintEqualToAnchor:content.topAnchor constant:6],
-        [title.leadingAnchor constraintEqualToAnchor:headerPenguin.trailingAnchor constant:4],
+        [title.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:90],
         [title.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-18],
         [subtitle.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:0],
         [subtitle.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
