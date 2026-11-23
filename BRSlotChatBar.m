@@ -1028,7 +1028,8 @@ static CGFloat BRSRayBaseRadius(CGRect rect, CGFloat a) {
     }
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, size.width - 32, mega ? 74 : 60)];
-    title.text = NSLocalizedString(mega ? @"BRSlot.Win.MegaWin" : @"BRSlot.Win.BigWin", nil);
+    title.text = mega ? NSLocalizedStringWithDefaultValue(@"BRSlot.Win.Jackpot", nil, NSBundle.mainBundle, @"JACKPOT!", nil)
+                      : NSLocalizedString(@"BRSlot.Win.BigWin", nil);
     title.font = [UIFont systemFontOfSize:mega ? 58 : 46 weight:UIFontWeightBlack];
     title.textColor = [UIColor colorWithRed:1.00 green:0.80 blue:0.15 alpha:1];
     title.textAlignment = NSTextAlignmentCenter;
