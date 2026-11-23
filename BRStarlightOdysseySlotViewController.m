@@ -196,6 +196,7 @@ static UIImage *SOParticleImage(BOOL coin) {
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIImageView *> *> *stripCells;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIView *> *> *highlights;
 @property (nonatomic, strong) UIButton *linesButton, *betButton, *maxButton, *spinButton, *soundButton;
+@property (nonatomic, strong) CAGradientLayer *spinMidShadow;
 @property (nonatomic, strong) UIView *celebrationOverlay, *summaryOverlay, *pickOverlay;
 @property (nonatomic, strong) NSDictionary *result;
 // Card pick
@@ -255,6 +256,8 @@ static UIImage *SOParticleImage(BOOL coin) {
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     self.background.frame = self.view.bounds;
+    self.spinMidShadow.frame = self.spinButton.bounds;
+    self.spinMidShadow.cornerRadius = self.spinButton.layer.cornerRadius;
     [self layoutReelsIfNeeded];
 }
 
@@ -504,6 +507,34 @@ static UIImage *SOParticleImage(BOOL coin) {
     self.spinButton = [self controlButton:SOLoc(@"BRSlot.SO.Spin", @"SPIN") color:SOC(0xC8141E) action:@selector(spinTapped)];
     self.spinButton.titleLabel.font = [UIFont systemFontOfSize:22 weight:UIFontWeightBlack];
     self.spinButton.layer.borderWidth = 2.5;
+    // A red glow behind the button, and a soft shadow band across its
+    // middle, so the top sheen and the bottom edge read as separate depths.
+    self.spinButton.layer.shadowColor = SOC(0xFF453A).CGColor;
+    self.spinButton.layer.shadowOpacity = .5;
+    self.spinButton.layer.shadowRadius = 16;
+    self.spinButton.layer.shadowOffset = CGSizeMake(0, 4);
+    self.spinMidShadow = [CAGradientLayer layer];
+    self.spinMidShadow.colors = @[(id)UIColor.clearColor.CGColor, (id)[UIColor colorWithWhite:0 alpha:.22].CGColor, (id)UIColor.clearColor.CGColor];
+    self.spinMidShadow.locations = @[@0.2, @0.5, @0.8];
+    self.spinMidShadow.startPoint = CGPointMake(.5, 0);
+    self.spinMidShadow.endPoint = CGPointMake(.5, 1);
+    [self.spinButton.layer addSublayer:self.spinMidShadow];
+    // Gold stars flanking the SPIN label, tracking the title as it widens
+    // for FREE SPINS.
+    for (NSInteger side = 0; side < 2; side++) {
+        UIImageView *star = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"star.fill"]];
+        star.translatesAutoresizingMaskIntoConstraints = NO;
+        star.contentMode = UIViewContentModeScaleAspectFit;
+        star.tintColor = SOGold();
+        star.userInteractionEnabled = NO;
+        [self.spinButton addSubview:star];
+        [NSLayoutConstraint activateConstraints:@[
+            [star.widthAnchor constraintEqualToConstant:16],
+            [star.heightAnchor constraintEqualToConstant:16],
+            [star.centerYAnchor constraintEqualToAnchor:self.spinButton.titleLabel.centerYAnchor],
+            side == 0 ? [star.trailingAnchor constraintEqualToAnchor:self.spinButton.titleLabel.leadingAnchor constant:-10] : [star.leadingAnchor constraintEqualToAnchor:self.spinButton.titleLabel.trailingAnchor constant:10]
+        ]];
+    }
 
     [content addSubview:title]; [content addSubview:subtitle]; [content addSubview:info]; [content addSubview:self.bannerLabel];
     [content addSubview:self.machine]; [content addSubview:self.messageLabel]; [content addSubview:self.totalBetLabel];
@@ -553,8 +584,8 @@ static UIImage *SOParticleImage(BOOL coin) {
         [controls.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
         [controls.heightAnchor constraintEqualToConstant:52],
         [self.spinButton.topAnchor constraintEqualToAnchor:controls.bottomAnchor constant:10],
-        [self.spinButton.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
-        [self.spinButton.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
+        [self.spinButton.widthAnchor constraintEqualToConstant:280],
+        [self.spinButton.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
         [self.spinButton.heightAnchor constraintEqualToConstant:56],
         [self.spinButton.bottomAnchor constraintEqualToAnchor:content.bottomAnchor constant:-18],
     ]];

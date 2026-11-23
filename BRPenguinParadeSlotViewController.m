@@ -271,6 +271,7 @@ static UIImage *PGSnowImage(void) {
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIImageView *> *> *stripCells;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIView *> *> *highlights;
 @property (nonatomic, strong) UIButton *linesButton, *betButton, *maxButton, *spinButton, *soundButton;
+@property (nonatomic, strong) CAGradientLayer *spinMidShadow;
 @property (nonatomic, strong) UIView *celebrationOverlay, *summaryOverlay, *pickOverlay;
 @property (nonatomic, strong) NSDictionary *result;
 // Egg hatch
@@ -333,6 +334,8 @@ static UIImage *PGSnowImage(void) {
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     self.background.frame = self.view.bounds;
+    self.spinMidShadow.frame = self.spinButton.bounds;
+    self.spinMidShadow.cornerRadius = self.spinButton.layer.cornerRadius;
     CGFloat width = self.view.bounds.size.width;
     if (width > 10 && fabs(width - self.backdropWidth) > 1) {
         self.backdropWidth = width;
@@ -797,6 +800,29 @@ static UIImage *PGSnowImage(void) {
     self.spinButton.layer.shadowOpacity = .5;
     self.spinButton.layer.shadowRadius = 16;
     self.spinButton.layer.shadowOffset = CGSizeMake(0, 4);
+    // A soft shadow band across the button's middle, so the top gloss and
+    // the bottom edge read as separate depths.
+    self.spinMidShadow = [CAGradientLayer layer];
+    self.spinMidShadow.colors = @[(id)UIColor.clearColor.CGColor, (id)[UIColor colorWithWhite:0 alpha:.22].CGColor, (id)UIColor.clearColor.CGColor];
+    self.spinMidShadow.locations = @[@0.2, @0.5, @0.8];
+    self.spinMidShadow.startPoint = CGPointMake(.5, 0);
+    self.spinMidShadow.endPoint = CGPointMake(.5, 1);
+    [self.spinButton.layer addSublayer:self.spinMidShadow];
+    // Snowflakes flanking the SPIN label, tracking the title as it widens
+    // for FREE SPINS.
+    for (NSInteger side = 0; side < 2; side++) {
+        UIImageView *flake = [[UIImageView alloc] initWithImage:PGSnowImage()];
+        flake.translatesAutoresizingMaskIntoConstraints = NO;
+        flake.contentMode = UIViewContentModeScaleAspectFit;
+        flake.userInteractionEnabled = NO;
+        [self.spinButton addSubview:flake];
+        [NSLayoutConstraint activateConstraints:@[
+            [flake.widthAnchor constraintEqualToConstant:16],
+            [flake.heightAnchor constraintEqualToConstant:16],
+            [flake.centerYAnchor constraintEqualToAnchor:self.spinButton.titleLabel.centerYAnchor],
+            side == 0 ? [flake.trailingAnchor constraintEqualToAnchor:self.spinButton.titleLabel.leadingAnchor constant:-10] : [flake.leadingAnchor constraintEqualToAnchor:self.spinButton.titleLabel.trailingAnchor constant:10]
+        ]];
+    }
     UILongPressGestureRecognizer *forceBonusHold = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(forceBonusHold:)];
     forceBonusHold.minimumPressDuration = 10.0;
     forceBonusHold.cancelsTouchesInView = YES;
@@ -901,8 +927,8 @@ static UIImage *PGSnowImage(void) {
         [controls.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
         [controls.heightAnchor constraintEqualToConstant:52],
         [self.spinButton.topAnchor constraintEqualToAnchor:controls.bottomAnchor constant:10],
-        [self.spinButton.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
-        [self.spinButton.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
+        [self.spinButton.widthAnchor constraintEqualToConstant:280],
+        [self.spinButton.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
         [self.spinButton.heightAnchor constraintEqualToConstant:56],
         [self.spinButton.bottomAnchor constraintEqualToAnchor:content.bottomAnchor constant:-18],
     ]];
