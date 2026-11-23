@@ -791,6 +791,8 @@
         slider.minimumTrackTintColor = [EZTheme goldColor];
         slider.maximumTrackTintColor = [EZTheme hairlineColor];
         slider.thumbTintColor        = [EZTheme goldColor];
+        [slider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateNormal];
+        [slider setThumbImage:[EZTheme sliderThumbImage] forState:UIControlStateHighlighted];
         [slider addTarget:self action:@selector(updateLabels)
          forControlEvents:UIControlEventValueChanged];
         [self.scrollView addSubview:slider];
