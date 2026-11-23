@@ -1717,7 +1717,7 @@ static UIImage *PGSnowImage(void) {
         card.layer.shadowColor = PGC(0xFFE48F).CGColor; card.layer.shadowOpacity = 1; card.layer.shadowRadius = 24; card.layer.shadowOffset = CGSizeZero;
         card.userInteractionEnabled = NO;
         UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(8, 12, card.bounds.size.width - 16, 34)];
-        title.text = PGLoc(@"BRSlot.PG.MeterBoom", @"EGG-PLOSION!");
+        title.text = PGLoc(@"BRSlot.PG.MeterBoom", @"EGG-SPLOSION!");
         title.font = [UIFont systemFontOfSize:30 weight:UIFontWeightBlack];
         title.textColor = PGC(0xBFE6FF); title.textAlignment = NSTextAlignmentCenter;
         UILabel *prize = [[UILabel alloc] initWithFrame:CGRectMake(8, 52, card.bounds.size.width - 16, 56)];
