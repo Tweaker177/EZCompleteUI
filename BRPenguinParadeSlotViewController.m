@@ -305,6 +305,7 @@ static UIImage *PGSnowImage(void) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(reduceMotionChanged) name:UIAccessibilityReduceMotionStatusDidChangeNotification object:nil];
     NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
     _lines = [defaults objectForKey:kPGLinesKey] ? MAX(1, MIN(PG_MAX_LINES, [defaults integerForKey:kPGLinesKey])) : PG_MAX_LINES;
     _betIndex = [defaults objectForKey:[self betDefaultsKey]] ? MAX(0, MIN((NSInteger)[self activeBets].count - 1, [defaults integerForKey:[self betDefaultsKey]])) : 0;
@@ -384,9 +385,16 @@ static UIImage *PGSnowImage(void) {
 - (void)stopPenguinWalk {
     self.penguinWalkActive = NO;
     if (!self.headerPenguinView) return;
+    [self.headerPenguinView.layer removeAllAnimations];
     self.headerPenguinView.transform = CGAffineTransformIdentity;
     self.headerPenguinLeading.constant = 18;
     [self.headerPenguinView.superview layoutIfNeeded];
+}
+
+// The start check alone misses the preference turning on while the screen
+// is already up - watch for the change and stop the walk the moment it does.
+- (void)reduceMotionChanged {
+    if (UIAccessibilityIsReduceMotionEnabled()) [self stopPenguinWalk];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
