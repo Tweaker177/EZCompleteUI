@@ -832,6 +832,11 @@ static UIImage *PGSnowImage(void) {
     [content addSubview:controls]; [content addSubview:self.spinButton];
 
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
+        // Landscape: the machine stops growing at its portrait width and
+    // centers, instead of stretching to the full screen width. On
+    // portrait-width screens the full-width rule wins and nothing changes.
+    NSLayoutConstraint *machineWidthFull = [self.machine.widthAnchor constraintEqualToAnchor:content.widthAnchor constant:-28];
+    machineWidthFull.priority = 999;
     [NSLayoutConstraint activateConstraints:@[
         [self.scroll.topAnchor constraintEqualToAnchor:safe.topAnchor],
         [self.scroll.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor],
@@ -872,8 +877,9 @@ static UIImage *PGSnowImage(void) {
         [self.meterView.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
         [self.meterView.heightAnchor constraintEqualToConstant:44],
         [self.machine.topAnchor constraintEqualToAnchor:self.meterView.bottomAnchor constant:12],
-        [self.machine.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:14],
-        [self.machine.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-14],
+        [self.machine.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],
+        [self.machine.widthAnchor constraintLessThanOrEqualToConstant:432],
+        machineWidthFull,
         [reelStack.topAnchor constraintEqualToAnchor:self.machine.topAnchor constant:12],
         [reelStack.bottomAnchor constraintEqualToAnchor:self.machine.bottomAnchor constant:-12],
         [reelStack.leadingAnchor constraintEqualToAnchor:self.machine.leadingAnchor constant:12],
