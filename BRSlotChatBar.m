@@ -409,6 +409,13 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     UILabel *note = [UILabel new]; note.text = NSLocalizedString(@"BRSlot.Lounge.Note", nil); note.numberOfLines = 2; note.textAlignment = NSTextAlignmentCenter; note.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium]; note.textColor = [UIColor colorWithWhite:.56 alpha:1]; note.translatesAutoresizingMaskIntoConstraints = NO; [self.expandedView addSubview:note];
     UIView *bar = [UIView new]; bar.backgroundColor = [UIColor colorWithWhite:1 alpha:.08]; bar.layer.cornerRadius = 18; bar.translatesAutoresizingMaskIntoConstraints = NO; [self.expandedView addSubview:bar];
     self.composer = [UITextField new]; self.composer.placeholder = NSLocalizedString(@"BRSlot.Lounge.Composer", nil); self.composer.textColor = UIColor.whiteColor; self.composer.attributedPlaceholder = [[NSAttributedString alloc] initWithString:self.composer.placeholder attributes:@{NSForegroundColorAttributeName:[UIColor colorWithWhite:.62 alpha:1]}]; self.composer.delegate = self; self.composer.returnKeyType = UIReturnKeySend; self.composer.translatesAutoresizingMaskIntoConstraints = NO; [bar addSubview:self.composer];
+    UIToolbar *composerAccessory = [UIToolbar new];
+    [composerAccessory sizeToFit];
+    composerAccessory.barStyle = UIBarStyleBlack;
+    UIBarButtonItem *composerFlex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+    UIBarButtonItem *composerDone = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(dismissComposerKeyboard)];
+    [composerAccessory setItems:@[composerFlex, composerDone]];
+    self.composer.inputAccessoryView = composerAccessory;
     UIButton *send = [UIButton buttonWithType:UIButtonTypeSystem]; [send setImage:[UIImage systemImageNamed:@"paperplane.fill"] forState:UIControlStateNormal]; send.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; [send addTarget:self action:@selector(send) forControlEvents:UIControlEventTouchUpInside]; send.translatesAutoresizingMaskIntoConstraints = NO; [bar addSubview:send];
     [NSLayoutConstraint activateConstraints:@[
         [self.expandedView.topAnchor constraintEqualToAnchor:self.topAnchor],
@@ -420,7 +427,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         [self.presenceLabel.trailingAnchor constraintLessThanOrEqualToAnchor:collapse.leadingAnchor constant:-8],
         [collapse.trailingAnchor constraintEqualToAnchor:self.expandedView.trailingAnchor constant:-8],
         [collapse.centerYAnchor constraintEqualToAnchor:self.presenceLabel.centerYAnchor],
-        [collapse.widthAnchor constraintEqualToConstant:30], [collapse.heightAnchor constraintEqualToConstant:26],
+        [collapse.heightAnchor constraintEqualToConstant:26],
         [self.table.topAnchor constraintEqualToAnchor:self.presenceLabel.bottomAnchor constant:6],
         [self.table.leadingAnchor constraintEqualToAnchor:self.expandedView.leadingAnchor constant:6],
         [self.table.trailingAnchor constraintEqualToAnchor:self.expandedView.trailingAnchor constant:-6],
@@ -473,12 +480,26 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 - (void)expandTapped { [self setExpanded:YES animated:YES]; }
 - (void)collapseTapped { [self setExpanded:NO animated:YES]; }
 
+// The expanded panel is 62% of the host height, capped at 560pt. With the
+// keyboard up that height pushes the panel's top - Close button and grabber -
+// off the screen, so the keyboard-up height is capped to leave the top row
+// visible.
+- (CGFloat)expandedPanelHeightForKeyboardOverlap:(CGFloat)overlap {
+    CGFloat hostHeight = self.superview.bounds.size.height;
+    CGFloat height = hostHeight > 0 ? MIN(MAX(hostHeight * 0.62, 320), 560) : 420;
+    if (overlap > 0) {
+        CGFloat topMargin = 16;
+        CGFloat maxHeight = hostHeight - overlap + self.superview.safeAreaInsets.bottom - 6 - topMargin;
+        height = MIN(height, MAX(maxHeight, 240));
+    }
+    return height;
+}
+
 - (void)setExpanded:(BOOL)expanded animated:(BOOL)animated {
     if (self.expanded == expanded) return;
     self.expanded = expanded;
     if (expanded) {
-        CGFloat hostHeight = self.superview.bounds.size.height;
-        self.heightConstraint.constant = hostHeight > 0 ? MIN(MAX(hostHeight * 0.62, 320), 560) : 420;
+        self.heightConstraint.constant = [self expandedPanelHeightForKeyboardOverlap:0];
         self.expandedView.hidden = NO;
         [self refresh];
     } else {
@@ -506,6 +527,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     CGRect keyboard = [self.superview convertRect:endFrame fromView:nil];
     CGFloat overlap = MAX(0, CGRectGetHeight(self.superview.bounds) - CGRectGetMinY(keyboard));
     self.bottomConstraint.constant = overlap > 0 ? -(overlap - self.superview.safeAreaInsets.bottom + 6) : -6;
+    self.heightConstraint.constant = [self expandedPanelHeightForKeyboardOverlap:overlap];
     NSTimeInterval duration = [notification.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
     UIViewAnimationOptions options = [notification.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue] << 16;
     [UIView animateWithDuration:duration delay:0 options:options animations:^{ [self.superview layoutIfNeeded]; [self scrollToBottomAnimated:NO]; } completion:nil];
@@ -540,6 +562,8 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     if (BRChatBool(message[@"is_house_host"])) self.latestLabel.text = [NSString stringWithFormat:@"🎰 %@: %@", name, body];
     else self.latestLabel.text = [NSString stringWithFormat:@"%@: %@", name, body];
 }
+
+- (void)dismissComposerKeyboard { [self.composer resignFirstResponder]; }
 
 - (void)send { NSString *message = self.composer.text; if (!message.length) return; if (!self.hasProfile) { [self offerProfileSetup]; return; } self.composer.text = @""; [self request:@{ @"action": @"send", @"room_id": self.roomID, @"message": message } completion:^(NSDictionary *json, NSString *error) { if (error) { self.composer.text = message; return; } self.justSent = YES; [self refresh]; }]; }
 - (void)requestLiveHostTurn { if ([self.roomID hasPrefix:@"bj:"]) return; if (self.loading || !self.started || self.hostViewController.presentedViewController) return; [self request:@{ @"action": @"host_turn", @"room_id": self.roomID } completion:^(NSDictionary *json, NSString *error) { if (!error && BRChatBool(json[@"posted"])) [self refresh]; }]; }
