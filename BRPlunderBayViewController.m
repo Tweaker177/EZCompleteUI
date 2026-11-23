@@ -477,8 +477,10 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
         if (cannonLine) [self playCannon];
         NSInteger totalBet = MAX(1, PlunderInteger(result[@"wager"]));
         BOOL jackpot = payout > 0 && payout / totalBet >= 75;
-        NSInteger linePasses = jackpot ? MAX(1, (NSInteger)ceil(7.0 / (1.35 * winLines.count))) : (winLines.count<=2?3:winLines.count<=4?2:1);
-        if (winLines.count) [self celebrateWinLines:winLines step:0 passes:linePasses celebrationID:self.lineCelebrationID];
+        if (winLines.count) {
+            NSInteger linePasses = jackpot ? MAX(1, (NSInteger)ceil(7.0 / (1.35 * winLines.count))) : (winLines.count<=2?3:winLines.count<=4?2:1);
+            [self celebrateWinLines:winLines step:0 passes:linePasses celebrationID:self.lineCelebrationID];
+        }
         NSInteger winLineCount = PlunderInteger(result[@"win_lines"]);
         self.messageLabel.text = awarded ? [NSString stringWithFormat:@"🧭 %@%@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.FreeSpinsAward", nil), (long)awarded], payout ? [NSString stringWithFormat:@" %@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.Coins", nil), (long)payout]] : @""] : payout ? [NSString stringWithFormat:NSLocalizedString(winLineCount == 1 ? @"BRSlot.Win.LinesResultOne" : @"BRSlot.Win.LinesResult", nil), (long)payout, (long)winLineCount] : wasFreeSpin ? NSLocalizedString(@"BRSlot.Win.FreeSpinNoWin", nil) : [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.NoWin", nil), (long)PlunderInteger(result[@"wager"])];
         self.messageLabel.textColor=(payout || awarded) ? UIColor.systemYellowColor : [UIColor colorWithWhite:.8 alpha:1];
