@@ -64,11 +64,13 @@ static UIImage *BRChatThumbnailFromData(NSData *data, CGFloat points) {
 static NSString *BRChatAvatarIdentity(NSString *url) { return url ? ([url componentsSeparatedByString:@"?"].firstObject ?: url) : nil; }
 static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache *cache; static dispatch_once_t once; dispatch_once(&once, ^{ cache = [NSCache new]; cache.countLimit = 64; }); return cache; }
 
-// Avatars are also cached on disk (Library/Caches/BRChatAvatars), keyed by
-// the same URL|points string as the memory cache, so the leaderboard shows
-// real photos on a cold start instead of the gold placeholder while every
-// avatar re-downloads. Caches is not backed up and the system may purge it;
-// a miss just downloads again. A changed photo gets a new URL, so a stale
+// Avatars are also cached on disk (Library/Caches/BRChatAvatars), so the
+// leaderboard shows real photos on a cold start instead of the gold
+// placeholder while every avatar re-downloads. Caches is not backed up and
+// the system may purge it; a miss just downloads again. The key is the
+// query-less URL (BRChatAvatarIdentity): the server refreshes the signed
+// query on an unchanged photo, and the full URL would miss the existing
+// entry on every cold start. A changed photo gets a new path, so a stale
 // file can never serve the wrong face.
 static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     static NSString *dir;
@@ -543,7 +545,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 + (void)loadAvatarThumbnailForURL:(NSString *)urlString points:(CGFloat)points completion:(void (^)(UIImage *))completion {
     if (!completion) return;
     if (!urlString.length) { completion(nil); return; }
-    NSString *key = [NSString stringWithFormat:@"%@|%.0f", urlString, points];
+    NSString *key = [NSString stringWithFormat:@"%@|%.0f", BRChatAvatarIdentity(urlString) ?: urlString, points];
     UIImage *cached = [BRChatAvatarCache() objectForKey:key];
     if (cached) { completion(cached); return; }
     NSString *diskPath = BRChatAvatarDiskPathForKey(key);
