@@ -404,6 +404,7 @@
 "BRSlot.Lounge.Connecting" = "● Connexion au salon…";
 "BRSlot.Lounge.Composer" = "Dis quelque chose de gentil…";
 "BRSlot.Lounge.Note" = "Soyez gentil. Signalez les messages en en maintenant un. Les hôtes de la maison sont des personnages, pas des joueurs.";
+"BRSlot.Lounge.Close" = "Fermer";
 "BRSlot.Lounge.Wins" = "🏆 GAGNE";
 "BRSlot.Classic.ThemeTitle" = "%@ Emplacements";
 "BRSlot.Classic.CommunityTitle" = "Machines à sous communautaires";

@@ -423,6 +423,7 @@
 "BRSlot.Lounge.Connecting" = "● 正在連線到休息室…";
 "BRSlot.Lounge.Composer" = "說點好聽的…";
 "BRSlot.Lounge.Note" = "友善待人。長按訊息可檢舉。場內主持人是角色，不是玩家。";
+"BRSlot.Lounge.Close" = "關閉";
 "BRSlot.Lounge.Wins" = "🏆 獲勝";
 "BRSlot.Classic.ThemeTitle" = "%@ 老虎機";
 "BRSlot.Classic.CommunityTitle" = "社群老虎機";

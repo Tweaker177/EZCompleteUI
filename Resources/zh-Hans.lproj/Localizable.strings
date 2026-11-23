@@ -382,6 +382,7 @@
 "BRSlot.Lounge.Connecting" = "● 正在连接至休息室...";
 "BRSlot.Lounge.Composer" = "说点好听的…";
 "BRSlot.Lounge.Note" = "友善一点。按住一个报告消息。主持人是角色，而不是玩家。";
+"BRSlot.Lounge.Close" = "关闭";
 "BRSlot.Lounge.Wins" = "🏆 获胜";
 "BRSlot.Classic.ThemeTitle" = "%@ 插槽";
 "BRSlot.Classic.CommunityTitle" = "社区老虎机";

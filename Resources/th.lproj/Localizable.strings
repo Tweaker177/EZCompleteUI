@@ -382,6 +382,7 @@
 "BRSlot.Lounge.Connecting" = "● กำลังเชื่อมต่อกับเลานจ์...";
 "BRSlot.Lounge.Composer" = "พูดอะไรดีๆ...";
 "BRSlot.Lounge.Note" = "ใจดี. รายงานข้อความโดยกดค้างไว้ โฮสต์ประจำบ้านคือตัวละคร ไม่ใช่ผู้เล่น";
+"BRSlot.Lounge.Close" = "ปิด";
 "BRSlot.Lounge.Wins" = "🏆 ชนะ";
 "BRSlot.Classic.ThemeTitle" = "%@ สล็อต";
 "BRSlot.Classic.CommunityTitle" = "สล็อตชุมชน";

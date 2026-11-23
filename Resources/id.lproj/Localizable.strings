@@ -423,6 +423,7 @@
 "BRSlot.Lounge.Connecting" = "● Menghubungkan ke lounge…";
 "BRSlot.Lounge.Composer" = "Katakan sesuatu yang baik…";
 "BRSlot.Lounge.Note" = "Bersikaplah baik. Laporkan pesan dengan menahannya. Host rumah adalah karakter, bukan pemain.";
+"BRSlot.Lounge.Close" = "Tutup";
 "BRSlot.Lounge.Wins" = "🏆 KEMENANGAN";
 "BRSlot.Classic.ThemeTitle" = "Slot %@";
 "BRSlot.Classic.CommunityTitle" = "Slot Komunitas";

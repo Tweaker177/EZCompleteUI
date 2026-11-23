@@ -695,7 +695,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
     [overlay addSubview:card];
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = @"JACKPOT!";
+    title.text = NSLocalizedStringWithDefaultValue(@"BRSlot.Win.Jackpot", nil, NSBundle.mainBundle, @"JACKPOT!", nil);
     title.textAlignment = NSTextAlignmentCenter;
     title.textColor = [UIColor colorWithRed:1 green:.80 blue:.12 alpha:1];
     title.font = [UIFont systemFontOfSize:42 weight:UIFontWeightBlack];

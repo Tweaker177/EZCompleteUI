@@ -404,6 +404,7 @@
 "BRSlot.Lounge.Connecting" = "● Conexión al salón...";
 "BRSlot.Lounge.Composer" = "Di algo lindo...";
 "BRSlot.Lounge.Note" = "Sea amable. Informar mensajes manteniendo presionado uno. Los anfitriones de la casa son personajes, no jugadores.";
+"BRSlot.Lounge.Close" = "Cerrar";
 "BRSlot.Lounge.Wins" = "🏆 GANA";
 "BRSlot.Classic.ThemeTitle" = "%@ Ranuras";
 "BRSlot.Classic.CommunityTitle" = "Espacios comunitarios";
