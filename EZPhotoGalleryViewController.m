@@ -2923,6 +2923,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 @property (nonatomic, strong) NSOperationQueue      *fileIndexQueue;
 @property (nonatomic, assign) NSUInteger             fileIndexGeneration;
 @property (nonatomic, assign) BOOL                   hasLoadedFilePaths;
+@property (nonatomic, strong) NSArray<NSString *>   *lastFullListing;
 @property (nonatomic, assign) NSInteger              columnCount;
 @property (nonatomic, strong) UILabel               *emptyLabel;
 @property (nonatomic, strong) UILabel               *countLabel;
@@ -3095,6 +3096,14 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // must never run in viewDidLoad on the main thread. The old implementation
     // synchronously mapped and hashed every image on every launch, which made a
     // gallery with a few large images appear to hang for many seconds.
+    if (self.hasLoadedFilePaths && self.lastFullListing.count) {
+        NSArray<NSString *> *names = [[NSFileManager defaultManager]
+            contentsOfDirectoryAtPath:[self attachmentsPath] error:nil] ?: @[];
+        NSMutableSet<NSString *> *current = [NSMutableSet setWithArray:names];
+        NSMutableSet<NSString *> *previous = [NSMutableSet set];
+        for (NSString *path in self.lastFullListing) [previous addObject:path.lastPathComponent];
+        if ([current isEqualToSet:previous]) return;
+    }
     self.fileIndexGeneration += 1;
     NSUInteger generation = self.fileIndexGeneration;
     [self.fileIndexQueue cancelAllOperations];
@@ -3112,12 +3121,16 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
         // Publish the cheap filename/metadata index first. Cells can begin
         // direct thumbnail decoding immediately instead of waiting for a full
-        // SHA-256 pass over every original image.
+        // SHA-256 pass over every original image. Known duplicates are
+        // already dropped here from the cached digests alone, so the first
+        // paint is not the raw duplicated list.
         NSArray<NSString *> *initialPaths = [strongSelf sortedMediaPathsInDirectory:directory];
+        strongSelf.lastFullListing = initialPaths;
+        NSArray<NSString *> *initialDeduped = [strongSelf cacheOnlyDeduplicatedPathsFromPaths:initialPaths];
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(weakSelf) liveSelf = weakSelf;
             if (!liveSelf || generation != liveSelf.fileIndexGeneration) return;
-            [liveSelf applyFilePaths:initialPaths];
+            [liveSelf applyFilePaths:initialDeduped];
         });
 
         if (indexOperation.isCancelled) return;
@@ -3125,6 +3138,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         if (indexOperation.isCancelled) return;
 
         NSArray<NSString *> *allPaths = [strongSelf sortedMediaPathsInDirectory:directory];
+        strongSelf.lastFullListing = allPaths;
         NSArray<NSString *> *deduplicatedPaths = [strongSelf deduplicatedPathsFromPaths:allPaths
                                                                cancellationOperation:indexOperation];
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -3160,6 +3174,29 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     return paths;
 }
 
+// Drops duplicates whose digests are already cached, without hashing
+// anything. A file with no cached digest passes through; the full pass
+// below hashes it and decides.
+- (NSArray<NSString *> *)cacheOnlyDeduplicatedPathsFromPaths:(NSArray<NSString *> *)paths {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSDictionary *stored = [[NSUserDefaults standardUserDefaults]
+        dictionaryForKey:kGalleryDigestCacheDefaultsKey] ?: @{};
+    NSMutableSet<NSString *> *seenDigests = [NSMutableSet set];
+    NSMutableArray<NSString *> *uniquePaths = [NSMutableArray array];
+    for (NSString *path in paths) {
+        NSDictionary *attributes = [fm attributesOfItemAtPath:path error:nil] ?: @{};
+        NSNumber *size = attributes[NSFileSize] ?: @0;
+        NSDate *modified = attributes[NSFileModificationDate] ?: [NSDate distantPast];
+        NSString *fingerprint = [NSString stringWithFormat:@"%@|%.6f", size, modified.timeIntervalSince1970];
+        NSDictionary *entry = stored[path];
+        NSString *digest = [entry[@"fingerprint"] isEqualToString:fingerprint] ? entry[@"digest"] : nil;
+        if (digest.length && [seenDigests containsObject:digest]) continue;
+        if (digest.length) [seenDigests addObject:digest];
+        [uniquePaths addObject:path];
+    }
+    return uniquePaths;
+}
+
 - (NSArray<NSString *> *)deduplicatedPathsFromPaths:(NSArray<NSString *> *)paths
                                cancellationOperation:(NSOperation *)operation {
     NSFileManager *fm = [NSFileManager defaultManager];
@@ -3170,8 +3207,12 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSMutableSet<NSString *> *livePaths = [NSMutableSet setWithArray:paths];
     NSMutableArray<NSString *> *uniquePaths = [NSMutableArray array];
 
+    NSUInteger newlyHashed = 0;
     for (NSString *path in paths) {
-        if (operation.isCancelled) return paths;
+        if (operation.isCancelled) {
+            [[NSUserDefaults standardUserDefaults] setObject:cache forKey:kGalleryDigestCacheDefaultsKey];
+            return paths;
+        }
         NSDictionary *attributes = [fm attributesOfItemAtPath:path error:nil] ?: @{};
         NSNumber *size = attributes[NSFileSize] ?: @0;
         NSDate *modified = attributes[NSFileModificationDate] ?: [NSDate distantPast];
@@ -3180,7 +3221,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         NSString *digest = [entry[@"fingerprint"] isEqualToString:fingerprint] ? entry[@"digest"] : nil;
         if (!digest.length) {
             digest = EZGalleryContentDigest(path);
-            if (digest.length) cache[path] = @{ @"fingerprint": fingerprint, @"digest": digest };
+            if (digest.length) {
+                cache[path] = @{ @"fingerprint": fingerprint, @"digest": digest };
+                newlyHashed += 1;
+                if (newlyHashed % 16 == 0) {
+                    [[NSUserDefaults standardUserDefaults] setObject:cache forKey:kGalleryDigestCacheDefaultsKey];
+                }
+            }
         }
         if (digest.length && [seenDigests containsObject:digest]) continue;
         if (digest.length) [seenDigests addObject:digest];
