@@ -135,6 +135,8 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
     [_vipBadge addSubview:_vipLabel];
 
     _titleLabel = [UILabel new];
+    [_titleLabel setContentCompressionResistancePriority:999 forAxis:UILayoutConstraintAxisVertical];
+    [_titleLabel setContentHuggingPriority:999 forAxis:UILayoutConstraintAxisVertical];
     _titleLabel.adjustsFontSizeToFitWidth = YES;
     _titleLabel.minimumScaleFactor = 0.5;
     _titleLabel.textColor = UIColor.whiteColor;
@@ -144,6 +146,8 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
     [self.contentView addSubview:_titleLabel];
 
     _premiseLabel = [UILabel new];
+    [_premiseLabel setContentCompressionResistancePriority:999 forAxis:UILayoutConstraintAxisVertical];
+    [_premiseLabel setContentHuggingPriority:999 forAxis:UILayoutConstraintAxisVertical];
     _premiseLabel.textColor = [UIColor colorWithWhite:.72 alpha:1];
     _premiseLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium];
     _premiseLabel.numberOfLines = 0;
@@ -189,6 +193,7 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
         [_art.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
         [_art.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor],
         [_art.heightAnchor constraintGreaterThanOrEqualToConstant:80],
+        [_art.heightAnchor constraintLessThanOrEqualToConstant:176],
         [_artFallback.topAnchor constraintEqualToAnchor:_art.topAnchor],
         [_artFallback.leadingAnchor constraintEqualToAnchor:_art.leadingAnchor],
         [_artFallback.trailingAnchor constraintEqualToAnchor:_art.trailingAnchor],
