@@ -1,3 +1,18 @@
+// BRSlotChatBar.m
+// EZCompleteUI
+//
+// Purpose:
+//   The lounge chat used inside every slot machine and at every blackjack
+//   table. It shows the newest message as a one-line bar and expands into the
+//   full conversation (history, composer, profile, winners). The room id
+//   decides which conversation it joins.
+//
+// Changes (blackjack tables):
+//   - Rooms whose id starts with "bj:" belong to a blackjack table. They never
+//     request lounge host turns (the table's dealer, Lucky Lou, is driven by
+//     the br-blackjack function) and show Lucky Lou's name and caption instead
+//     of the lounge host's.
+
 #import "BRSlotChatBar.h"
 #import "EZAuthManager.h"
 #import "EZSupabaseConfig.h"
@@ -444,7 +459,9 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     self.pollTimer = [NSTimer scheduledTimerWithTimeInterval:6 target:self selector:@selector(refresh) userInfo:nil repeats:YES];
     // Every listener can ask for a host turn, but the server atomically permits
     // only one live model response per room every three minutes.
-    self.hostTimer = [NSTimer scheduledTimerWithTimeInterval:75 target:self selector:@selector(requestLiveHostTurn) userInfo:nil repeats:YES];
+    // Blackjack tables ("bj:" rooms) have their own dealer, Lucky Lou, who is
+    // driven by the br-blackjack function, so no lounge host turns are requested.
+    if (![self.roomID hasPrefix:@"bj:"]) self.hostTimer = [NSTimer scheduledTimerWithTimeInterval:75 target:self selector:@selector(requestLiveHostTurn) userInfo:nil repeats:YES];
 }
 
 - (void)stop {
@@ -525,7 +542,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 }
 
 - (void)send { NSString *message = self.composer.text; if (!message.length) return; if (!self.hasProfile) { [self offerProfileSetup]; return; } self.composer.text = @""; [self request:@{ @"action": @"send", @"room_id": self.roomID, @"message": message } completion:^(NSDictionary *json, NSString *error) { if (error) { self.composer.text = message; return; } self.justSent = YES; [self refresh]; }]; }
-- (void)requestLiveHostTurn { if (self.loading || !self.started || self.hostViewController.presentedViewController) return; [self request:@{ @"action": @"host_turn", @"room_id": self.roomID } completion:^(NSDictionary *json, NSString *error) { if (!error && BRChatBool(json[@"posted"])) [self refresh]; }]; }
+- (void)requestLiveHostTurn { if ([self.roomID hasPrefix:@"bj:"]) return; if (self.loading || !self.started || self.hostViewController.presentedViewController) return; [self request:@{ @"action": @"host_turn", @"room_id": self.roomID } completion:^(NSDictionary *json, NSString *error) { if (!error && BRChatBool(json[@"posted"])) [self refresh]; }]; }
 - (BOOL)textFieldShouldReturn:(UITextField *)textField { [self send]; return NO; }
 
 - (void)offerProfileSetup { // No static "showing" flag: a swipe-dismissed sheet never ran the selection block, so the flag stuck and the prompt never appeared again. The presented controller is the guard — it clears itself on any dismissal.
@@ -723,7 +740,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.messages.count + 1; }
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath { if (indexPath.row == 0) { UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]; cell.backgroundColor = [UIColor colorWithRed:.30 green:.08 blue:.42 alpha:.55]; cell.textLabel.text = @"🎰 Cherry Queen · Live house host"; cell.textLabel.textColor = [UIColor colorWithRed:1 green:.79 blue:.25 alpha:1]; cell.textLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBlack]; cell.detailTextLabel.text = @"A room character who keeps the lounge welcoming. Spin responsibly and celebrate each other."; cell.detailTextLabel.textColor = [UIColor colorWithWhite:.78 alpha:1]; cell.detailTextLabel.numberOfLines = 0; return cell; } NSDictionary *message = BRChatDictionary(self.messages[indexPath.row - 1]); UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]; BOOL mine = BRChatBool(message[@"is_mine"]); BOOL host = BRChatBool(message[@"is_house_host"]); cell.backgroundColor = host ? [UIColor colorWithRed:.30 green:.08 blue:.42 alpha:.55] : (mine ? [UIColor colorWithRed:.22 green:.10 blue:.39 alpha:.65] : [UIColor colorWithWhite:1 alpha:.055]); cell.layer.cornerRadius = 12; NSString *displayName = BRChatString(message[@"display_name"]) ?: (host ? @"Cherry Queen" : @"Player"); cell.textLabel.text = host ? [NSString stringWithFormat:@"🎰 %@ · Live house host", displayName] : displayName; cell.textLabel.textColor = (mine || host) ? [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1] : UIColor.whiteColor; cell.textLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBlack]; cell.detailTextLabel.text = BRChatString(message[@"body"]) ?: @""; cell.detailTextLabel.textColor = [UIColor colorWithWhite:.83 alpha:1]; cell.detailTextLabel.numberOfLines = 0; cell.imageView.image = host ? [UIImage systemImageNamed:@"sparkles"] : [UIImage systemImageNamed:@"person.crop.circle.fill"]; cell.imageView.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; cell.imageView.layer.cornerRadius = 17; cell.imageView.clipsToBounds = YES; NSString *avatarURL = BRChatString(message[@"avatar_url"]); if (!host && avatarURL.length) { __weak UITableViewCell *weakCell = cell; [BRSlotChatBar loadAvatarThumbnailForURL:avatarURL points:34 completion:^(UIImage *image) { if (!image) return; weakCell.imageView.image = image; weakCell.imageView.contentMode = UIViewContentModeScaleAspectFill; }]; } return cell; }
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath { if (indexPath.row == 0) { UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]; cell.backgroundColor = [UIColor colorWithRed:.30 green:.08 blue:.42 alpha:.55]; BOOL blackjackRoom = [self.roomID hasPrefix:@"bj:"]; cell.textLabel.text = blackjackRoom ? @"🃏 Lucky Lou · Your dealer" : @"🎰 Cherry Queen · Live house host"; cell.textLabel.textColor = [UIColor colorWithRed:1 green:.79 blue:.25 alpha:1]; cell.textLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBlack]; cell.detailTextLabel.text = blackjackRoom ? @"Your AI dealer. Chat with the table between hands, and play responsibly." : @"A room character who keeps the lounge welcoming. Spin responsibly and celebrate each other."; cell.detailTextLabel.textColor = [UIColor colorWithWhite:.78 alpha:1]; cell.detailTextLabel.numberOfLines = 0; return cell; } NSDictionary *message = BRChatDictionary(self.messages[indexPath.row - 1]); UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil]; BOOL mine = BRChatBool(message[@"is_mine"]); BOOL host = BRChatBool(message[@"is_house_host"]); cell.backgroundColor = host ? [UIColor colorWithRed:.30 green:.08 blue:.42 alpha:.55] : (mine ? [UIColor colorWithRed:.22 green:.10 blue:.39 alpha:.65] : [UIColor colorWithWhite:1 alpha:.055]); cell.layer.cornerRadius = 12; NSString *displayName = BRChatString(message[@"display_name"]) ?: (host ? ([self.roomID hasPrefix:@"bj:"] ? @"Lucky Lou" : @"Cherry Queen") : @"Player"); cell.textLabel.text = host ? [NSString stringWithFormat:([self.roomID hasPrefix:@"bj:"] ? @"🃏 %@ · Dealer" : @"🎰 %@ · Live house host"), displayName] : displayName; cell.textLabel.textColor = (mine || host) ? [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1] : UIColor.whiteColor; cell.textLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBlack]; cell.detailTextLabel.text = BRChatString(message[@"body"]) ?: @""; cell.detailTextLabel.textColor = [UIColor colorWithWhite:.83 alpha:1]; cell.detailTextLabel.numberOfLines = 0; cell.imageView.image = host ? [UIImage systemImageNamed:@"sparkles"] : [UIImage systemImageNamed:@"person.crop.circle.fill"]; cell.imageView.tintColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]; cell.imageView.layer.cornerRadius = 17; cell.imageView.clipsToBounds = YES; NSString *avatarURL = BRChatString(message[@"avatar_url"]); if (!host && avatarURL.length) { __weak UITableViewCell *weakCell = cell; [BRSlotChatBar loadAvatarThumbnailForURL:avatarURL points:34 completion:^(UIImage *image) { if (!image) return; weakCell.imageView.image = image; weakCell.imageView.contentMode = UIViewContentModeScaleAspectFill; }]; } return cell; }
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath { return indexPath.row == 0 ? 62 : UITableViewAutomaticDimension; }
 - (UISwipeActionsConfiguration *)tableView:(UITableView *)tableView trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath API_AVAILABLE(ios(11.0)) {
     if (indexPath.row == 0) return [UISwipeActionsConfiguration configurationWithActions:@[]];

@@ -1,5 +1,21 @@
 // EZCoinUsageViewController.m
-// EZCompleteUI v6.7
+// EZCompleteUI v6.8
+//
+// Purpose:
+//   Shows the signed-in user's coin history (every charge and credit) as a
+//   scrolling list, newest first, with the running balance at the top. Rows
+//   come from the get-usage-log Edge Function; this screen only displays them
+//   and never decides what anything costs. Casino-style features (slots and
+//   blackjack) store a multi-line audit trail in each row's prompt field, so
+//   those rows get taller cells.
+//
+// Changes from v6.7:
+//   - Added the "brainrot_blackjack" feature: friendly name "Blackjack" and a
+//     🃏 icon. Each blackjack row shows bet, "You vs Dealer" totals and the
+//     result on separate lines, so it gets a taller prompt area and cell.
+//   - Folded the hardcoded Supabase URL onto EZSupabaseConfig.h (EZSupabaseURL),
+//     as that header's own note recommended, so the project URL lives in one
+//     place.
 //
 // Changes from v6.6:
 //   - Added the "elevenlabs_music" feature to the friendly-name and icon maps
@@ -36,8 +52,8 @@
 #import "EZTheme.h"
 #import "EZAuthManager.h"
 #import "EZEntitlementManager.h"
+#import "EZSupabaseConfig.h"
 
-static NSString *const kSupabaseURL  = @"https://spuoimtqofhbdzosrbng.supabase.co";
 static NSString *const kUsageCellID  = @"EZUsageCell";
 static NSInteger const kPageSize     = 100;
 
@@ -81,6 +97,7 @@ static NSString *friendlyFeatureName(NSString *feature) {
         @"brainrot_phoenix_pavilion_slots": @"Phoenix Pavilion Slots",
         @"brainrot_starlight_odyssey_slots": @"Starlight Odyssey Slots",
         @"brainrot_penguin_parade_slots": @"Penguin Parade Slots",
+        @"brainrot_blackjack": @"Blackjack",
     };
     return map[feature] ?: feature;
 }
@@ -97,6 +114,7 @@ static NSString *featureIcon(NSString *feature) {
     if ([feature isEqual:@"web_search"]) return @"🔍";
     if ([feature isEqual:@"daily_reward"]) return @"🎁";
     if ([feature hasPrefix:@"brainrot_"] && [feature hasSuffix:@"_slots"]) return @"🎰";
+    if ([feature isEqual:@"brainrot_blackjack"]) return @"🃏";
     return @"🪙";
 }
 
@@ -141,6 +159,7 @@ static NSNumber *safeNumber(id value) {
     UILabel *_detailLabel;
     BOOL _isSlotAudit;
     BOOL _isPennySlotAudit;
+    BOOL _isBlackjackAudit;
 }
 
 - (instancetype)initWithStyle:(UITableViewCellStyle)style
@@ -186,6 +205,7 @@ static NSNumber *safeNumber(id value) {
     NSString *feature  = safeString(row[@"feature"]);
     _isPennySlotAudit = [feature isEqualToString:@"brainrot_penny_slots"];
     _isSlotAudit = [feature isEqualToString:@"brainrot_slots"] || _isPennySlotAudit;
+    _isBlackjackAudit = [feature isEqualToString:@"brainrot_blackjack"];
     _iconLabel.text    = featureIcon(feature);
     _featureLabel.text = friendlyFeatureName(feature);
 
@@ -296,7 +316,7 @@ static NSNumber *safeNumber(id value) {
     _timeLabel.frame    = CGRectMake(cardWidth - 130, padding + 4, 118, 16);
 
     CGFloat currentY = padding + 30;
-    CGFloat promptHeight = _isSlotAudit ? (_isPennySlotAudit ? 170 : 90) : 34;
+    CGFloat promptHeight = _isSlotAudit ? (_isPennySlotAudit ? 170 : 90) : (_isBlackjackAudit ? 56 : 34);
     _promptLabel.frame  = CGRectMake(padding, currentY, cardWidth - padding * 2, promptHeight);
     currentY += _promptLabel.hidden ? 4 : promptHeight + 4;
 
@@ -306,7 +326,7 @@ static NSNumber *safeNumber(id value) {
 }
 
 + (CGFloat)rowHeight { return 120; }
-+ (CGFloat)rowHeightForRow:(NSDictionary *)row { NSString *feature = safeString(row[@"feature"]); return [feature isEqualToString:@"brainrot_penny_slots"] ? 300 : [feature isEqualToString:@"brainrot_slots"] ? 210 : [self rowHeight]; }
++ (CGFloat)rowHeightForRow:(NSDictionary *)row { NSString *feature = safeString(row[@"feature"]); return [feature isEqualToString:@"brainrot_blackjack"] ? 172 : [feature isEqualToString:@"brainrot_penny_slots"] ? 300 : [feature isEqualToString:@"brainrot_slots"] ? 210 : [self rowHeight]; }
 
 @end
 
@@ -515,13 +535,13 @@ static NSNumber *safeNumber(id value) {
     }
 
     NSURLComponents *urlComponents = [NSURLComponents componentsWithString:
-        [kSupabaseURL stringByAppendingString:@"/functions/v1/get-usage-log"]];
+        [EZSupabaseURL stringByAppendingString:@"/functions/v1/get-usage-log"]];
     urlComponents.queryItems = @[
         [NSURLQueryItem queryItemWithName:@"page"  value:[NSString stringWithFormat:@"%ld", (long)page]],
         [NSURLQueryItem queryItemWithName:@"limit" value:[NSString stringWithFormat:@"%ld", (long)kPageSize]]
     ];
     NSURL *requestURL = urlComponents.URL ?:
-        [NSURL URLWithString:[kSupabaseURL stringByAppendingString:@"/functions/v1/get-usage-log"]];
+        [NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/get-usage-log"]];
 
     NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:requestURL];
     req.HTTPMethod      = @"GET";
