@@ -93,6 +93,7 @@ static NSString * const kEZElevenLabsURL         =
 
 // ---- State ----
 @property (nonatomic) BOOL hasShownQuickLookForCurrentFile;
+@property (nonatomic) BOOL recordingActive;
 
 @end
 
@@ -129,6 +130,11 @@ static NSString * const kEZElevenLabsURL         =
     tap.cancelsTouchesInView = NO;
     [self.scrollView addGestureRecognizer:tap];
 
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(audioSessionInterrupted:)
+                                                 name:AVAudioSessionInterruptionNotification
+                                               object:[AVAudioSession sharedInstance]];
+
     [self buildUI];
     [self loadCachedVoices];
     [self rebuildVoiceRows];
@@ -148,6 +154,7 @@ static NSString * const kEZElevenLabsURL         =
 - (void)dealloc {
     [self.meterTimer invalidate];
     [self.playbackDisplayLink invalidate];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 // ---------------------------------------------------------------------------
@@ -579,7 +586,12 @@ static NSString * const kEZElevenLabsURL         =
         return;
     }
 
-    [self.recorder record];
+    if (![self.recorder record]) {
+        [self showAlert:NSLocalizedString(@"ElevenLabsClone.RecordError", @"Recording error alert title")
+                message:NSLocalizedString(@"ElevenLabsClone.RecordingFailedMessage", @"Recording failed alert message")];
+        return;
+    }
+    self.recordingActive = YES;
     self.recordedFileURL = fileURL;
     self.hasShownQuickLookForCurrentFile = NO;
 
@@ -596,6 +608,7 @@ static NSString * const kEZElevenLabsURL         =
 }
 
 - (void)stopRecording {
+    self.recordingActive = NO;
     [self.recorder stop];
     [[AVAudioSession sharedInstance] setActive:NO
                                    withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
@@ -627,9 +640,39 @@ static NSString * const kEZElevenLabsURL         =
                              successfully:(BOOL)flag {
     if (!flag) {
         dispatch_async(dispatch_get_main_queue(), ^{
+            [self resetRecordingUIKeepingTake];
             [self showAlert:NSLocalizedString(@"ElevenLabsClone.RecordingFailed", @"Recording failed alert title")
                     message:NSLocalizedString(@"ElevenLabsClone.RecordingFailedMessage", @"Recording failed alert message")];
         });
+    }
+}
+
+- (void)audioSessionInterrupted:(NSNotification *)note {
+    AVAudioSessionInterruptionType type =
+        (AVAudioSessionInterruptionType)[note.userInfo[AVAudioSessionInterruptionTypeKey] unsignedIntegerValue];
+    if (type != AVAudioSessionInterruptionTypeBegan || !self.recordingActive) return;
+    // The system has already stopped the recorder, and
+    // audioRecorderDidFinishRecording:successfully: does not run for an
+    // interruption - reset the controls here instead of leaving the button
+    // on its recording appearance while nothing is recording.
+    [self resetRecordingUIKeepingTake];
+}
+
+// Recording ended without the user tapping Stop: back to the resting
+// controls, meter stopped, and the partial take stays usable.
+- (void)resetRecordingUIKeepingTake {
+    self.recordingActive = NO;
+    [self stopMeterTimer];
+    [self.recordButton setTitle:NSLocalizedString(@"ElevenLabsClone.StartRecording", @"Start recording button") forState:UIControlStateNormal];
+    self.recordButton.backgroundColor = [EZTheme cardColor];
+    if (self.recordedFileURL) {
+        [self.waveformView loadAudioFileAtURL:self.recordedFileURL
+                                   completion:^(BOOL success, NSError *error) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.waveformView setProgress:0.0 animated:NO];
+            });
+        }];
+        [self setFileActionsEnabled:YES];
     }
 }
 
