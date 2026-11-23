@@ -1754,7 +1754,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     NSString *statusSuffix = @"?check=1";
 
-    NSString *storefront = [EZStoreKitManager storefrontCountryCode];
+    NSString *storefront = nil;
+#if APPSTORE
+    storefront = [EZStoreKitManager storefrontCountryCode];
+#endif
 
     if (storefront.length) statusSuffix = [statusSuffix stringByAppendingFormat:@"&storefront=%@", storefront];
 
