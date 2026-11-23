@@ -325,6 +325,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     button.contentEdgeInsets = UIEdgeInsetsMake(7, 10, 7, 10);
     [button sizeToFit];
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+    [BRSlotChrome applyToButton:button baseColor:SOC(0x201F63)];
     return button;
 }
 
@@ -342,6 +343,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     button.layer.borderWidth = 1.5;
     button.layer.borderColor = [SOGold() colorWithAlphaComponent:.8].CGColor;
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+    [BRSlotChrome applyToButton:button baseColor:color];
     return button;
 }
 

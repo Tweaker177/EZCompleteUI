@@ -116,14 +116,14 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
     button.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
     [button sizeToFit];
     button.frame = CGRectMake(0, 0, MAX(64, CGRectGetWidth(button.bounds) + 28), 44);
-    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; return button;
+    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; [BRSlotChrome applyToButton:button baseColor:[UIColor colorWithRed:.05 green:.10 blue:.22 alpha:1]]; return button;
 }
 - (UIButton *)control:(NSString *)title color:(UIColor *)color action:(SEL)action {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:title forState:UIControlStateNormal];
     [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal]; button.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
     button.titleLabel.numberOfLines = 2; button.titleLabel.textAlignment = NSTextAlignmentCenter; button.titleLabel.adjustsFontSizeToFitWidth = YES; button.titleLabel.minimumScaleFactor = .5;
     button.backgroundColor = color; button.layer.cornerRadius = 13;
-    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; return button;
+    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; [BRSlotChrome applyToButton:button baseColor:color]; return button;
 }
 - (void)buildUI {
     UIScrollView *scroll = [UIScrollView new]; scroll.translatesAutoresizingMaskIntoConstraints = NO; scroll.alwaysBounceVertical = YES; [self.view addSubview:scroll];
@@ -663,15 +663,19 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
 - (void)startBonusSong { if (!BRSlotSoundEnabled()) return; [self plunderStartLoopNode:self.songNode]; }
 - (void)showWin:(NSInteger)payout awarded:(NSInteger)awarded {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; [self.winOverlay removeFromSuperview]; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
-    UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.03 green:.05 blue:.14 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
-    UILabel *text=[UILabel new]; text.text=awarded ? [NSString stringWithFormat:@"🧭 %ld FREE SPINS%@",(long)awarded,payout?[NSString stringWithFormat:@"  +%ld COINS",(long)payout]:@""] : [NSString stringWithFormat:@"WINNER!  +%ld COINS",(long)payout]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
+    NSString *winTitle = awarded ? [NSString stringWithFormat:@"🧭 %ld FREE SPINS", (long)awarded] : @"WINNER!";
+    NSString *winSub = payout ? [NSString stringWithFormat:@"+%ld COINS", (long)payout] : @"";
+    UIView *card = [BRSlotChrome winBannerWithTitle:winTitle subtitle:winSub width:self.view.bounds.size.width - 44 large:NO];
+    card.frame = CGRectMake(22, CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame) + 8, self.view.bounds.size.width - 44, [BRSlotChrome winBannerHeight]);
+    [overlay addSubview:card];
     [self coinWave:overlay];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(3.2*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (self.winOverlay==overlay) { self.celebrating=NO; [overlay removeFromSuperview]; self.winOverlay=nil; } });
 }
 - (void)showFreeSpinsComplete:(NSInteger)total {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; [self.winOverlay removeFromSuperview]; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
-    UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.03 green:.05 blue:.14 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
-    UILabel *text=[UILabel new]; text.text=[NSString stringWithFormat:@"⚓ FREE SPINS COMPLETE!\nTOTAL WON  +%ld COINS",(long)total]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
+    UIView *card = [BRSlotChrome winBannerWithTitle:@"⚓ FREE SPINS COMPLETE!" subtitle:[NSString stringWithFormat:@"TOTAL WON  +%ld COINS", (long)total] width:self.view.bounds.size.width - 44 large:NO];
+    card.frame = CGRectMake(22, CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame) + 8, self.view.bounds.size.width - 44, [BRSlotChrome winBannerHeight]);
+    [overlay addSubview:card];
     [self coinWave:overlay];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(3.2*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (self.winOverlay==overlay) { self.celebrating=NO; [overlay removeFromSuperview]; self.winOverlay=nil; } });
 }

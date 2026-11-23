@@ -691,6 +691,179 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
 /// slot machine. All artwork is drawn in code at runtime (no image
 /// assets): gold coins for the volcano, stars and sparks for the
 /// fireworks. The overlay never takes touches and removes itself.
+
+#pragma mark - Shared slot chrome
+
+// Distance from the centre of rect to its edge along angle a — the base
+// radius the sun rays alternate around.
+static CGFloat BRSRayBaseRadius(CGRect rect, CGFloat a) {
+    CGFloat hw = CGRectGetWidth(rect) / 2, hh = CGRectGetHeight(rect) / 2;
+    CGFloat c = fabs(cos(a)), s = fabs(sin(a));
+    CGFloat rx = c > 0.0001 ? hw / c : CGFLOAT_MAX;
+    CGFloat ry = s > 0.0001 ? hh / s : CGFLOAT_MAX;
+    return MIN(rx, ry);
+}
+
+@interface BRSlotWinBannerView : UIView
+- (instancetype)initWithTitle:(NSString *)title subtitle:(NSString *)subtitle large:(BOOL)large;
+@end
+
+@implementation BRSlotWinBannerView {
+    UILabel *_titleLabel;
+    UILabel *_subtitleLabel;
+    BOOL _large;
+}
+
+- (instancetype)initWithTitle:(NSString *)title subtitle:(NSString *)subtitle large:(BOOL)large {
+    self = [super initWithFrame:CGRectZero];
+    if (!self) return nil;
+    _large = large;
+    self.backgroundColor = UIColor.clearColor;
+    self.userInteractionEnabled = NO;
+    self.layer.shadowColor = [UIColor colorWithRed:1 green:.78 blue:.10 alpha:1].CGColor;
+    self.layer.shadowOpacity = .45;
+    self.layer.shadowRadius = 14;
+    self.layer.shadowOffset = CGSizeMake(0, 4);
+    _titleLabel = [UILabel new];
+    _titleLabel.text = title;
+    _titleLabel.font = [UIFont systemFontOfSize:large ? 44 : 29 weight:UIFontWeightBlack];
+    _titleLabel.textColor = [UIColor colorWithRed:1 green:.80 blue:.15 alpha:1];
+    _titleLabel.textAlignment = NSTextAlignmentCenter;
+    _titleLabel.adjustsFontSizeToFitWidth = YES;
+    _titleLabel.minimumScaleFactor = .6;
+    _titleLabel.layer.shadowColor = UIColor.blackColor.CGColor;
+    _titleLabel.layer.shadowOpacity = .55;
+    _titleLabel.layer.shadowRadius = 4;
+    _titleLabel.layer.shadowOffset = CGSizeMake(0, 2);
+    [self addSubview:_titleLabel];
+    _subtitleLabel = [UILabel new];
+    _subtitleLabel.text = subtitle;
+    _subtitleLabel.font = [UIFont systemFontOfSize:large ? 21 : 17 weight:UIFontWeightHeavy];
+    _subtitleLabel.textColor = UIColor.whiteColor;
+    _subtitleLabel.textAlignment = NSTextAlignmentCenter;
+    _subtitleLabel.adjustsFontSizeToFitWidth = YES;
+    _subtitleLabel.minimumScaleFactor = .6;
+    _subtitleLabel.layer.shadowColor = UIColor.blackColor.CGColor;
+    _subtitleLabel.layer.shadowOpacity = .5;
+    _subtitleLabel.layer.shadowRadius = 3;
+    _subtitleLabel.layer.shadowOffset = CGSizeMake(0, 1);
+    [self addSubview:_subtitleLabel];
+    return self;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    CGFloat w = CGRectGetWidth(self.bounds);
+    CGFloat ray = 12;
+    CGFloat titleHeight = _large ? 54 : 36;
+    _titleLabel.frame = CGRectMake(ray + 10, ray + (_large ? 12 : 8), w - 2 * (ray + 10), titleHeight);
+    _subtitleLabel.frame = CGRectMake(ray + 10, CGRectGetMaxY(_titleLabel.frame) + 2, w - 2 * (ray + 10), _large ? 28 : 24);
+    self.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(self.bounds, ray, ray) cornerRadius:16].CGPath;
+    [self setNeedsDisplay];
+}
+
+
+- (void)drawRect:(CGRect)rect {
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    CGFloat ray = 12;
+    CGRect card = CGRectInset(self.bounds, ray, ray);
+    CGPoint centre = CGPointMake(CGRectGetMidX(self.bounds), CGRectGetMidY(self.bounds));
+    // Sun-ray burst: a jagged gold edge all the way around the card.
+    NSInteger teeth = 56;
+    UIBezierPath *burst = [UIBezierPath bezierPath];
+    for (NSInteger i = 0; i <= teeth * 2; i++) {
+        CGFloat a = (CGFloat)i / (CGFloat)(teeth * 2) * (CGFloat)(2 * M_PI);
+        CGFloat base = BRSRayBaseRadius(card, a) + 2;
+        CGFloat r = (i % 2 == 0) ? base + ray : base;
+        CGPoint pt = CGPointMake(centre.x + r * (CGFloat)cos(a), centre.y + r * (CGFloat)sin(a));
+        if (i == 0) [burst moveToPoint:pt]; else [burst addLineToPoint:pt];
+    }
+    [burst closePath];
+    CGContextSaveGState(ctx);
+    [burst addClip];
+    CGGradientRef gold = CGGradientCreateWithColors(NULL, (__bridge CFArrayRef)@[
+        (id)[UIColor colorWithRed:1 green:.88 blue:.35 alpha:1].CGColor,
+        (id)[UIColor colorWithRed:.85 green:.58 blue:.05 alpha:1].CGColor], (CGFloat[]){0, 1});
+    CGContextDrawRadialGradient(ctx, gold, centre, 0, centre, CGRectGetWidth(self.bounds) * .62, 0);
+    CGGradientRelease(gold);
+    CGContextRestoreGState(ctx);
+    // Card: deep vertical gradient, a glass gloss over the top half, gold rim.
+    UIBezierPath *cardPath = [UIBezierPath bezierPathWithRoundedRect:card cornerRadius:16];
+    CGContextSaveGState(ctx);
+    [cardPath addClip];
+    CGGradientRef fill = CGGradientCreateWithColors(NULL, (__bridge CFArrayRef)@[
+        (id)[UIColor colorWithRed:.16 green:.05 blue:.32 alpha:.98].CGColor,
+        (id)[UIColor colorWithRed:.05 green:.02 blue:.13 alpha:.98].CGColor], (CGFloat[]){0, 1});
+    CGContextDrawLinearGradient(ctx, fill, CGPointMake(0, CGRectGetMinY(card)), CGPointMake(0, CGRectGetMaxY(card)), 0);
+    CGGradientRelease(fill);
+    CGGradientRef gloss = CGGradientCreateWithColors(NULL, (__bridge CFArrayRef)@[
+        (id)[UIColor colorWithWhite:1 alpha:.20].CGColor,
+        (id)[UIColor colorWithWhite:1 alpha:0].CGColor], (CGFloat[]){0, 1});
+    CGContextDrawLinearGradient(ctx, gloss, CGPointMake(0, CGRectGetMinY(card)), CGPointMake(0, CGRectGetMinY(card) + card.size.height * .5), 0);
+    CGGradientRelease(gloss);
+    CGContextRestoreGState(ctx);
+    cardPath.lineWidth = 2;
+    [[UIColor colorWithRed:1 green:.78 blue:.18 alpha:.95] setStroke];
+    [cardPath stroke];
+}
+
+@end
+
+@implementation BRSlotChrome
+
++ (CGFloat)winBannerHeight { return 108; }
++ (CGFloat)winBannerHeightLarge { return 132; }
+
++ (UIView *)winBannerWithTitle:(NSString *)title subtitle:(NSString *)subtitle width:(CGFloat)width large:(BOOL)large {
+    BRSlotWinBannerView *banner = [[BRSlotWinBannerView alloc] initWithTitle:title ?: @"" subtitle:subtitle ?: @"" large:large];
+    banner.frame = CGRectMake(0, 0, width, large ? [self winBannerHeightLarge] : [self winBannerHeight]);
+    return banner;
+}
+
++ (UIImage *)brs_gradientImageWithBaseColor:(UIColor *)baseColor highlighted:(BOOL)highlighted {
+    CGSize size = CGSizeMake(120, 44);
+    CGFloat hue = 0, saturation = 0, brightness = 0, alpha = 1;
+    [baseColor getHue:&hue saturation:&saturation brightness:&brightness alpha:&alpha];
+    UIColor *top = [UIColor colorWithHue:hue saturation:MAX(0, saturation - .06) brightness:MIN(1, MAX(0, brightness + (highlighted ? -.06 : .20))) alpha:1];
+    UIColor *bottom = [UIColor colorWithHue:hue saturation:saturation brightness:MAX(0, brightness - (highlighted ? .20 : .12)) alpha:1];
+    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat new];
+    format.opaque = NO;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+    return [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+        CGContextRef c = context.CGContext;
+        // Rounded corners are baked into the image so the button's drop
+        // shadow follows the same silhouette.
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, size.width, size.height) cornerRadius:13] addClip];
+        CGGradientRef gradient = CGGradientCreateWithColors(NULL, (__bridge CFArrayRef)@[(id)top.CGColor, (id)baseColor.CGColor, (id)bottom.CGColor], (CGFloat[]){0, .55, 1});
+        CGContextDrawLinearGradient(c, gradient, CGPointMake(0, 0), CGPointMake(0, size.height), 0);
+        CGGradientRelease(gradient);
+        CGGradientRef gloss = CGGradientCreateWithColors(NULL, (__bridge CFArrayRef)@[(id)[UIColor colorWithWhite:1 alpha:.30].CGColor, (id)[UIColor colorWithWhite:1 alpha:0].CGColor], (CGFloat[]){0, 1});
+        CGContextDrawLinearGradient(c, gloss, CGPointMake(0, 0), CGPointMake(0, size.height * .55), 0);
+        CGGradientRelease(gloss);
+        [[UIColor colorWithWhite:1 alpha:.45] setFill];
+        CGContextFillRect(c, CGRectMake(0, 0, size.width, 1));
+    }];
+}
+
++ (void)applyToButton:(UIButton *)button baseColor:(UIColor *)baseColor {
+    if (!button || !baseColor) return;
+    UIImage *normal = [[self brs_gradientImageWithBaseColor:baseColor highlighted:NO] resizableImageWithCapInsets:UIEdgeInsetsMake(12, 12, 12, 12) resizingMode:UIImageResizingModeStretch];
+    UIImage *pressed = [[self brs_gradientImageWithBaseColor:baseColor highlighted:YES] resizableImageWithCapInsets:UIEdgeInsetsMake(12, 12, 12, 12) resizingMode:UIImageResizingModeStretch];
+    [button setBackgroundImage:normal forState:UIControlStateNormal];
+    [button setBackgroundImage:pressed forState:UIControlStateHighlighted];
+    button.backgroundColor = UIColor.clearColor;
+    button.layer.cornerRadius = 13;
+    button.layer.borderWidth = 1.5;
+    button.layer.borderColor = [UIColor colorWithRed:1 green:.78 blue:.18 alpha:.85].CGColor;
+    button.layer.shadowColor = UIColor.blackColor.CGColor;
+    button.layer.shadowOpacity = .35;
+    button.layer.shadowRadius = 6;
+    button.layer.shadowOffset = CGSizeMake(0, 3);
+    button.clipsToBounds = NO;
+}
+
+@end
+
 @implementation BRSlotCelebration
 
 + (UIImage *)brs_coinImage {
@@ -849,32 +1022,10 @@ static NSCache<NSString *, UIImage *> *BRChatAvatarCache(void) { static NSCache 
         }];
     }
 
-    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, size.width - 32, mega ? 74 : 60)];
-    title.text = NSLocalizedString(mega ? @"BRSlot.Win.MegaWin" : @"BRSlot.Win.BigWin", nil);
-    title.font = [UIFont systemFontOfSize:mega ? 58 : 46 weight:UIFontWeightBlack];
-    title.textColor = [UIColor colorWithRed:1.00 green:0.80 blue:0.15 alpha:1];
-    title.textAlignment = NSTextAlignmentCenter;
-    title.adjustsFontSizeToFitWidth = YES;
-    title.minimumScaleFactor = 0.6;
-    title.layer.shadowColor = UIColor.blackColor.CGColor;
-    title.layer.shadowOpacity = 0.5;
-    title.layer.shadowRadius = 7;
-    title.layer.shadowOffset = CGSizeMake(0, 3);
-    UILabel *sub = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(title.frame) + 2, size.width - 32, 30)];
-    sub.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.BigWinSub", nil), (long)payout, (long)multiple];
-    sub.font = [UIFont systemFontOfSize:21 weight:UIFontWeightHeavy];
-    sub.textColor = UIColor.whiteColor;
-    sub.textAlignment = NSTextAlignmentCenter;
-    sub.adjustsFontSizeToFitWidth = YES;
-    sub.minimumScaleFactor = 0.6;
-    sub.layer.shadowColor = UIColor.blackColor.CGColor;
-    sub.layer.shadowOpacity = 0.5;
-    sub.layer.shadowRadius = 5;
-    sub.layer.shadowOffset = CGSizeMake(0, 2);
-    UIView *banner = [[UIView alloc] initWithFrame:CGRectMake(0, size.height * 0.30, size.width, CGRectGetMaxY(sub.frame))];
-    banner.userInteractionEnabled = NO;
-    [banner addSubview:title];
-    [banner addSubview:sub];
+    NSString *titleText = NSLocalizedString(mega ? @"BRSlot.Win.MegaWin" : @"BRSlot.Win.BigWin", nil);
+    NSString *subText = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.BigWinSub", nil), (long)payout, (long)multiple];
+    UIView *banner = [BRSlotChrome winBannerWithTitle:titleText subtitle:subText width:size.width large:YES];
+    banner.frame = CGRectMake(0, size.height * 0.30, size.width, [BRSlotChrome winBannerHeightLarge]);
     banner.transform = CGAffineTransformMakeScale(0.3, 0.3);
     banner.alpha = 0;
     [overlay addSubview:banner];
