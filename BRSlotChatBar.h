@@ -83,3 +83,23 @@ void BRSlotSetSoundEnabled(BOOL enabled);
 + (BOOL)celebrateBigWinInView:(UIView *)hostView payout:(NSInteger)payout totalBet:(NSInteger)totalBet;
 
 @end
+
+/// Shared slot chrome: one button treatment and one win banner for every
+/// slot machine, so the cabinets all wear the same metal.
+@interface BRSlotChrome : NSObject
+
+/// Height of the shared win banner.
++ (CGFloat)winBannerHeight;
+
+/// A win banner with a sun-ray burst edge, a deep gradient card, a gold
+/// title and a white subtitle. userInteractionEnabled is NO; set the
+/// frame's origin after creating it.
++ (UIView *)winBannerWithTitle:(NSString *)title subtitle:(NSString *)subtitle width:(CGFloat)width;
+
+/// Gives a plain button the shared pressable treatment: a vertical
+/// gradient rendered from baseColor (gloss at the top, deeper shade at
+/// the bottom, darker still when highlighted), a gold bevel border and
+/// a drop shadow. Standardizes the corner radius to 13.
++ (void)applyToButton:(UIButton *)button baseColor:(UIColor *)baseColor;
+
+@end

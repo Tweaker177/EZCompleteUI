@@ -113,14 +113,14 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     button.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10);
     [button sizeToFit];
     button.frame = CGRectMake(0, 0, MAX(53, CGRectGetWidth(button.bounds) + 20), 32);
-    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; return button;
+    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; [BRSlotChrome applyToButton:button baseColor:[UIColor colorWithRed:.18 green:.06 blue:.29 alpha:1]]; return button;
 }
 - (UIButton *)control:(NSString *)title color:(UIColor *)color action:(SEL)action {
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem]; [button setTitle:title forState:UIControlStateNormal];
     [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal]; button.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
     button.titleLabel.numberOfLines = 2; button.titleLabel.textAlignment = NSTextAlignmentCenter; button.titleLabel.adjustsFontSizeToFitWidth = YES; button.titleLabel.minimumScaleFactor = .5;
     button.backgroundColor = color; button.layer.cornerRadius = 13;
-    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; return button;
+    [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside]; [BRSlotChrome applyToButton:button baseColor:color]; return button;
 }
 - (void)buildUI {
     UIScrollView *scroll = [UIScrollView new]; scroll.translatesAutoresizingMaskIntoConstraints = NO; scroll.alwaysBounceVertical = YES; [self.view addSubview:scroll];
@@ -349,15 +349,19 @@ static UIImage *PennyEZCoinSymbolImage(void) {
 - (void)playTheme:(NSString *)name { if (!BRSlotSoundEnabled()) return; if ([self.musicPlayer.url.lastPathComponent isEqualToString:[name stringByAppendingString:@".mp3"]]) { if (!self.musicPlayer.isPlaying) [self.musicPlayer play]; return; } NSURL *url=[[NSBundle mainBundle] URLForResource:name withExtension:@"mp3" subdirectory:@"sounds"]; if (!url) url=[[NSBundle mainBundle] URLForResource:name withExtension:@"mp3"]; if (!url) return; [self.musicPlayer stop]; self.musicPlayer=[[AVAudioPlayer alloc] initWithContentsOfURL:url error:nil]; self.musicPlayer.delegate=self; self.musicPlayer.numberOfLoops=[name isEqualToString:@"brainrot-theme2"]?0:-1; self.musicPlayer.volume=.32; [self.musicPlayer prepareToPlay]; [self.musicPlayer play]; }
 - (void)showWin:(NSInteger)payout awarded:(NSInteger)awarded {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
-    UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.12 green:.025 blue:.23 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
-    UILabel *text=[UILabel new]; text.text=awarded ? [NSString stringWithFormat:@"⚡ %ld FREE SPINS%@",(long)awarded,payout?[NSString stringWithFormat:@"  +%ld COINS",(long)payout]:@""] : [NSString stringWithFormat:@"WINNER!  +%ld COINS",(long)payout]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
+    NSString *winTitle = awarded ? [NSString stringWithFormat:@"⚡ %ld FREE SPINS", (long)awarded] : @"WINNER!";
+    NSString *winSub = payout ? [NSString stringWithFormat:@"+%ld COINS", (long)payout] : @"";
+    UIView *card = [BRSlotChrome winBannerWithTitle:winTitle subtitle:winSub width:self.view.bounds.size.width - 44];
+    card.frame = CGRectMake(22, CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame) + 8, self.view.bounds.size.width - 44, [BRSlotChrome winBannerHeight]);
+    [overlay addSubview:card];
     [self coinWave:overlay];
 }
 - (void)showFreeSpinsComplete:(NSInteger)total {
     [self playTheme:@"brainrot-theme2"];
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
-    UIView *card=[[UIView alloc] initWithFrame:CGRectMake(22,CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame)+8,self.view.bounds.size.width-44,82)]; card.backgroundColor=[UIColor colorWithRed:.12 green:.025 blue:.23 alpha:.96]; card.layer.cornerRadius=18; card.layer.borderWidth=2; card.layer.borderColor=UIColor.systemYellowColor.CGColor; [overlay addSubview:card];
-    UILabel *text=[UILabel new]; text.text=[NSString stringWithFormat:@"🎁 FREE SPINS COMPLETE!\nTOTAL WON  +%ld COINS",(long)total]; text.numberOfLines=2; text.font=[UIFont systemFontOfSize:21 weight:UIFontWeightBlack]; text.textColor=UIColor.systemYellowColor; text.textAlignment=NSTextAlignmentCenter; text.frame=card.bounds; text.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; [card addSubview:text];
+    UIView *card = [BRSlotChrome winBannerWithTitle:@"🎁 FREE SPINS COMPLETE!" subtitle:[NSString stringWithFormat:@"TOTAL WON  +%ld COINS", (long)total] width:self.view.bounds.size.width - 44];
+    card.frame = CGRectMake(22, CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame) + 8, self.view.bounds.size.width - 44, [BRSlotChrome winBannerHeight]);
+    [overlay addSubview:card];
     [self coinWave:overlay];
 }
 - (void)coinWave:(UIView *)overlay { if (!self.celebrating || overlay!=self.winOverlay) return; UIImage *coin=[UIImage imageNamed:@"EZCoin"]; CGFloat baseX=CGRectGetMidX(overlay.bounds),bottom=CGRectGetMaxY(overlay.bounds)-40; for (NSInteger i=0;i<24;i++) { UIImageView *particle=[[UIImageView alloc] initWithImage:coin]; particle.frame=CGRectMake(baseX,bottom,20,20); [overlay insertSubview:particle atIndex:0]; CGFloat x=baseX+(NSInteger)arc4random_uniform(300)-150,y=100+arc4random_uniform(250); [UIView animateWithDuration:1.1 delay:arc4random_uniform(12)/100.0 options:0 animations:^{ particle.center=CGPointMake(x,y); particle.alpha=0; } completion:^(__unused BOOL done){ [particle removeFromSuperview]; }]; } dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.05*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self coinWave:overlay]; }); }

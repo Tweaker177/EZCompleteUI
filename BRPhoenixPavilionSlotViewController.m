@@ -323,6 +323,7 @@ static UIImage *PPParticleImage(BOOL coin) {
     button.contentEdgeInsets = UIEdgeInsetsMake(7, 10, 7, 10);
     [button sizeToFit];
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+    [BRSlotChrome applyToButton:button baseColor:PPC(0x0D4A52)];
     return button;
 }
 
@@ -340,6 +341,7 @@ static UIImage *PPParticleImage(BOOL coin) {
     button.layer.borderWidth = 1.5;
     button.layer.borderColor = [PPGold() colorWithAlphaComponent:.8].CGColor;
     [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+    [BRSlotChrome applyToButton:button baseColor:color];
     return button;
 }
 
