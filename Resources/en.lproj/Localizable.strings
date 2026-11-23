@@ -487,7 +487,6 @@
 "BRSlot.Win.Winner" = "WINNER!";
 "BRSlot.Win.BigWin" = "BIG WIN!";
 "BRSlot.Win.MegaWin" = "MEGA WIN!";
-"BRSlot.Win.Jackpot" = "JACKPOT!";
 "BRSlot.Win.BigWinSub" = "+%ld COINS · ×%ld";
 "BRSlot.Lounge.SignIn" = "Sign in to join the lounge.";
 "BRSlot.Lounge.Delete" = "Delete";
