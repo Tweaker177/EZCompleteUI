@@ -705,19 +705,17 @@ static CGFloat BRSRayBaseRadius(CGRect rect, CGFloat a) {
 }
 
 @interface BRSlotWinBannerView : UIView
-- (instancetype)initWithTitle:(NSString *)title subtitle:(NSString *)subtitle large:(BOOL)large;
+- (instancetype)initWithTitle:(NSString *)title subtitle:(NSString *)subtitle;
 @end
 
 @implementation BRSlotWinBannerView {
     UILabel *_titleLabel;
     UILabel *_subtitleLabel;
-    BOOL _large;
 }
 
-- (instancetype)initWithTitle:(NSString *)title subtitle:(NSString *)subtitle large:(BOOL)large {
+- (instancetype)initWithTitle:(NSString *)title subtitle:(NSString *)subtitle {
     self = [super initWithFrame:CGRectZero];
     if (!self) return nil;
-    _large = large;
     self.backgroundColor = UIColor.clearColor;
     self.userInteractionEnabled = NO;
     self.layer.shadowColor = [UIColor colorWithRed:1 green:.78 blue:.10 alpha:1].CGColor;
@@ -726,7 +724,7 @@ static CGFloat BRSRayBaseRadius(CGRect rect, CGFloat a) {
     self.layer.shadowOffset = CGSizeMake(0, 4);
     _titleLabel = [UILabel new];
     _titleLabel.text = title;
-    _titleLabel.font = [UIFont systemFontOfSize:large ? 44 : 29 weight:UIFontWeightBlack];
+    _titleLabel.font = [UIFont systemFontOfSize:29 weight:UIFontWeightBlack];
     _titleLabel.textColor = [UIColor colorWithRed:1 green:.80 blue:.15 alpha:1];
     _titleLabel.textAlignment = NSTextAlignmentCenter;
     _titleLabel.adjustsFontSizeToFitWidth = YES;
@@ -738,7 +736,7 @@ static CGFloat BRSRayBaseRadius(CGRect rect, CGFloat a) {
     [self addSubview:_titleLabel];
     _subtitleLabel = [UILabel new];
     _subtitleLabel.text = subtitle;
-    _subtitleLabel.font = [UIFont systemFontOfSize:large ? 21 : 17 weight:UIFontWeightHeavy];
+    _subtitleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightHeavy];
     _subtitleLabel.textColor = UIColor.whiteColor;
     _subtitleLabel.textAlignment = NSTextAlignmentCenter;
     _subtitleLabel.adjustsFontSizeToFitWidth = YES;
@@ -755,9 +753,8 @@ static CGFloat BRSRayBaseRadius(CGRect rect, CGFloat a) {
     [super layoutSubviews];
     CGFloat w = CGRectGetWidth(self.bounds);
     CGFloat ray = 12;
-    CGFloat titleHeight = _large ? 54 : 36;
-    _titleLabel.frame = CGRectMake(ray + 10, ray + (_large ? 12 : 8), w - 2 * (ray + 10), titleHeight);
-    _subtitleLabel.frame = CGRectMake(ray + 10, CGRectGetMaxY(_titleLabel.frame) + 2, w - 2 * (ray + 10), _large ? 28 : 24);
+    _titleLabel.frame = CGRectMake(ray + 10, ray + 8, w - 2 * (ray + 10), 36);
+    _subtitleLabel.frame = CGRectMake(ray + 10, CGRectGetMaxY(_titleLabel.frame) + 2, w - 2 * (ray + 10), 24);
     self.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(self.bounds, ray, ray) cornerRadius:16].CGPath;
     [self setNeedsDisplay];
 }
@@ -812,11 +809,10 @@ static CGFloat BRSRayBaseRadius(CGRect rect, CGFloat a) {
 @implementation BRSlotChrome
 
 + (CGFloat)winBannerHeight { return 108; }
-+ (CGFloat)winBannerHeightLarge { return 132; }
 
-+ (UIView *)winBannerWithTitle:(NSString *)title subtitle:(NSString *)subtitle width:(CGFloat)width large:(BOOL)large {
-    BRSlotWinBannerView *banner = [[BRSlotWinBannerView alloc] initWithTitle:title ?: @"" subtitle:subtitle ?: @"" large:large];
-    banner.frame = CGRectMake(0, 0, width, large ? [self winBannerHeightLarge] : [self winBannerHeight]);
++ (UIView *)winBannerWithTitle:(NSString *)title subtitle:(NSString *)subtitle width:(CGFloat)width {
+    BRSlotWinBannerView *banner = [[BRSlotWinBannerView alloc] initWithTitle:title ?: @"" subtitle:subtitle ?: @""];
+    banner.frame = CGRectMake(0, 0, width, [self winBannerHeight]);
     return banner;
 }
 
@@ -1022,10 +1018,32 @@ static CGFloat BRSRayBaseRadius(CGRect rect, CGFloat a) {
         }];
     }
 
-    NSString *titleText = NSLocalizedString(mega ? @"BRSlot.Win.MegaWin" : @"BRSlot.Win.BigWin", nil);
-    NSString *subText = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.BigWinSub", nil), (long)payout, (long)multiple];
-    UIView *banner = [BRSlotChrome winBannerWithTitle:titleText subtitle:subText width:size.width large:YES];
-    banner.frame = CGRectMake(0, size.height * 0.30, size.width, [BRSlotChrome winBannerHeightLarge]);
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, size.width - 32, mega ? 74 : 60)];
+    title.text = NSLocalizedString(mega ? @"BRSlot.Win.MegaWin" : @"BRSlot.Win.BigWin", nil);
+    title.font = [UIFont systemFontOfSize:mega ? 58 : 46 weight:UIFontWeightBlack];
+    title.textColor = [UIColor colorWithRed:1.00 green:0.80 blue:0.15 alpha:1];
+    title.textAlignment = NSTextAlignmentCenter;
+    title.adjustsFontSizeToFitWidth = YES;
+    title.minimumScaleFactor = 0.6;
+    title.layer.shadowColor = UIColor.blackColor.CGColor;
+    title.layer.shadowOpacity = 0.5;
+    title.layer.shadowRadius = 7;
+    title.layer.shadowOffset = CGSizeMake(0, 3);
+    UILabel *sub = [[UILabel alloc] initWithFrame:CGRectMake(16, CGRectGetMaxY(title.frame) + 2, size.width - 32, 30)];
+    sub.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.BigWinSub", nil), (long)payout, (long)multiple];
+    sub.font = [UIFont systemFontOfSize:21 weight:UIFontWeightHeavy];
+    sub.textColor = UIColor.whiteColor;
+    sub.textAlignment = NSTextAlignmentCenter;
+    sub.adjustsFontSizeToFitWidth = YES;
+    sub.minimumScaleFactor = 0.6;
+    sub.layer.shadowColor = UIColor.blackColor.CGColor;
+    sub.layer.shadowOpacity = 0.5;
+    sub.layer.shadowRadius = 5;
+    sub.layer.shadowOffset = CGSizeMake(0, 2);
+    UIView *banner = [[UIView alloc] initWithFrame:CGRectMake(0, size.height * 0.30, size.width, CGRectGetMaxY(sub.frame))];
+    banner.userInteractionEnabled = NO;
+    [banner addSubview:title];
+    [banner addSubview:sub];
     banner.transform = CGAffineTransformMakeScale(0.3, 0.3);
     banner.alpha = 0;
     [overlay addSubview:banner];

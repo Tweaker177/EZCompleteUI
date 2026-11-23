@@ -665,7 +665,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; [self.winOverlay removeFromSuperview]; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
     NSString *winTitle = awarded ? [NSString stringWithFormat:@"🧭 %ld FREE SPINS", (long)awarded] : @"WINNER!";
     NSString *winSub = payout ? [NSString stringWithFormat:@"+%ld COINS", (long)payout] : @"";
-    UIView *card = [BRSlotChrome winBannerWithTitle:winTitle subtitle:winSub width:self.view.bounds.size.width - 44 large:NO];
+    UIView *card = [BRSlotChrome winBannerWithTitle:winTitle subtitle:winSub width:self.view.bounds.size.width - 44];
     card.frame = CGRectMake(22, CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame) + 8, self.view.bounds.size.width - 44, [BRSlotChrome winBannerHeight]);
     [overlay addSubview:card];
     [self coinWave:overlay];
@@ -673,7 +673,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
 }
 - (void)showFreeSpinsComplete:(NSInteger)total {
     UIView *overlay=[[UIView alloc] initWithFrame:self.view.bounds]; overlay.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight; overlay.userInteractionEnabled=NO; [self.winOverlay removeFromSuperview]; self.winOverlay=overlay; self.celebrating=YES; [self.view addSubview:overlay];
-    UIView *card = [BRSlotChrome winBannerWithTitle:@"⚓ FREE SPINS COMPLETE!" subtitle:[NSString stringWithFormat:@"TOTAL WON  +%ld COINS", (long)total] width:self.view.bounds.size.width - 44 large:NO];
+    UIView *card = [BRSlotChrome winBannerWithTitle:@"⚓ FREE SPINS COMPLETE!" subtitle:[NSString stringWithFormat:@"TOTAL WON  +%ld COINS", (long)total] width:self.view.bounds.size.width - 44];
     card.frame = CGRectMake(22, CGRectGetMinY(self.view.safeAreaLayoutGuide.layoutFrame) + 8, self.view.bounds.size.width - 44, [BRSlotChrome winBannerHeight]);
     [overlay addSubview:card];
     [self coinWave:overlay];

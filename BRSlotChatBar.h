@@ -88,15 +88,13 @@ void BRSlotSetSoundEnabled(BOOL enabled);
 /// slot machine, so the cabinets all wear the same metal.
 @interface BRSlotChrome : NSObject
 
-/// Height of the standard win banner (Penny / Plunder size).
+/// Height of the shared win banner.
 + (CGFloat)winBannerHeight;
-/// Height of the large win banner (big-win celebration size).
-+ (CGFloat)winBannerHeightLarge;
 
 /// A win banner with a sun-ray burst edge, a deep gradient card, a gold
 /// title and a white subtitle. userInteractionEnabled is NO; set the
 /// frame's origin after creating it.
-+ (UIView *)winBannerWithTitle:(NSString *)title subtitle:(NSString *)subtitle width:(CGFloat)width large:(BOOL)large;
++ (UIView *)winBannerWithTitle:(NSString *)title subtitle:(NSString *)subtitle width:(CGFloat)width;
 
 /// Gives a plain button the shared pressable treatment: a vertical
 /// gradient rendered from baseColor (gloss at the top, deeper shade at
