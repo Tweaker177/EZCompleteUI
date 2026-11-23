@@ -18,17 +18,31 @@ static NSInteger  const kEZManifestVersion   = 1;
 static NSString * const kEZManifestKeyVersion = @"version";
 static NSString * const kEZManifestKeyClips   = @"clips";
 
+/// An auto name is the prompt's first three words — a whole prompt is too
+/// long to scan in a list or a Files row. Custom titles are used in full.
+/// EZSoundsViewController shortens by the same rule for its row titles.
+static NSString *EZSoundShortAutoName(NSString *text) {
+    NSMutableArray<NSString *> *kept = [NSMutableArray array];
+    for (NSString *word in [text componentsSeparatedByCharactersInSet:
+                            [NSCharacterSet whitespaceAndNewlineCharacterSet]]) {
+        if (word.length) [kept addObject:word];
+        if (kept.count == 3) break;
+    }
+    return kept.count ? [kept componentsJoinedByString:@" "] : text;
+}
+
 /// The name a sound is displayed under everywhere: the user's custom
 /// title (metadata[@"title"], set by Rename) when there is one, else the
-/// prompt preview — the same rule EZSoundsViewController renders by.
-/// Since 2026-11-13 this is also the sound's FILE name (user rule: what
-/// the list shows is what the file is called, so shares/exports never
-/// surface a generated sound_<stamp>_<id> name).
+/// prompt's first three words — the same rule EZSoundsViewController
+/// renders by. Since 2026-11-13 this is also the sound's FILE name (user
+/// rule: what the list shows is what the file is called, so shares/exports
+/// never surface a generated sound_<stamp>_<id> name).
 static NSString *EZSoundDisplayNameForEntry(EZSoundManifestEntry *entry) {
     NSString *custom = [entry.metadata[@"title"] isKindOfClass:NSString.class] ? entry.metadata[@"title"] : nil;
     if (custom.length) return custom;
-    if (entry.preview.length) return entry.preview;
-    return entry.prompt.length ? entry.prompt : @"Sound";
+    NSString *source = entry.preview.length ? entry.preview : entry.prompt;
+    NSString *shortName = EZSoundShortAutoName(source);
+    return shortName.length ? shortName : @"Sound";
 }
 
 /// Filesystem-safe form of a display name: path-hostile and control

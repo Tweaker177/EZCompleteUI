@@ -408,10 +408,24 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 /// The name shown for a sound everywhere: the user's custom title
 /// (metadata[@"title"], set by Rename) when there is one, else the
 /// prompt preview — same convention as the TTS library.
+/// Auto names come from the prompt, and a whole prompt is too long to scan
+/// in a list — an auto name is the prompt's first three words. Custom titles
+/// are always shown in full. EZSoundLibraryManager derives the file name
+/// with the same rule, so the list and the file stay named the same.
+static NSString *EZSoundsShortAutoName(NSString *text) {
+    NSMutableArray<NSString *> *kept = [NSMutableArray array];
+    for (NSString *word in [text componentsSeparatedByCharactersInSet:
+                            [NSCharacterSet whitespaceAndNewlineCharacterSet]]) {
+        if (word.length) [kept addObject:word];
+        if (kept.count == 3) break;
+    }
+    return kept.count ? [kept componentsJoinedByString:@" "] : text;
+}
+
 - (NSString *)displayTitleForEntry:(EZSoundManifestEntry *)entry {
     NSString *custom = [entry.metadata[@"title"] isKindOfClass:NSString.class] ? entry.metadata[@"title"] : nil;
     if (custom.length) return custom;
-    return entry.preview.length ? entry.preview : entry.prompt;
+    return EZSoundsShortAutoName(entry.preview.length ? entry.preview : entry.prompt);
 }
 
 #pragma mark - UI construction
@@ -874,6 +888,30 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     self.promptPlaceholder.hidden = textView.text.length > 0;
 }
 
+/// Regenerate replays the entry's prompt with its original settings and
+/// archives the result as a new sound; the original stays untouched.
+- (void)regenerateEntry:(EZSoundManifestEntry *)entry {
+    if (self.generating) return;
+    NSString *prompt = entry.prompt.length ? entry.prompt : entry.preview;
+    if (prompt.length < 3) {
+        [self showAlertTitle:NSLocalizedString(@"EZSounds.Title", nil)
+                     message:NSLocalizedString(@"EZSounds.PromptTooShort", nil)];
+        return;
+    }
+    if (![EZAuthManager shared].accessToken.length) {
+        [self showAlertTitle:NSLocalizedString(@"EZSounds.Title", nil)
+                     message:NSLocalizedString(@"EZSounds.SignInRequired", nil)];
+        return;
+    }
+    NSNumber *requested = [entry.metadata[@"requestedSeconds"] isKindOfClass:NSNumber.class]
+        ? entry.metadata[@"requestedSeconds"] : nil;
+    NSInteger seconds = requested ? requested.integerValue
+                                  : MAX(1, (NSInteger)llround(entry.duration));
+    BOOL loop = [entry.metadata[@"loop"] respondsToSelector:@selector(boolValue)] &&
+                [entry.metadata[@"loop"] boolValue];
+    [self generateSoundWithPrompt:prompt seconds:seconds loop:loop];
+}
+
 - (void)generateTapped {
     if (self.generating) return;
     [self.view endEditing:YES];
@@ -891,10 +929,17 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         return;
     }
     [self.promptView resignFirstResponder];
+    [self generateSoundWithPrompt:prompt seconds:[self selectedSeconds] loop:self.loopSwitch.on];
+}
+
+/// Runs one sound generation and archives the result. Used by the Create
+/// form and by Regenerate in a library row's action sheet, which replays
+/// the entry's own prompt with its original settings.
+- (void)generateSoundWithPrompt:(NSString *)prompt seconds:(NSInteger)seconds loop:(BOOL)loop {
+    NSString *token = [EZAuthManager shared].accessToken;
+    if (!token.length) return;
     [self setGenerating:YES status:NSLocalizedString(@"EZSounds.Generating", nil)];
 
-    NSInteger seconds = [self selectedSeconds];
-    BOOL loop = self.loopSwitch.on;
     NSURL *url = [NSURL URLWithString:@"https://spuoimtqofhbdzosrbng.supabase.co/functions/v1/ez-elevenlabs"];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
     request.HTTPMethod = @"POST";
@@ -1111,33 +1156,17 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     cell.detailTextLabel.textColor = EZSoundsNeonDimText();
     cell.detailTextLabel.font = [UIFont systemFontOfSize:12.5];
 
-    // Share and Favorite live here as compact icons — everyone knows what
-    // they look like, so they don't need full-width rows in the menu.
-    UIView *actions = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 114, 44)];
-
-    UIButton *share = [UIButton buttonWithType:UIButtonTypeSystem];
-    share.frame = CGRectMake(0, 2, 38, 40);
-    [share setImage:[UIImage systemImageNamed:@"square.and.arrow.up"] forState:UIControlStateNormal];
-    share.tintColor = EZSoundsNeonDimText();
-    share.tag = indexPath.row;
-    share.accessibilityLabel = NSLocalizedString(@"EZSounds.Share", nil);
-    [share addTarget:self action:@selector(shareTapped:) forControlEvents:UIControlEventTouchUpInside];
-    [actions addSubview:share];
-
-    UIButton *favorite = [UIButton buttonWithType:UIButtonTypeSystem];
-    favorite.frame = CGRectMake(38, 2, 38, 40);
-    [favorite setImage:[UIImage systemImageNamed:(entry.isFavorite ? @"star.fill" : @"star")] forState:UIControlStateNormal];
-    favorite.tintColor = entry.isFavorite ? EZSoundsNeonPink() : EZSoundsNeonDimText();
-    favorite.tag = indexPath.row;
-    favorite.accessibilityLabel = NSLocalizedString(entry.isFavorite ? @"EZSounds.Unfavorite" : @"EZSounds.Favorite", nil);
-    [favorite addTarget:self action:@selector(favoriteTapped:) forControlEvents:UIControlEventTouchUpInside];
-    [actions addSubview:favorite];
+    // One button on the right: the three dots. Everything for the sound —
+    // share, favorite, regenerate, rename, edit — lives in its sheet, and
+    // favoriting is also a swipe. The row itself stays clean.
+    UIView *actions = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 38, 44)];
 
     UIButton *more = [UIButton buttonWithType:UIButtonTypeSystem];
-    more.frame = CGRectMake(76, 2, 38, 40);
-    [more setImage:[UIImage systemImageNamed:@"ellipsis.circle"] forState:UIControlStateNormal];
+    more.frame = CGRectMake(0, 2, 38, 40);
+    [more setImage:[UIImage systemImageNamed:@"ellipsis"] forState:UIControlStateNormal];
     more.tintColor = EZSoundsNeonDimText();
     more.tag = indexPath.row;
+    more.accessibilityLabel = NSLocalizedStringWithDefaultValue(@"EZSounds.MoreActions", nil, [NSBundle mainBundle], @"More actions", nil);
     [more addTarget:self action:@selector(moreTapped:) forControlEvents:UIControlEventTouchUpInside];
     [actions addSubview:more];
 
@@ -1162,6 +1191,11 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         [self confirmDeleteEntry:entry];
         completionHandler(YES);
     }];
+    UIContextualAction *favoriteAction = [self favoriteSwipeActionForEntry:entry];
+    return [UISwipeActionsConfiguration configurationWithActions:@[favoriteAction, deleteAction]];
+}
+
+- (UIContextualAction *)favoriteSwipeActionForEntry:(EZSoundManifestEntry *)entry {
     UIContextualAction *favoriteAction =
         [UIContextualAction contextualActionWithStyle:UIContextualActionStyleNormal
                                                 title:(entry.isFavorite
@@ -1177,7 +1211,14 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
         completionHandler(YES);
     }];
     favoriteAction.backgroundColor = [EZTheme cardColor];
-    return [UISwipeActionsConfiguration configurationWithActions:@[deleteAction, favoriteAction]];
+    favoriteAction.image = [UIImage systemImageNamed:(entry.isFavorite ? @"star.fill" : @"star")];
+    return favoriteAction;
+}
+
+- (UISwipeActionsConfiguration *)tableView:(UITableView *)tableView
+    leadingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath {
+    EZSoundManifestEntry *entry = self.entries[indexPath.row];
+    return [UISwipeActionsConfiguration configurationWithActions:@[[self favoriteSwipeActionForEntry:entry]]];
 }
 
 #pragma mark - Per-sound actions
@@ -1187,25 +1228,25 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
     [self presentActionsForEntry:self.entries[sender.tag]];
 }
 
-- (void)shareTapped:(UIButton *)sender {
-    if (sender.tag < 0 || sender.tag >= (NSInteger)self.entries.count) return;
-    [self shareEntry:self.entries[sender.tag]];
-}
-
-- (void)favoriteTapped:(UIButton *)sender {
-    if (sender.tag < 0 || sender.tag >= (NSInteger)self.entries.count) return;
-    EZSoundManifestEntry *entry = self.entries[sender.tag];
-    [[EZSoundLibraryManager sharedManager] setFavorite:!entry.isFavorite
-                                          forSoundUUID:entry.uuid
-                                            completion:^(EZSoundManifestEntry *updated, NSError *error) {
-        [self reloadEntries];
-    }];
-}
-
 - (void)presentActionsForEntry:(EZSoundManifestEntry *)entry {
     EZNeonSheet *sheet = [EZNeonSheet sheetInHostView:[self sheetHostView] centered:NO];
     sheet.dismissOnBackdropTap = YES;
     [sheet setTitle:[self displayTitleForEntry:entry] message:nil];
+    [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.Share", nil)
+                  destructive:NO
+                      handler:^{ [self shareEntry:entry]; }];
+    [sheet addButtonWithTitle:NSLocalizedString(entry.isFavorite ? @"EZSounds.Unfavorite" : @"EZSounds.Favorite", nil)
+                  destructive:NO
+                      handler:^{
+        [[EZSoundLibraryManager sharedManager] setFavorite:!entry.isFavorite
+                                              forSoundUUID:entry.uuid
+                                                completion:^(EZSoundManifestEntry *updated, NSError *error) {
+            [self reloadEntries];
+        }];
+    }];
+    [sheet addButtonWithTitle:NSLocalizedStringWithDefaultValue(@"EZSounds.Regenerate", nil, [NSBundle mainBundle], @"Regenerate", nil)
+                  destructive:NO
+                      handler:^{ [self regenerateEntry:entry]; }];
     [sheet addButtonWithTitle:NSLocalizedString(@"EZSounds.AddToVideo", nil)
                   destructive:NO
                       handler:^{ [self beginAddToVideoForEntry:entry]; }];
