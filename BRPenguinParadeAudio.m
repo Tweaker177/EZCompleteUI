@@ -546,7 +546,7 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 @property (nonatomic, strong) AVAudioPlayerNode *themeNode, *rollNode;
 @property (nonatomic, strong) NSDictionary<NSString *, AVAudioPCMBuffer *> *buffers;
 @property (nonatomic) NSInteger voiceCursor;
-@property (nonatomic) BOOL ready, preparing, themeWanted, themeBonus, ducked;
+@property (nonatomic) BOOL ready, preparing, themeWanted, themeBonus, ducked, themePausedByBackground;
 @property (nonatomic) NSInteger rollLevel;
 @end
 
@@ -557,6 +557,8 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 - (void)prepare {
     if (self.ready || self.preparing) return;
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(br_soundSettingChanged:) name:BRSlotSoundSettingChangedNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(br_appDidEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(br_appDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
     self.muted = !BRSlotSoundEnabled();
     self.preparing = YES;
     self.format = [[AVAudioFormat alloc] initWithCommonFormat:AVAudioPCMFormatFloat32 sampleRate:kSR channels:1 interleaved:NO];
@@ -655,6 +657,18 @@ static AVAudioPCMBuffer *RenderReveal(AVAudioFormat *fmt, int bells) {
 - (void)setMuted:(BOOL)muted { _muted = muted; self.engine.mainMixerNode.outputVolume = muted ? 0 : 1; }
 
 - (void)br_soundSettingChanged:(NSNotification *)note { BOOL enabled = BRSlotSoundEnabled(); self.muted = !enabled; if (!enabled) { [self stopTheme]; [self stopDrumRoll]; } }
+// The app's audio background mode (kept for music) would otherwise keep
+// the slot theme looping on the lock screen. Pause the loops when the app
+// backgrounds, and resume the theme on return if it is still wanted.
+- (void)br_appDidEnterBackground:(NSNotification *)note {
+    self.themePausedByBackground = self.themeWanted;
+    [self.themeNode pause];
+    [self.rollNode pause];
+}
+- (void)br_appDidBecomeActive:(NSNotification *)note {
+    if (self.themePausedByBackground && self.themeWanted && !self.muted) [self.themeNode play];
+    self.themePausedByBackground = NO;
+}
 - (void)playName:(NSString *)name volume:(float)volume {
     if (!BRSlotSoundEnabled()) return;
     AVAudioPCMBuffer *buffer = self.buffers[name];
