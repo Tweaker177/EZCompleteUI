@@ -190,7 +190,7 @@ static UIImage *GMParticleImage(BOOL coin) {
 @property (nonatomic, strong) NSMutableArray<UIView *> *strips;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIImageView *> *> *stripCells;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIView *> *> *highlights;
-@property (nonatomic, strong) UIButton *linesButton, *betButton, *maxButton, *spinButton, *soundButton;
+@property (nonatomic, strong) UIButton *linesButton, *betButton, *maxButton, *spinButton;
 @property (nonatomic, strong) UIView *celebrationOverlay, *summaryOverlay, *pickOverlay;
 @property (nonatomic, strong) NSDictionary *result;
 // Card pick
@@ -237,7 +237,6 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.audio = [BRGoldenMandarinAudio new];
     self.audio.muted = [defaults boolForKey:kGMMutedKey];
     [self.audio prepare];
-    [self refreshSoundButton];
     [self refreshLabels];
     [self updateControls];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appDidBecomeActive) name:UIApplicationDidBecomeActiveNotification object:nil];
@@ -370,9 +369,7 @@ static UIImage *GMParticleImage(BOOL coin) {
     self.navigationItem.hidesBackButton = YES;
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:GMLoc(@"BRSlot.Picker.Back", @"‹  BRAINROT") action:@selector(backTapped)]];
     UIButton *pays = [self navButton:GMLoc(@"BRSlot.GM.Pays", @"PAYS") action:@selector(showPays)];
-    self.soundButton = [self navButton:@"🔊" action:@selector(toggleSound)];
-    self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithCustomView:self.soundButton],
-                                                [[UIBarButtonItem alloc] initWithCustomView:pays]];
+    self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithCustomView:pays]];
 
     self.scroll = [UIScrollView new];
     // Reserve room for the chat bar pinned over the bottom of this screen,
@@ -731,16 +728,6 @@ static UIImage *GMParticleImage(BOOL coin) {
 }
 
 
-- (void)toggleSound {
-    self.audio.muted = !self.audio.muted;
-    [NSUserDefaults.standardUserDefaults setBool:self.audio.muted forKey:kGMMutedKey];
-    [self refreshSoundButton];
-}
-
-- (void)refreshSoundButton {
-    [self.soundButton setTitle:self.audio.muted ? @"🔇" : @"🔊" forState:UIControlStateNormal];
-    [self.soundButton sizeToFit];
-}
 
 - (void)showPays {
     GMPaytableViewController *pays = [GMPaytableViewController new];
