@@ -565,7 +565,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 
 - (void)dismissComposerKeyboard { [self.composer resignFirstResponder]; }
 
-- (void)send { NSString *message = self.composer.text; if (!message.length) return; if (!self.hasProfile) { [self offerProfileSetup]; return; } self.composer.text = @""; [self request:@{ @"action": @"send", @"room_id": self.roomID, @"message": message } completion:^(NSDictionary *json, NSString *error) { if (error) { self.composer.text = message; return; } self.justSent = YES; [self refresh]; }]; }
+- (void)send { NSString *message = self.composer.text; if (!message.length) return; if (!self.hasProfile) { [self offerProfileSetup]; return; } self.composer.text = @""; [self request:@{ @"action": @"send", @"room_id": self.roomID, @"message": message } completion:^(NSDictionary *json, NSString *error) { if (error) { self.composer.text = message; return; } self.justSent = YES; if ([self.roomID hasPrefix:@"bj:"]) [[NSNotificationCenter defaultCenter] postNotificationName:@"BRSlotChatMessageSentNotification" object:self.roomID]; [self refresh]; }]; }
 - (void)requestLiveHostTurn { if ([self.roomID hasPrefix:@"bj:"]) return; if (self.loading || !self.started || self.hostViewController.presentedViewController) return; [self request:@{ @"action": @"host_turn", @"room_id": self.roomID } completion:^(NSDictionary *json, NSString *error) { if (!error && BRChatBool(json[@"posted"])) [self refresh]; }]; }
 - (BOOL)textFieldShouldReturn:(UITextField *)textField { [self send]; return NO; }
 

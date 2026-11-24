@@ -1,37 +1,71 @@
 // BRBlackjackTableViewController.m
-// EZCompleteUI v1.0
+// EZCompleteUI v2.0
 //
 // Purpose:
 //   See BRBlackjackTableViewController.h.
 //
 //   How it works, for anyone new to this file:
-//     - The server owns the game. We send intents (bet, hit, stand, double)
-//       and receive a "view" dictionary describing the whole table. The view
-//       never contains the shoe or the dealer's hole card.
-//     - We poll "state" about every 1.5s, passing the last version we saw.
-//       The server answers {unchanged:true} when nothing happened, which keeps
-//       idle polling cheap. Every successful response updates the screen.
+//     - The server owns the game. We send intents (bet, hit, stand, double,
+//       split) and receive a "view" dictionary describing the whole table. The
+//       view never contains the shoe or the dealer's hole card, and it tells us
+//       which buttons are legal right now (seat["actions"]), so this screen never
+//       has to re-implement blackjack rules.
+//     - We poll "state" about every 1.5s, passing the last version and dealer
+//       line number we saw. The server answers {unchanged:true} when nothing
+//       happened, which keeps idle polling cheap. Every successful response
+//       updates the screen.
 //     - Timers (betting / turn countdown) are computed locally from the
 //       server's phase_deadline, corrected by the clock difference between
 //       the server and this device, so a wrong device clock can't mislead.
 //     - Actions carry expected_version. If the table moved on (someone else
 //       acted, a timer fired) the server rejects the action and sends the
 //       current view, and we simply redraw: no stuck buttons.
+//     - A seat has one hand, or two after a split (seat["hand2"]). The hand
+//       currently being played is seat["active_hand"] (0 or 1).
+//     - The dealer (Lucky Lou) only speaks when players chat with him. His line
+//       arrives in view["dealer"]["line"] with an mp3 URL; we show it in a speech
+//       bubble and play it unless the player muted him.
+//     - Payouts: when a round settles with winnings the shown balance is held at
+//       its old value, coins fly from the player's seat to the balance, then the
+//       number counts up to the real balance.
 //     - Card ids 0..51: rank = id % 13 (0 = Ace, 9...12 = 10, J, Q, K),
 //       suit = id / 13 (spades, hearts, diamonds, clubs).
 //
-// Changes from v0 (new file):
-//   - Initial version.
+// Changes from v1.0:
+//   - Bigger cards, bigger balance display, and an avatar for the dealer.
+//   - Dealer speaks rarely: a speech bubble plus an ElevenLabs voice clip played
+//     only when the server publishes a new line (it does so after table chat).
+//     Speaker button in the header mutes him. Chat sends ping the server.
+//   - Payout animation: coins fly into the balance, which then counts up.
+//   - Splitting: Split button, two-hand seat layout, per-hand results.
+//   - Kept the repo's NSNull-safe reads (BRBlackjackBool) and the join-retry
+//     guard that stops a retry after the player left.
+//   - Buttons now follow the server's per-seat "actions" flags; seat result and
+//     haptics use total stake (both hands) so doubles and splits are correct.
 
 #import "BRBlackjackTableViewController.h"
+#import <AVFoundation/AVFoundation.h>
 #import "BRBlackjackAPI.h"
 #import "BRSlotChatBar.h"
 #import "EZEntitlementManager.h"
+#import "EZSupabaseConfig.h"
+
+// Defined in BRSlotChatBar.m: the shared "game sounds" switch.
+extern BOOL BRSlotSoundEnabled(void);
 
 static const NSTimeInterval kPollInterval = 1.5;
 static const NSTimeInterval kMaxPollBackoff = 6.0;
 // Space reserved at the bottom of the screen for the collapsed chat bar.
 static const CGFloat kChatBarReservedHeight = 60.0;
+// Card and seat sizing. Cards are 1.4x as tall as they are wide.
+static const CGFloat kDealerCardWidth = 56.0;
+static const CGFloat kSeatCardWidth = 44.0;
+static const CGFloat kSplitCardWidth = 32.0;
+static const CGFloat kSeatWidth = 150.0;
+static const CGFloat kSeatPanelHeight = 214.0;
+// Posted by BRSlotChatBar (object = room id) after a message was sent.
+static NSString * const kChatMessageSentNotification = @"BRSlotChatMessageSentNotification";
+static NSString * const kDealerVoiceMutedKey = @"BRBlackjackDealerVoiceMuted";
 
 #pragma mark - Card helpers
 
@@ -80,17 +114,19 @@ static UIView *BRBlackjackCardView(NSInteger cardID, CGFloat width) {
 static NSArray *BRBlackjackArray(id value) { return [value isKindOfClass:[NSArray class]] ? value : @[]; }
 static NSDictionary *BRBlackjackDict(id value) { return [value isKindOfClass:[NSDictionary class]] ? value : @{}; }
 static NSInteger BRBlackjackInt(id value) { return [value respondsToSelector:@selector(integerValue)] ? [value integerValue] : 0; }
+static BOOL BRBlackjackBool(id value) { return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO; }
 static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSString class]] ? value : @""; }
 
 #pragma mark - Controller
 
-@interface BRBlackjackTableViewController ()
+@interface BRBlackjackTableViewController () <AVAudioPlayerDelegate>
 @property (nonatomic, copy) NSString *tableID;
 @property (nonatomic, copy) NSString *tableName;
 
 // Server state
 @property (nonatomic, copy) NSDictionary *tableState;       // latest "view" from the server
 @property (nonatomic) NSInteger lastVersion;
+@property (nonatomic) NSInteger lastLineSeq;                // newest dealer line already shown (-1 = none seen yet)
 @property (nonatomic) NSTimeInterval serverClockOffset;     // serverNow - deviceNow, seconds
 @property (nonatomic) BOOL hasJoined;
 @property (nonatomic) BOOL leaving;
@@ -106,14 +142,37 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 @property (nonatomic) NSInteger pendingBet;
 @property (nonatomic) NSInteger lastSettledRound;
 
+// Balance display and payout animation
+@property (nonatomic) NSInteger displayedBalance;           // what the pill shows right now
+@property (nonatomic) NSInteger pendingBalance;             // real balance while the display is held
+@property (nonatomic) BOOL holdingBalanceForPayout;
+@property (nonatomic) BOOL hasShownBalance;
+@property (nonatomic, strong) NSTimer *balanceTimer;
+@property (nonatomic) NSInteger countFrom;
+@property (nonatomic) NSInteger countTo;
+@property (nonatomic) NSTimeInterval countStart;
+
+// Dealer voice
+@property (nonatomic, strong) AVAudioPlayer *dealerAudioPlayer;
+@property (nonatomic) BOOL dealerVoiceMuted;
+@property (nonatomic) NSInteger bubbleToken;
+@property (nonatomic) NSTimeInterval lastChatPingTime;
+
 // UI
 @property (nonatomic, strong) UILabel *titleLabel;
+@property (nonatomic, strong) UIView *balancePill;
 @property (nonatomic, strong) UILabel *balanceLabel;
+@property (nonatomic, strong) UIButton *voiceButton;
 @property (nonatomic, strong) UILabel *statusLabel;
 @property (nonatomic, strong) UILabel *timerLabel;
+@property (nonatomic, strong) UIView *dealerAvatarView;
+@property (nonatomic, strong) UIView *dealerBubble;
+@property (nonatomic, strong) UILabel *dealerBubbleLabel;
 @property (nonatomic, strong) UIStackView *dealerCardsStack;
 @property (nonatomic, strong) UILabel *dealerTotalLabel;
+@property (nonatomic, strong) UIScrollView *seatsScroll;
 @property (nonatomic, strong) UIStackView *seatsStack;
+@property (nonatomic, weak) UIView *mySeatView;             // payout chips start here
 @property (nonatomic, strong) UIView *betPanel;
 @property (nonatomic, strong) UILabel *betAmountLabel;
 @property (nonatomic, strong) UIStackView *chipStack;
@@ -124,6 +183,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 @property (nonatomic, strong) UIButton *hitButton;
 @property (nonatomic, strong) UIButton *standButton;
 @property (nonatomic, strong) UIButton *doubleButton;
+@property (nonatomic, strong) UIButton *splitButton;
 @property (nonatomic, strong) BRSlotChatBar *chatBar;
 @end
 
@@ -136,8 +196,10 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
         _tableName = [tableName copy] ?: @"Blackjack";
         _pollDelay = kPollInterval;
         _lastVersion = -1;
+        _lastLineSeq = -1;
         _lastSettledRound = -1;
         _tableState = @{};
+        _dealerVoiceMuted = [[NSUserDefaults standardUserDefaults] boolForKey:kDealerVoiceMutedKey];
     }
     return self;
 }
@@ -153,12 +215,14 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     // Stop polling in the background; resume (and resync) when active again.
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillResignActive) name:UIApplicationWillResignActiveNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appDidBecomeActive) name:UIApplicationDidBecomeActiveNotification object:nil];
+    // The chat bar announces each sent message so the dealer can consider replying.
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(chatMessageSent:) name:kChatMessageSentNotification object:nil];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     if (!self.chatBar) {
-        // Room id matches the server's dealer banter ("bj:<table id>").
+        // Room id matches the server's dealer chat ("bj:<table id>").
         self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:[@"bj:" stringByAppendingString:self.tableID]];
         self.chatBar.hostViewController = self;
         [self.chatBar attachToView:self.view];
@@ -175,6 +239,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     if (self.presentedViewController != nil && !self.isMovingFromParentViewController) return;
     [self.chatBar stop];
     [self stopTimers];
+    [self stopDealerAudio];
     // Popped off the navigation stack (not just covered by a sheet): free the seat.
     if (self.isMovingFromParentViewController || self.isBeingDismissed || self.navigationController == nil) {
         [self leaveTableSilently];
@@ -184,9 +249,11 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     [self stopTimers];
+    [self.balanceTimer invalidate];
+    [self.dealerAudioPlayer stop];
 }
 
-- (void)appWillResignActive { [self stopTimers]; }
+- (void)appWillResignActive { [self stopTimers]; [self stopDealerAudio]; }
 - (void)appDidBecomeActive {
     if (self.viewIfLoaded.window == nil || self.leaving) return;
     self.lastVersion = -1; // force a full redraw after time away
@@ -224,7 +291,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     UIColor *gold = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
 
-    // Header: leave button, table name, balance
+    // Header: leave button, table name, dealer-voice toggle
     UIButton *leaveButton = [UIButton buttonWithType:UIButtonTypeSystem];
     leaveButton.translatesAutoresizingMaskIntoConstraints = NO;
     [leaveButton setTitle:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Leave", nil, NSBundle.mainBundle, @"Leave", nil) forState:UIControlStateNormal];
@@ -238,12 +305,30 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     self.titleLabel.textAlignment = NSTextAlignmentCenter;
     [self.view addSubview:self.titleLabel];
 
-    self.balanceLabel = [self labelWithSize:15 weight:UIFontWeightBold color:gold];
-    self.balanceLabel.textAlignment = NSTextAlignmentRight;
-    [self.view addSubview:self.balanceLabel];
+    self.voiceButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    self.voiceButton.translatesAutoresizingMaskIntoConstraints = NO;
+    self.voiceButton.titleLabel.font = [UIFont systemFontOfSize:22];
+    [self.voiceButton addTarget:self action:@selector(toggleDealerVoice) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.voiceButton];
+    [self updateVoiceButton];
 
-    // Status + countdown line
-    self.statusLabel = [self labelWithSize:15 weight:UIFontWeightSemibold color:[UIColor colorWithWhite:1 alpha:.9]];
+    // Balance: large pill under the header. Payout chips fly into it.
+    self.balancePill = [UIView new];
+    self.balancePill.translatesAutoresizingMaskIntoConstraints = NO;
+    self.balancePill.backgroundColor = [gold colorWithAlphaComponent:.16];
+    self.balancePill.layer.cornerRadius = 24;
+    self.balancePill.layer.borderWidth = 2;
+    self.balancePill.layer.borderColor = gold.CGColor;
+    [self.view addSubview:self.balancePill];
+    self.balanceLabel = [self labelWithSize:30 weight:UIFontWeightBlack color:gold];
+    self.balanceLabel.textAlignment = NSTextAlignmentCenter;
+    self.balanceLabel.minimumScaleFactor = 0.6;
+    [self.balancePill addSubview:self.balanceLabel];
+    self.balancePill.isAccessibilityElement = YES;
+    self.balancePill.accessibilityLabel = @"Coin balance";
+
+    // Status + countdown
+    self.statusLabel = [self labelWithSize:16 weight:UIFontWeightSemibold color:[UIColor colorWithWhite:1 alpha:.92]];
     self.statusLabel.textAlignment = NSTextAlignmentCenter;
     self.statusLabel.numberOfLines = 2;
     [self.view addSubview:self.statusLabel];
@@ -251,28 +336,81 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     self.timerLabel.textAlignment = NSTextAlignmentCenter;
     [self.view addSubview:self.timerLabel];
 
-    // Dealer
-    UILabel *dealerCaption = [self labelWithSize:12 weight:UIFontWeightBold color:[UIColor colorWithWhite:1 alpha:.6]];
-    dealerCaption.text = NSLocalizedStringWithDefaultValue(@"BRBlackjack.Dealer", nil, NSBundle.mainBundle, @"DEALER · LUCKY LOU", nil);
-    dealerCaption.textAlignment = NSTextAlignmentCenter;
-    [self.view addSubview:dealerCaption];
-    self.dealerCardsStack = [UIStackView new];
-    self.dealerCardsStack.translatesAutoresizingMaskIntoConstraints = NO;
-    self.dealerCardsStack.spacing = 6;
-    self.dealerCardsStack.alignment = UIStackViewAlignmentCenter;
-    [self.view addSubview:self.dealerCardsStack];
-    self.dealerTotalLabel = [self labelWithSize:14 weight:UIFontWeightBold color:UIColor.whiteColor];
-    self.dealerTotalLabel.textAlignment = NSTextAlignmentCenter;
-    [self.view addSubview:self.dealerTotalLabel];
+    // Dealer: avatar + name on the left, cards beside him
+    self.dealerAvatarView = [UIView new];
+    self.dealerAvatarView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.dealerAvatarView.backgroundColor = [UIColor colorWithRed:.12 green:.07 blue:.25 alpha:1];
+    self.dealerAvatarView.layer.cornerRadius = 34;
+    self.dealerAvatarView.layer.borderWidth = 3;
+    self.dealerAvatarView.layer.borderColor = gold.CGColor;
+    UILabel *avatarFace = [UILabel new];
+    avatarFace.translatesAutoresizingMaskIntoConstraints = NO;
+    avatarFace.text = @"🤵";
+    avatarFace.font = [UIFont systemFontOfSize:38];
+    [self.dealerAvatarView addSubview:avatarFace];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.dealerAvatarView.widthAnchor constraintEqualToConstant:68],
+        [self.dealerAvatarView.heightAnchor constraintEqualToConstant:68],
+        [avatarFace.centerXAnchor constraintEqualToAnchor:self.dealerAvatarView.centerXAnchor],
+        [avatarFace.centerYAnchor constraintEqualToAnchor:self.dealerAvatarView.centerYAnchor],
+    ]];
+    self.dealerAvatarView.isAccessibilityElement = YES;
+    self.dealerAvatarView.accessibilityLabel = @"Dealer, Lucky Lou";
+    UILabel *dealerName = [self labelWithSize:12 weight:UIFontWeightBold color:[UIColor colorWithWhite:1 alpha:.85]];
+    dealerName.text = @"Lucky Lou";
+    dealerName.textAlignment = NSTextAlignmentCenter;
+    UIStackView *avatarColumn = [[UIStackView alloc] initWithArrangedSubviews:@[self.dealerAvatarView, dealerName]];
+    avatarColumn.axis = UILayoutConstraintAxisVertical;
+    avatarColumn.alignment = UIStackViewAlignmentCenter;
+    avatarColumn.spacing = 4;
 
-    // Seats
+    self.dealerCardsStack = [UIStackView new];
+    self.dealerCardsStack.alignment = UIStackViewAlignmentCenter;
+    [self.dealerCardsStack.heightAnchor constraintEqualToConstant:kDealerCardWidth * 1.4].active = YES;
+    UIStackView *dealerRow = [[UIStackView alloc] initWithArrangedSubviews:@[avatarColumn, self.dealerCardsStack]];
+    dealerRow.translatesAutoresizingMaskIntoConstraints = NO;
+    dealerRow.spacing = 16;
+    dealerRow.alignment = UIStackViewAlignmentCenter;
+    [self.view addSubview:dealerRow];
+
+    self.dealerTotalLabel = [self labelWithSize:18 weight:UIFontWeightHeavy color:UIColor.whiteColor];
+    self.dealerTotalLabel.textAlignment = NSTextAlignmentCenter;
+    self.dealerBubble = [UIView new];
+    self.dealerBubble.backgroundColor = [UIColor colorWithWhite:1 alpha:.96];
+    self.dealerBubble.layer.cornerRadius = 14;
+    self.dealerBubble.hidden = YES;
+    self.dealerBubbleLabel = [UILabel new];
+    self.dealerBubbleLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    self.dealerBubbleLabel.numberOfLines = 3;
+    self.dealerBubbleLabel.textAlignment = NSTextAlignmentCenter;
+    self.dealerBubbleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
+    self.dealerBubbleLabel.textColor = [UIColor colorWithWhite:.1 alpha:1];
+    [self.dealerBubble addSubview:self.dealerBubbleLabel];
+    [NSLayoutConstraint activateConstraints:@[
+        [self.dealerBubbleLabel.topAnchor constraintEqualToAnchor:self.dealerBubble.topAnchor constant:8],
+        [self.dealerBubbleLabel.bottomAnchor constraintEqualToAnchor:self.dealerBubble.bottomAnchor constant:-8],
+        [self.dealerBubbleLabel.leadingAnchor constraintEqualToAnchor:self.dealerBubble.leadingAnchor constant:14],
+        [self.dealerBubbleLabel.trailingAnchor constraintEqualToAnchor:self.dealerBubble.trailingAnchor constant:-14],
+    ]];
+    UIStackView *dealerInfo = [[UIStackView alloc] initWithArrangedSubviews:@[self.dealerTotalLabel, self.dealerBubble]];
+    dealerInfo.translatesAutoresizingMaskIntoConstraints = NO;
+    dealerInfo.axis = UILayoutConstraintAxisVertical;
+    dealerInfo.alignment = UIStackViewAlignmentCenter;
+    dealerInfo.spacing = 4;
+    [self.view addSubview:dealerInfo];
+
+    // Seats: a horizontally scrolling row so cards can be large even with 5 players
+    self.seatsScroll = [UIScrollView new];
+    self.seatsScroll.translatesAutoresizingMaskIntoConstraints = NO;
+    self.seatsScroll.showsHorizontalScrollIndicator = NO;
+    self.seatsScroll.alwaysBounceHorizontal = NO;
+    [self.view addSubview:self.seatsScroll];
     self.seatsStack = [UIStackView new];
     self.seatsStack.translatesAutoresizingMaskIntoConstraints = NO;
     self.seatsStack.axis = UILayoutConstraintAxisHorizontal;
-    self.seatsStack.distribution = UIStackViewDistributionFillEqually;
-    self.seatsStack.spacing = 6;
+    self.seatsStack.spacing = 8;
     self.seatsStack.alignment = UIStackViewAlignmentTop;
-    [self.view addSubview:self.seatsStack];
+    [self.seatsScroll addSubview:self.seatsStack];
 
     // Betting panel
     self.betPanel = [UIView new];
@@ -285,7 +423,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     [self.betPanel addSubview:self.chipStack];
     self.betMinusButton = [self pillButtonWithTitle:@"−" color:[UIColor colorWithWhite:1 alpha:.14] action:@selector(betMinusTapped)];
     self.betPlusButton = [self pillButtonWithTitle:@"+" color:[UIColor colorWithWhite:1 alpha:.14] action:@selector(betPlusTapped)];
-    self.betAmountLabel = [self labelWithSize:22 weight:UIFontWeightBlack color:gold];
+    self.betAmountLabel = [self labelWithSize:24 weight:UIFontWeightBlack color:gold];
     self.betAmountLabel.textAlignment = NSTextAlignmentCenter;
     self.placeBetButton = [self pillButtonWithTitle:NSLocalizedStringWithDefaultValue(@"BRBlackjack.PlaceBet", nil, NSBundle.mainBundle, @"Place bet", nil)
                                               color:[UIColor colorWithRed:.12 green:.55 blue:.28 alpha:1] action:@selector(placeBetTapped)];
@@ -301,41 +439,58 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
                                            color:[UIColor colorWithRed:.70 green:.20 blue:.18 alpha:1] action:@selector(standTapped)];
     self.doubleButton = [self pillButtonWithTitle:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Double", nil, NSBundle.mainBundle, @"Double", nil)
                                             color:[UIColor colorWithRed:.55 green:.38 blue:.05 alpha:1] action:@selector(doubleTapped)];
-    self.actionPanel = [[UIStackView alloc] initWithArrangedSubviews:@[self.hitButton, self.standButton, self.doubleButton]];
+    self.splitButton = [self pillButtonWithTitle:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Split", nil, NSBundle.mainBundle, @"Split", nil)
+                                           color:[UIColor colorWithRed:.35 green:.22 blue:.60 alpha:1] action:@selector(splitTapped)];
+    self.splitButton.hidden = YES;
+    self.actionPanel = [[UIStackView alloc] initWithArrangedSubviews:@[self.hitButton, self.standButton, self.doubleButton, self.splitButton]];
     self.actionPanel.translatesAutoresizingMaskIntoConstraints = NO;
     self.actionPanel.distribution = UIStackViewDistributionFillEqually;
-    self.actionPanel.spacing = 10;
+    self.actionPanel.spacing = 8;
     [self.view addSubview:self.actionPanel];
 
     [NSLayoutConstraint activateConstraints:@[
         [leaveButton.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
         [leaveButton.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
-        [self.balanceLabel.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
-        [self.balanceLabel.centerYAnchor constraintEqualToAnchor:leaveButton.centerYAnchor],
-        [self.balanceLabel.widthAnchor constraintLessThanOrEqualToConstant:120],
+        [self.voiceButton.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
+        [self.voiceButton.centerYAnchor constraintEqualToAnchor:leaveButton.centerYAnchor],
         [self.titleLabel.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
         [self.titleLabel.centerYAnchor constraintEqualToAnchor:leaveButton.centerYAnchor],
         [self.titleLabel.leadingAnchor constraintGreaterThanOrEqualToAnchor:leaveButton.trailingAnchor constant:8],
-        [self.titleLabel.trailingAnchor constraintLessThanOrEqualToAnchor:self.balanceLabel.leadingAnchor constant:-8],
+        [self.titleLabel.trailingAnchor constraintLessThanOrEqualToAnchor:self.voiceButton.leadingAnchor constant:-8],
 
-        [self.statusLabel.topAnchor constraintEqualToAnchor:leaveButton.bottomAnchor constant:10],
+        [self.balancePill.topAnchor constraintEqualToAnchor:leaveButton.bottomAnchor constant:6],
+        [self.balancePill.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
+        [self.balancePill.heightAnchor constraintEqualToConstant:48],
+        [self.balancePill.widthAnchor constraintGreaterThanOrEqualToConstant:170],
+        [self.balanceLabel.topAnchor constraintEqualToAnchor:self.balancePill.topAnchor constant:4],
+        [self.balanceLabel.bottomAnchor constraintEqualToAnchor:self.balancePill.bottomAnchor constant:-4],
+        [self.balanceLabel.leadingAnchor constraintEqualToAnchor:self.balancePill.leadingAnchor constant:22],
+        [self.balanceLabel.trailingAnchor constraintEqualToAnchor:self.balancePill.trailingAnchor constant:-22],
+
+        [self.statusLabel.topAnchor constraintEqualToAnchor:self.balancePill.bottomAnchor constant:8],
         [self.statusLabel.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
         [self.statusLabel.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
         [self.timerLabel.topAnchor constraintEqualToAnchor:self.statusLabel.bottomAnchor constant:2],
         [self.timerLabel.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
         [self.timerLabel.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
 
-        [dealerCaption.topAnchor constraintEqualToAnchor:self.timerLabel.bottomAnchor constant:12],
-        [dealerCaption.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
-        [self.dealerCardsStack.topAnchor constraintEqualToAnchor:dealerCaption.bottomAnchor constant:6],
-        [self.dealerCardsStack.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
-        [self.dealerCardsStack.heightAnchor constraintEqualToConstant:70],
-        [self.dealerTotalLabel.topAnchor constraintEqualToAnchor:self.dealerCardsStack.bottomAnchor constant:4],
-        [self.dealerTotalLabel.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
+        [dealerRow.topAnchor constraintEqualToAnchor:self.timerLabel.bottomAnchor constant:10],
+        [dealerRow.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
+        [dealerInfo.topAnchor constraintEqualToAnchor:dealerRow.bottomAnchor constant:4],
+        [dealerInfo.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
+        [dealerInfo.leadingAnchor constraintGreaterThanOrEqualToAnchor:safe.leadingAnchor constant:24],
+        [dealerInfo.trailingAnchor constraintLessThanOrEqualToAnchor:safe.trailingAnchor constant:-24],
 
-        [self.seatsStack.topAnchor constraintEqualToAnchor:self.dealerTotalLabel.bottomAnchor constant:14],
-        [self.seatsStack.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:8],
-        [self.seatsStack.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-8],
+        [self.seatsScroll.topAnchor constraintEqualToAnchor:dealerInfo.bottomAnchor constant:10],
+        [self.seatsScroll.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:8],
+        [self.seatsScroll.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-8],
+        [self.seatsScroll.heightAnchor constraintEqualToConstant:kSeatPanelHeight],
+        [self.seatsStack.topAnchor constraintEqualToAnchor:self.seatsScroll.contentLayoutGuide.topAnchor],
+        [self.seatsStack.bottomAnchor constraintEqualToAnchor:self.seatsScroll.contentLayoutGuide.bottomAnchor],
+        [self.seatsStack.leadingAnchor constraintEqualToAnchor:self.seatsScroll.contentLayoutGuide.leadingAnchor],
+        [self.seatsStack.trailingAnchor constraintEqualToAnchor:self.seatsScroll.contentLayoutGuide.trailingAnchor],
+        [self.seatsStack.heightAnchor constraintEqualToAnchor:self.seatsScroll.frameLayoutGuide.heightAnchor],
+        [self.seatsStack.widthAnchor constraintGreaterThanOrEqualToAnchor:self.seatsScroll.frameLayoutGuide.widthAnchor],
 
         [self.actionPanel.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
         [self.actionPanel.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
@@ -364,7 +519,9 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     ]];
     self.betPanel.hidden = YES;
     self.actionPanel.hidden = YES;
+    [self setDisplayedBalance:0];
 }
+
 
 #pragma mark Networking
 
@@ -384,7 +541,12 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
                 [self showFatalError:error];
             } else {
                 self.statusLabel.text = error;
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self joinTable]; });
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    // The player may have left while the retry was pending:
+                    // rejoining then would take a seat nobody ever leaves.
+                    if (self.viewIfLoaded.window == nil) return;
+                    [self joinTable];
+                });
             }
             return;
         }
@@ -398,6 +560,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     self.requestInFlight = YES;
     NSMutableDictionary *params = [@{ @"table_id": self.tableID } mutableCopy];
     if (self.lastVersion >= 0) params[@"since_version"] = @(self.lastVersion);
+    if (self.lastLineSeq >= 0) params[@"since_line_seq"] = @(self.lastLineSeq);
     __weak typeof(self) weakSelf = self;
     [BRBlackjackAPI performAction:@"state" params:params completion:^(NSDictionary *json, NSInteger status, NSString *error) {
         __strong typeof(weakSelf) self = weakSelf;
@@ -412,7 +575,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
             return;
         }
         if (self.pollDelay != kPollInterval) { self.pollDelay = kPollInterval; [self restartPollTimer]; }
-        if (![json[@"unchanged"] respondsToSelector:@selector(boolValue)] || ![json[@"unchanged"] boolValue]) {
+        if (![json[@"unchanged"] respondsToSelector:@selector(boolValue)] || !BRBlackjackBool(json[@"unchanged"])) {
             [self applyResponse:json];
         } else if (json[@"server_now"]) {
             [self updateClockOffsetFromServerNow:json[@"server_now"]];
@@ -483,6 +646,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     if (version < self.lastVersion) return;
     self.lastVersion = version;
     self.tableState = view;
+    [self handleDealerLineInView:view];
     [self updateClockOffsetFromServerNow:BRBlackjackDict(view[@"table"])[@"server_now"]];
 
     NSString *name = BRBlackjackString(BRBlackjackDict(view[@"table"])[@"name"]);
@@ -493,15 +657,28 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     [self announceResultIfNeeded];
 }
 
+/// Shows a dealer line the first time its sequence number is seen. The first
+/// response after joining only records the current number, so a line spoken
+/// before this player sat down is never replayed.
+- (void)handleDealerLineInView:(NSDictionary *)view {
+    NSDictionary *dealer = BRBlackjackDict(view[@"dealer"]);
+    id sequenceValue = dealer[@"line_seq"];
+    if (![sequenceValue isKindOfClass:[NSNumber class]]) return;
+    NSInteger sequence = [sequenceValue integerValue];
+    if (self.lastLineSeq >= 0 && sequence > self.lastLineSeq) {
+        [self dealerSaysLine:BRBlackjackString(dealer[@"line"]) audioURLString:BRBlackjackString(dealer[@"audio_url"])];
+    }
+    self.lastLineSeq = MAX(self.lastLineSeq, sequence);
+}
+
 - (NSDictionary *)mySeat {
     for (NSDictionary *seat in BRBlackjackArray(self.tableState[@"seats"])) {
-        if ([BRBlackjackDict(seat)[@"is_me"] boolValue]) return seat;
+        if (BRBlackjackBool(BRBlackjackDict(seat)[@"is_me"])) return seat;
     }
     return nil;
 }
 
 - (NSString *)phase { return BRBlackjackString(BRBlackjackDict(self.tableState[@"table"])[@"phase"]); }
-
 #pragma mark Rendering
 
 - (void)clearStack:(UIStackView *)stack {
@@ -518,47 +695,74 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 - (void)renderTable {
     NSDictionary *tableInfo = BRBlackjackDict(self.tableState[@"table"]);
     NSDictionary *dealer = BRBlackjackDict(self.tableState[@"dealer"]);
+    NSString *phase = [self phase];
+    NSDictionary *mine = [self mySeat];
+
+    // Balance. At the moment a round settles with a payout, hold the old number
+    // so the chips can fly in and the count-up can play (see announceResultIfNeeded).
     NSNumber *balance = BRBlackjackDict(self.tableState[@"me"])[@"balance"];
     if ([balance isKindOfClass:[NSNumber class]]) {
-        self.balanceLabel.text = [NSString stringWithFormat:@"🪙 %@", balance];
+        NSInteger newBalance = balance.integerValue;
+        NSInteger round = BRBlackjackInt(tableInfo[@"round_no"]);
+        BOOL settlingWithPayout = [phase isEqualToString:@"results"] && round != self.lastSettledRound && BRBlackjackInt(mine[@"payout"]) > 0 && self.hasShownBalance;
+        if (settlingWithPayout) {
+            self.pendingBalance = newBalance;
+            self.holdingBalanceForPayout = YES;
+        } else if (!self.holdingBalanceForPayout) {
+            [self.balanceTimer invalidate];
+            [self setDisplayedBalance:newBalance];
+        } else {
+            self.pendingBalance = newBalance;
+        }
+        self.hasShownBalance = YES;
     }
 
     // Dealer
     NSArray *dealerCards = BRBlackjackArray(dealer[@"cards"]);
-    [self fillCardStack:self.dealerCardsStack cards:dealerCards hiddenExtra:[dealer[@"hole_hidden"] boolValue] width:44 overlap:8];
+    [self fillCardStack:self.dealerCardsStack cards:dealerCards hiddenExtra:BRBlackjackBool(dealer[@"hole_hidden"]) width:kDealerCardWidth overlap:12];
     id dealerTotal = dealer[@"total"];
     self.dealerTotalLabel.text = [dealerTotal isKindOfClass:[NSNumber class]] ? [NSString stringWithFormat:@"%@", dealerTotal] : @"";
 
-    // Seats
+    // Seats, centered when they fit and scrollable when they don't
     [self clearStack:self.seatsStack];
+    self.mySeatView = nil;
     NSInteger activeSeat = [tableInfo[@"active_seat"] isKindOfClass:[NSNumber class]] ? BRBlackjackInt(tableInfo[@"active_seat"]) : -1;
+    UIView *leadingSpacer = [UIView new];
+    UIView *trailingSpacer = [UIView new];
+    [self.seatsStack addArrangedSubview:leadingSpacer];
     for (NSDictionary *seat in BRBlackjackArray(self.tableState[@"seats"])) {
         [self.seatsStack addArrangedSubview:[self viewForSeat:BRBlackjackDict(seat) active:BRBlackjackInt(seat[@"seat_no"]) == activeSeat]];
     }
+    [self.seatsStack addArrangedSubview:trailingSpacer];
+    [leadingSpacer.widthAnchor constraintEqualToAnchor:trailingSpacer.widthAnchor].active = YES;
 
     [self renderStatusLine];
     [self refreshControls];
 }
 
-- (UIView *)viewForSeat:(NSDictionary *)seat active:(BOOL)active {
-    BOOL mine = [seat[@"is_me"] boolValue];
-    UIView *card = [UIView new];
-    card.translatesAutoresizingMaskIntoConstraints = NO;
-    card.backgroundColor = [UIColor colorWithWhite:0 alpha:.28];
-    card.layer.cornerRadius = 10;
-    card.layer.borderWidth = (active || mine) ? 2 : 0;
-    card.layer.borderColor = (active ? [UIColor colorWithRed:.3 green:.95 blue:.5 alpha:1] : [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1]).CGColor;
+/// Seat total stake: both hands after a split, otherwise the single bet.
+- (NSInteger)totalBetForSeat:(NSDictionary *)seat {
+    id total = seat[@"total_bet"];
+    return [total isKindOfClass:[NSNumber class]] ? [total integerValue] : BRBlackjackInt(seat[@"bet"]);
+}
 
-    UILabel *name = [self labelWithSize:12 weight:UIFontWeightBold color:mine ? [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1] : UIColor.whiteColor];
-    name.text = mine ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.You", nil, NSBundle.mainBundle, @"You", nil) : BRBlackjackString(seat[@"display_name"]);
-    name.textAlignment = NSTextAlignmentCenter;
+- (NSString *)shortResultWord:(NSString *)result {
+    if ([result isEqualToString:@"blackjack"]) return @"Blackjack";
+    if ([result isEqualToString:@"win"]) return @"Win";
+    if ([result isEqualToString:@"push"]) return @"Push";
+    if ([result isEqualToString:@"bust"]) return @"Bust";
+    if ([result isEqualToString:@"lose"]) return @"Lose";
+    return @"";
+}
 
-    NSArray *cards = BRBlackjackArray(seat[@"cards"]);
+/// One hand: its cards and a summary line (total, stake, result). Works for a
+/// seat dictionary (first hand) and for seat["hand2"] because they share key names.
+- (UIView *)handBlockForHand:(NSDictionary *)hand cardWidth:(CGFloat)cardWidth marker:(BOOL)marker showResult:(BOOL)showResult {
+    NSArray *cards = BRBlackjackArray(hand[@"cards"]);
     UIStackView *cardStack = [UIStackView new];
     cardStack.translatesAutoresizingMaskIntoConstraints = NO;
     cardStack.alignment = UIStackViewAlignmentCenter;
-    cardStack.distribution = UIStackViewDistributionFill;
-    [self fillCardStack:cardStack cards:cards hiddenExtra:NO width:26 overlap:cards.count > 3 ? 14 : 8];
+    [self fillCardStack:cardStack cards:cards hiddenExtra:NO width:cardWidth overlap:cards.count > 3 ? cardWidth * 0.5 : cardWidth * 0.2];
     UIView *cardHolder = [UIView new];
     cardHolder.translatesAutoresizingMaskIntoConstraints = NO;
     [cardHolder addSubview:cardStack];
@@ -566,30 +770,76 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
         [cardStack.centerXAnchor constraintEqualToAnchor:cardHolder.centerXAnchor],
         [cardStack.topAnchor constraintEqualToAnchor:cardHolder.topAnchor],
         [cardStack.bottomAnchor constraintEqualToAnchor:cardHolder.bottomAnchor],
-        [cardHolder.heightAnchor constraintEqualToConstant:26 * 1.4],
+        [cardStack.leadingAnchor constraintGreaterThanOrEqualToAnchor:cardHolder.leadingAnchor],
+        [cardStack.trailingAnchor constraintLessThanOrEqualToAnchor:cardHolder.trailingAnchor],
+        [cardHolder.heightAnchor constraintEqualToConstant:cardWidth * 1.4],
     ]];
 
-    UILabel *total = [self labelWithSize:14 weight:UIFontWeightHeavy color:UIColor.whiteColor];
-    total.textAlignment = NSTextAlignmentCenter;
-    id totalValue = seat[@"total"];
+    NSMutableArray<NSString *> *parts = [NSMutableArray array];
+    id totalValue = hand[@"total"];
     if ([totalValue isKindOfClass:[NSNumber class]]) {
-        BOOL soft = [seat[@"soft"] boolValue] && BRBlackjackInt(totalValue) < 21;
-        total.text = soft ? [NSString stringWithFormat:@"soft %@", totalValue] : [NSString stringWithFormat:@"%@", totalValue];
+        BOOL soft = BRBlackjackBool(hand[@"soft"]) && BRBlackjackInt(totalValue) < 21;
+        [parts addObject:soft ? [NSString stringWithFormat:@"soft %@", totalValue] : [NSString stringWithFormat:@"%@", totalValue]];
+    }
+    NSInteger bet = BRBlackjackInt(hand[@"bet"]);
+    if (bet > 0) [parts addObject:[NSString stringWithFormat:@"🪙%ld%@", (long)bet, BRBlackjackBool(hand[@"doubled"]) ? @"×2" : @""]];
+    if (showResult) {
+        NSString *word = [self shortResultWord:BRBlackjackString(hand[@"result"])];
+        if (word.length) [parts addObject:word];
+    }
+    UILabel *summary = [self labelWithSize:cardWidth > kSplitCardWidth ? 15 : 13 weight:UIFontWeightHeavy color:UIColor.whiteColor];
+    summary.textAlignment = NSTextAlignmentCenter;
+    summary.text = [(marker ? @"▶ " : @"") stringByAppendingString:[parts componentsJoinedByString:@" · "]];
+
+    UIStackView *block = [[UIStackView alloc] initWithArrangedSubviews:@[cardHolder, summary]];
+    block.translatesAutoresizingMaskIntoConstraints = NO;
+    block.axis = UILayoutConstraintAxisVertical;
+    block.spacing = 3;
+    return block;
+}
+
+- (UIView *)viewForSeat:(NSDictionary *)seat active:(BOOL)active {
+    BOOL mine = BRBlackjackBool(seat[@"is_me"]);
+    UIColor *gold = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+    UIView *card = [UIView new];
+    card.translatesAutoresizingMaskIntoConstraints = NO;
+    card.backgroundColor = [UIColor colorWithWhite:0 alpha:.28];
+    card.layer.cornerRadius = 12;
+    card.layer.borderWidth = (active || mine) ? 2 : 0;
+    card.layer.borderColor = (active ? [UIColor colorWithRed:.3 green:.95 blue:.5 alpha:1] : gold).CGColor;
+    [card.widthAnchor constraintEqualToConstant:kSeatWidth].active = YES;
+    if (mine) self.mySeatView = card;
+
+    UILabel *name = [self labelWithSize:14 weight:UIFontWeightBold color:mine ? gold : UIColor.whiteColor];
+    name.text = mine ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.You", nil, NSBundle.mainBundle, @"You", nil) : BRBlackjackString(seat[@"display_name"]);
+    name.textAlignment = NSTextAlignmentCenter;
+
+    NSDictionary *secondHand = BRBlackjackDict(seat[@"hand2"]);
+    BOOL split = secondHand.count > 0;
+    NSInteger activeHand = BRBlackjackInt(seat[@"active_hand"]);
+    NSString *phase = [self phase];
+    BOOL settled = [phase isEqualToString:@"results"];
+
+    NSMutableArray<UIView *> *rows = [NSMutableArray arrayWithObject:name];
+    if (split) {
+        [rows addObject:[self handBlockForHand:seat cardWidth:kSplitCardWidth marker:active && activeHand == 0 showResult:settled]];
+        [rows addObject:[self handBlockForHand:secondHand cardWidth:kSplitCardWidth marker:active && activeHand == 1 showResult:settled]];
+    } else {
+        [rows addObject:[self handBlockForHand:seat cardWidth:kSeatCardWidth marker:NO showResult:NO]];
     }
 
-    UILabel *bet = [self labelWithSize:12 weight:UIFontWeightSemibold color:[UIColor colorWithWhite:1 alpha:.75]];
-    bet.textAlignment = NSTextAlignmentCenter;
-    NSInteger betAmount = BRBlackjackInt(seat[@"bet"]);
-    bet.text = betAmount > 0 ? [NSString stringWithFormat:@"🪙 %ld%@", (long)betAmount, [seat[@"doubled"] boolValue] ? @" ×2" : @""] : @"—";
-
-    UILabel *result = [self labelWithSize:12 weight:UIFontWeightHeavy color:UIColor.whiteColor];
+    UILabel *result = [self labelWithSize:14 weight:UIFontWeightHeavy color:UIColor.whiteColor];
     result.textAlignment = NSTextAlignmentCenter;
     result.text = [self resultTextForSeat:seat];
+    NSInteger net = BRBlackjackInt(seat[@"payout"]) - [self totalBetForSeat:seat];
     NSString *resultKey = BRBlackjackString(seat[@"result"]);
-    if ([resultKey isEqualToString:@"win"] || [resultKey isEqualToString:@"blackjack"]) result.textColor = [UIColor colorWithRed:.45 green:1 blue:.55 alpha:1];
-    else if ([resultKey isEqualToString:@"lose"] || [resultKey isEqualToString:@"bust"]) result.textColor = [UIColor colorWithRed:1 green:.5 blue:.5 alpha:1];
+    BOOL positive = split ? net > 0 : ([resultKey isEqualToString:@"win"] || [resultKey isEqualToString:@"blackjack"]);
+    BOOL negative = split ? net < 0 : ([resultKey isEqualToString:@"lose"] || [resultKey isEqualToString:@"bust"]);
+    if (positive) result.textColor = [UIColor colorWithRed:.45 green:1 blue:.55 alpha:1];
+    else if (negative) result.textColor = [UIColor colorWithRed:1 green:.5 blue:.5 alpha:1];
+    [rows addObject:result];
 
-    UIStackView *column = [[UIStackView alloc] initWithArrangedSubviews:@[name, cardHolder, total, bet, result]];
+    UIStackView *column = [[UIStackView alloc] initWithArrangedSubviews:rows];
     column.translatesAutoresizingMaskIntoConstraints = NO;
     column.axis = UILayoutConstraintAxisVertical;
     column.spacing = 4;
@@ -601,22 +851,30 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
         [column.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-4],
     ]];
     card.isAccessibilityElement = YES;
-    card.accessibilityLabel = [NSString stringWithFormat:@"%@, total %@, bet %ld", name.text, total.text ?: @"none", (long)betAmount];
+    card.accessibilityLabel = [NSString stringWithFormat:@"%@, %@%@, stake %ld", name.text,
+        split ? @"two hands, " : @"", [self resultTextForSeat:seat], (long)[self totalBetForSeat:seat]];
     return card;
 }
 
 - (NSString *)resultTextForSeat:(NSDictionary *)seat {
     NSString *result = BRBlackjackString(seat[@"result"]);
     NSInteger payout = BRBlackjackInt(seat[@"payout"]);
-    NSInteger bet = BRBlackjackInt(seat[@"bet"]);
-    if ([result isEqualToString:@"blackjack"]) return [NSString stringWithFormat:@"Blackjack +%ld", (long)(payout - bet)];
-    if ([result isEqualToString:@"win"]) return [NSString stringWithFormat:@"Win +%ld", (long)(payout - bet)];
+    NSInteger stake = [self totalBetForSeat:seat];
+    BOOL split = BRBlackjackDict(seat[@"hand2"]).count > 0;
+    if (result.length > 0 && split) {
+        NSInteger net = payout - stake;
+        if (net > 0) return [NSString stringWithFormat:@"Split +%ld", (long)net];
+        if (net < 0) return [NSString stringWithFormat:@"Split −%ld", (long)-net];
+        return @"Split · even";
+    }
+    if ([result isEqualToString:@"blackjack"]) return [NSString stringWithFormat:@"Blackjack +%ld", (long)(payout - stake)];
+    if ([result isEqualToString:@"win"]) return [NSString stringWithFormat:@"Win +%ld", (long)(payout - stake)];
     if ([result isEqualToString:@"push"]) return @"Push";
     if ([result isEqualToString:@"bust"]) return @"Bust";
     if ([result isEqualToString:@"lose"]) return @"Lose";
     NSString *status = BRBlackjackString(seat[@"status"]);
     if ([status isEqualToString:@"stood"]) return @"Stand";
-    if ([seat[@"leaving"] boolValue]) return @"Leaving";
+    if (BRBlackjackBool(seat[@"leaving"])) return @"Leaving";
     return @"";
 }
 
@@ -641,8 +899,10 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
             ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.BetPlaced", nil, NSBundle.mainBundle, @"Bet placed. Waiting for the deal…", nil)
             : NSLocalizedStringWithDefaultValue(@"BRBlackjack.Betting", nil, NSBundle.mainBundle, @"Place your bet!", nil);
     } else if ([phase isEqualToString:@"playing"]) {
+        BOOL splitHand = BRBlackjackDict(mine[@"hand2"]).count > 0;
         text = [self isMyTurn]
-            ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.YourTurn", nil, NSBundle.mainBundle, @"Your turn", nil)
+            ? (splitHand ? [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRBlackjack.YourTurnHand", nil, NSBundle.mainBundle, @"Your turn — hand %ld of 2", nil), (long)BRBlackjackInt(mine[@"active_hand"]) + 1]
+                         : NSLocalizedStringWithDefaultValue(@"BRBlackjack.YourTurn", nil, NSBundle.mainBundle, @"Your turn", nil))
             : (BRBlackjackInt(mine[@"bet"]) > 0
                ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.WaitTurn", nil, NSBundle.mainBundle, @"Waiting for other players…", nil)
                : NSLocalizedStringWithDefaultValue(@"BRBlackjack.SittingOut", nil, NSBundle.mainBundle, @"Sitting this round out.", nil));
@@ -654,12 +914,13 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     [self updateCountdown];
 }
 
+
 - (void)refreshControls {
     NSString *phase = [self phase];
     NSDictionary *mine = [self mySeat];
     NSDictionary *tableInfo = BRBlackjackDict(self.tableState[@"table"]);
     NSInteger balance = BRBlackjackInt(BRBlackjackDict(self.tableState[@"me"])[@"balance"]);
-    BOOL canBet = mine && BRBlackjackInt(mine[@"bet"]) == 0 && ([phase isEqualToString:@"idle"] || [phase isEqualToString:@"betting"]) && ![mine[@"leaving"] boolValue];
+    BOOL canBet = mine && BRBlackjackInt(mine[@"bet"]) == 0 && ([phase isEqualToString:@"idle"] || [phase isEqualToString:@"betting"]) && !BRBlackjackBool(mine[@"leaving"]);
     BOOL myTurn = [self isMyTurn];
 
     self.betPanel.hidden = !canBet;
@@ -678,10 +939,15 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
         self.betPlusButton.enabled = !self.actionInFlight && self.pendingBet < MIN([self maxBet], MAX(balance, [self minBet]));
     }
     if (myTurn) {
-        BOOL firstTwo = BRBlackjackArray(mine[@"cards"]).count == 2;
-        self.hitButton.enabled = self.standButton.enabled = !self.actionInFlight;
-        self.doubleButton.enabled = !self.actionInFlight && firstTwo && balance >= BRBlackjackInt(mine[@"bet"]);
-        for (UIButton *button in @[self.hitButton, self.standButton, self.doubleButton]) button.alpha = button.enabled ? 1 : 0.5;
+        // The server decides what is legal (double needs two cards and coins,
+        // split needs a pair and coins); we only mirror its answer.
+        NSDictionary *actions = BRBlackjackDict(mine[@"actions"]);
+        self.hitButton.enabled = !self.actionInFlight && BRBlackjackBool(actions[@"hit"]);
+        self.standButton.enabled = !self.actionInFlight && BRBlackjackBool(actions[@"stand"]);
+        self.doubleButton.enabled = !self.actionInFlight && BRBlackjackBool(actions[@"double"]);
+        self.splitButton.hidden = !BRBlackjackBool(actions[@"split"]);
+        self.splitButton.enabled = !self.actionInFlight && BRBlackjackBool(actions[@"split"]);
+        for (UIButton *button in @[self.hitButton, self.standButton, self.doubleButton, self.splitButton]) button.alpha = button.enabled ? 1 : 0.5;
     }
 }
 
@@ -735,6 +1001,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 - (void)hitTapped { [self sendAction:@"hit" params:@{ @"expected_version": @(self.lastVersion) }]; }
 - (void)standTapped { [self sendAction:@"stand" params:@{ @"expected_version": @(self.lastVersion) }]; }
 - (void)doubleTapped { [self sendAction:@"double" params:@{ @"expected_version": @(self.lastVersion) }]; }
+- (void)splitTapped { [self sendAction:@"split" params:@{ @"expected_version": @(self.lastVersion) }]; }
 
 - (void)leaveTapped {
     NSDictionary *mine = [self mySeat];
@@ -773,14 +1040,214 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     self.lastSettledRound = round;
     NSDictionary *mine = [self mySeat];
     NSString *result = BRBlackjackString(mine[@"result"]);
-    if (result.length == 0) return;
+    if (result.length == 0) { [self releaseBalanceHold]; return; }
+    // Judge by money, not by the first hand's label, so splits and doubles feel right.
+    NSInteger payout = BRBlackjackInt(mine[@"payout"]);
+    NSInteger stake = [self totalBetForSeat:mine];
     UINotificationFeedbackGenerator *haptics = [UINotificationFeedbackGenerator new];
-    if ([result isEqualToString:@"win"] || [result isEqualToString:@"blackjack"]) [haptics notificationOccurred:UINotificationFeedbackTypeSuccess];
-    else if ([result isEqualToString:@"lose"] || [result isEqualToString:@"bust"]) [haptics notificationOccurred:UINotificationFeedbackTypeError];
+    if (payout > stake) [haptics notificationOccurred:UINotificationFeedbackTypeSuccess];
+    else if (payout < stake) [haptics notificationOccurred:UINotificationFeedbackTypeError];
     // Keep the shared balance (picker, slots, usage log) in step with the table.
     [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {}];
     [self resetPendingBet];
+
+    // Payout: chips fly from the player's seat into the balance, then the number counts up.
+    if (self.holdingBalanceForPayout && self.mySeatView) {
+        NSInteger chipCount = [result isEqualToString:@"blackjack"] ? 12 : (payout > stake ? 8 : 4);
+        __weak typeof(self) weakSelf = self;
+        [self flyChipsFromView:self.mySeatView toView:self.balancePill count:chipCount completion:^{ [weakSelf releaseBalanceHold]; }];
+        // Safety net: never leave the balance frozen if an animation is interrupted.
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [weakSelf releaseBalanceHold]; });
+    } else {
+        [self releaseBalanceHold];
+    }
 }
+
+#pragma mark Balance display and payout animation
+
+- (void)setDisplayedBalance:(NSInteger)balance {
+    _displayedBalance = balance;
+    static NSNumberFormatter *formatter;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ formatter = [NSNumberFormatter new]; formatter.numberStyle = NSNumberFormatterDecimalStyle; });
+    self.balanceLabel.text = [NSString stringWithFormat:@"🪙 %@", [formatter stringFromNumber:@(balance)]];
+    self.balancePill.accessibilityValue = [formatter stringFromNumber:@(balance)];
+}
+
+/// Ends the "hold" set when a payout round settles and counts the displayed
+/// balance up to the real one. Safe to call more than once.
+- (void)releaseBalanceHold {
+    if (!self.holdingBalanceForPayout) return;
+    self.holdingBalanceForPayout = NO;
+    [self countBalanceTo:self.pendingBalance];
+}
+
+- (void)countBalanceTo:(NSInteger)target {
+    [self.balanceTimer invalidate];
+    self.balanceTimer = nil;
+    if (UIAccessibilityIsReduceMotionEnabled() || target == self.displayedBalance) { [self setDisplayedBalance:target]; return; }
+    self.countFrom = self.displayedBalance;
+    self.countTo = target;
+    self.countStart = CACurrentMediaTime();
+    self.balanceTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 / 60.0 target:self selector:@selector(balanceCountTick) userInfo:nil repeats:YES];
+}
+
+- (void)balanceCountTick {
+    const NSTimeInterval duration = 0.7;
+    double progress = MIN(1.0, (CACurrentMediaTime() - self.countStart) / duration);
+    double eased = 1.0 - pow(1.0 - progress, 3.0);
+    [self setDisplayedBalance:(NSInteger)llround(self.countFrom + (self.countTo - self.countFrom) * eased)];
+    if (progress >= 1.0) { [self.balanceTimer invalidate]; self.balanceTimer = nil; [self setDisplayedBalance:self.countTo]; }
+}
+
+- (void)pulseBalancePill {
+    [UIView animateWithDuration:0.12 animations:^{ self.balancePill.transform = CGAffineTransformMakeScale(1.1, 1.1); }
+                     completion:^(BOOL finished) {
+        [UIView animateWithDuration:0.18 delay:0 usingSpringWithDamping:0.6 initialSpringVelocity:0 options:0
+                         animations:^{ self.balancePill.transform = CGAffineTransformIdentity; } completion:nil];
+    }];
+}
+
+/// Flies `count` coin emoji along curved paths from one view to another, one
+/// after another, pulsing the target as each lands. Respects Reduce Motion.
+- (void)flyChipsFromView:(UIView *)source toView:(UIView *)target count:(NSInteger)count completion:(void (^)(void))completion {
+    if (UIAccessibilityIsReduceMotionEnabled() || !source.window || !target.window || count <= 0) { completion(); return; }
+    CGPoint start = [self.view convertPoint:CGPointMake(CGRectGetMidX(source.bounds), CGRectGetMidY(source.bounds)) fromView:source];
+    CGPoint end = [self.view convertPoint:CGPointMake(CGRectGetMidX(target.bounds), CGRectGetMidY(target.bounds)) fromView:target];
+    __block NSInteger landed = 0;
+    for (NSInteger i = 0; i < count; i++) {
+        UILabel *chip = [UILabel new];
+        chip.text = @"🪙";
+        chip.font = [UIFont systemFontOfSize:30];
+        [chip sizeToFit];
+        chip.center = start;
+        chip.alpha = 0;
+        chip.userInteractionEnabled = NO;
+        [self.view addSubview:chip];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(i * 0.07 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            UIBezierPath *path = [UIBezierPath bezierPath];
+            [path moveToPoint:start];
+            CGPoint control = CGPointMake((start.x + end.x) / 2.0 + ((CGFloat)arc4random_uniform(100) - 50),
+                                          MIN(start.y, end.y) - 60 - (CGFloat)arc4random_uniform(50));
+            [path addQuadCurveToPoint:end controlPoint:control];
+            CAKeyframeAnimation *move = [CAKeyframeAnimation animationWithKeyPath:@"position"];
+            move.path = path.CGPath;
+            move.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseIn];
+            CABasicAnimation *shrink = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+            shrink.fromValue = @1.0;
+            shrink.toValue = @0.55;
+            CAAnimationGroup *group = [CAAnimationGroup animation];
+            group.animations = @[move, shrink];
+            group.duration = 0.75;
+            chip.alpha = 1;
+            [CATransaction begin];
+            [CATransaction setCompletionBlock:^{
+                [chip removeFromSuperview];
+                landed++;
+                [self pulseBalancePill];
+                if (landed == count) completion();
+            }];
+            chip.layer.position = end; // final model value so the chip doesn't snap back
+            [chip.layer addAnimation:group forKey:@"fly"];
+            [CATransaction commit];
+        });
+    }
+}
+
+#pragma mark Dealer voice and speech bubble
+
+- (void)updateVoiceButton {
+    [self.voiceButton setTitle:self.dealerVoiceMuted ? @"🔇" : @"🔊" forState:UIControlStateNormal];
+    self.voiceButton.accessibilityLabel = self.dealerVoiceMuted ? @"Unmute dealer voice" : @"Mute dealer voice";
+}
+
+- (void)toggleDealerVoice {
+    self.dealerVoiceMuted = !self.dealerVoiceMuted;
+    [[NSUserDefaults standardUserDefaults] setBool:self.dealerVoiceMuted forKey:kDealerVoiceMutedKey];
+    if (self.dealerVoiceMuted) [self stopDealerAudio];
+    [self updateVoiceButton];
+}
+
+- (void)stopDealerAudio {
+    [self.dealerAudioPlayer stop];
+    self.dealerAudioPlayer = nil;
+    [self.dealerAvatarView.layer removeAnimationForKey:@"talk"];
+}
+
+/// Shows the dealer's line in a speech bubble and, unless muted, speaks it.
+/// Only the Supabase storage host is trusted as an audio source.
+- (void)dealerSaysLine:(NSString *)line audioURLString:(NSString *)audioURLString {
+    if (line.length == 0) return;
+    self.dealerBubbleLabel.text = line;
+    self.dealerBubble.hidden = NO;
+    self.dealerBubble.alpha = 0;
+    [UIView animateWithDuration:0.2 animations:^{ self.dealerBubble.alpha = 1; }];
+    UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, [@"Dealer: " stringByAppendingString:line]);
+    NSInteger token = ++self.bubbleToken;
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || token != self.bubbleToken) return;
+        [UIView animateWithDuration:0.3 animations:^{ self.dealerBubble.alpha = 0; } completion:^(BOOL finished) {
+            if (token == self.bubbleToken) self.dealerBubble.hidden = YES;
+        }];
+    });
+
+    BOOL canSpeak = !self.dealerVoiceMuted && BRSlotSoundEnabled() && audioURLString.length > 0;
+    NSURL *audioURL = canSpeak ? [NSURL URLWithString:audioURLString] : nil;
+    NSString *trustedHost = [NSURL URLWithString:EZSupabaseURL].host;
+    if (!audioURL || ![audioURL.scheme isEqualToString:@"https"] || ![audioURL.host isEqualToString:trustedHost]) {
+        [self bounceDealerAvatar];
+        return;
+    }
+    [[[NSURLSession sharedSession] dataTaskWithURL:audioURL completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (data.length == 0 || error) return;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self || self.dealerVoiceMuted || self.leaving) return;
+            // Ambient: respects the silent switch and mixes with other audio.
+            // Leave a playback session (ez-music) alone; otherwise use ambient.
+            AVAudioSession *session = [AVAudioSession sharedInstance];
+            if (![session.category isEqualToString:AVAudioSessionCategoryPlayback] && ![session.category isEqualToString:AVAudioSessionCategoryPlayAndRecord]) {
+                [session setCategory:AVAudioSessionCategoryAmbient error:nil];
+            }
+            [session setActive:YES error:nil];
+            AVAudioPlayer *player = [[AVAudioPlayer alloc] initWithData:data error:nil];
+            if (!player) return;
+            [self stopDealerAudio];
+            player.delegate = self;
+            [player prepareToPlay];
+            [player play];
+            self.dealerAudioPlayer = player;
+            CABasicAnimation *talk = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+            talk.fromValue = @1.0; talk.toValue = @1.08; talk.duration = 0.22; talk.autoreverses = YES; talk.repeatCount = HUGE_VALF;
+            [self.dealerAvatarView.layer addAnimation:talk forKey:@"talk"];
+        });
+    }] resume];
+}
+
+- (void)bounceDealerAvatar {
+    [UIView animateWithDuration:0.12 animations:^{ self.dealerAvatarView.transform = CGAffineTransformMakeScale(1.12, 1.12); }
+                     completion:^(BOOL finished) {
+        [UIView animateWithDuration:0.2 delay:0 usingSpringWithDamping:0.5 initialSpringVelocity:0 options:0
+                         animations:^{ self.dealerAvatarView.transform = CGAffineTransformIdentity; } completion:nil];
+    }];
+}
+
+- (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
+    if (player == self.dealerAudioPlayer) { self.dealerAudioPlayer = nil; [self.dealerAvatarView.layer removeAnimationForKey:@"talk"]; }
+}
+
+/// Tells the server a player chatted so the dealer can decide whether to reply
+/// (he usually won't). Throttled so a burst of messages sends one ping.
+- (void)chatMessageSent:(NSNotification *)notification {
+    if (![notification.object isEqual:[@"bj:" stringByAppendingString:self.tableID]]) return;
+    NSTimeInterval now = CACurrentMediaTime();
+    if (now - self.lastChatPingTime < 5.0) return;
+    self.lastChatPingTime = now;
+    [BRBlackjackAPI performAction:@"chat_ping" params:@{ @"table_id": self.tableID } completion:^(NSDictionary *json, NSInteger status, NSString *error) {}];
+}
+
 
 #pragma mark Timers
 
