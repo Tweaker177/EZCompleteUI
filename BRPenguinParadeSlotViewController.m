@@ -930,7 +930,11 @@ static UIImage *PGSnowImage(void) {
         [titleExtrusion.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
         [titleExtrusion.trailingAnchor constraintEqualToAnchor:title.trailingAnchor],
         [title.topAnchor constraintEqualToAnchor:content.topAnchor constant:6],
-        [title.leadingAnchor constraintEqualToAnchor:headerPenguin.trailingAnchor constant:4],
+        // Fixed at the penguin's home offset (18 + 68 + 4), not tied to the
+        // penguin's trailing edge: the walk animates the penguin's leading
+        // constraint, and a title anchored to it slid and narrowed along
+        // with the penguin instead of staying put while it paces past.
+        [title.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:90],
         [title.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-18],
         [subtitle.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:0],
         [subtitle.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
