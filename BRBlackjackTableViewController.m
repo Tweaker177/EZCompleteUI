@@ -80,6 +80,7 @@ static UIView *BRBlackjackCardView(NSInteger cardID, CGFloat width) {
 static NSArray *BRBlackjackArray(id value) { return [value isKindOfClass:[NSArray class]] ? value : @[]; }
 static NSDictionary *BRBlackjackDict(id value) { return [value isKindOfClass:[NSDictionary class]] ? value : @{}; }
 static NSInteger BRBlackjackInt(id value) { return [value respondsToSelector:@selector(integerValue)] ? [value integerValue] : 0; }
+static BOOL BRBlackjackBool(id value) { return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO; }
 static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSString class]] ? value : @""; }
 
 #pragma mark - Controller
@@ -384,7 +385,13 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
                 [self showFatalError:error];
             } else {
                 self.statusLabel.text = error;
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self joinTable]; });
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    // The player may have left the table while the retry was
+                    // pending: rejoining then would take a seat nobody ever
+                    // leaves (viewWillDisappear already ran).
+                    if (self.viewIfLoaded.window == nil) return;
+                    [self joinTable];
+                });
             }
             return;
         }
@@ -495,7 +502,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 
 - (NSDictionary *)mySeat {
     for (NSDictionary *seat in BRBlackjackArray(self.tableState[@"seats"])) {
-        if ([BRBlackjackDict(seat)[@"is_me"] boolValue]) return seat;
+        if (BRBlackjackBool(BRBlackjackDict(seat)[@"is_me"])) return seat;
     }
     return nil;
 }
@@ -525,7 +532,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 
     // Dealer
     NSArray *dealerCards = BRBlackjackArray(dealer[@"cards"]);
-    [self fillCardStack:self.dealerCardsStack cards:dealerCards hiddenExtra:[dealer[@"hole_hidden"] boolValue] width:44 overlap:8];
+    [self fillCardStack:self.dealerCardsStack cards:dealerCards hiddenExtra:BRBlackjackBool(dealer[@"hole_hidden"]) width:44 overlap:8];
     id dealerTotal = dealer[@"total"];
     self.dealerTotalLabel.text = [dealerTotal isKindOfClass:[NSNumber class]] ? [NSString stringWithFormat:@"%@", dealerTotal] : @"";
 
@@ -541,7 +548,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 }
 
 - (UIView *)viewForSeat:(NSDictionary *)seat active:(BOOL)active {
-    BOOL mine = [seat[@"is_me"] boolValue];
+    BOOL mine = BRBlackjackBool(seat[@"is_me"]);
     UIView *card = [UIView new];
     card.translatesAutoresizingMaskIntoConstraints = NO;
     card.backgroundColor = [UIColor colorWithWhite:0 alpha:.28];
@@ -573,14 +580,14 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     total.textAlignment = NSTextAlignmentCenter;
     id totalValue = seat[@"total"];
     if ([totalValue isKindOfClass:[NSNumber class]]) {
-        BOOL soft = [seat[@"soft"] boolValue] && BRBlackjackInt(totalValue) < 21;
+        BOOL soft = BRBlackjackBool(seat[@"soft"]) && BRBlackjackInt(totalValue) < 21;
         total.text = soft ? [NSString stringWithFormat:@"soft %@", totalValue] : [NSString stringWithFormat:@"%@", totalValue];
     }
 
     UILabel *bet = [self labelWithSize:12 weight:UIFontWeightSemibold color:[UIColor colorWithWhite:1 alpha:.75]];
     bet.textAlignment = NSTextAlignmentCenter;
     NSInteger betAmount = BRBlackjackInt(seat[@"bet"]);
-    bet.text = betAmount > 0 ? [NSString stringWithFormat:@"🪙 %ld%@", (long)betAmount, [seat[@"doubled"] boolValue] ? @" ×2" : @""] : @"—";
+    bet.text = betAmount > 0 ? [NSString stringWithFormat:@"🪙 %ld%@", (long)betAmount, BRBlackjackBool(seat[@"doubled"]) ? @" ×2" : @""] : @"—";
 
     UILabel *result = [self labelWithSize:12 weight:UIFontWeightHeavy color:UIColor.whiteColor];
     result.textAlignment = NSTextAlignmentCenter;
@@ -616,7 +623,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     if ([result isEqualToString:@"lose"]) return @"Lose";
     NSString *status = BRBlackjackString(seat[@"status"]);
     if ([status isEqualToString:@"stood"]) return @"Stand";
-    if ([seat[@"leaving"] boolValue]) return @"Leaving";
+    if (BRBlackjackBool(seat[@"leaving"])) return @"Leaving";
     return @"";
 }
 
@@ -659,7 +666,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     NSDictionary *mine = [self mySeat];
     NSDictionary *tableInfo = BRBlackjackDict(self.tableState[@"table"]);
     NSInteger balance = BRBlackjackInt(BRBlackjackDict(self.tableState[@"me"])[@"balance"]);
-    BOOL canBet = mine && BRBlackjackInt(mine[@"bet"]) == 0 && ([phase isEqualToString:@"idle"] || [phase isEqualToString:@"betting"]) && ![mine[@"leaving"] boolValue];
+    BOOL canBet = mine && BRBlackjackInt(mine[@"bet"]) == 0 && ([phase isEqualToString:@"idle"] || [phase isEqualToString:@"betting"]) && !BRBlackjackBool(mine[@"leaving"]);
     BOOL myTurn = [self isMyTurn];
 
     self.betPanel.hidden = !canBet;
