@@ -443,7 +443,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
     if (!parsed.count) return;
     // A few passes through the lines: more lines, fewer passes, so the
     // whole show stays in the same few-seconds range.
-    NSInteger passes = parsed.count <= 2 ? 3 : parsed.count <= 4 ? 2 : 1;
+    NSInteger passes = parsed.count <= 2 ? 4 : parsed.count <= 4 ? 3 : 2;
     [self showWinningLineStep:0 ofLines:parsed passes:passes celebrationID:self.winLineCelebrationID];
 }
 
@@ -469,7 +469,7 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
     NSInteger lineIndex = step % (NSInteger)lines.count;
     [self applyWinningLineHighlight:lines[lineIndex] colorIndex:lineIndex celebrate:YES];
     [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.55 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self showWinningLineStep:step + 1 ofLines:lines passes:passes celebrationID:celebrationID];
     });
 }

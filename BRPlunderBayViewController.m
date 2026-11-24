@@ -480,7 +480,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
         NSInteger totalBet = MAX(1, PlunderInteger(result[@"wager"]));
         BOOL jackpot = payout > 0 && payout / totalBet >= 75;
         if (winLines.count) {
-            NSInteger linePasses = jackpot ? MAX(1, (NSInteger)ceil(7.0 / (1.35 * winLines.count))) : (winLines.count<=2?3:winLines.count<=4?2:1);
+            NSInteger linePasses = jackpot ? MAX(1, (NSInteger)ceil(9.0 / (1.55 * winLines.count))) : (winLines.count<=2?4:winLines.count<=4?3:2);
             [self celebrateWinLines:winLines step:0 passes:linePasses celebrationID:self.lineCelebrationID];
         }
         NSInteger winLineCount = PlunderInteger(result[@"win_lines"]);
@@ -509,7 +509,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
     NSInteger lineIndex = step % (NSInteger)lines.count;
     [self applyWinLine:lines[lineIndex] index:lineIndex celebrate:YES];
     [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.35*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self celebrateWinLines:lines step:step+1 passes:passes celebrationID:celebrationID]; });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.55*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self celebrateWinLines:lines step:step+1 passes:passes celebrationID:celebrationID]; });
 }
 - (void)applyWinLine:(NSArray *)coords index:(NSInteger)index celebrate:(BOOL)celebrate {
     NSArray *palette=@[ @[@1.0,@0.77,@0.08], @[@1.0,@0.25,@0.55], @[@0.15,@0.85,@1.0], @[@0.35,@1.0,@0.55], @[@0.72,@0.45,@1.0] ];

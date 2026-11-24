@@ -1152,7 +1152,7 @@ static CGFloat BRSRayBaseRadius(CGRect rect, CGFloat a) {
         banner.alpha = 1;
     } completion:nil];
 
-    NSTimeInterval total = reduceMotion ? 1.8 : (mega ? 4.2 : 3.0);
+    NSTimeInterval total = reduceMotion ? 1.8 : (mega ? 5.6 : 4.2);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(total * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [UIView animateWithDuration:0.35 animations:^{ overlay.alpha = 0; } completion:^(BOOL finished) {
             [overlay removeFromSuperview];
