@@ -180,6 +180,8 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
                    name:AVAudioSessionRouteChangeNotification object:nil];
     [center addObserver:self selector:@selector(musicArtworkDidUpdate:)
                    name:EZMusicArtworkDidUpdateNotification object:nil];
+    [center addObserver:self selector:@selector(appDidEnterBackground:)
+                   name:UIApplicationDidEnterBackgroundNotification object:nil];
     return self;
 }
 
@@ -494,7 +496,8 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
         }
     }
     self.state = newState;
-    if (newState == EZMediaPlayerStatePlaying) [self reclaimPlaybackCategoryIfNeeded];
+    if (newState == EZMediaPlayerStatePlaying || newState == EZMediaPlayerStatePaused)
+        [self reclaimPlaybackCategoryIfNeeded];
     [self publishChange];
 }
 
@@ -567,6 +570,16 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
         self.errorMessage = [self friendlyMessageForError:note.userInfo[AVPlayerItemFailedToPlayToEndTimeErrorKey]];
         [self refreshStateAndPublish];
     });
+}
+
+- (void)appDidEnterBackground:(NSNotification *)note {
+    // The lock screen is decided as the app leaves. While this player is
+    // playing, the playback tick keeps the session policy reclaimed; while
+    // it is paused no tick runs, so a feature that flipped the shared
+    // session to a mixable or Ambient category in the meantime would
+    // leave the loaded song with no lock-screen or Control Center
+    // presence. Take the policy back on the way out.
+    if (self.currentItem) [self reclaimPlaybackCategoryIfNeeded];
 }
 
 - (void)audioSessionInterrupted:(NSNotification *)note {
