@@ -1080,7 +1080,29 @@ static NSArray<UIColor *> *GMLineColors(void) {
         fade.fromValue = @1; fade.toValue = @0.45; fade.duration = 0.4; fade.autoreverses = YES; fade.repeatCount = HUGE_VALF;
         [mark.layer addAnimation:fade forKey:@"gmPulse"];
         UIImageView *cell = self.stripCells[reel][1 + row];
-        [UIView animateWithDuration:0.18 animations:^{ cell.transform = CGAffineTransformMakeScale(1.1, 1.1); }];
+        if (UIAccessibilityIsReduceMotionEnabled()) {
+            [UIView animateWithDuration:0.18 animations:^{ cell.transform = CGAffineTransformMakeScale(1.1, 1.1); }];
+        } else {
+            // The winning symbol celebrates the way Classic and Penny do:
+            // a looping size pulse, staggered down the line, with a
+            // Y-axis rock so the symbol tips toward and away from the
+            // player. clearHighlights removes both animations.
+            CATransform3D perspective = CATransform3DIdentity;
+            perspective.m34 = -1.0 / 420.0;
+            cell.superview.layer.sublayerTransform = perspective;
+            CABasicAnimation *size = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+            size.fromValue = @1; size.toValue = @1.18; size.duration = 0.32;
+            size.autoreverses = YES; size.repeatCount = HUGE_VALF;
+            size.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+            size.beginTime = CACurrentMediaTime() + reel * 0.09;
+            [cell.layer addAnimation:size forKey:@"winSizePulse"];
+            CAKeyframeAnimation *rock = [CAKeyframeAnimation animationWithKeyPath:@"transform.rotation.y"];
+            rock.values = @[@0, @0.38, @0, @-0.38, @0];
+            rock.duration = 0.96; rock.repeatCount = HUGE_VALF;
+            rock.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+            rock.beginTime = CACurrentMediaTime() + reel * 0.09;
+            [cell.layer addAnimation:rock forKey:@"winYRock"];
+        }
     }
 }
 
@@ -1136,7 +1158,7 @@ static NSArray<UIColor *> *GMLineColors(void) {
             if (oneByOne) [self clearHighlights];
             for (NSInteger col = 0; col < matches && col < (NSInteger)rows.count; col++) {
                 NSInteger row = GMInteger(rows[col]);
-                if (row >= 0 && row < GM_ROWS) [self lightCellAtReel:col row:row color:color pulse:oneByOne];
+                if (row >= 0 && row < GM_ROWS) [self lightCellAtReel:col row:row color:color pulse:YES];
             }
             if (oneByOne) [self setMessage:detail highlight:YES];
         };
