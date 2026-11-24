@@ -2,9 +2,19 @@
 #import "EZTheme.h"
 #import <LinkPresentation/LinkPresentation.h>
 
+// A bubble's text view does not scroll, so the table's automatic row
+// height lays out the ENTIRE message to size the cell - a large pasted
+// file (or a model echoing one back unfenced) forces TextKit to lay out
+// tens of thousands of lines on the main thread, every reload, until the
+// app is killed. Past this length the bubble becomes a fixed-height
+// scrollable region instead, like the code cell already is.
+static NSUInteger const kEZBubbleLongTextChars = 4000;
+static CGFloat const kEZBubbleLongTextMaxHeight = 480;
+
 @implementation EZBubbleCell {
     UIView     *_bubbleView;
     UITextView *_messageTextView;
+    NSLayoutConstraint *_messageHeightConstraint;
     UILabel    *_metaLabel;          // shown when swiped left
     NSArray<NSLayoutConstraint *> *_alignmentConstraints;
     NSLayoutConstraint *_bubbleLeading;   // re-activated on swipe for user bubbles
@@ -85,6 +95,10 @@
         [_githubPreviews.trailingAnchor constraintEqualToAnchor:_bubbleView.trailingAnchor constant:-10],
         _githubPreviewsBottom,
     ]];
+
+    _messageHeightConstraint = [_messageTextView.heightAnchor
+        constraintEqualToConstant:kEZBubbleLongTextMaxHeight];
+    _messageHeightConstraint.active = NO;
 
     // Width cap: bubble never wider than ~76% of a standard screen
     NSLayoutConstraint *maxW = [_bubbleView.widthAnchor constraintLessThanOrEqualToConstant:290];
@@ -206,8 +220,14 @@
     _swipeOffset = 0.0;
     _bubbleView.transform = CGAffineTransformIdentity;
 
+    BOOL isLongText = text.length > kEZBubbleLongTextChars;
+    _messageTextView.scrollEnabled = isLongText;
+    _messageHeightConstraint.active = isLongText;
+    _messageTextView.dataDetectorTypes = isLongText ? UIDataDetectorTypeNone
+                                                    : UIDataDetectorTypeLink;
     _messageTextView.text = text;
-    [self ez_configureGitHubPreviewsForText:text isUser:isUser];
+    if (!isLongText) [self ez_configureGitHubPreviewsForText:text isUser:isUser];
+    else [self ez_clearGitHubPreviews];
 
     // ── Bubble background ────────────────────────────────────────────────────
     _bubbleView.backgroundColor = isUser ? [EZTheme userBubbleColor]
@@ -414,6 +434,9 @@
 }
 
 - (void)prepareForReuse {
+    _messageTextView.scrollEnabled = NO;
+    _messageHeightConstraint.active = NO;
+    _messageTextView.dataDetectorTypes = UIDataDetectorTypeLink;
     [super prepareForReuse];
     [self ez_clearGitHubPreviews];
     [self setTTSPlaybackVisible:NO playing:NO];

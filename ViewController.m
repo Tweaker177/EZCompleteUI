@@ -8272,8 +8272,8 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                 options:0 range:NSMakeRange(0, fenceInfo.length)];
             if (fenceNameMatch) detectedName = [fenceInfo substringWithRange:fenceNameMatch.range];
         }
-        NSArray<NSString *> *firstLines = [[code componentsSeparatedByString:@"\n"]
-                                           subarrayWithRange:NSMakeRange(0, MIN(2, [[code componentsSeparatedByString:@"\n"] count]))];
+        NSArray<NSString *> *codeLines = [code componentsSeparatedByString:@"\n"];
+        NSArray<NSString *> *firstLines = [codeLines subarrayWithRange:NSMakeRange(0, MIN(2, codeLines.count))];
         if (!fnErr && detectedName.length == 0) {
             for (NSString *line in firstLines) {
                 NSRange lineRange = NSMakeRange(0, line.length);
