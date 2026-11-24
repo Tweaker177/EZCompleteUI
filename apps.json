@@ -38,6 +38,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.25",
+          "buildVersion": "7.2.25",
+          "date": "2026-11-24",
+          "localizedDescription": "## What's Changed\n* Full-screen players: claim the Playback session so the volume slider works by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/261\n* Voice Cloner upsell: drop the deletion wording, 'Ask me Later' button by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/263\n* Shared player: Previous restores the earlier item's own queue rule by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/262\n* Slot picker: shorter cards, art fills the space the text leaves by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/264\n* Penguin Parade: cap the machine at its portrait width in landscape by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/265\n* Music rows: remove the pencil button (long-press renames) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/266\n* Brainrot Slots: bigger top buttons (Back / Odds) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/267\n* Shared slot chrome: pressable buttons and a sun-ray win banner on every machine by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/268\n* Lounge: labeled Close button, grabber and swipe-down on the expanded header by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/269\n* Settings: give the model sliders the shared drawn thumb by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/270\n* Bump version to 7.2.23 by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/271\n* Improve Plunder Bay jackpot celebration by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/272\n* Block spins while a card pick is owed on the four card-pick machines by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/273\n* README: current models, all seven slot machines, music player, GitHub in chat by @Tweaker177 in https://github.com/Tweaker177/EZCompleteUI/pull/275\n* Voice Cloner: record button is red only while actually recording by @Tweaker177 in https://github.co…",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteUI/releases/download/7.2.25/EZCompleteUI-7.2.25-release.ipa",
+          "size": 16086722,
+          "sha256": "3f896a0dda350f08c96efe5d6de4feaac5767ef3e1292952bba1b4f75696aeaa",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.22",
           "buildVersion": "7.2.22",
           "date": "2026-11-23",

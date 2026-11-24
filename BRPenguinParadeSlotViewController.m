@@ -273,7 +273,7 @@ static UIImage *PGSnowImage(void) {
 @property (nonatomic, strong) NSMutableArray<UIView *> *strips;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIImageView *> *> *stripCells;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIView *> *> *highlights;
-@property (nonatomic, strong) UIButton *linesButton, *betButton, *maxButton, *spinButton, *soundButton;
+@property (nonatomic, strong) UIButton *linesButton, *betButton, *maxButton, *spinButton;
 @property (nonatomic, strong) CAGradientLayer *spinMidShadow;
 @property (nonatomic, strong) UIView *celebrationOverlay, *summaryOverlay, *pickOverlay;
 @property (nonatomic, strong) NSDictionary *result;
@@ -323,10 +323,10 @@ static UIImage *PGSnowImage(void) {
     self.audio = [BRPenguinParadeAudio new];
     self.audio.muted = [defaults boolForKey:kPGMutedKey];
     [self.audio prepare];
-    [self refreshSoundButton];
     [self refreshLabels];
     [self updateControls];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appDidBecomeActive) name:UIApplicationDidBecomeActiveNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(reduceMotionChanged) name:UIAccessibilityReduceMotionStatusDidChangeNotification object:nil];
 }
 
 - (void)dealloc {
@@ -390,6 +390,12 @@ static UIImage *PGSnowImage(void) {
     self.headerPenguinView.transform = CGAffineTransformIdentity;
     self.headerPenguinLeading.constant = 18;
     [self.headerPenguinView.superview layoutIfNeeded];
+}
+
+// Reduce Motion can be flipped in Settings mid-screen: stop the walk then,
+// not just the next time the screen appears.
+- (void)reduceMotionChanged {
+    if (UIAccessibilityIsReduceMotionEnabled()) [self stopPenguinWalk];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
@@ -538,9 +544,7 @@ static UIImage *PGSnowImage(void) {
     self.navigationItem.hidesBackButton = YES;
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:PGLoc(@"BRSlot.Picker.Back", @"‹  BRAINROT") action:@selector(backTapped)]];
     UIButton *pays = [self navButton:PGLoc(@"BRSlot.PG.Pays", @"PAYS") action:@selector(showPays)];
-    self.soundButton = [self navButton:@"" action:@selector(toggleSound)];
-    self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithCustomView:self.soundButton],
-                                                [[UIBarButtonItem alloc] initWithCustomView:pays]];
+    self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithCustomView:pays]];
 
     self.scroll = [UIScrollView new];
     // Reserve room for the chat bar pinned over the bottom of this screen,
@@ -933,7 +937,11 @@ static UIImage *PGSnowImage(void) {
         [titleExtrusion.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
         [titleExtrusion.trailingAnchor constraintEqualToAnchor:title.trailingAnchor],
         [title.topAnchor constraintEqualToAnchor:content.topAnchor constant:6],
-        [title.leadingAnchor constraintEqualToAnchor:headerPenguin.trailingAnchor constant:4],
+        // Fixed at the penguin's home offset (18 + 68 + 4), not tied to the
+        // penguin's trailing edge: the walk animates the penguin's leading
+        // constraint, and a title anchored to it slid and narrowed along
+        // with the penguin instead of staying put while it paces past.
+        [title.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:90],
         [title.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-18],
         [subtitle.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:0],
         [subtitle.leadingAnchor constraintEqualToAnchor:title.leadingAnchor],
@@ -1205,20 +1213,6 @@ static UIImage *PGSnowImage(void) {
     }];
 }
 
-
-- (void)toggleSound {
-    self.audio.muted = !self.audio.muted;
-    [NSUserDefaults.standardUserDefaults setBool:self.audio.muted forKey:kPGMutedKey];
-    [self refreshSoundButton];
-}
-
-- (void)refreshSoundButton {
-    NSString *name = self.audio.muted ? @"speaker.slash.fill" : @"speaker.wave.2.fill";
-    UIImage *icon = [[UIImage systemImageNamed:name] imageWithConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:15 weight:UIImageSymbolWeightBold]];
-    [self.soundButton setImage:icon forState:UIControlStateNormal];
-    self.soundButton.accessibilityLabel = self.audio.muted ? PGLoc(@"BRSlot.PG.Unmute", @"Unmute sound") : PGLoc(@"BRSlot.PG.Mute", @"Mute sound");
-    [self.soundButton sizeToFit];
-}
 
 - (void)showPays {
     PGPaytableViewController *pays = [PGPaytableViewController new];
@@ -1857,29 +1851,7 @@ static NSArray<UIColor *> *PGLineColors(void) {
         fade.fromValue = @1; fade.toValue = @0.45; fade.duration = 0.4; fade.autoreverses = YES; fade.repeatCount = HUGE_VALF;
         [mark.layer addAnimation:fade forKey:@"gmPulse"];
         UIImageView *cell = self.stripCells[reel][1 + row];
-        if (UIAccessibilityIsReduceMotionEnabled()) {
-            [UIView animateWithDuration:0.18 animations:^{ cell.transform = CGAffineTransformMakeScale(1.1, 1.1); }];
-        } else {
-            // The winning symbol celebrates the way Classic and Penny do:
-            // a looping size pulse, staggered down the line, with a
-            // Y-axis rock so the symbol tips toward and away from the
-            // player. clearHighlights removes both animations.
-            CATransform3D perspective = CATransform3DIdentity;
-            perspective.m34 = -1.0 / 420.0;
-            cell.superview.layer.sublayerTransform = perspective;
-            CABasicAnimation *size = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
-            size.fromValue = @1; size.toValue = @1.18; size.duration = 0.32;
-            size.autoreverses = YES; size.repeatCount = HUGE_VALF;
-            size.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-            size.beginTime = CACurrentMediaTime() + reel * 0.09;
-            [cell.layer addAnimation:size forKey:@"winSizePulse"];
-            CAKeyframeAnimation *rock = [CAKeyframeAnimation animationWithKeyPath:@"transform.rotation.y"];
-            rock.values = @[@0, @0.38, @0, @-0.38, @0];
-            rock.duration = 0.96; rock.repeatCount = HUGE_VALF;
-            rock.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-            rock.beginTime = CACurrentMediaTime() + reel * 0.09;
-            [cell.layer addAnimation:rock forKey:@"winYRock"];
-        }
+        [UIView animateWithDuration:0.18 animations:^{ cell.transform = CGAffineTransformMakeScale(1.1, 1.1); }];
     }
 }
 
@@ -1936,7 +1908,7 @@ static NSArray<UIColor *> *PGLineColors(void) {
             if (oneByOne) [self clearHighlights];
             for (NSInteger col = 0; col < matches && col < (NSInteger)rows.count; col++) {
                 NSInteger row = PGInteger(rows[col]);
-                if (row >= 0 && row < PG_ROWS) [self lightCellAtReel:col row:row color:color pulse:YES];
+                if (row >= 0 && row < PG_ROWS) [self lightCellAtReel:col row:row color:color pulse:oneByOne];
             }
             if (oneByOne) [self setMessage:detail highlight:YES];
         };
