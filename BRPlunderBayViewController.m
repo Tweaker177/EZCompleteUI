@@ -499,12 +499,22 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
         NSTimeInterval presentationDelay = jackpot ? 7.05 : 0;
         if (balance==0 && self.freeSpinsRemaining==0) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)((presentationDelay + .5)*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (self.view.window) [self showCoinStore]; });
         if (showSessionTotal) { NSInteger total=self.freeSpinSessionTotal; self.freeSpinSessionTotal=0; dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)((presentationDelay + .75)*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (self.view.window) [self showFreeSpinsComplete:total]; }); }
-        [self scheduleBonusAutoSpin]; [self schedulePaidAutoSpin];
+        // A win's line celebration is still running at this point, and
+        // it schedules the next spin itself when it finishes — starting
+        // one here would cut it off after 0.45s. No win, no wait.
+        if (!winLines.count) { [self scheduleBonusAutoSpin]; [self schedulePaidAutoSpin]; }
 }
 - (void)clearLineHighlights { self.lineCelebrationID++; for (NSArray *col in self.reels) for (UIImageView *tile in col) { [tile.layer removeAllAnimations]; tile.transform=CGAffineTransformIdentity; tile.layer.borderWidth=0; tile.layer.borderColor=nil; } }
 - (void)celebrateWinLines:(NSArray *)lines step:(NSInteger)step passes:(NSInteger)passes celebrationID:(NSUInteger)celebrationID {
     if (celebrationID != self.lineCelebrationID) return;
-    if (step >= (NSInteger)lines.count * passes) { for (NSInteger i=0;i<(NSInteger)lines.count;i++) [self applyWinLine:lines[i] index:i celebrate:NO]; return; }
+    if (step >= (NSInteger)lines.count * passes) {
+        for (NSInteger i=0;i<(NSInteger)lines.count;i++) [self applyWinLine:lines[i] index:i celebrate:NO];
+        // The win show is over: this is what moves auto-play (and the
+        // free-spin chain) on now, instead of the fixed 0.45s timer
+        // that used to cut the celebration short.
+        [self scheduleBonusAutoSpin]; [self schedulePaidAutoSpin];
+        return;
+    }
     for (NSArray *col in self.reels) for (UIImageView *tile in col) { tile.layer.borderWidth=0; tile.layer.borderColor=nil; tile.transform=CGAffineTransformIdentity; }
     NSInteger lineIndex = step % (NSInteger)lines.count;
     [self applyWinLine:lines[lineIndex] index:lineIndex celebrate:YES];
