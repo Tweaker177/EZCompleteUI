@@ -1310,7 +1310,7 @@ static NSArray<UIColor *> *SOLineColors(void) {
     mark.backgroundColor = [color colorWithAlphaComponent:.22];
     if (pulse) {
         CABasicAnimation *fade = [CABasicAnimation animationWithKeyPath:@"opacity"];
-        fade.fromValue = @1; fade.toValue = @0.45; fade.duration = 0.4; fade.autoreverses = YES; fade.repeatCount = HUGE_VALF;
+        fade.fromValue = @1; fade.toValue = @0.45; fade.duration = 0.55; fade.autoreverses = YES; fade.repeatCount = HUGE_VALF;
         [mark.layer addAnimation:fade forKey:@"gmPulse"];
         UIImageView *cell = self.stripCells[reel][1 + row];
         if (UIAccessibilityIsReduceMotionEnabled()) {
@@ -1324,14 +1324,14 @@ static NSArray<UIColor *> *SOLineColors(void) {
             perspective.m34 = -1.0 / 420.0;
             cell.superview.layer.sublayerTransform = perspective;
             CABasicAnimation *size = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
-            size.fromValue = @1; size.toValue = @1.18; size.duration = 0.32;
+            size.fromValue = @1; size.toValue = @1.18; size.duration = 0.48;
             size.autoreverses = YES; size.repeatCount = HUGE_VALF;
             size.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
             size.beginTime = CACurrentMediaTime() + reel * 0.09;
             [cell.layer addAnimation:size forKey:@"winSizePulse"];
             CAKeyframeAnimation *rock = [CAKeyframeAnimation animationWithKeyPath:@"transform.rotation.y"];
             rock.values = @[@0, @0.38, @0, @-0.38, @0];
-            rock.duration = 0.96; rock.repeatCount = HUGE_VALF;
+            rock.duration = 1.44; rock.repeatCount = HUGE_VALF;
             rock.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
             rock.beginTime = CACurrentMediaTime() + reel * 0.09;
             [cell.layer addAnimation:rock forKey:@"winYRock"];
@@ -1375,7 +1375,7 @@ static NSArray<UIColor *> *SOLineColors(void) {
     [self setMessage:[NSString stringWithFormat:SOLoc(@"BRSlot.SO.WonCoins", @"Won %ld coins!"), (long)payout] highlight:YES];
 
     NSArray<UIColor *> *palette = SOLineColors();
-    NSTimeInterval per = _spinFree ? 0.75 : 1.0;
+    NSTimeInterval per = _spinFree ? 1.15 : 1.5;
     BOOL oneByOne = winners.count <= 3;
     for (NSUInteger i = 0; i < winners.count; i++) {
         NSDictionary *line = winners[i];
@@ -1402,7 +1402,7 @@ static NSArray<UIColor *> *SOLineColors(void) {
     if (!oneByOne) {
         for (UIView *mark in [self.highlights valueForKeyPath:@"@unionOfArrays.self"]) (void)mark;
     }
-    NSTimeInterval total = oneByOne ? MAX(1.2, winners.count * per + 0.3) : 1.8;
+    NSTimeInterval total = oneByOne ? MAX(2.0, winners.count * per + 0.3) : 2.6;
     [self after:total do:^{
         if (self->_lastAwarded <= 0) [self clearHighlights];   // keep hats lit if a bonus follows
         else { [self clearHighlights]; }

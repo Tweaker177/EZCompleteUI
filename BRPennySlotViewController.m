@@ -304,7 +304,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
         [self clearLineHighlights];
         NSMutableArray *winLines=[NSMutableArray array];
         for (NSDictionary *line in result[@"winning_lines"]) { if (![line isKindOfClass:NSDictionary.class]) continue; NSArray *rows=[line[@"rows"] isKindOfClass:NSArray.class]?line[@"rows"]:@[]; NSInteger matches=MIN([line[@"matches"] integerValue],5); NSMutableArray *coords=[NSMutableArray array]; for (NSInteger col=0;col<matches && col<(NSInteger)rows.count;col++) { NSInteger row=[rows[col] integerValue]; if (row>=0 && row<3) [coords addObject:@[@(col),@(row)]]; } if (coords.count) [winLines addObject:coords]; }
-        if (winLines.count) [self celebrateWinLines:winLines step:0 passes:(winLines.count<=2?3:winLines.count<=4?2:1) celebrationID:self.lineCelebrationID];
+        if (winLines.count) [self celebrateWinLines:winLines step:0 passes:(winLines.count<=2?4:winLines.count<=4?3:2) celebrationID:self.lineCelebrationID];
         self.messageLabel.text = awarded ? [NSString stringWithFormat:@"⚡ %@%@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.FreeSpinsAward", nil), (long)awarded], payout ? [NSString stringWithFormat:@" %@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.Coins", nil), (long)payout]] : @""] : payout ? [NSString stringWithFormat:NSLocalizedString([result[@"win_lines"] integerValue] == 1 ? @"BRSlot.Win.LinesResultOne" : @"BRSlot.Win.LinesResult", nil), (long)payout, [result[@"win_lines"] integerValue]] : [result[@"was_free_spin"] boolValue] ? NSLocalizedString(@"BRSlot.Win.FreeSpinNoWin", nil) : [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Win.NoWin", nil), (long)[result[@"wager"] integerValue]];
         self.messageLabel.textColor=(payout || awarded) ? UIColor.systemYellowColor : [UIColor colorWithWhite:.8 alpha:1];
         if (payout || awarded) { [self playTheme:@"brainrot-theme2"]; [self showWin:payout awarded:awarded]; } else { if (BRSlotSoundEnabled()) { [self.lossPlayer stop]; self.lossPlayer.currentTime=0; [self.lossPlayer play]; } [self playTheme:@"brainrot-theme1"]; }
@@ -324,7 +324,7 @@ static UIImage *PennyEZCoinSymbolImage(void) {
     NSInteger lineIndex = step % (NSInteger)lines.count;
     [self applyWinLine:lines[lineIndex] index:lineIndex celebrate:YES];
     [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.35*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self celebrateWinLines:lines step:step+1 passes:passes celebrationID:celebrationID]; });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(1.55*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ [self celebrateWinLines:lines step:step+1 passes:passes celebrationID:celebrationID]; });
 }
 - (void)applyWinLine:(NSArray *)coords index:(NSInteger)index celebrate:(BOOL)celebrate {
     NSArray *palette=@[ @[@1.0,@0.77,@0.08], @[@1.0,@0.25,@0.55], @[@0.15,@0.85,@1.0], @[@0.35,@1.0,@0.55], @[@0.72,@0.45,@1.0] ];
