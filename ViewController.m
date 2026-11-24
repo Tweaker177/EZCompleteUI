@@ -11352,7 +11352,25 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
     UINavigationController *nav = [[UINavigationController alloc]
         initWithRootViewController:store];
     nav.modalPresentationStyle = UIModalPresentationFormSheet;
-    [self presentViewController:nav animated:YES completion:nil];
+    // Presenting from self while anything else is on top silently drops
+    // the store ("Attempt to present ... while a presentation is in
+    // progress"). Walk to the topmost controller like ez_githubPresenter
+    // does - and if that controller is mid-dismissal (this was called
+    // from an alert action, e.g. the "Get Coins" button on the Not Enough
+    // Coins alert), wait for the dismissal to finish and try again.
+    UIViewController *presenter = self;
+    while (presenter.presentedViewController && !presenter.presentedViewController.isBeingDismissed) {
+        presenter = presenter.presentedViewController;
+    }
+    if (presenter.presentedViewController) {
+        __weak typeof(self) weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            [weakSelf presentCoinStoreForFeature:featureName];
+        });
+        return;
+    }
+    [presenter presentViewController:nav animated:YES completion:nil];
 
     // Restore the prompt when the store is dismissed
     if (pendingPrompt.length > 0) {
