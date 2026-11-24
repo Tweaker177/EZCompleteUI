@@ -3669,7 +3669,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     // so brand it like the chat song cards do — not "AI Music".
     EZMediaPlayerItem *item = [EZMediaPlayerItem itemWithIdentifier:entryID
                                                               title:EZMusicString(entry[@"title"])
-                                                           subtitle:@"EZCompleteUI"
+                                                           subtitle:@"EZCompleteAI"
                                                             fileURL:url
                                                        durationHint:durationMilliseconds.doubleValue / 1000.0];
     item.artwork = [[EZMusicArtworkService sharedService] cachedArtworkForEntryID:entryID];
