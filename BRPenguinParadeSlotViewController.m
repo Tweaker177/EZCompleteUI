@@ -326,6 +326,7 @@ static UIImage *PGSnowImage(void) {
     [self refreshLabels];
     [self updateControls];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appDidBecomeActive) name:UIApplicationDidBecomeActiveNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(reduceMotionChanged) name:UIAccessibilityReduceMotionStatusDidChangeNotification object:nil];
 }
 
 - (void)dealloc {
@@ -389,6 +390,12 @@ static UIImage *PGSnowImage(void) {
     self.headerPenguinView.transform = CGAffineTransformIdentity;
     self.headerPenguinLeading.constant = 18;
     [self.headerPenguinView.superview layoutIfNeeded];
+}
+
+// Reduce Motion can be flipped in Settings mid-screen: stop the walk then,
+// not just the next time the screen appears.
+- (void)reduceMotionChanged {
+    if (UIAccessibilityIsReduceMotionEnabled()) [self stopPenguinWalk];
 }
 
 - (void)viewDidAppear:(BOOL)animated {
