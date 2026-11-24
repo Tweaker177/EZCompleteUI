@@ -484,7 +484,6 @@
 "BRSlot.Pity.Body" = "That run didn't go your way. Here's %ld more spins on the house.";
 "BRSlot.Pity.Action" = "Let's go! 🎰";
 "BRSlot.Win.Overlay" = "%@\n+%ld COINS";
-"BRSlot.Win.Jackpot" = "JACKPOT!";
 "BRSlot.Win.Winner" = "WINNER!";
 "BRSlot.Win.BigWin" = "BIG WIN!";
 "BRSlot.Win.MegaWin" = "MEGA WIN!";
