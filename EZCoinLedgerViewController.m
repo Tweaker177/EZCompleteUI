@@ -33,8 +33,9 @@
 //   - The search field now splits on commas: each term is its own filter
 //     value. Include mode matches a row when any term matches its
 //     feature; Exclude mode drops a row when any term matches. A term
-//     containing "@" is still the account email and narrows the list to
-//     that account, combined with any feature terms.
+//     containing "@" is an account email: normally it narrows the list
+//     to that account, combined with any feature terms; with Exclude on,
+//     email terms hide those accounts instead (several allowed).
 //   - get-admin-ledger accepts the comma list in feature= and
 //     exclude_feature= (single values behave as before), so paging,
 //     aggregates, and exports all reflect the multi-filter.
@@ -1504,24 +1505,36 @@ static NSInteger const kExportPageSize  = 1000;
     if (self.activeSearchQuery.length == 0) return @"";
     // Comma-separated terms: each term is its own filter value, encoded
     // separately so the commas between them survive as separators. A
-    // term containing "@" is the account email — account_email requests
-    // one account's complete history, including signup and credits with
-    // no usage-log counterpart — and the server applies it together
-    // with any feature terms.
+    // term containing "@" is an account email: normally account_email
+    // requests that one account's complete history, including signup
+    // and credits with no usage-log counterpart, and the server applies
+    // it together with any feature terms. With Exclude on, email terms
+    // name accounts to hide instead (exclude_account_email, several
+    // allowed) and the feature terms exclude as usual.
     NSCharacterSet *encodeSet = [NSCharacterSet URLQueryAllowedCharacterSet];
     NSMutableArray<NSString *> *featureTerms = [NSMutableArray array];
+    NSMutableArray<NSString *> *excludedEmails = [NSMutableArray array];
     NSString *accountEmail = nil;
     for (NSString *rawTerm in [self.activeSearchQuery componentsSeparatedByString:@","]) {
         NSString *term = [rawTerm stringByTrimmingCharactersInSet:
             [NSCharacterSet whitespaceCharacterSet]];
         if (term.length == 0) continue;
-        if ([term containsString:@"@"]) { accountEmail = term; continue; }
-        [featureTerms addObject:[term stringByAddingPercentEncodingWithAllowedCharacters:encodeSet]];
+        NSString *encoded = [term stringByAddingPercentEncodingWithAllowedCharacters:encodeSet];
+        if ([term containsString:@"@"]) {
+            if (self.excludesFeature) [excludedEmails addObject:encoded];
+            else accountEmail = term;
+            continue;
+        }
+        [featureTerms addObject:encoded];
     }
     NSMutableString *query = [NSMutableString string];
     if (accountEmail.length) {
         [query appendFormat:@"&account_email=%@",
             [accountEmail stringByAddingPercentEncodingWithAllowedCharacters:encodeSet]];
+    }
+    if (excludedEmails.count) {
+        [query appendFormat:@"&exclude_account_email=%@",
+            [excludedEmails componentsJoinedByString:@","]];
     }
     if (featureTerms.count) {
         [query appendFormat:@"&%@=%@", self.excludesFeature ? @"exclude_feature" : @"feature",
@@ -2043,7 +2056,7 @@ static NSInteger const kExportPageSize  = 1000;
     [self.tableView reloadData];
 
     NSMutableArray<NSString *> *filterParts = [NSMutableArray array];
-    if (self.activeSearchQuery.length > 0) [filterParts addObject:self.excludesFeature && ![self.activeSearchQuery containsString:@"@"] ? [NSString stringWithFormat:@"excluding %@", self.activeSearchQuery] : self.activeSearchQuery];
+    if (self.activeSearchQuery.length > 0) [filterParts addObject:self.excludesFeature ? [NSString stringWithFormat:@"excluding %@", self.activeSearchQuery] : self.activeSearchQuery];
     if (self.activeStatusFilter.length > 0) [filterParts addObject:self.activeStatusFilter];
     [self.summaryView setFilterDescription:filterParts.count
         ? [filterParts componentsJoinedByString:@" • "] : nil];
