@@ -385,9 +385,20 @@ static UIImage *GMParticleImage(BOOL coin) {
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
     title.textAlignment = NSTextAlignmentCenter;
-    title.attributedText = [[NSAttributedString alloc] initWithString:@"金帽福运" attributes:@{
+    NSMutableAttributedString *titleText = [[NSMutableAttributedString alloc] initWithString:@"金帽福运" attributes:@{
         NSFontAttributeName: [UIFont systemFontOfSize:34 weight:UIFontWeightHeavy],
         NSForegroundColorAttributeName: GMGold(), NSKernAttributeName: @6}];
+    if (self.vipMode) {
+        // The VIP machine has to read as VIP from the title itself, not
+        // just the small banner line: VIP rides beside the title at a
+        // larger size, same gold, same glow.
+        [titleText appendAttributedString:[[NSAttributedString alloc] initWithString:@" VIP" attributes:@{
+            NSFontAttributeName: [UIFont systemFontOfSize:48 weight:UIFontWeightHeavy],
+            NSForegroundColorAttributeName: GMGold(), NSKernAttributeName: @6}]];
+        title.adjustsFontSizeToFitWidth = YES;
+        title.minimumScaleFactor = .8;
+    }
+    title.attributedText = titleText;
     title.layer.shadowColor = GMC(0xFF8A1F).CGColor;
     title.layer.shadowOpacity = .7; title.layer.shadowRadius = 10; title.layer.shadowOffset = CGSizeZero;
     UILabel *subtitle = [UILabel new];
