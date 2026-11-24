@@ -400,7 +400,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     // down, and a downward swipe on the header strip collapses it. The
     // bare chevron alone was too easy to miss (feedback: "no dismiss
     // button, doesn't swipe down").
-    UIView *grabber = [UIView new]; grabber.backgroundColor = [UIColor colorWithWhite:1 alpha:.35]; grabber.layer.cornerRadius = 2.5; grabber.translatesAutoresizingMaskIntoConstraints = NO; [self.expandedView addSubview:grabber];
+    UIView *grabber = [UIView new]; grabber.backgroundColor = [UIColor colorWithWhite:1 alpha:.55]; grabber.layer.cornerRadius = 2.5; grabber.translatesAutoresizingMaskIntoConstraints = NO; [self.expandedView addSubview:grabber];
     [NSLayoutConstraint activateConstraints:@[[grabber.topAnchor constraintEqualToAnchor:self.expandedView.topAnchor constant:5], [grabber.centerXAnchor constraintEqualToAnchor:self.expandedView.centerXAnchor], [grabber.widthAnchor constraintEqualToConstant:44], [grabber.heightAnchor constraintEqualToConstant:5]]];
     self.presenceLabel.userInteractionEnabled = YES;
     UISwipeGestureRecognizer *headerSwipe = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(collapseTapped)]; headerSwipe.direction = UISwipeGestureRecognizerDirectionDown; [grabber addGestureRecognizer:headerSwipe];
@@ -488,7 +488,10 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     CGFloat hostHeight = self.superview.bounds.size.height;
     CGFloat height = hostHeight > 0 ? MIN(MAX(hostHeight * 0.62, 320), 560) : 420;
     if (overlap > 0) {
-        CGFloat topMargin = 16;
+        // The header has to clear the navigation bar, not just the top of
+        // the screen: the host view runs underneath it, so a flat margin
+        // leaves the grabber and Close hidden behind the nav pills.
+        CGFloat topMargin = MAX(16, self.superview.safeAreaInsets.top + 8);
         CGFloat maxHeight = hostHeight - overlap + self.superview.safeAreaInsets.bottom - 6 - topMargin;
         height = MIN(height, MAX(maxHeight, 240));
     }
