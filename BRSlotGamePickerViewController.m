@@ -194,7 +194,12 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
         [_art.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor],
         [_art.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor],
         [_art.heightAnchor constraintGreaterThanOrEqualToConstant:80],
-        [_art.heightAnchor constraintLessThanOrEqualToConstant:176],
+        // The cap has to leave room for the shortest card's text: the
+        // Classic card needs about 228pt of art on a wide layout before
+        // its title and premise fit above the PLAY pill, so a lower cap
+        // left a dead gap under the premise that the 999-priority
+        // premise-to-pill spacing could not close.
+        [_art.heightAnchor constraintLessThanOrEqualToConstant:230],
         [_artFallback.topAnchor constraintEqualToAnchor:_art.topAnchor],
         [_artFallback.leadingAnchor constraintEqualToAnchor:_art.leadingAnchor],
         [_artFallback.trailingAnchor constraintEqualToAnchor:_art.trailingAnchor],
