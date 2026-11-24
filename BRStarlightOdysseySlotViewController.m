@@ -12,6 +12,7 @@
 //   - free spins then play themselves with every win multiplied
 // All art and sound are generated in code (BRStarlightOdysseyArt / Audio).
 
+#import <UIKit/UIKit.h>
 #import "BRStarlightOdysseySlotViewController.h"
 #import "BRSlotChatBar.h"
 #import "BRStarlightOdysseyEngine.h"
