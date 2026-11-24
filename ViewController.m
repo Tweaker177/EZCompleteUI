@@ -8468,16 +8468,20 @@ static NSString *EZThreadExportTimestampNow(void) {
     [self updateThreadSelectionUI];
 }
 
+- (void)toggleThreadSelectionForRow:(NSUInteger)row {
+    if ([self.selectedThreadMessageIndexes containsIndex:row])
+        [self.selectedThreadMessageIndexes removeIndex:row];
+    else
+        [self.selectedThreadMessageIndexes addIndex:row];
+    [self updateThreadSelectionUI];
+}
+
 - (void)threadSelectionDotTapped:(UIButton *)sender {
     UIView *view = sender;
     while (view && ![view isKindOfClass:[UITableViewCell class]]) view = view.superview;
     NSIndexPath *path = view ? [self.chatTableView indexPathForCell:(UITableViewCell *)view] : nil;
     if (!path) return;
-    if ([self.selectedThreadMessageIndexes containsIndex:(NSUInteger)path.row])
-        [self.selectedThreadMessageIndexes removeIndex:(NSUInteger)path.row];
-    else
-        [self.selectedThreadMessageIndexes addIndex:(NSUInteger)path.row];
-    [self updateThreadSelectionUI];
+    [self toggleThreadSelectionForRow:(NSUInteger)path.row];
 }
 
 - (void)configureThreadSelectionDotForCell:(UITableViewCell *)cell indexPath:(NSIndexPath *)indexPath {
@@ -10384,6 +10388,12 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
                               isError:[msg[@"isError"] boolValue]
                             errorText:msg[@"errorText"]
                  presentingController:self];
+        cell.selectionMode = self.threadSelectionActive;
+        __weak typeof(self) weakSelf = self;
+        cell.imageTapWhileSelecting = ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            if (strongSelf) [strongSelf toggleThreadSelectionForRow:(NSUInteger)indexPath.row];
+        };
         [self configureThreadSelectionDotForCell:cell indexPath:indexPath];
         return cell;
     }
@@ -10674,6 +10684,11 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
 
     NSIndexPath *indexPath = [self.chatTableView indexPathForCell:cell];
     if (!indexPath || (NSUInteger)indexPath.row >= self.displayMessages.count) return;
+
+    if (self.threadSelectionActive) {
+        [self toggleThreadSelectionForRow:(NSUInteger)indexPath.row];
+        return;
+    }
 
     NSString *imagePath = self.displayMessages[(NSUInteger)indexPath.row][@"imagePath"];
     if (!imagePath.length || ![[NSFileManager defaultManager] fileExistsAtPath:imagePath]) return;

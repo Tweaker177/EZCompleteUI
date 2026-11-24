@@ -35,6 +35,13 @@ NS_ASSUME_NONNULL_BEGIN
                       errorText:(nullable NSString *)errorText
            presentingController:(UIViewController *)vc;
 
+/// Thread multiselect mode: when YES, tapping an image does not open it
+/// fullscreen; the tap is handed to imageTapWhileSelecting instead, so a
+/// tap aimed at the selection dot selects the message rather than
+/// expanding the image.
+@property (nonatomic, assign) BOOL selectionMode;
+@property (nonatomic, copy, nullable) void (^imageTapWhileSelecting)(void);
+
 @end
 
 // ── Attachment preview cell ───────────────────────────────────────────────────
