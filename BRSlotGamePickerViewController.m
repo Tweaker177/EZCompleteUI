@@ -28,6 +28,7 @@
 #import "BRGamePickerViewController.h"
 #import "BRSlotChatBar.h"
 #import "BRBlackjackLobbyViewController.h"
+#import "EZMediaPlayerManager.h"
 #import <AVFoundation/AVFoundation.h>
 
 typedef NS_ENUM(NSInteger, BRSlotPickerCardKind) { BRSlotPickerCardKindClassic, BRSlotPickerCardKindPenny, BRSlotPickerCardKindPlunder, BRSlotPickerCardKindPlunderVIP, BRSlotPickerCardKindGolden, BRSlotPickerCardKindGoldenVIP, BRSlotPickerCardKindPhoenix, BRSlotPickerCardKindPhoenixVIP, BRSlotPickerCardKindStarlight, BRSlotPickerCardKindStarlightVIP, BRSlotPickerCardKindPenguin, BRSlotPickerCardKindPenguinVIP, BRSlotPickerCardKindCreate, BRSlotPickerCardKindCommunity, BRSlotPickerCardKindBlackjack, BRSlotPickerCardKindSaved };
@@ -554,7 +555,11 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
 
 @implementation BRSlotGamePickerViewController
 - (void)setupCasinoAmbience {
-    [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:nil];
+    // Ambient strips the music player's lock-screen and Control Center
+    // presence, so while a song is loaded the session policy stays with
+    // the player; the ambience loop plays under it either way.
+    if (!EZMediaPlayerManager.sharedManager.currentItem)
+        [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:nil];
     NSURL *url = [[NSBundle mainBundle] URLForResource:@"crowded_casino" withExtension:@"caf" subdirectory:@"sounds"];
     if (!url) url = [[NSBundle mainBundle] URLForResource:@"crowded_casino" withExtension:@"caf"];
     if (!url) url = [[NSBundle mainBundle] URLForResource:@"crowded_casino" withExtension:@"mp3" subdirectory:@"sounds"];
