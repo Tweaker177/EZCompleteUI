@@ -500,6 +500,10 @@ static CGFloat const kIGCCardPad     = 16.0;  // left/right margin from cell edg
 // ── Actions ───────────────────────────────────────────────────────────────────
 
 - (void)imageTapped:(UITapGestureRecognizer *)tap {
+    if (self.selectionMode) {
+        if (self.imageTapWhileSelecting) self.imageTapWhileSelecting();
+        return;
+    }
     NSInteger idx = tap.view.tag;
     if (idx >= (NSInteger)self.currentPaths.count) return;
     UIImage *img = EZImageFromFilePath(self.currentPaths[(NSUInteger)idx]);
@@ -556,6 +560,8 @@ static CGFloat const kIGCCardPad     = 16.0;  // left/right margin from cell edg
     self.shareAllButton.hidden = NO;
     self.currentPaths = nil;
     self.presenter    = nil;
+    self.selectionMode = NO;
+    self.imageTapWhileSelecting = nil;
 }
 
 @end
