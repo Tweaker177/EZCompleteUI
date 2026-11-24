@@ -724,7 +724,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     }
     NSMutableDictionary *info = [NSMutableDictionary dictionary];
     info[MPMediaItemPropertyTitle] = item.title;
-    info[MPMediaItemPropertyArtist] = item.subtitle.length > 0 ? item.subtitle : @"EZCompleteUI";
+    info[MPMediaItemPropertyArtist] = item.subtitle.length > 0 ? item.subtitle : @"EZCompleteAI";
     info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(self.currentTime);
     info[MPNowPlayingInfoPropertyPlaybackRate] = @(self.state == EZMediaPlayerStatePlaying ? item.playbackRate : 0.0);
     info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = @(item.playbackRate);
