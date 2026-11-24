@@ -188,6 +188,11 @@ static UIImage *SOParticleImage(BOOL coin) {
 @property (nonatomic, strong) BRStarlightOdysseyAudio *audio;
 @property (nonatomic, strong) BRSlotChatBar *chatBar;
 @property (nonatomic, strong) SOGradientView *background;
+@property (nonatomic, strong) SOGradientView *skyView;          // night-sky band behind the header
+@property (nonatomic, strong) NSMutableArray<UIImageView *> *twinkleStars;
+@property (nonatomic, strong) UIView *shootingStar;            // streak + head dot, animated diagonally
+@property (nonatomic, assign) BOOL skyAnimationsActive;
+@property (nonatomic, assign) CGFloat skyWidth;
 @property (nonatomic, strong) UIScrollView *scroll;
 @property (nonatomic, strong) UILabel *balanceLabel, *winLabel, *bannerLabel, *messageLabel, *totalBetLabel;
 @property (nonatomic, strong) UIView *machine;
@@ -195,7 +200,7 @@ static UIImage *SOParticleImage(BOOL coin) {
 @property (nonatomic, strong) NSMutableArray<UIView *> *strips;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIImageView *> *> *stripCells;
 @property (nonatomic, strong) NSMutableArray<NSMutableArray<UIView *> *> *highlights;
-@property (nonatomic, strong) UIButton *linesButton, *betButton, *maxButton, *spinButton, *soundButton;
+@property (nonatomic, strong) UIButton *linesButton, *betButton, *maxButton, *spinButton;
 @property (nonatomic, strong) CAGradientLayer *spinMidShadow;
 @property (nonatomic, strong) UIView *celebrationOverlay, *summaryOverlay, *pickOverlay;
 @property (nonatomic, strong) NSDictionary *result;
@@ -242,10 +247,10 @@ static UIImage *SOParticleImage(BOOL coin) {
     self.audio = [BRStarlightOdysseyAudio new];
     self.audio.muted = [defaults boolForKey:kSOMutedKey];
     [self.audio prepare];
-    [self refreshSoundButton];
     [self refreshLabels];
     [self updateControls];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appDidBecomeActive) name:UIApplicationDidBecomeActiveNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(reduceMotionChanged) name:UIAccessibilityReduceMotionStatusDidChangeNotification object:nil];
 }
 
 - (void)dealloc {
@@ -258,6 +263,11 @@ static UIImage *SOParticleImage(BOOL coin) {
     self.background.frame = self.view.bounds;
     self.spinMidShadow.frame = self.spinButton.bounds;
     self.spinMidShadow.cornerRadius = self.spinButton.layer.cornerRadius;
+    CGFloat width = self.skyView.bounds.size.width;
+    if (width > 10 && fabs(width - self.skyWidth) > 1) {
+        self.skyWidth = width;
+        [self positionTwinkleStars];
+    }
     [self layoutReelsIfNeeded];
 }
 
@@ -268,6 +278,86 @@ static UIImage *SOParticleImage(BOOL coin) {
     [self refreshState];
     if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"starlight-odyssey"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; }
     [self.chatBar start];
+    [self startSkyAnimations];
+}
+
+// Stars twinkle constantly; a shooting star crosses every few seconds.
+// Reduce Motion leaves the stars up but still - the sky stays a sky.
+- (void)startSkyAnimations {
+    if (self.skyAnimationsActive) return;
+    [self positionTwinkleStars];
+    if (UIAccessibilityIsReduceMotionEnabled()) return;
+    self.skyAnimationsActive = YES;
+    for (NSUInteger i = 0; i < self.twinkleStars.count; i++) {
+        UIImageView *star = self.twinkleStars[i];
+        CABasicAnimation *twinkle = [CABasicAnimation animationWithKeyPath:@"opacity"];
+        twinkle.fromValue = @0.15;
+        twinkle.toValue = @1;
+        twinkle.duration = 0.7 + (i % 5) * 0.3;
+        twinkle.autoreverses = YES;
+        twinkle.repeatCount = HUGE_VALF;
+        twinkle.beginTime = CACurrentMediaTime() + i * 0.23;
+        [star.layer addAnimation:twinkle forKey:@"soTwinkle"];
+    }
+    [self scheduleShootingStarAfter:4];
+}
+
+- (void)stopSkyAnimations {
+    self.skyAnimationsActive = NO;
+    for (UIImageView *star in self.twinkleStars) {
+        [star.layer removeAnimationForKey:@"soTwinkle"];
+        star.alpha = .85;
+    }
+    [self.shootingStar.layer removeAllAnimations];
+    self.shootingStar.alpha = 0;
+}
+
+- (void)reduceMotionChanged {
+    if (UIAccessibilityIsReduceMotionEnabled()) [self stopSkyAnimations];
+}
+
+- (void)positionTwinkleStars {
+    static const struct { CGFloat x, y, size; } kStars[] = {
+        {0.06, 0.10, 7}, {0.16, 0.22, 5}, {0.28, 0.08, 6}, {0.38, 0.30, 5},
+        {0.50, 0.12, 7}, {0.62, 0.24, 5}, {0.74, 0.08, 6}, {0.86, 0.20, 5},
+        {0.94, 0.12, 7}, {0.10, 0.45, 5}, {0.22, 0.62, 6}, {0.36, 0.50, 5},
+        {0.52, 0.68, 6}, {0.66, 0.52, 5}, {0.80, 0.66, 7}, {0.92, 0.48, 5},
+    };
+    CGSize size = self.skyView.bounds.size;
+    if (size.width < 10) return;
+    for (NSUInteger i = 0; i < self.twinkleStars.count && i < sizeof(kStars) / sizeof(kStars[0]); i++) {
+        UIImageView *star = self.twinkleStars[i];
+        star.frame = CGRectMake(kStars[i].x * size.width - kStars[i].size / 2,
+                                kStars[i].y * size.height - kStars[i].size / 2,
+                                kStars[i].size, kStars[i].size);
+    }
+}
+
+- (void)scheduleShootingStarAfter:(NSTimeInterval)delay {
+    __weak typeof(self) weakSelf = self;
+    [self after:delay do:^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || !self.skyAnimationsActive) return;
+        [self runShootingStar];
+        [self scheduleShootingStarAfter:7 + arc4random_uniform(8)];
+    }];
+}
+
+- (void)runShootingStar {
+    CGSize size = self.skyView.bounds.size;
+    if (size.width < 10) return;
+    CGFloat startX = size.width * (0.55 + 0.4 * (arc4random_uniform(100) / 100.0));
+    CGFloat startY = 8 + arc4random_uniform(40);
+    CGPoint start = CGPointMake(startX, startY);
+    CGPoint end = CGPointMake(startX - 170, startY + 85);
+    self.shootingStar.center = start;
+    __weak typeof(self) weakSelf = self;
+    [UIView animateKeyframesWithDuration:0.9 delay:0 options:UIViewKeyframeAnimationOptionCalculationModeLinear animations:^{
+        __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+        [UIView addKeyframeWithRelativeStartTime:0 relativeDuration:0.2 animations:^{ self.shootingStar.alpha = 1; }];
+        [UIView addKeyframeWithRelativeStartTime:0 relativeDuration:1 animations:^{ self.shootingStar.center = end; }];
+        [UIView addKeyframeWithRelativeStartTime:0.7 relativeDuration:0.3 animations:^{ self.shootingStar.alpha = 0; }];
+    } completion:nil];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -275,6 +365,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     if (self.isMovingFromParentViewController || self.isBeingDismissed) {
         _leaving = YES;
         _epoch++;
+        [self stopSkyAnimations];
         [self.audio shutdown];
         [self.chatBar stop];
         [self.machine.layer removeAllAnimations];
@@ -377,9 +468,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     self.navigationItem.hidesBackButton = YES;
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:[self navButton:SOLoc(@"BRSlot.Picker.Back", @"‹  BRAINROT") action:@selector(backTapped)]];
     UIButton *pays = [self navButton:SOLoc(@"BRSlot.SO.Pays", @"PAYS") action:@selector(showPays)];
-    self.soundButton = [self navButton:@"🔊" action:@selector(toggleSound)];
-    self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithCustomView:self.soundButton],
-                                                [[UIBarButtonItem alloc] initWithCustomView:pays]];
+    self.navigationItem.rightBarButtonItems = @[[[UIBarButtonItem alloc] initWithCustomView:pays]];
 
     self.scroll = [UIScrollView new];
     // Reserve room for the chat bar pinned over the bottom of this screen,
@@ -536,6 +625,46 @@ static UIImage *SOParticleImage(BOOL coin) {
         ]];
     }
 
+    // A night-sky band behind the header: deeper blues than the screen
+    // background, with a field of twinkling stars and an occasional
+    // shooting star. It sits behind the title, info and banner.
+    self.skyView = [[SOGradientView alloc] initWithFrame:CGRectZero];
+    self.skyView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.skyView.userInteractionEnabled = NO;
+    self.skyView.clipsToBounds = YES;
+    self.skyView.gradientLayer.colors = @[(id)SOC(0x2E2E7A).CGColor, (id)SOC(0x0B0D36).CGColor];
+    [content addSubview:self.skyView];
+    self.twinkleStars = [NSMutableArray array];
+    static const struct { CGFloat x, y, size; BOOL gold; } kStars[] = {
+        {0.06, 0.10, 7, NO}, {0.16, 0.22, 5, NO}, {0.28, 0.08, 6, YES}, {0.38, 0.30, 5, NO},
+        {0.50, 0.12, 7, NO}, {0.62, 0.24, 5, NO}, {0.74, 0.08, 6, YES}, {0.86, 0.20, 5, NO},
+        {0.94, 0.12, 7, NO}, {0.10, 0.45, 5, NO}, {0.22, 0.62, 6, NO}, {0.36, 0.50, 5, NO},
+        {0.52, 0.68, 6, YES}, {0.66, 0.52, 5, NO}, {0.80, 0.66, 7, NO}, {0.92, 0.48, 5, NO},
+    };
+    for (NSUInteger i = 0; i < sizeof(kStars) / sizeof(kStars[0]); i++) {
+        UIImageView *star = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"star.fill"]];
+        star.contentMode = UIViewContentModeScaleAspectFit;
+        star.tintColor = kStars[i].gold ? SOGold() : UIColor.whiteColor;
+        star.userInteractionEnabled = NO;
+        star.alpha = .85;
+        [self.skyView addSubview:star];
+        [self.twinkleStars addObject:star];
+    }
+    self.shootingStar = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 64, 3)];
+    self.shootingStar.userInteractionEnabled = NO;
+    self.shootingStar.alpha = 0;
+    CAGradientLayer *tail = [CAGradientLayer layer];
+    tail.frame = self.shootingStar.bounds;
+    tail.colors = @[(id)UIColor.whiteColor.CGColor, (id)[UIColor colorWithWhite:1 alpha:0].CGColor];
+    tail.startPoint = CGPointMake(0, .5);
+    tail.endPoint = CGPointMake(1, .5);
+    [self.shootingStar.layer addSublayer:tail];
+    UIView *head = [[UIView alloc] initWithFrame:CGRectMake(-2, -1, 5, 5)];
+    head.backgroundColor = UIColor.whiteColor;
+    head.layer.cornerRadius = 2.5;
+    [self.shootingStar addSubview:head];
+    self.shootingStar.transform = CGAffineTransformMakeRotation(-0.46);
+    [self.skyView addSubview:self.shootingStar];
     [content addSubview:title]; [content addSubview:subtitle]; [content addSubview:info]; [content addSubview:self.bannerLabel];
     [content addSubview:self.machine]; [content addSubview:self.messageLabel]; [content addSubview:self.totalBetLabel];
     [content addSubview:controls]; [content addSubview:self.spinButton];
@@ -552,6 +681,10 @@ static UIImage *SOParticleImage(BOOL coin) {
         [content.trailingAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.trailingAnchor],
         [content.widthAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.widthAnchor],
 
+        [self.skyView.topAnchor constraintEqualToAnchor:content.topAnchor],
+        [self.skyView.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:-10],
+        [self.skyView.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:10],
+        [self.skyView.heightAnchor constraintEqualToConstant:180],
         [title.topAnchor constraintEqualToAnchor:content.topAnchor constant:6],
         [title.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:16],
         [title.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:-16],
@@ -752,16 +885,6 @@ static UIImage *SOParticleImage(BOOL coin) {
     [self spinTapped];
 }
 
-- (void)toggleSound {
-    self.audio.muted = !self.audio.muted;
-    [NSUserDefaults.standardUserDefaults setBool:self.audio.muted forKey:kSOMutedKey];
-    [self refreshSoundButton];
-}
-
-- (void)refreshSoundButton {
-    [self.soundButton setTitle:self.audio.muted ? @"🔇" : @"🔊" forState:UIControlStateNormal];
-    [self.soundButton sizeToFit];
-}
 
 - (void)showPays {
     SOPaytableViewController *pays = [SOPaytableViewController new];

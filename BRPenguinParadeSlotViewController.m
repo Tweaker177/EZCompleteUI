@@ -254,6 +254,9 @@ static UIImage *PGSnowImage(void) {
 @property (nonatomic, strong) BRSlotChatBar *chatBar;
 @property (nonatomic, strong) PGGradientView *background;
 @property (nonatomic, strong) UIImageView *sceneryView;          // code-drawn arctic backdrop behind the header
+@property (nonatomic, strong) UIImageView *headerPenguinView;   // the header penguin, pacing back and forth
+@property (nonatomic, strong) NSLayoutConstraint *headerPenguinLeading;
+@property (nonatomic, assign) BOOL penguinWalkActive;
 @property (nonatomic, assign) CGFloat backdropWidth;            // width the backdrop was last rendered at
 @property (nonatomic, strong) CAEmitterLayer *snowEmitter;      // ambient snowfall over the whole screen
 @property (nonatomic, strong) UIScrollView *scroll;
@@ -350,6 +353,45 @@ static UIImage *PGSnowImage(void) {
     [self updateMeterAnimated:NO];
 }
 
+// The header penguin paces back and forth across the top of the scenery,
+// waddling as it goes. The art faces the viewer, so there is no facing to
+// flip - the rock is what sells the walk. Reduce Motion keeps it still.
+- (void)startPenguinWalk {
+    if (!self.headerPenguinView || !self.headerPenguinLeading) return;
+    if (self.penguinWalkActive || UIAccessibilityIsReduceMotionEnabled()) return;
+    self.penguinWalkActive = YES;
+    [self stepPenguinWalkToRight:YES];
+}
+
+- (void)stepPenguinWalkToRight:(BOOL)right {
+    if (!self.penguinWalkActive || !self.headerPenguinView) return;
+    CGFloat home = 18, travel = 96;
+    __weak typeof(self) weakSelf = self;
+    [UIView animateKeyframesWithDuration:2.4 delay:0
+        options:UIViewKeyframeAnimationOptionAllowUserInteraction | UIViewKeyframeAnimationOptionCalculationModeLinear
+        animations:^{
+        __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+        self.headerPenguinLeading.constant = right ? home + travel : home;
+        [self.headerPenguinView.superview layoutIfNeeded];
+        [UIView addKeyframeWithRelativeStartTime:0 relativeDuration:0.25 animations:^{ self.headerPenguinView.transform = CGAffineTransformMakeRotation(-0.09); }];
+        [UIView addKeyframeWithRelativeStartTime:0.25 relativeDuration:0.25 animations:^{ self.headerPenguinView.transform = CGAffineTransformMakeRotation(0.09); }];
+        [UIView addKeyframeWithRelativeStartTime:0.5 relativeDuration:0.25 animations:^{ self.headerPenguinView.transform = CGAffineTransformMakeRotation(-0.09); }];
+        [UIView addKeyframeWithRelativeStartTime:0.75 relativeDuration:0.25 animations:^{ self.headerPenguinView.transform = CGAffineTransformIdentity; }];
+    } completion:^(BOOL finished) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!finished || !self || !self.penguinWalkActive) return;
+        [self stepPenguinWalkToRight:!right];
+    }];
+}
+
+- (void)stopPenguinWalk {
+    self.penguinWalkActive = NO;
+    if (!self.headerPenguinView) return;
+    self.headerPenguinView.transform = CGAffineTransformIdentity;
+    self.headerPenguinLeading.constant = 18;
+    [self.headerPenguinView.superview layoutIfNeeded];
+}
+
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
     _leaving = NO;
@@ -357,6 +399,7 @@ static UIImage *PGSnowImage(void) {
     [self refreshState];
     if (!self.chatBar) { self.chatBar = [[BRSlotChatBar alloc] initWithRoomID:@"penguin-parade"]; self.chatBar.hostViewController = self; [self.chatBar attachToView:self.view]; }
     [self.chatBar start];
+    [self startPenguinWalk];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -364,6 +407,7 @@ static UIImage *PGSnowImage(void) {
     if (self.isMovingFromParentViewController || self.isBeingDismissed) {
         _leaving = YES;
         _epoch++;
+        [self stopPenguinWalk];
         [self.audio shutdown];
         [self.chatBar stop];
         [self.machine.layer removeAllAnimations];
@@ -546,6 +590,7 @@ static UIImage *PGSnowImage(void) {
     title.layer.shadowColor = PGC(0x6FC3F0).CGColor;
     title.layer.shadowOpacity = .7; title.layer.shadowRadius = 10; title.layer.shadowOffset = CGSizeZero;
     UIImageView *headerPenguin = [[UIImageView alloc] initWithImage:[BRPenguinParadeArt bonusPenguinWithVariant:0 size:CGSizeMake(68, 95)]];
+    self.headerPenguinView = headerPenguin;
     headerPenguin.translatesAutoresizingMaskIntoConstraints = NO;
     headerPenguin.contentMode = UIViewContentModeScaleAspectFit;
     headerPenguin.userInteractionEnabled = NO;
@@ -852,6 +897,8 @@ static UIImage *PGSnowImage(void) {
     rightArrow.userInteractionEnabled = NO;
 
     [content addSubview:self.sceneryView]; [content addSubview:headerPenguin]; [content addSubview:titleExtrusion]; [content addSubview:title]; [content addSubview:subtitle];
+    [content bringSubviewToFront:headerPenguin];
+    self.headerPenguinLeading = [headerPenguin.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:18];
     [content addSubview:self.infoCard]; [content addSubview:self.meterView];
     [content addSubview:self.machine]; [content addSubview:snowCap]; [content addSubview:leftArrow]; [content addSubview:rightArrow];
     [content addSubview:messagePanel];
@@ -878,7 +925,7 @@ static UIImage *PGSnowImage(void) {
         [self.sceneryView.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:-10],
         [self.sceneryView.trailingAnchor constraintEqualToAnchor:content.trailingAnchor constant:10],
         [self.sceneryView.heightAnchor constraintEqualToConstant:250],
-        [headerPenguin.leadingAnchor constraintEqualToAnchor:content.leadingAnchor constant:18],
+        self.headerPenguinLeading,
         [headerPenguin.topAnchor constraintEqualToAnchor:content.topAnchor constant:4],
         [headerPenguin.widthAnchor constraintEqualToConstant:68],
         [headerPenguin.heightAnchor constraintEqualToConstant:95],
