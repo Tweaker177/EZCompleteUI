@@ -16,6 +16,10 @@
 
 static const NSTimeInterval kLobbyRefreshInterval = 5.0;
 
+static NSInteger BRBlackjackLobbyInt(id value) { return [value respondsToSelector:@selector(integerValue)] ? [value integerValue] : 0; }
+static BOOL BRBlackjackLobbyBool(id value) { return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO; }
+static NSString *BRBlackjackLobbyString(id value) { return [value isKindOfClass:[NSString class]] ? value : @""; }
+
 @interface BRBlackjackLobbyViewController ()
 @property (nonatomic, copy) NSArray<NSDictionary *> *tables;
 @property (nonatomic, copy) NSString *errorMessage;
@@ -99,14 +103,17 @@ static const NSTimeInterval kLobbyRefreshInterval = 5.0;
         return cell;
     }
 
-    NSDictionary *table = self.tables[indexPath.row];
-    NSInteger seated = [table[@"seated"] integerValue];
-    NSInteger maxSeats = [table[@"max_seats"] integerValue];
-    BOOL mine = [table[@"my_table"] boolValue];
+    NSDictionary *table = [self.tables[indexPath.row] isKindOfClass:[NSDictionary class]] ? self.tables[indexPath.row] : @{};
+    NSInteger seated = BRBlackjackLobbyInt(table[@"seated"]);
+    NSInteger maxSeats = BRBlackjackLobbyInt(table[@"max_seats"]);
+    BOOL mine = BRBlackjackLobbyBool(table[@"my_table"]);
+    NSString *tableName = BRBlackjackLobbyString(table[@"name"]);
+    NSInteger minBet = BRBlackjackLobbyInt(table[@"min_bet"]);
+    NSInteger maxBet = BRBlackjackLobbyInt(table[@"max_bet"]);
     cell.textLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightBold];
-    cell.textLabel.text = [NSString stringWithFormat:@"🃏 %@%@", table[@"name"] ?: @"Table", mine ? @"  ·  you're seated" : @""];
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"Bets %@–%@ coins  ·  %ld/%ld seated  ·  Blackjack pays 3:2",
-                                 table[@"min_bet"], table[@"max_bet"], (long)seated, (long)maxSeats];
+    cell.textLabel.text = [NSString stringWithFormat:@"🃏 %@%@", tableName.length ? tableName : @"Table", mine ? @"  ·  you're seated" : @""];
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"Bets %ld–%ld coins  ·  %ld/%ld seated  ·  Blackjack pays 3:2",
+                                 (long)minBet, (long)maxBet, (long)seated, (long)maxSeats];
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
 }
@@ -116,10 +123,11 @@ static const NSTimeInterval kLobbyRefreshInterval = 5.0;
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     if (self.tables.count == 0) return;
-    NSDictionary *table = self.tables[indexPath.row];
+    NSDictionary *table = [self.tables[indexPath.row] isKindOfClass:[NSDictionary class]] ? self.tables[indexPath.row] : @{};
     NSString *tableID = [table[@"id"] isKindOfClass:[NSString class]] ? table[@"id"] : nil;
     if (!tableID) return;
-    BRBlackjackTableViewController *controller = [[BRBlackjackTableViewController alloc] initWithTableID:tableID tableName:table[@"name"]];
+    NSString *tableName = BRBlackjackLobbyString(table[@"name"]);
+    BRBlackjackTableViewController *controller = [[BRBlackjackTableViewController alloc] initWithTableID:tableID tableName:tableName.length ? tableName : nil];
     [self.navigationController pushViewController:controller animated:YES];
 }
 
