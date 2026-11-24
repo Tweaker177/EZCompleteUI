@@ -157,6 +157,10 @@
 - (void)applyFilter {
     NSArray<NSString *> *terms = [self activeFilterTerms];
     if (!terms.count || !self.entries) {
+        // Invalidate any filter still running in the background, or its
+        // stale result would pass the generation check and replace the
+        // restored full log.
+        self.filterGeneration++;
         self.title = @"System Log";
         self.textView.text = self.rawLog ?: @"";
         [self scrollTextViewToBottom];
