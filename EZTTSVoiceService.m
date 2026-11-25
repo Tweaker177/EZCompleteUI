@@ -22,6 +22,47 @@ static NSError *EZVoiceServiceError(NSInteger code, NSString *title, NSString *m
 
 @implementation EZTTSVoiceService
 
+#pragma mark - Saved voice settings (Settings page sliders)
+
+static NSString * const kEZTTSVoiceStabilityKey  = @"EZTTSVoiceStability";
+static NSString * const kEZTTSVoiceStyleKey      = @"EZTTSVoiceStyle";
+static NSString * const kEZTTSVoiceSimilarityKey = @"EZTTSVoiceSimilarity";
+static NSString * const kEZTTSVoiceBoostKey      = @"EZTTSVoiceSpeakerBoost";
+static NSString * const kEZTTSVoiceSpeedKey      = @"EZTTSVoiceSpeed";
+
+static float EZTTSSavedFloat(NSString *key, float fallback) {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    return [defaults objectForKey:key] ? [defaults floatForKey:key] : fallback;
+}
+
++ (float)savedStability       { return EZTTSSavedFloat(kEZTTSVoiceStabilityKey, 0.5f); }
++ (float)savedStyle           { return EZTTSSavedFloat(kEZTTSVoiceStyleKey, 0.0f); }
++ (float)savedSimilarityBoost { return EZTTSSavedFloat(kEZTTSVoiceSimilarityKey, 0.75f); }
++ (float)savedSpeed           { return EZTTSSavedFloat(kEZTTSVoiceSpeedKey, 1.0f); }
++ (BOOL)savedSpeakerBoost     { return [[NSUserDefaults standardUserDefaults] boolForKey:kEZTTSVoiceBoostKey]; }
+
++ (void)saveStability:(float)value       { [[NSUserDefaults standardUserDefaults] setFloat:value forKey:kEZTTSVoiceStabilityKey]; }
++ (void)saveStyle:(float)value           { [[NSUserDefaults standardUserDefaults] setFloat:value forKey:kEZTTSVoiceStyleKey]; }
++ (void)saveSimilarityBoost:(float)value { [[NSUserDefaults standardUserDefaults] setFloat:value forKey:kEZTTSVoiceSimilarityKey]; }
++ (void)saveSpeed:(float)value           { [[NSUserDefaults standardUserDefaults] setFloat:value forKey:kEZTTSVoiceSpeedKey]; }
++ (void)saveSpeakerBoost:(BOOL)value     { [[NSUserDefaults standardUserDefaults] setBool:value forKey:kEZTTSVoiceBoostKey]; }
+
++ (void)resetVoiceSettings {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    for (NSString *key in @[kEZTTSVoiceStabilityKey, kEZTTSVoiceStyleKey, kEZTTSVoiceSimilarityKey, kEZTTSVoiceBoostKey, kEZTTSVoiceSpeedKey]) {
+        [defaults removeObjectForKey:key];
+    }
+}
+
++ (NSDictionary<NSString *, id> *)voiceSettingsPayload {
+    return @{
+        @"stability":        @([self savedStability]),
+        @"style":            @([self savedStyle]),
+        @"similarity_boost": @([self savedSimilarityBoost]),
+        @"use_speaker_boost": @([self savedSpeakerBoost]),
+    };
+}
+
 + (void)fetchVoicesWithCompletion:(void (^)(NSArray<NSDictionary<NSString *, id> *> * _Nullable, NSError * _Nullable))completion
 {
     NSString *token = [EZAuthManager shared].accessToken;

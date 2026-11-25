@@ -25,6 +25,25 @@ extern NSString * const EZTTSVoiceServiceErrorDomain;
 + (void)fetchVoicesWithCompletion:(void (^)(NSArray<NSDictionary<NSString *, id> *> * _Nullable voices,
                                              NSError * _Nullable error))completion;
 
+/// The user's saved voice settings for text-to-speak, set with the
+/// sliders on the Settings page and stored in NSUserDefaults.
+/// `voiceSettingsPayload` is merged into every `tts` request as
+/// `voice_settings`; the server clamps the values and falls back to
+/// these same defaults when a field is absent, so builds that never
+/// send it are unaffected.
++ (NSDictionary<NSString *, id> *)voiceSettingsPayload;
++ (float)savedStability;
++ (float)savedStyle;
++ (float)savedSimilarityBoost;
++ (BOOL)savedSpeakerBoost;
++ (float)savedSpeed;
++ (void)saveStability:(float)value;
++ (void)saveStyle:(float)value;
++ (void)saveSimilarityBoost:(float)value;
++ (void)saveSpeakerBoost:(BOOL)value;
++ (void)saveSpeed:(float)value;
++ (void)resetVoiceSettings;
+
 @end
 
 NS_ASSUME_NONNULL_END

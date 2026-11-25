@@ -590,6 +590,7 @@
 //     stored in NSUserDefaults; showImageSettings sheet from model button when image model active
 
 #import "ViewController.h"
+#import "EZTTSVoiceService.h"
 #import "SettingsViewController.h"
 #import "ChatHistoryViewController.h"
 #import "helpers.h"
@@ -3989,6 +3990,9 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     } mutableCopy];
     NSString *ttsStorefront = [EZStoreKitManager storefrontCountryCode];
     if (ttsStorefront.length) ttsBody[@"storefront"] = ttsStorefront;
+    // The Settings page voice sliders apply to chat speech too.
+    ttsBody[@"voice_settings"] = [EZTTSVoiceService voiceSettingsPayload];
+    ttsBody[@"speed"] = @([EZTTSVoiceService savedSpeed]);
     req.HTTPBody = [NSJSONSerialization dataWithJSONObject:ttsBody options:0 error:nil];
 
     [[[NSURLSession sharedSession] dataTaskWithRequest:req
