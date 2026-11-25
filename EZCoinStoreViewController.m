@@ -1023,7 +1023,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     ultra.type            = EZStoreItemTypeSubscription;
 
-    ultra.coins           = 2500;
+    ultra.coins           = 2000;
 
     ultra.accentColor     = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:1.0]; // gold
 
@@ -3787,8 +3787,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
             @"standard_annual":   @10800,
             @"pro":               @1600,
             @"pro_annual":        @19200,
-            @"ultra":             @2500,
-            @"ultra_annual":      @30000,
+            @"ultra":             @2000,
+            @"ultra_annual":      @24000,
             @"power":             @6000,
             @"power_annual":      @72000,
             @"enterprise":        @12500,
