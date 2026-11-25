@@ -105,6 +105,7 @@ static UIImage *SOParticleImage(BOOL coin) {
 
 @interface SOPaytableViewController : UIViewController <UITableViewDataSource, UITableViewDelegate>
 @property (nonatomic, strong) UITableView *table;
+@property (nonatomic, assign) BOOL vipMode;   // VIP odds line goes here, not on the machine
 @end
 
 @implementation SOPaytableViewController
@@ -139,6 +140,8 @@ static UIImage *SOParticleImage(BOOL coin) {
     footer.font = [UIFont systemFontOfSize:13];
     footer.text = SOLoc(@"BRSlot.SO.Pays.Rules",
         @"HOW TO PLAY\n\n• 25 paylines (choose how many to play). Matching symbols pay left to right from reel 1: 3, 4 or 5 in a row. Prizes multiply your bet per line.\n• Warp Stars are scatters and pay anywhere. A spin never shows more than five.\n• 3 stars = 5–8 free spins, 4 stars = 14–16, 5 stars = 25–30.\n• Before free spins begin, pick one of three face-down warp cards. It hides ×2, ×3 or ×5, and that multiplies every line win in the bonus.\n• Stars during free spins add more spins (up to 100 banked).\n• Free spins cost nothing. Spins and payouts are decided on the server.");
+    if (self.vipMode) footer.text = [footer.text stringByAppendingString:SOLoc(@"BRSlot.SO.Pays.VIP",
+        @"\n• VIP — bets to 50 a line, richer line pays, and a max bet of 1,250 coins.")]
     CGSize fit = [footer sizeThatFits:CGSizeMake(UIScreen.mainScreen.bounds.size.width - 40, CGFLOAT_MAX)];
     UIView *wrap = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 100, fit.height + 40)];
     footer.frame = CGRectMake(20, 12, UIScreen.mainScreen.bounds.size.width - 40, fit.height);
@@ -192,6 +195,7 @@ static UIImage *SOParticleImage(BOOL coin) {
 @property (nonatomic, strong) SOGradientView *skyView;          // night-sky band behind the header
 @property (nonatomic, strong) NSMutableArray<UIImageView *> *twinkleStars;
 @property (nonatomic, strong) UIView *shootingStar;            // streak + head dot, animated diagonally
+@property (nonatomic, strong) UIImageView *rocketView;           // reel rocket, flown across the sky now and then
 @property (nonatomic, assign) BOOL skyAnimationsActive;
 @property (nonatomic, assign) CGFloat skyWidth;
 @property (nonatomic, strong) UIScrollView *scroll;
@@ -301,6 +305,7 @@ static UIImage *SOParticleImage(BOOL coin) {
         [star.layer addAnimation:twinkle forKey:@"soTwinkle"];
     }
     [self scheduleShootingStarAfter:4];
+    [self scheduleRocketAfter:9];
 }
 
 - (void)stopSkyAnimations {
@@ -311,6 +316,8 @@ static UIImage *SOParticleImage(BOOL coin) {
     }
     [self.shootingStar.layer removeAllAnimations];
     self.shootingStar.alpha = 0;
+    [self.rocketView.layer removeAllAnimations];
+    self.rocketView.alpha = 0;
 }
 
 - (void)reduceMotionChanged {
@@ -358,6 +365,30 @@ static UIImage *SOParticleImage(BOOL coin) {
         [UIView addKeyframeWithRelativeStartTime:0 relativeDuration:0.2 animations:^{ self.shootingStar.alpha = 1; }];
         [UIView addKeyframeWithRelativeStartTime:0 relativeDuration:1 animations:^{ self.shootingStar.center = end; }];
         [UIView addKeyframeWithRelativeStartTime:0.7 relativeDuration:0.3 animations:^{ self.shootingStar.alpha = 0; }];
+    } completion:nil];
+}
+
+- (void)scheduleRocketAfter:(NSTimeInterval)delay {
+    __weak typeof(self) weakSelf = self;
+    [self after:delay do:^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || !self.skyAnimationsActive) return;
+        [self runRocket];
+        [self scheduleRocketAfter:16 + arc4random_uniform(13)];
+    }];
+}
+
+- (void)runRocket {
+    CGSize size = self.skyView.bounds.size;
+    if (size.width < 10) return;
+    CGFloat y = 30 + arc4random_uniform((uint32_t)MAX(1, size.height - 80));
+    self.rocketView.center = CGPointMake(-44, y);
+    __weak typeof(self) weakSelf = self;
+    [UIView animateKeyframesWithDuration:4.5 delay:0 options:UIViewKeyframeAnimationOptionCalculationModeLinear animations:^{
+        __strong typeof(weakSelf) self = weakSelf; if (!self) return;
+        [UIView addKeyframeWithRelativeStartTime:0 relativeDuration:0.08 animations:^{ self.rocketView.alpha = 1; }];
+        [UIView addKeyframeWithRelativeStartTime:0 relativeDuration:1 animations:^{ self.rocketView.center = CGPointMake(size.width + 44, y - 24); }];
+        [UIView addKeyframeWithRelativeStartTime:0.88 relativeDuration:0.12 animations:^{ self.rocketView.alpha = 0; }];
     } completion:nil];
 }
 
@@ -677,6 +708,14 @@ static UIImage *SOParticleImage(BOOL coin) {
     [self.shootingStar addSubview:head];
     self.shootingStar.transform = CGAffineTransformMakeRotation(-0.46);
     [self.skyView addSubview:self.shootingStar];
+    // A rocket crosses the sky every once in a while, rarer than the
+    // shooting star. The reel art points up, so it is turned to fly right.
+    self.rocketView = [[UIImageView alloc] initWithImage:[BRStarlightOdysseyArt imageForSymbol:SOSymbolRocket size:CGSizeMake(34, 34)]];
+    self.rocketView.contentMode = UIViewContentModeScaleAspectFit;
+    self.rocketView.userInteractionEnabled = NO;
+    self.rocketView.alpha = 0;
+    self.rocketView.transform = CGAffineTransformMakeRotation(M_PI_2);
+    [self.skyView addSubview:self.rocketView];
     [content addSubview:title]; [content addSubview:subtitle]; [content addSubview:info]; [content addSubview:self.bannerLabel];
     [content addSubview:self.machine]; [content addSubview:self.messageLabel]; [content addSubview:self.totalBetLabel];
     [content addSubview:controls]; [content addSubview:self.spinButton];
@@ -851,7 +890,7 @@ static UIImage *SOParticleImage(BOOL coin) {
         self.bannerLabel.text = [NSString stringWithFormat:SOLoc(@"BRSlot.SO.FreeSpinsLeft", @"FREE SPINS  %ld LEFT  ·  ×%@  ·  WON %@"), (long)_freeRemaining, mult, SONum(_bonusTotal)];
         self.bannerLabel.textColor = SOC(0xFFE48F);
     } else {
-        self.bannerLabel.text = self.vipMode ? SOLoc(@"BRSlot.SO.HintVIP", @"STARLIGHT ODYSSEY VIP \u00b7 BETS TO 50 A LINE\nRICHER LINE PAYS \u00b7 3+ WARP STARS = FREE SPINS") : SOLoc(@"BRSlot.SO.Hint", @"3+ WARP STARS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5");
+        self.bannerLabel.text = SOLoc(@"BRSlot.SO.Hint", @"3+ WARP STARS = FREE SPINS\nPICK A CARD FOR ×2 / ×3 / ×5");
         self.bannerLabel.textColor = SOGold();
     }
 }
@@ -900,6 +939,7 @@ static UIImage *SOParticleImage(BOOL coin) {
 
 - (void)showPays {
     SOPaytableViewController *pays = [SOPaytableViewController new];
+    pays.vipMode = self.vipMode;
     pays.modalPresentationStyle = UIModalPresentationPageSheet;
     [self presentViewController:pays animated:YES completion:nil];
 }
@@ -1270,7 +1310,7 @@ static NSArray<UIColor *> *SOLineColors(void) {
     mark.backgroundColor = [color colorWithAlphaComponent:.22];
     if (pulse) {
         CABasicAnimation *fade = [CABasicAnimation animationWithKeyPath:@"opacity"];
-        fade.fromValue = @1; fade.toValue = @0.45; fade.duration = 0.4; fade.autoreverses = YES; fade.repeatCount = HUGE_VALF;
+        fade.fromValue = @1; fade.toValue = @0.45; fade.duration = 0.55; fade.autoreverses = YES; fade.repeatCount = HUGE_VALF;
         [mark.layer addAnimation:fade forKey:@"gmPulse"];
         UIImageView *cell = self.stripCells[reel][1 + row];
         if (UIAccessibilityIsReduceMotionEnabled()) {
@@ -1284,14 +1324,14 @@ static NSArray<UIColor *> *SOLineColors(void) {
             perspective.m34 = -1.0 / 420.0;
             cell.superview.layer.sublayerTransform = perspective;
             CABasicAnimation *size = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
-            size.fromValue = @1; size.toValue = @1.18; size.duration = 0.32;
+            size.fromValue = @1; size.toValue = @1.18; size.duration = 0.48;
             size.autoreverses = YES; size.repeatCount = HUGE_VALF;
             size.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
             size.beginTime = CACurrentMediaTime() + reel * 0.09;
             [cell.layer addAnimation:size forKey:@"winSizePulse"];
             CAKeyframeAnimation *rock = [CAKeyframeAnimation animationWithKeyPath:@"transform.rotation.y"];
             rock.values = @[@0, @0.38, @0, @-0.38, @0];
-            rock.duration = 0.96; rock.repeatCount = HUGE_VALF;
+            rock.duration = 1.44; rock.repeatCount = HUGE_VALF;
             rock.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
             rock.beginTime = CACurrentMediaTime() + reel * 0.09;
             [cell.layer addAnimation:rock forKey:@"winYRock"];
@@ -1335,7 +1375,7 @@ static NSArray<UIColor *> *SOLineColors(void) {
     [self setMessage:[NSString stringWithFormat:SOLoc(@"BRSlot.SO.WonCoins", @"Won %ld coins!"), (long)payout] highlight:YES];
 
     NSArray<UIColor *> *palette = SOLineColors();
-    NSTimeInterval per = _spinFree ? 0.75 : 1.0;
+    NSTimeInterval per = _spinFree ? 1.15 : 1.5;
     BOOL oneByOne = winners.count <= 3;
     for (NSUInteger i = 0; i < winners.count; i++) {
         NSDictionary *line = winners[i];
@@ -1362,7 +1402,7 @@ static NSArray<UIColor *> *SOLineColors(void) {
     if (!oneByOne) {
         for (UIView *mark in [self.highlights valueForKeyPath:@"@unionOfArrays.self"]) (void)mark;
     }
-    NSTimeInterval total = oneByOne ? MAX(1.2, winners.count * per + 0.3) : 1.8;
+    NSTimeInterval total = oneByOne ? MAX(2.0, winners.count * per + 0.3) : 2.6;
     [self after:total do:^{
         if (self->_lastAwarded <= 0) [self clearHighlights];   // keep hats lit if a bonus follows
         else { [self clearHighlights]; }

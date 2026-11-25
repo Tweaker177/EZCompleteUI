@@ -14,7 +14,9 @@
 //   token counts, API cost, and efficiency.
 //
 //   A search bar at the top filters by email (type "@") or feature name (anything
-//   else — e.g. "tts", "chat", "image"). Filters are sent to the server so paging
+//   else — e.g. "tts", "chat", "image"). Feature filters accept a comma-separated
+//   list: "chat, image" shows either, and with Exclude on, "slot, daily_reward"
+//   hides both. Filters are sent to the server so paging
 //   and aggregates always reflect the filtered set, not just the loaded page.
 //
 //   The Export button fetches all pages of the current filter (up to 2,000 rows)
@@ -26,6 +28,24 @@
 //   no business being reachable from a shipped binary. The call site in
 //   EZCoinStoreViewController is gated to match; any non-DEBUG reference to this
 //   class will fail to compile rather than silently shipping.
+//
+// v2.0 — Rename display name (admin)
+//   - The per-account action sheet gains "Rename Display Name": enter a
+//     new lounge display name for the account and it is set server-side
+//     via admin-set-display-name (same JWT + admin-secret auth as the
+//     ledger reads). The success alert shows the previous and new names
+//     from the server's response.
+//
+// v1.9 — Comma-separated multi-filter
+//   - The search field now splits on commas: each term is its own filter
+//     value. Include mode matches a row when any term matches its
+//     feature; Exclude mode drops a row when any term matches. A term
+//     containing "@" is an account email: normally it narrows the list
+//     to that account, combined with any feature terms; with Exclude on,
+//     email terms hide those accounts instead (several allowed).
+//   - get-admin-ledger accepts the comma list in feature= and
+//     exclude_feature= (single values behave as before), so paging,
+//     aggregates, and exports all reflect the multi-filter.
 //
 // v1.8 — Status display, copyable cards, status filter
 //   - Cards now show an explicit status label (Completed / Pending / Error)
@@ -114,6 +134,7 @@ static NSString *const kAdminLedgerPath    = @"/functions/v1/get-admin-ledger";
 // coin_transactions and bump the user's balance). Adjust the payload keys
 // in performGrantCoinsForUserId:email:amount:reason: to match it.
 static NSString *const kGrantCoinsPath     = @"/functions/v1/grant-admin-coins";
+static NSString *const kRenameDisplayNamePath = @"/functions/v1/admin-set-display-name";
 static NSString *const kAdminSecretUDKey   = @"EZAdminSecret";   // NSUserDefaults key
 static NSString *const kLedgerCellID       = @"EZAdminLedgerCell";
 
@@ -1036,7 +1057,7 @@ static NSInteger const kPageSize = 50;
     // Fetches are debounced 0.4s after the last keystroke to avoid hammering
     // the server on every character. Clearing the field instantly resets.
     self.searchBar                    = [UISearchBar new];
-    self.searchBar.placeholder        = @"Email = full account history • or feature";
+    self.searchBar.placeholder        = @"Email, or features separated by commas";
     self.searchBar.searchBarStyle     = UISearchBarStyleMinimal;
     self.searchBar.barStyle           = UIBarStyleBlack;
     self.searchBar.tintColor          = EZGold();
@@ -1256,6 +1277,11 @@ static NSInteger const kPageSize = 50;
                                               handler:^(__unused UIAlertAction *action) {
         [weakSelf presentCoinAdjustmentSheetForUserId:userId email:email reversal:YES];
     }]];
+    [choice addAction:[UIAlertAction actionWithTitle:@"Rename Display Name"
+                                                style:UIAlertActionStyleDefault
+                                              handler:^(__unused UIAlertAction *action) {
+        [weakSelf presentRenameDisplayNameForUserId:userId email:email];
+    }]];
     [choice addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     choice.popoverPresentationController.sourceView = self.view;
     choice.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 1, 1);
@@ -1427,6 +1453,116 @@ static NSInteger const kPageSize = 50;
     }];
 }
 
+- (void)presentRenameDisplayNameForUserId:(NSString *)userId email:(NSString *)email {
+    NSString *displayEmail = email.length ? email : (userId.length ? userId : @"(unknown account)");
+    UIAlertController *inputAlert = [UIAlertController
+        alertControllerWithTitle:@"Rename Display Name"
+                         message:[NSString stringWithFormat:
+                            @"Account: %@\n\nEnter the new lounge display name for this account. "
+                            @"It replaces the current name everywhere the profile is shown.",
+                            displayEmail]
+                  preferredStyle:UIAlertControllerStyleAlert];
+
+    [inputAlert addTextFieldWithConfigurationHandler:^(UITextField *textField) {
+        textField.placeholder = @"New display name";
+        textField.autocapitalizationType = UITextAutocapitalizationTypeWords;
+        textField.autocorrectionType = UITextAutocorrectionTypeNo;
+    }];
+
+    [inputAlert addAction:[UIAlertAction actionWithTitle:@"Cancel"
+                                                    style:UIAlertActionStyleCancel
+                                                  handler:nil]];
+    __weak typeof(self) weakSelf = self;
+    [inputAlert addAction:[UIAlertAction actionWithTitle:@"Rename"
+                                                    style:UIAlertActionStyleDestructive
+                                                  handler:^(__unused UIAlertAction *action) {
+        NSString *newName = [inputAlert.textFields.firstObject.text
+            stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+        if (newName.length < 2) {
+            [weakSelf presentSimpleAlertWithTitle:@"Name Too Short"
+                                          message:@"Choose a display name with at least 2 characters."];
+            return;
+        }
+        [weakSelf performRenameDisplayNameForUserId:userId email:email newName:newName];
+    }]];
+
+    [self presentViewController:inputAlert animated:YES completion:nil];
+}
+
+- (void)performRenameDisplayNameForUserId:(NSString *)userId
+                                    email:(NSString *)email
+                                  newName:(NSString *)newName {
+    if (!self.adminSecret.length) {
+        [self presentSimpleAlertWithTitle:@"Not Authenticated"
+                                  message:@"Admin secret is missing — pull to refresh the ledger to re-enter it, then try again."];
+        return;
+    }
+    if (![EZAuthManager shared].accessToken) {
+        [self presentSimpleAlertWithTitle:@"Not Authenticated" message:@"No active session was found."];
+        return;
+    }
+
+    [self.spinner startAnimating];
+    __weak typeof(self) weakSelf = self;
+    [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *tokenError) {
+        if (!token.length) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                typeof(self) self = weakSelf;
+                [self.spinner stopAnimating];
+                [self presentSimpleAlertWithTitle:@"Not Authenticated"
+                                           message:tokenError.localizedDescription ?: @"Your session could not be refreshed."];
+            });
+            return;
+        }
+        NSString *urlString = [NSString stringWithFormat:@"%@%@", kAdminLedgerBase, kRenameDisplayNamePath];
+        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString]];
+        request.HTTPMethod = @"POST";
+        request.timeoutInterval = 20;
+        [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
+        [request setValue:self.adminSecret forHTTPHeaderField:@"x-admin-secret"];
+        [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+        request.HTTPBody = [NSJSONSerialization dataWithJSONObject:@{
+            @"user_id": userId ?: @"", @"email": email ?: @"",
+            @"new_name": newName ?: @"",
+        } options:0 error:nil];
+        [[[NSURLSession sharedSession] dataTaskWithRequest:request
+            completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            if (!strongSelf) return;
+            [strongSelf.spinner stopAnimating];
+
+            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+            BOOL success = !error && httpResponse.statusCode >= 200 && httpResponse.statusCode < 300;
+            id parsedBody = data.length ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+            NSDictionary *body = [parsedBody isKindOfClass:[NSDictionary class]] ? parsedBody : nil;
+
+            if (!success) {
+                NSString *serverError = [body[@"error"] isKindOfClass:[NSString class]] ? body[@"error"] : nil;
+                NSString *detail = serverError.length ? serverError : error.localizedDescription
+                    ?: [NSString stringWithFormat:@"Server returned status %ld.", (long)httpResponse.statusCode];
+                if (httpResponse.statusCode == 403) {
+                    strongSelf.adminSecret = nil;
+                    [[NSUserDefaults standardUserDefaults] removeObjectForKey:kAdminSecretUDKey];
+                }
+                [strongSelf presentSimpleAlertWithTitle:@"Rename Failed" message:detail];
+                return;
+            }
+
+            UINotificationFeedbackGenerator *haptic = [UINotificationFeedbackGenerator new];
+            [haptic notificationOccurred:UINotificationFeedbackTypeSuccess];
+
+            NSString *oldName = [body[@"old_name"] isKindOfClass:[NSString class]] ? body[@"old_name"] : @"";
+            NSString *savedName = [body[@"new_name"] isKindOfClass:[NSString class]] ? body[@"new_name"] : newName;
+            [strongSelf presentSimpleAlertWithTitle:@"Display Name Updated"
+                                            message:oldName.length
+                                                ? [NSString stringWithFormat:@"Renamed %@ to %@.", oldName, savedName]
+                                                : [NSString stringWithFormat:@"Display name set to %@.", savedName]];
+        });
+        }] resume];
+    }];
+}
+
 - (void)presentSimpleAlertWithTitle:(NSString *)title message:(NSString *)message {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
                                                                      message:message
@@ -1490,18 +1626,44 @@ static NSInteger const kExportPageSize  = 1000;
 // Returns an empty string when no filter is active.
 - (NSString *)activeFilterQueryString {
     if (self.activeSearchQuery.length == 0) return @"";
-    NSString *encoded = [self.activeSearchQuery
-        stringByAddingPercentEncodingWithAllowedCharacters:
-        [NSCharacterSet URLQueryAllowedCharacterSet]];
-    if ([self.activeSearchQuery containsString:@"@"]) {
-        // account_email requests one account's complete history, including
-        // signup and credits with no usage-log counterpart.
-        return [NSString stringWithFormat:@"&account_email=%@", encoded];
+    // Comma-separated terms: each term is its own filter value, encoded
+    // separately so the commas between them survive as separators. A
+    // term containing "@" is an account email: normally account_email
+    // requests that one account's complete history, including signup
+    // and credits with no usage-log counterpart, and the server applies
+    // it together with any feature terms. With Exclude on, email terms
+    // name accounts to hide instead (exclude_account_email, several
+    // allowed) and the feature terms exclude as usual.
+    NSCharacterSet *encodeSet = [NSCharacterSet URLQueryAllowedCharacterSet];
+    NSMutableArray<NSString *> *featureTerms = [NSMutableArray array];
+    NSMutableArray<NSString *> *excludedEmails = [NSMutableArray array];
+    NSString *accountEmail = nil;
+    for (NSString *rawTerm in [self.activeSearchQuery componentsSeparatedByString:@","]) {
+        NSString *term = [rawTerm stringByTrimmingCharactersInSet:
+            [NSCharacterSet whitespaceCharacterSet]];
+        if (term.length == 0) continue;
+        NSString *encoded = [term stringByAddingPercentEncodingWithAllowedCharacters:encodeSet];
+        if ([term containsString:@"@"]) {
+            if (self.excludesFeature) [excludedEmails addObject:encoded];
+            else accountEmail = term;
+            continue;
+        }
+        [featureTerms addObject:encoded];
     }
-    if (self.excludesFeature) {
-        return [NSString stringWithFormat:@"&exclude_feature=%@", encoded];
+    NSMutableString *query = [NSMutableString string];
+    if (accountEmail.length) {
+        [query appendFormat:@"&account_email=%@",
+            [accountEmail stringByAddingPercentEncodingWithAllowedCharacters:encodeSet]];
     }
-    return [NSString stringWithFormat:@"&feature=%@", encoded];
+    if (excludedEmails.count) {
+        [query appendFormat:@"&exclude_account_email=%@",
+            [excludedEmails componentsJoinedByString:@","]];
+    }
+    if (featureTerms.count) {
+        [query appendFormat:@"&%@=%@", self.excludesFeature ? @"exclude_feature" : @"feature",
+            [featureTerms componentsJoinedByString:@","]];
+    }
+    return query;
 }
 
 - (void)exportButtonTapped {
@@ -2017,7 +2179,7 @@ static NSInteger const kExportPageSize  = 1000;
     [self.tableView reloadData];
 
     NSMutableArray<NSString *> *filterParts = [NSMutableArray array];
-    if (self.activeSearchQuery.length > 0) [filterParts addObject:self.excludesFeature && ![self.activeSearchQuery containsString:@"@"] ? [NSString stringWithFormat:@"excluding %@", self.activeSearchQuery] : self.activeSearchQuery];
+    if (self.activeSearchQuery.length > 0) [filterParts addObject:self.excludesFeature ? [NSString stringWithFormat:@"excluding %@", self.activeSearchQuery] : self.activeSearchQuery];
     if (self.activeStatusFilter.length > 0) [filterParts addObject:self.activeStatusFilter];
     [self.summaryView setFilterDescription:filterParts.count
         ? [filterParts componentsJoinedByString:@" • "] : nil];

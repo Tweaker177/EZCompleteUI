@@ -1091,7 +1091,7 @@ static NSString *EZSoundsShortAutoName(NSString *text) {
     float rate = [storedRate isKindOfClass:[NSNumber class]] ? [storedRate floatValue] : 1.0f;
     return [EZMediaPlayerItem itemWithIdentifier:[kEZSoundsPlayerIdentifierPrefix stringByAppendingString:entry.uuid]
                                            title:[self displayTitleForEntry:entry]
-                                        subtitle:@"EZCompleteUI"
+                                        subtitle:@"EZCompleteAI"
                                          fileURL:url
                                     durationHint:entry.duration
                                     playbackRate:rate];
