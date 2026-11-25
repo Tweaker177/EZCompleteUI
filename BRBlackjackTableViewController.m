@@ -78,20 +78,24 @@ static const NSTimeInterval kMaxPollBackoff = 6.0;
 // Space reserved at the bottom of the screen for the collapsed chat bar.
 static const CGFloat kChatBarReservedHeight = 60.0;
 // Card and seat sizing. Cards are 1.4x as tall as they are wide.
-static const CGFloat kDealerCardWidth = 56.0;
-static const CGFloat kSeatCardWidth = 44.0;
-static const CGFloat kSplitCardWidth = 32.0;
-static const CGFloat kSeatWidth = 150.0;
-static const CGFloat kSeatPanelHeight = 214.0;
-static const CGFloat kSeatSpacing = 8.0;
+static const CGFloat kDealerCardWidth = 74.0;
+static const CGFloat kSeatCardWidth = 58.0;
+static const CGFloat kSplitCardWidth = 42.0;
+static const CGFloat kSeatWidth = 172.0;
+static const CGFloat kSeatPanelHeight = 240.0;
+static const CGFloat kSeatSpacing = 14.0;
 static const CGFloat kBetPanelHeight = 150.0;
 static const CGFloat kDealerAvatarSize = 68.0;
 // Height of everything between the timer line and the seat row at scale 1:
-// dealer avatar + name (87), total label (22), room for a one-line speech bubble (38), gaps (14).
-static const CGFloat kDealerAreaBaseHeight = 161.0;
-static const CGFloat kMinTableScale = 0.7;
+// the dealer card row (74 x 1.4 = 104), total label (22), room for a one-line speech bubble (38), gaps (16).
+static const CGFloat kDealerAreaBaseHeight = 180.0;
+static const CGFloat kMinTableScale = 0.75;
 static const CGFloat kMaxTableScale = 1.8;
-static const CGFloat kMaxDealerScale = 1.6;
+static const CGFloat kMaxDealerScale = 1.8;
+// Bottom reserve while the action buttons (46pt) are the visible panel,
+// instead of the full bet panel: the playing phase gets the difference
+// as table room, which is when the cards matter most.
+static const CGFloat kActionPanelReserveHeight = 56.0;
 // Posted by BRSlotChatBar (object = room id) after a message was sent.
 static NSString * const kChatMessageSentNotification = @"BRSlotChatMessageSentNotification";
 static NSString * const kDealerVoiceMutedKey = @"BRBlackjackDealerVoiceMuted";
@@ -118,7 +122,7 @@ static UIView *BRBlackjackCardView(NSInteger cardID, CGFloat width) {
     card.translatesAutoresizingMaskIntoConstraints = NO;
     card.textAlignment = NSTextAlignmentCenter;
     card.numberOfLines = 2;
-    card.layer.cornerRadius = 5;
+    card.layer.cornerRadius = MAX(5, width * 0.09);
     card.layer.borderWidth = 1;
     card.layer.borderColor = [UIColor colorWithWhite:0 alpha:.35].CGColor;
     card.clipsToBounds = YES;
@@ -688,14 +692,14 @@ static const NSInteger kMaxManifestAttempts = 8;
         [self.timerLabel.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
         [self.timerLabel.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
 
-        [dealerRow.topAnchor constraintEqualToAnchor:self.timerLabel.bottomAnchor constant:10],
+        [dealerRow.topAnchor constraintEqualToAnchor:self.timerLabel.bottomAnchor constant:16],
         [dealerRow.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
-        [dealerInfo.topAnchor constraintEqualToAnchor:dealerRow.bottomAnchor constant:4],
+        [dealerInfo.topAnchor constraintEqualToAnchor:dealerRow.bottomAnchor constant:8],
         [dealerInfo.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
         [dealerInfo.leadingAnchor constraintGreaterThanOrEqualToAnchor:safe.leadingAnchor constant:24],
         [dealerInfo.trailingAnchor constraintLessThanOrEqualToAnchor:safe.trailingAnchor constant:-24],
 
-        [self.seatsScroll.topAnchor constraintEqualToAnchor:dealerInfo.bottomAnchor constant:10],
+        [self.seatsScroll.topAnchor constraintEqualToAnchor:dealerInfo.bottomAnchor constant:16],
         [self.seatsScroll.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:8],
         [self.seatsScroll.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-8],
         [self.seatsStack.topAnchor constraintEqualToAnchor:self.seatsScroll.contentLayoutGuide.topAnchor],
@@ -950,8 +954,14 @@ static const NSInteger kMaxManifestAttempts = 8;
     NSInteger seatCount = MAX(1, (NSInteger)BRBlackjackArray(self.tableState[@"seats"]).count);
     CGFloat rowWidth = safeFrame.size.width - 16;
     CGFloat widthScale = (rowWidth - kSeatSpacing * (seatCount - 1)) / seatCount / kSeatWidth;
-    CGFloat top = CGRectGetMaxY(self.timerLabel.frame) + 10;
-    CGFloat bottom = CGRectGetMaxY(safeFrame) - kChatBarReservedHeight - kBetPanelHeight - 10;
+    CGFloat top = CGRectGetMaxY(self.timerLabel.frame) + 16;
+    // Reserve only what the visible bottom panel actually occupies: the
+    // bet panel is tall, the action row is short, and during results
+    // neither is up. Reserving the bet panel's height in every phase
+    // shrank the cards for the whole round.
+    CGFloat panelReserve = (self.betPanel && !self.betPanel.hidden) ? kBetPanelHeight
+        : (self.actionPanel && !self.actionPanel.hidden) ? kActionPanelReserveHeight : 10;
+    CGFloat bottom = CGRectGetMaxY(safeFrame) - kChatBarReservedHeight - panelReserve - 10;
     CGFloat heightScale = (bottom - top) / (kDealerAreaBaseHeight + kSeatPanelHeight);
     CGFloat scale = MIN(widthScale, heightScale);
     scale = MAX(kMinTableScale, MIN(kMaxTableScale, scale));
@@ -1077,7 +1087,7 @@ static const NSInteger kMaxManifestAttempts = 8;
     UIStackView *block = [[UIStackView alloc] initWithArrangedSubviews:@[cardHolder, summary]];
     block.translatesAutoresizingMaskIntoConstraints = NO;
     block.axis = UILayoutConstraintAxisVertical;
-    block.spacing = 3;
+    block.spacing = 5;
     return block;
 }
 
@@ -1132,13 +1142,13 @@ static const NSInteger kMaxManifestAttempts = 8;
     UIStackView *column = [[UIStackView alloc] initWithArrangedSubviews:rows];
     column.translatesAutoresizingMaskIntoConstraints = NO;
     column.axis = UILayoutConstraintAxisVertical;
-    column.spacing = 4;
+    column.spacing = 6;
     [card addSubview:column];
     [NSLayoutConstraint activateConstraints:@[
-        [column.topAnchor constraintEqualToAnchor:card.topAnchor constant:8],
-        [column.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-8],
-        [column.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:4],
-        [column.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-4],
+        [column.topAnchor constraintEqualToAnchor:card.topAnchor constant:12],
+        [column.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-12],
+        [column.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:8],
+        [column.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-8],
     ]];
     card.isAccessibilityElement = YES;
     card.accessibilityLabel = [NSString stringWithFormat:@"%@, %@%@, stake %ld", name.text,
@@ -1215,6 +1225,10 @@ static const NSInteger kMaxManifestAttempts = 8;
 
     self.betPanel.hidden = !canBet;
     self.actionPanel.hidden = !myTurn;
+    // The visible panel sets the scale's bottom reserve, so a phase
+    // change can mean a bigger table: re-measure and redraw now rather
+    // than waiting for the next layout pass.
+    if ([self refreshTableScale] && self.tableState.count > 0) [self renderTableCards];
 
     if (canBet) {
         [self rebuildChipsForTable:tableInfo];
