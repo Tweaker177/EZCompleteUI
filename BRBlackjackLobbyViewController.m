@@ -13,6 +13,11 @@
 //     chip stack in the table's colors, its bet range, seats taken, the
 //     dealing dealer's name, and a round gold join button. The balance sits
 //     in a pill in the navigation bar and opens the coin store.
+//   - High Limit is a VIP table: its card carries a VIP pill, and for
+//     players without VIP standing its join button is a lock that
+//     explains the unlock instead of entering. The server enforces
+//     the same rule on join; the card state comes from the vip_only /
+//     vip_eligible fields on each list_tables row.
 
 #import "BRBlackjackLobbyViewController.h"
 #import "BRBlackjackAPI.h"
@@ -455,6 +460,9 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     NSString *hostName = BRBlackjackLobbyString(table[@"host_name"]);
     NSString *hostEmoji = BRBlackjackLobbyString(table[@"host_emoji"]);
     BOOL mine = BRBlackjackLobbyBool(table[@"my_table"]);
+    BOOL vipOnly = BRBlackjackLobbyBool(table[@"vip_only"]);
+    BOOL vipEligible = BRBlackjackLobbyBool(table[@"vip_eligible"]);
+    BOOL vipLocked = vipOnly && !vipEligible && !mine;
     NSString *dealerText = @"";
     if (hostName.length) {
         dealerText = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Dealing", nil, NSBundle.mainBundle, @"%@ dealing", nil),
@@ -492,23 +500,45 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     join.layer.cornerRadius = 25;
     join.layer.borderWidth = 2;
     join.layer.borderColor = BRBJLobbyGold().CGColor;
-    [join setImage:[UIImage systemImageNamed:@"arrow.right"] forState:UIControlStateNormal];
-    if (isHigh || mine) {
+    [join setImage:[UIImage systemImageNamed:vipLocked ? @"lock.fill" : @"arrow.right"] forState:UIControlStateNormal];
+    if ((isHigh || mine) && !vipLocked) {
         join.backgroundColor = BRBJLobbyGold();
         join.tintColor = [UIColor colorWithRed:.10 green:.08 blue:.02 alpha:1];
     } else {
         join.tintColor = BRBJLobbyGold();
     }
     [join addTarget:self action:@selector(joinButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-    join.accessibilityLabel = [NSString stringWithFormat:@"%@ %@", NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Join", nil, NSBundle.mainBundle, @"JOIN", nil), tableName];
+    join.accessibilityLabel = [NSString stringWithFormat:@"%@ %@", vipLocked ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Vip", nil, NSBundle.mainBundle, @"VIP", nil)
+                                                                              : NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Join", nil, NSBundle.mainBundle, @"JOIN", nil), tableName];
     [joinWrap addSubview:join];
-    UILabel *joinLabel = [self labelWithText:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Join", nil, NSBundle.mainBundle, @"JOIN", nil)
+    UILabel *joinLabel = [self labelWithText:vipLocked ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Vip", nil, NSBundle.mainBundle, @"VIP", nil)
+                                                      : NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Join", nil, NSBundle.mainBundle, @"JOIN", nil)
                                          font:[UIFont systemFontOfSize:10 weight:UIFontWeightBold]
                                         color:BRBJLobbyGold()];
     joinLabel.textAlignment = NSTextAlignmentCenter;
     [joinWrap addSubview:joinLabel];
 
-    [NSLayoutConstraint activateConstraints:@[
+    UIView *vipPill = nil;
+    if (vipOnly) {
+        vipPill = [UIView new];
+        vipPill.translatesAutoresizingMaskIntoConstraints = NO;
+        vipPill.layer.cornerRadius = 8.5;
+        vipPill.layer.borderWidth = 1;
+        vipPill.layer.borderColor = BRBJLobbyGold().CGColor;
+        vipPill.backgroundColor = [BRBJLobbyGold() colorWithAlphaComponent:.14];
+        [card addSubview:vipPill];
+        UILabel *vipText = [self labelWithText:[NSString stringWithFormat:@"★ %@", NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Vip", nil, NSBundle.mainBundle, @"VIP", nil)]
+                                          font:[UIFont systemFontOfSize:9.5 weight:UIFontWeightBold]
+                                         color:BRBJLobbyGold()];
+        vipText.textAlignment = NSTextAlignmentCenter;
+        [vipPill addSubview:vipText];
+        [NSLayoutConstraint activateConstraints:@[
+            [vipText.centerXAnchor constraintEqualToAnchor:vipPill.centerXAnchor],
+            [vipText.centerYAnchor constraintEqualToAnchor:vipPill.centerYAnchor],
+        ]];
+    }
+
+    NSMutableArray<NSLayoutConstraint *> *cardConstraints = [NSMutableArray arrayWithObjects:
         [card.leadingAnchor constraintEqualToAnchor:cell.contentView.leadingAnchor constant:16],
         [card.trailingAnchor constraintEqualToAnchor:cell.contentView.trailingAnchor constant:-16],
         [card.topAnchor constraintEqualToAnchor:cell.contentView.topAnchor constant:6],
@@ -559,7 +589,16 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
         [seatedColumn.trailingAnchor constraintEqualToAnchor:sep1.leadingAnchor constant:-2],
         [seatedColumn.centerYAnchor constraintEqualToAnchor:card.centerYAnchor],
         [seatedColumn.widthAnchor constraintEqualToConstant:40],
-    ]];
+        nil];
+    if (vipPill) {
+        [cardConstraints addObjectsFromArray:@[
+            [vipPill.topAnchor constraintEqualToAnchor:card.topAnchor constant:9],
+            [vipPill.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-12],
+            [vipPill.widthAnchor constraintEqualToConstant:48],
+            [vipPill.heightAnchor constraintEqualToConstant:17],
+        ]];
+    }
+    [NSLayoutConstraint activateConstraints:cardConstraints];
 
     cell.accessibilityLabel = [NSString stringWithFormat:@"%@, %@, %@ %@",
         tableName, rangeValue.text,
@@ -582,6 +621,15 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
 - (void)openTableAtIndex:(NSInteger)index {
     if (index < 0 || index >= (NSInteger)self.tables.count) return;
     NSDictionary *table = [self.tables[index] isKindOfClass:[NSDictionary class]] ? self.tables[index] : @{};
+    BOOL vipLocked = BRBlackjackLobbyBool(table[@"vip_only"]) && !BRBlackjackLobbyBool(table[@"vip_eligible"]) && !BRBlackjackLobbyBool(table[@"my_table"]);
+    if (vipLocked) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.VipTitle", nil, NSBundle.mainBundle, @"VIP table", nil)
+            message:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.VipMessage", nil, NSBundle.mainBundle, @"High Limit is for VIP players. Reach Silver VIP (50,000 VIP points) or start any subscription to unlock it.", nil)
+            preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+    }
     NSString *tableID = [table[@"id"] isKindOfClass:[NSString class]] ? table[@"id"] : nil;
     if (!tableID) return;
     NSString *tableName = BRBlackjackLobbyString(table[@"name"]);
