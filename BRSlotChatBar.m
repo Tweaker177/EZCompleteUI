@@ -115,6 +115,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 @property (nonatomic, strong) UITextField *textField;
 @property (nonatomic, strong) UIView *cardView;
 @property (nonatomic, strong) NSLayoutConstraint *cardCenterYConstraint;
+@property (nonatomic) CGRect keyboardFrame;
 @end
 
 @implementation BRSlotChatPromptController
@@ -141,12 +142,46 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 // Keyboard handling: the card is centered in a medium sheet and the
 // action buttons sit at its bottom, so an open keyboard covers them
 // and the name cannot be saved. While the keyboard is up, shift the
-// card up by exactly the overlap; Done or a tap outside the card
-// dismisses the keyboard and the card settles back.
+// card up — but cap the shift so the card's top never leaves the safe
+// area. The profile editor's card is taller than the space above the
+// keyboard, and the old full-overlap shift pushed the name and status
+// fields off the top of the sheet, so typing there was blind. When
+// the whole card cannot fit, shift only far enough to keep the field
+// being edited above the keyboard; switching fields while the
+// keyboard is up re-adjusts. Done or a tap outside the card dismisses
+// the keyboard and the card settles back.
 - (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(br_keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil]; [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(br_keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil]; }
 - (void)viewWillDisappear:(BOOL)animated { [super viewWillDisappear:animated]; [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillShowNotification object:nil]; [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillHideNotification object:nil]; }
-- (void)br_keyboardWillShow:(NSNotification *)note { if (self.textField.hidden) return; [self.view layoutIfNeeded]; CGRect kb = [self.view convertRect:[note.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue] fromView:nil]; CGFloat overlap = CGRectGetMaxY(self.cardView.frame) - CGRectGetMinY(kb) + 16; if (overlap <= 0) return; self.cardCenterYConstraint.constant = -overlap; [UIView animateWithDuration:[note.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue] delay:0 options:([note.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue] << 16) animations:^{ [self.view layoutIfNeeded]; } completion:nil]; }
-- (void)br_keyboardWillHide:(NSNotification *)note { if (self.cardCenterYConstraint.constant == 0) return; self.cardCenterYConstraint.constant = 0; [UIView animateWithDuration:[note.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue] delay:0 options:([note.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue] << 16) animations:^{ [self.view layoutIfNeeded]; } completion:nil]; }
+- (void)br_keyboardWillShow:(NSNotification *)note { if (self.textField.hidden) return; self.keyboardFrame = [note.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue]; [self br_adjustCardForKeyboardWithNote:note]; }
+- (void)br_adjustCardForKeyboardWithNote:(NSNotification *)note {
+    self.cardCenterYConstraint.constant = 0;
+    [self.view layoutIfNeeded];
+    CGRect kb = [self.view convertRect:self.keyboardFrame fromView:nil];
+    CGFloat kbTop = CGRectGetMinY(kb);
+    CGFloat safeTop = self.view.safeAreaInsets.top + 8;
+    CGFloat topLimit = CGRectGetMinY(self.cardView.frame) - safeTop;
+    if (topLimit < 0) topLimit = 0;
+    CGFloat shift;
+    if (CGRectGetHeight(self.cardView.frame) <= kbTop - safeTop) {
+        // The whole card fits above the keyboard: shift by the full
+        // overlap so the action buttons stay reachable too.
+        shift = CGRectGetMaxY(self.cardView.frame) - kbTop + 16;
+    } else {
+        // Only the field being edited can be guaranteed visible.
+        UIView *field = self.statusView.isFirstResponder ? (UIView *)self.statusView : (UIView *)self.textField;
+        CGFloat fieldBottom = CGRectGetMaxY([field convertRect:field.bounds toView:self.view]);
+        shift = fieldBottom - (kbTop - 8);
+        if (shift > topLimit) shift = topLimit;
+    }
+    if (shift <= 0) return;
+    self.cardCenterYConstraint.constant = -shift;
+    NSTimeInterval duration = note ? [note.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue] : 0.25;
+    UIViewAnimationOptions options = note ? (UIViewAnimationOptions)([note.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue] << 16) : UIViewAnimationOptionCurveEaseInOut;
+    [UIView animateWithDuration:duration delay:0 options:options animations:^{ [self.view layoutIfNeeded]; } completion:nil];
+}
+- (void)textFieldDidBeginEditing:(UITextField *)textField { if (!CGRectIsEmpty(self.keyboardFrame)) [self br_adjustCardForKeyboardWithNote:nil]; }
+- (void)textViewDidBeginEditing:(UITextView *)textView { if (!CGRectIsEmpty(self.keyboardFrame)) [self br_adjustCardForKeyboardWithNote:nil]; }
+- (void)br_keyboardWillHide:(NSNotification *)note { self.keyboardFrame = CGRectZero; if (self.cardCenterYConstraint.constant == 0) return; self.cardCenterYConstraint.constant = 0; [UIView animateWithDuration:[note.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue] delay:0 options:([note.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue] << 16) animations:^{ [self.view layoutIfNeeded]; } completion:nil]; }
 - (BOOL)textFieldShouldReturn:(UITextField *)textField { [textField resignFirstResponder]; return YES; }
 - (void)br_backgroundTapped:(UITapGestureRecognizer *)tap { if (!CGRectContainsPoint(self.cardView.frame, [tap locationInView:self.view])) { [self.textField resignFirstResponder]; [self.statusView resignFirstResponder]; } }
 @end
