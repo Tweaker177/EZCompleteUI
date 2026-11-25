@@ -28,7 +28,7 @@ static UIColor *EZEditElectricBlue(void) {
     return [EZTheme goldColor];
 }
 
-@interface EZTTSClipEditViewController () <AVAudioPlayerDelegate>
+@interface EZTTSClipEditViewController () <AVAudioPlayerDelegate, UIGestureRecognizerDelegate>
 
 @property (nonatomic, strong) EZTTSManifestEntry *entry;
 
@@ -47,6 +47,7 @@ static UIColor *EZEditElectricBlue(void) {
 @property (nonatomic, strong) UIView *promptContainer;
 @property (nonatomic, strong) UILabel *promptLabel;
 @property (nonatomic, strong) UIImageView *promptDisclosureImage;
+@property (nonatomic, strong) UIButton *promptCopyButton;
 @property (nonatomic) BOOL promptExpanded;
 
 // Waveform + range selection — at the top of the screen, directly under the prompt.
@@ -330,7 +331,9 @@ static UIColor *EZEditElectricBlue(void) {
     self.promptContainer.layer.borderWidth = 1.0;
     self.promptContainer.layer.borderColor = [EZEditElectricBlue() colorWithAlphaComponent:0.35].CGColor;
     self.promptContainer.userInteractionEnabled = YES;
-    [self.promptContainer addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handlePromptTapped:)]];
+    UITapGestureRecognizer *promptTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handlePromptTapped:)];
+    promptTap.delegate = self;
+    [self.promptContainer addGestureRecognizer:promptTap];
     [self.scrollView addSubview:self.promptContainer];
 
     self.promptLabel = [self sectionBodyLabel];
@@ -344,10 +347,19 @@ static UIColor *EZEditElectricBlue(void) {
     self.promptDisclosureImage.tintColor = [EZTheme secondaryTextColor];
     self.promptDisclosureImage.contentMode = UIViewContentModeCenter;
     [self.promptContainer addSubview:self.promptDisclosureImage];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"doc.on.doc"]
+    // Copy lives inside the prompt container, next to the text it copies;
+    // the top-right bar button is Export.
+    self.promptCopyButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.promptCopyButton setImage:[UIImage systemImageNamed:@"doc.on.doc" withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:13 weight:UIImageSymbolWeightSemibold]] forState:UIControlStateNormal];
+    self.promptCopyButton.tintColor = EZEditElectricBlue();
+    self.promptCopyButton.accessibilityLabel = @"Copy prompt";
+    [self.promptCopyButton addTarget:self action:@selector(copyPromptTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [self.promptContainer addSubview:self.promptCopyButton];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"square.and.arrow.up"]
                                                                                style:UIBarButtonItemStylePlain
                                                                               target:self
-                                                                              action:@selector(copyPromptTapped:)];
+                                                                              action:@selector(exportTapped:)];
+    self.navigationItem.rightBarButtonItem.accessibilityLabel = @"Export clip";
     self.navigationItem.rightBarButtonItem.tintColor = EZEditElectricBlue();
     self.navigationItem.standardAppearance = [EZTheme navigationBarAppearance];
     self.navigationItem.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
@@ -406,6 +418,32 @@ static UIColor *EZEditElectricBlue(void) {
     UIPasteboard.generalPasteboard.string = self.entry.prompt ?: @"";
     UINotificationFeedbackGenerator *feedback = [[UINotificationFeedbackGenerator alloc] init];
     [feedback notificationOccurred:UINotificationFeedbackTypeSuccess];
+}
+
+// The copy button sits inside the prompt container: its taps copy and
+// must not also toggle the container's tap-to-expand.
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
+    return ![touch.view isDescendantOfView:self.promptCopyButton];
+}
+
+/// Export = the share sheet with the clip's export file, the same
+/// hand-off the library's Share action uses (friendly filename, out of
+/// the library folder). Works for TTS clips and generated sounds.
+- (void)exportTapped:(id)sender {
+    NSURL *exportURL = self.soundEntry
+        ? [[EZSoundLibraryManager sharedManager] exportURLForSoundWithUUID:self.soundEntry.uuid]
+        : [[EZTTSLibraryManager sharedManager] exportURLForClipWithUUID:self.entry.uuid];
+    if (!exportURL) {
+        [self presentErrorAlert:[self errorWithCode:-43 message:@"That clip's audio file could not be found on disk."] title:@"Couldn't export clip"];
+        return;
+    }
+    UIActivityViewController *activityVC = [[UIActivityViewController alloc] initWithActivityItems:@[exportURL]
+                                                                             applicationActivities:nil];
+    // Required on iPad — presented as a popover there, anchored to the bar button.
+    if (activityVC.popoverPresentationController) {
+        activityVC.popoverPresentationController.barButtonItem = self.navigationItem.rightBarButtonItem;
+    }
+    [self presentViewController:activityVC animated:YES completion:nil];
 }
 
 #pragma mark - Waveform + range selection section
@@ -1440,6 +1478,7 @@ static UIColor *EZEditElectricBlue(void) {
     self.promptContainer.frame = CGRectMake(margin, y, width, promptHeight);
     self.promptLabel.frame = CGRectMake(12, 10, promptTextWidth, promptHeight - 20);
     self.promptDisclosureImage.frame = CGRectMake(width - 32, 8, 24, 24);
+    self.promptCopyButton.frame = CGRectMake(width - 32, promptHeight - 30, 24, 24);
     y = CGRectGetMaxY(self.promptContainer.frame) + 20;
 
     // Waveform section — first, right under the prompt.
