@@ -176,12 +176,14 @@ static const NSInteger kMaxManifestAttempts = 8;
 @property (nonatomic) BOOL voiceEnabled;
 @property (nonatomic, copy) void (^captionHandler)(NSString *caption);
 @property (nonatomic, copy) void (^speakingHandler)(BOOL speaking);
+@property (nonatomic, copy) void (^idleHandler)(void);
 - (instancetype)initWithTableID:(NSString *)tableID;
 - (void)loadClips;
 - (NSString *)nameClipKeyForName:(NSString *)name;
 - (BOOL)hasNameClipForName:(NSString *)name;
 - (void)ensureNameClipForName:(NSString *)name;
 - (void)enqueueKeys:(NSArray<NSString *> *)keys caption:(NSString *)caption;
+- (BOOL)isIdle;
 - (void)stop;
 @end
 
@@ -282,6 +284,10 @@ static const NSInteger kMaxManifestAttempts = 8;
     }] resume];
 }
 
+- (BOOL)isIdle {
+    return !_busy && _queue.count == 0;
+}
+
 - (void)enqueueKeys:(NSArray<NSString *> *)keys caption:(NSString *)caption {
     if (_stopped || keys.count == 0) return;
     // After time away or a burst of play, drop the oldest calls instead of
@@ -295,6 +301,7 @@ static const NSInteger kMaxManifestAttempts = 8;
     if (_stopped || _queue.count == 0) {
         _busy = NO;
         if (self.speakingHandler) self.speakingHandler(NO);
+        if (self.idleHandler) self.idleHandler();
         return;
     }
     _busy = YES;
@@ -424,6 +431,7 @@ static const NSInteger kMaxManifestAttempts = 8;
 @property (nonatomic, strong) UIButton *splitButton;
 @property (nonatomic, strong) BRSlotChatBar *chatBar;
 @property (nonatomic, strong) BRBlackjackAnnouncer *announcer;
+@property (nonatomic, strong) NSDictionary *pendingResponse;
 @property (nonatomic, strong) NSMutableSet<NSNumber *> *stiffHitSeats; // seats that hit on 12-20 this round (for the well-played calls)
 @property (nonatomic) BOOL skipNextAnnouncements;           // set after time away so old events aren't replayed
 @end
@@ -890,6 +898,31 @@ static const NSInteger kMaxManifestAttempts = 8;
     // Ignore a response older than what's already on screen (out-of-order replies).
     if (version < self.lastVersion) return;
     self.lastVersion = version;
+    // The table only advances once the dealer finishes talking. The
+    // call-outs are saved clips played locally, so there is nothing to
+    // wait on but the playing itself: while the announcer is still
+    // working through the previous step's calls, hold the newest state
+    // here and put it on screen the moment the voice drains (see
+    // applyPendingResponseIfReady). Without this the cards and the
+    // win/lose reveal land mid-sentence.
+    if (self.tableState.count > 0 && ![self.announcer isIdle]) {
+        self.pendingResponse = json;
+        return;
+    }
+    [self applyView:view];
+}
+
+/// Puts a held state on screen once the announcer has finished playing.
+- (void)applyPendingResponseIfReady {
+    if (!self.pendingResponse || self.leaving) return;
+    if (![self.announcer isIdle]) return;
+    NSDictionary *json = self.pendingResponse;
+    self.pendingResponse = nil;
+    NSDictionary *view = BRBlackjackDict(json[@"view"]);
+    if (view.count) [self applyView:view];
+}
+
+- (void)applyView:(NSDictionary *)view {
     NSDictionary *previousView = self.tableState;
     self.tableState = view;
     [self handleDealerLineInView:view];
@@ -1611,6 +1644,9 @@ static const NSInteger kMaxManifestAttempts = 8;
     };
     self.announcer.speakingHandler = ^(BOOL speaking) {
         [weakSelf setDealerTalking:speaking];
+    };
+    self.announcer.idleHandler = ^{
+        [weakSelf applyPendingResponseIfReady];
     };
     [self.announcer loadClips];
 }
