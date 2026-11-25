@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2000 монет в месяц\nДля активных пользователей";
+"EZCoinStore.Tier.UltraSubtitle" = "2500 монет в месяц\nДля активных пользователей";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / мес.";
 
@@ -124,7 +124,7 @@
 
 "EZCoinStore.Tier.Power" = "Опытные пользователи";
 
-"EZCoinStore.Tier.PowerSubtitle" = "6000 монет в месяц\nДоступно, когда они вам понадобятся.";
+"EZCoinStore.Tier.PowerSubtitle" = "6250 монет в месяц\nДоступно, когда они вам понадобятся.";
 
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 
@@ -142,7 +142,7 @@
 
 "EZCoinStore.TopUp.Power" = "Пакет пополнения мощности";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6000 монет, одноразовый \nБессрочный пакет";
+"EZCoinStore.TopUp.PowerSubtitle" = "6250 монет, одноразовый \nБессрочный пакет";
 
 "EZCoinStore.TopUp.Enterprise" = "Пакет пополнения предприятия";
 
@@ -893,3 +893,44 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIP-стол";
 "BRBlackjack.Lobby.VipMessage" = "High Limit — стол для VIP-игроков. Получите Серебряный VIP (50 000 очков VIP) или оформите любую подписку, чтобы открыть его.";
+
+// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
+"BRBlackjack.Speech.YouHavePrefix" = "У тебя ";
+"BRBlackjack.Speech.NameHasFormat" = "У %@ ";
+"BRBlackjack.Speech.SeatPrefix" = "Место %ld: ";
+"BRBlackjack.Speech.SoftTotal" = "мягкие %ld";
+"BRBlackjack.Speech.BlackjackBang" = "блэкджек!";
+"BRBlackjack.Speech.BustBang" = "Перебор!";
+"BRBlackjack.Speech.BustLower" = "перебор";
+"BRBlackjack.Speech.BustsVerb" = "уходит в перебор";
+"BRBlackjack.Speech.VerbStands" = "стоит";
+"BRBlackjack.Speech.VerbDoubles" = "удваивает";
+"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
+"BRBlackjack.Speech.ActionSeatFormat" = "Место %ld %@.";
+"BRBlackjack.Speech.TurnNameFormat" = "%@, твой ход.";
+"BRBlackjack.Speech.TurnYou" = "Твой ход.";
+"BRBlackjack.Speech.TurnSeatFormat" = "Место %ld, твой ход.";
+"BRBlackjack.Speech.DealerBlackjack" = "У дилера блэкджек";
+"BRBlackjack.Speech.DealerHas21" = "У дилера 21";
+"BRBlackjack.Speech.D21Quip1" = "Двадцать одно у дилера. Не повезло, ребята.";
+"BRBlackjack.Speech.D21Quip2" = "У дилера двадцать одно. Извините, ребята.";
+"BRBlackjack.Speech.D21Quip3" = "Двадцать одно. Казино снова выигрывает.";
+"BRBlackjack.Speech.D21Quip4" = "Дилер набирает двадцать одно. Казино передаёт привет.";
+"BRBlackjack.Speech.D21Quip5" = "О, двадцать одно у меня. Обидно, ребята.";
+"BRBlackjack.Speech.PlaceBets" = "Делайте ставки";
+"BRBlackjack.Speech.NoMoreBets" = "Ставок больше нет";
+"BRBlackjack.Speech.DealerShowsFormat" = "Дилер показывает %@";
+"BRBlackjack.Speech.RankAce" = "туза";
+"BRBlackjack.Speech.DWeakQuip1" = "Дилер сейчас переберёт.";
+"BRBlackjack.Speech.DWeakQuip2" = "Надейтесь.";
+"BRBlackjack.Speech.SplitNameFormat" = "%@ разделяет";
+"BRBlackjack.Speech.SplitYou" = "Ты разделяешь";
+"BRBlackjack.Speech.SplitSeatFormat" = "Место %ld разделяет";
+"BRBlackjack.Speech.DealerBusts" = "У дилера перебор";
+"BRBlackjack.Speech.DealerHasFormat" = "У дилера %ld";
+"BRBlackjack.Speech.P21Quip1" = "Вот так!";
+"BRBlackjack.Speech.P21Quip2" = "Так держать!";
+"BRBlackjack.Speech.P21Quip3" = "Отлично!";
+"BRBlackjack.Speech.WPQuip1" = "Хорошая игра.";
+"BRBlackjack.Speech.WPQuip2" = "Ты явно не первый раз за столом.";
+"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";

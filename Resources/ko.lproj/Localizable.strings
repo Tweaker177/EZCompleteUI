@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "울트라";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,000 코인 / 월\n파워 유저 환영";
+"EZCoinStore.Tier.UltraSubtitle" = "2,500 코인 / 월\n파워 유저 환영";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / 월";
 
@@ -124,7 +124,7 @@
 
 "EZCoinStore.Tier.Power" = "파워 유저";
 
-"EZCoinStore.Tier.PowerSubtitle" = "6,000 코인 / 월\n필요할 때 언제든 사용할 수 있습니다.";
+"EZCoinStore.Tier.PowerSubtitle" = "6,250 코인 / 월\n필요할 때 언제든 사용할 수 있습니다.";
 
 "EZCoinStore.Tier.Enterprise" = "엔터프라이즈";
 
@@ -142,7 +142,7 @@
 
 "EZCoinStore.TopUp.Power" = "파워 충전 팩";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6000 코인, 일회성\n만료되지 않음";
+"EZCoinStore.TopUp.PowerSubtitle" = "6250 코인, 일회성\n만료되지 않음";
 
 "EZCoinStore.TopUp.Enterprise" = "엔터프라이즈 충전 팩";
 
@@ -894,3 +894,44 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIP 테이블";
 "BRBlackjack.Lobby.VipMessage" = "High Limit은 VIP 플레이어 전용입니다. 실버 VIP(50,000 VIP 포인트)에 도달하거나 아무 구독이나 시작하면 잠금이 해제됩니다.";
+
+// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
+"BRBlackjack.Speech.YouHavePrefix" = "당신은 ";
+"BRBlackjack.Speech.NameHasFormat" = "%@ 님은 ";
+"BRBlackjack.Speech.SeatPrefix" = "%ld번 자리: ";
+"BRBlackjack.Speech.SoftTotal" = "소프트 %ld";
+"BRBlackjack.Speech.BlackjackBang" = "블랙잭!";
+"BRBlackjack.Speech.BustBang" = "버스트!";
+"BRBlackjack.Speech.BustLower" = "버스트";
+"BRBlackjack.Speech.BustsVerb" = "버스트";
+"BRBlackjack.Speech.VerbStands" = "스탠드";
+"BRBlackjack.Speech.VerbDoubles" = "더블 다운";
+"BRBlackjack.Speech.ActionNameFormat" = "%@, %@.";
+"BRBlackjack.Speech.ActionSeatFormat" = "%ld번 자리, %@.";
+"BRBlackjack.Speech.TurnNameFormat" = "%@ 님 차례입니다.";
+"BRBlackjack.Speech.TurnYou" = "당신 차례입니다.";
+"BRBlackjack.Speech.TurnSeatFormat" = "%ld번 자리 차례입니다.";
+"BRBlackjack.Speech.DealerBlackjack" = "딜러는 블랙잭";
+"BRBlackjack.Speech.DealerHas21" = "딜러는 21";
+"BRBlackjack.Speech.D21Quip1" = "딜러가 21이네요. 아쉽습니다, 여러분.";
+"BRBlackjack.Speech.D21Quip2" = "딜러는 21입니다. 죄송합니다, 여러분.";
+"BRBlackjack.Speech.D21Quip3" = "21. 하우스가 또 이겼네요.";
+"BRBlackjack.Speech.D21Quip4" = "딜러가 21을 만들었습니다. 하우스가 안부를 전합니다.";
+"BRBlackjack.Speech.D21Quip5" = "어머, 제가 21이네요. 아쉽겠어요, 여러분.";
+"BRBlackjack.Speech.PlaceBets" = "베팅해 주세요";
+"BRBlackjack.Speech.NoMoreBets" = "베팅 마감";
+"BRBlackjack.Speech.DealerShowsFormat" = "딜러는 %@를 보여줍니다";
+"BRBlackjack.Speech.RankAce" = "에이스";
+"BRBlackjack.Speech.DWeakQuip1" = "딜러가 버스트할 것 같아요.";
+"BRBlackjack.Speech.DWeakQuip2" = "믿어 보세요.";
+"BRBlackjack.Speech.SplitNameFormat" = "%@ 님이 스플릿";
+"BRBlackjack.Speech.SplitYou" = "스플릿했습니다";
+"BRBlackjack.Speech.SplitSeatFormat" = "%ld번 자리가 스플릿";
+"BRBlackjack.Speech.DealerBusts" = "딜러는 버스트";
+"BRBlackjack.Speech.DealerHasFormat" = "딜러는 %ld";
+"BRBlackjack.Speech.P21Quip1" = "바로 그거예요!";
+"BRBlackjack.Speech.P21Quip2" = "잘했어요!";
+"BRBlackjack.Speech.P21Quip3" = "아주 좋아요!";
+"BRBlackjack.Speech.WPQuip1" = "잘하셨어요.";
+"BRBlackjack.Speech.WPQuip2" = "테이블이 처음이 아니시네요.";
+"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";
