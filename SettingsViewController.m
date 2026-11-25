@@ -12,6 +12,7 @@
     #import "EZMemorySummaryViewController.h"
     #import "TextToSpeechViewController.h"
     #import "ElevenLabsCloneViewController.h"
+    #import "EZTTSVoiceService.h"
     #import "SupportRequestViewController.h"
     #import "LoginViewController.h"
     #import "EZCoinStoreViewController.h"
@@ -210,6 +211,15 @@
 
     // ── ElevenLabs TTS ────────────────────────────────────────────────────────────
     @property (nonatomic, strong) UITextField  *elVoiceField;
+    @property (nonatomic, strong) UISlider     *elStabilitySlider;
+    @property (nonatomic, strong) UILabel      *elStabilityLabel;
+    @property (nonatomic, strong) UISlider     *elStyleSlider;
+    @property (nonatomic, strong) UILabel      *elStyleLabel;
+    @property (nonatomic, strong) UISlider     *elSimilaritySlider;
+    @property (nonatomic, strong) UILabel      *elSimilarityLabel;
+    @property (nonatomic, strong) UISlider     *elSpeedSlider;
+    @property (nonatomic, strong) UILabel      *elSpeedLabel;
+    @property (nonatomic, strong) UISwitch     *elSpeakerBoostSwitch;
 
     // ── ElevenLabs Voice Cloning ──────────────────────────────────────────────────
 
@@ -448,6 +458,42 @@
         [self addSection:@"🎙 ElevenLabs TTS" y:&y];
         [self addLabel:@"Voice ID (preset or cloned):" y:&y];
         self.elVoiceField = [self addField:w y:&y placeholder:@"Voice ID"];
+
+        // Voice settings for text-to-speak: saved the moment a
+        // slider moves, and sent with every TTS request (the text
+        // to speak screen and chat speech both use them).
+        self.elStabilityLabel  = [self addLabel:@"Stability: 0.50" y:&y];
+        self.elStabilitySlider = [self addSlider:w y:&y min:0 max:1];
+        self.elStabilitySlider.value = [EZTTSVoiceService savedStability];
+        [self.elStabilitySlider addTarget:self action:@selector(elVoiceSettingChanged:) forControlEvents:UIControlEventValueChanged];
+
+        self.elStyleLabel  = [self addLabel:@"Style: 0.00" y:&y];
+        self.elStyleSlider = [self addSlider:w y:&y min:0 max:1];
+        self.elStyleSlider.value = [EZTTSVoiceService savedStyle];
+        [self.elStyleSlider addTarget:self action:@selector(elVoiceSettingChanged:) forControlEvents:UIControlEventValueChanged];
+
+        self.elSimilarityLabel  = [self addLabel:@"Similarity: 0.75" y:&y];
+        self.elSimilaritySlider = [self addSlider:w y:&y min:0 max:1];
+        self.elSimilaritySlider.value = [EZTTSVoiceService savedSimilarityBoost];
+        [self.elSimilaritySlider addTarget:self action:@selector(elVoiceSettingChanged:) forControlEvents:UIControlEventValueChanged];
+
+        self.elSpeedLabel  = [self addLabel:@"Speed: 1.00" y:&y];
+        self.elSpeedSlider = [self addSlider:w y:&y min:0.7f max:1.2f];
+        self.elSpeedSlider.value = [EZTTSVoiceService savedSpeed];
+        [self.elSpeedSlider addTarget:self action:@selector(elVoiceSettingChanged:) forControlEvents:UIControlEventValueChanged];
+
+        [self addLabel:@"Speaker boost:" y:&y];
+        self.elSpeakerBoostSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(w - 30, y - 28, 51, 31)];
+        self.elSpeakerBoostSwitch.onTintColor = [EZTheme goldColor];
+        self.elSpeakerBoostSwitch.on = [EZTTSVoiceService savedSpeakerBoost];
+        [self.elSpeakerBoostSwitch addTarget:self action:@selector(elVoiceSettingChanged:) forControlEvents:UIControlEventValueChanged];
+        [self.scrollView addSubview:self.elSpeakerBoostSwitch];
+
+        [self addButton:@"↩️ Reset Voice Settings"
+                  color:[UIColor systemGrayColor]
+                 action:@selector(resetELVoiceSettings)
+                      y:&y w:w];
+        [self refreshELVoiceLabels];
 
         [self addButton:@"🔊 Open Text to Speech"
                   color:[UIColor systemCyanColor]
@@ -820,6 +866,32 @@
         [button addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
         [self.scrollView addSubview:button];
         *y += 55;
+    }
+
+    - (void)refreshELVoiceLabels {
+        self.elStabilityLabel.text  = [NSString stringWithFormat:@"Stability: %.2f", self.elStabilitySlider.value];
+        self.elStyleLabel.text      = [NSString stringWithFormat:@"Style: %.2f", self.elStyleSlider.value];
+        self.elSimilarityLabel.text = [NSString stringWithFormat:@"Similarity: %.2f", self.elSimilaritySlider.value];
+        self.elSpeedLabel.text      = [NSString stringWithFormat:@"Speed: %.2f", self.elSpeedSlider.value];
+    }
+
+    - (void)elVoiceSettingChanged:(id)sender {
+        [EZTTSVoiceService saveStability:self.elStabilitySlider.value];
+        [EZTTSVoiceService saveStyle:self.elStyleSlider.value];
+        [EZTTSVoiceService saveSimilarityBoost:self.elSimilaritySlider.value];
+        [EZTTSVoiceService saveSpeed:self.elSpeedSlider.value];
+        [EZTTSVoiceService saveSpeakerBoost:self.elSpeakerBoostSwitch.isOn];
+        [self refreshELVoiceLabels];
+    }
+
+    - (void)resetELVoiceSettings {
+        [EZTTSVoiceService resetVoiceSettings];
+        self.elStabilitySlider.value  = [EZTTSVoiceService savedStability];
+        self.elStyleSlider.value      = [EZTTSVoiceService savedStyle];
+        self.elSimilaritySlider.value = [EZTTSVoiceService savedSimilarityBoost];
+        self.elSpeedSlider.value      = [EZTTSVoiceService savedSpeed];
+        self.elSpeakerBoostSwitch.on  = [EZTTSVoiceService savedSpeakerBoost];
+        [self refreshELVoiceLabels];
     }
 
     - (void)updateLabels {

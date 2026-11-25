@@ -827,3 +827,9 @@
 "BRSlot.Lounge.WinningsAllTime" = "\nGANANCIAS DE TODOS LOS TIEMPOS\n\n";
 "BRSlot.Lounge.WinningsMineAllTime" = "Tu total de todos los tiempos: %@ monedas";
 "BRSlot.Lounge.WinningsNoAllTime" = "Aún no hay ganancias registradas.\n";
+
+"BRSlot.Lounge.BlackjackTop" = "BLACKJACK: MÁS MANOS GANADAS\n\n";
+"BRSlot.Lounge.BlackjackNone" = "Aún no hay manos de blackjack.";
+
+"BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MÁS MANOS JUGADAS\n\n";
+"BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MÁS MONEDAS GANADAS\n\n";

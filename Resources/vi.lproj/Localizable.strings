@@ -805,3 +805,9 @@
 "BRSlot.Lounge.WinningsAllTime" = "\nTHẮNG LỚN MỌI THỜI ĐẠI\n\n";
 "BRSlot.Lounge.WinningsMineAllTime" = "Tổng mọi thời đại của bạn: %@ xu";
 "BRSlot.Lounge.WinningsNoAllTime" = "Chưa có thắng nào được ghi lại.\n";
+
+"BRSlot.Lounge.BlackjackTop" = "BLACKJACK: MOST HANDS WON\n\n";
+"BRSlot.Lounge.BlackjackNone" = "No blackjack hands yet.";
+
+"BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
+"BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
