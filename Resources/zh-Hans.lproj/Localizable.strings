@@ -834,3 +834,22 @@
 "BRBlackjack.You" = "您";
 "BRBlackjack.YourTurn" = "轮到您了";
 "BRBlackjack.YourTurnHand" = "轮到您了 — 第 %ld 手（共 2 手）";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "黑杰克";
+"BRBlackjack.Lobby.Balance" = "你的余额：%ld金币";
+"BRBlackjack.Lobby.Loading" = "正在加载牌桌…";
+"BRBlackjack.Lobby.PullToRetry" = "下拉重试。";
+"BRBlackjack.Lobby.HeroTitle" = "你的AI荷官与主持人";
+"BRBlackjack.Lobby.HeroSub" = "来到牌桌前，享受游戏，让我们共度一个美好的夜晚。";
+"BRBlackjack.Lobby.BetRange" = "投注范围";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld金币";
+"BRBlackjack.Lobby.Seated" = "已入座";
+"BRBlackjack.Lobby.Pays" = "黑杰克赔付";
+"BRBlackjack.Lobby.Join" = "加入";
+"BRBlackjack.Lobby.Dealing" = "%@ 发牌中";
+"BRBlackjack.Lobby.YoureSeated" = "你已入座";
+"BRBlackjack.Lobby.Footer" = "更大投注  ✦  更高奖励  ✦  同样刺激";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIP牌桌";
+"BRBlackjack.Lobby.VipMessage" = "High Limit 为 VIP 玩家专属。达到白银 VIP（50,000 VIP 积分）或开通任意订阅即可解锁。";

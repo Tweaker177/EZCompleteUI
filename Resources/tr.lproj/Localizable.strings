@@ -875,3 +875,22 @@
 "BRBlackjack.You" = "Sen";
 "BRBlackjack.YourTurn" = "Sıra sende";
 "BRBlackjack.YourTurnHand" = "Sıra sende — el %ld / 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Bakiyeniz: %ld jeton";
+"BRBlackjack.Lobby.Loading" = "Masalar yükleniyor…";
+"BRBlackjack.Lobby.PullToRetry" = "Tekrar denemek için aşağı çekin.";
+"BRBlackjack.Lobby.HeroTitle" = "YAPAY ZEKÂ KURPİYERİNİZ VE EV SAHİBİNİZ";
+"BRBlackjack.Lobby.HeroSub" = "Masaya gelin, oyunun tadını çıkarın ve bu geceyi harika yapalım.";
+"BRBlackjack.Lobby.BetRange" = "BAHİS ARALIĞI";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld jeton";
+"BRBlackjack.Lobby.Seated" = "OTURAN";
+"BRBlackjack.Lobby.Pays" = "BLACKJACK ÖDEMESİ";
+"BRBlackjack.Lobby.Join" = "KATIL";
+"BRBlackjack.Lobby.Dealing" = "%@ dağıtıyor";
+"BRBlackjack.Lobby.YoureSeated" = "oturuyorsunuz";
+"BRBlackjack.Lobby.Footer" = "DAHA BÜYÜK BAHİSLER  ✦  DAHA YÜKSEK ÖDÜLLER  ✦  AYNI HEYECAN";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIP masası";
+"BRBlackjack.Lobby.VipMessage" = "High Limit, VIP oyuncular içindir. Gümüş VIP'ye (50.000 VIP puanı) ulaşın veya herhangi bir abonelik başlatarak kilidi açın.";

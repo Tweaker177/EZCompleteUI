@@ -874,3 +874,22 @@
 "BRBlackjack.You" = "Вы";
 "BRBlackjack.YourTurn" = "Ваш ход";
 "BRBlackjack.YourTurnHand" = "Ваш ход — рука %ld из 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Блэкджек";
+"BRBlackjack.Lobby.Balance" = "Ваш баланс: %ld монет";
+"BRBlackjack.Lobby.Loading" = "Загрузка столов…";
+"BRBlackjack.Lobby.PullToRetry" = "Потяните вниз, чтобы повторить.";
+"BRBlackjack.Lobby.HeroTitle" = "ВАШ ИИ-ДИЛЕР И ВЕДУЩИЙ";
+"BRBlackjack.Lobby.HeroSub" = "Подходите к столу, наслаждайтесь игрой — и пусть этот вечер будет отличным.";
+"BRBlackjack.Lobby.BetRange" = "СТАВКИ";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld монет";
+"BRBlackjack.Lobby.Seated" = "ЗА СТОЛОМ";
+"BRBlackjack.Lobby.Pays" = "БЛЭКДЖЕК ПЛАТИТ";
+"BRBlackjack.Lobby.Join" = "ИГРАТЬ";
+"BRBlackjack.Lobby.Dealing" = "%@ — дилер";
+"BRBlackjack.Lobby.YoureSeated" = "вы за столом";
+"BRBlackjack.Lobby.Footer" = "БОЛЬШЕ СТАВКИ  ✦  ВЫШЕ ВЫИГРЫШИ  ✦  ТОТ ЖЕ АЗАРТ";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIP-стол";
+"BRBlackjack.Lobby.VipMessage" = "High Limit — стол для VIP-игроков. Получите Серебряный VIP (50 000 очков VIP) или оформите любую подписку, чтобы открыть его.";

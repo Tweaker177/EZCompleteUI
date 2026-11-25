@@ -875,3 +875,22 @@
 "BRBlackjack.You" = "Kamu";
 "BRBlackjack.YourTurn" = "Giliranmu";
 "BRBlackjack.YourTurnHand" = "Giliranmu — tangan %ld dari 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Saldo Anda: %ld koin";
+"BRBlackjack.Lobby.Loading" = "Memuat meja…";
+"BRBlackjack.Lobby.PullToRetry" = "Tarik ke bawah untuk mencoba lagi.";
+"BRBlackjack.Lobby.HeroTitle" = "DEALER AI & PEMANDU ANDA";
+"BRBlackjack.Lobby.HeroSub" = "Mendekatlah ke meja, nikmati permainannya, dan mari buat malam ini luar biasa.";
+"BRBlackjack.Lobby.BetRange" = "TARUHAN";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld koin";
+"BRBlackjack.Lobby.Seated" = "DUDUK";
+"BRBlackjack.Lobby.Pays" = "BLACKJACK MEMBAYAR";
+"BRBlackjack.Lobby.Join" = "GABUNG";
+"BRBlackjack.Lobby.Dealing" = "%@ membagikan";
+"BRBlackjack.Lobby.YoureSeated" = "Anda sedang duduk";
+"BRBlackjack.Lobby.Footer" = "TARUHAN LEBIH BESAR  ✦  HADIAH LEBIH TINGGI  ✦  SENSASI YANG SAMA";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "Meja VIP";
+"BRBlackjack.Lobby.VipMessage" = "High Limit khusus pemain VIP. Capai VIP Perak (50.000 poin VIP) atau mulai langganan apa pun untuk membukanya.";

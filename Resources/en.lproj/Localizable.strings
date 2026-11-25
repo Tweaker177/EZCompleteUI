@@ -893,3 +893,22 @@
 "BRBlackjack.You" = "You";
 "BRBlackjack.YourTurn" = "Your turn";
 "BRBlackjack.YourTurnHand" = "Your turn — hand %ld of 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Your balance: %ld coins";
+"BRBlackjack.Lobby.Loading" = "Loading tables…";
+"BRBlackjack.Lobby.PullToRetry" = "Pull down to try again.";
+"BRBlackjack.Lobby.HeroTitle" = "YOUR AI DEALER & HOST";
+"BRBlackjack.Lobby.HeroSub" = "Step up to the table, enjoy the game, and let's make it a great night.";
+"BRBlackjack.Lobby.BetRange" = "BET RANGE";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld coins";
+"BRBlackjack.Lobby.Seated" = "SEATED";
+"BRBlackjack.Lobby.Pays" = "BLACKJACK PAYS";
+"BRBlackjack.Lobby.Join" = "JOIN";
+"BRBlackjack.Lobby.Dealing" = "%@ dealing";
+"BRBlackjack.Lobby.YoureSeated" = "you're seated";
+"BRBlackjack.Lobby.Footer" = "BIGGER BETS  ✦  HIGHER STAKES  ✦  SAME THRILL";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIP table";
+"BRBlackjack.Lobby.VipMessage" = "High Limit is for VIP players. Reach Silver VIP (50,000 VIP points) or start any subscription to unlock it.";

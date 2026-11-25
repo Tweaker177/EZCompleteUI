@@ -834,3 +834,22 @@
 "BRBlackjack.You" = "あなた";
 "BRBlackjack.YourTurn" = "あなたの番です";
 "BRBlackjack.YourTurnHand" = "あなたの番です — ハンド %ld / 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "ブラックジャック";
+"BRBlackjack.Lobby.Balance" = "残高: %ldコイン";
+"BRBlackjack.Lobby.Loading" = "テーブルを読み込み中…";
+"BRBlackjack.Lobby.PullToRetry" = "下に引いて再試行してください。";
+"BRBlackjack.Lobby.HeroTitle" = "あなたのAIディーラー＆ホスト";
+"BRBlackjack.Lobby.HeroSub" = "テーブルについて、ゲームを楽しんで、素敵な夜にしましょう。";
+"BRBlackjack.Lobby.BetRange" = "ベット範囲";
+"BRBlackjack.Lobby.CoinsRange" = "%ld〜%ldコイン";
+"BRBlackjack.Lobby.Seated" = "着席中";
+"BRBlackjack.Lobby.Pays" = "ブラックジャックの配当";
+"BRBlackjack.Lobby.Join" = "参加";
+"BRBlackjack.Lobby.Dealing" = "%@が配っています";
+"BRBlackjack.Lobby.YoureSeated" = "着席中です";
+"BRBlackjack.Lobby.Footer" = "大きなベット  ✦  高い配当  ✦  同じスリル";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIPテーブル";
+"BRBlackjack.Lobby.VipMessage" = "High LimitはVIPプレイヤー専用です。シルバーVIP（VIPポイント50,000）に到達するか、いずれかのサブスクリプションを開始すると解放されます。";

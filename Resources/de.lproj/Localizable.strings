@@ -834,3 +834,22 @@
 "BRBlackjack.You" = "Du";
 "BRBlackjack.YourTurn" = "Du bist dran";
 "BRBlackjack.YourTurnHand" = "Du bist dran — Hand %ld von 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Dein Guthaben: %ld Münzen";
+"BRBlackjack.Lobby.Loading" = "Tische werden geladen…";
+"BRBlackjack.Lobby.PullToRetry" = "Zum Wiederholen nach unten ziehen.";
+"BRBlackjack.Lobby.HeroTitle" = "DEIN KI-DEALER & GASTGEBER";
+"BRBlackjack.Lobby.HeroSub" = "Setz dich an den Tisch, genieß das Spiel und lass uns einen großartigen Abend daraus machen.";
+"BRBlackjack.Lobby.BetRange" = "EINSATZBEREICH";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld Münzen";
+"BRBlackjack.Lobby.Seated" = "BESETZT";
+"BRBlackjack.Lobby.Pays" = "BLACKJACK ZAHLT";
+"BRBlackjack.Lobby.Join" = "BEITRETEN";
+"BRBlackjack.Lobby.Dealing" = "%@ gibt";
+"BRBlackjack.Lobby.YoureSeated" = "du sitzt am Tisch";
+"BRBlackjack.Lobby.Footer" = "GRÖSSERE EINSÄTZE  ✦  HÖHERE GEWINNE  ✦  GLEICHER NERVENKITZEL";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIP-Tisch";
+"BRBlackjack.Lobby.VipMessage" = "High Limit ist für VIP-Spieler. Erreiche Silber-VIP (50.000 VIP-Punkte) oder starte ein beliebiges Abo, um ihn freizuschalten.";

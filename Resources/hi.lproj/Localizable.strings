@@ -834,3 +834,22 @@
 "BRBlackjack.You" = "आप";
 "BRBlackjack.YourTurn" = "आपकी बारी";
 "BRBlackjack.YourTurnHand" = "आपकी बारी — हाथ %ld / 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "ब्लैकजैक";
+"BRBlackjack.Lobby.Balance" = "आपका बैलेंस: %ld सिक्के";
+"BRBlackjack.Lobby.Loading" = "टेबल लोड हो रहे हैं…";
+"BRBlackjack.Lobby.PullToRetry" = "फिर से कोशिश करने के लिए नीचे खींचें।";
+"BRBlackjack.Lobby.HeroTitle" = "आपका AI डीलर और होस्ट";
+"BRBlackjack.Lobby.HeroSub" = "टेबल पर आइए, खेल का आनंद लीजिए, और इस रात को शानदार बनाइए।";
+"BRBlackjack.Lobby.BetRange" = "बेट रेंज";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld सिक्के";
+"BRBlackjack.Lobby.Seated" = "बैठे हैं";
+"BRBlackjack.Lobby.Pays" = "ब्लैकजैक देता है";
+"BRBlackjack.Lobby.Join" = "शामिल हों";
+"BRBlackjack.Lobby.Dealing" = "%@ डील कर रहे हैं";
+"BRBlackjack.Lobby.YoureSeated" = "आप बैठे हैं";
+"BRBlackjack.Lobby.Footer" = "बड़े दांव  ✦  ऊँचे इनाम  ✦  वही रोमांच";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIP टेबल";
+"BRBlackjack.Lobby.VipMessage" = "High Limit VIP खिलाड़ियों के लिए है। सिल्वर VIP (50,000 VIP पॉइंट) पाएं या कोई भी सदस्यता शुरू करके इसे अनलॉक करें।";

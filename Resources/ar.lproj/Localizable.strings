@@ -834,3 +834,22 @@
 "BRBlackjack.You" = "أنت";
 "BRBlackjack.YourTurn" = "دورك";
 "BRBlackjack.YourTurnHand" = "دورك — اليد %ld من 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "بلاك جاك";
+"BRBlackjack.Lobby.Balance" = "رصيدك: %ld عملة";
+"BRBlackjack.Lobby.Loading" = "جارٍ تحميل الطاولات…";
+"BRBlackjack.Lobby.PullToRetry" = "اسحب للأسفل للمحاولة مجددًا.";
+"BRBlackjack.Lobby.HeroTitle" = "موزّعك الذكي ومضيفك";
+"BRBlackjack.Lobby.HeroSub" = "تقدّم إلى الطاولة، استمتع باللعبة، ولنجعلها ليلة رائعة.";
+"BRBlackjack.Lobby.BetRange" = "نطاق الرهان";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld عملة";
+"BRBlackjack.Lobby.Seated" = "جالسون";
+"BRBlackjack.Lobby.Pays" = "البلاك جاك يدفع";
+"BRBlackjack.Lobby.Join" = "انضم";
+"BRBlackjack.Lobby.Dealing" = "%@ يوزّع";
+"BRBlackjack.Lobby.YoureSeated" = "أنت جالس";
+"BRBlackjack.Lobby.Footer" = "رهانات أكبر  ✦  جوائز أعلى  ✦  نفس الإثارة";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "طاولة VIP";
+"BRBlackjack.Lobby.VipMessage" = "طاولة High Limit مخصصة للاعبي VIP. احصل على VIP الفضي (50,000 نقطة VIP) أو ابدأ أي اشتراك لفتحها.";

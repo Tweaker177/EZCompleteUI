@@ -856,3 +856,22 @@
 "BRBlackjack.You" = "Tú";
 "BRBlackjack.YourTurn" = "Tu turno";
 "BRBlackjack.YourTurnHand" = "Tu turno — mano %ld de 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Tu saldo: %ld monedas";
+"BRBlackjack.Lobby.Loading" = "Cargando mesas…";
+"BRBlackjack.Lobby.PullToRetry" = "Desliza hacia abajo para reintentar.";
+"BRBlackjack.Lobby.HeroTitle" = "TU CRUPIER Y ANFITRIÓN IA";
+"BRBlackjack.Lobby.HeroSub" = "Acércate a la mesa, disfruta la partida y hagamos que sea una gran noche.";
+"BRBlackjack.Lobby.BetRange" = "RANGO DE APUESTA";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld monedas";
+"BRBlackjack.Lobby.Seated" = "SENTADOS";
+"BRBlackjack.Lobby.Pays" = "EL BLACKJACK PAGA";
+"BRBlackjack.Lobby.Join" = "UNIRSE";
+"BRBlackjack.Lobby.Dealing" = "%@ reparte";
+"BRBlackjack.Lobby.YoureSeated" = "estás sentado";
+"BRBlackjack.Lobby.Footer" = "APUESTAS MAYORES  ✦  PREMIOS MAYORES  ✦  LA MISMA EMOCIÓN";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "Mesa VIP";
+"BRBlackjack.Lobby.VipMessage" = "High Limit es para jugadores VIP. Alcanza el VIP Plata (50.000 puntos VIP) o inicia cualquier suscripción para desbloquearla.";

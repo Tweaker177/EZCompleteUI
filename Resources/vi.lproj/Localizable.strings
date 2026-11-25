@@ -834,3 +834,22 @@
 "BRBlackjack.You" = "Bạn";
 "BRBlackjack.YourTurn" = "Lượt của bạn";
 "BRBlackjack.YourTurnHand" = "Lượt của bạn — tay %ld trên 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Số dư của bạn: %ld xu";
+"BRBlackjack.Lobby.Loading" = "Đang tải bàn…";
+"BRBlackjack.Lobby.PullToRetry" = "Kéo xuống để thử lại.";
+"BRBlackjack.Lobby.HeroTitle" = "NGƯỜI CHIA BÀI AI VÀ CHỦ BÀN CỦA BẠN";
+"BRBlackjack.Lobby.HeroSub" = "Hãy bước đến bàn, tận hưởng trò chơi và biến đêm nay thành một đêm tuyệt vời.";
+"BRBlackjack.Lobby.BetRange" = "MỨC CƯỢC";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld xu";
+"BRBlackjack.Lobby.Seated" = "ĐANG NGỒI";
+"BRBlackjack.Lobby.Pays" = "BLACKJACK TRẢ";
+"BRBlackjack.Lobby.Join" = "THAM GIA";
+"BRBlackjack.Lobby.Dealing" = "%@ đang chia bài";
+"BRBlackjack.Lobby.YoureSeated" = "bạn đang ngồi";
+"BRBlackjack.Lobby.Footer" = "CƯỢC LỚN HƠN  ✦  THƯỞNG CAO HƠN  ✦  VẪN HỒI HỘP NHƯ XƯA";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "Bàn VIP";
+"BRBlackjack.Lobby.VipMessage" = "High Limit dành cho người chơi VIP. Đạt VIP Bạc (50.000 điểm VIP) hoặc bắt đầu bất kỳ gói đăng ký nào để mở khóa.";
