@@ -226,7 +226,7 @@
 "EZCoinStore.Tier.UnlimitedChat" = "无限聊天";
 "EZCoinStore.Tier.UnlimitedChatSubtitle" = "最新模型无限聊天\nAstra 50/天 · Sol 100/天 · Luna 和 Terra 不限量 · 每月 400 金币";
 "EZCoinStore.TopUp.Ultra" = "超级金币包";
-"EZCoinStore.TopUp.UltraSubtitle" = "2,500 枚金币，一次性付款\n永不过期";
+"EZCoinStore.TopUp.UltraSubtitle" = "2,000 枚金币，一次性付款\n永不过期";
 "EZCoinStore.TopUp.Power" = "高级金币包";
 "EZCoinStore.TopUp.PowerSubtitle" = "6,000 枚金币，一次性付款\n永不过期";
 "EZCoinStore.TopUp.Enterprise" = "企业金币包";
@@ -853,3 +853,5 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIP牌桌";
 "BRBlackjack.Lobby.VipMessage" = "High Limit 为 VIP 玩家专属。达到白银 VIP（50,000 VIP 积分）或开通任意订阅即可解锁。";
+
+"EZCoinStore.Sale.FirstPeriodNote" = "订阅促销奖励：仅限首个计费周期。";

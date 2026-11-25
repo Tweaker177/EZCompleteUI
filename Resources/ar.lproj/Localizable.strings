@@ -226,7 +226,7 @@
 "EZCoinStore.Tier.UnlimitedChat" = "دردشة غير محدودة";
 "EZCoinStore.Tier.UnlimitedChatSubtitle" = "دردشة غير محدودة على أحدث النماذج\nAstra 50/يوم · Sol 100/يوم · Luna وTerra غير محدود · 400 عملة / شهر";
 "EZCoinStore.TopUp.Ultra" = "حزمة شحن ألترا";
-"EZCoinStore.TopUp.UltraSubtitle" = "2500 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
+"EZCoinStore.TopUp.UltraSubtitle" = "2000 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 "EZCoinStore.TopUp.Power" = "حزمة شحن باور";
 "EZCoinStore.TopUp.PowerSubtitle" = "6000 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 "EZCoinStore.TopUp.Enterprise" = "حزمة شحن المؤسسات";
@@ -853,3 +853,5 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "طاولة VIP";
 "BRBlackjack.Lobby.VipMessage" = "طاولة High Limit مخصصة للاعبي VIP. احصل على VIP الفضي (50,000 نقطة VIP) أو ابدأ أي اشتراك لفتحها.";
+
+"EZCoinStore.Sale.FirstPeriodNote" = "مكافأة العرض للاشتراكات: أول فترة فوترة فقط.";

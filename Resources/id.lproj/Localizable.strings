@@ -138,7 +138,7 @@
 
 "EZCoinStore.TopUp.Ultra" = "Paket Top Up Ultra";
 
-"EZCoinStore.TopUp.UltraSubtitle" = "2500 koin, satu kali\nTidak pernah kedaluwarsa";
+"EZCoinStore.TopUp.UltraSubtitle" = "2000 koin, satu kali\nTidak pernah kedaluwarsa";
 
 "EZCoinStore.TopUp.Power" = "Paket Top Up Power";
 
@@ -894,3 +894,5 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "Meja VIP";
 "BRBlackjack.Lobby.VipMessage" = "High Limit khusus pemain VIP. Capai VIP Perak (50.000 poin VIP) atau mulai langganan apa pun untuk membukanya.";
+
+"EZCoinStore.Sale.FirstPeriodNote" = "Bonus promo langganan: hanya periode tagihan pertama.";

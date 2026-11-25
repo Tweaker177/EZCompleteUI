@@ -226,7 +226,7 @@
 "EZCoinStore.Tier.UnlimitedChat" = "無制限チャット";
 "EZCoinStore.Tier.UnlimitedChatSubtitle" = "最新モデルで無制限チャット\nAstra 50/日 · Sol 100/日 · LunaとTerraは無制限 · 400 コイン/月";
 "EZCoinStore.TopUp.Ultra" = "ウルトラコインパック";
-"EZCoinStore.TopUp.UltraSubtitle" = "2,500コイン、1回払い\n有効期限なし";
+"EZCoinStore.TopUp.UltraSubtitle" = "2,000コイン、1回払い\n有効期限なし";
 "EZCoinStore.TopUp.Power" = "パワーコインパック";
 "EZCoinStore.TopUp.PowerSubtitle" = "6,000コイン、1回払い\n有効期限なし";
 "EZCoinStore.TopUp.Enterprise" = "エンタープライズコインパック";
@@ -853,3 +853,5 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIPテーブル";
 "BRBlackjack.Lobby.VipMessage" = "High LimitはVIPプレイヤー専用です。シルバーVIP（VIPポイント50,000）に到達するか、いずれかのサブスクリプションを開始すると解放されます。";
+
+"EZCoinStore.Sale.FirstPeriodNote" = "サブスクのセールボーナスは初回請求期間のみ。";

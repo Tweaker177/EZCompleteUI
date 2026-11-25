@@ -226,7 +226,7 @@
 "EZCoinStore.Tier.UnlimitedChat" = "अनलिमिटेड चैट";
 "EZCoinStore.Tier.UnlimitedChatSubtitle" = "नवीनतम मॉडल पर अनलिमिटेड चैट\nAstra 50/दिन · Sol 100/दिन · Luna और Terra अनलिमिटेड · 400 कॉइन / माह";
 "EZCoinStore.TopUp.Ultra" = "अल्ट्रा कॉइन पैक";
-"EZCoinStore.TopUp.UltraSubtitle" = "2500 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
+"EZCoinStore.TopUp.UltraSubtitle" = "2000 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 "EZCoinStore.TopUp.Power" = "पावर कॉइन पैक";
 "EZCoinStore.TopUp.PowerSubtitle" = "6000 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 "EZCoinStore.TopUp.Enterprise" = "एंटरप्राइज़ कॉइन पैक";
@@ -853,3 +853,5 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIP टेबल";
 "BRBlackjack.Lobby.VipMessage" = "High Limit VIP खिलाड़ियों के लिए है। सिल्वर VIP (50,000 VIP पॉइंट) पाएं या कोई भी सदस्यता शुरू करके इसे अनलॉक करें।";
+
+"EZCoinStore.Sale.FirstPeriodNote" = "सदस्यता सेल बोनस: केवल पहली बिलिंग अवधि।";

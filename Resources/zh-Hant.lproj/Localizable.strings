@@ -138,7 +138,7 @@
 
 "EZCoinStore.TopUp.Ultra" = "Ultra 加值包";
 
-"EZCoinStore.TopUp.UltraSubtitle" = "2500 金幣，一次性\n永不過期";
+"EZCoinStore.TopUp.UltraSubtitle" = "2000 金幣，一次性\n永不過期";
 
 "EZCoinStore.TopUp.Power" = "Power 加值包";
 
@@ -894,3 +894,5 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIP牌桌";
 "BRBlackjack.Lobby.VipMessage" = "High Limit 為 VIP 玩家專屬。達到白銀 VIP（50,000 VIP 積分）或開通任意訂閱即可解鎖。";
+
+"EZCoinStore.Sale.FirstPeriodNote" = "訂閱促銷獎勵：僅限首個計費週期。";
