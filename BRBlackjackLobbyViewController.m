@@ -296,7 +296,8 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
 
     // Who is dealing tonight, from the tables themselves.
     NSMutableArray<NSString *> *dealers = [NSMutableArray array];
-    for (NSDictionary *table in self.tables) {
+    for (NSDictionary *rawTable in self.tables) {
+        NSDictionary *table = [rawTable isKindOfClass:[NSDictionary class]] ? rawTable : @{};
         NSString *hostName = BRBlackjackLobbyString(table[@"host_name"]);
         NSString *hostEmoji = BRBlackjackLobbyString(table[@"host_emoji"]);
         if (hostName.length && ![dealers containsObject:hostName]) {
