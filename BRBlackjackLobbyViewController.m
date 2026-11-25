@@ -112,8 +112,10 @@ static NSString *BRBlackjackLobbyString(id value) { return [value isKindOfClass:
     NSInteger maxBet = BRBlackjackLobbyInt(table[@"max_bet"]);
     cell.textLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightBold];
     cell.textLabel.text = [NSString stringWithFormat:@"🃏 %@%@", tableName.length ? tableName : @"Table", mine ? @"  ·  you're seated" : @""];
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"Bets %ld–%ld coins  ·  %ld/%ld seated  ·  Blackjack pays 3:2",
-                                 (long)minBet, (long)maxBet, (long)seated, (long)maxSeats];
+    NSString *hostName = BRBlackjackLobbyString(table[@"host_name"]);
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"Bets %ld–%ld coins  ·  %ld/%ld seated%@  ·  Blackjack pays 3:2",
+                                 (long)minBet, (long)maxBet, (long)seated, (long)maxSeats,
+                                 hostName.length ? [NSString stringWithFormat:@"  ·  %@ dealing", hostName] : @""];
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
 }

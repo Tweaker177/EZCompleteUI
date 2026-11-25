@@ -805,3 +805,9 @@
 "BRSlot.Lounge.WinningsAllTime" = "\n歴代トップ勝利金\n\n";
 "BRSlot.Lounge.WinningsMineAllTime" = "歴代合計: %@ コイン";
 "BRSlot.Lounge.WinningsNoAllTime" = "まだ勝利記録がありません。\n";
+
+"BRSlot.Lounge.BlackjackTop" = "BLACKJACK: MOST HANDS WON\n\n";
+"BRSlot.Lounge.BlackjackNone" = "No blackjack hands yet.";
+
+"BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
+"BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";

@@ -78,20 +78,24 @@ static const NSTimeInterval kMaxPollBackoff = 6.0;
 // Space reserved at the bottom of the screen for the collapsed chat bar.
 static const CGFloat kChatBarReservedHeight = 60.0;
 // Card and seat sizing. Cards are 1.4x as tall as they are wide.
-static const CGFloat kDealerCardWidth = 56.0;
-static const CGFloat kSeatCardWidth = 44.0;
-static const CGFloat kSplitCardWidth = 32.0;
-static const CGFloat kSeatWidth = 150.0;
-static const CGFloat kSeatPanelHeight = 214.0;
-static const CGFloat kSeatSpacing = 8.0;
+static const CGFloat kDealerCardWidth = 74.0;
+static const CGFloat kSeatCardWidth = 58.0;
+static const CGFloat kSplitCardWidth = 42.0;
+static const CGFloat kSeatWidth = 172.0;
+static const CGFloat kSeatPanelHeight = 240.0;
+static const CGFloat kSeatSpacing = 14.0;
 static const CGFloat kBetPanelHeight = 150.0;
 static const CGFloat kDealerAvatarSize = 68.0;
 // Height of everything between the timer line and the seat row at scale 1:
-// dealer avatar + name (87), total label (22), room for a one-line speech bubble (38), gaps (14).
-static const CGFloat kDealerAreaBaseHeight = 161.0;
-static const CGFloat kMinTableScale = 0.7;
+// the dealer card row (74 x 1.4 = 104), total label (22), room for a one-line speech bubble (38), gaps (16).
+static const CGFloat kDealerAreaBaseHeight = 180.0;
+static const CGFloat kMinTableScale = 0.75;
 static const CGFloat kMaxTableScale = 1.8;
-static const CGFloat kMaxDealerScale = 1.6;
+static const CGFloat kMaxDealerScale = 1.8;
+// Bottom reserve while the action buttons (46pt) are the visible panel,
+// instead of the full bet panel: the playing phase gets the difference
+// as table room, which is when the cards matter most.
+static const CGFloat kActionPanelReserveHeight = 56.0;
 // Posted by BRSlotChatBar (object = room id) after a message was sent.
 static NSString * const kChatMessageSentNotification = @"BRSlotChatMessageSentNotification";
 static NSString * const kDealerVoiceMutedKey = @"BRBlackjackDealerVoiceMuted";
@@ -118,7 +122,7 @@ static UIView *BRBlackjackCardView(NSInteger cardID, CGFloat width) {
     card.translatesAutoresizingMaskIntoConstraints = NO;
     card.textAlignment = NSTextAlignmentCenter;
     card.numberOfLines = 2;
-    card.layer.cornerRadius = 5;
+    card.layer.cornerRadius = MAX(5, width * 0.09);
     card.layer.borderWidth = 1;
     card.layer.borderColor = [UIColor colorWithWhite:0 alpha:.35].CGColor;
     card.clipsToBounds = YES;
@@ -174,6 +178,9 @@ static const NSInteger kMaxManifestAttempts = 8;
 @property (nonatomic, copy) void (^speakingHandler)(BOOL speaking);
 - (instancetype)initWithTableID:(NSString *)tableID;
 - (void)loadClips;
+- (NSString *)nameClipKeyForName:(NSString *)name;
+- (BOOL)hasNameClipForName:(NSString *)name;
+- (void)ensureNameClipForName:(NSString *)name;
 - (void)enqueueKeys:(NSArray<NSString *> *)keys caption:(NSString *)caption;
 - (void)stop;
 @end
@@ -225,6 +232,37 @@ static const NSInteger kMaxManifestAttempts = 8;
         if (!complete && self->_manifestAttempts < kMaxManifestAttempts) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [weakSelf loadClips]; });
         }
+    }];
+}
+
+- (NSString *)nameClipKeyForName:(NSString *)name {
+    return [NSString stringWithFormat:@"name:%@", name];
+}
+
+- (BOOL)hasNameClipForName:(NSString *)name {
+    return name.length > 0 && _clipData[[self nameClipKeyForName:name]] != nil;
+}
+
+// Name clips render on the server in this table's dealer's voice,
+// once per name; the answer is a storage URL like any other clip.
+- (void)ensureNameClipForName:(NSString *)name {
+    if (name.length == 0 || _stopped) return;
+    NSString *key = [self nameClipKeyForName:name];
+    if (_clipData[key] != nil || [_requestedKeys containsObject:key]) return;
+    [_requestedKeys addObject:key];
+    __weak typeof(self) weakSelf = self;
+    [BRBlackjackAPI performAction:@"dealer_name_clip" params:@{ @"table_id": self.tableID, @"name": name } completion:^(NSDictionary *json, NSInteger status, NSString *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || self->_stopped) return;
+        NSURL *url = [NSURL URLWithString:BRBlackjackString(json[@"url"])];
+        NSString *trustedHost = [NSURL URLWithString:EZSupabaseURL].host;
+        if (![url.scheme isEqualToString:@"https"] || ![url.host isEqualToString:trustedHost]) {
+            [self->_requestedKeys removeObject:key]; // not seated / not rendered: allow a later retry
+            return;
+        }
+        self->_clipURLs[key] = url;
+        [self->_requestedKeys removeObject:key];
+        [self downloadClipForKey:key];
     }];
 }
 
@@ -353,7 +391,6 @@ static const NSInteger kMaxManifestAttempts = 8;
 @property (nonatomic) NSTimeInterval lastChatPingTime;
 
 // UI
-@property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UIView *balancePill;
 @property (nonatomic, strong) UILabel *balanceLabel;
 @property (nonatomic, strong) UIButton *voiceButton;
@@ -387,6 +424,7 @@ static const NSInteger kMaxManifestAttempts = 8;
 @property (nonatomic, strong) UIButton *splitButton;
 @property (nonatomic, strong) BRSlotChatBar *chatBar;
 @property (nonatomic, strong) BRBlackjackAnnouncer *announcer;
+@property (nonatomic, strong) NSMutableSet<NSNumber *> *stiffHitSeats; // seats that hit on 12-20 this round (for the well-played calls)
 @property (nonatomic) BOOL skipNextAnnouncements;           // set after time away so old events aren't replayed
 @end
 
@@ -499,7 +537,10 @@ static const NSInteger kMaxManifestAttempts = 8;
     UIColor *gold = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
 
-    // Header: leave button, table name, dealer-voice toggle
+    // Header row: leave button and the dealer-voice toggle flank the
+    // balance pill. The table name lives only in the navigation bar —
+    // an in-view copy of it used to sit on its own row here, and the
+    // board gets that space back.
     UIButton *leaveButton = [UIButton buttonWithType:UIButtonTypeSystem];
     leaveButton.translatesAutoresizingMaskIntoConstraints = NO;
     [leaveButton setTitle:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Leave", nil, NSBundle.mainBundle, @"Leave", nil) forState:UIControlStateNormal];
@@ -508,11 +549,6 @@ static const NSInteger kMaxManifestAttempts = 8;
     [leaveButton addTarget:self action:@selector(leaveTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:leaveButton];
 
-    self.titleLabel = [self labelWithSize:18 weight:UIFontWeightBlack color:UIColor.whiteColor];
-    self.titleLabel.text = self.tableName;
-    self.titleLabel.textAlignment = NSTextAlignmentCenter;
-    [self.view addSubview:self.titleLabel];
-
     self.voiceButton = [UIButton buttonWithType:UIButtonTypeSystem];
     self.voiceButton.translatesAutoresizingMaskIntoConstraints = NO;
     self.voiceButton.titleLabel.font = [UIFont systemFontOfSize:22];
@@ -520,7 +556,7 @@ static const NSInteger kMaxManifestAttempts = 8;
     [self.view addSubview:self.voiceButton];
     [self updateVoiceButton];
 
-    // Balance: large pill under the header. Payout chips fly into it.
+    // Balance: large pill on the header row. Payout chips fly into it.
     self.balancePill = [UIView new];
     self.balancePill.translatesAutoresizingMaskIntoConstraints = NO;
     self.balancePill.backgroundColor = [gold colorWithAlphaComponent:.16];
@@ -664,15 +700,11 @@ static const NSInteger kMaxManifestAttempts = 8;
 
     [NSLayoutConstraint activateConstraints:@[
         [leaveButton.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
-        [leaveButton.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
+        [leaveButton.centerYAnchor constraintEqualToAnchor:self.balancePill.centerYAnchor],
         [self.voiceButton.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
-        [self.voiceButton.centerYAnchor constraintEqualToAnchor:leaveButton.centerYAnchor],
-        [self.titleLabel.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
-        [self.titleLabel.centerYAnchor constraintEqualToAnchor:leaveButton.centerYAnchor],
-        [self.titleLabel.leadingAnchor constraintGreaterThanOrEqualToAnchor:leaveButton.trailingAnchor constant:8],
-        [self.titleLabel.trailingAnchor constraintLessThanOrEqualToAnchor:self.voiceButton.leadingAnchor constant:-8],
+        [self.voiceButton.centerYAnchor constraintEqualToAnchor:self.balancePill.centerYAnchor],
 
-        [self.balancePill.topAnchor constraintEqualToAnchor:leaveButton.bottomAnchor constant:6],
+        [self.balancePill.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
         [self.balancePill.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
         [self.balancePill.heightAnchor constraintEqualToConstant:48],
         [self.balancePill.widthAnchor constraintGreaterThanOrEqualToConstant:170],
@@ -688,14 +720,14 @@ static const NSInteger kMaxManifestAttempts = 8;
         [self.timerLabel.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
         [self.timerLabel.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
 
-        [dealerRow.topAnchor constraintEqualToAnchor:self.timerLabel.bottomAnchor constant:10],
+        [dealerRow.topAnchor constraintEqualToAnchor:self.timerLabel.bottomAnchor constant:16],
         [dealerRow.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
-        [dealerInfo.topAnchor constraintEqualToAnchor:dealerRow.bottomAnchor constant:4],
+        [dealerInfo.topAnchor constraintEqualToAnchor:dealerRow.bottomAnchor constant:8],
         [dealerInfo.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
         [dealerInfo.leadingAnchor constraintGreaterThanOrEqualToAnchor:safe.leadingAnchor constant:24],
         [dealerInfo.trailingAnchor constraintLessThanOrEqualToAnchor:safe.trailingAnchor constant:-24],
 
-        [self.seatsScroll.topAnchor constraintEqualToAnchor:dealerInfo.bottomAnchor constant:10],
+        [self.seatsScroll.topAnchor constraintEqualToAnchor:dealerInfo.bottomAnchor constant:16],
         [self.seatsScroll.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:8],
         [self.seatsScroll.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-8],
         [self.seatsStack.topAnchor constraintEqualToAnchor:self.seatsScroll.contentLayoutGuide.topAnchor],
@@ -864,7 +896,25 @@ static const NSInteger kMaxManifestAttempts = 8;
     [self updateClockOffsetFromServerNow:BRBlackjackDict(view[@"table"])[@"server_now"]];
 
     NSString *name = BRBlackjackString(BRBlackjackDict(view[@"table"])[@"name"]);
-    if (name.length) { self.tableName = name; self.titleLabel.text = name; }
+    if (name.length) { self.tableName = name; self.title = name; }
+
+    // Who's dealing this table (server-sent): name + avatar emoji.
+    // Older servers send no host block and the defaults stay.
+    NSDictionary *host = BRBlackjackDict(view[@"host"]);
+    NSString *hostName = BRBlackjackString(host[@"name"]);
+    if (hostName.length) {
+        self.dealerNameLabel.text = hostName;
+        self.dealerAvatarView.accessibilityLabel = [NSString stringWithFormat:@"Dealer, %@", hostName];
+    }
+    NSString *hostEmoji = BRBlackjackString(host[@"emoji"]);
+    if (hostEmoji.length) self.dealerAvatarFace.text = hostEmoji;
+
+    // Play-by-play narration speaks names: make sure every seated
+    // player's name clip is on its way (rendered once, server-side).
+    for (NSDictionary *rawSeat in BRBlackjackArray(view[@"seats"])) {
+        NSString *seatedName = BRBlackjackString(BRBlackjackDict(rawSeat)[@"display_name"]);
+        if (seatedName.length) [self.announcer ensureNameClipForName:seatedName];
+    }
 
     if (self.pendingBet == 0) [self resetPendingBet];
     [self renderTable];
@@ -950,8 +1000,14 @@ static const NSInteger kMaxManifestAttempts = 8;
     NSInteger seatCount = MAX(1, (NSInteger)BRBlackjackArray(self.tableState[@"seats"]).count);
     CGFloat rowWidth = safeFrame.size.width - 16;
     CGFloat widthScale = (rowWidth - kSeatSpacing * (seatCount - 1)) / seatCount / kSeatWidth;
-    CGFloat top = CGRectGetMaxY(self.timerLabel.frame) + 10;
-    CGFloat bottom = CGRectGetMaxY(safeFrame) - kChatBarReservedHeight - kBetPanelHeight - 10;
+    CGFloat top = CGRectGetMaxY(self.timerLabel.frame) + 16;
+    // Reserve only what the visible bottom panel actually occupies: the
+    // bet panel is tall, the action row is short, and during results
+    // neither is up. Reserving the bet panel's height in every phase
+    // shrank the cards for the whole round.
+    CGFloat panelReserve = (self.betPanel && !self.betPanel.hidden) ? kBetPanelHeight
+        : (self.actionPanel && !self.actionPanel.hidden) ? kActionPanelReserveHeight : 10;
+    CGFloat bottom = CGRectGetMaxY(safeFrame) - kChatBarReservedHeight - panelReserve - 10;
     CGFloat heightScale = (bottom - top) / (kDealerAreaBaseHeight + kSeatPanelHeight);
     CGFloat scale = MIN(widthScale, heightScale);
     scale = MAX(kMinTableScale, MIN(kMaxTableScale, scale));
@@ -1077,7 +1133,7 @@ static const NSInteger kMaxManifestAttempts = 8;
     UIStackView *block = [[UIStackView alloc] initWithArrangedSubviews:@[cardHolder, summary]];
     block.translatesAutoresizingMaskIntoConstraints = NO;
     block.axis = UILayoutConstraintAxisVertical;
-    block.spacing = 3;
+    block.spacing = 5;
     return block;
 }
 
@@ -1132,13 +1188,13 @@ static const NSInteger kMaxManifestAttempts = 8;
     UIStackView *column = [[UIStackView alloc] initWithArrangedSubviews:rows];
     column.translatesAutoresizingMaskIntoConstraints = NO;
     column.axis = UILayoutConstraintAxisVertical;
-    column.spacing = 4;
+    column.spacing = 6;
     [card addSubview:column];
     [NSLayoutConstraint activateConstraints:@[
-        [column.topAnchor constraintEqualToAnchor:card.topAnchor constant:8],
-        [column.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-8],
-        [column.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:4],
-        [column.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-4],
+        [column.topAnchor constraintEqualToAnchor:card.topAnchor constant:12],
+        [column.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-12],
+        [column.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:8],
+        [column.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-8],
     ]];
     card.isAccessibilityElement = YES;
     card.accessibilityLabel = [NSString stringWithFormat:@"%@, %@%@, stake %ld", name.text,
@@ -1215,6 +1271,10 @@ static const NSInteger kMaxManifestAttempts = 8;
 
     self.betPanel.hidden = !canBet;
     self.actionPanel.hidden = !myTurn;
+    // The visible panel sets the scale's bottom reserve, so a phase
+    // change can mean a bigger table: re-measure and redraw now rather
+    // than waiting for the next layout pass.
+    if ([self refreshTableScale] && self.tableState.count > 0) [self renderTableCards];
 
     if (canBet) {
         [self rebuildChipsForTable:tableInfo];
@@ -1582,31 +1642,118 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
 
     NSMutableArray<NSString *> *keys = [NSMutableArray array];
     NSString *speakerText = @"";
+    // Play-by-play: with the player's name clip downloaded, the call
+    // is "<Name> has seventeen" instead of "Seat 2: seventeen".
+    NSString *displayName = BRBlackjackString(seat[@"display_name"]);
+    BOOL nameMode = NO;
     if (withSpeaker) {
         if (mine) { [keys addObject:@"you_have"]; speakerText = @"You have "; }
+        else if (displayName.length && [self.announcer hasNameClipForName:displayName]) {
+            [keys addObject:[self.announcer nameClipKeyForName:displayName]];
+            speakerText = [NSString stringWithFormat:@"%@ has ", displayName];
+            nameMode = YES;
+        }
         else if (seatNumber >= 1 && seatNumber <= 8) { [keys addObject:[NSString stringWithFormat:@"seat%ld", (long)seatNumber]]; speakerText = [NSString stringWithFormat:@"Seat %ld: ", (long)seatNumber]; }
     }
     NSString *what;
     if (natural) {
+        if (nameMode) [keys addObject:@"has"];
         [keys addObject:@"blackjack"];
         what = @"blackjack!";
     } else if (total > 21) {
         // "You have bust" sounds wrong: drop the speaker for the player's own bust.
         if (mine && withSpeaker) { [keys removeAllObjects]; speakerText = @""; }
-        [keys addObject:@"bust"];
-        what = mine ? @"Bust!" : @"bust";
+        if (nameMode) {
+            [keys addObject:@"busts"];
+            speakerText = [NSString stringWithFormat:@"%@ ", displayName];
+            what = @"busts";
+        } else {
+            [keys addObject:@"bust"];
+            what = mine ? @"Bust!" : @"bust";
+        }
     } else {
         BOOL soft = BRBlackjackBool(hand[@"soft"]) && total < 21;
+        if (nameMode) [keys addObject:@"has"];
         if (soft) [keys addObject:@"soft"];
         [keys addObject:[NSString stringWithFormat:@"n%ld", (long)total]];
         what = soft ? [NSString stringWithFormat:@"soft %ld", (long)total] : [NSString stringWithFormat:@"%ld", (long)total];
     }
     [self queueCall:calls keys:keys caption:[speakerText stringByAppendingString:what]];
+
+    // A natural or a made 21 earns a compliment about half the time.
+    if (natural || total == 21) {
+        NSArray<NSDictionary *> *pool = @[
+            @{ @"keys": @[@"p21_quip1"], @"caption": @"There you go!" },
+            @{ @"keys": @[@"p21_quip2"], @"caption": @"Way to go!" },
+            @{ @"keys": @[@"p21_quip3"], @"caption": @"Very nice!" },
+        ];
+        if (arc4random_uniform(2) == 0) {
+            NSDictionary *pick = pool[arc4random_uniform((uint32_t)pool.count)];
+            NSString *displayName = BRBlackjackString(seat[@"display_name"]);
+            NSString *prefix = mine ? @"" : (displayName.length ? [NSString stringWithFormat:@"%@: ", displayName]
+                                                                 : [NSString stringWithFormat:@"Seat %ld: ", (long)seatNumber]);
+            [self queueCall:calls keys:pick[@"keys"] caption:[prefix stringByAppendingString:pick[@"caption"]]];
+        }
+    }
 }
 
 /// Compares the table before and after an update and queues the dealer's calls.
 /// Works from state alone, so it needs no server events and tolerates missed polls
 /// (it simply reads out the totals as they are now).
+/// Dealer 21 gets some variety: the plain call is in the rotation
+/// twice, and Lucky Lou has five quips for it (d21_quip clips) that
+/// share the rest. Picked fresh every hand. If a quip clip has not
+/// rendered yet the announcer shows its caption without audio.
+// "<Name> stands." / "<Name> doubles." — name clip + verb clip when
+// the name is in, seat-number clips otherwise. The player's own
+// action is called by name too; without the name clip it waits.
+- (void)queueActionCall:(NSMutableArray<NSDictionary *> *)calls seat:(NSDictionary *)seat verbKey:(NSString *)verbKey verb:(NSString *)verb {
+    NSString *displayName = BRBlackjackString(seat[@"display_name"]);
+    if (displayName.length && [self.announcer hasNameClipForName:displayName]) {
+        [self queueCall:calls keys:@[[self.announcer nameClipKeyForName:displayName], verbKey]
+                caption:[NSString stringWithFormat:@"%@ %@.", displayName, verb]];
+    } else if (!BRBlackjackBool(seat[@"is_me"])) {
+        NSInteger seatNumber = BRBlackjackInt(seat[@"seat_no"]) + 1;
+        if (seatNumber >= 1 && seatNumber <= 8) {
+            [self queueCall:calls keys:@[[NSString stringWithFormat:@"seat%ld", (long)seatNumber], verbKey]
+                    caption:[NSString stringWithFormat:@"Seat %ld %@.", (long)seatNumber, verb]];
+        }
+    }
+}
+
+// "<Name>, it's on you." when the turn moves to a seat.
+- (void)queueTurnCall:(NSMutableArray<NSDictionary *> *)calls seat:(NSDictionary *)seat {
+    NSString *displayName = BRBlackjackString(seat[@"display_name"]);
+    if (displayName.length && [self.announcer hasNameClipForName:displayName]) {
+        [self queueCall:calls keys:@[[self.announcer nameClipKeyForName:displayName], @"its_on_you"]
+                caption:[NSString stringWithFormat:@"%@, it's on you.", displayName]];
+    } else if (BRBlackjackBool(seat[@"is_me"])) {
+        [self queueCall:calls keys:@[@"its_on_you"] caption:@"It's on you."];
+    } else {
+        NSInteger seatNumber = BRBlackjackInt(seat[@"seat_no"]) + 1;
+        if (seatNumber >= 1 && seatNumber <= 8) {
+            [self queueCall:calls keys:@[[NSString stringWithFormat:@"seat%ld", (long)seatNumber], @"its_on_you"]
+                    caption:[NSString stringWithFormat:@"Seat %ld, it's on you.", (long)seatNumber]];
+        }
+    }
+}
+
+- (void)queueDealer21Call:(NSMutableArray<NSDictionary *> *)calls natural:(BOOL)natural {
+    NSDictionary *plain = natural
+        ? @{ @"keys": @[@"dealer_blackjack"], @"caption": @"Dealer has blackjack" }
+        : @{ @"keys": @[@"dealer_has", @"n21"], @"caption": @"Dealer has 21" };
+    NSArray<NSDictionary *> *options = @[
+        plain, plain,
+        @{ @"keys": @[@"d21_quip1"], @"caption": @"Twenty-one for the dealer. Tough break, guys." },
+        @{ @"keys": @[@"d21_quip2"], @"caption": @"Dealer has twenty-one. Sorry about that, folks." },
+        @{ @"keys": @[@"d21_quip3"], @"caption": @"Twenty-one. The house does it again." },
+        @{ @"keys": @[@"d21_quip4"], @"caption": @"Dealer gets twenty-one. The house sends its regards." },
+        @{ @"keys": @[@"d21_quip5"], @"caption": @"Ooh, twenty-one for me. Tough one, guys." },
+    ];
+    NSDictionary *pick = options[arc4random_uniform((uint32_t)options.count)];
+    [self queueCall:calls keys:pick[@"keys"] caption:pick[@"caption"]];
+}
+
 - (void)announceChangesFrom:(NSDictionary *)oldView to:(NSDictionary *)newView {
     if (self.skipNextAnnouncements) { self.skipNextAnnouncements = NO; return; }
     if (oldView.count == 0 || self.leaving) return;
@@ -1618,8 +1765,9 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
     BOOL seated = [self mySeat] != nil;
     NSMutableArray<NSDictionary *> *calls = [NSMutableArray array];
 
-    if ([newPhase isEqualToString:@"betting"] && ![oldPhase isEqualToString:@"betting"] && seated) {
-        [self queueCall:calls keys:@[@"place_bets"] caption:@"Place your bets"];
+    if ([newPhase isEqualToString:@"betting"] && ![oldPhase isEqualToString:@"betting"]) {
+        [self.stiffHitSeats removeAllObjects];
+        if (seated) [self queueCall:calls keys:@[@"place_bets"] caption:@"Place your bets"];
     }
 
     BOOL dealtThisUpdate = ([oldPhase isEqualToString:@"idle"] || [oldPhase isEqualToString:@"betting"])
@@ -1632,6 +1780,17 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
             NSInteger upCard = BRBlackjackInt(newDealerCards[0]);
             [self queueCall:calls keys:@[@"dealer_shows", BRBlackjackRankKey(upCard)]
                     caption:[NSString stringWithFormat:@"Dealer shows %@", BRBlackjackRankWord(upCard)]];
+            // A 5 or 6 up is a bust card waiting to happen, and Lou
+            // knows it: half the time he says so.
+            NSInteger upRank = upCard % 13;
+            if ((upRank == 4 || upRank == 5) && arc4random_uniform(2) == 0) {
+                NSArray<NSDictionary *> *pool = @[
+                    @{ @"keys": @[@"dweak_quip1"], @"caption": @"Dealer's going to bust." },
+                    @{ @"keys": @[@"dweak_quip2"], @"caption": @"Have some faith." },
+                ];
+                NSDictionary *pick = pool[arc4random_uniform((uint32_t)pool.count)];
+                [self queueCall:calls keys:pick[@"keys"] caption:pick[@"caption"]];
+            }
         }
     }
 
@@ -1646,12 +1805,25 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
         NSDictionary *secondHand = BRBlackjackDict(seat[@"hand2"]);
         BOOL justSplit = secondHand.count > 0 && BRBlackjackDict(oldSeat[@"hand2"]).count == 0;
         if (justSplit) {
-            [self queueCall:calls keys:@[@"split"] caption:BRBlackjackBool(seat[@"is_me"]) ? @"You split" : [NSString stringWithFormat:@"Seat %ld splits", (long)BRBlackjackInt(seat[@"seat_no"]) + 1]];
+            NSString *splitName = BRBlackjackString(seat[@"display_name"]);
+            if (!BRBlackjackBool(seat[@"is_me"]) && splitName.length && [self.announcer hasNameClipForName:splitName]) {
+                [self queueCall:calls keys:@[[self.announcer nameClipKeyForName:splitName], @"split"] caption:[NSString stringWithFormat:@"%@ splits", splitName]];
+            } else {
+                [self queueCall:calls keys:@[@"split"] caption:BRBlackjackBool(seat[@"is_me"]) ? @"You split" : [NSString stringWithFormat:@"Seat %ld splits", (long)BRBlackjackInt(seat[@"seat_no"]) + 1]];
+            }
             [self queueHandCall:calls seat:seat hand:seat isNatural:NO withSpeaker:YES];
             [self queueHandCall:calls seat:seat hand:secondHand isNatural:NO withSpeaker:NO];
             continue;
         }
         if (newCount > oldCount) {
+            // Remember hitting on a stiff hand (12-20): if this seat
+            // goes on to win, the dealer calls it well played.
+            id oldTotal = oldSeat[@"total"];
+            NSInteger hitFrom = [oldTotal isKindOfClass:[NSNumber class]] ? [oldTotal integerValue] : 0;
+            if (hitFrom >= 12 && hitFrom <= 20) {
+                if (!self.stiffHitSeats) self.stiffHitSeats = [NSMutableSet set];
+                [self.stiffHitSeats addObject:@(BRBlackjackInt(seat[@"seat_no"]))];
+            }
             BOOL natural = [BRBlackjackString(seat[@"status"]) isEqualToString:@"blackjack"] && newCount == 2;
             [self queueHandCall:calls seat:seat hand:seat isNatural:natural withSpeaker:YES];
         }
@@ -1659,20 +1831,80 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
         if (secondHand.count > 0 && BRBlackjackArray(secondHand[@"cards"]).count > oldSecondCount) {
             [self queueHandCall:calls seat:seat hand:secondHand isNatural:NO withSpeaker:NO];
         }
+
+        // Play-by-play: standing and doubling get called, by name
+        // when the name clip is in. (Hits speak for themselves: the
+        // new total is the call.)
+        NSDictionary *oldSecond = BRBlackjackDict(oldSeat[@"hand2"]);
+        if (![BRBlackjackString(seat[@"status"]) isEqualToString:BRBlackjackString(oldSeat[@"status"])]
+            && [BRBlackjackString(seat[@"status"]) isEqualToString:@"stood"]) {
+            [self queueActionCall:calls seat:seat verbKey:@"stands" verb:@"stands"];
+        }
+        if (![BRBlackjackString(secondHand[@"status"]) isEqualToString:BRBlackjackString(oldSecond[@"status"])]
+            && [BRBlackjackString(secondHand[@"status"]) isEqualToString:@"stood"]) {
+            [self queueActionCall:calls seat:seat verbKey:@"stands" verb:@"stands"];
+        }
+        if (!BRBlackjackBool(oldSeat[@"doubled"]) && BRBlackjackBool(seat[@"doubled"])) {
+            [self queueActionCall:calls seat:seat verbKey:@"doubles" verb:@"doubles"];
+        }
+        if (!BRBlackjackBool(oldSecond[@"doubled"]) && BRBlackjackBool(secondHand[@"doubled"])) {
+            [self queueActionCall:calls seat:seat verbKey:@"doubles" verb:@"doubles"];
+        }
+    }
+
+    // The turn moving to a new seat gets a call: "<Name>, it's on you."
+    if ([newPhase isEqualToString:@"playing"]) {
+        id oldActive = oldTable[@"active_seat"];
+        id newActive = newTable[@"active_seat"];
+        NSInteger oldActiveSeat = [oldActive isKindOfClass:[NSNumber class]] ? [oldActive integerValue] : -1;
+        NSInteger newActiveSeat = [newActive isKindOfClass:[NSNumber class]] ? [newActive integerValue] : -1;
+        if (newActiveSeat >= 0 && newActiveSeat != oldActiveSeat) {
+            for (NSDictionary *rawSeat in BRBlackjackArray(newView[@"seats"])) {
+                NSDictionary *seat = BRBlackjackDict(rawSeat);
+                if (BRBlackjackInt(seat[@"seat_no"]) == newActiveSeat) { [self queueTurnCall:calls seat:seat]; break; }
+            }
+        }
     }
 
     // Dealer's final hand once the cards are turned over.
     if ([newPhase isEqualToString:@"results"] && ![oldPhase isEqualToString:@"results"] && newDealerCards.count >= 2) {
         id totalValue = newDealer[@"total"];
         NSInteger dealerTotal = [totalValue isKindOfClass:[NSNumber class]] ? [totalValue integerValue] : 0;
-        if (newDealerCards.count == 2 && dealerTotal == 21) {
-            [self queueCall:calls keys:@[@"dealer_blackjack"] caption:@"Dealer has blackjack"];
+        if (dealerTotal == 21) {
+            [self queueDealer21Call:calls natural:(newDealerCards.count == 2)];
         } else if (dealerTotal > 21) {
             [self queueCall:calls keys:@[@"dealer_busts"] caption:@"Dealer busts"];
         } else if (dealerTotal >= 2) {
             [self queueCall:calls keys:@[@"dealer_has", [NSString stringWithFormat:@"n%ld", (long)dealerTotal]]
                     caption:[NSString stringWithFormat:@"Dealer has %ld", (long)dealerTotal]];
         }
+
+        // Well played: a win that came from hitting a stiff hand or
+        // from a double down earns a word from the dealer (max two
+        // per round, so a hot table doesn't turn into a speech).
+        NSInteger compliments = 0;
+        for (NSDictionary *rawSeat in BRBlackjackArray(newView[@"seats"])) {
+            if (compliments >= 2) break;
+            NSDictionary *seat = BRBlackjackDict(rawSeat);
+            id payoutValue = seat[@"payout"];
+            NSInteger payout = [payoutValue isKindOfClass:[NSNumber class]] ? [payoutValue integerValue] : 0;
+            if (payout <= [self totalBetForSeat:seat]) continue;
+            BOOL doubled = BRBlackjackBool(seat[@"doubled"]) || BRBlackjackBool(BRBlackjackDict(seat[@"hand2"])[@"doubled"]);
+            BOOL stiffHit = [self.stiffHitSeats containsObject:@(BRBlackjackInt(seat[@"seat_no"]))];
+            if (!doubled && !stiffHit) continue;
+            NSArray<NSDictionary *> *pool = @[
+                @{ @"keys": @[@"wp_quip1"], @"caption": @"Well played." },
+                @{ @"keys": @[@"p21_quip3"], @"caption": @"Very nice!" },
+                @{ @"keys": @[@"wp_quip2"], @"caption": @"This isn't your first time at a table." },
+            ];
+            NSDictionary *pick = pool[arc4random_uniform((uint32_t)pool.count)];
+            NSString *displayName = BRBlackjackString(seat[@"display_name"]);
+            NSString *prefix = BRBlackjackBool(seat[@"is_me"]) ? @"" : (displayName.length ? [NSString stringWithFormat:@"%@: ", displayName]
+                                                                                           : [NSString stringWithFormat:@"Seat %ld: ", (long)BRBlackjackInt(seat[@"seat_no"]) + 1]);
+            [self queueCall:calls keys:pick[@"keys"] caption:[prefix stringByAppendingString:pick[@"caption"]]];
+            compliments += 1;
+        }
+        [self.stiffHitSeats removeAllObjects];
     }
 
     self.announcer.voiceEnabled = !self.dealerVoiceMuted && BRSlotSoundEnabled();
