@@ -158,8 +158,8 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     CGSize size = CGSizeMake(19 * unit, 27 * unit);
     UIColor *red = [UIColor colorWithRed:.78 green:.12 blue:.16 alpha:1];
     UIColor *ink = [UIColor colorWithWhite:.08 alpha:1];
-    [self drawMiniCardCenteredAt:CGPointMake(rect.size.width * .64, rect.size.height * .48) size:size angle:.17 rank:@"J" suit:@"\u2665" color:red];
-    [self drawMiniCardCenteredAt:CGPointMake(rect.size.width * .36, rect.size.height * .52) size:size angle:-.14 rank:@"A" suit:@"\u2660" color:ink];
+    [self drawMiniCardCenteredAt:CGPointMake(rect.size.width * .64, rect.size.height * .48) size:size angle:.17 rank:@"J" suit:@"♥" color:red];
+    [self drawMiniCardCenteredAt:CGPointMake(rect.size.width * .36, rect.size.height * .52) size:size angle:-.14 rank:@"A" suit:@"♠" color:ink];
 }
 
 @end
