@@ -18,6 +18,8 @@ static NSString *const kEZZeeSignerDeepLink =
     @"zeesigner://source?url=https://raw.githubusercontent.com/Tweaker177/EZCompleteUI/main/apps.json";
 // Jailbreak: the YouRepo repo hosting the .deb.
 static NSString *const kEZJailbreakRepoURL = @"https://i0s-tweak3r-betas.yourepo.com/";
+// TestFlight: the public beta link — installs with no jailbreak or computer.
+static NSString *const kEZTestFlightURL = @"https://testflight.apple.com/join/cKdEWqsU";
 
 // ── ElevenLabs affiliate link ────────────────────────────────────────────────
 // TODO(owner): after joining the Creator Affiliate Program on PartnerStack
@@ -49,14 +51,15 @@ static NSString *const kEZPendingReferralKey     = @"EZPendingReferralCode";
 
 + (NSString *)shareMessageWithReferralCode:(NSString *)code {
     NSMutableString *message = [NSMutableString stringWithString:
-        @"I'm using EZCompleteUI — a multi-model AI chat app with image, music and voice tools."];
+        @"I'm using EZCompleteAI — a multi-model AI chat app with image, music and voice tools."];
     if (code.length) {
         [message appendFormat:@" Sign up with my referral code %@ and we BOTH get 200 free coins.", code];
     }
     if ([self isJailbreakInstall]) {
         [message appendFormat:@" Get it from this repo: %@", kEZJailbreakRepoURL];
+        [message appendFormat:@" Or join the TestFlight beta: %@", kEZTestFlightURL];
     } else {
-        [message appendFormat:@" Add this source in zeesigner to install it: %@", kEZZeeSignerDeepLink];
+        [message appendFormat:@" Join the TestFlight beta: %@", kEZTestFlightURL];
     }
     return [message copy];
 }
