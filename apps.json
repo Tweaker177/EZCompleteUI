@@ -38,6 +38,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.28",
+          "buildVersion": "7.2.28",
+          "date": "2026-11-25",
+          "localizedDescription": "## What's Changed\n* Blackjack: localize dealer captions and quips (17 languages) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/330\n* Fix sale subtitle spacing (amount glued to 'coins') by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/331\n* Guard lobby hero against non-dictionary table rows by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/332\n* Jackpot means the rarest win; size tiers are Big, Huge, Mega by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/334\n* Plunder Bay: keep the reels shuffling until the result lands by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/336\n* Picker: Blackjack card moves above the custom-game cards by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/337\n* Edit Clip: Export top-right, Copy inside the prompt box by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/338\n* Subscription cards take the sale treatment, one fine-print line at the bottom by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/333\n* Slim the deb under 15 MB: compressed sounds + staging prune by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/335\n\n\n**Full Changelog**: https://github.com/Tweaker177/EZCompleteAI/compare/7.2.27...7.2.28",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteAI/releases/download/7.2.28/EZCompleteUI-7.2.28-release.ipa",
+          "size": 9269429,
+          "sha256": "99cf9cc8205abbbb2f28770133b7f0ff31d518ee11ddd1ca05f02d1c3efdb3a0",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.27",
           "buildVersion": "7.2.27",
           "date": "2026-11-25",
