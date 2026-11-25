@@ -34,4 +34,14 @@ typedef void (^BRBlackjackCompletion)(NSDictionary * _Nullable json, NSInteger s
 
 @end
 
+/// The casino floor's background noise — the same crowded_casino loop
+/// the slot picker plays — shared by the blackjack lobby and the table.
+/// One engine for the whole blackjack flow: start is idempotent, so
+/// moving lobby -> table never restarts the loop, and the lobby stops
+/// it when the player leaves the flow.
+@interface BRBlackjackAmbience : NSObject
++ (void)start;
++ (void)stop;
+@end
+
 NS_ASSUME_NONNULL_END

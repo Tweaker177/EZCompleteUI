@@ -13,6 +13,9 @@
 #import "BRBlackjackAPI.h"
 #import "EZAuthManager.h"
 #import "EZSupabaseConfig.h"
+#import <AVFoundation/AVFoundation.h>
+
+extern BOOL BRSlotSoundEnabled(void);
 
 static const NSTimeInterval kBlackjackRequestTimeout = 12.0;
 
@@ -95,6 +98,73 @@ static const NSTimeInterval kBlackjackRequestTimeout = 12.0;
 
 + (void)finish:(BRBlackjackCompletion)completion json:(NSDictionary *)json status:(NSInteger)status message:(NSString *)message {
     dispatch_async(dispatch_get_main_queue(), ^{ completion(json, status, message); });
+}
+
+@end
+
+
+@implementation BRBlackjackAmbience
+
+static AVAudioEngine *BJAmbienceEngine;
+static AVAudioPlayerNode *BJAmbienceNode;
+static AVAudioPCMBuffer *BJAmbienceBuffer;
+
++ (void)start {
+    if (!BRSlotSoundEnabled()) return;
+    @try {
+        if (!BJAmbienceBuffer) [self buildLoop];
+        if (!BJAmbienceNode) return;
+        if (!BJAmbienceEngine.isRunning) [BJAmbienceEngine startAndReturnError:nil];
+        if (!BJAmbienceNode.isPlaying) [BJAmbienceNode play];
+    } @catch (NSException *e) {
+    }
+}
+
++ (void)stop {
+    @try { [BJAmbienceNode pause]; } @catch (NSException *e) {
+    }
+}
+
+/// Decodes crowded_casino once into a PCM buffer scheduled with
+/// BufferLoops — the slot picker's gapless-loop recipe, at a lower
+/// mixer volume so the loop sits under the dealer's voice. A bad or
+/// missing file stays silent; it never crashes the flow.
++ (void)buildLoop {
+    NSURL *url = [[NSBundle mainBundle] URLForResource:@"crowded_casino" withExtension:@"caf" subdirectory:@"sounds"];
+    if (!url) url = [[NSBundle mainBundle] URLForResource:@"crowded_casino" withExtension:@"caf"];
+    if (!url) url = [[NSBundle mainBundle] URLForResource:@"crowded_casino" withExtension:@"mp3" subdirectory:@"sounds"];
+    if (!url) url = [[NSBundle mainBundle] URLForResource:@"crowded_casino" withExtension:@"mp3"];
+    if (!url) return;
+    @try {
+        AVAudioFile *file = [[AVAudioFile alloc] initForReading:url error:nil];
+        AVAudioFormat *format = file.processingFormat;
+        if (!file || file.length == 0 || !format || format.sampleRate == 0 || format.channelCount == 0) return;
+        AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:format frameCapacity:(AVAudioFrameCount)file.length];
+        if (!buffer || ![file readIntoBuffer:buffer error:nil] || buffer.frameLength == 0) return;
+        if (buffer.format.commonFormat == AVAudioPCMFormatFloat32 && !buffer.format.interleaved && buffer.floatChannelData) {
+            AVAudioFrameCount frames = buffer.frameLength;
+            float * const *channels = buffer.floatChannelData;
+            NSUInteger channelCount = buffer.format.channelCount;
+            while (frames > 0) {
+                BOOL silent = YES;
+                for (NSUInteger c = 0; c < channelCount; c++) {
+                    if (fabsf(channels[c][frames - 1]) > 0.0005f) { silent = NO; break; }
+                }
+                if (!silent) break;
+                frames--;
+            }
+            buffer.frameLength = frames;
+        }
+        if (buffer.frameLength == 0) return;
+        BJAmbienceBuffer = buffer;
+        BJAmbienceEngine = [AVAudioEngine new];
+        BJAmbienceNode = [AVAudioPlayerNode new];
+        [BJAmbienceEngine attachNode:BJAmbienceNode];
+        [BJAmbienceEngine connect:BJAmbienceNode to:BJAmbienceEngine.mainMixerNode format:file.processingFormat];
+        BJAmbienceEngine.mainMixerNode.outputVolume = .25;
+        [BJAmbienceNode scheduleBuffer:buffer atTime:nil options:AVAudioPlayerNodeBufferLoops completionHandler:nil];
+    } @catch (NSException *e) {
+    }
 }
 
 @end

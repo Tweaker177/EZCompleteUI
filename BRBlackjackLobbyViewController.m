@@ -10,8 +10,9 @@
 // Changes from v1:
 //   - The plain table list is now a set of casino table cards in the style
 //     of the lobby mockup: a dealer hero header, one card per table with a
-//     chip stack in the table's colors, its bet range, seats taken, the
-//     dealing dealer's name, and a round gold join button. The balance sits
+//     chip stack in the table's colors, its bet range, the dealing
+//     dealer's name, and the seated count inside a round button with a
+//     join pill under it. The balance sits
 //     in a pill in the navigation bar and opens the coin store.
 //   - High Limit is a VIP table: its card carries a VIP pill, and for
 //     players without VIP standing its join button is a lock that
@@ -240,6 +241,7 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [BRBlackjackAmbience start];
     [self reload];
     [self.refreshTimer invalidate];
     self.refreshTimer = [NSTimer scheduledTimerWithTimeInterval:kLobbyRefreshInterval target:self selector:@selector(reload) userInfo:nil repeats:YES];
@@ -249,6 +251,9 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     [super viewWillDisappear:animated];
     [self.refreshTimer invalidate];
     self.refreshTimer = nil;
+    // Leaving the blackjack flow entirely (not pushing a table): the
+    // casino ambience stops with the lobby.
+    if (self.isMovingFromParentViewController) [BRBlackjackAmbience stop];
 }
 
 - (void)dealloc { [self.refreshTimer invalidate]; }
@@ -440,36 +445,6 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     return column;
 }
 
-- (UIView *)columnWithIcon:(NSString *)symbol value:(NSString *)value caption:(NSString *)caption {
-    UIView *column = [UIView new];
-    column.translatesAutoresizingMaskIntoConstraints = NO;
-    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:symbol]];
-    icon.translatesAutoresizingMaskIntoConstraints = NO;
-    icon.tintColor = BRBJLobbyGold();
-    icon.contentMode = UIViewContentModeScaleAspectFit;
-    [column addSubview:icon];
-    UILabel *valueLabel = [self labelWithText:value font:[UIFont systemFontOfSize:15 weight:UIFontWeightBold] color:UIColor.whiteColor];
-    valueLabel.textAlignment = NSTextAlignmentCenter;
-    [column addSubview:valueLabel];
-    UILabel *captionLabel = [self labelWithText:caption font:[UIFont systemFontOfSize:8.5 weight:UIFontWeightSemibold] color:[UIColor colorWithWhite:1 alpha:.55]];
-    captionLabel.textAlignment = NSTextAlignmentCenter;
-    captionLabel.numberOfLines = 2;
-    [column addSubview:captionLabel];
-    [NSLayoutConstraint activateConstraints:@[
-        [icon.topAnchor constraintEqualToAnchor:column.topAnchor],
-        [icon.centerXAnchor constraintEqualToAnchor:column.centerXAnchor],
-        [icon.heightAnchor constraintEqualToConstant:17],
-        [icon.widthAnchor constraintEqualToConstant:20],
-        [valueLabel.topAnchor constraintEqualToAnchor:icon.bottomAnchor constant:4],
-        [valueLabel.centerXAnchor constraintEqualToAnchor:column.centerXAnchor],
-        [captionLabel.topAnchor constraintEqualToAnchor:valueLabel.bottomAnchor constant:2],
-        [captionLabel.centerXAnchor constraintEqualToAnchor:column.centerXAnchor],
-        [captionLabel.bottomAnchor constraintLessThanOrEqualToAnchor:column.bottomAnchor],
-        [captionLabel.widthAnchor constraintLessThanOrEqualToConstant:64],
-    ]];
-    return column;
-}
-
 - (UIView *)cardSeparator {
     UIView *line = [UIView new];
     line.translatesAutoresizingMaskIntoConstraints = NO;
@@ -555,10 +530,6 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     [card addSubview:sep1];
     NSInteger seated = BRBlackjackLobbyInt(table[@"seated"]);
     NSInteger maxSeats = BRBlackjackLobbyInt(table[@"max_seats"]);
-    UIView *seatedColumn = [self columnWithIcon:@"person.fill"
-                                         value:[NSString stringWithFormat:@"%ld/%ld", (long)seated, (long)maxSeats]
-                                       caption:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Seated", nil, NSBundle.mainBundle, @"SEATED", nil)];
-    [card addSubview:seatedColumn];
 
     UIView *sep2 = [self cardSeparator];
     [card addSubview:sep2];
@@ -566,33 +537,46 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
                                            caption:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Pays", nil, NSBundle.mainBundle, @"BLACKJACK PAYS", nil)];
     [card addSubview:paysColumn];
 
-    // Round gold join button; the whole card is tappable too.
+    // The seated count rides inside the round button; a join pill sits
+    // under it. The whole card is tappable too.
     UIView *joinWrap = [UIView new];
     joinWrap.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:joinWrap];
-    UIButton *join = [UIButton buttonWithType:UIButtonTypeCustom];
-    join.translatesAutoresizingMaskIntoConstraints = NO;
-    join.tag = index;
-    join.layer.cornerRadius = 25;
-    join.layer.borderWidth = 2;
-    join.layer.borderColor = BRBJLobbyGold().CGColor;
-    [join setImage:[UIImage systemImageNamed:vipLocked ? @"lock.fill" : @"arrow.right"] forState:UIControlStateNormal];
+    UIButton *countButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    countButton.translatesAutoresizingMaskIntoConstraints = NO;
+    countButton.tag = index;
+    countButton.layer.cornerRadius = 25;
+    countButton.layer.borderWidth = 2;
+    countButton.layer.borderColor = BRBJLobbyGold().CGColor;
+    [countButton setTitle:[NSString stringWithFormat:@"%ld/%ld", (long)seated, (long)maxSeats] forState:UIControlStateNormal];
+    countButton.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBold];
     if ((isHigh || mine) && !vipLocked) {
-        join.backgroundColor = BRBJLobbyGold();
-        join.tintColor = [UIColor colorWithRed:.10 green:.08 blue:.02 alpha:1];
+        countButton.backgroundColor = BRBJLobbyGold();
+        [countButton setTitleColor:[UIColor colorWithRed:.10 green:.08 blue:.02 alpha:1] forState:UIControlStateNormal];
     } else {
-        join.tintColor = BRBJLobbyGold();
+        [countButton setTitleColor:BRBJLobbyGold() forState:UIControlStateNormal];
     }
-    [join addTarget:self action:@selector(joinButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-    join.accessibilityLabel = [NSString stringWithFormat:@"%@ %@", vipLocked ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Vip", nil, NSBundle.mainBundle, @"VIP", nil)
+    [countButton addTarget:self action:@selector(joinButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    countButton.accessibilityLabel = [NSString stringWithFormat:@"%@ %@",
+        NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Seated", nil, NSBundle.mainBundle, @"SEATED", nil),
+        [NSString stringWithFormat:@"%ld/%ld", (long)seated, (long)maxSeats]];
+    [joinWrap addSubview:countButton];
+    UIButton *joinPill = [UIButton buttonWithType:UIButtonTypeCustom];
+    joinPill.translatesAutoresizingMaskIntoConstraints = NO;
+    joinPill.tag = index;
+    joinPill.layer.cornerRadius = 11;
+    joinPill.layer.borderWidth = 1;
+    joinPill.layer.borderColor = BRBJLobbyGold().CGColor;
+    joinPill.contentEdgeInsets = UIEdgeInsetsMake(3, 10, 3, 10);
+    [joinPill setTitle:vipLocked ? [NSString stringWithFormat:@"🔒 %@", NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Vip", nil, NSBundle.mainBundle, @"VIP", nil)]
+                                 : NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Join", nil, NSBundle.mainBundle, @"JOIN", nil)
+              forState:UIControlStateNormal];
+    joinPill.titleLabel.font = [UIFont systemFontOfSize:10.5 weight:UIFontWeightBold];
+    [joinPill setTitleColor:BRBJLobbyGold() forState:UIControlStateNormal];
+    [joinPill addTarget:self action:@selector(joinButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+    joinPill.accessibilityLabel = [NSString stringWithFormat:@"%@ %@", vipLocked ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Vip", nil, NSBundle.mainBundle, @"VIP", nil)
                                                                               : NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Join", nil, NSBundle.mainBundle, @"JOIN", nil), tableName];
-    [joinWrap addSubview:join];
-    UILabel *joinLabel = [self labelWithText:vipLocked ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Vip", nil, NSBundle.mainBundle, @"VIP", nil)
-                                                      : NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Join", nil, NSBundle.mainBundle, @"JOIN", nil)
-                                         font:[UIFont systemFontOfSize:10 weight:UIFontWeightBold]
-                                        color:BRBJLobbyGold()];
-    joinLabel.textAlignment = NSTextAlignmentCenter;
-    [joinWrap addSubview:joinLabel];
+    [joinWrap addSubview:joinPill];
 
     UIView *vipPill = nil;
     if (vipOnly) {
@@ -643,14 +627,14 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
 
         [joinWrap.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-8],
         [joinWrap.centerYAnchor constraintEqualToAnchor:card.centerYAnchor],
-        [joinWrap.widthAnchor constraintEqualToConstant:54],
-        [join.widthAnchor constraintEqualToConstant:50],
-        [join.heightAnchor constraintEqualToConstant:50],
-        [join.centerXAnchor constraintEqualToAnchor:joinWrap.centerXAnchor],
-        [join.topAnchor constraintEqualToAnchor:joinWrap.topAnchor],
-        [joinLabel.topAnchor constraintEqualToAnchor:join.bottomAnchor constant:3],
-        [joinLabel.centerXAnchor constraintEqualToAnchor:joinWrap.centerXAnchor],
-        [joinLabel.bottomAnchor constraintEqualToAnchor:joinWrap.bottomAnchor],
+        [joinWrap.widthAnchor constraintEqualToConstant:58],
+        [countButton.widthAnchor constraintEqualToConstant:50],
+        [countButton.heightAnchor constraintEqualToConstant:50],
+        [countButton.centerXAnchor constraintEqualToAnchor:joinWrap.centerXAnchor],
+        [countButton.topAnchor constraintEqualToAnchor:joinWrap.topAnchor],
+        [joinPill.topAnchor constraintEqualToAnchor:countButton.bottomAnchor constant:5],
+        [joinPill.centerXAnchor constraintEqualToAnchor:joinWrap.centerXAnchor],
+        [joinPill.bottomAnchor constraintEqualToAnchor:joinWrap.bottomAnchor],
 
         [sep2.trailingAnchor constraintEqualToAnchor:joinWrap.leadingAnchor constant:-6],
         [sep2.topAnchor constraintEqualToAnchor:card.topAnchor constant:18],
@@ -662,9 +646,6 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
         [sep1.trailingAnchor constraintEqualToAnchor:paysColumn.leadingAnchor constant:-2],
         [sep1.topAnchor constraintEqualToAnchor:card.topAnchor constant:18],
         [sep1.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
-        [seatedColumn.trailingAnchor constraintEqualToAnchor:sep1.leadingAnchor constant:-2],
-        [seatedColumn.centerYAnchor constraintEqualToAnchor:card.centerYAnchor],
-        [seatedColumn.widthAnchor constraintEqualToConstant:40],
         nil];
     if (vipPill) {
         [cardConstraints addObjectsFromArray:@[

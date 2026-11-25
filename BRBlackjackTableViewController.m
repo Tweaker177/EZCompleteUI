@@ -480,6 +480,7 @@ static const NSInteger kMaxManifestAttempts = 8;
     }
     [self.chatBar start];
     [self startTimers];
+    [BRBlackjackAmbience start];
     if (!self.hasJoined) [self joinTable];
 }
 
