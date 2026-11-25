@@ -12,6 +12,7 @@
     #import "EZMemorySummaryViewController.h"
     #import "TextToSpeechViewController.h"
     #import "ElevenLabsCloneViewController.h"
+    #import "EZTTSVoiceService.h"
     #import "SupportRequestViewController.h"
     #import "LoginViewController.h"
     #import "EZCoinStoreViewController.h"
