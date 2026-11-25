@@ -38,6 +38,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.27",
+          "buildVersion": "7.2.27",
+          "date": "2026-11-25",
+          "localizedDescription": "## What's Changed\n* Starlight Odyssey: rockets in the sky, banner cleanup, VIP odds in the pays sheet by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/310\n* Phoenix Pavilion: big VIP in the in-game title by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/311\n* Win animations: slower, one more pass, celebrations stay up longer by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/312\n* Admin ledger: comma-separated multi-filter by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/314\n* Now Playing artist line reads EZCompleteAI by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/313\n* System Log: comma-separated filter with Exclude by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/315\n* Slot picker: let the card art grow so short cards have no gap above the PLAY pill by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/309\n* Admin ledger: rename a player's lounge display name by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/316\n* Restore ledger multi-filter reverted by admin rename by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/317\n* TTS voice settings sliders on the Settings page by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/322\n* Blackjack: bigger table, dealers, play-by-play, leaderboard stats by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/320\n* Lounge profile editor: keep the field being edited visible above the keyboard by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/318\n* Now Playing: give the volume row a height and re-claim the playback session on appear by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/319\n* Server-driven store sales: login announcement + sale store presentation by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/321\n* Fix missing semicolon breaking the build (Starlight VIP footer) by @Tweaker177 in https://github.com/Twea…",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteAI/releases/download/7.2.27/EZCompleteUI-7.2.27-release.ipa",
+          "size": 18810196,
+          "sha256": "00950834181343a683151336a92dbd2993fc142d8c5c6b544f4ba491a084fbb0",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.25",
           "buildVersion": "7.2.25",
           "date": "2026-11-24",
