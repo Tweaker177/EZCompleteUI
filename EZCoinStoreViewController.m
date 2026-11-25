@@ -1053,7 +1053,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     power.priceString     = @"$49.99/mo";
     power.planOrPackageID = kTierPower;
     power.type            = EZStoreItemTypeSubscription;
-    power.coins            = 6250;
+    power.coins            = 6000;
     power.accentColor     = [UIColor systemIndigoColor];
     power.isCurrentPlan   = isActive && ([currentTier isEqualToString:@"power"] || [currentTier isEqualToString:@"power_annual"]);
     if (([currentTier isEqualToString:@"power"] || [currentTier isEqualToString:@"power_annual"]) && !isActive && currentStatus)
@@ -1141,7 +1141,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     topup4.priceString     = @"$49.99";
     topup4.planOrPackageID = @"TOPUP_6250";
     topup4.type            = EZStoreItemTypeTopUp;
-    topup4.coins           = 6250;
+    topup4.coins           = 6000;
     topup4.accentColor     = [UIColor systemIndigoColor];
     [self applyPromoBadgeIfNeededToItem:topup4];
     [items addObject:topup4];
@@ -3789,8 +3789,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
             @"pro_annual":        @19200,
             @"ultra":             @2500,
             @"ultra_annual":      @30000,
-            @"power":             @6250,
-            @"power_annual":      @75000,
+            @"power":             @6000,
+            @"power_annual":      @72000,
             @"enterprise":        @12500,
             @"enterprise_annual": @150000,
         };
