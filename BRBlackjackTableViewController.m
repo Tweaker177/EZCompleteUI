@@ -1614,6 +1614,26 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
 /// Compares the table before and after an update and queues the dealer's calls.
 /// Works from state alone, so it needs no server events and tolerates missed polls
 /// (it simply reads out the totals as they are now).
+/// Dealer 21 gets some variety: the plain call is in the rotation
+/// twice, and Lucky Lou has five quips for it (d21_quip clips) that
+/// share the rest. Picked fresh every hand. If a quip clip has not
+/// rendered yet the announcer shows its caption without audio.
+- (void)queueDealer21Call:(NSMutableArray<NSDictionary *> *)calls natural:(BOOL)natural {
+    NSDictionary *plain = natural
+        ? @{ @"keys": @[@"dealer_blackjack"], @"caption": @"Dealer has blackjack" }
+        : @{ @"keys": @[@"dealer_has", @"n21"], @"caption": @"Dealer has 21" };
+    NSArray<NSDictionary *> *options = @[
+        plain, plain,
+        @{ @"keys": @[@"d21_quip1"], @"caption": @"Twenty-one for the dealer. Tough break, guys." },
+        @{ @"keys": @[@"d21_quip2"], @"caption": @"Dealer has twenty-one. Sorry about that, folks." },
+        @{ @"keys": @[@"d21_quip3"], @"caption": @"Twenty-one. Lucky Lou does it again." },
+        @{ @"keys": @[@"d21_quip4"], @"caption": @"Dealer gets twenty-one. The house sends its regards." },
+        @{ @"keys": @[@"d21_quip5"], @"caption": @"Ooh, twenty-one for me. Tough one, guys." },
+    ];
+    NSDictionary *pick = options[arc4random_uniform((uint32_t)options.count)];
+    [self queueCall:calls keys:pick[@"keys"] caption:pick[@"caption"]];
+}
+
 - (void)announceChangesFrom:(NSDictionary *)oldView to:(NSDictionary *)newView {
     if (self.skipNextAnnouncements) { self.skipNextAnnouncements = NO; return; }
     if (oldView.count == 0 || self.leaving) return;
@@ -1672,8 +1692,8 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
     if ([newPhase isEqualToString:@"results"] && ![oldPhase isEqualToString:@"results"] && newDealerCards.count >= 2) {
         id totalValue = newDealer[@"total"];
         NSInteger dealerTotal = [totalValue isKindOfClass:[NSNumber class]] ? [totalValue integerValue] : 0;
-        if (newDealerCards.count == 2 && dealerTotal == 21) {
-            [self queueCall:calls keys:@[@"dealer_blackjack"] caption:@"Dealer has blackjack"];
+        if (dealerTotal == 21) {
+            [self queueDealer21Call:calls natural:(newDealerCards.count == 2)];
         } else if (dealerTotal > 21) {
             [self queueCall:calls keys:@[@"dealer_busts"] caption:@"Dealer busts"];
         } else if (dealerTotal >= 2) {
