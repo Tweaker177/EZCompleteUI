@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2 500 pièces / mois\nPour les utilisateurs intensifs";
+"EZCoinStore.Tier.UltraSubtitle" = "2 000 pièces / mois\nPour les utilisateurs intensifs";
 
 "EZCoinStore.Tier.UltraPrice" = "20 $ / mois";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "Utilisateurs avancés";
-"EZCoinStore.Tier.PowerSubtitle" = "6 250 pièces / mois\nDisponibles lorsque vous en avez besoin.";
+"EZCoinStore.Tier.PowerSubtitle" = "6 000 pièces / mois\nDisponibles lorsque vous en avez besoin.";
 "EZCoinStore.Tier.Enterprise" = "Entreprise";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12 500 pièces / mois\nPour tous vos besoins professionnels";
 "EZCoinStore.Tier.UnlimitedChat" = "Chat illimité";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "Pack de pièces Ultra";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 pièces, paiement unique\nN'expire jamais";
 "EZCoinStore.TopUp.Power" = "Pack de pièces Power";
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 pièces, paiement unique\nN'expire jamais";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 pièces, paiement unique\nN'expire jamais";
 "EZCoinStore.TopUp.Enterprise" = "Pack de pièces Entreprise";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 pièces, paiement unique\nN'expire jamais";
 

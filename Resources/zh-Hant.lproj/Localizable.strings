@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "每月 2,500 金幣\n歡迎進階使用者";
+"EZCoinStore.Tier.UltraSubtitle" = "每月 2,000 金幣\n歡迎進階使用者";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / 月";
 
@@ -124,7 +124,7 @@
 
 "EZCoinStore.Tier.Power" = "進階使用者";
 
-"EZCoinStore.Tier.PowerSubtitle" = "每月 6,250 金幣\n需要時隨時可用。";
+"EZCoinStore.Tier.PowerSubtitle" = "每月 6,000 金幣\n需要時隨時可用。";
 
 "EZCoinStore.Tier.Enterprise" = "企業版";
 
@@ -142,7 +142,7 @@
 
 "EZCoinStore.TopUp.Power" = "Power 加值包";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 金幣，一次性\n永不過期";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 金幣，一次性\n永不過期";
 
 "EZCoinStore.TopUp.Enterprise" = "企業加值包";
 

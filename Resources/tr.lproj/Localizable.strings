@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "Ayda 2.500 coin\nYoğun kullanıcılara uygun";
+"EZCoinStore.Tier.UltraSubtitle" = "Ayda 2.000 coin\nYoğun kullanıcılara uygun";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / ay";
 
@@ -124,7 +124,7 @@
 
 "EZCoinStore.Tier.Power" = "Yoğun Kullanıcılar";
 
-"EZCoinStore.Tier.PowerSubtitle" = "Ayda 6.250 coin\nİhtiyacınız olduğunda hazır.";
+"EZCoinStore.Tier.PowerSubtitle" = "Ayda 6.000 coin\nİhtiyacınız olduğunda hazır.";
 
 "EZCoinStore.Tier.Enterprise" = "Kurumsal";
 
@@ -142,7 +142,7 @@
 
 "EZCoinStore.TopUp.Power" = "Power Yükleme Paketi";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 coin, tek seferlik\nSüresi asla dolmaz";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 coin, tek seferlik\nSüresi asla dolmaz";
 
 "EZCoinStore.TopUp.Enterprise" = "Kurumsal Yükleme Paketi";
 

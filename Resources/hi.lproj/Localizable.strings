@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "अल्ट्रा";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 सिक्के/माह\nबिजली उपयोगकर्ताओं का स्वागत है";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 सिक्के/माह\nबिजली उपयोगकर्ताओं का स्वागत है";
 
 "EZCoinStore.Tier.UltraPrice" = "$20/माह";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "पावर उपयोगकर्ता";
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 कॉइन / माह\nजब ज़रूरत हो तब उपलब्ध।";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 कॉइन / माह\nजब ज़रूरत हो तब उपलब्ध।";
 "EZCoinStore.Tier.Enterprise" = "एंटरप्राइज़";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 कॉइन / माह\nआपकी सभी व्यावसायिक ज़रूरतों के लिए";
 "EZCoinStore.Tier.UnlimitedChat" = "अनलिमिटेड चैट";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "अल्ट्रा कॉइन पैक";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 "EZCoinStore.TopUp.Power" = "पावर कॉइन पैक";
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 "EZCoinStore.TopUp.Enterprise" = "एंटरप्राइज़ कॉइन पैक";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 

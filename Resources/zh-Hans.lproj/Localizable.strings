@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "每月 2,500 金币\n欢迎高级用户";
+"EZCoinStore.Tier.UltraSubtitle" = "每月 2,000 金币\n欢迎高级用户";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / 月";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "高级用户";
-"EZCoinStore.Tier.PowerSubtitle" = "每月 6,250 枚金币\n需要时随时可用。";
+"EZCoinStore.Tier.PowerSubtitle" = "每月 6,000 枚金币\n需要时随时可用。";
 "EZCoinStore.Tier.Enterprise" = "企业版";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "每月 12,500 枚金币\n满足您的所有业务需求";
 "EZCoinStore.Tier.UnlimitedChat" = "无限聊天";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "超级金币包";
 "EZCoinStore.TopUp.UltraSubtitle" = "2,500 枚金币，一次性付款\n永不过期";
 "EZCoinStore.TopUp.Power" = "高级金币包";
-"EZCoinStore.TopUp.PowerSubtitle" = "6,250 枚金币，一次性付款\n永不过期";
+"EZCoinStore.TopUp.PowerSubtitle" = "6,000 枚金币，一次性付款\n永不过期";
 "EZCoinStore.TopUp.Enterprise" = "企业金币包";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12,500 枚金币，一次性付款\n永不过期";
 

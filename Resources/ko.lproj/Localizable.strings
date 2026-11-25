@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "울트라";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 코인 / 월\n파워 유저 환영";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 코인 / 월\n파워 유저 환영";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / 월";
 
@@ -124,7 +124,7 @@
 
 "EZCoinStore.Tier.Power" = "파워 유저";
 
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 코인 / 월\n필요할 때 언제든 사용할 수 있습니다.";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 코인 / 월\n필요할 때 언제든 사용할 수 있습니다.";
 
 "EZCoinStore.Tier.Enterprise" = "엔터프라이즈";
 
@@ -142,7 +142,7 @@
 
 "EZCoinStore.TopUp.Power" = "파워 충전 팩";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 코인, 일회성\n만료되지 않음";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 코인, 일회성\n만료되지 않음";
 
 "EZCoinStore.TopUp.Enterprise" = "엔터프라이즈 충전 팩";
 
