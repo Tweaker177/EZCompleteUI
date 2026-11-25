@@ -251,9 +251,9 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     [super viewWillDisappear:animated];
     [self.refreshTimer invalidate];
     self.refreshTimer = nil;
-    // Leaving the blackjack flow entirely (not pushing a table): the
-    // casino ambience stops with the lobby.
-    if (self.isMovingFromParentViewController) [BRBlackjackAmbience stop];
+    // The ambience belongs to the lobby only: it stops whenever this
+    // screen goes away, and restarts when the player comes back to it.
+    [BRBlackjackAmbience stop];
 }
 
 - (void)dealloc { [self.refreshTimer invalidate]; }

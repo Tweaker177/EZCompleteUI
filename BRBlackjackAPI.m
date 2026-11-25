@@ -127,7 +127,7 @@ static AVAudioPCMBuffer *BJAmbienceBuffer;
 
 /// Decodes crowded_casino once into a PCM buffer scheduled with
 /// BufferLoops — the slot picker's gapless-loop recipe, at a lower
-/// mixer volume so the loop sits under the dealer's voice. A bad or
+/// mixer volume than the picker's, a quiet bed under the lobby. A bad or
 /// missing file stays silent; it never crashes the flow.
 + (void)buildLoop {
     NSURL *url = [[NSBundle mainBundle] URLForResource:@"crowded_casino" withExtension:@"caf" subdirectory:@"sounds"];
