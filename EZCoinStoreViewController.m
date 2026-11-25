@@ -834,7 +834,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     formatter.numberStyle = NSNumberFormatterDecimalStyle;
     NSString *amount = [formatter stringFromNumber:@(item.coins * multiplier)] ?: @"";
 
-    NSRegularExpression *amountRun = [NSRegularExpression regularExpressionWithPattern:@"^[\\d][\\d.,\\s]*" options:0 error:nil];
+    // Digit groups only, never the space after them: the old
+    // ^[\d][\d.,\s]* swallowed the space before "coins", so a sale
+    // subtitle read "24,000coins, one-time".
+    NSRegularExpression *amountRun = [NSRegularExpression regularExpressionWithPattern:@"^[\\d.,]+(?:[\\s][\\d.,]+)*" options:0 error:nil];
     NSString *adjusted = [amountRun stringByReplacingMatchesInString:firstLine options:0 range:NSMakeRange(0, firstLine.length) withTemplate:amount];
 
     if (amount.length == 0 || [adjusted isEqualToString:firstLine]) return subtitle;
@@ -862,7 +865,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     // line — that is the amount the server will grant for this pack.
     if (self.activeSale) {
 
-        NSInteger multiplier = [self.activeSale[@"multiplier"] integerValue];
+        id multiplierValue = self.activeSale[@"multiplier"];
+        NSInteger multiplier = [multiplierValue respondsToSelector:@selector(integerValue)] ? [multiplierValue integerValue] : 1;
 
         if (multiplier > 1) {
 
