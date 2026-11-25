@@ -805,3 +805,9 @@
 "BRSlot.Lounge.WinningsAllTime" = "\nसर्वकालिक जीत\n\n";
 "BRSlot.Lounge.WinningsMineAllTime" = "आपकी सर्वकालिक कुल जीत: %@ सिक्के";
 "BRSlot.Lounge.WinningsNoAllTime" = "अभी कोई जीत दर्ज नहीं है।\n";
+
+"BRSlot.Lounge.BlackjackTop" = "BLACKJACK: MOST HANDS WON\n\n";
+"BRSlot.Lounge.BlackjackNone" = "No blackjack hands yet.";
+
+"BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
+"BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";

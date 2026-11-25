@@ -846,3 +846,9 @@
 "BRSlot.Lounge.WinningsAllTime" = "\n역대 총 당첨금\n\n";
 "BRSlot.Lounge.WinningsMineAllTime" = "역대 합계: %@ 코인";
 "BRSlot.Lounge.WinningsNoAllTime" = "아직 기록된 당첨이 없습니다.\n";
+
+"BRSlot.Lounge.BlackjackTop" = "BLACKJACK: MOST HANDS WON\n\n";
+"BRSlot.Lounge.BlackjackNone" = "No blackjack hands yet.";
+
+"BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
+"BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";

@@ -276,6 +276,15 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     [self addStatRowToStack:statsStack label:@"Recorded wins" value:[self formattedNumber:self.stats[@"wins_all"]]];
     NSString *favorite = BRChatString(self.stats[@"favorite_game"]);
     [self addStatRowToStack:statsStack label:@"Favorite slot" value:favorite.length ? favorite : @"—"];
+    // Blackjack record, shown once the player has played a hand.
+    if ([self.stats[@"bj_hands"] respondsToSelector:@selector(integerValue)] && [self.stats[@"bj_hands"] integerValue] > 0) {
+        [self addSectionHeaderToStack:statsStack text:@"BLACKJACK"];
+        [self addStatRowToStack:statsStack label:@"Hands played" value:[self formattedNumber:self.stats[@"bj_hands"]]];
+        [self addStatRowToStack:statsStack label:@"Hands won" value:[self formattedNumber:self.stats[@"bj_won"]]];
+        [self addStatRowToStack:statsStack label:@"Biggest win" value:[self formattedNumber:self.stats[@"bj_best"]]];
+        [self addStatRowToStack:statsStack label:@"Blackjacks" value:[self formattedNumber:self.stats[@"bj_blackjacks"]]];
+        [self addStatRowToStack:statsStack label:@"Coins won" value:[self formattedNumber:self.stats[@"bj_total_won"]]];
+    }
     [stack addArrangedSubview:card];
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
@@ -739,6 +748,9 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     NSArray *chips = [board[@"top_chips"] isKindOfClass:NSArray.class] ? board[@"top_chips"] : @[];
     if (chips.count > 5) chips = [chips subarrayWithRange:NSMakeRange(0, 5)];
     addSection(@"BRSlot.Lounge.WinningsMostChips", chips, @"balance", @"BRSlot.Lounge.WinningsNoChips");
+    addSection(@"BRSlot.Lounge.BlackjackTop", board[@"blackjack"], @"bj_won", @"BRSlot.Lounge.BlackjackNone");
+    addSection(@"BRSlot.Lounge.BlackjackHandsTop", board[@"blackjack_hands"], @"bj_hands", @"BRSlot.Lounge.BlackjackNone");
+    addSection(@"BRSlot.Lounge.BlackjackCoinsTop", board[@"blackjack_coins"], @"bj_total_won", @"BRSlot.Lounge.BlackjackNone");
     UILabel *footer = [UILabel new];
     footer.text = trimmed(NSLocalizedString(@"BRSlot.Lounge.WinningsFooter", nil));
     footer.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];

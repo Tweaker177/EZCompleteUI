@@ -178,6 +178,9 @@ static const NSInteger kMaxManifestAttempts = 8;
 @property (nonatomic, copy) void (^speakingHandler)(BOOL speaking);
 - (instancetype)initWithTableID:(NSString *)tableID;
 - (void)loadClips;
+- (NSString *)nameClipKeyForName:(NSString *)name;
+- (BOOL)hasNameClipForName:(NSString *)name;
+- (void)ensureNameClipForName:(NSString *)name;
 - (void)enqueueKeys:(NSArray<NSString *> *)keys caption:(NSString *)caption;
 - (void)stop;
 @end
@@ -229,6 +232,37 @@ static const NSInteger kMaxManifestAttempts = 8;
         if (!complete && self->_manifestAttempts < kMaxManifestAttempts) {
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [weakSelf loadClips]; });
         }
+    }];
+}
+
+- (NSString *)nameClipKeyForName:(NSString *)name {
+    return [NSString stringWithFormat:@"name:%@", name];
+}
+
+- (BOOL)hasNameClipForName:(NSString *)name {
+    return name.length > 0 && _clipData[[self nameClipKeyForName:name]] != nil;
+}
+
+// Name clips render on the server in this table's dealer's voice,
+// once per name; the answer is a storage URL like any other clip.
+- (void)ensureNameClipForName:(NSString *)name {
+    if (name.length == 0 || _stopped) return;
+    NSString *key = [self nameClipKeyForName:name];
+    if (_clipData[key] != nil || [_requestedKeys containsObject:key]) return;
+    [_requestedKeys addObject:key];
+    __weak typeof(self) weakSelf = self;
+    [BRBlackjackAPI performAction:@"dealer_name_clip" params:@{ @"table_id": self.tableID, @"name": name } completion:^(NSDictionary *json, NSInteger status, NSString *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || self->_stopped) return;
+        NSURL *url = [NSURL URLWithString:BRBlackjackString(json[@"url"])];
+        NSString *trustedHost = [NSURL URLWithString:EZSupabaseURL].host;
+        if (![url.scheme isEqualToString:@"https"] || ![url.host isEqualToString:trustedHost]) {
+            [self->_requestedKeys removeObject:key]; // not seated / not rendered: allow a later retry
+            return;
+        }
+        self->_clipURLs[key] = url;
+        [self->_requestedKeys removeObject:key];
+        [self downloadClipForKey:key];
     }];
 }
 
@@ -874,6 +908,13 @@ static const NSInteger kMaxManifestAttempts = 8;
     }
     NSString *hostEmoji = BRBlackjackString(host[@"emoji"]);
     if (hostEmoji.length) self.dealerAvatarFace.text = hostEmoji;
+
+    // Play-by-play narration speaks names: make sure every seated
+    // player's name clip is on its way (rendered once, server-side).
+    for (NSDictionary *rawSeat in BRBlackjackArray(view[@"seats"])) {
+        NSString *seatedName = BRBlackjackString(BRBlackjackDict(rawSeat)[@"display_name"]);
+        if (seatedName.length) [self.announcer ensureNameClipForName:seatedName];
+    }
 
     if (self.pendingBet == 0) [self resetPendingBet];
     [self renderTable];
@@ -1601,21 +1642,38 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
 
     NSMutableArray<NSString *> *keys = [NSMutableArray array];
     NSString *speakerText = @"";
+    // Play-by-play: with the player's name clip downloaded, the call
+    // is "<Name> has seventeen" instead of "Seat 2: seventeen".
+    NSString *displayName = BRBlackjackString(seat[@"display_name"]);
+    BOOL nameMode = NO;
     if (withSpeaker) {
         if (mine) { [keys addObject:@"you_have"]; speakerText = @"You have "; }
+        else if (displayName.length && [self.announcer hasNameClipForName:displayName]) {
+            [keys addObject:[self.announcer nameClipKeyForName:displayName]];
+            speakerText = [NSString stringWithFormat:@"%@ has ", displayName];
+            nameMode = YES;
+        }
         else if (seatNumber >= 1 && seatNumber <= 8) { [keys addObject:[NSString stringWithFormat:@"seat%ld", (long)seatNumber]]; speakerText = [NSString stringWithFormat:@"Seat %ld: ", (long)seatNumber]; }
     }
     NSString *what;
     if (natural) {
+        if (nameMode) [keys addObject:@"has"];
         [keys addObject:@"blackjack"];
         what = @"blackjack!";
     } else if (total > 21) {
         // "You have bust" sounds wrong: drop the speaker for the player's own bust.
         if (mine && withSpeaker) { [keys removeAllObjects]; speakerText = @""; }
-        [keys addObject:@"bust"];
-        what = mine ? @"Bust!" : @"bust";
+        if (nameMode) {
+            [keys addObject:@"busts"];
+            speakerText = [NSString stringWithFormat:@"%@ ", displayName];
+            what = @"busts";
+        } else {
+            [keys addObject:@"bust"];
+            what = mine ? @"Bust!" : @"bust";
+        }
     } else {
         BOOL soft = BRBlackjackBool(hand[@"soft"]) && total < 21;
+        if (nameMode) [keys addObject:@"has"];
         if (soft) [keys addObject:@"soft"];
         [keys addObject:[NSString stringWithFormat:@"n%ld", (long)total]];
         what = soft ? [NSString stringWithFormat:@"soft %ld", (long)total] : [NSString stringWithFormat:@"%ld", (long)total];
@@ -1646,6 +1704,40 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
 /// twice, and Lucky Lou has five quips for it (d21_quip clips) that
 /// share the rest. Picked fresh every hand. If a quip clip has not
 /// rendered yet the announcer shows its caption without audio.
+// "<Name> stands." / "<Name> doubles." — name clip + verb clip when
+// the name is in, seat-number clips otherwise. The player's own
+// action is called by name too; without the name clip it waits.
+- (void)queueActionCall:(NSMutableArray<NSDictionary *> *)calls seat:(NSDictionary *)seat verbKey:(NSString *)verbKey verb:(NSString *)verb {
+    NSString *displayName = BRBlackjackString(seat[@"display_name"]);
+    if (displayName.length && [self.announcer hasNameClipForName:displayName]) {
+        [self queueCall:calls keys:@[[self.announcer nameClipKeyForName:displayName], verbKey]
+                caption:[NSString stringWithFormat:@"%@ %@.", displayName, verb]];
+    } else if (!BRBlackjackBool(seat[@"is_me"])) {
+        NSInteger seatNumber = BRBlackjackInt(seat[@"seat_no"]) + 1;
+        if (seatNumber >= 1 && seatNumber <= 8) {
+            [self queueCall:calls keys:@[[NSString stringWithFormat:@"seat%ld", (long)seatNumber], verbKey]
+                    caption:[NSString stringWithFormat:@"Seat %ld %@.", (long)seatNumber, verb]];
+        }
+    }
+}
+
+// "<Name>, it's on you." when the turn moves to a seat.
+- (void)queueTurnCall:(NSMutableArray<NSDictionary *> *)calls seat:(NSDictionary *)seat {
+    NSString *displayName = BRBlackjackString(seat[@"display_name"]);
+    if (displayName.length && [self.announcer hasNameClipForName:displayName]) {
+        [self queueCall:calls keys:@[[self.announcer nameClipKeyForName:displayName], @"its_on_you"]
+                caption:[NSString stringWithFormat:@"%@, it's on you.", displayName]];
+    } else if (BRBlackjackBool(seat[@"is_me"])) {
+        [self queueCall:calls keys:@[@"its_on_you"] caption:@"It's on you."];
+    } else {
+        NSInteger seatNumber = BRBlackjackInt(seat[@"seat_no"]) + 1;
+        if (seatNumber >= 1 && seatNumber <= 8) {
+            [self queueCall:calls keys:@[[NSString stringWithFormat:@"seat%ld", (long)seatNumber], @"its_on_you"]
+                    caption:[NSString stringWithFormat:@"Seat %ld, it's on you.", (long)seatNumber]];
+        }
+    }
+}
+
 - (void)queueDealer21Call:(NSMutableArray<NSDictionary *> *)calls natural:(BOOL)natural {
     NSDictionary *plain = natural
         ? @{ @"keys": @[@"dealer_blackjack"], @"caption": @"Dealer has blackjack" }
@@ -1713,7 +1805,12 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
         NSDictionary *secondHand = BRBlackjackDict(seat[@"hand2"]);
         BOOL justSplit = secondHand.count > 0 && BRBlackjackDict(oldSeat[@"hand2"]).count == 0;
         if (justSplit) {
-            [self queueCall:calls keys:@[@"split"] caption:BRBlackjackBool(seat[@"is_me"]) ? @"You split" : [NSString stringWithFormat:@"Seat %ld splits", (long)BRBlackjackInt(seat[@"seat_no"]) + 1]];
+            NSString *splitName = BRBlackjackString(seat[@"display_name"]);
+            if (!BRBlackjackBool(seat[@"is_me"]) && splitName.length && [self.announcer hasNameClipForName:splitName]) {
+                [self queueCall:calls keys:@[[self.announcer nameClipKeyForName:splitName], @"split"] caption:[NSString stringWithFormat:@"%@ splits", splitName]];
+            } else {
+                [self queueCall:calls keys:@[@"split"] caption:BRBlackjackBool(seat[@"is_me"]) ? @"You split" : [NSString stringWithFormat:@"Seat %ld splits", (long)BRBlackjackInt(seat[@"seat_no"]) + 1]];
+            }
             [self queueHandCall:calls seat:seat hand:seat isNatural:NO withSpeaker:YES];
             [self queueHandCall:calls seat:seat hand:secondHand isNatural:NO withSpeaker:NO];
             continue;
@@ -1733,6 +1830,39 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
         NSInteger oldSecondCount = BRBlackjackArray(BRBlackjackDict(oldSeat[@"hand2"])[@"cards"]).count;
         if (secondHand.count > 0 && BRBlackjackArray(secondHand[@"cards"]).count > oldSecondCount) {
             [self queueHandCall:calls seat:seat hand:secondHand isNatural:NO withSpeaker:NO];
+        }
+
+        // Play-by-play: standing and doubling get called, by name
+        // when the name clip is in. (Hits speak for themselves: the
+        // new total is the call.)
+        NSDictionary *oldSecond = BRBlackjackDict(oldSeat[@"hand2"]);
+        if (![BRBlackjackString(seat[@"status"]) isEqualToString:BRBlackjackString(oldSeat[@"status"])]
+            && [BRBlackjackString(seat[@"status"]) isEqualToString:@"stood"]) {
+            [self queueActionCall:calls seat:seat verbKey:@"stands" verb:@"stands"];
+        }
+        if (![BRBlackjackString(secondHand[@"status"]) isEqualToString:BRBlackjackString(oldSecond[@"status"])]
+            && [BRBlackjackString(secondHand[@"status"]) isEqualToString:@"stood"]) {
+            [self queueActionCall:calls seat:seat verbKey:@"stands" verb:@"stands"];
+        }
+        if (!BRBlackjackBool(oldSeat[@"doubled"]) && BRBlackjackBool(seat[@"doubled"])) {
+            [self queueActionCall:calls seat:seat verbKey:@"doubles" verb:@"doubles"];
+        }
+        if (!BRBlackjackBool(oldSecond[@"doubled"]) && BRBlackjackBool(secondHand[@"doubled"])) {
+            [self queueActionCall:calls seat:seat verbKey:@"doubles" verb:@"doubles"];
+        }
+    }
+
+    // The turn moving to a new seat gets a call: "<Name>, it's on you."
+    if ([newPhase isEqualToString:@"playing"]) {
+        id oldActive = oldTable[@"active_seat"];
+        id newActive = newTable[@"active_seat"];
+        NSInteger oldActiveSeat = [oldActive isKindOfClass:[NSNumber class]] ? [oldActive integerValue] : -1;
+        NSInteger newActiveSeat = [newActive isKindOfClass:[NSNumber class]] ? [newActive integerValue] : -1;
+        if (newActiveSeat >= 0 && newActiveSeat != oldActiveSeat) {
+            for (NSDictionary *rawSeat in BRBlackjackArray(newView[@"seats"])) {
+                NSDictionary *seat = BRBlackjackDict(rawSeat);
+                if (BRBlackjackInt(seat[@"seat_no"]) == newActiveSeat) { [self queueTurnCall:calls seat:seat]; break; }
+            }
         }
     }
 
