@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "ウルトラ";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 コイン / 月\nパワー ユーザー歓迎";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 コイン / 月\nパワー ユーザー歓迎";
 
 "EZCoinStore.Tier.UltraPrice" = "$20/月";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "パワーユーザー";
-"EZCoinStore.Tier.PowerSubtitle" = "毎月6,250コイン\n必要なときにいつでも利用できます。";
+"EZCoinStore.Tier.PowerSubtitle" = "毎月6,000コイン\n必要なときにいつでも利用できます。";
 "EZCoinStore.Tier.Enterprise" = "エンタープライズ";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "毎月12,500コイン\nビジネスのあらゆるニーズに";
 "EZCoinStore.Tier.UnlimitedChat" = "無制限チャット";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "ウルトラコインパック";
 "EZCoinStore.TopUp.UltraSubtitle" = "2,500コイン、1回払い\n有効期限なし";
 "EZCoinStore.TopUp.Power" = "パワーコインパック";
-"EZCoinStore.TopUp.PowerSubtitle" = "6,250コイン、1回払い\n有効期限なし";
+"EZCoinStore.TopUp.PowerSubtitle" = "6,000コイン、1回払い\n有効期限なし";
 "EZCoinStore.TopUp.Enterprise" = "エンタープライズコインパック";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12,500コイン、1回払い\n有効期限なし";
 
@@ -443,6 +443,7 @@
 "BRSlot.Win.Winner" = "勝者！";
 "BRSlot.Win.BigWin" = "ビッグウィン！";
 "BRSlot.Win.MegaWin" = "メガウィン！";
+"BRSlot.Win.HugeWin" = "ヒュージウィン！";
 "BRSlot.Win.BigWinSub" = "+%ld コイン · ×%ld";
 "BRSlot.Lounge.SignIn" = "ラウンジに参加するにはサインインしてください。";
 "BRSlot.Lounge.Delete" = "削除";
@@ -853,44 +854,3 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIPテーブル";
 "BRBlackjack.Lobby.VipMessage" = "High LimitはVIPプレイヤー専用です。シルバーVIP（VIPポイント50,000）に到達するか、いずれかのサブスクリプションを開始すると解放されます。";
-
-// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
-"BRBlackjack.Speech.YouHavePrefix" = "あなたの手は ";
-"BRBlackjack.Speech.NameHasFormat" = "%@ は ";
-"BRBlackjack.Speech.SeatPrefix" = "シート%ld：";
-"BRBlackjack.Speech.SoftTotal" = "ソフト%ld";
-"BRBlackjack.Speech.BlackjackBang" = "ブラックジャック！";
-"BRBlackjack.Speech.BustBang" = "バースト！";
-"BRBlackjack.Speech.BustLower" = "バースト";
-"BRBlackjack.Speech.BustsVerb" = "バースト";
-"BRBlackjack.Speech.VerbStands" = "スタンド";
-"BRBlackjack.Speech.VerbDoubles" = "ダブルダウン";
-"BRBlackjack.Speech.ActionNameFormat" = "%@、%@。";
-"BRBlackjack.Speech.ActionSeatFormat" = "シート%ld、%@。";
-"BRBlackjack.Speech.TurnNameFormat" = "%@、あなたの番です。";
-"BRBlackjack.Speech.TurnYou" = "あなたの番です。";
-"BRBlackjack.Speech.TurnSeatFormat" = "シート%ld、あなたの番です。";
-"BRBlackjack.Speech.DealerBlackjack" = "ディーラーはブラックジャック";
-"BRBlackjack.Speech.DealerHas21" = "ディーラーは21";
-"BRBlackjack.Speech.D21Quip1" = "ディーラー21。残念でした、皆さん。";
-"BRBlackjack.Speech.D21Quip2" = "ディーラーは21です。すみません、皆さん。";
-"BRBlackjack.Speech.D21Quip3" = "21。ハウスの勝ちです。";
-"BRBlackjack.Speech.D21Quip4" = "ディーラー21。ハウスからご挨拶です。";
-"BRBlackjack.Speech.D21Quip5" = "おっと、私が21。残念、皆さん。";
-"BRBlackjack.Speech.PlaceBets" = "ベットしてください";
-"BRBlackjack.Speech.NoMoreBets" = "ベット終了";
-"BRBlackjack.Speech.DealerShowsFormat" = "ディーラーは%@を見せています";
-"BRBlackjack.Speech.RankAce" = "エース";
-"BRBlackjack.Speech.DWeakQuip1" = "ディーラーはバーストしそうです。";
-"BRBlackjack.Speech.DWeakQuip2" = "信じてください。";
-"BRBlackjack.Speech.SplitNameFormat" = "%@ がスプリット";
-"BRBlackjack.Speech.SplitYou" = "スプリットしました";
-"BRBlackjack.Speech.SplitSeatFormat" = "シート%ld がスプリット";
-"BRBlackjack.Speech.DealerBusts" = "ディーラーはバースト";
-"BRBlackjack.Speech.DealerHasFormat" = "ディーラーは%ld";
-"BRBlackjack.Speech.P21Quip1" = "その調子！";
-"BRBlackjack.Speech.P21Quip2" = "やりましたね！";
-"BRBlackjack.Speech.P21Quip3" = "素晴らしい！";
-"BRBlackjack.Speech.WPQuip1" = "お見事です。";
-"BRBlackjack.Speech.WPQuip2" = "初めてのテーブルではないですね。";
-"BRBlackjack.Speech.NamePrefixFormat" = "%@：";

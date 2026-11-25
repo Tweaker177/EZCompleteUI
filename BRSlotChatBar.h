@@ -81,6 +81,7 @@ void BRSlotSetSoundEnabled(BOOL enabled);
 /// Fires the celebration inside hostView when the payout is at least
 /// 25x the total bet (MEGA WIN at 75x+). Returns YES when it fired.
 + (BOOL)celebrateBigWinInView:(UIView *)hostView payout:(NSInteger)payout totalBet:(NSInteger)totalBet;
++ (BOOL)celebrateJackpotInView:(UIView *)hostView payout:(NSInteger)payout totalBet:(NSInteger)totalBet;
 
 @end
 

@@ -119,7 +119,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 coins / month\nPower users welcome";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 coins / month\nPower users welcome";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / mo";
 
@@ -127,7 +127,7 @@
 
 "EZCoinStore.Tier.Power" = "Power Users";
 
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 coins / month\nAvailable when you need them.";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 coins / month\nAvailable when you need them.";
 
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 
@@ -145,7 +145,7 @@
 
 "EZCoinStore.TopUp.Power" = "Power Topup Pack";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 coins, one-time\nNever expires";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 coins, one-time\nNever expires";
 
 "EZCoinStore.TopUp.Enterprise" = "Enterprise Topup Pack";
 
@@ -487,6 +487,7 @@
 "BRSlot.Win.Winner" = "WINNER!";
 "BRSlot.Win.BigWin" = "BIG WIN!";
 "BRSlot.Win.MegaWin" = "MEGA WIN!";
+"BRSlot.Win.HugeWin" = "HUGE WIN!";
 "BRSlot.Win.Jackpot" = "JACKPOT!";
 "BRSlot.Win.BigWinSub" = "+%ld COINS · ×%ld";
 "BRSlot.Lounge.SignIn" = "Sign in to join the lounge.";
@@ -912,44 +913,3 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIP table";
 "BRBlackjack.Lobby.VipMessage" = "High Limit is for VIP players. Reach Silver VIP (50,000 VIP points) or start any subscription to unlock it.";
-
-// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
-"BRBlackjack.Speech.YouHavePrefix" = "You have ";
-"BRBlackjack.Speech.NameHasFormat" = "%@ has ";
-"BRBlackjack.Speech.SeatPrefix" = "Seat %ld: ";
-"BRBlackjack.Speech.SoftTotal" = "soft %ld";
-"BRBlackjack.Speech.BlackjackBang" = "blackjack!";
-"BRBlackjack.Speech.BustBang" = "Bust!";
-"BRBlackjack.Speech.BustLower" = "bust";
-"BRBlackjack.Speech.BustsVerb" = "busts";
-"BRBlackjack.Speech.VerbStands" = "stands";
-"BRBlackjack.Speech.VerbDoubles" = "doubles";
-"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
-"BRBlackjack.Speech.ActionSeatFormat" = "Seat %ld %@.";
-"BRBlackjack.Speech.TurnNameFormat" = "%@, it's on you.";
-"BRBlackjack.Speech.TurnYou" = "It's on you.";
-"BRBlackjack.Speech.TurnSeatFormat" = "Seat %ld, it's on you.";
-"BRBlackjack.Speech.DealerBlackjack" = "Dealer has blackjack";
-"BRBlackjack.Speech.DealerHas21" = "Dealer has 21";
-"BRBlackjack.Speech.D21Quip1" = "Twenty-one for the dealer. Tough break, guys.";
-"BRBlackjack.Speech.D21Quip2" = "Dealer has twenty-one. Sorry about that, folks.";
-"BRBlackjack.Speech.D21Quip3" = "Twenty-one. The house does it again.";
-"BRBlackjack.Speech.D21Quip4" = "Dealer gets twenty-one. The house sends its regards.";
-"BRBlackjack.Speech.D21Quip5" = "Ooh, twenty-one for me. Tough one, guys.";
-"BRBlackjack.Speech.PlaceBets" = "Place your bets";
-"BRBlackjack.Speech.NoMoreBets" = "No more bets";
-"BRBlackjack.Speech.DealerShowsFormat" = "Dealer shows %@";
-"BRBlackjack.Speech.RankAce" = "an ace";
-"BRBlackjack.Speech.DWeakQuip1" = "Dealer's going to bust.";
-"BRBlackjack.Speech.DWeakQuip2" = "Have some faith.";
-"BRBlackjack.Speech.SplitNameFormat" = "%@ splits";
-"BRBlackjack.Speech.SplitYou" = "You split";
-"BRBlackjack.Speech.SplitSeatFormat" = "Seat %ld splits";
-"BRBlackjack.Speech.DealerBusts" = "Dealer busts";
-"BRBlackjack.Speech.DealerHasFormat" = "Dealer has %ld";
-"BRBlackjack.Speech.P21Quip1" = "There you go!";
-"BRBlackjack.Speech.P21Quip2" = "Way to go!";
-"BRBlackjack.Speech.P21Quip3" = "Very nice!";
-"BRBlackjack.Speech.WPQuip1" = "Well played.";
-"BRBlackjack.Speech.WPQuip2" = "This isn't your first time at a table.";
-"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";

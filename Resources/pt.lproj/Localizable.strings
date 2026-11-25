@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2.500 moedas / mês\nIdeal para usuários avançados";
+"EZCoinStore.Tier.UltraSubtitle" = "2.000 moedas / mês\nIdeal para usuários avançados";
 
 "EZCoinStore.Tier.UltraPrice" = "US$ 20 / mês";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "Usuários avançados";
-"EZCoinStore.Tier.PowerSubtitle" = "6.250 moedas / mês\nDisponíveis quando você precisar.";
+"EZCoinStore.Tier.PowerSubtitle" = "6.000 moedas / mês\nDisponíveis quando você precisar.";
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12.500 moedas / mês\nPara todas as necessidades do seu negócio";
 "EZCoinStore.Tier.UnlimitedChat" = "Chat ilimitado";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "Pacote Ultra de Moedas";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 moedas, pagamento único\nNunca expira";
 "EZCoinStore.TopUp.Power" = "Pacote Power de Moedas";
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 moedas, pagamento único\nNunca expira";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 moedas, pagamento único\nNunca expira";
 "EZCoinStore.TopUp.Enterprise" = "Pacote Empresarial de Moedas";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 moedas, pagamento único\nNunca expira";
 
@@ -465,6 +465,7 @@
 "BRSlot.Win.Winner" = "GANHADOR!";
 "BRSlot.Win.BigWin" = "GRANDE VITÓRIA!";
 "BRSlot.Win.MegaWin" = "MEGA VITÓRIA!";
+"BRSlot.Win.HugeWin" = "VITÓRIA ENORME!";
 "BRSlot.Win.BigWinSub" = "+%ld MOEDAS · ×%ld";
 "BRSlot.Lounge.SignIn" = "Faça login para entrar no lounge.";
 "BRSlot.Lounge.Delete" = "Excluir";
@@ -875,44 +876,3 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "Mesa VIP";
 "BRBlackjack.Lobby.VipMessage" = "High Limit é para jogadores VIP. Alcance o VIP Prata (50.000 pontos VIP) ou inicie qualquer assinatura para desbloquear.";
-
-// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
-"BRBlackjack.Speech.YouHavePrefix" = "Você tem ";
-"BRBlackjack.Speech.NameHasFormat" = "%@ tem ";
-"BRBlackjack.Speech.SeatPrefix" = "Lugar %ld: ";
-"BRBlackjack.Speech.SoftTotal" = "suave %ld";
-"BRBlackjack.Speech.BlackjackBang" = "blackjack!";
-"BRBlackjack.Speech.BustBang" = "Estourou!";
-"BRBlackjack.Speech.BustLower" = "estoura";
-"BRBlackjack.Speech.BustsVerb" = "estoura";
-"BRBlackjack.Speech.VerbStands" = "para";
-"BRBlackjack.Speech.VerbDoubles" = "dobra";
-"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
-"BRBlackjack.Speech.ActionSeatFormat" = "Lugar %ld %@.";
-"BRBlackjack.Speech.TurnNameFormat" = "%@, é a sua vez.";
-"BRBlackjack.Speech.TurnYou" = "É a sua vez.";
-"BRBlackjack.Speech.TurnSeatFormat" = "Lugar %ld, é a sua vez.";
-"BRBlackjack.Speech.DealerBlackjack" = "A banca tem blackjack";
-"BRBlackjack.Speech.DealerHas21" = "A banca tem 21";
-"BRBlackjack.Speech.D21Quip1" = "Vinte e um para a banca. Que azar, pessoal.";
-"BRBlackjack.Speech.D21Quip2" = "A banca tem vinte e um. Desculpem, pessoal.";
-"BRBlackjack.Speech.D21Quip3" = "Vinte e um. A casa faz de novo.";
-"BRBlackjack.Speech.D21Quip4" = "A banca faz vinte e um. Saudações da casa.";
-"BRBlackjack.Speech.D21Quip5" = "Opa, vinte e um para mim. Que pena, pessoal.";
-"BRBlackjack.Speech.PlaceBets" = "Façam suas apostas";
-"BRBlackjack.Speech.NoMoreBets" = "Apostas fechadas";
-"BRBlackjack.Speech.DealerShowsFormat" = "A banca mostra %@";
-"BRBlackjack.Speech.RankAce" = "um ás";
-"BRBlackjack.Speech.DWeakQuip1" = "A banca vai estourar.";
-"BRBlackjack.Speech.DWeakQuip2" = "Tenham um pouco de fé.";
-"BRBlackjack.Speech.SplitNameFormat" = "%@ separa";
-"BRBlackjack.Speech.SplitYou" = "Você separa";
-"BRBlackjack.Speech.SplitSeatFormat" = "Lugar %ld separa";
-"BRBlackjack.Speech.DealerBusts" = "A banca estoura";
-"BRBlackjack.Speech.DealerHasFormat" = "A banca tem %ld";
-"BRBlackjack.Speech.P21Quip1" = "Isso aí!";
-"BRBlackjack.Speech.P21Quip2" = "Muito bem!";
-"BRBlackjack.Speech.P21Quip3" = "Muito bom!";
-"BRBlackjack.Speech.WPQuip1" = "Bem jogado.";
-"BRBlackjack.Speech.WPQuip2" = "Não é sua primeira vez numa mesa.";
-"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";

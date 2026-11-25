@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2.500 xu / tháng\nDành cho người dùng chuyên sâu";
+"EZCoinStore.Tier.UltraSubtitle" = "2.000 xu / tháng\nDành cho người dùng chuyên sâu";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / tháng";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "Người dùng nâng cao";
-"EZCoinStore.Tier.PowerSubtitle" = "6.250 xu / tháng\nSẵn sàng khi bạn cần.";
+"EZCoinStore.Tier.PowerSubtitle" = "6.000 xu / tháng\nSẵn sàng khi bạn cần.";
 "EZCoinStore.Tier.Enterprise" = "Doanh nghiệp";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12.500 xu / tháng\nCho mọi nhu cầu kinh doanh của bạn";
 "EZCoinStore.Tier.UnlimitedChat" = "Trò chuyện không giới hạn";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "Gói xu Ultra";
 "EZCoinStore.TopUp.UltraSubtitle" = "2.500 xu, thanh toán một lần\nKhông bao giờ hết hạn";
 "EZCoinStore.TopUp.Power" = "Gói xu Power";
-"EZCoinStore.TopUp.PowerSubtitle" = "6.250 xu, thanh toán một lần\nKhông bao giờ hết hạn";
+"EZCoinStore.TopUp.PowerSubtitle" = "6.000 xu, thanh toán một lần\nKhông bao giờ hết hạn";
 "EZCoinStore.TopUp.Enterprise" = "Gói xu Doanh nghiệp";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12.500 xu, thanh toán một lần\nKhông bao giờ hết hạn";
 
@@ -443,6 +443,7 @@
 "BRSlot.Win.Winner" = "NGƯỜI CHIẾN THẮNG!";
 "BRSlot.Win.BigWin" = "THẮNG LỚN!";
 "BRSlot.Win.MegaWin" = "THẮNG CỰC LỚN!";
+"BRSlot.Win.HugeWin" = "THẮNG RẤT LỚN!";
 "BRSlot.Win.BigWinSub" = "+%ld XU · ×%ld";
 "BRSlot.Lounge.SignIn" = "Đăng nhập để tham gia phòng chờ.";
 "BRSlot.Lounge.Delete" = "Xóa";
@@ -853,44 +854,3 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "Bàn VIP";
 "BRBlackjack.Lobby.VipMessage" = "High Limit dành cho người chơi VIP. Đạt VIP Bạc (50.000 điểm VIP) hoặc bắt đầu bất kỳ gói đăng ký nào để mở khóa.";
-
-// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
-"BRBlackjack.Speech.YouHavePrefix" = "Bạn có ";
-"BRBlackjack.Speech.NameHasFormat" = "%@ có ";
-"BRBlackjack.Speech.SeatPrefix" = "Ghế %ld: ";
-"BRBlackjack.Speech.SoftTotal" = "mềm %ld";
-"BRBlackjack.Speech.BlackjackBang" = "blackjack!";
-"BRBlackjack.Speech.BustBang" = "Quắc rồi!";
-"BRBlackjack.Speech.BustLower" = "quắc";
-"BRBlackjack.Speech.BustsVerb" = "bị quắc";
-"BRBlackjack.Speech.VerbStands" = "dằn";
-"BRBlackjack.Speech.VerbDoubles" = "gấp đôi";
-"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
-"BRBlackjack.Speech.ActionSeatFormat" = "Ghế %ld %@.";
-"BRBlackjack.Speech.TurnNameFormat" = "%@, đến lượt bạn.";
-"BRBlackjack.Speech.TurnYou" = "Đến lượt bạn.";
-"BRBlackjack.Speech.TurnSeatFormat" = "Ghế %ld, đến lượt bạn.";
-"BRBlackjack.Speech.DealerBlackjack" = "Nhà cái có blackjack";
-"BRBlackjack.Speech.DealerHas21" = "Nhà cái có 21";
-"BRBlackjack.Speech.D21Quip1" = "Hai mươi mốt cho nhà cái. Tiếc quá, mọi người.";
-"BRBlackjack.Speech.D21Quip2" = "Nhà cái có hai mươi mốt. Xin lỗi mọi người.";
-"BRBlackjack.Speech.D21Quip3" = "Hai mươi mốt. Nhà cái lại làm được.";
-"BRBlackjack.Speech.D21Quip4" = "Nhà cái được hai mươi mốt. Nhà cái gửi lời chào.";
-"BRBlackjack.Speech.D21Quip5" = "Ồ, hai mươi mốt cho tôi. Tiếc quá, mọi người.";
-"BRBlackjack.Speech.PlaceBets" = "Hãy đặt cược";
-"BRBlackjack.Speech.NoMoreBets" = "Ngừng đặt cược";
-"BRBlackjack.Speech.DealerShowsFormat" = "Nhà cái lật %@";
-"BRBlackjack.Speech.RankAce" = "một lá Át";
-"BRBlackjack.Speech.DWeakQuip1" = "Nhà cái sắp quắc.";
-"BRBlackjack.Speech.DWeakQuip2" = "Hãy tin một chút.";
-"BRBlackjack.Speech.SplitNameFormat" = "%@ tách bài";
-"BRBlackjack.Speech.SplitYou" = "Bạn tách bài";
-"BRBlackjack.Speech.SplitSeatFormat" = "Ghế %ld tách bài";
-"BRBlackjack.Speech.DealerBusts" = "Nhà cái quắc";
-"BRBlackjack.Speech.DealerHasFormat" = "Nhà cái có %ld";
-"BRBlackjack.Speech.P21Quip1" = "Đúng rồi!";
-"BRBlackjack.Speech.P21Quip2" = "Hay lắm!";
-"BRBlackjack.Speech.P21Quip3" = "Rất tốt!";
-"BRBlackjack.Speech.WPQuip1" = "Chơi hay lắm.";
-"BRBlackjack.Speech.WPQuip2" = "Đây không phải lần đầu bạn ngồi bàn này.";
-"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";
