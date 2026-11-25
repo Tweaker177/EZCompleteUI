@@ -1,5 +1,5 @@
 // BRBlackjackTableViewController.m
-// EZCompleteUI v2.0
+// EZCompleteUI v2.1
 //
 // Purpose:
 //   See BRBlackjackTableViewController.h.
@@ -20,16 +20,36 @@
 //     - Actions carry expected_version. If the table moved on (someone else
 //       acted, a timer fired) the server rejects the action and sends the
 //       current view, and we simply redraw: no stuck buttons.
+//     - The dealer also calls the game like a real dealer ("Place your bets",
+//       "No more bets", "Dealer shows nine", "Seat three, soft seventeen",
+//       "Blackjack", "Bust", "Dealer has eighteen"). The app compares each new
+//       table state with the previous one (announceChangesFrom:to:) and chains
+//       short pre-rendered clips from a fixed library (action dealer_clips).
+//       Because the library is fixed, the voice costs the same however many
+//       cards are dealt. Captions show even when the voice is muted.
+//     - The whole table scales with the number of players (tableScale). Heads
+//       up, cards, seats and the dealer are drawn larger; with a full table
+//       they shrink so every seat stays readable, and the seat row scrolls only
+//       when even the smallest size doesn't fit. The scale is the smaller of
+//       what the width allows (seats side by side) and what the height allows
+//       (space between the header and the bet panel). See computeTableScale.
 //     - A seat has one hand, or two after a split (seat["hand2"]). The hand
 //       currently being played is seat["active_hand"] (0 or 1).
-//     - The dealer (Lucky Lou) only speaks when players chat with him. His line
-//       arrives in view["dealer"]["line"] with an mp3 URL; we show it in a speech
+//     - Besides the call-outs, the dealer (Lucky Lou) chats only when a player
+//       is clearly talking to him. That line arrives in view["dealer"]["line"] with an mp3 URL; we show it in a speech
 //       bubble and play it unless the player muted him.
 //     - Payouts: when a round settles with winnings the shown balance is held at
 //       its old value, coins fly from the player's seat to the balance, then the
 //       number counts up to the real balance.
 //     - Card ids 0..51: rank = id % 13 (0 = Ace, 9...12 = 10, J, Q, K),
 //       suit = id / 13 (spades, hearts, diamonds, clubs).
+//
+// Changes from v2.0:
+//   - Table zoom: dealer, cards and seat panels scale with the player count and
+//     the screen size (tableScale). Dealer cards squeeze together when he has
+//     many cards so they never run off the screen. Long hands (6+ cards) overlap more.
+//   - Dealer call-outs (BRBlackjackAnnouncer): table calls and every hand total,
+//     with captions in the dealer bubble. Seat panels now show their seat number.
 //
 // Changes from v1.0:
 //   - Bigger cards, bigger balance display, and an avatar for the dealer.
@@ -63,6 +83,15 @@ static const CGFloat kSeatCardWidth = 44.0;
 static const CGFloat kSplitCardWidth = 32.0;
 static const CGFloat kSeatWidth = 150.0;
 static const CGFloat kSeatPanelHeight = 214.0;
+static const CGFloat kSeatSpacing = 8.0;
+static const CGFloat kBetPanelHeight = 150.0;
+static const CGFloat kDealerAvatarSize = 68.0;
+// Height of everything between the timer line and the seat row at scale 1:
+// dealer avatar + name (87), total label (22), room for a one-line speech bubble (38), gaps (14).
+static const CGFloat kDealerAreaBaseHeight = 161.0;
+static const CGFloat kMinTableScale = 0.7;
+static const CGFloat kMaxTableScale = 1.8;
+static const CGFloat kMaxDealerScale = 1.6;
 // Posted by BRSlotChatBar (object = room id) after a message was sent.
 static NSString * const kChatMessageSentNotification = @"BRSlotChatMessageSentNotification";
 static NSString * const kDealerVoiceMutedKey = @"BRBlackjackDealerVoiceMuted";
@@ -117,6 +146,171 @@ static NSInteger BRBlackjackInt(id value) { return [value respondsToSelector:@se
 static BOOL BRBlackjackBool(id value) { return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO; }
 static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSString class]] ? value : @""; }
 
+#pragma mark - Dealer call-outs
+
+/// Prepares audio for dealer speech. Ambient respects the silent switch and mixes
+/// with other audio; an existing playback session (ez-music) is left alone.
+static void BRBlackjackActivateAudioSession(void) {
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    if (![session.category isEqualToString:AVAudioSessionCategoryPlayback] && ![session.category isEqualToString:AVAudioSessionCategoryPlayAndRecord]) {
+        [session setCategory:AVAudioSessionCategoryAmbient error:nil];
+    }
+    [session setActive:YES error:nil];
+}
+
+/// Plays the dealer's call-outs. Each call-out is a short list of clip keys
+/// ("seat3", "soft", "n17") played back to back, with a caption shown meanwhile.
+/// Clips are downloaded once per session from the library the server renders
+/// (see the dealer_clips action). If a clip or the whole library is missing, or
+/// the voice is off, the caption alone is shown at a readable pace, so the game
+/// never waits on audio.
+static const NSUInteger kMaxQueuedCalls = 6;
+static const NSInteger kMaxManifestAttempts = 8;
+
+@interface BRBlackjackAnnouncer : NSObject <AVAudioPlayerDelegate>
+@property (nonatomic, copy) NSString *tableID;
+@property (nonatomic) BOOL voiceEnabled;
+@property (nonatomic, copy) void (^captionHandler)(NSString *caption);
+@property (nonatomic, copy) void (^speakingHandler)(BOOL speaking);
+- (instancetype)initWithTableID:(NSString *)tableID;
+- (void)loadClips;
+- (void)enqueueKeys:(NSArray<NSString *> *)keys caption:(NSString *)caption;
+- (void)stop;
+@end
+
+@implementation BRBlackjackAnnouncer {
+    NSMutableDictionary<NSString *, NSURL *> *_clipURLs;
+    NSMutableDictionary<NSString *, NSData *> *_clipData;
+    NSMutableSet<NSString *> *_requestedKeys;
+    NSMutableArray<NSDictionary *> *_queue;
+    NSArray<NSString *> *_currentKeys;
+    NSUInteger _currentIndex;
+    BOOL _busy;
+    BOOL _stopped;
+    BOOL _currentHadAudio;
+    NSInteger _manifestAttempts;
+    AVAudioPlayer *_player;
+}
+
+- (instancetype)initWithTableID:(NSString *)tableID {
+    self = [super init];
+    if (self) {
+        _tableID = [tableID copy];
+        _clipURLs = [NSMutableDictionary dictionary];
+        _clipData = [NSMutableDictionary dictionary];
+        _requestedKeys = [NSMutableSet set];
+        _queue = [NSMutableArray array];
+    }
+    return self;
+}
+
+/// Fetches the clip manifest and downloads every clip. When the server is still
+/// rendering the library the manifest is incomplete, so ask again a few times.
+- (void)loadClips {
+    if (_stopped) return;
+    _manifestAttempts += 1;
+    __weak typeof(self) weakSelf = self;
+    [BRBlackjackAPI performAction:@"dealer_clips" params:@{ @"table_id": self.tableID } completion:^(NSDictionary *json, NSInteger status, NSString *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || self->_stopped) return;
+        NSDictionary *clips = BRBlackjackDict(json[@"clips"]);
+        NSString *trustedHost = [NSURL URLWithString:EZSupabaseURL].host;
+        for (NSString *key in clips) {
+            NSURL *url = [NSURL URLWithString:BRBlackjackString(clips[key])];
+            if (![url.scheme isEqualToString:@"https"] || ![url.host isEqualToString:trustedHost]) continue;
+            self->_clipURLs[key] = url;
+            [self downloadClipForKey:key];
+        }
+        BOOL complete = BRBlackjackBool(json[@"complete"]);
+        if (!complete && self->_manifestAttempts < kMaxManifestAttempts) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [weakSelf loadClips]; });
+        }
+    }];
+}
+
+- (void)downloadClipForKey:(NSString *)key {
+    if (_clipData[key] != nil || [_requestedKeys containsObject:key]) return;
+    [_requestedKeys addObject:key];
+    NSURL *url = _clipURLs[key];
+    __weak typeof(self) weakSelf = self;
+    [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        BOOL usable = data.length > 0 && !error && [(NSHTTPURLResponse *)response isKindOfClass:[NSHTTPURLResponse class]] && ((NSHTTPURLResponse *)response).statusCode == 200;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) return;
+            if (usable) self->_clipData[key] = data;
+            else [self->_requestedKeys removeObject:key]; // allow a retry on the next manifest pass
+        });
+    }] resume];
+}
+
+- (void)enqueueKeys:(NSArray<NSString *> *)keys caption:(NSString *)caption {
+    if (_stopped || keys.count == 0) return;
+    // After time away or a burst of play, drop the oldest calls instead of
+    // talking about hands that are long gone.
+    while (_queue.count >= kMaxQueuedCalls) [_queue removeObjectAtIndex:0];
+    [_queue addObject:@{ @"keys": keys, @"caption": caption ?: @"" }];
+    if (!_busy) [self playNextCall];
+}
+
+- (void)playNextCall {
+    if (_stopped || _queue.count == 0) {
+        _busy = NO;
+        if (self.speakingHandler) self.speakingHandler(NO);
+        return;
+    }
+    _busy = YES;
+    NSDictionary *call = _queue.firstObject;
+    [_queue removeObjectAtIndex:0];
+    _currentKeys = call[@"keys"];
+    _currentIndex = 0;
+    _currentHadAudio = NO;
+    if (self.captionHandler) self.captionHandler(call[@"caption"]);
+    [self playCurrentKey];
+}
+
+- (void)playCurrentKey {
+    if (_stopped) return;
+    if (_currentIndex >= _currentKeys.count) {
+        // A short breath after spoken calls; silent calls stay up long enough to read.
+        if (self.speakingHandler) self.speakingHandler(NO);
+        NSTimeInterval pause = _currentHadAudio ? 0.3 : 1.3;
+        __weak typeof(self) weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(pause * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [weakSelf playNextCall]; });
+        return;
+    }
+    NSData *data = self.voiceEnabled ? _clipData[_currentKeys[_currentIndex]] : nil;
+    AVAudioPlayer *player = data ? [[AVAudioPlayer alloc] initWithData:data error:nil] : nil;
+    if (!player) { // no clip for this word: skip it
+        _currentIndex += 1;
+        [self playCurrentKey];
+        return;
+    }
+    BRBlackjackActivateAudioSession();
+    player.delegate = self;
+    [player prepareToPlay];
+    [player play];
+    _player = player;
+    if (!_currentHadAudio && self.speakingHandler) self.speakingHandler(YES);
+    _currentHadAudio = YES;
+}
+
+- (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
+    if (player != _player) return;
+    _currentIndex += 1;
+    [self playCurrentKey];
+}
+
+- (void)stop {
+    _stopped = YES;
+    [_queue removeAllObjects];
+    [_player stop];
+    _player = nil;
+    _busy = NO;
+}
+
+@end
+
 #pragma mark - Controller
 
 @interface BRBlackjackTableViewController () <AVAudioPlayerDelegate>
@@ -166,6 +360,13 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 @property (nonatomic, strong) UILabel *statusLabel;
 @property (nonatomic, strong) UILabel *timerLabel;
 @property (nonatomic, strong) UIView *dealerAvatarView;
+@property (nonatomic, strong) UILabel *dealerAvatarFace;
+@property (nonatomic, strong) UILabel *dealerNameLabel;
+@property (nonatomic, strong) NSLayoutConstraint *dealerAvatarWidthConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *dealerAvatarHeightConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *dealerCardsHeightConstraint;
+@property (nonatomic, strong) NSLayoutConstraint *seatsHeightConstraint;
+@property (nonatomic) CGFloat tableScale;                   // 1.0 = original size; see computeTableScale
 @property (nonatomic, strong) UIView *dealerBubble;
 @property (nonatomic, strong) UILabel *dealerBubbleLabel;
 @property (nonatomic, strong) UIStackView *dealerCardsStack;
@@ -185,6 +386,8 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 @property (nonatomic, strong) UIButton *doubleButton;
 @property (nonatomic, strong) UIButton *splitButton;
 @property (nonatomic, strong) BRSlotChatBar *chatBar;
+@property (nonatomic, strong) BRBlackjackAnnouncer *announcer;
+@property (nonatomic) BOOL skipNextAnnouncements;           // set after time away so old events aren't replayed
 @end
 
 @implementation BRBlackjackTableViewController
@@ -208,9 +411,11 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.tableScale = 1.0;
     self.view.backgroundColor = [UIColor colorWithRed:.03 green:.22 blue:.14 alpha:1];
     self.title = self.tableName;
     [self buildInterface];
+    [self buildAnnouncer];
 
     // Stop polling in the background; resume (and resync) when active again.
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillResignActive) name:UIApplicationWillResignActiveNotification object:nil];
@@ -240,6 +445,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     [self.chatBar stop];
     [self stopTimers];
     [self stopDealerAudio];
+    [self.announcer stop];
     // Popped off the navigation stack (not just covered by a sheet): free the seat.
     if (self.isMovingFromParentViewController || self.isBeingDismissed || self.navigationController == nil) {
         [self leaveTableSilently];
@@ -254,9 +460,11 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 }
 
 - (void)appWillResignActive { [self stopTimers]; [self stopDealerAudio]; }
+
 - (void)appDidBecomeActive {
     if (self.viewIfLoaded.window == nil || self.leaving) return;
     self.lastVersion = -1; // force a full redraw after time away
+    self.skipNextAnnouncements = YES; // don't narrate everything that happened meanwhile
     [self startTimers];
     [self pollNow];
 }
@@ -347,16 +555,19 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     avatarFace.translatesAutoresizingMaskIntoConstraints = NO;
     avatarFace.text = @"🤵";
     avatarFace.font = [UIFont systemFontOfSize:38];
+    self.dealerAvatarFace = avatarFace;
     [self.dealerAvatarView addSubview:avatarFace];
     [NSLayoutConstraint activateConstraints:@[
-        [self.dealerAvatarView.widthAnchor constraintEqualToConstant:68],
-        [self.dealerAvatarView.heightAnchor constraintEqualToConstant:68],
         [avatarFace.centerXAnchor constraintEqualToAnchor:self.dealerAvatarView.centerXAnchor],
         [avatarFace.centerYAnchor constraintEqualToAnchor:self.dealerAvatarView.centerYAnchor],
     ]];
+    self.dealerAvatarWidthConstraint = [self.dealerAvatarView.widthAnchor constraintEqualToConstant:kDealerAvatarSize];
+    self.dealerAvatarHeightConstraint = [self.dealerAvatarView.heightAnchor constraintEqualToConstant:kDealerAvatarSize];
+    [NSLayoutConstraint activateConstraints:@[self.dealerAvatarWidthConstraint, self.dealerAvatarHeightConstraint]];
     self.dealerAvatarView.isAccessibilityElement = YES;
     self.dealerAvatarView.accessibilityLabel = @"Dealer, Lucky Lou";
     UILabel *dealerName = [self labelWithSize:12 weight:UIFontWeightBold color:[UIColor colorWithWhite:1 alpha:.85]];
+    self.dealerNameLabel = dealerName;
     dealerName.text = @"Lucky Lou";
     dealerName.textAlignment = NSTextAlignmentCenter;
     UIStackView *avatarColumn = [[UIStackView alloc] initWithArrangedSubviews:@[self.dealerAvatarView, dealerName]];
@@ -366,7 +577,8 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 
     self.dealerCardsStack = [UIStackView new];
     self.dealerCardsStack.alignment = UIStackViewAlignmentCenter;
-    [self.dealerCardsStack.heightAnchor constraintEqualToConstant:kDealerCardWidth * 1.4].active = YES;
+    self.dealerCardsHeightConstraint = [self.dealerCardsStack.heightAnchor constraintEqualToConstant:kDealerCardWidth * 1.4];
+    self.dealerCardsHeightConstraint.active = YES;
     UIStackView *dealerRow = [[UIStackView alloc] initWithArrangedSubviews:@[avatarColumn, self.dealerCardsStack]];
     dealerRow.translatesAutoresizingMaskIntoConstraints = NO;
     dealerRow.spacing = 16;
@@ -405,10 +617,12 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     self.seatsScroll.showsHorizontalScrollIndicator = NO;
     self.seatsScroll.alwaysBounceHorizontal = NO;
     [self.view addSubview:self.seatsScroll];
+    self.seatsHeightConstraint = [self.seatsScroll.heightAnchor constraintEqualToConstant:kSeatPanelHeight];
+    self.seatsHeightConstraint.active = YES;
     self.seatsStack = [UIStackView new];
     self.seatsStack.translatesAutoresizingMaskIntoConstraints = NO;
     self.seatsStack.axis = UILayoutConstraintAxisHorizontal;
-    self.seatsStack.spacing = 8;
+    self.seatsStack.spacing = kSeatSpacing;
     self.seatsStack.alignment = UIStackViewAlignmentTop;
     [self.seatsScroll addSubview:self.seatsStack];
 
@@ -484,7 +698,6 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
         [self.seatsScroll.topAnchor constraintEqualToAnchor:dealerInfo.bottomAnchor constant:10],
         [self.seatsScroll.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:8],
         [self.seatsScroll.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-8],
-        [self.seatsScroll.heightAnchor constraintEqualToConstant:kSeatPanelHeight],
         [self.seatsStack.topAnchor constraintEqualToAnchor:self.seatsScroll.contentLayoutGuide.topAnchor],
         [self.seatsStack.bottomAnchor constraintEqualToAnchor:self.seatsScroll.contentLayoutGuide.bottomAnchor],
         [self.seatsStack.leadingAnchor constraintEqualToAnchor:self.seatsScroll.contentLayoutGuide.leadingAnchor],
@@ -499,7 +712,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
         [self.betPanel.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
         [self.betPanel.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
         [self.betPanel.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-kChatBarReservedHeight],
-        [self.betPanel.heightAnchor constraintEqualToConstant:150],
+        [self.betPanel.heightAnchor constraintEqualToConstant:kBetPanelHeight],
         [self.chipStack.topAnchor constraintEqualToAnchor:self.betPanel.topAnchor],
         [self.chipStack.leadingAnchor constraintEqualToAnchor:self.betPanel.leadingAnchor],
         [self.chipStack.trailingAnchor constraintEqualToAnchor:self.betPanel.trailingAnchor],
@@ -645,6 +858,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     // Ignore a response older than what's already on screen (out-of-order replies).
     if (version < self.lastVersion) return;
     self.lastVersion = version;
+    NSDictionary *previousView = self.tableState;
     self.tableState = view;
     [self handleDealerLineInView:view];
     [self updateClockOffsetFromServerNow:BRBlackjackDict(view[@"table"])[@"server_now"]];
@@ -654,6 +868,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 
     if (self.pendingBet == 0) [self resetPendingBet];
     [self renderTable];
+    [self announceChangesFrom:previousView to:view];
     [self announceResultIfNeeded];
 }
 
@@ -694,7 +909,6 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 
 - (void)renderTable {
     NSDictionary *tableInfo = BRBlackjackDict(self.tableState[@"table"]);
-    NSDictionary *dealer = BRBlackjackDict(self.tableState[@"dealer"]);
     NSString *phase = [self phase];
     NSDictionary *mine = [self mySeat];
 
@@ -717,9 +931,81 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
         self.hasShownBalance = YES;
     }
 
-    // Dealer
+    [self refreshTableScale];
+    [self renderTableCards];
+    [self renderStatusLine];
+    [self refreshControls];
+}
+
+#pragma mark Table zoom
+
+/// Scale shared by the dealer, cards and seat panels. 1.0 is the original size.
+/// It is the smaller of two limits: how wide each seat can be if every player sits
+/// side by side, and how much vertical room is left between the header and the
+/// bet panel. Never below kMinTableScale (the seat row scrolls instead).
+/// Rounded to 5% steps so tiny layout changes don't cause constant redraws.
+- (CGFloat)computeTableScale {
+    CGRect safeFrame = self.view.safeAreaLayoutGuide.layoutFrame;
+    if (safeFrame.size.width <= 0 || CGRectGetMaxY(self.timerLabel.frame) <= 0) return self.tableScale;
+    NSInteger seatCount = MAX(1, (NSInteger)BRBlackjackArray(self.tableState[@"seats"]).count);
+    CGFloat rowWidth = safeFrame.size.width - 16;
+    CGFloat widthScale = (rowWidth - kSeatSpacing * (seatCount - 1)) / seatCount / kSeatWidth;
+    CGFloat top = CGRectGetMaxY(self.timerLabel.frame) + 10;
+    CGFloat bottom = CGRectGetMaxY(safeFrame) - kChatBarReservedHeight - kBetPanelHeight - 10;
+    CGFloat heightScale = (bottom - top) / (kDealerAreaBaseHeight + kSeatPanelHeight);
+    CGFloat scale = MIN(widthScale, heightScale);
+    scale = MAX(kMinTableScale, MIN(kMaxTableScale, scale));
+    return floor(scale * 20.0) / 20.0;
+}
+
+/// The dealer grows a little less than the seats so his cards and avatar still fit across the screen.
+- (CGFloat)dealerScale {
+    return MIN(self.tableScale, kMaxDealerScale);
+}
+
+/// Recomputes the scale and resizes the fixed-size parts (avatar, dealer card row,
+/// seat row height). Returns YES when the scale changed, so callers redraw cards and seats.
+- (BOOL)refreshTableScale {
+    CGFloat scale = [self computeTableScale];
+    if (fabs(scale - self.tableScale) < 0.001) return NO;
+    self.tableScale = scale;
+    CGFloat dealerScale = [self dealerScale];
+    CGFloat avatarSize = kDealerAvatarSize * dealerScale;
+    self.dealerAvatarWidthConstraint.constant = avatarSize;
+    self.dealerAvatarHeightConstraint.constant = avatarSize;
+    self.dealerAvatarView.layer.cornerRadius = avatarSize / 2;
+    self.dealerAvatarFace.font = [UIFont systemFontOfSize:38 * dealerScale];
+    self.dealerNameLabel.font = [UIFont systemFontOfSize:12 * MIN(dealerScale, 1.3) weight:UIFontWeightBold];
+    self.dealerTotalLabel.font = [UIFont systemFontOfSize:18 * dealerScale weight:UIFontWeightHeavy];
+    self.dealerCardsHeightConstraint.constant = kDealerCardWidth * dealerScale * 1.4;
+    self.seatsHeightConstraint.constant = kSeatPanelHeight * scale;
+    return YES;
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    // Rotation, split-screen or a new player count can change the right size.
+    if ([self refreshTableScale] && self.tableState.count > 0) [self renderTableCards];
+}
+
+/// Draws the dealer's hand and every seat at the current scale.
+- (void)renderTableCards {
+    NSDictionary *tableInfo = BRBlackjackDict(self.tableState[@"table"]);
+    NSDictionary *dealer = BRBlackjackDict(self.tableState[@"dealer"]);
+    CGFloat dealerScale = [self dealerScale];
+
+    // Dealer. With many cards the overlap grows so the hand never runs off screen.
     NSArray *dealerCards = BRBlackjackArray(dealer[@"cards"]);
-    [self fillCardStack:self.dealerCardsStack cards:dealerCards hiddenExtra:BRBlackjackBool(dealer[@"hole_hidden"]) width:kDealerCardWidth overlap:12];
+    BOOL holeHidden = BRBlackjackBool(dealer[@"hole_hidden"]);
+    CGFloat dealerCardWidth = kDealerCardWidth * dealerScale;
+    CGFloat overlap = 12 * dealerScale;
+    NSInteger shownCards = (NSInteger)dealerCards.count + (holeHidden ? 1 : 0);
+    CGFloat roomForCards = self.view.safeAreaLayoutGuide.layoutFrame.size.width - 16 - kDealerAvatarSize * dealerScale - 16;
+    if (shownCards > 1 && roomForCards > dealerCardWidth) {
+        CGFloat fittingStep = (roomForCards - dealerCardWidth) / (shownCards - 1);
+        overlap = MIN(dealerCardWidth * 0.75, MAX(overlap, dealerCardWidth - fittingStep));
+    }
+    [self fillCardStack:self.dealerCardsStack cards:dealerCards hiddenExtra:holeHidden width:dealerCardWidth overlap:overlap];
     id dealerTotal = dealer[@"total"];
     self.dealerTotalLabel.text = [dealerTotal isKindOfClass:[NSNumber class]] ? [NSString stringWithFormat:@"%@", dealerTotal] : @"";
 
@@ -735,9 +1021,6 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     }
     [self.seatsStack addArrangedSubview:trailingSpacer];
     [leadingSpacer.widthAnchor constraintEqualToAnchor:trailingSpacer.widthAnchor].active = YES;
-
-    [self renderStatusLine];
-    [self refreshControls];
 }
 
 /// Seat total stake: both hands after a split, otherwise the single bet.
@@ -762,7 +1045,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     UIStackView *cardStack = [UIStackView new];
     cardStack.translatesAutoresizingMaskIntoConstraints = NO;
     cardStack.alignment = UIStackViewAlignmentCenter;
-    [self fillCardStack:cardStack cards:cards hiddenExtra:NO width:cardWidth overlap:cards.count > 3 ? cardWidth * 0.5 : cardWidth * 0.2];
+    [self fillCardStack:cardStack cards:cards hiddenExtra:NO width:cardWidth overlap:cards.count > 5 ? cardWidth * 0.65 : (cards.count > 3 ? cardWidth * 0.5 : cardWidth * 0.2)];
     UIView *cardHolder = [UIView new];
     cardHolder.translatesAutoresizingMaskIntoConstraints = NO;
     [cardHolder addSubview:cardStack];
@@ -787,7 +1070,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
         NSString *word = [self shortResultWord:BRBlackjackString(hand[@"result"])];
         if (word.length) [parts addObject:word];
     }
-    UILabel *summary = [self labelWithSize:cardWidth > kSplitCardWidth ? 15 : 13 weight:UIFontWeightHeavy color:UIColor.whiteColor];
+    UILabel *summary = [self labelWithSize:(cardWidth > kSplitCardWidth * self.tableScale ? 15 : 13) * self.tableScale weight:UIFontWeightHeavy color:UIColor.whiteColor];
     summary.textAlignment = NSTextAlignmentCenter;
     summary.text = [(marker ? @"▶ " : @"") stringByAppendingString:[parts componentsJoinedByString:@" · "]];
 
@@ -807,11 +1090,16 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
     card.layer.cornerRadius = 12;
     card.layer.borderWidth = (active || mine) ? 2 : 0;
     card.layer.borderColor = (active ? [UIColor colorWithRed:.3 green:.95 blue:.5 alpha:1] : gold).CGColor;
-    [card.widthAnchor constraintEqualToConstant:kSeatWidth].active = YES;
+    CGFloat scale = self.tableScale;
+    [card.widthAnchor constraintEqualToConstant:kSeatWidth * scale].active = YES;
     if (mine) self.mySeatView = card;
 
-    UILabel *name = [self labelWithSize:14 weight:UIFontWeightBold color:mine ? gold : UIColor.whiteColor];
-    name.text = mine ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.You", nil, NSBundle.mainBundle, @"You", nil) : BRBlackjackString(seat[@"display_name"]);
+    UILabel *name = [self labelWithSize:14 * scale weight:UIFontWeightBold color:mine ? gold : UIColor.whiteColor];
+    NSInteger seatNumber = BRBlackjackInt(seat[@"seat_no"]) + 1; // spoken and shown as "seat N"
+    name.text = mine ? [NSString stringWithFormat:@"%@ · %ld", NSLocalizedStringWithDefaultValue(@"BRBlackjack.You", nil, NSBundle.mainBundle, @"You", nil), (long)seatNumber]
+                     : [NSString stringWithFormat:@"%ld · %@", (long)seatNumber, BRBlackjackString(seat[@"display_name"])];
+    name.adjustsFontSizeToFitWidth = YES;
+    name.minimumScaleFactor = 0.7;
     name.textAlignment = NSTextAlignmentCenter;
 
     NSDictionary *secondHand = BRBlackjackDict(seat[@"hand2"]);
@@ -822,14 +1110,16 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 
     NSMutableArray<UIView *> *rows = [NSMutableArray arrayWithObject:name];
     if (split) {
-        [rows addObject:[self handBlockForHand:seat cardWidth:kSplitCardWidth marker:active && activeHand == 0 showResult:settled]];
-        [rows addObject:[self handBlockForHand:secondHand cardWidth:kSplitCardWidth marker:active && activeHand == 1 showResult:settled]];
+        [rows addObject:[self handBlockForHand:seat cardWidth:kSplitCardWidth * scale marker:active && activeHand == 0 showResult:settled]];
+        [rows addObject:[self handBlockForHand:secondHand cardWidth:kSplitCardWidth * scale marker:active && activeHand == 1 showResult:settled]];
     } else {
-        [rows addObject:[self handBlockForHand:seat cardWidth:kSeatCardWidth marker:NO showResult:NO]];
+        [rows addObject:[self handBlockForHand:seat cardWidth:kSeatCardWidth * scale marker:NO showResult:NO]];
     }
 
-    UILabel *result = [self labelWithSize:14 weight:UIFontWeightHeavy color:UIColor.whiteColor];
+    UILabel *result = [self labelWithSize:14 * scale weight:UIFontWeightHeavy color:UIColor.whiteColor];
     result.textAlignment = NSTextAlignmentCenter;
+    result.adjustsFontSizeToFitWidth = YES;
+    result.minimumScaleFactor = 0.7;
     result.text = [self resultTextForSeat:seat];
     NSInteger net = BRBlackjackInt(seat[@"payout"]) - [self totalBetForSeat:seat];
     NSString *resultKey = BRBlackjackString(seat[@"result"]);
@@ -1164,6 +1454,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 - (void)toggleDealerVoice {
     self.dealerVoiceMuted = !self.dealerVoiceMuted;
     [[NSUserDefaults standardUserDefaults] setBool:self.dealerVoiceMuted forKey:kDealerVoiceMutedKey];
+    self.announcer.voiceEnabled = !self.dealerVoiceMuted && BRSlotSoundEnabled();
     if (self.dealerVoiceMuted) [self stopDealerAudio];
     [self updateVoiceButton];
 }
@@ -1171,27 +1462,46 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 - (void)stopDealerAudio {
     [self.dealerAudioPlayer stop];
     self.dealerAudioPlayer = nil;
-    [self.dealerAvatarView.layer removeAnimationForKey:@"talk"];
+    [self setDealerTalking:NO];
 }
 
-/// Shows the dealer's line in a speech bubble and, unless muted, speaks it.
-/// Only the Supabase storage host is trusted as an audio source.
-- (void)dealerSaysLine:(NSString *)line audioURLString:(NSString *)audioURLString {
-    if (line.length == 0) return;
-    self.dealerBubbleLabel.text = line;
+/// Speech bubble above the dealer. Chat replies stay up for a while; table
+/// call-outs only for a moment. A newer bubble cancels the older one's timer.
+- (void)showDealerBubbleText:(NSString *)text duration:(NSTimeInterval)duration {
+    self.dealerBubbleLabel.text = text;
     self.dealerBubble.hidden = NO;
     self.dealerBubble.alpha = 0;
     [UIView animateWithDuration:0.2 animations:^{ self.dealerBubble.alpha = 1; }];
-    UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, [@"Dealer: " stringByAppendingString:line]);
+    UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, [@"Dealer: " stringByAppendingString:text]);
     NSInteger token = ++self.bubbleToken;
     __weak typeof(self) weakSelf = self;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         __strong typeof(weakSelf) self = weakSelf;
         if (!self || token != self.bubbleToken) return;
         [UIView animateWithDuration:0.3 animations:^{ self.dealerBubble.alpha = 0; } completion:^(BOOL finished) {
             if (token == self.bubbleToken) self.dealerBubble.hidden = YES;
         }];
     });
+}
+
+/// Gentle pulsing on the avatar while the dealer is speaking.
+- (void)setDealerTalking:(BOOL)talking {
+    if (!talking) {
+        [self.dealerAvatarView.layer removeAnimationForKey:@"talk"];
+        return;
+    }
+    if ([self.dealerAvatarView.layer animationForKey:@"talk"] || UIAccessibilityIsReduceMotionEnabled()) return;
+    CABasicAnimation *talk = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+    talk.fromValue = @1.0; talk.toValue = @1.08; talk.duration = 0.22; talk.autoreverses = YES; talk.repeatCount = HUGE_VALF;
+    [self.dealerAvatarView.layer addAnimation:talk forKey:@"talk"];
+}
+
+/// Shows the dealer's line in a speech bubble and, unless muted, speaks it.
+/// Only the Supabase storage host is trusted as an audio source.
+- (void)dealerSaysLine:(NSString *)line audioURLString:(NSString *)audioURLString {
+    if (line.length == 0) return;
+    [self showDealerBubbleText:line duration:10];
+    __weak typeof(self) weakSelf = self;
 
     BOOL canSpeak = !self.dealerVoiceMuted && BRSlotSoundEnabled() && audioURLString.length > 0;
     NSURL *audioURL = canSpeak ? [NSURL URLWithString:audioURLString] : nil;
@@ -1205,13 +1515,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(weakSelf) self = weakSelf;
             if (!self || self.dealerVoiceMuted || self.leaving) return;
-            // Ambient: respects the silent switch and mixes with other audio.
-            // Leave a playback session (ez-music) alone; otherwise use ambient.
-            AVAudioSession *session = [AVAudioSession sharedInstance];
-            if (![session.category isEqualToString:AVAudioSessionCategoryPlayback] && ![session.category isEqualToString:AVAudioSessionCategoryPlayAndRecord]) {
-                [session setCategory:AVAudioSessionCategoryAmbient error:nil];
-            }
-            [session setActive:YES error:nil];
+            BRBlackjackActivateAudioSession();
             AVAudioPlayer *player = [[AVAudioPlayer alloc] initWithData:data error:nil];
             if (!player) return;
             [self stopDealerAudio];
@@ -1219,9 +1523,7 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
             [player prepareToPlay];
             [player play];
             self.dealerAudioPlayer = player;
-            CABasicAnimation *talk = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
-            talk.fromValue = @1.0; talk.toValue = @1.08; talk.duration = 0.22; talk.autoreverses = YES; talk.repeatCount = HUGE_VALF;
-            [self.dealerAvatarView.layer addAnimation:talk forKey:@"talk"];
+            [self setDealerTalking:YES];
         });
     }] resume];
 }
@@ -1236,6 +1538,145 @@ static NSString *BRBlackjackString(id value) { return [value isKindOfClass:[NSSt
 
 - (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag {
     if (player == self.dealerAudioPlayer) { self.dealerAudioPlayer = nil; [self.dealerAvatarView.layer removeAnimationForKey:@"talk"]; }
+}
+
+#pragma mark Dealer call-outs
+
+/// Creates the announcer and starts downloading the clip library.
+- (void)buildAnnouncer {
+    self.announcer = [[BRBlackjackAnnouncer alloc] initWithTableID:self.tableID];
+    __weak typeof(self) weakSelf = self;
+    self.announcer.captionHandler = ^(NSString *caption) {
+        [weakSelf showDealerBubbleText:caption duration:3.0];
+    };
+    self.announcer.speakingHandler = ^(BOOL speaking) {
+        [weakSelf setDealerTalking:speaking];
+    };
+    [self.announcer loadClips];
+}
+
+/// Clip key for a card's rank as the dealer's up card: ace, or the card's value (face cards say "ten").
+static NSString *BRBlackjackRankKey(NSInteger cardID) {
+    NSInteger rank = cardID % 13;
+    return rank == 0 ? @"ace" : [NSString stringWithFormat:@"n%ld", (long)MIN(rank + 1, 10)];
+}
+
+static NSString *BRBlackjackRankWord(NSInteger cardID) {
+    NSInteger rank = cardID % 13;
+    return rank == 0 ? @"an ace" : [NSString stringWithFormat:@"%ld", (long)MIN(rank + 1, 10)];
+}
+
+- (void)queueCall:(NSMutableArray<NSDictionary *> *)calls keys:(NSArray<NSString *> *)keys caption:(NSString *)caption {
+    [calls addObject:@{ @"keys": keys, @"caption": caption }];
+}
+
+/// Calls one hand: "Seat 3, soft 17", "You have 20", "Seat 2, bust", "You have blackjack".
+/// withSpeaker is NO for the second hand of a split, which only says its total.
+- (void)queueHandCall:(NSMutableArray<NSDictionary *> *)calls seat:(NSDictionary *)seat hand:(NSDictionary *)hand
+              isNatural:(BOOL)natural withSpeaker:(BOOL)withSpeaker {
+    BOOL mine = BRBlackjackBool(seat[@"is_me"]);
+    NSInteger seatNumber = BRBlackjackInt(seat[@"seat_no"]) + 1;
+    id totalValue = hand[@"total"];
+    if (![totalValue isKindOfClass:[NSNumber class]]) return;
+    NSInteger total = [totalValue integerValue];
+
+    NSMutableArray<NSString *> *keys = [NSMutableArray array];
+    NSString *speakerText = @"";
+    if (withSpeaker) {
+        if (mine) { [keys addObject:@"you_have"]; speakerText = @"You have "; }
+        else if (seatNumber >= 1 && seatNumber <= 8) { [keys addObject:[NSString stringWithFormat:@"seat%ld", (long)seatNumber]]; speakerText = [NSString stringWithFormat:@"Seat %ld: ", (long)seatNumber]; }
+    }
+    NSString *what;
+    if (natural) {
+        [keys addObject:@"blackjack"];
+        what = @"blackjack!";
+    } else if (total > 21) {
+        // "You have bust" sounds wrong: drop the speaker for the player's own bust.
+        if (mine && withSpeaker) { [keys removeAllObjects]; speakerText = @""; }
+        [keys addObject:@"bust"];
+        what = mine ? @"Bust!" : @"bust";
+    } else {
+        BOOL soft = BRBlackjackBool(hand[@"soft"]) && total < 21;
+        if (soft) [keys addObject:@"soft"];
+        [keys addObject:[NSString stringWithFormat:@"n%ld", (long)total]];
+        what = soft ? [NSString stringWithFormat:@"soft %ld", (long)total] : [NSString stringWithFormat:@"%ld", (long)total];
+    }
+    [self queueCall:calls keys:keys caption:[speakerText stringByAppendingString:what]];
+}
+
+/// Compares the table before and after an update and queues the dealer's calls.
+/// Works from state alone, so it needs no server events and tolerates missed polls
+/// (it simply reads out the totals as they are now).
+- (void)announceChangesFrom:(NSDictionary *)oldView to:(NSDictionary *)newView {
+    if (self.skipNextAnnouncements) { self.skipNextAnnouncements = NO; return; }
+    if (oldView.count == 0 || self.leaving) return;
+
+    NSDictionary *oldTable = BRBlackjackDict(oldView[@"table"]);
+    NSDictionary *newTable = BRBlackjackDict(newView[@"table"]);
+    NSString *oldPhase = BRBlackjackString(oldTable[@"phase"]);
+    NSString *newPhase = BRBlackjackString(newTable[@"phase"]);
+    BOOL seated = [self mySeat] != nil;
+    NSMutableArray<NSDictionary *> *calls = [NSMutableArray array];
+
+    if ([newPhase isEqualToString:@"betting"] && ![oldPhase isEqualToString:@"betting"] && seated) {
+        [self queueCall:calls keys:@[@"place_bets"] caption:@"Place your bets"];
+    }
+
+    BOOL dealtThisUpdate = ([oldPhase isEqualToString:@"idle"] || [oldPhase isEqualToString:@"betting"])
+        && ([newPhase isEqualToString:@"playing"] || [newPhase isEqualToString:@"results"]);
+    NSDictionary *newDealer = BRBlackjackDict(newView[@"dealer"]);
+    NSArray *newDealerCards = BRBlackjackArray(newDealer[@"cards"]);
+    if (dealtThisUpdate) {
+        [self queueCall:calls keys:@[@"no_more_bets"] caption:@"No more bets"];
+        if (newDealerCards.count > 0) {
+            NSInteger upCard = BRBlackjackInt(newDealerCards[0]);
+            [self queueCall:calls keys:@[@"dealer_shows", BRBlackjackRankKey(upCard)]
+                    caption:[NSString stringWithFormat:@"Dealer shows %@", BRBlackjackRankWord(upCard)]];
+        }
+    }
+
+    // Seats, in table order: any hand whose card count grew gets its total called.
+    NSMutableDictionary<NSNumber *, NSDictionary *> *oldSeats = [NSMutableDictionary dictionary];
+    for (NSDictionary *seat in BRBlackjackArray(oldView[@"seats"])) oldSeats[@(BRBlackjackInt(BRBlackjackDict(seat)[@"seat_no"]))] = BRBlackjackDict(seat);
+    for (NSDictionary *rawSeat in BRBlackjackArray(newView[@"seats"])) {
+        NSDictionary *seat = BRBlackjackDict(rawSeat);
+        NSDictionary *oldSeat = oldSeats[@(BRBlackjackInt(seat[@"seat_no"]))] ?: @{};
+        NSInteger oldCount = BRBlackjackArray(oldSeat[@"cards"]).count;
+        NSInteger newCount = BRBlackjackArray(seat[@"cards"]).count;
+        NSDictionary *secondHand = BRBlackjackDict(seat[@"hand2"]);
+        BOOL justSplit = secondHand.count > 0 && BRBlackjackDict(oldSeat[@"hand2"]).count == 0;
+        if (justSplit) {
+            [self queueCall:calls keys:@[@"split"] caption:BRBlackjackBool(seat[@"is_me"]) ? @"You split" : [NSString stringWithFormat:@"Seat %ld splits", (long)BRBlackjackInt(seat[@"seat_no"]) + 1]];
+            [self queueHandCall:calls seat:seat hand:seat isNatural:NO withSpeaker:YES];
+            [self queueHandCall:calls seat:seat hand:secondHand isNatural:NO withSpeaker:NO];
+            continue;
+        }
+        if (newCount > oldCount) {
+            BOOL natural = [BRBlackjackString(seat[@"status"]) isEqualToString:@"blackjack"] && newCount == 2;
+            [self queueHandCall:calls seat:seat hand:seat isNatural:natural withSpeaker:YES];
+        }
+        NSInteger oldSecondCount = BRBlackjackArray(BRBlackjackDict(oldSeat[@"hand2"])[@"cards"]).count;
+        if (secondHand.count > 0 && BRBlackjackArray(secondHand[@"cards"]).count > oldSecondCount) {
+            [self queueHandCall:calls seat:seat hand:secondHand isNatural:NO withSpeaker:NO];
+        }
+    }
+
+    // Dealer's final hand once the cards are turned over.
+    if ([newPhase isEqualToString:@"results"] && ![oldPhase isEqualToString:@"results"] && newDealerCards.count >= 2) {
+        id totalValue = newDealer[@"total"];
+        NSInteger dealerTotal = [totalValue isKindOfClass:[NSNumber class]] ? [totalValue integerValue] : 0;
+        if (newDealerCards.count == 2 && dealerTotal == 21) {
+            [self queueCall:calls keys:@[@"dealer_blackjack"] caption:@"Dealer has blackjack"];
+        } else if (dealerTotal > 21) {
+            [self queueCall:calls keys:@[@"dealer_busts"] caption:@"Dealer busts"];
+        } else if (dealerTotal >= 2) {
+            [self queueCall:calls keys:@[@"dealer_has", [NSString stringWithFormat:@"n%ld", (long)dealerTotal]]
+                    caption:[NSString stringWithFormat:@"Dealer has %ld", (long)dealerTotal]];
+        }
+    }
+
+    self.announcer.voiceEnabled = !self.dealerVoiceMuted && BRSlotSoundEnabled();
+    for (NSDictionary *call in calls) [self.announcer enqueueKeys:call[@"keys"] caption:call[@"caption"]];
 }
 
 /// Tells the server a player chatted so the dealer can decide whether to reply
