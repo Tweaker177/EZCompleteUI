@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "อัลตร้า";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 เหรียญ / เดือน\nยินดีต้อนรับผู้ใช้ระดับสูง";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 เหรียญ / เดือน\nยินดีต้อนรับผู้ใช้ระดับสูง";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / เดือน";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "ผู้ใช้ระดับสูง";
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 เหรียญ / เดือน\nพร้อมใช้เมื่อคุณต้องการ";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 เหรียญ / เดือน\nพร้อมใช้เมื่อคุณต้องการ";
 "EZCoinStore.Tier.Enterprise" = "องค์กร";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 เหรียญ / เดือน\nสำหรับทุกความต้องการทางธุรกิจของคุณ";
 "EZCoinStore.Tier.UnlimitedChat" = "แชทไม่จำกัด";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "แพ็กเหรียญอัลตร้า";
 "EZCoinStore.TopUp.UltraSubtitle" = "2,500 เหรียญ จ่ายครั้งเดียว\nไม่มีวันหมดอายุ";
 "EZCoinStore.TopUp.Power" = "แพ็กเหรียญพาวเวอร์";
-"EZCoinStore.TopUp.PowerSubtitle" = "6,250 เหรียญ จ่ายครั้งเดียว\nไม่มีวันหมดอายุ";
+"EZCoinStore.TopUp.PowerSubtitle" = "6,000 เหรียญ จ่ายครั้งเดียว\nไม่มีวันหมดอายุ";
 "EZCoinStore.TopUp.Enterprise" = "แพ็กเหรียญองค์กร";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12,500 เหรียญ จ่ายครั้งเดียว\nไม่มีวันหมดอายุ";
 
@@ -811,3 +811,45 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "วางเดิมพันแล้ว กำลังรอแจกไพ่…";
+"BRBlackjack.Betting" = "วางเดิมพันของคุณ!";
+"BRBlackjack.CantJoin" = "เข้าร่วมโต๊ะไม่ได้";
+"BRBlackjack.Double" = "ดับเบิล";
+"BRBlackjack.Hit" = "จั่ว";
+"BRBlackjack.Idle" = "วางเดิมพันเพื่อเริ่มรอบ";
+"BRBlackjack.Joining" = "กำลังนั่งที่โต๊ะ…";
+"BRBlackjack.Leave" = "ออก";
+"BRBlackjack.LeaveMessage" = "มือของคุณจะหยุดโดยอัตโนมัติและยังได้รับเงินหากชนะ";
+"BRBlackjack.LeaveTitle" = "ออกกลางมือ?";
+"BRBlackjack.NotEnough" = "เหรียญไม่พอ";
+"BRBlackjack.PlaceBet" = "วางเดิมพัน";
+"BRBlackjack.RoundOver" = "จบรอบ";
+"BRBlackjack.SittingOut" = "คุณนั่งพักรอบนี้";
+"BRBlackjack.Spectating" = "กำลังชม — ที่นั่งจะว่างในรอบถัดไป";
+"BRBlackjack.Split" = "แยก";
+"BRBlackjack.Stand" = "หยุด";
+"BRBlackjack.WaitTurn" = "กำลังรอผู้เล่นคนอื่น…";
+"BRBlackjack.You" = "คุณ";
+"BRBlackjack.YourTurn" = "ตาของคุณ";
+"BRBlackjack.YourTurnHand" = "ตาของคุณ — มือ %ld จาก 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "แบล็คแจ็ค";
+"BRBlackjack.Lobby.Balance" = "ยอดคงเหลือของคุณ: %ld เหรียญ";
+"BRBlackjack.Lobby.Loading" = "กำลังโหลดโต๊ะ…";
+"BRBlackjack.Lobby.PullToRetry" = "ดึงลงเพื่อลองอีกครั้ง";
+"BRBlackjack.Lobby.HeroTitle" = "ดีลเลอร์ AI และโฮสต์ของคุณ";
+"BRBlackjack.Lobby.HeroSub" = "ก้าวมาที่โต๊ะ สนุกกับเกม และทำให้คืนนี้เป็นคืนที่ยอดเยี่ยมกันเถอะ";
+"BRBlackjack.Lobby.BetRange" = "ช่วงเดิมพัน";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld เหรียญ";
+"BRBlackjack.Lobby.Seated" = "ที่นั่ง";
+"BRBlackjack.Lobby.Pays" = "แบล็คแจ็คจ่าย";
+"BRBlackjack.Lobby.Join" = "เข้าร่วม";
+"BRBlackjack.Lobby.Dealing" = "%@ กำลังแจก";
+"BRBlackjack.Lobby.YoureSeated" = "คุณกำลังนั่งอยู่";
+"BRBlackjack.Lobby.Footer" = "เดิมพันใหญ่กว่า  ✦  รางวัลสูงกว่า  ✦  ความตื่นเต้นเท่าเดิม";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "โต๊ะ VIP";
+"BRBlackjack.Lobby.VipMessage" = "High Limit สำหรับผู้เล่น VIP เท่านั้น เป็น VIP ระดับ Silver (50,000 คะแนน VIP) หรือเริ่มสมัครสมาชิกใดก็ได้เพื่อปลดล็อก";

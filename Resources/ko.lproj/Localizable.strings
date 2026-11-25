@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "울트라";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 코인 / 월\n파워 유저 환영";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 코인 / 월\n파워 유저 환영";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / 월";
 
@@ -124,7 +124,7 @@
 
 "EZCoinStore.Tier.Power" = "파워 유저";
 
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 코인 / 월\n필요할 때 언제든 사용할 수 있습니다.";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 코인 / 월\n필요할 때 언제든 사용할 수 있습니다.";
 
 "EZCoinStore.Tier.Enterprise" = "엔터프라이즈";
 
@@ -142,7 +142,7 @@
 
 "EZCoinStore.TopUp.Power" = "파워 충전 팩";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 코인, 일회성\n만료되지 않음";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 코인, 일회성\n만료되지 않음";
 
 "EZCoinStore.TopUp.Enterprise" = "엔터프라이즈 충전 팩";
 
@@ -852,3 +852,45 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "베팅 완료. 카드를 나눌 때까지 대기 중…";
+"BRBlackjack.Betting" = "베팅하세요!";
+"BRBlackjack.CantJoin" = "테이블에 참여할 수 없습니다";
+"BRBlackjack.Double" = "더블";
+"BRBlackjack.Hit" = "히트";
+"BRBlackjack.Idle" = "베팅하면 라운드가 시작됩니다.";
+"BRBlackjack.Joining" = "자리에 앉는 중…";
+"BRBlackjack.Leave" = "나가기";
+"BRBlackjack.LeaveMessage" = "패는 자동으로 스탠드 처리되며, 이기면 지급됩니다.";
+"BRBlackjack.LeaveTitle" = "핸드 도중에 나가시겠습니까?";
+"BRBlackjack.NotEnough" = "코인이 부족합니다";
+"BRBlackjack.PlaceBet" = "베팅하기";
+"BRBlackjack.RoundOver" = "라운드 종료.";
+"BRBlackjack.SittingOut" = "이번 라운드는 앉지 않습니다.";
+"BRBlackjack.Spectating" = "관전 중 — 다음 라운드에 자리가 납니다.";
+"BRBlackjack.Split" = "스플릿";
+"BRBlackjack.Stand" = "스탠드";
+"BRBlackjack.WaitTurn" = "다른 플레이어를 기다리는 중…";
+"BRBlackjack.You" = "나";
+"BRBlackjack.YourTurn" = "내 차례";
+"BRBlackjack.YourTurnHand" = "내 차례 — 핸드 %ld / 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "블랙잭";
+"BRBlackjack.Lobby.Balance" = "잔액: %ld코인";
+"BRBlackjack.Lobby.Loading" = "테이블을 불러오는 중…";
+"BRBlackjack.Lobby.PullToRetry" = "아래로 당겨 다시 시도하세요.";
+"BRBlackjack.Lobby.HeroTitle" = "당신의 AI 딜러이자 호스트";
+"BRBlackjack.Lobby.HeroSub" = "테이블에 앉아 게임을 즐기며 멋진 밤을 만들어 보세요.";
+"BRBlackjack.Lobby.BetRange" = "베팅 범위";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld코인";
+"BRBlackjack.Lobby.Seated" = "착석 중";
+"BRBlackjack.Lobby.Pays" = "블랙잭 지급";
+"BRBlackjack.Lobby.Join" = "참가";
+"BRBlackjack.Lobby.Dealing" = "%@ 딜링 중";
+"BRBlackjack.Lobby.YoureSeated" = "착석 중입니다";
+"BRBlackjack.Lobby.Footer" = "더 큰 베팅  ✦  더 높은 상금  ✦  같은 짜릿함";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIP 테이블";
+"BRBlackjack.Lobby.VipMessage" = "High Limit은 VIP 플레이어 전용입니다. 실버 VIP(50,000 VIP 포인트)에 도달하거나 아무 구독이나 시작하면 잠금이 해제됩니다.";

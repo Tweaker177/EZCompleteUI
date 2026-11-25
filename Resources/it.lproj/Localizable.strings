@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2.500 monete / mese\nPer utenti intensivi";
+"EZCoinStore.Tier.UltraSubtitle" = "2.000 monete / mese\nPer utenti intensivi";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / mese";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "Utenti avanzati";
-"EZCoinStore.Tier.PowerSubtitle" = "6.250 monete / mese\nDisponibili quando ti servono.";
+"EZCoinStore.Tier.PowerSubtitle" = "6.000 monete / mese\nDisponibili quando ti servono.";
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12.500 monete / mese\nPer tutte le esigenze della tua attività";
 "EZCoinStore.Tier.UnlimitedChat" = "Chat illimitata";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "Pacchetto monete Ultra";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 monete, pagamento unico\nNon scade mai";
 "EZCoinStore.TopUp.Power" = "Pacchetto monete Power";
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 monete, pagamento unico\nNon scade mai";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 monete, pagamento unico\nNon scade mai";
 "EZCoinStore.TopUp.Enterprise" = "Pacchetto monete Enterprise";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 monete, pagamento unico\nNon scade mai";
 
@@ -811,3 +811,45 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "Puntata piazzata. In attesa della distribuzione…";
+"BRBlackjack.Betting" = "Piazza la tua puntata!";
+"BRBlackjack.CantJoin" = "Impossibile unirsi al tavolo";
+"BRBlackjack.Double" = "Raddoppia";
+"BRBlackjack.Hit" = "Carta";
+"BRBlackjack.Idle" = "Piazza una puntata per iniziare un round.";
+"BRBlackjack.Joining" = "Presa del posto…";
+"BRBlackjack.Leave" = "Esci";
+"BRBlackjack.LeaveMessage" = "La tua mano starà automaticamente e verrà pagata se vince.";
+"BRBlackjack.LeaveTitle" = "Uscire a metà mano?";
+"BRBlackjack.NotEnough" = "Monete insufficienti";
+"BRBlackjack.PlaceBet" = "Punta";
+"BRBlackjack.RoundOver" = "Round finito.";
+"BRBlackjack.SittingOut" = "Salti questo round.";
+"BRBlackjack.Spectating" = "Stai guardando — un posto si libererà al prossimo round.";
+"BRBlackjack.Split" = "Dividi";
+"BRBlackjack.Stand" = "Stare";
+"BRBlackjack.WaitTurn" = "In attesa degli altri giocatori…";
+"BRBlackjack.You" = "Tu";
+"BRBlackjack.YourTurn" = "Tocca a te";
+"BRBlackjack.YourTurnHand" = "Tocca a te — mano %ld di 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Il tuo saldo: %ld monete";
+"BRBlackjack.Lobby.Loading" = "Caricamento tavoli…";
+"BRBlackjack.Lobby.PullToRetry" = "Scorri verso il basso per riprovare.";
+"BRBlackjack.Lobby.HeroTitle" = "IL TUO DEALER IA E OSPITE";
+"BRBlackjack.Lobby.HeroSub" = "Avvicinati al tavolo, goditi la partita e rendiamo questa serata fantastica.";
+"BRBlackjack.Lobby.BetRange" = "PUNTATE";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld monete";
+"BRBlackjack.Lobby.Seated" = "SEDUTI";
+"BRBlackjack.Lobby.Pays" = "IL BLACKJACK PAGA";
+"BRBlackjack.Lobby.Join" = "ENTRA";
+"BRBlackjack.Lobby.Dealing" = "%@ sta servendo";
+"BRBlackjack.Lobby.YoureSeated" = "sei seduto";
+"BRBlackjack.Lobby.Footer" = "PUNTATE PIÙ ALTE  ✦  POSTE PIÙ ALTE  ✦  STESSA EMOZIONE";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "Tavolo VIP";
+"BRBlackjack.Lobby.VipMessage" = "High Limit è per i giocatori VIP. Raggiungi il VIP Argento (50.000 punti VIP) o attiva un qualsiasi abbonamento per sbloccarlo.";

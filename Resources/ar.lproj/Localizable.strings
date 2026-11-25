@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "ألترا";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 عملة / شهر\nمرحبًا بالمستخدمين المتقدمين";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 عملة / شهر\nمرحبًا بالمستخدمين المتقدمين";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / شهر";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "المستخدمون المتقدمون";
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 عملة / شهر\nمتاحة عند الحاجة إليها.";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 عملة / شهر\nمتاحة عند الحاجة إليها.";
 "EZCoinStore.Tier.Enterprise" = "المؤسسات";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 عملة / شهر\nلكل احتياجات عملك";
 "EZCoinStore.Tier.UnlimitedChat" = "دردشة غير محدودة";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "حزمة شحن ألترا";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 "EZCoinStore.TopUp.Power" = "حزمة شحن باور";
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 "EZCoinStore.TopUp.Enterprise" = "حزمة شحن المؤسسات";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 
@@ -811,3 +811,45 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "تم وضع الرهان. في انتظار التوزيع…";
+"BRBlackjack.Betting" = "ضع رهانك!";
+"BRBlackjack.CantJoin" = "لا يمكن الانضمام إلى الطاولة";
+"BRBlackjack.Double" = "ضاعف";
+"BRBlackjack.Hit" = "اسحب";
+"BRBlackjack.Idle" = "ضع رهانًا لبدء جولة.";
+"BRBlackjack.Joining" = "جارٍ أخذ مقعد…";
+"BRBlackjack.Leave" = "مغادرة";
+"BRBlackjack.LeaveMessage" = "ستتوقف يدك تلقائيًا وسيتم دفعها إذا فازت.";
+"BRBlackjack.LeaveTitle" = "المغادرة في منتصف اليد؟";
+"BRBlackjack.NotEnough" = "عملات غير كافية";
+"BRBlackjack.PlaceBet" = "ضع الرهان";
+"BRBlackjack.RoundOver" = "انتهت الجولة.";
+"BRBlackjack.SittingOut" = "أنت خارج هذه الجولة.";
+"BRBlackjack.Spectating" = "تشاهد — سيتوفر مقعد في الجولة القادمة.";
+"BRBlackjack.Split" = "قسّم";
+"BRBlackjack.Stand" = "توقف";
+"BRBlackjack.WaitTurn" = "في انتظار اللاعبين الآخرين…";
+"BRBlackjack.You" = "أنت";
+"BRBlackjack.YourTurn" = "دورك";
+"BRBlackjack.YourTurnHand" = "دورك — اليد %ld من 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "بلاك جاك";
+"BRBlackjack.Lobby.Balance" = "رصيدك: %ld عملة";
+"BRBlackjack.Lobby.Loading" = "جارٍ تحميل الطاولات…";
+"BRBlackjack.Lobby.PullToRetry" = "اسحب للأسفل للمحاولة مجددًا.";
+"BRBlackjack.Lobby.HeroTitle" = "موزّعك الذكي ومضيفك";
+"BRBlackjack.Lobby.HeroSub" = "تقدّم إلى الطاولة، استمتع باللعبة، ولنجعلها ليلة رائعة.";
+"BRBlackjack.Lobby.BetRange" = "نطاق الرهان";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld عملة";
+"BRBlackjack.Lobby.Seated" = "جالسون";
+"BRBlackjack.Lobby.Pays" = "البلاك جاك يدفع";
+"BRBlackjack.Lobby.Join" = "انضم";
+"BRBlackjack.Lobby.Dealing" = "%@ يوزّع";
+"BRBlackjack.Lobby.YoureSeated" = "أنت جالس";
+"BRBlackjack.Lobby.Footer" = "رهانات أكبر  ✦  جوائز أعلى  ✦  نفس الإثارة";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "طاولة VIP";
+"BRBlackjack.Lobby.VipMessage" = "طاولة High Limit مخصصة للاعبي VIP. احصل على VIP الفضي (50,000 نقطة VIP) أو ابدأ أي اشتراك لفتحها.";

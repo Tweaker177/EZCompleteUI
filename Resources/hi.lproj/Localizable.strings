@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "अल्ट्रा";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 सिक्के/माह\nबिजली उपयोगकर्ताओं का स्वागत है";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 सिक्के/माह\nबिजली उपयोगकर्ताओं का स्वागत है";
 
 "EZCoinStore.Tier.UltraPrice" = "$20/माह";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "पावर उपयोगकर्ता";
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 कॉइन / माह\nजब ज़रूरत हो तब उपलब्ध।";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 कॉइन / माह\nजब ज़रूरत हो तब उपलब्ध।";
 "EZCoinStore.Tier.Enterprise" = "एंटरप्राइज़";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 कॉइन / माह\nआपकी सभी व्यावसायिक ज़रूरतों के लिए";
 "EZCoinStore.Tier.UnlimitedChat" = "अनलिमिटेड चैट";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "अल्ट्रा कॉइन पैक";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 "EZCoinStore.TopUp.Power" = "पावर कॉइन पैक";
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 "EZCoinStore.TopUp.Enterprise" = "एंटरप्राइज़ कॉइन पैक";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 
@@ -811,3 +811,45 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "दांव लग गया। कार्ड बंटने की प्रतीक्षा…";
+"BRBlackjack.Betting" = "अपना दांव लगाएं!";
+"BRBlackjack.CantJoin" = "टेबल से जुड़ नहीं सकते";
+"BRBlackjack.Double" = "डबल";
+"BRBlackjack.Hit" = "कार्ड लो";
+"BRBlackjack.Idle" = "राउंड शुरू करने के लिए दांव लगाएं।";
+"BRBlackjack.Joining" = "सीट ले रहे हैं…";
+"BRBlackjack.Leave" = "छोड़ें";
+"BRBlackjack.LeaveMessage" = "आपका हाथ अपने आप रुक जाएगा और जीतने पर भुगतान होगा।";
+"BRBlackjack.LeaveTitle" = "हाथ के बीच में छोड़ें?";
+"BRBlackjack.NotEnough" = "सिक्के पर्याप्त नहीं हैं";
+"BRBlackjack.PlaceBet" = "दांव लगाएं";
+"BRBlackjack.RoundOver" = "राउंड खत्म।";
+"BRBlackjack.SittingOut" = "आप इस राउंड में बाहर बैठे हैं।";
+"BRBlackjack.Spectating" = "देख रहे हैं — अगले राउंड में सीट खुलेगी।";
+"BRBlackjack.Split" = "स्प्लिट";
+"BRBlackjack.Stand" = "रुको";
+"BRBlackjack.WaitTurn" = "अन्य खिलाड़ियों की प्रतीक्षा…";
+"BRBlackjack.You" = "आप";
+"BRBlackjack.YourTurn" = "आपकी बारी";
+"BRBlackjack.YourTurnHand" = "आपकी बारी — हाथ %ld / 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "ब्लैकजैक";
+"BRBlackjack.Lobby.Balance" = "आपका बैलेंस: %ld सिक्के";
+"BRBlackjack.Lobby.Loading" = "टेबल लोड हो रहे हैं…";
+"BRBlackjack.Lobby.PullToRetry" = "फिर से कोशिश करने के लिए नीचे खींचें।";
+"BRBlackjack.Lobby.HeroTitle" = "आपका AI डीलर और होस्ट";
+"BRBlackjack.Lobby.HeroSub" = "टेबल पर आइए, खेल का आनंद लीजिए, और इस रात को शानदार बनाइए।";
+"BRBlackjack.Lobby.BetRange" = "बेट रेंज";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld सिक्के";
+"BRBlackjack.Lobby.Seated" = "बैठे हैं";
+"BRBlackjack.Lobby.Pays" = "ब्लैकजैक देता है";
+"BRBlackjack.Lobby.Join" = "शामिल हों";
+"BRBlackjack.Lobby.Dealing" = "%@ डील कर रहे हैं";
+"BRBlackjack.Lobby.YoureSeated" = "आप बैठे हैं";
+"BRBlackjack.Lobby.Footer" = "बड़े दांव  ✦  ऊँचे इनाम  ✦  वही रोमांच";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIP टेबल";
+"BRBlackjack.Lobby.VipMessage" = "High Limit VIP खिलाड़ियों के लिए है। सिल्वर VIP (50,000 VIP पॉइंट) पाएं या कोई भी सदस्यता शुरू करके इसे अनलॉक करें।";

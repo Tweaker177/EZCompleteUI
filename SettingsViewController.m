@@ -396,7 +396,7 @@
                   color:[UIColor systemTealColor]
                  action:@selector(copyReferralCode)
                       y:&y w:w];
-        [self addButton:@"📤 Share EZCompleteUI"
+        [self addButton:@"📤 Share EZCompleteAI"
                   color:[UIColor systemIndigoColor]
                  action:@selector(shareApp)
                       y:&y w:w];

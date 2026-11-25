@@ -119,7 +119,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 coins / month\nPower users welcome";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 coins / month\nPower users welcome";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / mo";
 
@@ -127,7 +127,7 @@
 
 "EZCoinStore.Tier.Power" = "Power Users";
 
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 coins / month\nAvailable when you need them.";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 coins / month\nAvailable when you need them.";
 
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 
@@ -145,7 +145,7 @@
 
 "EZCoinStore.TopUp.Power" = "Power Topup Pack";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 coins, one-time\nNever expires";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 coins, one-time\nNever expires";
 
 "EZCoinStore.TopUp.Enterprise" = "Enterprise Topup Pack";
 
@@ -870,3 +870,45 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "Bet placed. Waiting for the deal…";
+"BRBlackjack.Betting" = "Place your bet!";
+"BRBlackjack.CantJoin" = "Can't join table";
+"BRBlackjack.Double" = "Double";
+"BRBlackjack.Hit" = "Hit";
+"BRBlackjack.Idle" = "Place a bet to start a round.";
+"BRBlackjack.Joining" = "Taking a seat…";
+"BRBlackjack.Leave" = "Leave";
+"BRBlackjack.LeaveMessage" = "Your hand will stand automatically and still be paid out if it wins.";
+"BRBlackjack.LeaveTitle" = "Leave mid-hand?";
+"BRBlackjack.NotEnough" = "Not enough coins";
+"BRBlackjack.PlaceBet" = "Place bet";
+"BRBlackjack.RoundOver" = "Round over.";
+"BRBlackjack.SittingOut" = "Sitting this round out.";
+"BRBlackjack.Spectating" = "Watching — a seat will open next round.";
+"BRBlackjack.Split" = "Split";
+"BRBlackjack.Stand" = "Stand";
+"BRBlackjack.WaitTurn" = "Waiting for other players…";
+"BRBlackjack.You" = "You";
+"BRBlackjack.YourTurn" = "Your turn";
+"BRBlackjack.YourTurnHand" = "Your turn — hand %ld of 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Your balance: %ld coins";
+"BRBlackjack.Lobby.Loading" = "Loading tables…";
+"BRBlackjack.Lobby.PullToRetry" = "Pull down to try again.";
+"BRBlackjack.Lobby.HeroTitle" = "YOUR AI DEALER & HOST";
+"BRBlackjack.Lobby.HeroSub" = "Step up to the table, enjoy the game, and let's make it a great night.";
+"BRBlackjack.Lobby.BetRange" = "BET RANGE";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld coins";
+"BRBlackjack.Lobby.Seated" = "SEATED";
+"BRBlackjack.Lobby.Pays" = "BLACKJACK PAYS";
+"BRBlackjack.Lobby.Join" = "JOIN";
+"BRBlackjack.Lobby.Dealing" = "%@ dealing";
+"BRBlackjack.Lobby.YoureSeated" = "you're seated";
+"BRBlackjack.Lobby.Footer" = "BIGGER BETS  ✦  HIGHER STAKES  ✦  SAME THRILL";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIP table";
+"BRBlackjack.Lobby.VipMessage" = "High Limit is for VIP players. Reach Silver VIP (50,000 VIP points) or start any subscription to unlock it.";
