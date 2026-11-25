@@ -146,3 +146,15 @@
 "EZCoinStore.FreeSpins.Message" = "You got %ld free spins on Brainrot Slots — give them a pull!";
 "EZCoinStore.FreeSpins.PlayNow" = "Play Now";
 "EZCoinStore.FreeSpins.Later" = "Later";
+
+/* Added 2026-11-25: seasonal store themes, sale countdown, hero web store button */
+"EZCoinStore.Title.Thanksgiving" = "🍂 EZ Coin Store 🦃";
+"EZCoinStore.Title.Winter" = "❄️ EZ Coin Store 🎄";
+"EZCoinStore.Greeting.Thanksgiving" = "🦃 Happy Thanksgiving!";
+"EZCoinStore.Greeting.Winter" = "🎄 Happy Holidays!";
+"EZCoinStore.Sale.EndsInFormat" = "⏰ Ends in %@";
+"EZCoinStore.Sale.NormallyFormat" = "Normally %@ coins";
+"EZCoinStore.Sale.FirstPeriodCardFormat" = "First billing period gets %ldX coins";
+"EZCoinStore.WebStore.Title" = "Buy coins on our website";
+"EZCoinStore.WebStore.SaleLineFormat" = "%ldX COINS on every pack + your first subscription period";
+"EZCoinStore.WebStore.Hint" = "Opens the EZ Coin web store in Safari";
