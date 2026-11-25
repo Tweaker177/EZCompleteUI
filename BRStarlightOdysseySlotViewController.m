@@ -1364,7 +1364,10 @@ static NSArray<UIColor *> *SOLineColors(void) {
         [self after:_spinFree ? 0.5 : 0.2 do:completion];
         return;
     }
-    if ([BRSlotCelebration celebrateBigWinInView:self.view payout:payout totalBet:MAX(1, lines * bet)]) {
+    if ([res[@"is_jackpot"] boolValue]) {
+        [BRSlotCelebration celebrateJackpotInView:self.view payout:payout totalBet:MAX(1, lines * bet)];
+        [self.audio playBonusFanfare];
+    } else if ([BRSlotCelebration celebrateBigWinInView:self.view payout:payout totalBet:MAX(1, lines * bet)]) {
         [self.audio playBonusFanfare];
     }
     [self.audio playWinForPayoutRatio:(double)payout / (double)MAX(1, lines * bet)];

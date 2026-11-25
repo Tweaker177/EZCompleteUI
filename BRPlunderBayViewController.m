@@ -360,6 +360,19 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
         [self beginSpin];
     }];
 }
+// The shuffle runs until the reveal takes over. A fixed burst of
+// ticks left the board frozen whenever the server took longer than
+// the burst — the machine visibly locked up mid-spin, then carried
+// on when the result landed. Each tick schedules the next, and the
+// chain dies on its own when the animationID moves on (reveal, slam
+// stop, error) or the screen goes away.
+- (void)plunderShuffleTick:(NSUInteger)animationID {
+    if (!self.spinning || self.animationID != animationID || !self.view.window) return;
+    for (NSArray *col in self.reels) for (UIImageView *tile in col) [self setSymbol:PlunderSymbols()[arc4random_uniform((uint32_t)PlunderSymbols().count)] onTile:tile];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(.11 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self plunderShuffleTick:animationID];
+    });
+}
 - (void)beginSpin {
     self.slamRequested = NO; self.pendingSpinResult = nil; self.spinSettled = NO;
     self.messageLabel.text = NSLocalizedString(@"BRSlot.Spinning", nil); NSUInteger animationID = ++self.animationID;
@@ -367,7 +380,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
     for (NSArray<UIImageView *> *column in self.reels) { NSMutableArray *symbols = [NSMutableArray arrayWithCapacity:3]; for (UIImageView *tile in column) [symbols addObject:tile.accessibilityIdentifier ?: @"hook"]; [before addObject:symbols]; }
     self.preSpinBoard = before;
     [self startReelsSound]; [self playWhoosh];
-    for (NSInteger tick=0;tick<5;tick++) dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(tick*.11*NSEC_PER_SEC)),dispatch_get_main_queue(),^{ if (!self.spinning || self.animationID != animationID) return; for (NSArray *col in self.reels) for (UIImageView *tile in col) [self setSymbol:PlunderSymbols()[arc4random_uniform((uint32_t)PlunderSymbols().count)] onTile:tile]; });
+    [self plunderShuffleTick:animationID];
     NSMutableDictionary *spinBody = [@{ @"bet_coins": @(self.betCoins) } mutableCopy]; if (self.vipMode) spinBody[@"vip"] = @YES;
     [self request:spinBody completion:^(NSDictionary *result, NSString *error) {
         if (error || ![result[@"reels"] isKindOfClass:NSArray.class]) { [EZAppErrorReporter reportSource:@"plunder_bay" code:@"spin_failed" message:error]; [self finishWithError:error ?: @"Spin failed; balance unchanged."]; [self refreshState]; if ([error.localizedLowercaseString containsString:@"insufficient"]) [self showCoinStore]; return; }
@@ -478,7 +491,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
         }
         if (cannonLine) [self playCannon];
         NSInteger totalBet = MAX(1, PlunderInteger(result[@"wager"]));
-        BOOL jackpot = payout > 0 && payout / totalBet >= 75;
+        BOOL jackpot = payout > 0 && [result[@"is_jackpot"] boolValue];
         if (winLines.count) {
             NSInteger linePasses = jackpot ? MAX(1, (NSInteger)ceil(9.0 / (1.55 * winLines.count))) : (winLines.count<=2?4:winLines.count<=4?3:2);
             [self celebrateWinLines:winLines step:0 passes:linePasses celebrationID:self.lineCelebrationID];
