@@ -864,6 +864,17 @@ static const NSInteger kMaxManifestAttempts = 8;
     NSString *name = BRBlackjackString(BRBlackjackDict(view[@"table"])[@"name"]);
     if (name.length) { self.tableName = name; self.title = name; }
 
+    // Who's dealing this table (server-sent): name + avatar emoji.
+    // Older servers send no host block and the defaults stay.
+    NSDictionary *host = BRBlackjackDict(view[@"host"]);
+    NSString *hostName = BRBlackjackString(host[@"name"]);
+    if (hostName.length) {
+        self.dealerNameLabel.text = hostName;
+        self.dealerAvatarView.accessibilityLabel = [NSString stringWithFormat:@"Dealer, %@", hostName];
+    }
+    NSString *hostEmoji = BRBlackjackString(host[@"emoji"]);
+    if (hostEmoji.length) self.dealerAvatarFace.text = hostEmoji;
+
     if (self.pendingBet == 0) [self resetPendingBet];
     [self renderTable];
     [self announceChangesFrom:previousView to:view];
@@ -1641,7 +1652,7 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
         plain, plain,
         @{ @"keys": @[@"d21_quip1"], @"caption": @"Twenty-one for the dealer. Tough break, guys." },
         @{ @"keys": @[@"d21_quip2"], @"caption": @"Dealer has twenty-one. Sorry about that, folks." },
-        @{ @"keys": @[@"d21_quip3"], @"caption": @"Twenty-one. Lucky Lou does it again." },
+        @{ @"keys": @[@"d21_quip3"], @"caption": @"Twenty-one. The house does it again." },
         @{ @"keys": @[@"d21_quip4"], @"caption": @"Dealer gets twenty-one. The house sends its regards." },
         @{ @"keys": @[@"d21_quip5"], @"caption": @"Ooh, twenty-one for me. Tough one, guys." },
     ];
