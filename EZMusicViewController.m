@@ -698,13 +698,23 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    // The volume row is an MPVolumeView: it only responds while the audio
-    // session is a non-mixable Playback session. Another feature may have
-    // left the shared session mixable, so claim the category on the way in.
+- (void)viewWillAppear:(BOOL)animated {
+    [super viewWillAppear:animated];
+    [self claimPlaybackSession];
+}
+
+/// The volume row is an MPVolumeView: it only responds while the audio
+/// session is a non-mixable Playback session. Other features share the
+/// session and can leave it mixable after this screen is created, so
+/// claim the category every time the screen comes to the front.
+- (void)claimPlaybackSession {
     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
     [[AVAudioSession sharedInstance] setActive:YES error:nil];
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    [self claimPlaybackSession];
     self.view.backgroundColor = [EZTheme chatBackgroundColor];
 
     // Blurred cover backdrop under a navy tint; hidden until a song with
@@ -940,6 +950,10 @@ static NSDate *EZMusicDateFromServerString(NSString *serverString) {
         [volumeView.leadingAnchor constraintEqualToAnchor:quietIcon.trailingAnchor constant:10],
         [volumeView.trailingAnchor constraintEqualToAnchor:loudIcon.leadingAnchor constant:-10],
         [volumeView.topAnchor constraintEqualToAnchor:self.playButton.bottomAnchor constant:14],
+        // MPVolumeView reports no usable intrinsic height: with no height
+        // of its own the row collapses, the slider draws overflowing the
+        // view's bounds, and touches land outside it — visible, but dead.
+        [volumeView.heightAnchor constraintEqualToConstant:44],
 
         [self.lyricsButton.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:36],
         [self.lyricsButton.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor constant:-10],
