@@ -357,7 +357,6 @@ static const NSInteger kMaxManifestAttempts = 8;
 @property (nonatomic) NSTimeInterval lastChatPingTime;
 
 // UI
-@property (nonatomic, strong) UILabel *titleLabel;
 @property (nonatomic, strong) UIView *balancePill;
 @property (nonatomic, strong) UILabel *balanceLabel;
 @property (nonatomic, strong) UIButton *voiceButton;
@@ -503,7 +502,10 @@ static const NSInteger kMaxManifestAttempts = 8;
     UIColor *gold = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
 
-    // Header: leave button, table name, dealer-voice toggle
+    // Header row: leave button and the dealer-voice toggle flank the
+    // balance pill. The table name lives only in the navigation bar —
+    // an in-view copy of it used to sit on its own row here, and the
+    // board gets that space back.
     UIButton *leaveButton = [UIButton buttonWithType:UIButtonTypeSystem];
     leaveButton.translatesAutoresizingMaskIntoConstraints = NO;
     [leaveButton setTitle:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Leave", nil, NSBundle.mainBundle, @"Leave", nil) forState:UIControlStateNormal];
@@ -512,11 +514,6 @@ static const NSInteger kMaxManifestAttempts = 8;
     [leaveButton addTarget:self action:@selector(leaveTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:leaveButton];
 
-    self.titleLabel = [self labelWithSize:18 weight:UIFontWeightBlack color:UIColor.whiteColor];
-    self.titleLabel.text = self.tableName;
-    self.titleLabel.textAlignment = NSTextAlignmentCenter;
-    [self.view addSubview:self.titleLabel];
-
     self.voiceButton = [UIButton buttonWithType:UIButtonTypeSystem];
     self.voiceButton.translatesAutoresizingMaskIntoConstraints = NO;
     self.voiceButton.titleLabel.font = [UIFont systemFontOfSize:22];
@@ -524,7 +521,7 @@ static const NSInteger kMaxManifestAttempts = 8;
     [self.view addSubview:self.voiceButton];
     [self updateVoiceButton];
 
-    // Balance: large pill under the header. Payout chips fly into it.
+    // Balance: large pill on the header row. Payout chips fly into it.
     self.balancePill = [UIView new];
     self.balancePill.translatesAutoresizingMaskIntoConstraints = NO;
     self.balancePill.backgroundColor = [gold colorWithAlphaComponent:.16];
@@ -668,15 +665,11 @@ static const NSInteger kMaxManifestAttempts = 8;
 
     [NSLayoutConstraint activateConstraints:@[
         [leaveButton.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
-        [leaveButton.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
+        [leaveButton.centerYAnchor constraintEqualToAnchor:self.balancePill.centerYAnchor],
         [self.voiceButton.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
-        [self.voiceButton.centerYAnchor constraintEqualToAnchor:leaveButton.centerYAnchor],
-        [self.titleLabel.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
-        [self.titleLabel.centerYAnchor constraintEqualToAnchor:leaveButton.centerYAnchor],
-        [self.titleLabel.leadingAnchor constraintGreaterThanOrEqualToAnchor:leaveButton.trailingAnchor constant:8],
-        [self.titleLabel.trailingAnchor constraintLessThanOrEqualToAnchor:self.voiceButton.leadingAnchor constant:-8],
+        [self.voiceButton.centerYAnchor constraintEqualToAnchor:self.balancePill.centerYAnchor],
 
-        [self.balancePill.topAnchor constraintEqualToAnchor:leaveButton.bottomAnchor constant:6],
+        [self.balancePill.topAnchor constraintEqualToAnchor:safe.topAnchor constant:8],
         [self.balancePill.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
         [self.balancePill.heightAnchor constraintEqualToConstant:48],
         [self.balancePill.widthAnchor constraintGreaterThanOrEqualToConstant:170],
@@ -868,7 +861,7 @@ static const NSInteger kMaxManifestAttempts = 8;
     [self updateClockOffsetFromServerNow:BRBlackjackDict(view[@"table"])[@"server_now"]];
 
     NSString *name = BRBlackjackString(BRBlackjackDict(view[@"table"])[@"name"]);
-    if (name.length) { self.tableName = name; self.titleLabel.text = name; }
+    if (name.length) { self.tableName = name; self.title = name; }
 
     if (self.pendingBet == 0) [self resetPendingBet];
     [self renderTable];
