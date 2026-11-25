@@ -811,3 +811,45 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "Đã đặt cược. Đang chờ chia bài…";
+"BRBlackjack.Betting" = "Hãy đặt cược!";
+"BRBlackjack.CantJoin" = "Không thể vào bàn";
+"BRBlackjack.Double" = "Gấp đôi";
+"BRBlackjack.Hit" = "Rút bài";
+"BRBlackjack.Idle" = "Đặt cược để bắt đầu một vòng.";
+"BRBlackjack.Joining" = "Đang vào chỗ ngồi…";
+"BRBlackjack.Leave" = "Rời bàn";
+"BRBlackjack.LeaveMessage" = "Tay bài của bạn sẽ tự động dừng và vẫn được trả nếu thắng.";
+"BRBlackjack.LeaveTitle" = "Rời giữa tay bài?";
+"BRBlackjack.NotEnough" = "Không đủ xu";
+"BRBlackjack.PlaceBet" = "Đặt cược";
+"BRBlackjack.RoundOver" = "Kết thúc vòng.";
+"BRBlackjack.SittingOut" = "Bạn ngồi ngoài vòng này.";
+"BRBlackjack.Spectating" = "Đang xem — vòng sau sẽ có chỗ trống.";
+"BRBlackjack.Split" = "Tách";
+"BRBlackjack.Stand" = "Dừng";
+"BRBlackjack.WaitTurn" = "Đang chờ người chơi khác…";
+"BRBlackjack.You" = "Bạn";
+"BRBlackjack.YourTurn" = "Lượt của bạn";
+"BRBlackjack.YourTurnHand" = "Lượt của bạn — tay %ld trên 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Số dư của bạn: %ld xu";
+"BRBlackjack.Lobby.Loading" = "Đang tải bàn…";
+"BRBlackjack.Lobby.PullToRetry" = "Kéo xuống để thử lại.";
+"BRBlackjack.Lobby.HeroTitle" = "NGƯỜI CHIA BÀI AI VÀ CHỦ BÀN CỦA BẠN";
+"BRBlackjack.Lobby.HeroSub" = "Hãy bước đến bàn, tận hưởng trò chơi và biến đêm nay thành một đêm tuyệt vời.";
+"BRBlackjack.Lobby.BetRange" = "MỨC CƯỢC";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld xu";
+"BRBlackjack.Lobby.Seated" = "ĐANG NGỒI";
+"BRBlackjack.Lobby.Pays" = "BLACKJACK TRẢ";
+"BRBlackjack.Lobby.Join" = "THAM GIA";
+"BRBlackjack.Lobby.Dealing" = "%@ đang chia bài";
+"BRBlackjack.Lobby.YoureSeated" = "bạn đang ngồi";
+"BRBlackjack.Lobby.Footer" = "CƯỢC LỚN HƠN  ✦  THƯỞNG CAO HƠN  ✦  VẪN HỒI HỘP NHƯ XƯA";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "Bàn VIP";
+"BRBlackjack.Lobby.VipMessage" = "High Limit dành cho người chơi VIP. Đạt VIP Bạc (50.000 điểm VIP) hoặc bắt đầu bất kỳ gói đăng ký nào để mở khóa.";

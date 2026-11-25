@@ -811,3 +811,45 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "Einsatz platziert. Warten auf das Austeilen…";
+"BRBlackjack.Betting" = "Platziere deinen Einsatz!";
+"BRBlackjack.CantJoin" = "Beitritt zum Tisch nicht möglich";
+"BRBlackjack.Double" = "Verdoppeln";
+"BRBlackjack.Hit" = "Karte";
+"BRBlackjack.Idle" = "Platziere einen Einsatz, um eine Runde zu starten.";
+"BRBlackjack.Joining" = "Nehme Platz…";
+"BRBlackjack.Leave" = "Verlassen";
+"BRBlackjack.LeaveMessage" = "Deine Hand hält automatisch und wird ausgezahlt, wenn sie gewinnt.";
+"BRBlackjack.LeaveTitle" = "Mitten in der Hand verlassen?";
+"BRBlackjack.NotEnough" = "Nicht genug Münzen";
+"BRBlackjack.PlaceBet" = "Einsatz setzen";
+"BRBlackjack.RoundOver" = "Runde vorbei.";
+"BRBlackjack.SittingOut" = "Du sitzt diese Runde aus.";
+"BRBlackjack.Spectating" = "Zuschauen — nächste Runde wird ein Platz frei.";
+"BRBlackjack.Split" = "Teilen";
+"BRBlackjack.Stand" = "Halten";
+"BRBlackjack.WaitTurn" = "Warten auf andere Spieler…";
+"BRBlackjack.You" = "Du";
+"BRBlackjack.YourTurn" = "Du bist dran";
+"BRBlackjack.YourTurnHand" = "Du bist dran — Hand %ld von 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Dein Guthaben: %ld Münzen";
+"BRBlackjack.Lobby.Loading" = "Tische werden geladen…";
+"BRBlackjack.Lobby.PullToRetry" = "Zum Wiederholen nach unten ziehen.";
+"BRBlackjack.Lobby.HeroTitle" = "DEIN KI-DEALER & GASTGEBER";
+"BRBlackjack.Lobby.HeroSub" = "Setz dich an den Tisch, genieß das Spiel und lass uns einen großartigen Abend daraus machen.";
+"BRBlackjack.Lobby.BetRange" = "EINSATZBEREICH";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld Münzen";
+"BRBlackjack.Lobby.Seated" = "BESETZT";
+"BRBlackjack.Lobby.Pays" = "BLACKJACK ZAHLT";
+"BRBlackjack.Lobby.Join" = "BEITRETEN";
+"BRBlackjack.Lobby.Dealing" = "%@ gibt";
+"BRBlackjack.Lobby.YoureSeated" = "du sitzt am Tisch";
+"BRBlackjack.Lobby.Footer" = "GRÖSSERE EINSÄTZE  ✦  HÖHERE GEWINNE  ✦  GLEICHER NERVENKITZEL";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIP-Tisch";
+"BRBlackjack.Lobby.VipMessage" = "High Limit ist für VIP-Spieler. Erreiche Silber-VIP (50.000 VIP-Punkte) oder starte ein beliebiges Abo, um ihn freizuschalten.";

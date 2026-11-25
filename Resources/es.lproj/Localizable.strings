@@ -833,3 +833,45 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MÁS MANOS JUGADAS\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MÁS MONEDAS GANADAS\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "Apuesta hecha. Esperando el reparto…";
+"BRBlackjack.Betting" = "¡Haz tu apuesta!";
+"BRBlackjack.CantJoin" = "No puedes unirte a la mesa";
+"BRBlackjack.Double" = "Doblar";
+"BRBlackjack.Hit" = "Pedir";
+"BRBlackjack.Idle" = "Haz una apuesta para empezar una ronda.";
+"BRBlackjack.Joining" = "Tomando asiento…";
+"BRBlackjack.Leave" = "Salir";
+"BRBlackjack.LeaveMessage" = "Tu mano se plantará automáticamente y se pagará si gana.";
+"BRBlackjack.LeaveTitle" = "¿Salir a mitad de mano?";
+"BRBlackjack.NotEnough" = "Monedas insuficientes";
+"BRBlackjack.PlaceBet" = "Apostar";
+"BRBlackjack.RoundOver" = "Ronda terminada.";
+"BRBlackjack.SittingOut" = "Te quedas fuera esta ronda.";
+"BRBlackjack.Spectating" = "Mirando — se abrirá un asiento la próxima ronda.";
+"BRBlackjack.Split" = "Dividir";
+"BRBlackjack.Stand" = "Plantarse";
+"BRBlackjack.WaitTurn" = "Esperando a otros jugadores…";
+"BRBlackjack.You" = "Tú";
+"BRBlackjack.YourTurn" = "Tu turno";
+"BRBlackjack.YourTurnHand" = "Tu turno — mano %ld de 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Tu saldo: %ld monedas";
+"BRBlackjack.Lobby.Loading" = "Cargando mesas…";
+"BRBlackjack.Lobby.PullToRetry" = "Desliza hacia abajo para reintentar.";
+"BRBlackjack.Lobby.HeroTitle" = "TU CRUPIER Y ANFITRIÓN IA";
+"BRBlackjack.Lobby.HeroSub" = "Acércate a la mesa, disfruta la partida y hagamos que sea una gran noche.";
+"BRBlackjack.Lobby.BetRange" = "RANGO DE APUESTA";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld monedas";
+"BRBlackjack.Lobby.Seated" = "SENTADOS";
+"BRBlackjack.Lobby.Pays" = "EL BLACKJACK PAGA";
+"BRBlackjack.Lobby.Join" = "UNIRSE";
+"BRBlackjack.Lobby.Dealing" = "%@ reparte";
+"BRBlackjack.Lobby.YoureSeated" = "estás sentado";
+"BRBlackjack.Lobby.Footer" = "APUESTAS MAYORES  ✦  PREMIOS MAYORES  ✦  LA MISMA EMOCIÓN";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "Mesa VIP";
+"BRBlackjack.Lobby.VipMessage" = "High Limit es para jugadores VIP. Alcanza el VIP Plata (50.000 puntos VIP) o inicia cualquier suscripción para desbloquearla.";

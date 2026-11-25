@@ -852,3 +852,45 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "已下注。等待發牌…";
+"BRBlackjack.Betting" = "請下注！";
+"BRBlackjack.CantJoin" = "無法加入牌桌";
+"BRBlackjack.Double" = "雙倍";
+"BRBlackjack.Hit" = "要牌";
+"BRBlackjack.Idle" = "下注即可開始一局。";
+"BRBlackjack.Joining" = "正在入座…";
+"BRBlackjack.Leave" = "離開";
+"BRBlackjack.LeaveMessage" = "您的手牌將自動停牌，獲勝時仍會賠付。";
+"BRBlackjack.LeaveTitle" = "在手牌進行中離開？";
+"BRBlackjack.NotEnough" = "金幣不足";
+"BRBlackjack.PlaceBet" = "下注";
+"BRBlackjack.RoundOver" = "本局結束。";
+"BRBlackjack.SittingOut" = "本局您坐出局外。";
+"BRBlackjack.Spectating" = "觀戰中 — 下一局會有空位。";
+"BRBlackjack.Split" = "分牌";
+"BRBlackjack.Stand" = "停牌";
+"BRBlackjack.WaitTurn" = "等待其他玩家…";
+"BRBlackjack.You" = "您";
+"BRBlackjack.YourTurn" = "輪到您了";
+"BRBlackjack.YourTurnHand" = "輪到您了 — 第 %ld 手（共 2 手）";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "黑傑克";
+"BRBlackjack.Lobby.Balance" = "你的餘額：%ld金幣";
+"BRBlackjack.Lobby.Loading" = "正在載入牌桌…";
+"BRBlackjack.Lobby.PullToRetry" = "下拉重試。";
+"BRBlackjack.Lobby.HeroTitle" = "你的AI荷官與主持人";
+"BRBlackjack.Lobby.HeroSub" = "來到牌桌前，享受遊戲，讓我們共度一個美好的夜晚。";
+"BRBlackjack.Lobby.BetRange" = "投注範圍";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld金幣";
+"BRBlackjack.Lobby.Seated" = "已入座";
+"BRBlackjack.Lobby.Pays" = "黑傑克賠付";
+"BRBlackjack.Lobby.Join" = "加入";
+"BRBlackjack.Lobby.Dealing" = "%@ 發牌中";
+"BRBlackjack.Lobby.YoureSeated" = "你已入座";
+"BRBlackjack.Lobby.Footer" = "更大投注  ✦  更高獎勵  ✦  同樣刺激";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "VIP牌桌";
+"BRBlackjack.Lobby.VipMessage" = "High Limit 為 VIP 玩家專屬。達到白銀 VIP（50,000 VIP 積分）或開通任意訂閱即可解鎖。";

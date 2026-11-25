@@ -852,3 +852,45 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "Taruhan dipasang. Menunggu pembagian kartu…";
+"BRBlackjack.Betting" = "Pasang taruhanmu!";
+"BRBlackjack.CantJoin" = "Tidak bisa bergabung ke meja";
+"BRBlackjack.Double" = "Ganda";
+"BRBlackjack.Hit" = "Ambil";
+"BRBlackjack.Idle" = "Pasang taruhan untuk memulai ronde.";
+"BRBlackjack.Joining" = "Mengambil tempat duduk…";
+"BRBlackjack.Leave" = "Keluar";
+"BRBlackjack.LeaveMessage" = "Tanganmu akan berhenti otomatis dan tetap dibayar jika menang.";
+"BRBlackjack.LeaveTitle" = "Keluar di tengah tangan?";
+"BRBlackjack.NotEnough" = "Koin tidak cukup";
+"BRBlackjack.PlaceBet" = "Pasang taruhan";
+"BRBlackjack.RoundOver" = "Ronde selesai.";
+"BRBlackjack.SittingOut" = "Kamu duduk di luar ronde ini.";
+"BRBlackjack.Spectating" = "Menonton — kursi akan terbuka ronde berikutnya.";
+"BRBlackjack.Split" = "Pisah";
+"BRBlackjack.Stand" = "Berhenti";
+"BRBlackjack.WaitTurn" = "Menunggu pemain lain…";
+"BRBlackjack.You" = "Kamu";
+"BRBlackjack.YourTurn" = "Giliranmu";
+"BRBlackjack.YourTurnHand" = "Giliranmu — tangan %ld dari 2";
+
+/* Blackjack lobby */
+"BRBlackjack.Lobby.Title" = "Blackjack";
+"BRBlackjack.Lobby.Balance" = "Saldo Anda: %ld koin";
+"BRBlackjack.Lobby.Loading" = "Memuat meja…";
+"BRBlackjack.Lobby.PullToRetry" = "Tarik ke bawah untuk mencoba lagi.";
+"BRBlackjack.Lobby.HeroTitle" = "DEALER AI & PEMANDU ANDA";
+"BRBlackjack.Lobby.HeroSub" = "Mendekatlah ke meja, nikmati permainannya, dan mari buat malam ini luar biasa.";
+"BRBlackjack.Lobby.BetRange" = "TARUHAN";
+"BRBlackjack.Lobby.CoinsRange" = "%ld – %ld koin";
+"BRBlackjack.Lobby.Seated" = "DUDUK";
+"BRBlackjack.Lobby.Pays" = "BLACKJACK MEMBAYAR";
+"BRBlackjack.Lobby.Join" = "GABUNG";
+"BRBlackjack.Lobby.Dealing" = "%@ membagikan";
+"BRBlackjack.Lobby.YoureSeated" = "Anda sedang duduk";
+"BRBlackjack.Lobby.Footer" = "TARUHAN LEBIH BESAR  ✦  HADIAH LEBIH TINGGI  ✦  SENSASI YANG SAMA";
+"BRBlackjack.Lobby.Vip" = "VIP";
+"BRBlackjack.Lobby.VipTitle" = "Meja VIP";
+"BRBlackjack.Lobby.VipMessage" = "High Limit khusus pemain VIP. Capai VIP Perak (50.000 poin VIP) atau mulai langganan apa pun untuk membukanya.";
