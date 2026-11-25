@@ -226,7 +226,7 @@
 "EZCoinStore.Tier.UnlimitedChat" = "Chat illimitata";
 "EZCoinStore.Tier.UnlimitedChatSubtitle" = "Chat illimitata sui modelli più recenti\nAstra 50/giorno · Sol 100/giorno · Luna e Terra illimitati · 400 monete / mese";
 "EZCoinStore.TopUp.Ultra" = "Pacchetto monete Ultra";
-"EZCoinStore.TopUp.UltraSubtitle" = "2500 monete, pagamento unico\nNon scade mai";
+"EZCoinStore.TopUp.UltraSubtitle" = "2000 monete, pagamento unico\nNon scade mai";
 "EZCoinStore.TopUp.Power" = "Pacchetto monete Power";
 "EZCoinStore.TopUp.PowerSubtitle" = "6000 monete, pagamento unico\nNon scade mai";
 "EZCoinStore.TopUp.Enterprise" = "Pacchetto monete Enterprise";
@@ -854,3 +854,5 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "Tavolo VIP";
 "BRBlackjack.Lobby.VipMessage" = "High Limit è per i giocatori VIP. Raggiungi il VIP Argento (50.000 punti VIP) o attiva un qualsiasi abbonamento per sbloccarlo.";
+
+"EZCoinStore.Sale.FirstPeriodNote" = "Bonus saldi abbonamenti: solo il primo periodo di fatturazione.";

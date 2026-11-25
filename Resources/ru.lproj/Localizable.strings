@@ -138,7 +138,7 @@
 
 "EZCoinStore.TopUp.Ultra" = "Ultra Topup Pack";
 
-"EZCoinStore.TopUp.UltraSubtitle" = "2500 монет, единоразово \nБессрочный срок действия";
+"EZCoinStore.TopUp.UltraSubtitle" = "2000 монет, единоразово \nБессрочный срок действия";
 
 "EZCoinStore.TopUp.Power" = "Пакет пополнения мощности";
 
@@ -894,3 +894,5 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIP-стол";
 "BRBlackjack.Lobby.VipMessage" = "High Limit — стол для VIP-игроков. Получите Серебряный VIP (50 000 очков VIP) или оформите любую подписку, чтобы открыть его.";
+
+"EZCoinStore.Sale.FirstPeriodNote" = "Бонус распродажи по подписке: только первый период оплаты.";

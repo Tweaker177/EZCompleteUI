@@ -138,7 +138,7 @@
 
 "EZCoinStore.TopUp.Ultra" = "울트라 충전 팩";
 
-"EZCoinStore.TopUp.UltraSubtitle" = "2500 코인, 일회성\n만료되지 않음";
+"EZCoinStore.TopUp.UltraSubtitle" = "2000 코인, 일회성\n만료되지 않음";
 
 "EZCoinStore.TopUp.Power" = "파워 충전 팩";
 
@@ -895,3 +895,5 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIP 테이블";
 "BRBlackjack.Lobby.VipMessage" = "High Limit은 VIP 플레이어 전용입니다. 실버 VIP(50,000 VIP 포인트)에 도달하거나 아무 구독이나 시작하면 잠금이 해제됩니다.";
+
+"EZCoinStore.Sale.FirstPeriodNote" = "구독 세일 보너스: 첫 결제 기간만 해당.";

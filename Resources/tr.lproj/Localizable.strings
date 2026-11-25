@@ -138,7 +138,7 @@
 
 "EZCoinStore.TopUp.Ultra" = "Ultra Yükleme Paketi";
 
-"EZCoinStore.TopUp.UltraSubtitle" = "2500 coin, tek seferlik\nSüresi asla dolmaz";
+"EZCoinStore.TopUp.UltraSubtitle" = "2000 coin, tek seferlik\nSüresi asla dolmaz";
 
 "EZCoinStore.TopUp.Power" = "Power Yükleme Paketi";
 
@@ -895,3 +895,5 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIP masası";
 "BRBlackjack.Lobby.VipMessage" = "High Limit, VIP oyuncular içindir. Gümüş VIP'ye (50.000 VIP puanı) ulaşın veya herhangi bir abonelik başlatarak kilidi açın.";
+
+"EZCoinStore.Sale.FirstPeriodNote" = "Abonelik kampanya bonusu: yalnızca ilk fatura dönemi.";

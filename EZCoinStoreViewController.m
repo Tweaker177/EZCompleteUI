@@ -896,11 +896,38 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 - (void)applySubscriptionPromoBadgeToItem:(EZStoreItem *)item {
 
-    if (!self.isPromoActive || item.isCurrentPlan) return;
+    if (item.isCurrentPlan) return;
 
-    // A store sale covers top-up packs only — the server grants it
-    // only there — so subscription cards never take sale styling.
-    if (self.activeSale) return;
+    // Server sale: the first billing period takes the multiplier (the
+
+    // webhook grants base + sale bonus on activation), so the card
+
+    // shows the same badge and multiplied coins line as a top-up. The
+
+    // first-period term lives in one fine-print line at the bottom of
+
+    // the store, not on the card. The sale replaces the promo below —
+
+    // the two never stack.
+    if (self.activeSale) {
+
+        NSInteger multiplier = [self.activeSale[@"multiplier"] integerValue];
+
+        if (multiplier > 1) {
+
+            item.badgeText   = [NSString stringWithFormat:@"%ldX COINS", (long)multiplier];
+
+            item.accentColor = [UIColor colorWithRed:1.0 green:0.13 blue:0.35 alpha:1.0]; // matches the top-up sale styling
+
+            item.subtitle    = [self saleAdjustedSubtitleForItem:item multiplier:multiplier];
+
+        }
+
+        return;
+
+    }
+
+    if (!self.isPromoActive) return;
 
     item.badgeText         = [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.Promo.SubscriptionBadgeFormat", @"Subscription promo badge with bonus coins"), (long)item.coins];
 
@@ -1132,7 +1159,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     topup3.priceString     = @"$20.00";
     topup3.planOrPackageID = @"TOPUP_2500";
     topup3.type            = EZStoreItemTypeTopUp;
-    topup3.coins           = 2500;
+    topup3.coins           = 2000;
     topup3.accentColor     = [UIColor systemIndigoColor];
     [self applyPromoBadgeIfNeededToItem:topup3];
     [items addObject:topup3];
@@ -1397,6 +1424,27 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     self.tableView.separatorStyle   = UITableViewCellSeparatorStyleNone;
 
     self.tableView.tableHeaderView  = self.headerView;
+
+    // While a sale runs, one fine-print line at the bottom of the
+
+    // store: subscription sale bonuses land on the first billing
+
+    // period only.
+    if (self.activeSale) {
+
+        UILabel *saleNote = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, CGRectGetWidth(self.view.bounds) - 32, 34)];
+
+        saleNote.text = NSLocalizedStringWithDefaultValue(@"EZCoinStore.Sale.FirstPeriodNote", nil, NSBundle.mainBundle, @"Subscription sale bonus: first billing period only.", nil);
+
+        saleNote.font = [UIFont systemFontOfSize:11];
+
+        saleNote.textColor = [UIColor colorWithWhite:1 alpha:.55];
+
+        saleNote.textAlignment = NSTextAlignmentCenter;
+
+        self.tableView.tableFooterView = saleNote;
+
+    }
 
     self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 

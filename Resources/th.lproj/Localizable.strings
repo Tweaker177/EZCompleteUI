@@ -226,7 +226,7 @@
 "EZCoinStore.Tier.UnlimitedChat" = "แชทไม่จำกัด";
 "EZCoinStore.Tier.UnlimitedChatSubtitle" = "แชทไม่จำกัดกับโมเดลล่าสุด\nAstra 50/วัน · Sol 100/วัน · Luna และ Terra ไม่จำกัด · 400 เหรียญ / เดือน";
 "EZCoinStore.TopUp.Ultra" = "แพ็กเหรียญอัลตร้า";
-"EZCoinStore.TopUp.UltraSubtitle" = "2,500 เหรียญ จ่ายครั้งเดียว\nไม่มีวันหมดอายุ";
+"EZCoinStore.TopUp.UltraSubtitle" = "2,000 เหรียญ จ่ายครั้งเดียว\nไม่มีวันหมดอายุ";
 "EZCoinStore.TopUp.Power" = "แพ็กเหรียญพาวเวอร์";
 "EZCoinStore.TopUp.PowerSubtitle" = "6,000 เหรียญ จ่ายครั้งเดียว\nไม่มีวันหมดอายุ";
 "EZCoinStore.TopUp.Enterprise" = "แพ็กเหรียญองค์กร";
@@ -854,3 +854,5 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "โต๊ะ VIP";
 "BRBlackjack.Lobby.VipMessage" = "High Limit สำหรับผู้เล่น VIP เท่านั้น เป็น VIP ระดับ Silver (50,000 คะแนน VIP) หรือเริ่มสมัครสมาชิกใดก็ได้เพื่อปลดล็อก";
+
+"EZCoinStore.Sale.FirstPeriodNote" = "โบนัสเซลสำหรับสมาชิก: เฉพาะรอบบิลแรกเท่านั้น";
