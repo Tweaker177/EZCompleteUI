@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "अल्ट्रा";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,000 सिक्के/माह\nबिजली उपयोगकर्ताओं का स्वागत है";
+"EZCoinStore.Tier.UltraSubtitle" = "2,500 सिक्के/माह\nबिजली उपयोगकर्ताओं का स्वागत है";
 
 "EZCoinStore.Tier.UltraPrice" = "$20/माह";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "पावर उपयोगकर्ता";
-"EZCoinStore.Tier.PowerSubtitle" = "6,000 कॉइन / माह\nजब ज़रूरत हो तब उपलब्ध।";
+"EZCoinStore.Tier.PowerSubtitle" = "6,250 कॉइन / माह\nजब ज़रूरत हो तब उपलब्ध।";
 "EZCoinStore.Tier.Enterprise" = "एंटरप्राइज़";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 कॉइन / माह\nआपकी सभी व्यावसायिक ज़रूरतों के लिए";
 "EZCoinStore.Tier.UnlimitedChat" = "अनलिमिटेड चैट";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "अल्ट्रा कॉइन पैक";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 "EZCoinStore.TopUp.Power" = "पावर कॉइन पैक";
-"EZCoinStore.TopUp.PowerSubtitle" = "6000 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
+"EZCoinStore.TopUp.PowerSubtitle" = "6250 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 "EZCoinStore.TopUp.Enterprise" = "एंटरप्राइज़ कॉइन पैक";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 कॉइन, एकमुश्त भुगतान\nकभी समाप्त नहीं होते";
 
@@ -853,3 +853,44 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIP टेबल";
 "BRBlackjack.Lobby.VipMessage" = "High Limit VIP खिलाड़ियों के लिए है। सिल्वर VIP (50,000 VIP पॉइंट) पाएं या कोई भी सदस्यता शुरू करके इसे अनलॉक करें।";
+
+// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
+"BRBlackjack.Speech.YouHavePrefix" = "आपके पास ";
+"BRBlackjack.Speech.NameHasFormat" = "%@ के पास ";
+"BRBlackjack.Speech.SeatPrefix" = "सीट %ld: ";
+"BRBlackjack.Speech.SoftTotal" = "सॉफ्ट %ld";
+"BRBlackjack.Speech.BlackjackBang" = "ब्लैकजैक!";
+"BRBlackjack.Speech.BustBang" = "बस्ट!";
+"BRBlackjack.Speech.BustLower" = "बस्ट";
+"BRBlackjack.Speech.BustsVerb" = "बस्ट हो गया";
+"BRBlackjack.Speech.VerbStands" = "स्टैंड करता है";
+"BRBlackjack.Speech.VerbDoubles" = "डबल करता है";
+"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
+"BRBlackjack.Speech.ActionSeatFormat" = "सीट %ld %@.";
+"BRBlackjack.Speech.TurnNameFormat" = "%@, आपकी बारी है।";
+"BRBlackjack.Speech.TurnYou" = "आपकी बारी है।";
+"BRBlackjack.Speech.TurnSeatFormat" = "सीट %ld, आपकी बारी है।";
+"BRBlackjack.Speech.DealerBlackjack" = "डीलर के पास ब्लैकजैक है";
+"BRBlackjack.Speech.DealerHas21" = "डीलर के पास 21 है";
+"BRBlackjack.Speech.D21Quip1" = "डीलर को इक्कीस। बुरा हुआ, दोस्तों।";
+"BRBlackjack.Speech.D21Quip2" = "डीलर के पास इक्कीस है। माफ़ कीजिए, दोस्तों।";
+"BRBlackjack.Speech.D21Quip3" = "इक्कीस। हाउस फिर कर दिखाता है।";
+"BRBlackjack.Speech.D21Quip4" = "डीलर को इक्कीस मिला। हाउस की ओर से नमस्ते।";
+"BRBlackjack.Speech.D21Quip5" = "अरे, मुझे इक्कीस मिला। बुरा हुआ, दोस्तों।";
+"BRBlackjack.Speech.PlaceBets" = "अपनी बेट लगाएं";
+"BRBlackjack.Speech.NoMoreBets" = "अब कोई बेट नहीं";
+"BRBlackjack.Speech.DealerShowsFormat" = "डीलर दिखाता है %@";
+"BRBlackjack.Speech.RankAce" = "एक इक्का";
+"BRBlackjack.Speech.DWeakQuip1" = "डीलर बस्ट होने वाला है।";
+"BRBlackjack.Speech.DWeakQuip2" = "थोड़ा भरोसा रखिए।";
+"BRBlackjack.Speech.SplitNameFormat" = "%@ स्प्लिट करता है";
+"BRBlackjack.Speech.SplitYou" = "आपने स्प्लिट किया";
+"BRBlackjack.Speech.SplitSeatFormat" = "सीट %ld स्प्लिट करता है";
+"BRBlackjack.Speech.DealerBusts" = "डीलर बस्ट";
+"BRBlackjack.Speech.DealerHasFormat" = "डीलर के पास %ld है";
+"BRBlackjack.Speech.P21Quip1" = "बिल्कुल सही!";
+"BRBlackjack.Speech.P21Quip2" = "शाबाश!";
+"BRBlackjack.Speech.P21Quip3" = "बहुत बढ़िया!";
+"BRBlackjack.Speech.WPQuip1" = "अच्छा खेले।";
+"BRBlackjack.Speech.WPQuip2" = "यह आपकी पहली बार नहीं है इस टेबल पर।";
+"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";
