@@ -1391,10 +1391,11 @@ static NSString * const kBRRicochetDefaultsOscillator2Waveform = @"BRRicochetSyn
     NSArray<NSString *> *fileNames = @[ @"wall-blast-success", @"wall-blast-fail", @"hurt-player" ];
 
     for (NSString *fileName in fileNames) {
-        NSURL *fileURL = [[NSBundle mainBundle] URLForResource:fileName withExtension:@"aiff" subdirectory:@"sounds"];
+        NSURL *fileURL = [[NSBundle mainBundle] URLForResource:fileName withExtension:@"m4a" subdirectory:@"sounds"];
+        if (!fileURL) fileURL = [[NSBundle mainBundle] URLForResource:fileName withExtension:@"aiff" subdirectory:@"sounds"];
         if (!fileURL) fileURL = [[NSBundle mainBundle] URLForResource:fileName withExtension:@"aiff"];
         if (!fileURL) {
-            NSLog(@"[BRRicochet] SFX not found: %@.aiff", fileName);
+            NSLog(@"[BRRicochet] SFX not found: %@", fileName);
             continue;
         }
         NSError *loadError = nil;

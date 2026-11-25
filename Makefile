@@ -26,3 +26,17 @@ EZCompleteUI_GROUP = mobile
 EZCompleteUI_INSTALL_PATH = /Applications
 
 include $(THEOS_MAKE_PATH)/application.mk
+
+# Keep the .deb lean: none of these reach the theos bundle in a usable
+# form. The asset catalog is never compiled by theos, IMG_2264.png is
+# referenced nowhere, the 808drums samples do not match the names the
+# synth loads, and the AIFF/CAF originals are superseded by the AAC/MP3
+# versions the code loads first. The repo keeps everything — the Xcode
+# build is untouched.
+after-stage::
+	find "$(THEOS_STAGING_DIR)" -type d -name "Assets.xcassets" -exec rm -rf {} + 2>/dev/null || :
+	find "$(THEOS_STAGING_DIR)" -type d -name "808drums" -exec rm -rf {} + 2>/dev/null || :
+	find "$(THEOS_STAGING_DIR)" -name "IMG_2264.png" -delete 2>/dev/null || :
+	find "$(THEOS_STAGING_DIR)" -name "*.aiff" -delete 2>/dev/null || :
+	find "$(THEOS_STAGING_DIR)" -name "pb_slot_reels.caf" -delete 2>/dev/null || :
+	find "$(THEOS_STAGING_DIR)" -name "crowded_casino.caf" -delete 2>/dev/null || :
