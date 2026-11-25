@@ -1123,9 +1123,21 @@ static CGFloat BRSRayBaseRadius(CGRect rect, CGFloat a) {
 
 + (BOOL)celebrateBigWinInView:(UIView *)hostView payout:(NSInteger)payout totalBet:(NSInteger)totalBet {
     if (!hostView || totalBet <= 0 || payout <= 0) return NO;
-    NSInteger multiple = payout / totalBet;
-    if (multiple < 25) return NO;
-    BOOL mega = multiple >= 75;
+    if (payout / totalBet < 25) return NO;
+    return [self brs_celebrateInView:hostView payout:payout totalBet:totalBet jackpot:NO];
+}
+
+/// The one specific win a game calls its jackpot: the rarest line on
+/// its paytable, flagged by the server as is_jackpot. Size alone never
+/// shows this — the tiered celebration above tops out at MEGA WIN.
++ (BOOL)celebrateJackpotInView:(UIView *)hostView payout:(NSInteger)payout totalBet:(NSInteger)totalBet {
+    if (!hostView || payout <= 0) return NO;
+    return [self brs_celebrateInView:hostView payout:payout totalBet:totalBet jackpot:YES];
+}
+
++ (BOOL)brs_celebrateInView:(UIView *)hostView payout:(NSInteger)payout totalBet:(NSInteger)totalBet jackpot:(BOOL)jackpot {
+    NSInteger multiple = totalBet > 0 ? payout / totalBet : 0;
+    BOOL mega = jackpot || multiple >= 75;
 
     UIView *overlay = [[UIView alloc] initWithFrame:hostView.bounds];
     overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -1165,8 +1177,10 @@ static CGFloat BRSRayBaseRadius(CGRect rect, CGFloat a) {
     }
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, size.width - 32, mega ? 74 : 60)];
-    title.text = mega ? NSLocalizedStringWithDefaultValue(@"BRSlot.Win.Jackpot", nil, NSBundle.mainBundle, @"JACKPOT!", nil)
-                      : NSLocalizedString(@"BRSlot.Win.BigWin", nil);
+    title.text = jackpot ? NSLocalizedStringWithDefaultValue(@"BRSlot.Win.Jackpot", nil, NSBundle.mainBundle, @"JACKPOT!", nil)
+                 : multiple >= 75 ? NSLocalizedStringWithDefaultValue(@"BRSlot.Win.MegaWin", nil, NSBundle.mainBundle, @"MEGA WIN!", nil)
+                 : multiple >= 50 ? NSLocalizedStringWithDefaultValue(@"BRSlot.Win.HugeWin", nil, NSBundle.mainBundle, @"HUGE WIN!", nil)
+                                  : NSLocalizedString(@"BRSlot.Win.BigWin", nil);
     title.font = [UIFont systemFontOfSize:mega ? 58 : 46 weight:UIFontWeightBlack];
     title.textColor = [UIColor colorWithRed:1.00 green:0.80 blue:0.15 alpha:1];
     title.textAlignment = NSTextAlignmentCenter;

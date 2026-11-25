@@ -478,7 +478,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
         }
         if (cannonLine) [self playCannon];
         NSInteger totalBet = MAX(1, PlunderInteger(result[@"wager"]));
-        BOOL jackpot = payout > 0 && payout / totalBet >= 75;
+        BOOL jackpot = payout > 0 && [result[@"is_jackpot"] boolValue];
         if (winLines.count) {
             NSInteger linePasses = jackpot ? MAX(1, (NSInteger)ceil(9.0 / (1.55 * winLines.count))) : (winLines.count<=2?4:winLines.count<=4?3:2);
             [self celebrateWinLines:winLines step:0 passes:linePasses celebrationID:self.lineCelebrationID];

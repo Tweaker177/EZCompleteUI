@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "ألترا";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 عملة / شهر\nمرحبًا بالمستخدمين المتقدمين";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 عملة / شهر\nمرحبًا بالمستخدمين المتقدمين";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / شهر";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "المستخدمون المتقدمون";
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 عملة / شهر\nمتاحة عند الحاجة إليها.";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 عملة / شهر\nمتاحة عند الحاجة إليها.";
 "EZCoinStore.Tier.Enterprise" = "المؤسسات";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 عملة / شهر\nلكل احتياجات عملك";
 "EZCoinStore.Tier.UnlimitedChat" = "دردشة غير محدودة";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "حزمة شحن ألترا";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 "EZCoinStore.TopUp.Power" = "حزمة شحن باور";
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 "EZCoinStore.TopUp.Enterprise" = "حزمة شحن المؤسسات";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 
@@ -443,6 +443,7 @@
 "BRSlot.Win.Winner" = "الفائز!";
 "BRSlot.Win.BigWin" = "فوز كبير!";
 "BRSlot.Win.MegaWin" = "فوز ضخم!";
+"BRSlot.Win.HugeWin" = "فوز هائل!";
 "BRSlot.Win.BigWinSub" = "+%ld قطعة نقدية · ×%ld";
 "BRSlot.Lounge.SignIn" = "قم بتسجيل الدخول للانضمام إلى الصالة.";
 "BRSlot.Lounge.Delete" = "حذف";
@@ -853,44 +854,3 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "طاولة VIP";
 "BRBlackjack.Lobby.VipMessage" = "طاولة High Limit مخصصة للاعبي VIP. احصل على VIP الفضي (50,000 نقطة VIP) أو ابدأ أي اشتراك لفتحها.";
-
-// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
-"BRBlackjack.Speech.YouHavePrefix" = "لديك ";
-"BRBlackjack.Speech.NameHasFormat" = "لدى %@ ";
-"BRBlackjack.Speech.SeatPrefix" = "المقعد %ld: ";
-"BRBlackjack.Speech.SoftTotal" = "ناعم %ld";
-"BRBlackjack.Speech.BlackjackBang" = "بلاك جاك!";
-"BRBlackjack.Speech.BustBang" = "تجاوزت!";
-"BRBlackjack.Speech.BustLower" = "تجاوز";
-"BRBlackjack.Speech.BustsVerb" = "تجاوز";
-"BRBlackjack.Speech.VerbStands" = "يقف";
-"BRBlackjack.Speech.VerbDoubles" = "يضاعف";
-"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
-"BRBlackjack.Speech.ActionSeatFormat" = "المقعد %ld %@.";
-"BRBlackjack.Speech.TurnNameFormat" = "%@، الدور عليك.";
-"BRBlackjack.Speech.TurnYou" = "الدور عليك.";
-"BRBlackjack.Speech.TurnSeatFormat" = "المقعد %ld، الدور عليك.";
-"BRBlackjack.Speech.DealerBlackjack" = "الموزع لديه بلاك جاك";
-"BRBlackjack.Speech.DealerHas21" = "الموزع لديه 21";
-"BRBlackjack.Speech.D21Quip1" = "واحد وعشرون للموزع. حظ سيئ يا رفاق.";
-"BRBlackjack.Speech.D21Quip2" = "الموزع لديه واحد وعشرون. آسف يا رفاق.";
-"BRBlackjack.Speech.D21Quip3" = "واحد وعشرون. الكازينو يفعلها مجددًا.";
-"BRBlackjack.Speech.D21Quip4" = "الموزع يحصل على واحد وعشرين. الكازينو يرسل تحياته.";
-"BRBlackjack.Speech.D21Quip5" = "أوه، واحد وعشرون لي. مؤسف يا رفاق.";
-"BRBlackjack.Speech.PlaceBets" = "ضعوا رهاناتكم";
-"BRBlackjack.Speech.NoMoreBets" = "انتهت الرهانات";
-"BRBlackjack.Speech.DealerShowsFormat" = "الموزع يُظهر %@";
-"BRBlackjack.Speech.RankAce" = "آسًا";
-"BRBlackjack.Speech.DWeakQuip1" = "الموزع سيتجاوز.";
-"BRBlackjack.Speech.DWeakQuip2" = "تحلَّوا ببعض الإيمان.";
-"BRBlackjack.Speech.SplitNameFormat" = "%@ يقسّم";
-"BRBlackjack.Speech.SplitYou" = "قسمت يدك";
-"BRBlackjack.Speech.SplitSeatFormat" = "المقعد %ld يقسّم";
-"BRBlackjack.Speech.DealerBusts" = "الموزع تجاوز";
-"BRBlackjack.Speech.DealerHasFormat" = "الموزع لديه %ld";
-"BRBlackjack.Speech.P21Quip1" = "هكذا تمامًا!";
-"BRBlackjack.Speech.P21Quip2" = "أحسنت!";
-"BRBlackjack.Speech.P21Quip3" = "رائع جدًا!";
-"BRBlackjack.Speech.WPQuip1" = "لعب جميل.";
-"BRBlackjack.Speech.WPQuip2" = "ليست هذه أول مرة لك على طاولة.";
-"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";

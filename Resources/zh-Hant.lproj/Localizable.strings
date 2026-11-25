@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "每月 2,500 金幣\n歡迎進階使用者";
+"EZCoinStore.Tier.UltraSubtitle" = "每月 2,000 金幣\n歡迎進階使用者";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / 月";
 
@@ -124,7 +124,7 @@
 
 "EZCoinStore.Tier.Power" = "進階使用者";
 
-"EZCoinStore.Tier.PowerSubtitle" = "每月 6,250 金幣\n需要時隨時可用。";
+"EZCoinStore.Tier.PowerSubtitle" = "每月 6,000 金幣\n需要時隨時可用。";
 
 "EZCoinStore.Tier.Enterprise" = "企業版";
 
@@ -142,7 +142,7 @@
 
 "EZCoinStore.TopUp.Power" = "Power 加值包";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 金幣，一次性\n永不過期";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 金幣，一次性\n永不過期";
 
 "EZCoinStore.TopUp.Enterprise" = "企業加值包";
 
@@ -484,6 +484,7 @@
 "BRSlot.Win.Winner" = "贏家！";
 "BRSlot.Win.BigWin" = "大贏！";
 "BRSlot.Win.MegaWin" = "超級大贏！";
+"BRSlot.Win.HugeWin" = "超大贏！";
 "BRSlot.Win.BigWinSub" = "+%ld 金幣 · ×%ld";
 "BRSlot.Lounge.SignIn" = "登入以加入休息室。";
 "BRSlot.Lounge.Delete" = "刪除";
@@ -894,44 +895,3 @@
 "BRBlackjack.Lobby.Vip" = "VIP";
 "BRBlackjack.Lobby.VipTitle" = "VIP牌桌";
 "BRBlackjack.Lobby.VipMessage" = "High Limit 為 VIP 玩家專屬。達到白銀 VIP（50,000 VIP 積分）或開通任意訂閱即可解鎖。";
-
-// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
-"BRBlackjack.Speech.YouHavePrefix" = "你有 ";
-"BRBlackjack.Speech.NameHasFormat" = "%@ 有 ";
-"BRBlackjack.Speech.SeatPrefix" = "%ld號座：";
-"BRBlackjack.Speech.SoftTotal" = "軟%ld";
-"BRBlackjack.Speech.BlackjackBang" = "黑傑克！";
-"BRBlackjack.Speech.BustBang" = "爆牌！";
-"BRBlackjack.Speech.BustLower" = "爆牌";
-"BRBlackjack.Speech.BustsVerb" = "爆牌了";
-"BRBlackjack.Speech.VerbStands" = "停牌";
-"BRBlackjack.Speech.VerbDoubles" = "雙倍下注";
-"BRBlackjack.Speech.ActionNameFormat" = "%@%@。";
-"BRBlackjack.Speech.ActionSeatFormat" = "%ld號座%@。";
-"BRBlackjack.Speech.TurnNameFormat" = "%@，輪到你了。";
-"BRBlackjack.Speech.TurnYou" = "輪到你了。";
-"BRBlackjack.Speech.TurnSeatFormat" = "%ld號座，輪到你了。";
-"BRBlackjack.Speech.DealerBlackjack" = "莊家是黑傑克";
-"BRBlackjack.Speech.DealerHas21" = "莊家21點";
-"BRBlackjack.Speech.D21Quip1" = "莊家21點。運氣不佳，各位。";
-"BRBlackjack.Speech.D21Quip2" = "莊家拿到21點。抱歉，各位。";
-"BRBlackjack.Speech.D21Quip3" = "21點。莊家又贏了。";
-"BRBlackjack.Speech.D21Quip4" = "莊家拿到21點。莊家向各位問好。";
-"BRBlackjack.Speech.D21Quip5" = "哦，我拿到21點。太遺憾了，各位。";
-"BRBlackjack.Speech.PlaceBets" = "請下注";
-"BRBlackjack.Speech.NoMoreBets" = "停止下注";
-"BRBlackjack.Speech.DealerShowsFormat" = "莊家亮出%@";
-"BRBlackjack.Speech.RankAce" = "一張A";
-"BRBlackjack.Speech.DWeakQuip1" = "莊家要爆牌了。";
-"BRBlackjack.Speech.DWeakQuip2" = "有點信心嘛。";
-"BRBlackjack.Speech.SplitNameFormat" = "%@ 分牌";
-"BRBlackjack.Speech.SplitYou" = "你分牌了";
-"BRBlackjack.Speech.SplitSeatFormat" = "%ld號座分牌";
-"BRBlackjack.Speech.DealerBusts" = "莊家爆牌";
-"BRBlackjack.Speech.DealerHasFormat" = "莊家%ld點";
-"BRBlackjack.Speech.P21Quip1" = "就是這樣！";
-"BRBlackjack.Speech.P21Quip2" = "幹得漂亮！";
-"BRBlackjack.Speech.P21Quip3" = "非常好！";
-"BRBlackjack.Speech.WPQuip1" = "打得漂亮。";
-"BRBlackjack.Speech.WPQuip2" = "你可不是第一次上牌桌了。";
-"BRBlackjack.Speech.NamePrefixFormat" = "%@：";
