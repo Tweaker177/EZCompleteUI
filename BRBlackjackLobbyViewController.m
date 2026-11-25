@@ -117,6 +117,53 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
 
 @end
 
+/// Two miniature playing cards — an ace and a jack, a blackjack hand —
+/// drawn over the BLACKJACK PAYS column in place of a generic glyph.
+@interface BRBJLobbyMiniCardsView : UIView
+@end
+
+@implementation BRBJLobbyMiniCardsView
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) self.backgroundColor = UIColor.clearColor;
+    return self;
+}
+
+- (void)drawMiniCardCenteredAt:(CGPoint)center size:(CGSize)size angle:(CGFloat)angle rank:(NSString *)rank suit:(NSString *)suit color:(UIColor *)color {
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    CGContextSaveGState(ctx);
+    CGContextTranslateCTM(ctx, center.x, center.y);
+    CGContextRotateCTM(ctx, angle);
+    CGRect card = CGRectMake(-size.width / 2, -size.height / 2, size.width, size.height);
+    CGContextSetShadow(ctx, CGSizeMake(0, 1), 2, [UIColor colorWithWhite:0 alpha:.35].CGColor);
+    CGContextSetFillColorWithColor(ctx, [UIColor colorWithWhite:.97 alpha:1].CGColor);
+    [[UIBezierPath bezierPathWithRoundedRect:card cornerRadius:3] fill];
+    CGContextSetShadow(ctx, CGSizeZero, 0, NULL);
+    CGContextSetStrokeColorWithColor(ctx, [UIColor colorWithWhite:.72 alpha:1].CGColor);
+    CGContextSetLineWidth(ctx, .75);
+    [[UIBezierPath bezierPathWithRoundedRect:CGRectInset(card, .4, .4) cornerRadius:3] stroke];
+    NSDictionary *rankAttrs = @{ NSFontAttributeName: [UIFont systemFontOfSize:8.5 weight:UIFontWeightBold], NSForegroundColorAttributeName: color };
+    [rank drawAtPoint:CGPointMake(card.origin.x + 2.5, card.origin.y + 1) withAttributes:rankAttrs];
+    NSDictionary *suitAttrs = @{ NSFontAttributeName: [UIFont systemFontOfSize:7 weight:UIFontWeightBold], NSForegroundColorAttributeName: color };
+    [suit drawAtPoint:CGPointMake(card.origin.x + 2.5, card.origin.y + 9.5) withAttributes:suitAttrs];
+    NSDictionary *pipAttrs = @{ NSFontAttributeName: [UIFont systemFontOfSize:12 weight:UIFontWeightBold], NSForegroundColorAttributeName: color };
+    CGSize pipSize = [suit sizeWithAttributes:pipAttrs];
+    [suit drawAtPoint:CGPointMake(-pipSize.width / 2, -pipSize.height / 2 + 2) withAttributes:pipAttrs];
+    CGContextRestoreGState(ctx);
+}
+
+- (void)drawRect:(CGRect)rect {
+    CGFloat unit = MIN(rect.size.width / 40.0, rect.size.height / 30.0);
+    CGSize size = CGSizeMake(19 * unit, 27 * unit);
+    UIColor *red = [UIColor colorWithRed:.78 green:.12 blue:.16 alpha:1];
+    UIColor *ink = [UIColor colorWithWhite:.08 alpha:1];
+    [self drawMiniCardCenteredAt:CGPointMake(rect.size.width * .64, rect.size.height * .48) size:size angle:.17 rank:@"J" suit:@"\u2665" color:red];
+    [self drawMiniCardCenteredAt:CGPointMake(rect.size.width * .36, rect.size.height * .52) size:size angle:-.14 rank:@"A" suit:@"\u2660" color:ink];
+}
+
+@end
+
 /// A view backed by a gradient layer that always matches its bounds.
 @interface BRBJLobbyGradientView : UIView
 @end
@@ -363,6 +410,36 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     return cell;
 }
 
+/// The BLACKJACK PAYS column: a miniature ace-and-jack in place of the
+/// icon, then the 3:2 and its caption, same metrics as the other columns.
+- (UIView *)paysColumnWithValue:(NSString *)value caption:(NSString *)caption {
+    UIView *column = [UIView new];
+    column.translatesAutoresizingMaskIntoConstraints = NO;
+    BRBJLobbyMiniCardsView *cards = [[BRBJLobbyMiniCardsView alloc] initWithFrame:CGRectZero];
+    cards.translatesAutoresizingMaskIntoConstraints = NO;
+    [column addSubview:cards];
+    UILabel *valueLabel = [self labelWithText:value font:[UIFont systemFontOfSize:15 weight:UIFontWeightBold] color:UIColor.whiteColor];
+    valueLabel.textAlignment = NSTextAlignmentCenter;
+    [column addSubview:valueLabel];
+    UILabel *captionLabel = [self labelWithText:caption font:[UIFont systemFontOfSize:8.5 weight:UIFontWeightSemibold] color:[UIColor colorWithWhite:1 alpha:.55]];
+    captionLabel.textAlignment = NSTextAlignmentCenter;
+    captionLabel.numberOfLines = 2;
+    [column addSubview:captionLabel];
+    [NSLayoutConstraint activateConstraints:@[
+        [cards.topAnchor constraintEqualToAnchor:column.topAnchor constant:-4],
+        [cards.centerXAnchor constraintEqualToAnchor:column.centerXAnchor],
+        [cards.heightAnchor constraintEqualToConstant:25],
+        [cards.widthAnchor constraintEqualToConstant:40],
+        [valueLabel.topAnchor constraintEqualToAnchor:cards.bottomAnchor constant:1],
+        [valueLabel.centerXAnchor constraintEqualToAnchor:column.centerXAnchor],
+        [captionLabel.topAnchor constraintEqualToAnchor:valueLabel.bottomAnchor constant:2],
+        [captionLabel.centerXAnchor constraintEqualToAnchor:column.centerXAnchor],
+        [captionLabel.bottomAnchor constraintLessThanOrEqualToAnchor:column.bottomAnchor],
+        [captionLabel.widthAnchor constraintLessThanOrEqualToConstant:64],
+    ]];
+    return column;
+}
+
 - (UIView *)columnWithIcon:(NSString *)symbol value:(NSString *)value caption:(NSString *)caption {
     UIView *column = [UIView new];
     column.translatesAutoresizingMaskIntoConstraints = NO;
@@ -485,9 +562,8 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
 
     UIView *sep2 = [self cardSeparator];
     [card addSubview:sep2];
-    UIView *paysColumn = [self columnWithIcon:@"rectangle.on.rectangle"
-                                        value:@"3:2"
-                                      caption:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Pays", nil, NSBundle.mainBundle, @"BLACKJACK PAYS", nil)];
+    UIView *paysColumn = [self paysColumnWithValue:@"3:2"
+                                           caption:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Pays", nil, NSBundle.mainBundle, @"BLACKJACK PAYS", nil)];
     [card addSubview:paysColumn];
 
     // Round gold join button; the whole card is tappable too.
