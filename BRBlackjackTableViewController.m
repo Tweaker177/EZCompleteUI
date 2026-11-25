@@ -1631,7 +1631,9 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
         ];
         if (arc4random_uniform(2) == 0) {
             NSDictionary *pick = pool[arc4random_uniform((uint32_t)pool.count)];
-            NSString *prefix = mine ? @"" : [NSString stringWithFormat:@"Seat %ld: ", (long)seatNumber];
+            NSString *displayName = BRBlackjackString(seat[@"display_name"]);
+            NSString *prefix = mine ? @"" : (displayName.length ? [NSString stringWithFormat:@"%@: ", displayName]
+                                                                 : [NSString stringWithFormat:@"Seat %ld: ", (long)seatNumber]);
             [self queueCall:calls keys:pick[@"keys"] caption:[prefix stringByAppendingString:pick[@"caption"]]];
         }
     }
@@ -1766,7 +1768,9 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
                 @{ @"keys": @[@"wp_quip2"], @"caption": @"This isn't your first time at a table." },
             ];
             NSDictionary *pick = pool[arc4random_uniform((uint32_t)pool.count)];
-            NSString *prefix = BRBlackjackBool(seat[@"is_me"]) ? @"" : [NSString stringWithFormat:@"Seat %ld: ", (long)BRBlackjackInt(seat[@"seat_no"]) + 1];
+            NSString *displayName = BRBlackjackString(seat[@"display_name"]);
+            NSString *prefix = BRBlackjackBool(seat[@"is_me"]) ? @"" : (displayName.length ? [NSString stringWithFormat:@"%@: ", displayName]
+                                                                                           : [NSString stringWithFormat:@"Seat %ld: ", (long)BRBlackjackInt(seat[@"seat_no"]) + 1]);
             [self queueCall:calls keys:pick[@"keys"] caption:[prefix stringByAppendingString:pick[@"caption"]]];
             compliments += 1;
         }
