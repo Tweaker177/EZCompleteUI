@@ -119,7 +119,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 coins / month\nPower users welcome";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 coins / month\nPower users welcome";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / mo";
 
@@ -127,7 +127,7 @@
 
 "EZCoinStore.Tier.Power" = "Power Users";
 
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 coins / month\nAvailable when you need them.";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 coins / month\nAvailable when you need them.";
 
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 
@@ -145,7 +145,7 @@
 
 "EZCoinStore.TopUp.Power" = "Power Topup Pack";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 coins, one-time\nNever expires";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 coins, one-time\nNever expires";
 
 "EZCoinStore.TopUp.Enterprise" = "Enterprise Topup Pack";
 

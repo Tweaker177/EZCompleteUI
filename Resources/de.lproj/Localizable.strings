@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2.500 Münzen / Monat\nFür Power-User";
+"EZCoinStore.Tier.UltraSubtitle" = "2.000 Münzen / Monat\nFür Power-User";
 
 "EZCoinStore.Tier.UltraPrice" = "20 $ / Mon.";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "Power-User";
-"EZCoinStore.Tier.PowerSubtitle" = "6.250 Münzen / Monat\nVerfügbar, wenn Sie sie brauchen.";
+"EZCoinStore.Tier.PowerSubtitle" = "6.000 Münzen / Monat\nVerfügbar, wenn Sie sie brauchen.";
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12.500 Münzen / Monat\nFür alle geschäftlichen Anforderungen";
 "EZCoinStore.Tier.UnlimitedChat" = "Unbegrenzter Chat";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "Ultra-Münzpaket";
 "EZCoinStore.TopUp.UltraSubtitle" = "2.500 Münzen, einmalig\nLäuft nie ab";
 "EZCoinStore.TopUp.Power" = "Power-Münzpaket";
-"EZCoinStore.TopUp.PowerSubtitle" = "6.250 Münzen, einmalig\nLäuft nie ab";
+"EZCoinStore.TopUp.PowerSubtitle" = "6.000 Münzen, einmalig\nLäuft nie ab";
 "EZCoinStore.TopUp.Enterprise" = "Unternehmens-Münzpaket";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12.500 Münzen, einmalig\nLäuft nie ab";
 

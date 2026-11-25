@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 koin / bulan\nCocok untuk pengguna berat";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 koin / bulan\nCocok untuk pengguna berat";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / bln";
 
@@ -124,7 +124,7 @@
 
 "EZCoinStore.Tier.Power" = "Pengguna Power";
 
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 koin / bulan\nTersedia saat Anda membutuhkannya.";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 koin / bulan\nTersedia saat Anda membutuhkannya.";
 
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 
@@ -142,7 +142,7 @@
 
 "EZCoinStore.TopUp.Power" = "Paket Top Up Power";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 koin, satu kali\nTidak pernah kedaluwarsa";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 koin, satu kali\nTidak pernah kedaluwarsa";
 
 "EZCoinStore.TopUp.Enterprise" = "Paket Top Up Enterprise";
 

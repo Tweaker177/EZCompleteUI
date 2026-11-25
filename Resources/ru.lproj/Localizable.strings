@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2500 монет в месяц\nДля активных пользователей";
+"EZCoinStore.Tier.UltraSubtitle" = "2000 монет в месяц\nДля активных пользователей";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / мес.";
 
@@ -124,7 +124,7 @@
 
 "EZCoinStore.Tier.Power" = "Опытные пользователи";
 
-"EZCoinStore.Tier.PowerSubtitle" = "6250 монет в месяц\nДоступно, когда они вам понадобятся.";
+"EZCoinStore.Tier.PowerSubtitle" = "6000 монет в месяц\nДоступно, когда они вам понадобятся.";
 
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 
@@ -142,7 +142,7 @@
 
 "EZCoinStore.TopUp.Power" = "Пакет пополнения мощности";
 
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 монет, одноразовый \nБессрочный пакет";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 монет, одноразовый \nБессрочный пакет";
 
 "EZCoinStore.TopUp.Enterprise" = "Пакет пополнения предприятия";
 

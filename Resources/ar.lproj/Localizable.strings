@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "ألترا";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2,500 عملة / شهر\nمرحبًا بالمستخدمين المتقدمين";
+"EZCoinStore.Tier.UltraSubtitle" = "2,000 عملة / شهر\nمرحبًا بالمستخدمين المتقدمين";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / شهر";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "المستخدمون المتقدمون";
-"EZCoinStore.Tier.PowerSubtitle" = "6,250 عملة / شهر\nمتاحة عند الحاجة إليها.";
+"EZCoinStore.Tier.PowerSubtitle" = "6,000 عملة / شهر\nمتاحة عند الحاجة إليها.";
 "EZCoinStore.Tier.Enterprise" = "المؤسسات";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12,500 عملة / شهر\nلكل احتياجات عملك";
 "EZCoinStore.Tier.UnlimitedChat" = "دردشة غير محدودة";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "حزمة شحن ألترا";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 "EZCoinStore.TopUp.Power" = "حزمة شحن باور";
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 "EZCoinStore.TopUp.Enterprise" = "حزمة شحن المؤسسات";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 عملة، دفعة واحدة\nلا تنتهي صلاحيتها";
 

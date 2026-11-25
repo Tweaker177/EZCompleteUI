@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2.500 monedas / mes\nPara usuarios avanzados";
+"EZCoinStore.Tier.UltraSubtitle" = "2.000 monedas / mes\nPara usuarios avanzados";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / mes";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "Usuarios avanzados";
-"EZCoinStore.Tier.PowerSubtitle" = "6.250 monedas / mes\nDisponibles cuando las necesites.";
+"EZCoinStore.Tier.PowerSubtitle" = "6.000 monedas / mes\nDisponibles cuando las necesites.";
 "EZCoinStore.Tier.Enterprise" = "Enterprise";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12.500 monedas / mes\nPara todas las necesidades de tu negocio";
 "EZCoinStore.Tier.UnlimitedChat" = "Chat ilimitado";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "Paquete Ultra de Monedas";
 "EZCoinStore.TopUp.UltraSubtitle" = "2500 monedas, pago único\nNunca caduca";
 "EZCoinStore.TopUp.Power" = "Paquete Power de Monedas";
-"EZCoinStore.TopUp.PowerSubtitle" = "6250 monedas, pago único\nNunca caduca";
+"EZCoinStore.TopUp.PowerSubtitle" = "6000 monedas, pago único\nNunca caduca";
 "EZCoinStore.TopUp.Enterprise" = "Paquete Enterprise de Monedas";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12500 monedas, pago único\nNunca caduca";
 

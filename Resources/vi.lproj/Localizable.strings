@@ -116,7 +116,7 @@
 
 "EZCoinStore.Tier.Ultra" = "Ultra";
 
-"EZCoinStore.Tier.UltraSubtitle" = "2.500 xu / tháng\nDành cho người dùng chuyên sâu";
+"EZCoinStore.Tier.UltraSubtitle" = "2.000 xu / tháng\nDành cho người dùng chuyên sâu";
 
 "EZCoinStore.Tier.UltraPrice" = "$20 / tháng";
 
@@ -220,7 +220,7 @@
 
 /* ElevenLabs voice cloning */
 "EZCoinStore.Tier.Power" = "Người dùng nâng cao";
-"EZCoinStore.Tier.PowerSubtitle" = "6.250 xu / tháng\nSẵn sàng khi bạn cần.";
+"EZCoinStore.Tier.PowerSubtitle" = "6.000 xu / tháng\nSẵn sàng khi bạn cần.";
 "EZCoinStore.Tier.Enterprise" = "Doanh nghiệp";
 "EZCoinStore.Tier.EnterpriseSubtitle" = "12.500 xu / tháng\nCho mọi nhu cầu kinh doanh của bạn";
 "EZCoinStore.Tier.UnlimitedChat" = "Trò chuyện không giới hạn";
@@ -228,7 +228,7 @@
 "EZCoinStore.TopUp.Ultra" = "Gói xu Ultra";
 "EZCoinStore.TopUp.UltraSubtitle" = "2.500 xu, thanh toán một lần\nKhông bao giờ hết hạn";
 "EZCoinStore.TopUp.Power" = "Gói xu Power";
-"EZCoinStore.TopUp.PowerSubtitle" = "6.250 xu, thanh toán một lần\nKhông bao giờ hết hạn";
+"EZCoinStore.TopUp.PowerSubtitle" = "6.000 xu, thanh toán một lần\nKhông bao giờ hết hạn";
 "EZCoinStore.TopUp.Enterprise" = "Gói xu Doanh nghiệp";
 "EZCoinStore.TopUp.EnterpriseSubtitle" = "12.500 xu, thanh toán một lần\nKhông bao giờ hết hạn";
 
