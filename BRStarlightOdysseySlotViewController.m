@@ -141,7 +141,7 @@ static UIImage *SOParticleImage(BOOL coin) {
     footer.text = SOLoc(@"BRSlot.SO.Pays.Rules",
         @"HOW TO PLAY\n\n• 25 paylines (choose how many to play). Matching symbols pay left to right from reel 1: 3, 4 or 5 in a row. Prizes multiply your bet per line.\n• Warp Stars are scatters and pay anywhere. A spin never shows more than five.\n• 3 stars = 5–8 free spins, 4 stars = 14–16, 5 stars = 25–30.\n• Before free spins begin, pick one of three face-down warp cards. It hides ×2, ×3 or ×5, and that multiplies every line win in the bonus.\n• Stars during free spins add more spins (up to 100 banked).\n• Free spins cost nothing. Spins and payouts are decided on the server.");
     if (self.vipMode) footer.text = [footer.text stringByAppendingString:SOLoc(@"BRSlot.SO.Pays.VIP",
-        @"\n• VIP — bets to 50 a line, richer line pays, and a max bet of 1,250 coins.")]
+                                                                               @"\n• VIP — bets to 50 a line, richer line pays, and a max bet of 1,250 coins.")];
     CGSize fit = [footer sizeThatFits:CGSizeMake(UIScreen.mainScreen.bounds.size.width - 40, CGFLOAT_MAX)];
     UIView *wrap = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 100, fit.height + 40)];
     footer.frame = CGRectMake(20, 12, UIScreen.mainScreen.bounds.size.width - 40, fit.height);
