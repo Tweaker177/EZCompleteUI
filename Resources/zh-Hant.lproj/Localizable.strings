@@ -852,3 +852,26 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "已下注。等待發牌…";
+"BRBlackjack.Betting" = "請下注！";
+"BRBlackjack.CantJoin" = "無法加入牌桌";
+"BRBlackjack.Double" = "雙倍";
+"BRBlackjack.Hit" = "要牌";
+"BRBlackjack.Idle" = "下注即可開始一局。";
+"BRBlackjack.Joining" = "正在入座…";
+"BRBlackjack.Leave" = "離開";
+"BRBlackjack.LeaveMessage" = "您的手牌將自動停牌，獲勝時仍會賠付。";
+"BRBlackjack.LeaveTitle" = "在手牌進行中離開？";
+"BRBlackjack.NotEnough" = "金幣不足";
+"BRBlackjack.PlaceBet" = "下注";
+"BRBlackjack.RoundOver" = "本局結束。";
+"BRBlackjack.SittingOut" = "本局您坐出局外。";
+"BRBlackjack.Spectating" = "觀戰中 — 下一局會有空位。";
+"BRBlackjack.Split" = "分牌";
+"BRBlackjack.Stand" = "停牌";
+"BRBlackjack.WaitTurn" = "等待其他玩家…";
+"BRBlackjack.You" = "您";
+"BRBlackjack.YourTurn" = "輪到您了";
+"BRBlackjack.YourTurnHand" = "輪到您了 — 第 %ld 手（共 2 手）";

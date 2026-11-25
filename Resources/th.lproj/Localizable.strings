@@ -811,3 +811,26 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "วางเดิมพันแล้ว กำลังรอแจกไพ่…";
+"BRBlackjack.Betting" = "วางเดิมพันของคุณ!";
+"BRBlackjack.CantJoin" = "เข้าร่วมโต๊ะไม่ได้";
+"BRBlackjack.Double" = "ดับเบิล";
+"BRBlackjack.Hit" = "จั่ว";
+"BRBlackjack.Idle" = "วางเดิมพันเพื่อเริ่มรอบ";
+"BRBlackjack.Joining" = "กำลังนั่งที่โต๊ะ…";
+"BRBlackjack.Leave" = "ออก";
+"BRBlackjack.LeaveMessage" = "มือของคุณจะหยุดโดยอัตโนมัติและยังได้รับเงินหากชนะ";
+"BRBlackjack.LeaveTitle" = "ออกกลางมือ?";
+"BRBlackjack.NotEnough" = "เหรียญไม่พอ";
+"BRBlackjack.PlaceBet" = "วางเดิมพัน";
+"BRBlackjack.RoundOver" = "จบรอบ";
+"BRBlackjack.SittingOut" = "คุณนั่งพักรอบนี้";
+"BRBlackjack.Spectating" = "กำลังชม — ที่นั่งจะว่างในรอบถัดไป";
+"BRBlackjack.Split" = "แยก";
+"BRBlackjack.Stand" = "หยุด";
+"BRBlackjack.WaitTurn" = "กำลังรอผู้เล่นคนอื่น…";
+"BRBlackjack.You" = "คุณ";
+"BRBlackjack.YourTurn" = "ตาของคุณ";
+"BRBlackjack.YourTurnHand" = "ตาของคุณ — มือ %ld จาก 2";

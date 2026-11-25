@@ -852,3 +852,26 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "Bahis konuldu. Dağıtım bekleniyor…";
+"BRBlackjack.Betting" = "Bahsini koy!";
+"BRBlackjack.CantJoin" = "Masaya katılınamıyor";
+"BRBlackjack.Double" = "İkiye Katla";
+"BRBlackjack.Hit" = "Kart Al";
+"BRBlackjack.Idle" = "Tur başlatmak için bahis koy.";
+"BRBlackjack.Joining" = "Yerine oturuluyor…";
+"BRBlackjack.Leave" = "Ayrıl";
+"BRBlackjack.LeaveMessage" = "Elin otomatik olarak kalır ve kazanırsa ödeme yapılır.";
+"BRBlackjack.LeaveTitle" = "Elin ortasında ayrıl?";
+"BRBlackjack.NotEnough" = "Yeterli jeton yok";
+"BRBlackjack.PlaceBet" = "Bahis Koy";
+"BRBlackjack.RoundOver" = "Tur bitti.";
+"BRBlackjack.SittingOut" = "Bu turda dışarıda oturuyorsun.";
+"BRBlackjack.Spectating" = "İzliyorsun — sonraki turda yer açılacak.";
+"BRBlackjack.Split" = "Böl";
+"BRBlackjack.Stand" = "Kal";
+"BRBlackjack.WaitTurn" = "Diğer oyuncular bekleniyor…";
+"BRBlackjack.You" = "Sen";
+"BRBlackjack.YourTurn" = "Sıra sende";
+"BRBlackjack.YourTurnHand" = "Sıra sende — el %ld / 2";

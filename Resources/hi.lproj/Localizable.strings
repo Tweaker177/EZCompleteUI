@@ -811,3 +811,26 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "दांव लग गया। कार्ड बंटने की प्रतीक्षा…";
+"BRBlackjack.Betting" = "अपना दांव लगाएं!";
+"BRBlackjack.CantJoin" = "टेबल से जुड़ नहीं सकते";
+"BRBlackjack.Double" = "डबल";
+"BRBlackjack.Hit" = "कार्ड लो";
+"BRBlackjack.Idle" = "राउंड शुरू करने के लिए दांव लगाएं।";
+"BRBlackjack.Joining" = "सीट ले रहे हैं…";
+"BRBlackjack.Leave" = "छोड़ें";
+"BRBlackjack.LeaveMessage" = "आपका हाथ अपने आप रुक जाएगा और जीतने पर भुगतान होगा।";
+"BRBlackjack.LeaveTitle" = "हाथ के बीच में छोड़ें?";
+"BRBlackjack.NotEnough" = "सिक्के पर्याप्त नहीं हैं";
+"BRBlackjack.PlaceBet" = "दांव लगाएं";
+"BRBlackjack.RoundOver" = "राउंड खत्म।";
+"BRBlackjack.SittingOut" = "आप इस राउंड में बाहर बैठे हैं।";
+"BRBlackjack.Spectating" = "देख रहे हैं — अगले राउंड में सीट खुलेगी।";
+"BRBlackjack.Split" = "स्प्लिट";
+"BRBlackjack.Stand" = "रुको";
+"BRBlackjack.WaitTurn" = "अन्य खिलाड़ियों की प्रतीक्षा…";
+"BRBlackjack.You" = "आप";
+"BRBlackjack.YourTurn" = "आपकी बारी";
+"BRBlackjack.YourTurnHand" = "आपकी बारी — हाथ %ld / 2";

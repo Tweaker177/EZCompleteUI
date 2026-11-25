@@ -811,3 +811,26 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "Đã đặt cược. Đang chờ chia bài…";
+"BRBlackjack.Betting" = "Hãy đặt cược!";
+"BRBlackjack.CantJoin" = "Không thể vào bàn";
+"BRBlackjack.Double" = "Gấp đôi";
+"BRBlackjack.Hit" = "Rút bài";
+"BRBlackjack.Idle" = "Đặt cược để bắt đầu một vòng.";
+"BRBlackjack.Joining" = "Đang vào chỗ ngồi…";
+"BRBlackjack.Leave" = "Rời bàn";
+"BRBlackjack.LeaveMessage" = "Tay bài của bạn sẽ tự động dừng và vẫn được trả nếu thắng.";
+"BRBlackjack.LeaveTitle" = "Rời giữa tay bài?";
+"BRBlackjack.NotEnough" = "Không đủ xu";
+"BRBlackjack.PlaceBet" = "Đặt cược";
+"BRBlackjack.RoundOver" = "Kết thúc vòng.";
+"BRBlackjack.SittingOut" = "Bạn ngồi ngoài vòng này.";
+"BRBlackjack.Spectating" = "Đang xem — vòng sau sẽ có chỗ trống.";
+"BRBlackjack.Split" = "Tách";
+"BRBlackjack.Stand" = "Dừng";
+"BRBlackjack.WaitTurn" = "Đang chờ người chơi khác…";
+"BRBlackjack.You" = "Bạn";
+"BRBlackjack.YourTurn" = "Lượt của bạn";
+"BRBlackjack.YourTurnHand" = "Lượt của bạn — tay %ld trên 2";

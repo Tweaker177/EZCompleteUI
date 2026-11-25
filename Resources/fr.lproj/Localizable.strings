@@ -833,3 +833,26 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "Mise placée. En attente de la distribution…";
+"BRBlackjack.Betting" = "Placez votre mise !";
+"BRBlackjack.CantJoin" = "Impossible de rejoindre la table";
+"BRBlackjack.Double" = "Doubler";
+"BRBlackjack.Hit" = "Carte";
+"BRBlackjack.Idle" = "Placez une mise pour commencer une manche.";
+"BRBlackjack.Joining" = "Prise de place…";
+"BRBlackjack.Leave" = "Quitter";
+"BRBlackjack.LeaveMessage" = "Votre main restera automatiquement et sera payée si elle gagne.";
+"BRBlackjack.LeaveTitle" = "Quitter en pleine main ?";
+"BRBlackjack.NotEnough" = "Pas assez de pièces";
+"BRBlackjack.PlaceBet" = "Miser";
+"BRBlackjack.RoundOver" = "Manche terminée.";
+"BRBlackjack.SittingOut" = "Vous passez cette manche.";
+"BRBlackjack.Spectating" = "Spectateur — une place se libérera à la prochaine manche.";
+"BRBlackjack.Split" = "Séparer";
+"BRBlackjack.Stand" = "Rester";
+"BRBlackjack.WaitTurn" = "En attente des autres joueurs…";
+"BRBlackjack.You" = "Vous";
+"BRBlackjack.YourTurn" = "À vous de jouer";
+"BRBlackjack.YourTurnHand" = "À vous de jouer — main %ld sur 2";

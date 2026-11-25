@@ -852,3 +852,26 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "베팅 완료. 카드를 나눌 때까지 대기 중…";
+"BRBlackjack.Betting" = "베팅하세요!";
+"BRBlackjack.CantJoin" = "테이블에 참여할 수 없습니다";
+"BRBlackjack.Double" = "더블";
+"BRBlackjack.Hit" = "히트";
+"BRBlackjack.Idle" = "베팅하면 라운드가 시작됩니다.";
+"BRBlackjack.Joining" = "자리에 앉는 중…";
+"BRBlackjack.Leave" = "나가기";
+"BRBlackjack.LeaveMessage" = "패는 자동으로 스탠드 처리되며, 이기면 지급됩니다.";
+"BRBlackjack.LeaveTitle" = "핸드 도중에 나가시겠습니까?";
+"BRBlackjack.NotEnough" = "코인이 부족합니다";
+"BRBlackjack.PlaceBet" = "베팅하기";
+"BRBlackjack.RoundOver" = "라운드 종료.";
+"BRBlackjack.SittingOut" = "이번 라운드는 앉지 않습니다.";
+"BRBlackjack.Spectating" = "관전 중 — 다음 라운드에 자리가 납니다.";
+"BRBlackjack.Split" = "스플릿";
+"BRBlackjack.Stand" = "스탠드";
+"BRBlackjack.WaitTurn" = "다른 플레이어를 기다리는 중…";
+"BRBlackjack.You" = "나";
+"BRBlackjack.YourTurn" = "내 차례";
+"BRBlackjack.YourTurnHand" = "내 차례 — 핸드 %ld / 2";

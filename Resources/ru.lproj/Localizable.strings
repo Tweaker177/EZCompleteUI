@@ -851,3 +851,26 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "Ставка сделана. Ожидание раздачи…";
+"BRBlackjack.Betting" = "Сделайте ставку!";
+"BRBlackjack.CantJoin" = "Нельзя сесть за стол";
+"BRBlackjack.Double" = "Удвоить";
+"BRBlackjack.Hit" = "Ещё";
+"BRBlackjack.Idle" = "Сделайте ставку, чтобы начать раунд.";
+"BRBlackjack.Joining" = "Занимаем место…";
+"BRBlackjack.Leave" = "Выйти";
+"BRBlackjack.LeaveMessage" = "Ваша рука автоматически останется и будет оплачена, если выиграет.";
+"BRBlackjack.LeaveTitle" = "Выйти в середине руки?";
+"BRBlackjack.NotEnough" = "Не хватает монет";
+"BRBlackjack.PlaceBet" = "Сделать ставку";
+"BRBlackjack.RoundOver" = "Раунд окончен.";
+"BRBlackjack.SittingOut" = "Вы пропускаете этот раунд.";
+"BRBlackjack.Spectating" = "Вы наблюдаете — место освободится в следующем раунде.";
+"BRBlackjack.Split" = "Разделить";
+"BRBlackjack.Stand" = "Хватит";
+"BRBlackjack.WaitTurn" = "Ожидание других игроков…";
+"BRBlackjack.You" = "Вы";
+"BRBlackjack.YourTurn" = "Ваш ход";
+"BRBlackjack.YourTurnHand" = "Ваш ход — рука %ld из 2";

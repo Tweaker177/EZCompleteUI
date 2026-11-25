@@ -811,3 +811,26 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "ベット完了。配布を待っています…";
+"BRBlackjack.Betting" = "ベットしてください！";
+"BRBlackjack.CantJoin" = "テーブルに参加できません";
+"BRBlackjack.Double" = "ダブル";
+"BRBlackjack.Hit" = "ヒット";
+"BRBlackjack.Idle" = "ベットするとラウンドが始まります。";
+"BRBlackjack.Joining" = "着席しています…";
+"BRBlackjack.Leave" = "退席";
+"BRBlackjack.LeaveMessage" = "あなたの手は自動的にスタンドとなり、勝てば支払われます。";
+"BRBlackjack.LeaveTitle" = "ハンドの途中で退席しますか？";
+"BRBlackjack.NotEnough" = "コインが足りません";
+"BRBlackjack.PlaceBet" = "ベットする";
+"BRBlackjack.RoundOver" = "ラウンド終了。";
+"BRBlackjack.SittingOut" = "このラウンドは見送ります。";
+"BRBlackjack.Spectating" = "観戦中 — 次のラウンドで席が空きます。";
+"BRBlackjack.Split" = "スプリット";
+"BRBlackjack.Stand" = "スタンド";
+"BRBlackjack.WaitTurn" = "他のプレイヤーを待っています…";
+"BRBlackjack.You" = "あなた";
+"BRBlackjack.YourTurn" = "あなたの番です";
+"BRBlackjack.YourTurnHand" = "あなたの番です — ハンド %ld / 2";

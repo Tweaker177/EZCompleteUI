@@ -811,3 +811,26 @@
 
 "BRSlot.Lounge.BlackjackHandsTop" = "BLACKJACK: MOST HANDS PLAYED\n\n";
 "BRSlot.Lounge.BlackjackCoinsTop" = "BLACKJACK: MOST COINS WON\n\n";
+
+/* Blackjack table */
+"BRBlackjack.BetPlaced" = "تم وضع الرهان. في انتظار التوزيع…";
+"BRBlackjack.Betting" = "ضع رهانك!";
+"BRBlackjack.CantJoin" = "لا يمكن الانضمام إلى الطاولة";
+"BRBlackjack.Double" = "ضاعف";
+"BRBlackjack.Hit" = "اسحب";
+"BRBlackjack.Idle" = "ضع رهانًا لبدء جولة.";
+"BRBlackjack.Joining" = "جارٍ أخذ مقعد…";
+"BRBlackjack.Leave" = "مغادرة";
+"BRBlackjack.LeaveMessage" = "ستتوقف يدك تلقائيًا وسيتم دفعها إذا فازت.";
+"BRBlackjack.LeaveTitle" = "المغادرة في منتصف اليد؟";
+"BRBlackjack.NotEnough" = "عملات غير كافية";
+"BRBlackjack.PlaceBet" = "ضع الرهان";
+"BRBlackjack.RoundOver" = "انتهت الجولة.";
+"BRBlackjack.SittingOut" = "أنت خارج هذه الجولة.";
+"BRBlackjack.Spectating" = "تشاهد — سيتوفر مقعد في الجولة القادمة.";
+"BRBlackjack.Split" = "قسّم";
+"BRBlackjack.Stand" = "توقف";
+"BRBlackjack.WaitTurn" = "في انتظار اللاعبين الآخرين…";
+"BRBlackjack.You" = "أنت";
+"BRBlackjack.YourTurn" = "دورك";
+"BRBlackjack.YourTurnHand" = "دورك — اليد %ld من 2";
