@@ -81,6 +81,8 @@
 
 #import "EZCoinStoreViewController.h"
 
+#import "EZSupabaseConfig.h"
+
 #import "EZAuthManager.h"
 
 #import "EZEntitlementManager.h"
@@ -601,7 +603,9 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, strong) UIView                  *promoBannerView;
 
-@property (nonatomic, assign) BOOL                     isPromoActive;   // Manual flag — see kPromoBannerHeight comment above
+@property (nonatomic, assign) BOOL                     isPromoActive;   // Promo/sale presentation flag — see kPromoBannerHeight comment above
+
+@property (nonatomic, strong) NSDictionary            *activeSale;     // Live store_sales row when a server sale is on, else nil
 
 @property (nonatomic, strong) UILabel                 *balanceLabel;
 
@@ -686,7 +690,21 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     // only affects what the store *advertises*, never what gets paid out.
 
-    self.isPromoActive = NO; // 2026-11-18: x2 signs/mentions deliberately removed from the store. The server STILL grants the bonuses for now, so older builds (which still show these badges) don't become false advertising — new builds just don't advertise it. Flip to YES only for a future advertised sale.
+    // Server-driven store sale (store_sales): when a sale is live, the
+    // store presents it — banner with the server's title/body, sale
+    // badges and multiplied coin amounts on top-up packs. Granting is
+    // entirely server-side (capture-paypal-order /
+    // verify-appstore-purchase read the same table), so this
+    // presentation only advertises what the server will actually pay.
+    // The cache read here is written by the app-launch fetch and by
+    // refreshStoreSale below; a fresh fetch that disagrees with what
+    // was presented rebuilds the store once, so a sale that starts or
+    // ends mid-session is picked up without an app update. (The
+    // 2026-11-18 note that used to sit here — x2 signage deliberately
+    // removed while the server kept granting — still holds whenever
+    // no sale is live: isPromoActive stays NO and nothing is shown.)
+    self.activeSale = EZCachedActiveStoreSale();
+    self.isPromoActive = (self.activeSale != nil);
 
     [self buildItems];
 
@@ -695,6 +713,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [self refreshBalance];
 
     [self addDailyCoinsButton];
+
+    [self refreshStoreSale];
 
     [self refreshDailyCoinsStatus];
 
@@ -768,6 +788,60 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 }
 
+// ── Store sale (server-driven) ────────────────────────────────────────
+
+// Fetches the live sale; when it differs from what this store
+// presented (a sale started or ended since the cached read in
+// viewDidLoad), rebuilds the presentation once with the fresh state.
+- (void)refreshStoreSale {
+
+    EZFetchActiveStoreSale(^(NSDictionary *sale) {
+
+        NSString *freshID = [sale[@"id"] isKindOfClass:[NSString class]] ? sale[@"id"] : @"";
+        NSString *shownID = [self.activeSale[@"id"] isKindOfClass:[NSString class]] ? self.activeSale[@"id"] : @"";
+
+        if ([freshID isEqualToString:shownID]) return;
+
+        self.activeSale = sale;
+        self.isPromoActive = (sale != nil);
+
+        [self.tableView removeFromSuperview];
+        [self.spinner removeFromSuperview];
+        self.tableView = nil;
+
+        [self buildItems];
+        [self setupUI];
+        [self addDailyCoinsButton];
+        [self refreshDailyCoinsStatus];
+        [self refreshBalance];
+
+    });
+
+}
+
+// The amount the server will actually grant for a top-up during a
+// sale: the subtitle's first line is the coins line ("400 coins, one
+// time") in every locale, so swap its leading amount for the
+// multiplied one. Falls back to the untouched subtitle when no
+// leading amount is found.
+- (NSString *)saleAdjustedSubtitleForItem:(EZStoreItem *)item multiplier:(NSInteger)multiplier {
+
+    NSString *subtitle = item.subtitle ?: @"";
+    NSString *firstLine = [subtitle componentsSeparatedByString:@"\n"].firstObject ?: @"";
+    NSString *rest = subtitle.length > firstLine.length ? [subtitle substringFromIndex:firstLine.length] : @"";
+
+    NSNumberFormatter *formatter = [NSNumberFormatter new];
+    formatter.numberStyle = NSNumberFormatterDecimalStyle;
+    NSString *amount = [formatter stringFromNumber:@(item.coins * multiplier)] ?: @"";
+
+    NSRegularExpression *amountRun = [NSRegularExpression regularExpressionWithPattern:@"^[\\d][\\d.,\\s]*" options:0 error:nil];
+    NSString *adjusted = [amountRun stringByReplacingMatchesInString:firstLine options:0 range:NSMakeRange(0, firstLine.length) withTemplate:amount];
+
+    if (amount.length == 0 || [adjusted isEqualToString:firstLine]) return subtitle;
+    return [adjusted stringByAppendingString:rest];
+
+}
+
 // ── Build store items ─────────────────────────────────────────────────────────
 
 // Overrides an item's badge + accent color to scream "promo" when
@@ -783,6 +857,24 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 - (void)applyPromoBadgeIfNeededToItem:(EZStoreItem *)item {
 
     if (!self.isPromoActive || item.isCurrentPlan) return;
+
+    // Server sale: badge the multiplier and show the multiplied coins
+    // line — that is the amount the server will grant for this pack.
+    if (self.activeSale) {
+
+        NSInteger multiplier = [self.activeSale[@"multiplier"] integerValue];
+
+        if (multiplier > 1) {
+
+            item.badgeText   = [NSString stringWithFormat:@"%ldX COINS", (long)multiplier];
+            item.accentColor = [UIColor colorWithRed:1.0 green:0.13 blue:0.35 alpha:1.0]; // matches the promo color below
+            item.subtitle    = [self saleAdjustedSubtitleForItem:item multiplier:multiplier];
+
+        }
+
+        return;
+
+    }
 
     item.badgeText   = NSLocalizedString(@"EZCoinStore.Badge.Buy1Get1", @"Buy one get one promo badge");
 
@@ -801,6 +893,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 - (void)applySubscriptionPromoBadgeToItem:(EZStoreItem *)item {
 
     if (!self.isPromoActive || item.isCurrentPlan) return;
+
+    // A store sale covers top-up packs only — the server grants it
+    // only there — so subscription cards never take sale styling.
+    if (self.activeSale) return;
 
     item.badgeText         = [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.Promo.SubscriptionBadgeFormat", @"Subscription promo badge with bonus coins"), (long)item.coins];
 
@@ -1138,7 +1234,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         initWithFrame:CGRectMake(12, 7, self.view.bounds.size.width - 24, 48)];
 
-    headlineLabel.text          = NSLocalizedString(@"EZCoinStore.Promo.Headline", @"Promo banner headline");
+    NSString *saleHeadline      = [self.activeSale[@"title"] isKindOfClass:[NSString class]] ? self.activeSale[@"title"] : nil;
+    headlineLabel.text          = saleHeadline.length ? saleHeadline : NSLocalizedString(@"EZCoinStore.Promo.Headline", @"Promo banner headline");
 
     headlineLabel.font          = [UIFont boldSystemFontOfSize:22];
 
@@ -1156,7 +1253,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         initWithFrame:CGRectMake(12, 57, self.view.bounds.size.width - 24, 44)];
 
-    subtextLabel.text          = NSLocalizedString(@"EZCoinStore.Promo.Subtitle", @"Promo banner subtitle");
+    NSString *saleSubtext       = [self.activeSale[@"body"] isKindOfClass:[NSString class]] ? self.activeSale[@"body"] : nil;
+    subtextLabel.text          = saleSubtext.length ? saleSubtext : NSLocalizedString(@"EZCoinStore.Promo.Subtitle", @"Promo banner subtitle");
 
     subtextLabel.font          = [UIFont boldSystemFontOfSize:15];
 

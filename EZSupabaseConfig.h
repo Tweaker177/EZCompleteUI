@@ -28,4 +28,16 @@ extern NSString *const EZSupabaseURL;
 /// Edge Function secrets (see insurance-release-check).
 extern NSString *const EZSupabaseAnonKey;
 
+/// Store sales (the `store_sales` table, public read). A sale dict has
+/// id / title / body / multiplier / starts_at / ends_at. The server is
+/// the source of truth: the crediting functions read the same table,
+/// so a sale switched on server-side is honored by every build, and
+/// builds with this code also announce it (login popup, store).
+/// EZCachedActiveStoreSale returns the last fetched sale when its
+/// window contains now; EZFetchActiveStoreSale refreshes from the
+/// server, updates the cache, and calls back on the main queue with
+/// the live sale or nil. Both fail soft: any problem reads as no sale.
+NSDictionary * _Nullable EZCachedActiveStoreSale(void);
+void EZFetchActiveStoreSale(void (^completion)(NSDictionary * _Nullable sale));
+
 NS_ASSUME_NONNULL_END
