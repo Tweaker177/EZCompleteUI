@@ -491,7 +491,7 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
         }
         if (cannonLine) [self playCannon];
         NSInteger totalBet = MAX(1, PlunderInteger(result[@"wager"]));
-        BOOL jackpot = payout > 0 && [result[@"is_jackpot"] boolValue];
+        BOOL jackpot = payout > 0 && payout / totalBet >= 75;
         if (winLines.count) {
             NSInteger linePasses = jackpot ? MAX(1, (NSInteger)ceil(9.0 / (1.55 * winLines.count))) : (winLines.count<=2?4:winLines.count<=4?3:2);
             [self celebrateWinLines:winLines step:0 passes:linePasses celebrationID:self.lineCelebrationID];
@@ -585,7 +585,8 @@ static void BRHideSharedBarBackground(UIBarButtonItem *item) {
     if (!cannonURL) cannonURL = [[NSBundle mainBundle] URLForResource:@"pb_cannon" withExtension:@"caf"];
     if (!cannonURL) cannonURL = [self soundURL:@"pb_cannon"];
     if (cannonURL) { self.cannonPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:cannonURL error:nil]; self.cannonPlayer.volume = .9; [self.cannonPlayer prepareToPlay]; }
-    NSURL *reelsURL = [[NSBundle mainBundle] URLForResource:@"pb_slot_reels" withExtension:@"caf" subdirectory:@"sounds"];
+    NSURL *reelsURL = [[NSBundle mainBundle] URLForResource:@"pb_slot_reels" withExtension:@"mp3" subdirectory:@"sounds"];
+    if (!reelsURL) reelsURL = [[NSBundle mainBundle] URLForResource:@"pb_slot_reels" withExtension:@"caf" subdirectory:@"sounds"];
     if (!reelsURL) reelsURL = [[NSBundle mainBundle] URLForResource:@"pb_slot_reels" withExtension:@"caf"];
     if (!reelsURL) reelsURL = [self soundURL:@"pb_slot_reels"];
     if (reelsURL) { self.reelsPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:reelsURL error:nil]; self.reelsPlayer.numberOfLoops = -1; self.reelsPlayer.volume = .7; [self.reelsPlayer prepareToPlay]; }

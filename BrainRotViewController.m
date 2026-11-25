@@ -3796,14 +3796,19 @@ static const void *kBREndCardNavigateAfterSubmitKey    = &kBREndCardNavigateAfte
         // Try the sounds subdirectory first (folder reference in Xcode);
         // fall back to the bundle root (group-based import) if not found there.
         NSURL *fileURL = [[NSBundle mainBundle] URLForResource:fileName
-                                                withExtension:@"aiff"
+                                                withExtension:@"m4a"
                                                  subdirectory:@"sounds"];
+        if (!fileURL) {
+            fileURL = [[NSBundle mainBundle] URLForResource:fileName
+                                             withExtension:@"aiff"
+                                              subdirectory:@"sounds"];
+        }
         if (!fileURL) {
             fileURL = [[NSBundle mainBundle] URLForResource:fileName
                                              withExtension:@"aiff"];
         }
         if (!fileURL) {
-            NSLog(@"[BrainRot] SFX not found: %@.aiff", fileName);
+            NSLog(@"[BrainRot] SFX not found: %@", fileName);
             continue;
         }
 

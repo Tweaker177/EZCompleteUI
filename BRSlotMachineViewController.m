@@ -503,7 +503,8 @@ static NSArray<NSArray<NSNumber *> *> *BRWinLinePalette(void) {
     // playback and the lock-screen / Control Center controls from the music.
     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:&error];
     [[AVAudioSession sharedInstance] setActive:YES error:&error];
-    NSURL *lossURL = [[NSBundle mainBundle] URLForResource:@"hurt-player" withExtension:@"aiff" subdirectory:@"sounds"];
+    NSURL *lossURL = [[NSBundle mainBundle] URLForResource:@"hurt-player" withExtension:@"m4a" subdirectory:@"sounds"];
+    if (!lossURL) lossURL = [[NSBundle mainBundle] URLForResource:@"hurt-player" withExtension:@"aiff" subdirectory:@"sounds"];
     if (!lossURL) lossURL = [[NSBundle mainBundle] URLForResource:@"hurt-player" withExtension:@"aiff"];
     if (lossURL) { self.lossPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:lossURL error:nil]; self.lossPlayer.volume = .72; [self.lossPlayer prepareToPlay]; }
 }
