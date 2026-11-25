@@ -10745,32 +10745,31 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
         tutorial.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
         [self presentViewController:tutorial animated:YES completion:nil];
     }
-    // Store sale announcement: server-driven (store_sales), once per
-    // sale, and only when nothing else is being presented.
+    // Store sale announcement: server-driven (store_sales), shown at
+    // every login while a sale is live, and only when nothing else is
+    // being presented.
     if (!self.presentedViewController) {
         [self ez_presentStoreSaleAnnouncementIfNeeded];
     }
 }
 
-// Fetches the live store sale and, if this device has not announced
-// that sale yet, shows its title/body once with a path to the store.
-// The fetch also refreshes the cached sale the coin store reads on
-// open. Older builds never see the popup, but the server grants them
-// the sale coins anyway — the announcement is presentation only.
+// Fetches the live store sale and shows its title/body with a path
+// to the store. This runs once per app session (the static below),
+// which is the login moment: while a sale is live, every login gets
+// the announcement — there is deliberately no seen-once tracking, so
+// dismissing it today does not hide it tomorrow. The fetch also
+// refreshes the cached sale the coin store reads on open. Older
+// builds never see the popup, but the server grants them the sale
+// coins anyway — the announcement is presentation only.
 - (void)ez_presentStoreSaleAnnouncementIfNeeded {
     static BOOL saleCheckPerformed = NO;
     if (saleCheckPerformed) return;
     saleCheckPerformed = YES;
     EZFetchActiveStoreSale(^(NSDictionary *sale) {
         if (!sale || self.presentedViewController) return;
-        NSString *saleID = [sale[@"id"] isKindOfClass:[NSString class]] ? sale[@"id"] : nil;
         NSString *title  = [sale[@"title"] isKindOfClass:[NSString class]] ? sale[@"title"] : nil;
         NSString *body   = [sale[@"body"] isKindOfClass:[NSString class]] ? sale[@"body"] : nil;
-        if (saleID.length == 0 || title.length == 0) return;
-        NSString *shownKey = [@"EZStoreSaleShown_" stringByAppendingString:saleID];
-        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-        if ([defaults boolForKey:shownKey]) return;
-        [defaults setBool:YES forKey:shownKey];
+        if (title.length == 0) return;
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
                                                                        message:body
                                                                 preferredStyle:UIAlertControllerStyleAlert];
