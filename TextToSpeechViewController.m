@@ -40,6 +40,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import "helpers.h"
+#import "EZTTSVoiceService.h"
 #import "EZTheme.h"
 #import "EZAuthManager.h"
 #import "EZTTSLibraryManager.h"
@@ -412,7 +413,7 @@ static NSString *timestampString(void) {
     self.speedSlider = [[UISlider alloc] initWithFrame:CGRectZero];
     self.speedSlider.minimumValue = 0.7f;
     self.speedSlider.maximumValue = 1.2f;
-    self.speedSlider.value = 1.0f;
+    self.speedSlider.value = [EZTTSVoiceService savedSpeed];
     self.speedSlider.minimumValueImage = [UIImage systemImageNamed:@"tortoise.fill"];
     self.speedSlider.maximumValueImage = [UIImage systemImageNamed:@"hare.fill"];
     self.speedSlider.minimumTrackTintColor = EZTTSNeonCyan();
@@ -1002,6 +1003,7 @@ static NSString *timestampString(void) {
         @"model_id":      kDefaultModelID,
         @"output_format": fmt,
         @"speed":         @(speed),
+        @"voice_settings": [EZTTSVoiceService voiceSettingsPayload],
         @"char_count":    @(charCount),
         @"request_id":    requestID,
         @"accept_asset_url": @YES,
