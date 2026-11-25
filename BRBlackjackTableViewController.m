@@ -1651,6 +1651,12 @@ static const NSInteger kMaxManifestAttempts = 8;
     [self.announcer loadClips];
 }
 
+/// Localized dealer-speech caption (BRBlackjack.Speech.* keys). The English
+/// fallback is the exact caption the announcer has always shown.
+static NSString *BRBlackjackSpeech(NSString *key, NSString *fallback) {
+    return NSLocalizedStringWithDefaultValue(key, nil, NSBundle.mainBundle, fallback, nil);
+}
+
 /// Clip key for a card's rank as the dealer's up card: ace, or the card's value (face cards say "ten").
 static NSString *BRBlackjackRankKey(NSInteger cardID) {
     NSInteger rank = cardID % 13;
@@ -1659,7 +1665,7 @@ static NSString *BRBlackjackRankKey(NSInteger cardID) {
 
 static NSString *BRBlackjackRankWord(NSInteger cardID) {
     NSInteger rank = cardID % 13;
-    return rank == 0 ? @"an ace" : [NSString stringWithFormat:@"%ld", (long)MIN(rank + 1, 10)];
+    return rank == 0 ? BRBlackjackSpeech(@"BRBlackjack.Speech.RankAce", @"an ace") : [NSString stringWithFormat:@"%ld", (long)MIN(rank + 1, 10)];
 }
 
 - (void)queueCall:(NSMutableArray<NSDictionary *> *)calls keys:(NSArray<NSString *> *)keys caption:(NSString *)caption {
@@ -1683,51 +1689,51 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
     NSString *displayName = BRBlackjackString(seat[@"display_name"]);
     BOOL nameMode = NO;
     if (withSpeaker) {
-        if (mine) { [keys addObject:@"you_have"]; speakerText = @"You have "; }
+        if (mine) { [keys addObject:@"you_have"]; speakerText = BRBlackjackSpeech(@"BRBlackjack.Speech.YouHavePrefix", @"You have "); }
         else if (displayName.length && [self.announcer hasNameClipForName:displayName]) {
             [keys addObject:[self.announcer nameClipKeyForName:displayName]];
-            speakerText = [NSString stringWithFormat:@"%@ has ", displayName];
+            speakerText = [NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.NameHasFormat", @"%@ has "), displayName];
             nameMode = YES;
         }
-        else if (seatNumber >= 1 && seatNumber <= 8) { [keys addObject:[NSString stringWithFormat:@"seat%ld", (long)seatNumber]]; speakerText = [NSString stringWithFormat:@"Seat %ld: ", (long)seatNumber]; }
+        else if (seatNumber >= 1 && seatNumber <= 8) { [keys addObject:[NSString stringWithFormat:@"seat%ld", (long)seatNumber]]; speakerText = [NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.SeatPrefix", @"Seat %ld: "), (long)seatNumber]; }
     }
     NSString *what;
     if (natural) {
         if (nameMode) [keys addObject:@"has"];
         [keys addObject:@"blackjack"];
-        what = @"blackjack!";
+        what = BRBlackjackSpeech(@"BRBlackjack.Speech.BlackjackBang", @"blackjack!");
     } else if (total > 21) {
         // "You have bust" sounds wrong: drop the speaker for the player's own bust.
         if (mine && withSpeaker) { [keys removeAllObjects]; speakerText = @""; }
         if (nameMode) {
             [keys addObject:@"busts"];
             speakerText = [NSString stringWithFormat:@"%@ ", displayName];
-            what = @"busts";
+            what = BRBlackjackSpeech(@"BRBlackjack.Speech.BustsVerb", @"busts");
         } else {
             [keys addObject:@"bust"];
-            what = mine ? @"Bust!" : @"bust";
+            what = mine ? BRBlackjackSpeech(@"BRBlackjack.Speech.BustBang", @"Bust!") : BRBlackjackSpeech(@"BRBlackjack.Speech.BustLower", @"bust");
         }
     } else {
         BOOL soft = BRBlackjackBool(hand[@"soft"]) && total < 21;
         if (nameMode) [keys addObject:@"has"];
         if (soft) [keys addObject:@"soft"];
         [keys addObject:[NSString stringWithFormat:@"n%ld", (long)total]];
-        what = soft ? [NSString stringWithFormat:@"soft %ld", (long)total] : [NSString stringWithFormat:@"%ld", (long)total];
+        what = soft ? [NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.SoftTotal", @"soft %ld"), (long)total] : [NSString stringWithFormat:@"%ld", (long)total];
     }
     [self queueCall:calls keys:keys caption:[speakerText stringByAppendingString:what]];
 
     // A natural or a made 21 earns a compliment about half the time.
     if (natural || total == 21) {
         NSArray<NSDictionary *> *pool = @[
-            @{ @"keys": @[@"p21_quip1"], @"caption": @"There you go!" },
-            @{ @"keys": @[@"p21_quip2"], @"caption": @"Way to go!" },
-            @{ @"keys": @[@"p21_quip3"], @"caption": @"Very nice!" },
+            @{ @"keys": @[@"p21_quip1"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.P21Quip1", @"There you go!") },
+            @{ @"keys": @[@"p21_quip2"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.P21Quip2", @"Way to go!") },
+            @{ @"keys": @[@"p21_quip3"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.P21Quip3", @"Very nice!") },
         ];
         if (arc4random_uniform(2) == 0) {
             NSDictionary *pick = pool[arc4random_uniform((uint32_t)pool.count)];
             NSString *displayName = BRBlackjackString(seat[@"display_name"]);
-            NSString *prefix = mine ? @"" : (displayName.length ? [NSString stringWithFormat:@"%@: ", displayName]
-                                                                 : [NSString stringWithFormat:@"Seat %ld: ", (long)seatNumber]);
+            NSString *prefix = mine ? @"" : (displayName.length ? [NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.NamePrefixFormat", @"%@: "), displayName]
+                                                                 : [NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.SeatPrefix", @"Seat %ld: "), (long)seatNumber]);
             [self queueCall:calls keys:pick[@"keys"] caption:[prefix stringByAppendingString:pick[@"caption"]]];
         }
     }
@@ -1747,12 +1753,12 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
     NSString *displayName = BRBlackjackString(seat[@"display_name"]);
     if (displayName.length && [self.announcer hasNameClipForName:displayName]) {
         [self queueCall:calls keys:@[[self.announcer nameClipKeyForName:displayName], verbKey]
-                caption:[NSString stringWithFormat:@"%@ %@.", displayName, verb]];
+                caption:[NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.ActionNameFormat", @"%@ %@."), displayName, verb]];
     } else if (!BRBlackjackBool(seat[@"is_me"])) {
         NSInteger seatNumber = BRBlackjackInt(seat[@"seat_no"]) + 1;
         if (seatNumber >= 1 && seatNumber <= 8) {
             [self queueCall:calls keys:@[[NSString stringWithFormat:@"seat%ld", (long)seatNumber], verbKey]
-                    caption:[NSString stringWithFormat:@"Seat %ld %@.", (long)seatNumber, verb]];
+                    caption:[NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.ActionSeatFormat", @"Seat %ld %@."), (long)seatNumber, verb]];
         }
     }
 }
@@ -1762,29 +1768,29 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
     NSString *displayName = BRBlackjackString(seat[@"display_name"]);
     if (displayName.length && [self.announcer hasNameClipForName:displayName]) {
         [self queueCall:calls keys:@[[self.announcer nameClipKeyForName:displayName], @"its_on_you"]
-                caption:[NSString stringWithFormat:@"%@, it's on you.", displayName]];
+                caption:[NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.TurnNameFormat", @"%@, it's on you."), displayName]];
     } else if (BRBlackjackBool(seat[@"is_me"])) {
-        [self queueCall:calls keys:@[@"its_on_you"] caption:@"It's on you."];
+        [self queueCall:calls keys:@[@"its_on_you"] caption:BRBlackjackSpeech(@"BRBlackjack.Speech.TurnYou", @"It's on you.")];
     } else {
         NSInteger seatNumber = BRBlackjackInt(seat[@"seat_no"]) + 1;
         if (seatNumber >= 1 && seatNumber <= 8) {
             [self queueCall:calls keys:@[[NSString stringWithFormat:@"seat%ld", (long)seatNumber], @"its_on_you"]
-                    caption:[NSString stringWithFormat:@"Seat %ld, it's on you.", (long)seatNumber]];
+                    caption:[NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.TurnSeatFormat", @"Seat %ld, it's on you."), (long)seatNumber]];
         }
     }
 }
 
 - (void)queueDealer21Call:(NSMutableArray<NSDictionary *> *)calls natural:(BOOL)natural {
     NSDictionary *plain = natural
-        ? @{ @"keys": @[@"dealer_blackjack"], @"caption": @"Dealer has blackjack" }
-        : @{ @"keys": @[@"dealer_has", @"n21"], @"caption": @"Dealer has 21" };
+        ? @{ @"keys": @[@"dealer_blackjack"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.DealerBlackjack", @"Dealer has blackjack") }
+        : @{ @"keys": @[@"dealer_has", @"n21"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.DealerHas21", @"Dealer has 21") };
     NSArray<NSDictionary *> *options = @[
         plain, plain,
-        @{ @"keys": @[@"d21_quip1"], @"caption": @"Twenty-one for the dealer. Tough break, guys." },
-        @{ @"keys": @[@"d21_quip2"], @"caption": @"Dealer has twenty-one. Sorry about that, folks." },
-        @{ @"keys": @[@"d21_quip3"], @"caption": @"Twenty-one. The house does it again." },
-        @{ @"keys": @[@"d21_quip4"], @"caption": @"Dealer gets twenty-one. The house sends its regards." },
-        @{ @"keys": @[@"d21_quip5"], @"caption": @"Ooh, twenty-one for me. Tough one, guys." },
+        @{ @"keys": @[@"d21_quip1"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.D21Quip1", @"Twenty-one for the dealer. Tough break, guys.") },
+        @{ @"keys": @[@"d21_quip2"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.D21Quip2", @"Dealer has twenty-one. Sorry about that, folks.") },
+        @{ @"keys": @[@"d21_quip3"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.D21Quip3", @"Twenty-one. The house does it again.") },
+        @{ @"keys": @[@"d21_quip4"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.D21Quip4", @"Dealer gets twenty-one. The house sends its regards.") },
+        @{ @"keys": @[@"d21_quip5"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.D21Quip5", @"Ooh, twenty-one for me. Tough one, guys.") },
     ];
     NSDictionary *pick = options[arc4random_uniform((uint32_t)options.count)];
     [self queueCall:calls keys:pick[@"keys"] caption:pick[@"caption"]];
@@ -1803,7 +1809,7 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
 
     if ([newPhase isEqualToString:@"betting"] && ![oldPhase isEqualToString:@"betting"]) {
         [self.stiffHitSeats removeAllObjects];
-        if (seated) [self queueCall:calls keys:@[@"place_bets"] caption:@"Place your bets"];
+        if (seated) [self queueCall:calls keys:@[@"place_bets"] caption:BRBlackjackSpeech(@"BRBlackjack.Speech.PlaceBets", @"Place your bets")];
     }
 
     BOOL dealtThisUpdate = ([oldPhase isEqualToString:@"idle"] || [oldPhase isEqualToString:@"betting"])
@@ -1811,18 +1817,18 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
     NSDictionary *newDealer = BRBlackjackDict(newView[@"dealer"]);
     NSArray *newDealerCards = BRBlackjackArray(newDealer[@"cards"]);
     if (dealtThisUpdate) {
-        [self queueCall:calls keys:@[@"no_more_bets"] caption:@"No more bets"];
+        [self queueCall:calls keys:@[@"no_more_bets"] caption:BRBlackjackSpeech(@"BRBlackjack.Speech.NoMoreBets", @"No more bets")];
         if (newDealerCards.count > 0) {
             NSInteger upCard = BRBlackjackInt(newDealerCards[0]);
             [self queueCall:calls keys:@[@"dealer_shows", BRBlackjackRankKey(upCard)]
-                    caption:[NSString stringWithFormat:@"Dealer shows %@", BRBlackjackRankWord(upCard)]];
+                    caption:[NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.DealerShowsFormat", @"Dealer shows %@"), BRBlackjackRankWord(upCard)]];
             // A 5 or 6 up is a bust card waiting to happen, and Lou
             // knows it: half the time he says so.
             NSInteger upRank = upCard % 13;
             if ((upRank == 4 || upRank == 5) && arc4random_uniform(2) == 0) {
                 NSArray<NSDictionary *> *pool = @[
-                    @{ @"keys": @[@"dweak_quip1"], @"caption": @"Dealer's going to bust." },
-                    @{ @"keys": @[@"dweak_quip2"], @"caption": @"Have some faith." },
+                    @{ @"keys": @[@"dweak_quip1"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.DWeakQuip1", @"Dealer's going to bust.") },
+                    @{ @"keys": @[@"dweak_quip2"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.DWeakQuip2", @"Have some faith.") },
                 ];
                 NSDictionary *pick = pool[arc4random_uniform((uint32_t)pool.count)];
                 [self queueCall:calls keys:pick[@"keys"] caption:pick[@"caption"]];
@@ -1843,9 +1849,9 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
         if (justSplit) {
             NSString *splitName = BRBlackjackString(seat[@"display_name"]);
             if (!BRBlackjackBool(seat[@"is_me"]) && splitName.length && [self.announcer hasNameClipForName:splitName]) {
-                [self queueCall:calls keys:@[[self.announcer nameClipKeyForName:splitName], @"split"] caption:[NSString stringWithFormat:@"%@ splits", splitName]];
+                [self queueCall:calls keys:@[[self.announcer nameClipKeyForName:splitName], @"split"] caption:[NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.SplitNameFormat", @"%@ splits"), splitName]];
             } else {
-                [self queueCall:calls keys:@[@"split"] caption:BRBlackjackBool(seat[@"is_me"]) ? @"You split" : [NSString stringWithFormat:@"Seat %ld splits", (long)BRBlackjackInt(seat[@"seat_no"]) + 1]];
+                [self queueCall:calls keys:@[@"split"] caption:BRBlackjackBool(seat[@"is_me"]) ? BRBlackjackSpeech(@"BRBlackjack.Speech.SplitYou", @"You split") : [NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.SplitSeatFormat", @"Seat %ld splits"), (long)BRBlackjackInt(seat[@"seat_no"]) + 1]];
             }
             [self queueHandCall:calls seat:seat hand:seat isNatural:NO withSpeaker:YES];
             [self queueHandCall:calls seat:seat hand:secondHand isNatural:NO withSpeaker:NO];
@@ -1874,17 +1880,17 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
         NSDictionary *oldSecond = BRBlackjackDict(oldSeat[@"hand2"]);
         if (![BRBlackjackString(seat[@"status"]) isEqualToString:BRBlackjackString(oldSeat[@"status"])]
             && [BRBlackjackString(seat[@"status"]) isEqualToString:@"stood"]) {
-            [self queueActionCall:calls seat:seat verbKey:@"stands" verb:@"stands"];
+            [self queueActionCall:calls seat:seat verbKey:@"stands" verb:BRBlackjackSpeech(@"BRBlackjack.Speech.VerbStands", @"stands")];
         }
         if (![BRBlackjackString(secondHand[@"status"]) isEqualToString:BRBlackjackString(oldSecond[@"status"])]
             && [BRBlackjackString(secondHand[@"status"]) isEqualToString:@"stood"]) {
-            [self queueActionCall:calls seat:seat verbKey:@"stands" verb:@"stands"];
+            [self queueActionCall:calls seat:seat verbKey:@"stands" verb:BRBlackjackSpeech(@"BRBlackjack.Speech.VerbStands", @"stands")];
         }
         if (!BRBlackjackBool(oldSeat[@"doubled"]) && BRBlackjackBool(seat[@"doubled"])) {
-            [self queueActionCall:calls seat:seat verbKey:@"doubles" verb:@"doubles"];
+            [self queueActionCall:calls seat:seat verbKey:@"doubles" verb:BRBlackjackSpeech(@"BRBlackjack.Speech.VerbDoubles", @"doubles")];
         }
         if (!BRBlackjackBool(oldSecond[@"doubled"]) && BRBlackjackBool(secondHand[@"doubled"])) {
-            [self queueActionCall:calls seat:seat verbKey:@"doubles" verb:@"doubles"];
+            [self queueActionCall:calls seat:seat verbKey:@"doubles" verb:BRBlackjackSpeech(@"BRBlackjack.Speech.VerbDoubles", @"doubles")];
         }
     }
 
@@ -1909,10 +1915,10 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
         if (dealerTotal == 21) {
             [self queueDealer21Call:calls natural:(newDealerCards.count == 2)];
         } else if (dealerTotal > 21) {
-            [self queueCall:calls keys:@[@"dealer_busts"] caption:@"Dealer busts"];
+            [self queueCall:calls keys:@[@"dealer_busts"] caption:BRBlackjackSpeech(@"BRBlackjack.Speech.DealerBusts", @"Dealer busts")];
         } else if (dealerTotal >= 2) {
             [self queueCall:calls keys:@[@"dealer_has", [NSString stringWithFormat:@"n%ld", (long)dealerTotal]]
-                    caption:[NSString stringWithFormat:@"Dealer has %ld", (long)dealerTotal]];
+                    caption:[NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.DealerHasFormat", @"Dealer has %ld"), (long)dealerTotal]];
         }
 
         // Well played: a win that came from hitting a stiff hand or
@@ -1929,14 +1935,14 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
             BOOL stiffHit = [self.stiffHitSeats containsObject:@(BRBlackjackInt(seat[@"seat_no"]))];
             if (!doubled && !stiffHit) continue;
             NSArray<NSDictionary *> *pool = @[
-                @{ @"keys": @[@"wp_quip1"], @"caption": @"Well played." },
-                @{ @"keys": @[@"p21_quip3"], @"caption": @"Very nice!" },
-                @{ @"keys": @[@"wp_quip2"], @"caption": @"This isn't your first time at a table." },
+                @{ @"keys": @[@"wp_quip1"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.WPQuip1", @"Well played.") },
+                @{ @"keys": @[@"p21_quip3"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.P21Quip3", @"Very nice!") },
+                @{ @"keys": @[@"wp_quip2"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.WPQuip2", @"This isn't your first time at a table.") },
             ];
             NSDictionary *pick = pool[arc4random_uniform((uint32_t)pool.count)];
             NSString *displayName = BRBlackjackString(seat[@"display_name"]);
-            NSString *prefix = BRBlackjackBool(seat[@"is_me"]) ? @"" : (displayName.length ? [NSString stringWithFormat:@"%@: ", displayName]
-                                                                                           : [NSString stringWithFormat:@"Seat %ld: ", (long)BRBlackjackInt(seat[@"seat_no"]) + 1]);
+            NSString *prefix = BRBlackjackBool(seat[@"is_me"]) ? @"" : (displayName.length ? [NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.NamePrefixFormat", @"%@: "), displayName]
+                                                                                           : [NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.SeatPrefix", @"Seat %ld: "), (long)BRBlackjackInt(seat[@"seat_no"]) + 1]);
             [self queueCall:calls keys:pick[@"keys"] caption:[prefix stringByAppendingString:pick[@"caption"]]];
             compliments += 1;
         }
