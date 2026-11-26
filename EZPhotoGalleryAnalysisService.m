@@ -7,13 +7,15 @@
 #import "EZAuthManager.h"
 #import "EZSupabaseConfig.h"
 #import "helpers.h"
+#import "EZAppErrorReporter.h"
 #import <UIKit/UIKit.h>
 
 NSNotificationName const EZPhotoGalleryManifestDidChangeNotification =
     @"EZPhotoGalleryManifestDidChangeNotification";
 
 static NSString *const kGalleryManifestFileName = @"gallery-manifest.json";
-static NSString *const kVisionModel = @"gpt-4.1-nano";
+static NSString *const kGalleryManifestBackupFileName = @"gallery-manifest.backup.json";
+static NSString *const kVisionModel = @"gpt-6-luna";
 static CGFloat const kAnalysisImageMaximumDimension = 640.0;
 
 static BOOL EZGalleryAnalysisSupportsPath(NSString *path) {
@@ -65,6 +67,15 @@ static BOOL EZGalleryAnalysisSupportsPath(NSString *path) {
         stringByAppendingPathComponent:kGalleryManifestFileName]];
 }
 
+- (NSURL *)manifestBackupURL {
+    return [NSURL fileURLWithPath:[EZPhotoGalleryDirectory()
+        stringByAppendingPathComponent:kGalleryManifestBackupFileName]];
+}
+
+// Set once a manifest recovery is reported, so a damaged manifest does not
+// file one report per gallery read until the next write heals it.
+static BOOL gGalleryManifestRecoveryReported = NO;
+
 - (NSString *)fingerprintForPath:(NSString *)path {
     // A malformed external path should not make a gallery action ask
     // Foundation to construct an unbounded URL/string representation.
@@ -84,6 +95,26 @@ static BOOL EZGalleryAnalysisSupportsPath(NSString *path) {
             NSMutableDictionary *root = [decoded mutableCopy];
             if ([root[@"assets"] isKindOfClass:[NSDictionary class]]) return root;
         }
+        // The manifest exists but cannot be decoded. Restore the last good
+        // copy instead of starting over: starting over discards every
+        // completed summary at once, and the next write would make it
+        // permanent. The next successful write heals the main file.
+        NSData *backupData = [NSData dataWithContentsOfURL:[self manifestBackupURL]];
+        if (backupData.length) {
+            id backup = [NSJSONSerialization JSONObjectWithData:backupData options:0 error:nil];
+            if ([backup isKindOfClass:[NSDictionary class]] &&
+                [backup[@"assets"] isKindOfClass:[NSDictionary class]]) {
+                if (!gGalleryManifestRecoveryReported) {
+                    gGalleryManifestRecoveryReported = YES;
+                    [EZAppErrorReporter reportSource:@"gallery_manifest" code:@"manifest_restored_from_backup" message:@"Gallery manifest was unreadable; restored the last good copy."];
+                }
+                return [backup mutableCopy];
+            }
+        }
+        if (!gGalleryManifestRecoveryReported) {
+            gGalleryManifestRecoveryReported = YES;
+            [EZAppErrorReporter reportSource:@"gallery_manifest" code:@"manifest_unreadable" message:@"Gallery manifest was unreadable and no usable backup exists; starting over."];
+        }
     }
     return [@{ @"version": @1, @"assets": @{} } mutableCopy];
 }
@@ -95,8 +126,31 @@ static BOOL EZGalleryAnalysisSupportsPath(NSString *path) {
         EZLogf(EZLogLevelError, @"GALLERY", @"Could not encode gallery manifest: %@", error);
         return NO;
     }
+    // Entries are only ever added, never removed, so an empty write over a
+    // file that holds entries can only come from the empty-root fallback.
+    // Refuse it rather than making a one-time read failure permanent.
+    NSDictionary *assets = root[@"assets"];
+    if ([assets isKindOfClass:[NSDictionary class]] && assets.count == 0) {
+        NSData *existingData = [NSData dataWithContentsOfURL:[self manifestURL]];
+        if (existingData.length) {
+            id existing = [NSJSONSerialization JSONObjectWithData:existingData options:0 error:nil];
+            if ([existing isKindOfClass:[NSDictionary class]] &&
+                [existing[@"assets"] isKindOfClass:[NSDictionary class]] &&
+                [existing[@"assets"] count] > 0) {
+                EZLogf(EZLogLevelError, @"GALLERY", @"Refusing to overwrite a gallery manifest with entries by an empty one");
+                [EZAppErrorReporter reportSource:@"gallery_manifest" code:@"manifest_empty_overwrite_refused" message:@"Refused to save an empty gallery manifest over one with entries."];
+                return NO;
+            }
+        }
+    }
     BOOL saved = [data writeToURL:[self manifestURL] options:NSDataWritingAtomic error:&error];
-    if (!saved) EZLogf(EZLogLevelError, @"GALLERY", @"Could not save gallery manifest: %@", error);
+    if (!saved) {
+        EZLogf(EZLogLevelError, @"GALLERY", @"Could not save gallery manifest: %@", error);
+        return NO;
+    }
+    // Keep a rolling copy next to the manifest so a damaged file can be
+    // restored instead of discarding every completed summary.
+    [data writeToURL:[self manifestBackupURL] options:NSDataWritingAtomic error:nil];
     return saved;
 }
 
