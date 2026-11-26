@@ -856,3 +856,44 @@
 "BRBlackjack.Lobby.VipMessage" = "High LimitはVIPプレイヤー専用です。シルバーVIP（VIPポイント50,000）に到達するか、いずれかのサブスクリプションを開始すると解放されます。";
 
 "EZCoinStore.Sale.FirstPeriodNote" = "サブスクのセールボーナスは初回請求期間のみ。";
+
+// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
+"BRBlackjack.Speech.YouHavePrefix" = "あなたの手は ";
+"BRBlackjack.Speech.NameHasFormat" = "%@ は ";
+"BRBlackjack.Speech.SeatPrefix" = "シート%ld：";
+"BRBlackjack.Speech.SoftTotal" = "ソフト%ld";
+"BRBlackjack.Speech.BlackjackBang" = "ブラックジャック！";
+"BRBlackjack.Speech.BustBang" = "バースト！";
+"BRBlackjack.Speech.BustLower" = "バースト";
+"BRBlackjack.Speech.BustsVerb" = "バースト";
+"BRBlackjack.Speech.VerbStands" = "スタンド";
+"BRBlackjack.Speech.VerbDoubles" = "ダブルダウン";
+"BRBlackjack.Speech.ActionNameFormat" = "%@、%@。";
+"BRBlackjack.Speech.ActionSeatFormat" = "シート%ld、%@。";
+"BRBlackjack.Speech.TurnNameFormat" = "%@、あなたの番です。";
+"BRBlackjack.Speech.TurnYou" = "あなたの番です。";
+"BRBlackjack.Speech.TurnSeatFormat" = "シート%ld、あなたの番です。";
+"BRBlackjack.Speech.DealerBlackjack" = "ディーラーはブラックジャック";
+"BRBlackjack.Speech.DealerHas21" = "ディーラーは21";
+"BRBlackjack.Speech.D21Quip1" = "ディーラー21。残念でした、皆さん。";
+"BRBlackjack.Speech.D21Quip2" = "ディーラーは21です。すみません、皆さん。";
+"BRBlackjack.Speech.D21Quip3" = "21。ハウスの勝ちです。";
+"BRBlackjack.Speech.D21Quip4" = "ディーラー21。ハウスからご挨拶です。";
+"BRBlackjack.Speech.D21Quip5" = "おっと、私が21。残念、皆さん。";
+"BRBlackjack.Speech.PlaceBets" = "ベットしてください";
+"BRBlackjack.Speech.NoMoreBets" = "ベット終了";
+"BRBlackjack.Speech.DealerShowsFormat" = "ディーラーは%@を見せています";
+"BRBlackjack.Speech.RankAce" = "エース";
+"BRBlackjack.Speech.DWeakQuip1" = "ディーラーはバーストしそうです。";
+"BRBlackjack.Speech.DWeakQuip2" = "信じてください。";
+"BRBlackjack.Speech.SplitNameFormat" = "%@ がスプリット";
+"BRBlackjack.Speech.SplitYou" = "スプリットしました";
+"BRBlackjack.Speech.SplitSeatFormat" = "シート%ld がスプリット";
+"BRBlackjack.Speech.DealerBusts" = "ディーラーはバースト";
+"BRBlackjack.Speech.DealerHasFormat" = "ディーラーは%ld";
+"BRBlackjack.Speech.P21Quip1" = "その調子！";
+"BRBlackjack.Speech.P21Quip2" = "やりましたね！";
+"BRBlackjack.Speech.P21Quip3" = "素晴らしい！";
+"BRBlackjack.Speech.WPQuip1" = "お見事です。";
+"BRBlackjack.Speech.WPQuip2" = "初めてのテーブルではないですね。";
+"BRBlackjack.Speech.NamePrefixFormat" = "%@：";

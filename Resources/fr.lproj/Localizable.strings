@@ -878,3 +878,44 @@
 "BRBlackjack.Lobby.VipMessage" = "High Limit est réservé aux joueurs VIP. Atteignez le VIP Argent (50 000 points VIP) ou prenez n'importe quel abonnement pour le débloquer.";
 
 "EZCoinStore.Sale.FirstPeriodNote" = "Bonus de soldes abonnements : première période uniquement.";
+
+// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
+"BRBlackjack.Speech.YouHavePrefix" = "Vous avez ";
+"BRBlackjack.Speech.NameHasFormat" = "%@ a ";
+"BRBlackjack.Speech.SeatPrefix" = "Siège %ld : ";
+"BRBlackjack.Speech.SoftTotal" = "%ld souple";
+"BRBlackjack.Speech.BlackjackBang" = "blackjack !";
+"BRBlackjack.Speech.BustBang" = "Vous sautez !";
+"BRBlackjack.Speech.BustLower" = "saute";
+"BRBlackjack.Speech.BustsVerb" = "saute";
+"BRBlackjack.Speech.VerbStands" = "reste";
+"BRBlackjack.Speech.VerbDoubles" = "double";
+"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
+"BRBlackjack.Speech.ActionSeatFormat" = "Siège %ld %@.";
+"BRBlackjack.Speech.TurnNameFormat" = "%@, à vous de jouer.";
+"BRBlackjack.Speech.TurnYou" = "À vous de jouer.";
+"BRBlackjack.Speech.TurnSeatFormat" = "Siège %ld, à vous de jouer.";
+"BRBlackjack.Speech.DealerBlackjack" = "La banque a un blackjack";
+"BRBlackjack.Speech.DealerHas21" = "La banque a 21";
+"BRBlackjack.Speech.D21Quip1" = "Vingt et un pour la banque. Pas de chance, les amis.";
+"BRBlackjack.Speech.D21Quip2" = "La banque a vingt et un. Désolé, les amis.";
+"BRBlackjack.Speech.D21Quip3" = "Vingt et un. La maison recommence.";
+"BRBlackjack.Speech.D21Quip4" = "La banque fait vingt et un. La maison vous salue.";
+"BRBlackjack.Speech.D21Quip5" = "Oh, vingt et un pour moi. Dur pour vous, les amis.";
+"BRBlackjack.Speech.PlaceBets" = "Faites vos jeux";
+"BRBlackjack.Speech.NoMoreBets" = "Rien ne va plus";
+"BRBlackjack.Speech.DealerShowsFormat" = "La banque montre %@";
+"BRBlackjack.Speech.RankAce" = "un as";
+"BRBlackjack.Speech.DWeakQuip1" = "La banque va sauter.";
+"BRBlackjack.Speech.DWeakQuip2" = "Ayez un peu confiance.";
+"BRBlackjack.Speech.SplitNameFormat" = "%@ sépare";
+"BRBlackjack.Speech.SplitYou" = "Vous séparez";
+"BRBlackjack.Speech.SplitSeatFormat" = "Siège %ld sépare";
+"BRBlackjack.Speech.DealerBusts" = "La banque saute";
+"BRBlackjack.Speech.DealerHasFormat" = "La banque a %ld";
+"BRBlackjack.Speech.P21Quip1" = "Et voilà !";
+"BRBlackjack.Speech.P21Quip2" = "Bien joué !";
+"BRBlackjack.Speech.P21Quip3" = "Très bien !";
+"BRBlackjack.Speech.WPQuip1" = "Bien joué.";
+"BRBlackjack.Speech.WPQuip2" = "Ce n'est pas votre première fois à une table.";
+"BRBlackjack.Speech.NamePrefixFormat" = "%@ : ";
