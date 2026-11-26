@@ -916,6 +916,17 @@
 
 "EZCoinStore.Sale.FirstPeriodNote" = "Subscription sale bonus: first billing period only.";
 
+/* Added 2026-11-25: seasonal store themes, sale countdown, hero web store button */
+"EZCoinStore.Title.Thanksgiving" = "🍂 EZ Coin Store 🦃";
+"EZCoinStore.Title.Winter" = "❄️ EZ Coin Store 🎄";
+"EZCoinStore.Greeting.Thanksgiving" = "🦃 Happy Thanksgiving!";
+"EZCoinStore.Greeting.Winter" = "🎄 Happy Holidays!";
+"EZCoinStore.Sale.EndsInFormat" = "⏰ Ends in %@";
+"EZCoinStore.Sale.NormallyFormat" = "Normally %@ coins";
+"EZCoinStore.Sale.FirstPeriodCardFormat" = "First billing period gets %ldX coins";
+"EZCoinStore.WebStore.Title" = "Buy coins on our website";
+"EZCoinStore.WebStore.SaleLineFormat" = "%ldX COINS on every pack + your first subscription period";
+"EZCoinStore.WebStore.Hint" = "Opens the EZ Coin web store in Safari";
 // Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
 "BRBlackjack.Speech.YouHavePrefix" = "You have ";
 "BRBlackjack.Speech.NameHasFormat" = "%@ has ";
