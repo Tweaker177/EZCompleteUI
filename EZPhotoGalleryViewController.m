@@ -14,6 +14,7 @@
 #import "EZPhotoGalleryAnalysisService.h"
 #import "EZSupabaseConfig.h"
 #import "EZMusicService.h"
+#import "EZMusicLibraryManager.h"
 #import "EZTheme.h"
 #import "ViewController+EZKeepAwake.h"
 #import "helpers.h"
@@ -2944,6 +2945,66 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 @property (nonatomic, strong) CAGradientLayer        *musicWaveLayer;
 @end
 
+
+// A minimal song list for the music-video audio prompt: the AI songs kept
+// on this device, newest first. Picking one hands its file URL back and
+// the gallery renders the video with it.
+@interface EZGallerySongPickerViewController : UITableViewController
+@property (nonatomic, copy, nullable) void (^onPickSong)(NSURL *songURL);
+@end
+
+@implementation EZGallerySongPickerViewController {
+    NSArray<NSDictionary *> *_songs;
+}
+
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    self.title = @"AI Music Library";
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
+                             target:self action:@selector(cancelTapped)];
+    NSMutableArray<NSDictionary *> *songs = [NSMutableArray array];
+    EZMusicLibraryManager *manager = [EZMusicLibraryManager sharedManager];
+    for (NSString *entryID in [manager localSongEntryIDs].reverseObjectEnumerator) {
+        NSURL *url = [manager localSongURLForEntryID:entryID];
+        if (!url) continue;
+        NSDictionary *record = [manager localSongRecordForEntryID:entryID];
+        NSString *title = [record[@"title"] isKindOfClass:NSString.class] && [record[@"title"] length]
+            ? record[@"title"] : @"Untitled song";
+        [songs addObject:@{ @"title": title, @"url": url }];
+    }
+    _songs = [songs copy];
+    self.tableView.backgroundColor = [UIColor colorWithRed:0.055 green:0.06 blue:0.13 alpha:1.0];
+    self.tableView.separatorColor = [UIColor colorWithWhite:1.0 alpha:0.12];
+}
+
+- (void)cancelTapped {
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return (NSInteger)_songs.count;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"SongCell"];
+    if (!cell) cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"SongCell"];
+    cell.backgroundColor = UIColor.clearColor;
+    cell.textLabel.text = _songs[(NSUInteger)indexPath.row][@"title"];
+    cell.textLabel.textColor = UIColor.whiteColor;
+    cell.imageView.image = [UIImage systemImageNamed:@"music.note"];
+    cell.imageView.tintColor = [UIColor colorWithRed:0.38 green:0.72 blue:1.0 alpha:1.0];
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    NSURL *url = _songs[(NSUInteger)indexPath.row][@"url"];
+    void (^handler)(NSURL *) = self.onPickSong;
+    [self dismissViewControllerAnimated:YES completion:^{ if (handler) handler(url); }];
+}
+
+@end
+
 @implementation EZPhotoGalleryViewController
 
 - (void)viewDidLoad {
@@ -2968,6 +3029,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         if (self.chatAttachmentSelectionLimit == 0) self.chatAttachmentSelectionLimit = 15;
         [self updateSelectionControls];
     }
+    if (self.musicVideoPickMode) {
+        self.selectingPhotos = YES;
+        [self updateSelectionControls];
+    }
     [[EZPhotoGalleryAnalysisService sharedService] retryQueuedAnalyses];
     [self loadFilePaths];
 }
@@ -2984,7 +3049,8 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 
 - (void)styleNavBar {
     self.title = self.chatAttachmentSelectionMode
-        ? @"Attach from Gallery" : NSLocalizedString(@"EZGallery.Title", nil);
+        ? @"Attach from Gallery"
+        : (self.musicVideoPickMode ? @"Make Music Video" : NSLocalizedString(@"EZGallery.Title", nil));
 
     self.navigationController.navigationBar.standardAppearance   = [EZTheme navigationBarAppearance];
     self.navigationController.navigationBar.scrollEdgeAppearance = [EZTheme navigationBarAppearance];
@@ -3464,6 +3530,22 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
 }
 
 - (void)updateSelectionControls {
+    if (self.musicVideoPickMode) {
+        self.selectingPhotos = YES;
+        NSUInteger pickCount = self.selectedPhotoPaths.count;
+        self.selectButton = [[UIBarButtonItem alloc]
+            initWithTitle:@"Cancel" style:UIBarButtonItemStylePlain
+            target:self action:@selector(closeTapped)];
+        self.selectionMenuButton = [[UIBarButtonItem alloc]
+            initWithTitle:@"Make Video" style:UIBarButtonItemStyleDone
+            target:self action:@selector(makeMusicVideoTapped)];
+        self.selectionMenuButton.enabled = pickCount > 0;
+        self.countLabel.text = [NSString stringWithFormat:NSLocalizedString(@"EZGallery.SelectedCount", nil),
+                                (unsigned long)pickCount];
+        self.navigationItem.rightBarButtonItems = @[self.selectionMenuButton, self.selectButton];
+        return;
+    }
+
     if (self.chatAttachmentSelectionMode) {
         self.selectingPhotos = YES;
         NSUInteger selectedCount = self.selectedAttachableImagePaths.count;
@@ -3822,7 +3904,7 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     [overlay addSubview:dismissTarget];
 
     CGFloat cardWidth = MIN(360.0, CGRectGetWidth(overlay.bounds) - 32.0);
-    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, 346.0)];
+    UIView *card = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cardWidth, 402.0)];
     card.center = CGPointMake(CGRectGetMidX(overlay.bounds), CGRectGetMidY(overlay.bounds));
     card.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin |
                             UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
@@ -3850,7 +3932,7 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     UILabel *subtitle = [[UILabel alloc] initWithFrame:CGRectMake(24, 89, cardWidth - 48, 54)];
     subtitle.adjustsFontSizeToFitWidth = YES;
     subtitle.minimumScaleFactor = 0.5;
-    subtitle.text = @"Attach your own track, or let ElevenLabs compose music matched to the finished visuals.";
+    subtitle.text = @"Attach your own track, pick a song from your AI music library, or let ElevenLabs compose music matched to the finished visuals.";
     subtitle.textAlignment = NSTextAlignmentCenter;
     subtitle.numberOfLines = 3;
     subtitle.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
@@ -3874,17 +3956,26 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     attach.frame = CGRectMake(20, 155, cardWidth - 40, 48);
     [card addSubview:attach];
 
+    UIButton *library = [self selectionActionButtonWithTitle:@"AI Music Library"
+                                                          image:@"music.note.list"
+                                                          color:[UIColor colorWithRed:0.38 green:0.72 blue:1.0 alpha:1.0]
+                                                    destructive:NO enabled:YES handler:^{
+        [weakSelf dismissMusicAudioPromptWithCompletion:^{ [weakSelf presentSongLibraryPicker]; }];
+    }];
+    library.frame = CGRectMake(20, 211, cardWidth - 40, 48);
+    [card addSubview:library];
+
     UIButton *generate = [self selectionActionButtonWithTitle:@"Generate Synced Music"
                                                          image:@"sparkles"
                                                          color:[UIColor colorWithRed:0.74 green:0.52 blue:1.0 alpha:1.0]
                                                    destructive:NO enabled:YES handler:^{
         [weakSelf dismissMusicAudioPromptWithCompletion:^{ [weakSelf generateElevenMusicVideo]; }];
     }];
-    generate.frame = CGRectMake(20, 211, cardWidth - 40, 48);
+    generate.frame = CGRectMake(20, 267, cardWidth - 40, 48);
     [card addSubview:generate];
 
     UIButton *cancel = [UIButton buttonWithType:UIButtonTypeSystem];
-    cancel.frame = CGRectMake(20, 271, cardWidth - 40, 44);
+    cancel.frame = CGRectMake(20, 327, cardWidth - 40, 44);
     cancel.backgroundColor = [UIColor colorWithRed:0.63 green:0.35 blue:1.0 alpha:0.88];
     cancel.layer.cornerRadius = 13.0;
     cancel.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBold];
@@ -3896,6 +3987,29 @@ shouldSelectItemAtIndexPath:(NSIndexPath *)indexPath {
     [card addSubview:cancel];
 
     [UIView animateWithDuration:0.18 animations:^{ overlay.alpha = 1.0; }];
+}
+
+- (void)presentSongLibraryPicker {
+    EZMusicLibraryManager *manager = [EZMusicLibraryManager sharedManager];
+    BOOL hasSongs = NO;
+    for (NSString *entryID in [manager localSongEntryIDs]) {
+        if ([manager localSongURLForEntryID:entryID]) { hasSongs = YES; break; }
+    }
+    if (!hasSongs) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"No AI songs yet"
+                                                                         message:@"Generate a song in AI Music first, or attach an audio file instead."
+                                                                  preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+        return;
+    }
+    EZGallerySongPickerViewController *picker = [EZGallerySongPickerViewController new];
+    __weak typeof(self) weakSelf = self;
+    picker.onPickSong = ^(NSURL *songURL) {
+        [weakSelf renderMusicVideoWithAudioURL:songURL sources:weakSelf.musicVideoSourcePaths];
+    };
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:picker];
+    [self presentViewController:nav animated:YES completion:nil];
 }
 
 - (NSURL *)temporarySilentWAVForSeconds:(NSUInteger)seconds {

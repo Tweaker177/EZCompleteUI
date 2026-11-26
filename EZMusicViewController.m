@@ -107,8 +107,11 @@ static const NSInteger  kMaxVariantChoices      = 5;
 static const NSUInteger kEZMusicUpNextLimit = 50;
 
 typedef NS_ENUM(NSInteger, EZMusicTab) {
-    EZMusicTabLibrary = 0,
-    EZMusicTabCreate  = 1,
+    EZMusicTabLibrary   = 0,
+    EZMusicTabCreate    = 1,
+    // Not a tab: tapping this segment opens the gallery to pick photos and
+    // videos for a music video, then control returns to the current tab.
+    EZMusicTabMakeVideo = 2,
 };
 
 #pragma mark - Safe value helpers
@@ -1335,6 +1338,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     self.tabControl = [[UISegmentedControl alloc] initWithItems:@[
         EZMusicText(@"EZMusic.Tab.Library", @"Library"),
         EZMusicText(@"EZMusic.Tab.Create", @"Create"),
+        [UIImage systemImageNamed:@"video.fill"] ?: [[UIImage alloc] init],
     ]];
     self.tabControl.selectedSegmentIndex = EZMusicTabLibrary;
     [self.tabControl addTarget:self action:@selector(tabChanged:) forControlEvents:UIControlEventValueChanged];
@@ -1876,6 +1880,16 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 #pragma mark - Tabs
 
 - (void)tabChanged:(UISegmentedControl *)sender {
+    if (sender.selectedSegmentIndex == EZMusicTabMakeVideo) {
+        // Make Video is an action, not a tab: stay on the current tab and
+        // open the gallery in multi-select, where Done starts the video.
+        [self showTab:(self.libraryTable.hidden ? EZMusicTabCreate : EZMusicTabLibrary)];
+        EZPhotoGalleryViewController *gallery = [EZPhotoGalleryViewController new];
+        gallery.musicVideoPickMode = YES;
+        [self presentViewController:[[UINavigationController alloc] initWithRootViewController:gallery]
+                           animated:YES completion:nil];
+        return;
+    }
     [self showTab:(EZMusicTab)sender.selectedSegmentIndex];
 }
 
