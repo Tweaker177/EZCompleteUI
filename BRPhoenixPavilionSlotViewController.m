@@ -1164,7 +1164,7 @@ static NSArray<UIColor *> *PPLineColors(void) {
         [self after:_spinFree ? 0.5 : 0.2 do:completion];
         return;
     }
-    if ([res[@"is_jackpot"] boolValue]) {
+    if (PPBool(res[@"is_jackpot"])) {
         [BRSlotCelebration celebrateJackpotInView:self.view payout:payout totalBet:MAX(1, lines * bet)];
         [self.audio playBonusFanfare];
     } else if ([BRSlotCelebration celebrateBigWinInView:self.view payout:payout totalBet:MAX(1, lines * bet)]) {
