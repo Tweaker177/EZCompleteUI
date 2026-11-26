@@ -781,6 +781,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "SON 24 SAAT: EN YÜKSEK TOPLAMLAR\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "Son 24 saatte henüz kazanç yok — ilk sen ol.\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ coin\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\nSON 24 SAAT: EN BÜYÜK KAZANÇLAR\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "Son 24 saatte henüz büyük kazanç yok.\n";
 "BRSlot.Lounge.WinningsFooter" = "\nToplamlar ve en büyük kazançlar son 24 saati kapsar. Yalnızca sunucuda sonuçlandırılan slot ödemeleri sayılır.";

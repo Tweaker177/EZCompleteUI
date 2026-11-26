@@ -780,6 +780,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "ПОСЛЕДНИЕ 24 ЧАСА: ЛУЧШИЕ СУММЫ\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "За последние 24 часа выигрышей пока нет — станьте первым.\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ монет\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\nПОСЛЕДНИЕ 24 ЧАСА: КРУПНЕЙШИЕ ВЫИГРЫШИ\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "За последние 24 часа крупных выигрышей пока нет.\n";
 "BRSlot.Lounge.WinningsFooter" = "\nСуммы и крупнейшие выигрыши охватывают последние 24 часа. Учитываются только выплаты слотов, рассчитанные сервером.";

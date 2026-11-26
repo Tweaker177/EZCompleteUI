@@ -740,6 +740,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "最近24小时: 总额最高\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "最近24小时尚无赢家 — 来做第一个。\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ 硬币\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\n最近24小时: 最高单次赢奖\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "最近24小时尚无大额赢奖。\n";
 "BRSlot.Lounge.WinningsFooter" = "\n总额与最高单次赢奖统计最近24小时。仅计算服务器结算的老虎机赔付。";

@@ -740,6 +740,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "آخر 24 ساعة: أعلى المجاميع\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "لا أرباح بعد في آخر 24 ساعة — كن الأول.\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ قطعة نقدية\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\nآخر 24 ساعة: أكبر الأرباح\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "لا أرباح كبيرة بعد في آخر 24 ساعة.\n";
 "BRSlot.Lounge.WinningsFooter" = "\nالمجاميع وأكبر الأرباح تغطي آخر 24 ساعة. تُحتسب فقط مدفوعات السلوت التي سوّاها الخادم.";

@@ -740,6 +740,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "24 GIỜ QUA: TỔNG CAO NHẤT\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "Chưa có ai thắng trong 24 giờ qua — hãy là người đầu tiên.\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ xu\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\n24 GIỜ QUA: MỨC THẮNG LỚN NHẤT\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "Chưa có mức thắng lớn trong 24 giờ qua.\n";
 "BRSlot.Lounge.WinningsFooter" = "\nTổng và mức thắng lớn nhất bao phủ 24 giờ qua. Chỉ các khoản trả slot do máy chủ quyết toán mới được tính.";

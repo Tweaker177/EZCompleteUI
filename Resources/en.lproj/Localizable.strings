@@ -815,6 +815,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "LAST 24 HOURS: TOP TOTALS\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "No wins in the last 24 hours yet — be the first.\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ coins\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\nLAST 24 HOURS: BIGGEST HITS\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "No big hits in the last 24 hours yet.\n";
 "BRSlot.Lounge.WinningsFooter" = "\nTotals and biggest hits cover the last 24 hours. Only server-settled slot payouts count.";
@@ -915,15 +916,3 @@
 "BRBlackjack.Lobby.VipMessage" = "High Limit is for VIP players. Reach Silver VIP (50,000 VIP points) or start any subscription to unlock it.";
 
 "EZCoinStore.Sale.FirstPeriodNote" = "Subscription sale bonus: first billing period only.";
-
-/* Added 2026-11-25: seasonal store themes, sale countdown, hero web store button */
-"EZCoinStore.Title.Thanksgiving" = "🍂 EZ Coin Store 🦃";
-"EZCoinStore.Title.Winter" = "❄️ EZ Coin Store 🎄";
-"EZCoinStore.Greeting.Thanksgiving" = "🦃 Happy Thanksgiving!";
-"EZCoinStore.Greeting.Winter" = "🎄 Happy Holidays!";
-"EZCoinStore.Sale.EndsInFormat" = "⏰ Ends in %@";
-"EZCoinStore.Sale.NormallyFormat" = "Normally %@ coins";
-"EZCoinStore.Sale.FirstPeriodCardFormat" = "First billing period gets %ldX coins";
-"EZCoinStore.WebStore.Title" = "Buy coins on our website";
-"EZCoinStore.WebStore.SaleLineFormat" = "%ldX COINS on every pack + your first subscription period";
-"EZCoinStore.WebStore.Hint" = "Opens the EZ Coin web store in Safari";

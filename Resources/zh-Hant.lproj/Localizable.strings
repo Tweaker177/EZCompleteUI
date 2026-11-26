@@ -781,6 +781,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "最近24小時: 總額最高\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "最近24小時尚無贏家 — 來做第一個。\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ 金幣\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\n最近24小時: 最高單次贏獎\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "最近24小時尚無大額贏獎。\n";
 "BRSlot.Lounge.WinningsFooter" = "\n總額與最高單次贏獎統計最近24小時。僅計算伺服器結算的老虎機賠付。";

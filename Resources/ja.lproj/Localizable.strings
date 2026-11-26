@@ -740,6 +740,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "過去24時間: 合計トップ\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "過去24時間の勝利はまだありません — 最初の一人になりましょう。\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ コイン\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\n過去24時間: 最大の勝利\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "過去24時間の大きな勝利はまだありません。\n";
 "BRSlot.Lounge.WinningsFooter" = "\n合計と最大の勝利は過去24時間を対象としています。サーバーで精算されたスロットの配当のみがカウントされます。";

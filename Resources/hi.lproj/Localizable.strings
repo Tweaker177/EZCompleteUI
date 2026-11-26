@@ -740,6 +740,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "पिछले 24 घंटे: शीर्ष कुल\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "पिछले 24 घंटों में अभी कोई जीत नहीं — पहले बनें।\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ सिक्के\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\nपिछले 24 घंटे: सबसे बड़ी जीत\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "पिछले 24 घंटों में अभी कोई बड़ी जीत नहीं।\n";
 "BRSlot.Lounge.WinningsFooter" = "\nकुल और सबसे बड़ी जीत पिछले 24 घंटों को कवर करती हैं। केवल सर्वर द्वारा निपटाई गई स्लॉट अदायगी गिनी जाती है।";

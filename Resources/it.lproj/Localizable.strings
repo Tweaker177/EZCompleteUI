@@ -740,6 +740,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "ULTIME 24 ORE: TOTALI MIGLIORI\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "Nessuna vincita nelle ultime 24 ore — sii il primo.\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ monete\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\nULTIME 24 ORE: VINCITE PIÙ GRANDI\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "Nessuna grande vincita nelle ultime 24 ore.\n";
 "BRSlot.Lounge.WinningsFooter" = "\nTotali e vincite più grandi coprono le ultime 24 ore. Contano solo i pagamenti slot liquidati dal server.";
