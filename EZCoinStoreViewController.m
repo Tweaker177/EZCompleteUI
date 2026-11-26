@@ -28,6 +28,25 @@
 
 //
 
+// Seasonal themes + sale polish (2026-11-25):
+//   - New EZCoinStoreSeason: a Thanksgiving theme (Nov 1 through Thanksgiving day) and a winter
+//     holiday theme (Black Friday through Jan 6), picked by date in America/New_York so the
+//     switch lands at midnight Eastern, the same moment the Black Friday store_sales row begins.
+//     Cosmetic only; coins are still granted entirely server-side. Each theme restyles the
+//     header, banner, card accents and section headers and adds falling leaves / snow
+//     (skipped when Reduce Motion is on). Debug override: set the NSUserDefaults string
+//     EZCoinStoreSeasonOverride to "thanksgiving", "winter" or "none".
+//   - Web store button is now the hero of the store: taller, pulsing, and it advertises the
+//     live sale multiplier. The last server-provided web_store_url is cached so the button
+//     shows instantly (TestFlight builds buy through it); only https URLs are opened.
+//   - Card badges and footnotes now actually render (the cell hid the badge label and never
+//     showed it). Top-ups show the sale amount; subscriptions show their regular recurring
+//     amount beside the multiplier and a first-period-only note.
+//   - Sale banner shows a live "Ends in" countdown; when the sale or season rolls over while
+//     the store is open the store rebuilds itself once.
+//   - Fixed: the web button no longer clears the table footer (it wiped the sale fine print),
+//     and a rebuild no longer leaves the header without the web button.
+//
 // Recent changes:
 
 //   - Removed hardcoded PayPal plan ID constants (kPlanBasic, kPlanStandard,
@@ -271,17 +290,268 @@ static NSString *const kTierUltraAnnual    = @"ultra_annual";
 
 // GET-style status check mirroring refreshDailyCoinsStatus's pattern.
 
-static CGFloat const kPromoBannerHeight = 108.0;
+// Headline + sub-line + a live "Ends in" countdown row.
+static CGFloat const kPromoBannerHeight = 132.0;
 
-// Vertical space the big web store button takes at the top of the
-// header while it is showing: 12 above + 58 button + 12 below.
-static CGFloat const kWebStoreSlotHeight = 82.0;
+// Height of the hero web store button, and the vertical space it takes at
+// the top of the header while it is showing: 12 above + button + 12 below.
+static CGFloat const kWebStoreButtonHeight = 76.0;
+static CGFloat const kWebStoreSlotHeight = 100.0;
+
+// NSUserDefaults keys. The season override is a debug aid (cosmetic only);
+// the web store URL cache lets the hero button appear before the daily-coins
+// status request has answered.
+static NSString *const kSeasonOverrideDefaultsKey   = @"EZCoinStoreSeasonOverride";
+static NSString *const kWebStoreURLCacheDefaultsKey = @"EZCoinStoreWebStoreURLCache";
 
 // Now 0 — the Daily Coins button moved into the nav bar, so nothing floats
 
 // over the header content anymore and the banner can sit flush at the top.
 
 static CGFloat const kPromoBannerTopPadding = 0.0;
+
+// ── Seasonal themes ───────────────────────────────────────────────────────────
+// Purely cosmetic. A season restyles the header, sale banner, card accents and
+// section headers and adds falling leaves or snow. Which season is showing is
+// decided by the date in America/New_York so it flips at midnight Eastern —
+// the same instant the Black Friday store_sales row begins (05:00 UTC). What
+// the store pays out is never decided here; see the sale comments in the VC.
+
+typedef NS_ENUM(NSUInteger, EZCoinStoreSeasonKind) {
+    EZCoinStoreSeasonKindNone,
+    EZCoinStoreSeasonKindThanksgiving,
+    EZCoinStoreSeasonKindWinterHoliday,
+};
+
+static UIColor *EZSeasonColor(CGFloat red, CGFloat green, CGFloat blue) {
+    return [UIColor colorWithRed:red green:green blue:blue alpha:1.0];
+}
+
+@interface EZCoinStoreSeason : NSObject
+
+@property (nonatomic, readonly) EZCoinStoreSeasonKind kind;
+@property (nonatomic, readonly, copy,   nullable) NSString *storeTitle;          // nav bar title; nil keeps the stock title
+@property (nonatomic, readonly, copy,   nullable) NSString *greeting;             // header greeting, e.g. "Happy Thanksgiving!"
+@property (nonatomic, readonly, copy,   nullable) NSArray<UIColor *> *bannerColors;
+@property (nonatomic, readonly, strong, nullable) UIColor *saleAccentColor;       // card accent for sale items
+@property (nonatomic, readonly, strong, nullable) UIColor *sectionHeaderColor;
+@property (nonatomic, readonly, strong, nullable) UIColor *headerColor;
+@property (nonatomic, readonly, strong, nullable) UIColor *backgroundTintColor;
+@property (nonatomic, readonly, copy,   nullable) NSArray<UIColor *> *tierAccentColors; // cycled over non-sale cards
+
++ (EZCoinStoreSeasonKind)kindForDate:(NSDate *)date;
++ (EZCoinStoreSeasonKind)currentKind;
++ (instancetype)seasonForKind:(EZCoinStoreSeasonKind)kind;
+
+/// Falling leaves or snow, spanning `width` and emitting from just above the top
+/// edge. Returns nil for the no-season look.
+- (nullable CAEmitterLayer *)newEmitterLayerForWidth:(CGFloat)width;
+
+@end
+
+@implementation EZCoinStoreSeason
+
+- (instancetype)initWithKind:(EZCoinStoreSeasonKind)kind {
+    self = [super init];
+    if (!self) return nil;
+    _kind = kind;
+    if (kind == EZCoinStoreSeasonKindThanksgiving) {
+        _storeTitle = NSLocalizedStringWithDefaultValue(@"EZCoinStore.Title.Thanksgiving", nil, NSBundle.mainBundle, @"🍂 EZ Coin Store 🦃", @"Coin store title during the Thanksgiving theme");
+        _greeting   = NSLocalizedStringWithDefaultValue(@"EZCoinStore.Greeting.Thanksgiving", nil, NSBundle.mainBundle, @"🦃 Happy Thanksgiving!", @"Header greeting during the Thanksgiving theme");
+        _bannerColors = @[EZSeasonColor(0.58, 0.10, 0.12), EZSeasonColor(0.93, 0.46, 0.08)]; // cranberry → pumpkin
+        _saleAccentColor    = EZSeasonColor(0.95, 0.30, 0.10);
+        _sectionHeaderColor = EZSeasonColor(1.00, 0.72, 0.28);
+        _headerColor        = EZSeasonColor(0.20, 0.12, 0.10);
+        _backgroundTintColor = EZSeasonColor(0.90, 0.42, 0.06);
+        _tierAccentColors = @[
+            EZSeasonColor(0.92, 0.45, 0.10), // pumpkin
+            EZSeasonColor(0.95, 0.70, 0.15), // harvest gold
+            EZSeasonColor(0.76, 0.16, 0.26), // cranberry
+            EZSeasonColor(0.45, 0.58, 0.22), // sage
+            EZSeasonColor(0.68, 0.42, 0.26), // copper
+        ];
+    } else if (kind == EZCoinStoreSeasonKindWinterHoliday) {
+        _storeTitle = NSLocalizedStringWithDefaultValue(@"EZCoinStore.Title.Winter", nil, NSBundle.mainBundle, @"❄️ EZ Coin Store 🎄", @"Coin store title during the winter holiday theme");
+        _greeting   = NSLocalizedStringWithDefaultValue(@"EZCoinStore.Greeting.Winter", nil, NSBundle.mainBundle, @"🎄 Happy Holidays!", @"Header greeting during the winter holiday theme");
+        _bannerColors = @[EZSeasonColor(0.78, 0.09, 0.17), EZSeasonColor(0.04, 0.40, 0.26)]; // holiday red → pine
+        _saleAccentColor    = EZSeasonColor(0.90, 0.10, 0.25);
+        _sectionHeaderColor = EZSeasonColor(0.70, 0.88, 1.00);
+        _headerColor        = EZSeasonColor(0.07, 0.14, 0.26);
+        _backgroundTintColor = EZSeasonColor(0.25, 0.60, 0.98);
+        _tierAccentColors = @[
+            EZSeasonColor(0.35, 0.70, 0.96), // ice
+            EZSeasonColor(0.12, 0.62, 0.38), // pine
+            EZSeasonColor(0.86, 0.16, 0.22), // candy red
+            EZSeasonColor(0.74, 0.80, 0.90), // silver
+            EZSeasonColor(1.00, 0.80, 0.20), // gold
+        ];
+    }
+    return self;
+}
+
++ (instancetype)seasonForKind:(EZCoinStoreSeasonKind)kind {
+    return [[EZCoinStoreSeason alloc] initWithKind:kind];
+}
+
+// All date math is done in Eastern time so the switch is the same moment for
+// every user, whatever their device time zone.
++ (NSCalendar *)easternCalendar {
+    static NSCalendar *calendar = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        calendar = [[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian];
+        calendar.timeZone = [NSTimeZone timeZoneWithName:@"America/New_York"] ?: [NSTimeZone localTimeZone];
+    });
+    return calendar;
+}
+
+// Thanksgiving is the fourth Thursday of November.
++ (NSInteger)thanksgivingDayOfMonthForYear:(NSInteger)year {
+    NSCalendar *calendar = [self easternCalendar];
+    NSDateComponents *components = [[NSDateComponents alloc] init];
+    components.year = year;
+    components.month = 11;
+    components.weekday = 5;        // Thursday
+    components.weekdayOrdinal = 4; // fourth one
+    components.hour = 12;
+    NSDate *thanksgiving = [calendar dateFromComponents:components];
+    return thanksgiving ? [calendar component:NSCalendarUnitDay fromDate:thanksgiving] : 26;
+}
+
++ (EZCoinStoreSeasonKind)kindForDate:(NSDate *)date {
+    NSCalendar *calendar = [self easternCalendar];
+    NSDateComponents *today = [calendar components:(NSCalendarUnitYear | NSCalendarUnitMonth | NSCalendarUnitDay) fromDate:date];
+    // Early January still belongs to the season that began at Black Friday.
+    if (today.month == 1 && today.day <= 6) return EZCoinStoreSeasonKindWinterHoliday;
+    if (today.month == 12) return EZCoinStoreSeasonKindWinterHoliday;
+    if (today.month == 11) {
+        // Through Thanksgiving day itself; the next midnight (Black Friday) flips to winter.
+        return today.day <= [self thanksgivingDayOfMonthForYear:today.year] ? EZCoinStoreSeasonKindThanksgiving : EZCoinStoreSeasonKindWinterHoliday;
+    }
+    return EZCoinStoreSeasonKindNone;
+}
+
++ (EZCoinStoreSeasonKind)currentKind {
+    NSString *override = [[NSUserDefaults standardUserDefaults] stringForKey:kSeasonOverrideDefaultsKey];
+    if ([override isEqualToString:@"thanksgiving"]) return EZCoinStoreSeasonKindThanksgiving;
+    if ([override isEqualToString:@"winter"])       return EZCoinStoreSeasonKindWinterHoliday;
+    if ([override isEqualToString:@"none"])         return EZCoinStoreSeasonKindNone;
+    return [self kindForDate:[NSDate date]];
+}
+
+// ── Particle artwork (drawn once, in code — no image assets) ──────────────────
+
++ (UIImage *)leafImage {
+    static UIImage *image = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(40, 40)];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+            UIBezierPath *leaf = [UIBezierPath bezierPath];
+            [leaf moveToPoint:CGPointMake(20, 2)];
+            [leaf addCurveToPoint:CGPointMake(20, 38) controlPoint1:CGPointMake(41, 12) controlPoint2:CGPointMake(38, 30)];
+            [leaf addCurveToPoint:CGPointMake(20, 2)  controlPoint1:CGPointMake(2, 30)  controlPoint2:CGPointMake(-1, 12)];
+            [leaf closePath];
+            [[UIColor whiteColor] setFill];
+            [leaf fill];
+            // A darker center vein; it multiplies with the cell color, so it reads as a vein.
+            UIBezierPath *vein = [UIBezierPath bezierPath];
+            [vein moveToPoint:CGPointMake(20, 6)];
+            [vein addLineToPoint:CGPointMake(20, 39)];
+            vein.lineWidth = 1.5;
+            [[UIColor colorWithWhite:0.55 alpha:1.0] setStroke];
+            [vein stroke];
+        }];
+    });
+    return image;
+}
+
++ (UIImage *)snowflakeImage {
+    static UIImage *image = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(36, 36)];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+            CGContextRef cg = context.CGContext;
+            CGContextSetStrokeColorWithColor(cg, [UIColor whiteColor].CGColor);
+            CGContextSetLineWidth(cg, 2.2);
+            CGContextSetLineCap(cg, kCGLineCapRound);
+            for (NSInteger arm = 0; arm < 3; arm++) {
+                CGFloat angle = (CGFloat)arm * M_PI / 3.0;
+                CGContextMoveToPoint(cg, 18 - cos(angle) * 15, 18 - sin(angle) * 15);
+                CGContextAddLineToPoint(cg, 18 + cos(angle) * 15, 18 + sin(angle) * 15);
+            }
+            CGContextStrokePath(cg);
+        }];
+    });
+    return image;
+}
+
++ (UIImage *)snowDotImage {
+    static UIImage *image = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(16, 16)];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+            [[UIColor whiteColor] setFill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(2, 2, 12, 12)] fill];
+        }];
+    });
+    return image;
+}
+
++ (CAEmitterCell *)cellWithImage:(UIImage *)image color:(UIColor *)color birthRate:(float)birthRate scale:(CGFloat)scale spin:(CGFloat)spin velocity:(CGFloat)velocity {
+    CAEmitterCell *cell = [CAEmitterCell emitterCell];
+    cell.contents = (id)image.CGImage;
+    cell.color = color.CGColor;
+    cell.birthRate = birthRate;
+    cell.lifetime = 18.0;
+    cell.velocity = velocity;
+    cell.velocityRange = velocity * 0.5;
+    cell.emissionLongitude = M_PI_2; // straight down
+    cell.emissionRange = M_PI / 7.0;
+    cell.xAcceleration = 3.0;        // a slight drift
+    cell.spin = 0;
+    cell.spinRange = spin;
+    cell.scale = scale;
+    cell.scaleRange = scale * 0.5;
+    cell.alphaRange = 0.25;
+    return cell;
+}
+
+- (CAEmitterLayer *)newEmitterLayerForWidth:(CGFloat)width {
+    if (self.kind == EZCoinStoreSeasonKindNone) return nil;
+    CAEmitterLayer *emitter = [CAEmitterLayer layer];
+    emitter.emitterShape = kCAEmitterLayerLine;
+    emitter.emitterPosition = CGPointMake(width / 2.0, -14.0);
+    emitter.emitterSize = CGSizeMake(MAX(width, 1.0), 1.0);
+    if (self.kind == EZCoinStoreSeasonKindThanksgiving) {
+        emitter.emitterCells = @[
+            [EZCoinStoreSeason cellWithImage:[EZCoinStoreSeason leafImage] color:EZSeasonColor(0.95, 0.50, 0.10) birthRate:0.7 scale:0.55 spin:2.6 velocity:42],
+            [EZCoinStoreSeason cellWithImage:[EZCoinStoreSeason leafImage] color:EZSeasonColor(0.98, 0.76, 0.20) birthRate:0.6 scale:0.48 spin:2.2 velocity:38],
+            [EZCoinStoreSeason cellWithImage:[EZCoinStoreSeason leafImage] color:EZSeasonColor(0.74, 0.20, 0.14) birthRate:0.5 scale:0.52 spin:3.0 velocity:46],
+        ];
+    } else {
+        emitter.emitterCells = @[
+            [EZCoinStoreSeason cellWithImage:[EZCoinStoreSeason snowflakeImage] color:EZSeasonColor(0.92, 0.97, 1.0) birthRate:1.6 scale:0.42 spin:1.2 velocity:34],
+            [EZCoinStoreSeason cellWithImage:[EZCoinStoreSeason snowDotImage]   color:[UIColor whiteColor]             birthRate:3.2 scale:0.40 spin:0.0 velocity:28],
+        ];
+    }
+    return emitter;
+}
+
+@end
+
+// A plain view whose layer is a gradient, used for the seasonal tint behind the
+// table (backgroundView) so it follows bounds changes without manual layout.
+@interface EZCoinStoreTintView : UIView
+@end
+
+@implementation EZCoinStoreTintView
++ (Class)layerClass {
+    return [CAGradientLayer class];
+}
+@end
 
 // ── Store item model ──────────────────────────────────────────────────────────
 
@@ -314,6 +584,12 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 @property (nonatomic, copy)   NSString        *badgeText;      // e.g. "BEST VALUE" — nil for none
 
 @property (nonatomic, copy)   NSString        *badgeFootnoteText; // small disclaimer under badgeText — nil for none
+
+@property (nonatomic, assign) BOOL             isSaleItem;     // YES while a sale/promo restyles this card; seasonal accents leave it alone
+
+@property (nonatomic, assign) NSInteger        saleMultiplier; // server sale multiplier shown on this card (0 when none)
+
+@property (nonatomic, assign) NSInteger        saleBaseCoins;  // coins before the multiplier, for the "Normally N coins" line
 
 @end
 
@@ -507,13 +783,57 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.priceLabel.textColor = accentColor;
 
-    self.badgeLabel.hidden = YES;
+    // Light accents (silver, gold, harvest yellow) need dark text on the badge
+    // and the buy button; saturated ones keep white.
+    CGFloat accentRed = 0, accentGreen = 0, accentBlue = 0, accentAlpha = 0;
+
+    [accentColor getRed:&accentRed green:&accentGreen blue:&accentBlue alpha:&accentAlpha];
+
+    CGFloat accentLuminance = 0.299 * accentRed + 0.587 * accentGreen + 0.114 * accentBlue;
+
+    UIColor *onAccentColor = accentLuminance > 0.62 ? [EZTheme backgroundColor] : [UIColor whiteColor];
+
+    self.badgeLabel.textColor = onAccentColor;
+
+    [self.actionButton setTitleColor:onAccentColor forState:UIControlStateNormal];
+
+    // Badge ("5X COINS", "POPULAR", a plan status…) and its fine print. Both
+    // were previously hidden unconditionally, which made every sale and tier
+    // badge invisible; they now show whenever the item carries text.
+    if (item.badgeText.length > 0) {
+
+        self.badgeLabel.text            = item.badgeText;
+        self.badgeLabel.backgroundColor = accentColor;
+        self.badgeLabel.hidden          = NO;
+
+    } else {
+
+        self.badgeLabel.text   = nil;
+        self.badgeLabel.hidden = YES;
+
+    }
+
+    if (item.badgeText.length > 0 && item.badgeFootnoteText.length > 0) {
+
+        self.footnoteLabel.text   = item.badgeFootnoteText;
+        self.footnoteLabel.hidden = NO;
+
+    } else {
+
+        self.footnoteLabel.text   = nil;
+        self.footnoteLabel.hidden = YES;
+
+    }
+
+    [self setNeedsLayout];
 
     if (item.isCurrentPlan) {
 
         [self.actionButton setTitle:NSLocalizedString(@"EZCoinStore.CancelPlan", @"Cancel plan button title") forState:UIControlStateNormal];
 
         self.actionButton.backgroundColor = [UIColor systemRedColor];
+
+        [self.actionButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
 
         self.actionButton.enabled         = YES;
 
@@ -583,7 +903,12 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.badgeLabel.frame = CGRectMake(rightX, cellPadding + 42, rightColumnWidth, 30);
 
-    self.footnoteLabel.frame = CGRectMake(rightX, cellPadding + 74, rightColumnWidth, 48);
+    // The footnote fills whatever room is left above the purchase button, so
+    // short top-up cards get a line or two and the taller subscription cards
+    // (promo layout) get the full four lines — it never runs under the button.
+    CGFloat footnoteTop    = cellPadding + 74;
+    CGFloat footnoteHeight = MAX(0, MIN(48, actionTop - 6 - footnoteTop));
+    self.footnoteLabel.frame = CGRectMake(rightX, footnoteTop, rightColumnWidth, footnoteHeight);
 
     CGFloat buttonWidth  = cardWidth - cellPadding * 2;
 
@@ -656,6 +981,14 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 //@property (nonatomic, strong) NSTimer   *countdownTimer;         // Fires every second to tick the "Next: Xh Ym Xs" label
 
+// Seasonal theme + sale clock
+@property (nonatomic, strong) EZCoinStoreSeason *season;               // Theme currently presented; never nil after viewDidLoad
+@property (nonatomic, strong) UIView            *seasonOverlayView;    // Non-interactive layer above the table that hosts the emitter
+@property (nonatomic, strong) CAEmitterLayer    *seasonEmitterLayer;   // Falling leaves / snow; nil for no season or Reduce Motion
+@property (nonatomic, strong) UILabel           *saleCountdownLabel;   // "Ends in …" row of the sale banner; nil when no sale has an end time
+@property (nonatomic, strong) NSTimer           *storeClockTimer;      // 1 Hz: ticks the sale countdown and notices a season or sale rollover
+@property (nonatomic, strong) NSDate            *lastSaleRefreshDate;  // Throttles refreshStoreSale when a sale's end time has passed
+
 @end
 
 @implementation EZCoinStoreViewController
@@ -664,7 +997,9 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     [super viewDidLoad];
 
-    self.title = NSLocalizedString(@"EZCoinStore.Title", @"Coin store navigation title");
+    self.season = [EZCoinStoreSeason seasonForKind:[EZCoinStoreSeason currentKind]];
+
+    self.title = self.season.storeTitle ?: NSLocalizedString(@"EZCoinStore.Title", @"Coin store navigation title");
 
     self.view.backgroundColor = [EZTheme chatBackgroundColor];
 
@@ -713,6 +1048,15 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [self refreshBalance];
 
     [self addDailyCoinsButton];
+
+    // Show the web store button right away from the last URL the server gave
+    // us; refreshDailyCoinsStatus below confirms or clears it. TestFlight
+    // builds buy through this button, so it must not wait on the network.
+    NSString *cachedWebStoreURL = [[NSUserDefaults standardUserDefaults] stringForKey:kWebStoreURLCacheDefaultsKey];
+    if (cachedWebStoreURL.length > 0) {
+        self.webStoreURLString = cachedWebStoreURL;
+        [self updateWebStoreButton];
+    }
 
     [self refreshStoreSale];
 
@@ -778,6 +1122,15 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     }
 
+    // A season or sale may have rolled over while the store was off screen.
+    [self storeClockTicked];
+
+    [self startStoreClockTimer];
+
+    self.seasonEmitterLayer.birthRate = 1.0;
+
+    [self startWebStorePulse];
+
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -785,6 +1138,196 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [super viewWillDisappear:animated];
 
     [self stopCountdownTimer];
+
+    [self stopStoreClockTimer];
+
+    // Stop spawning particles while off screen (cells already falling finish).
+    self.seasonEmitterLayer.birthRate = 0.0;
+
+}
+
+- (void)dealloc {
+
+    [self.storeClockTimer invalidate];
+
+}
+
+// Keeps the emitter spanning the view when its width changes (rotation, split view).
+- (void)viewDidLayoutSubviews {
+
+    [super viewDidLayoutSubviews];
+
+    if (self.seasonEmitterLayer) {
+
+        CGFloat width = CGRectGetWidth(self.view.bounds);
+
+        self.seasonEmitterLayer.frame = self.view.bounds;
+        self.seasonEmitterLayer.emitterPosition = CGPointMake(width / 2.0, -14.0);
+        self.seasonEmitterLayer.emitterSize = CGSizeMake(MAX(width, 1.0), 1.0);
+
+    }
+
+}
+
+// ── Season + sale clock ───────────────────────────────────────────────────────
+
+- (void)startStoreClockTimer {
+
+    [self stopStoreClockTimer];
+
+    __weak typeof(self) weakSelf = self;
+
+    self.storeClockTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 repeats:YES block:^(NSTimer *timer) {
+
+        [weakSelf storeClockTicked];
+
+    }];
+
+}
+
+- (void)stopStoreClockTimer {
+
+    [self.storeClockTimer invalidate];
+
+    self.storeClockTimer = nil;
+
+}
+
+// Runs once a second while the store is on screen. Rebuilds the store when the
+// season has changed (midnight Eastern on Black Friday), re-checks the server
+// once a sale's end time passes (it may have been replaced by the next one),
+// and otherwise just ticks the banner countdown.
+- (void)storeClockTicked {
+
+    EZCoinStoreSeasonKind currentKind = [EZCoinStoreSeason currentKind];
+
+    if (currentKind != self.season.kind) {
+
+        self.season = [EZCoinStoreSeason seasonForKind:currentKind];
+
+        [self rebuildStorePresentation];
+
+        return;
+
+    }
+
+    NSDate *saleEndDate = dateFromISO8601String(self.activeSale[@"ends_at"]);
+
+    if (!saleEndDate) return;
+
+    NSDate *now = [NSDate date];
+
+    NSTimeInterval secondsRemaining = [saleEndDate timeIntervalSinceDate:now];
+
+    if (secondsRemaining <= 0) {
+
+        if (!self.lastSaleRefreshDate || [now timeIntervalSinceDate:self.lastSaleRefreshDate] >= 10.0) {
+
+            self.lastSaleRefreshDate = now;
+
+            [self refreshStoreSale];
+
+        }
+
+        return;
+
+    }
+
+    [self updateSaleCountdownLabelWithSecondsRemaining:secondsRemaining];
+
+}
+
+- (NSString *)compactDurationStringForSeconds:(NSTimeInterval)seconds {
+
+    NSInteger total   = MAX(0, (NSInteger)ceil(seconds));
+    NSInteger days    = total / 86400;
+    NSInteger hours   = (total % 86400) / 3600;
+    NSInteger minutes = (total % 3600) / 60;
+    NSInteger secs    = total % 60;
+
+    if (days > 0)  return [NSString stringWithFormat:@"%ldd %ldh %02ldm", (long)days, (long)hours, (long)minutes];
+    if (hours > 0) return [NSString stringWithFormat:@"%ldh %02ldm %02lds", (long)hours, (long)minutes, (long)secs];
+    return [NSString stringWithFormat:@"%ldm %02lds", (long)minutes, (long)secs];
+
+}
+
+- (void)updateSaleCountdownLabelWithSecondsRemaining:(NSTimeInterval)secondsRemaining {
+
+    if (!self.saleCountdownLabel) return;
+
+    NSString *format = NSLocalizedStringWithDefaultValue(@"EZCoinStore.Sale.EndsInFormat", nil, NSBundle.mainBundle, @"⏰ Ends in %@", @"Sale banner countdown; %@ is a duration like 5h 12m 03s");
+
+    self.saleCountdownLabel.text = [NSString stringWithFormat:format, [self compactDurationStringForSeconds:secondsRemaining]];
+
+}
+
+// Tears the table, header and particle layer down and builds them again for
+// the current season and sale. The web store button lives in the header, so
+// its state is reset here — otherwise updateWebStoreButton would believe the
+// (discarded) header still holds it and never put it back.
+- (void)rebuildStorePresentation {
+
+    [self.tableView removeFromSuperview];
+
+    [self.spinner removeFromSuperview];
+
+    [self.seasonOverlayView removeFromSuperview];
+
+    self.seasonOverlayView  = nil;
+    self.seasonEmitterLayer = nil;
+    self.saleCountdownLabel = nil;
+    self.tableView          = nil;
+    self.webStoreButton     = nil;
+    self.webStoreSlotVisible = NO;
+
+    self.title = self.season.storeTitle ?: NSLocalizedString(@"EZCoinStore.Title", @"Coin store navigation title");
+
+    [self buildItems];
+
+    [self setupUI];
+
+    [self updateWebStoreButton];
+
+    [self addDailyCoinsButton];
+
+    [self refreshDailyCoinsStatus];
+
+    [self refreshBalance];
+
+    self.seasonEmitterLayer.birthRate = 1.0;
+
+}
+
+// Falling leaves / snow above the table. Skipped for the no-season look and
+// whenever Reduce Motion is on.
+- (void)installSeasonOverlay {
+
+    [self.seasonOverlayView removeFromSuperview];
+
+    self.seasonOverlayView  = nil;
+    self.seasonEmitterLayer = nil;
+
+    if (self.season.kind == EZCoinStoreSeasonKindNone || UIAccessibilityIsReduceMotionEnabled()) return;
+
+    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
+
+    overlay.userInteractionEnabled = NO;
+    overlay.clipsToBounds          = YES;
+    overlay.autoresizingMask       = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    overlay.isAccessibilityElement = NO;
+
+    CAEmitterLayer *emitter = [self.season newEmitterLayerForWidth:CGRectGetWidth(overlay.bounds)];
+
+    if (!emitter) return;
+
+    emitter.frame = overlay.bounds;
+
+    [overlay.layer addSublayer:emitter];
+
+    [self.view insertSubview:overlay aboveSubview:self.tableView];
+
+    self.seasonOverlayView  = overlay;
+    self.seasonEmitterLayer = emitter;
 
 }
 
@@ -805,15 +1348,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         self.activeSale = sale;
         self.isPromoActive = (sale != nil);
 
-        [self.tableView removeFromSuperview];
-        [self.spinner removeFromSuperview];
-        self.tableView = nil;
-
-        [self buildItems];
-        [self setupUI];
-        [self addDailyCoinsButton];
-        [self refreshDailyCoinsStatus];
-        [self refreshBalance];
+        [self rebuildStorePresentation];
 
     });
 
@@ -870,9 +1405,19 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         if (multiplier > 1) {
 
-            item.badgeText   = [NSString stringWithFormat:@"%ldX COINS", (long)multiplier];
-            item.accentColor = [UIColor colorWithRed:1.0 green:0.13 blue:0.35 alpha:1.0]; // matches the promo color below
-            item.subtitle    = [self saleAdjustedSubtitleForItem:item multiplier:multiplier];
+            item.isSaleItem     = YES;
+            item.saleMultiplier = multiplier;
+            item.saleBaseCoins  = item.coins;
+            item.badgeText      = [NSString stringWithFormat:@"%ldX COINS", (long)multiplier];
+            item.accentColor    = [self saleAccentColor];
+            item.subtitle       = [self saleAdjustedSubtitleForItem:item multiplier:multiplier];
+
+            NSNumberFormatter *formatter = [NSNumberFormatter new];
+            formatter.numberStyle = NSNumberFormatterDecimalStyle;
+
+            NSString *normallyFormat = NSLocalizedStringWithDefaultValue(@"EZCoinStore.Sale.NormallyFormat", nil, NSBundle.mainBundle, @"Normally %@ coins", @"Sale card fine print; %@ is the pack's regular coin amount");
+
+            item.badgeFootnoteText = [NSString stringWithFormat:normallyFormat, [formatter stringFromNumber:@(item.coins)] ?: @""];
 
         }
 
@@ -880,9 +1425,42 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     }
 
+    item.isSaleItem  = YES;
+
     item.badgeText   = NSLocalizedString(@"EZCoinStore.Badge.Buy1Get1", @"Buy one get one promo badge");
 
-    item.accentColor = [UIColor colorWithRed:1.0 green:0.13 blue:0.35 alpha:1.0]; // hot pink/red — distinct from every other card color
+    item.accentColor = [self saleAccentColor]; // hot pink/red by default (or the season's sale color) — distinct from every other card color
+
+}
+
+// The color sale cards use: the season's sale color while a theme is active,
+// otherwise the original hot pink/red.
+- (UIColor *)saleAccentColor {
+
+    return self.season.saleAccentColor ?: [UIColor colorWithRed:1.0 green:0.13 blue:0.35 alpha:1.0];
+
+}
+
+// Cycles the season's accent palette over the cards that no sale or active
+// plan has already styled, one cycle per section so the two sections look alike.
+- (void)applySeasonAccentsToItems:(NSArray<EZStoreItem *> *)storeItems {
+
+    NSArray<UIColor *> *palette = self.season.tierAccentColors;
+
+    if (palette.count == 0) return;
+
+    NSUInteger subscriptionIndex = 0;
+    NSUInteger topUpIndex        = 0;
+
+    for (EZStoreItem *storeItem in storeItems) {
+
+        NSUInteger paletteIndex = (storeItem.type == EZStoreItemTypeSubscription) ? subscriptionIndex++ : topUpIndex++;
+
+        if (storeItem.isSaleItem || storeItem.isCurrentPlan) continue;
+
+        storeItem.accentColor = palette[paletteIndex % palette.count];
+
+    }
 
 }
 
@@ -898,17 +1476,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (item.isCurrentPlan) return;
 
-    // Server sale: the first billing period takes the multiplier (the
-
-    // webhook grants base + sale bonus on activation), so the card
-
-    // shows the same badge and multiplied coins line as a top-up. The
-
-    // first-period term lives in one fine-print line at the bottom of
-
-    // the store, not on the card. The sale replaces the promo below —
-
-    // the two never stack.
+    // Server sale: keep the regular recurring coin amount on the card.
+    // The multiplier applies only to the first billing period, not renewals;
+    // the badge and its footnote describe that one-time sale. The sale
+    // replaces the promo below — the two never stack.
     if (self.activeSale) {
 
         id multiplierValue = self.activeSale[@"multiplier"];
@@ -916,11 +1487,18 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         if (multiplier > 1) {
 
-            item.badgeText   = [NSString stringWithFormat:@"%ldX COINS", (long)multiplier];
+            item.isSaleItem     = YES;
+            item.saleMultiplier = multiplier;
+            item.saleBaseCoins  = item.coins;
+            item.badgeText      = [NSString stringWithFormat:@"%ldX COINS", (long)multiplier];
+            item.accentColor    = [self saleAccentColor]; // matches the top-up sale styling
 
-            item.accentColor = [UIColor colorWithRed:1.0 green:0.13 blue:0.35 alpha:1.0]; // matches the top-up sale styling
+            // Spell out the term on the card itself, not only in the footer:
+            // the server credits the multiplier on the first billing period
+            // (paypal-webhook, ACTIVATED events), never on renewals.
+            NSString *firstPeriodFormat = NSLocalizedStringWithDefaultValue(@"EZCoinStore.Sale.FirstPeriodCardFormat", nil, NSBundle.mainBundle, @"First billing period gets %ldX coins", @"Subscription sale card fine print; %ld is the sale multiplier");
 
-            item.subtitle    = [self saleAdjustedSubtitleForItem:item multiplier:multiplier];
+            item.badgeFootnoteText = [NSString stringWithFormat:firstPeriodFormat, (long)multiplier];
 
         }
 
@@ -930,11 +1508,13 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (!self.isPromoActive) return;
 
+    item.isSaleItem        = YES;
+
     item.badgeText         = [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.Promo.SubscriptionBadgeFormat", @"Subscription promo badge with bonus coins"), (long)item.coins];
 
     item.badgeFootnoteText = NSLocalizedString(@"EZCoinStore.Promo.SubscriptionFootnote", @"Subscription promo footnote");
 
-    item.accentColor       = [UIColor colorWithRed:1.0 green:0.13 blue:0.35 alpha:1.0]; // matches the top-up promo color
+    item.accentColor       = [self saleAccentColor]; // matches the top-up promo color
 
 }
 
@@ -1211,6 +1791,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     }
     self.items = [visible copy];
 
+    // Season colors go on after the sale styling above so a running sale
+    // keeps its own accent; only plain cards pick up the theme palette.
+    [self applySeasonAccentsToItems:visible];
+
     // The visible list is subscriptions first, then top-ups (build
     // order, kept by the filter). The table's two sections split the
     // list at this count, so the sections must be measured from the
@@ -1248,13 +1832,27 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     gradientLayer.frame  = self.promoBannerView.bounds;
 
-    gradientLayer.colors = @[
+    NSArray<UIColor *> *seasonBannerColors = self.season.bannerColors;
 
-        (id)[UIColor colorWithRed:1.0 green:0.15 blue:0.30 alpha:1.0].CGColor,
+    if (seasonBannerColors.count >= 2) {
 
-        (id)[UIColor colorWithRed:1.0 green:0.45 blue:0.05 alpha:1.0].CGColor,
+        NSMutableArray *seasonGradientColors = [NSMutableArray arrayWithCapacity:seasonBannerColors.count];
 
-    ];
+        for (UIColor *bannerColor in seasonBannerColors) [seasonGradientColors addObject:(id)bannerColor.CGColor];
+
+        gradientLayer.colors = seasonGradientColors;
+
+    } else {
+
+        gradientLayer.colors = @[
+
+            (id)[UIColor colorWithRed:1.0 green:0.15 blue:0.30 alpha:1.0].CGColor,
+
+            (id)[UIColor colorWithRed:1.0 green:0.45 blue:0.05 alpha:1.0].CGColor,
+
+        ];
+
+    }
 
     gradientLayer.startPoint = CGPointMake(0, 0.5);
 
@@ -1264,7 +1862,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     UILabel *headlineLabel = [[UILabel alloc]
 
-        initWithFrame:CGRectMake(12, 7, self.view.bounds.size.width - 24, 48)];
+        initWithFrame:CGRectMake(12, 6, self.view.bounds.size.width - 24, 44)];
 
     NSString *saleHeadline      = [self.activeSale[@"title"] isKindOfClass:[NSString class]] ? self.activeSale[@"title"] : nil;
     headlineLabel.text          = saleHeadline.length ? saleHeadline : NSLocalizedString(@"EZCoinStore.Promo.Headline", @"Promo banner headline");
@@ -1283,7 +1881,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     UILabel *subtextLabel = [[UILabel alloc]
 
-        initWithFrame:CGRectMake(12, 57, self.view.bounds.size.width - 24, 44)];
+        initWithFrame:CGRectMake(12, 50, self.view.bounds.size.width - 24, 40)];
 
     NSString *saleSubtext       = [self.activeSale[@"body"] isKindOfClass:[NSString class]] ? self.activeSale[@"body"] : nil;
     subtextLabel.text          = saleSubtext.length ? saleSubtext : NSLocalizedString(@"EZCoinStore.Promo.Subtitle", @"Promo banner subtitle");
@@ -1300,9 +1898,45 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     [self.promoBannerView addSubview:subtextLabel];
 
+    // Live "Ends in …" row, only when the sale carries an end time (the BOGO
+    // fallback promo has none). storeClockTicked keeps it current each second.
+    NSDate *saleEndDate = dateFromISO8601String(self.activeSale[@"ends_at"]);
+
+    self.saleCountdownLabel = nil;
+
+    if (saleEndDate) {
+
+        UILabel *countdownLabel = [[UILabel alloc]
+
+            initWithFrame:CGRectMake(12, 94, self.view.bounds.size.width - 24, 30)];
+
+        countdownLabel.font          = [UIFont monospacedDigitSystemFontOfSize:16 weight:UIFontWeightHeavy];
+
+        countdownLabel.textColor     = [UIColor whiteColor];
+
+        countdownLabel.textAlignment = NSTextAlignmentCenter;
+
+        countdownLabel.adjustsFontSizeToFitWidth = YES;
+
+        countdownLabel.minimumScaleFactor = 0.6;
+
+        countdownLabel.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.22];
+
+        countdownLabel.layer.cornerRadius = 15;
+
+        countdownLabel.layer.masksToBounds = YES;
+
+        [self.promoBannerView addSubview:countdownLabel];
+
+        self.saleCountdownLabel = countdownLabel;
+
+        [self updateSaleCountdownLabelWithSecondsRemaining:MAX(0, [saleEndDate timeIntervalSinceNow])];
+
+    }
+
     // Slow, gentle pulse — enough to catch the eye scrolling past, not
 
-    // frantic enough to look like a rendering glitch.
+    // frantic enough to look like a rendering glitch. Skipped under Reduce Motion.
 
     CABasicAnimation *pulseAnimation = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
 
@@ -1318,7 +1952,11 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     pulseAnimation.timingFunction     = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
 
-    [headlineLabel.layer addAnimation:pulseAnimation forKey:@"promoPulse"];
+    if (!UIAccessibilityIsReduceMotionEnabled()) {
+
+        [headlineLabel.layer addAnimation:pulseAnimation forKey:@"promoPulse"];
+
+    }
 
     return self.promoBannerView;
 
@@ -1341,7 +1979,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.headerView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, headerHeight)];
 
-    self.headerView.backgroundColor = [EZTheme cardColor];
+    self.headerView.backgroundColor = self.season.headerColor ?: [EZTheme cardColor];
 
     if (self.isPromoActive) {
 
@@ -1414,6 +2052,27 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         [self.usageLogButton.centerYAnchor constraintEqualToAnchor:self.headerView.topAnchor constant:kStoreControlsHeight / 2.0],
     ]];
 
+    // Seasonal greeting on the left of the controls row. It sits at y = 0 (above
+    // the 48 pt controls row boundary), so the web-button shift never moves it,
+    // and it stops short of the Usage Log button on the right.
+    if (self.season.greeting.length > 0) {
+
+        UILabel *greetingLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, MAX(0, self.view.bounds.size.width - 16 - 150), kStoreControlsHeight)];
+
+        greetingLabel.text      = self.season.greeting;
+
+        greetingLabel.font      = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
+
+        greetingLabel.textColor = self.season.sectionHeaderColor ?: [UIColor whiteColor];
+
+        greetingLabel.adjustsFontSizeToFitWidth = YES;
+
+        greetingLabel.minimumScaleFactor = 0.6;
+
+        [self.headerView addSubview:greetingLabel];
+
+    }
+
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
 
     self.tableView.delegate         = self;
@@ -1421,6 +2080,26 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     self.tableView.dataSource       = self;
 
     self.tableView.backgroundColor  = [EZTheme chatBackgroundColor];
+
+    // A soft seasonal wash fading down from the top, over the doodle pattern.
+    if (self.season.backgroundTintColor) {
+
+        EZCoinStoreTintView *tintView = [[EZCoinStoreTintView alloc] init];
+
+        CAGradientLayer *tintGradient = (CAGradientLayer *)tintView.layer;
+
+        tintGradient.colors     = @[(id)[self.season.backgroundTintColor colorWithAlphaComponent:0.30].CGColor,
+                                    (id)[self.season.backgroundTintColor colorWithAlphaComponent:0.0].CGColor];
+
+        tintGradient.startPoint = CGPointMake(0.5, 0.0);
+
+        tintGradient.endPoint   = CGPointMake(0.5, 0.75);
+
+        tintView.userInteractionEnabled = NO;
+
+        self.tableView.backgroundView = tintView;
+
+    }
 
     self.tableView.separatorStyle   = UITableViewCellSeparatorStyleNone;
 
@@ -1462,6 +2141,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     self.spinner.hidesWhenStopped = YES;
 
     [self.view addSubview:self.spinner];
+
+    [self installSeasonOverlay];
 
 }
 
@@ -1548,7 +2229,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     sectionTitleLabel.font                    = [UIFont boldSystemFontOfSize:11];
 
-    sectionTitleLabel.textColor               = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.8];
+    sectionTitleLabel.textColor               = self.season.sectionHeaderColor ?: [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.8];
 
     sectionTitleLabel.adjustsFontSizeToFitWidth = YES;
 
@@ -1556,7 +2237,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     UIView *goldDividerLine = [[UIView alloc] initWithFrame:CGRectMake(20, 30, tableView.bounds.size.width - 40, 0.5)];
 
-    goldDividerLine.backgroundColor = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.3];
+    goldDividerLine.backgroundColor = self.season.sectionHeaderColor ? [self.season.sectionHeaderColor colorWithAlphaComponent:0.35] : [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.3];
 
     [sectionHeaderView addSubview:goldDividerLine];
 
@@ -1948,6 +2629,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
             self.webStoreURLString = jsonString(json, @"web_store_url");
 
+            [self persistWebStoreURL];
+
             [self updateWebStoreButton];
 
             if (self.isDailyCoinsAvailable) {
@@ -1982,21 +2665,32 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         self.webStoreButton = [UIButton buttonWithType:UIButtonTypeCustom];
 
-        [self.webStoreButton setTitle:@"Buy coins on our website" forState:UIControlStateNormal];
+        // The hero of the store: TestFlight builds can only buy through the
+        // website, and sideloaded builds get the sale here too. Two lines —
+        // the call to action, and while a sale runs, what it is worth.
+        [self.webStoreButton setAttributedTitle:[self webStoreButtonTitle] forState:UIControlStateNormal];
 
-        self.webStoreButton.titleLabel.font = [UIFont systemFontOfSize:18.0 weight:UIFontWeightBold];
+        self.webStoreButton.titleLabel.numberOfLines = 2;
+
+        self.webStoreButton.titleLabel.textAlignment = NSTextAlignmentCenter;
 
         self.webStoreButton.titleLabel.adjustsFontSizeToFitWidth = YES;
 
-        self.webStoreButton.titleLabel.minimumScaleFactor = 0.7;
+        self.webStoreButton.titleLabel.minimumScaleFactor = 0.6;
 
-        [self.webStoreButton setTitleColor:[EZTheme backgroundColor] forState:UIControlStateNormal];
+        self.webStoreButton.contentEdgeInsets = UIEdgeInsetsMake(6, 18, 6, 18);
 
         [self.webStoreButton setBackgroundImage:[EZTheme primaryGradientImage] forState:UIControlStateNormal];
 
-        self.webStoreButton.layer.cornerRadius = 29.0;
+        self.webStoreButton.layer.cornerRadius = kWebStoreButtonHeight / 2.0;
+
+        self.webStoreButton.layer.borderWidth = 2.5;
+
+        self.webStoreButton.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.65].CGColor;
 
         self.webStoreButton.layer.masksToBounds = YES;
+
+        self.webStoreButton.accessibilityHint = NSLocalizedStringWithDefaultValue(@"EZCoinStore.WebStore.Hint", nil, NSBundle.mainBundle, @"Opens the EZ Coin web store in Safari", @"Accessibility hint for the web store button");
 
         [self.webStoreButton addTarget:self
 
@@ -2036,7 +2730,9 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         [self.headerView addSubview:self.webStoreButton];
 
-        self.webStoreButton.frame = CGRectMake(16, 48.0 + 12.0, self.headerView.bounds.size.width - 32, 58);
+        self.webStoreButton.frame = CGRectMake(16, 48.0 + 12.0, self.headerView.bounds.size.width - 32, kWebStoreButtonHeight);
+
+        [self startWebStorePulse];
 
     } else {
 
@@ -2048,7 +2744,92 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     self.tableView.tableHeaderView = self.headerView;
 
-    self.tableView.tableFooterView = nil;
+    // There is no footer button anymore, but a running sale keeps its
+    // fine-print footer (set in setupUI) — only clear it when there is none.
+    if (!self.activeSale) self.tableView.tableFooterView = nil;
+
+}
+
+// Headline plus, while a server sale is live, one line saying what it is worth.
+- (NSAttributedString *)webStoreButtonTitle {
+
+    NSMutableParagraphStyle *paragraph = [[NSMutableParagraphStyle alloc] init];
+
+    paragraph.alignment = NSTextAlignmentCenter;
+
+    UIColor *textColor = [EZTheme backgroundColor];
+
+    NSString *headline = NSLocalizedStringWithDefaultValue(@"EZCoinStore.WebStore.Title", nil, NSBundle.mainBundle, @"Buy coins on our website", @"Web store button headline");
+
+    NSMutableAttributedString *title = [[NSMutableAttributedString alloc] initWithString:headline attributes:@{
+
+        NSFontAttributeName:            [UIFont systemFontOfSize:21.0 weight:UIFontWeightHeavy],
+        NSForegroundColorAttributeName: textColor,
+        NSParagraphStyleAttributeName:  paragraph,
+
+    }];
+
+    id multiplierValue = self.activeSale[@"multiplier"];
+
+    NSInteger multiplier = [multiplierValue respondsToSelector:@selector(integerValue)] ? [multiplierValue integerValue] : 1;
+
+    if (multiplier > 1) {
+
+        NSString *saleFormat = NSLocalizedStringWithDefaultValue(@"EZCoinStore.WebStore.SaleLineFormat", nil, NSBundle.mainBundle, @"%ldX COINS on every pack + your first subscription period", @"Second line of the web store button during a sale; %ld is the multiplier");
+
+        NSString *saleLine = [@"\n" stringByAppendingString:[NSString stringWithFormat:saleFormat, (long)multiplier]];
+
+        [title appendAttributedString:[[NSAttributedString alloc] initWithString:saleLine attributes:@{
+
+            NSFontAttributeName:            [UIFont systemFontOfSize:13.0 weight:UIFontWeightBold],
+            NSForegroundColorAttributeName: textColor,
+            NSParagraphStyleAttributeName:  paragraph,
+
+        }]];
+
+    }
+
+    return title;
+
+}
+
+// Slow scale pulse so the button keeps drawing the eye. Core Animation drops
+// running animations when the view leaves the window, so viewWillAppear calls
+// this again. Skipped under Reduce Motion.
+- (void)startWebStorePulse {
+
+    [self.webStoreButton.layer removeAnimationForKey:@"webStorePulse"];
+
+    if (!self.webStoreButton || UIAccessibilityIsReduceMotionEnabled()) return;
+
+    CABasicAnimation *pulse = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+
+    pulse.fromValue      = @1.0;
+    pulse.toValue        = @1.025;
+    pulse.duration       = 1.1;
+    pulse.autoreverses   = YES;
+    pulse.repeatCount    = HUGE_VALF;
+    pulse.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+
+    [self.webStoreButton.layer addAnimation:pulse forKey:@"webStorePulse"];
+
+}
+
+// Remembers the URL the server last gave us (or forgets it when the server
+// stops sending one) so the button can show before the next status answer.
+- (void)persistWebStoreURL {
+
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+
+    if (self.webStoreURLString.length > 0) {
+
+        [defaults setObject:self.webStoreURLString forKey:kWebStoreURLCacheDefaultsKey];
+
+    } else {
+
+        [defaults removeObjectForKey:kWebStoreURLCacheDefaultsKey];
+
+    }
 
 }
 
@@ -2058,7 +2839,9 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     NSURL *url = [NSURL URLWithString:self.webStoreURLString];
 
-    if (!url) return;
+    // SFSafariViewController raises an exception for anything but http(s);
+    // the URL comes from the network, so check before presenting.
+    if (!url || !([url.scheme caseInsensitiveCompare:@"https"] == NSOrderedSame || [url.scheme caseInsensitiveCompare:@"http"] == NSOrderedSame)) return;
 
     SFSafariViewController *safari = [[SFSafariViewController alloc]
 
