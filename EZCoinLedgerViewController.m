@@ -306,8 +306,13 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
 
     _featureLabel   = makeLabel(13, UIFontWeightBold,    EZGold(),                              1);
     _modelLabel     = makeLabel(11, UIFontWeightRegular, EZMuted(),                             1);
-    _userEmailLabel = makeLabel(13, UIFontWeightMedium,  [UIColor systemBlueColor],              1);
+    _userEmailLabel = makeLabel(13, UIFontWeightMedium,  [UIColor systemBlueColor],              2);
     _userEmailLabel.userInteractionEnabled = YES;
+    // The email gets its own full-width row (see layoutSubviews) at full
+    // size: no shrink-to-fit, and a long address wraps mid-string onto the
+    // second line instead of truncating or shrinking to unreadable.
+    _userEmailLabel.adjustsFontSizeToFitWidth = NO;
+    _userEmailLabel.lineBreakMode = NSLineBreakByCharWrapping;
 
     // Single tap copies just the email address; double tap opens the mailto
     // compose sheet (existing behavior). The single-tap recognizer must wait
@@ -719,10 +724,15 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     _timeLabel.frame    = CGRectMake(cardWidth - 158, y, 146, 18);
     y += 22;
 
-    // Row 2: model (left) + user email (right)
-    _modelLabel.frame     = CGRectMake(x, y, cardWidth * 0.45, 14);
-    _userEmailLabel.frame = CGRectMake(cardWidth - 190, y, 178, 18);
+    // Row 2: model, now full width — the email moved to its own row below
+    _modelLabel.frame     = CGRectMake(x, y, cardWidth - x * 2, 14);
     y += 16;
+
+    // Row 2b: the account email on its own full-width row, up to two lines
+    // at full 13pt. Only the admin sees this screen; if the address can't
+    // be read, the field is pointless.
+    _userEmailLabel.frame = CGRectMake(x, y, cardWidth - x * 2, 32);
+    y += 36;
 
     // Row 3: status text (left, unused space next to the right-aligned IP
     // label) + IP address (right-aligned). Same size/color bump as the
@@ -772,8 +782,8 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     _balanceLabel.frame = CGRectMake(rightColumnX, bottomRowY, rightColumnWidth, 20);
 }
 
-+ (CGFloat)rowHeight { return 290; }
-+ (CGFloat)rowHeightForRow:(NSDictionary *)row { return [row[@"feature"] isEqual:@"brainrot_penny_slots"] ? 374 : [self rowHeight]; }
++ (CGFloat)rowHeight { return 310; }
++ (CGFloat)rowHeightForRow:(NSDictionary *)row { return [row[@"feature"] isEqual:@"brainrot_penny_slots"] ? 394 : [self rowHeight]; }
 
 @end
 
@@ -800,6 +810,9 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     UILabel *_totalCallsLabel;
     UILabel *_totalImagesLabel;
     UILabel *_totalTokensLabel;
+    UILabel *_totalUsersLabel;       // registered accounts (global, unfiltered)
+    UILabel *_purchasesTitleLabel;
+    UILabel *_recentPurchasesLabel;  // five most recent purchases (global, unfiltered)
     NSInteger _lastTotalCalls;    // preserved so setFilterDescription:nil can restore the default subtitle
 }
 
@@ -833,6 +846,13 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     _totalImagesLabel= makeLabel(12, UIFontWeightMedium,  [UIColor colorWithWhite:0.75 alpha:1], NSTextAlignmentCenter);
     _totalTokensLabel= makeLabel(12, UIFontWeightMedium,  [UIColor colorWithWhite:0.75 alpha:1], NSTextAlignmentCenter);
 
+    _totalUsersLabel     = makeLabel(15, UIFontWeightSemibold, [UIColor whiteColor],                 NSTextAlignmentCenter);
+    _purchasesTitleLabel = makeLabel(12, UIFontWeightSemibold, EZMuted(),                            NSTextAlignmentCenter);
+    _purchasesTitleLabel.text = @"Recent purchases";
+    _recentPurchasesLabel = makeLabel(12, UIFontWeightRegular, [UIColor colorWithWhite:0.85 alpha:1], NSTextAlignmentLeft);
+    _recentPurchasesLabel.numberOfLines = 6;
+    _recentPurchasesLabel.adjustsFontSizeToFitWidth = NO;
+
     _driftLabel.hidden = YES;   // shown only when ledger and live balances disagree
 
     // Gold divider line (above the per-call stats)
@@ -846,6 +866,12 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     circulationDivider.backgroundColor = [[EZTheme goldColor] colorWithAlphaComponent:0.15];
     circulationDivider.tag = 100;
     [self addSubview:circulationDivider];
+
+    // Third divider, above the recent purchases list
+    UIView *purchasesDivider = [UIView new];
+    purchasesDivider.backgroundColor = [[EZTheme goldColor] colorWithAlphaComponent:0.15];
+    purchasesDivider.tag = 101;
+    [self addSubview:purchasesDivider];
 
     return self;
 }
@@ -920,6 +946,51 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
         _driftLabel.hidden = YES;
         _driftLabel.text   = @"";
     }
+
+    // Registered accounts — global and unfiltered, like circulation above.
+    if (aggregate[@"total_users"]) {
+        _totalUsersLabel.hidden = NO;
+        _totalUsersLabel.text = [NSString stringWithFormat:@"👥 %@ total users",
+                                 formattedCoinCount([aggregate[@"total_users"] integerValue])];
+    } else {
+        _totalUsersLabel.hidden = YES;
+    }
+
+    // The five most recent purchases (top-ups and subscription grants),
+    // newest first, from the server's recent_purchases block.
+    NSArray *purchases = [aggregate[@"recent_purchases"] isKindOfClass:NSArray.class]
+        ? aggregate[@"recent_purchases"] : @[];
+    if (purchases.count) {
+        NSISO8601DateFormatter *parser = [NSISO8601DateFormatter new];
+        parser.formatOptions = NSISO8601DateFormatWithInternetDateTime | NSISO8601DateFormatWithFractionalSeconds;
+        NSDateFormatter *printer = [NSDateFormatter new];
+        printer.dateFormat = @"MMM d, h:mm a";
+        NSMutableArray<NSString *> *lines = [NSMutableArray array];
+        for (NSDictionary *purchase in purchases) {
+            if (![purchase isKindOfClass:NSDictionary.class]) continue;
+            NSString *email = [purchase[@"email"] isKindOfClass:NSString.class] ? purchase[@"email"] : @"";
+            NSString *what = @"Top-up";
+            if ([purchase[@"feature"] isEqual:@"subscription_renewal"]) {
+                NSString *desc = [purchase[@"description"] isKindOfClass:NSString.class] ? purchase[@"description"] : @"";
+                NSRange planMark = [desc rangeOfString:@" plan —"];
+                what = (planMark.location != NSNotFound && planMark.location > 0)
+                    ? [desc substringToIndex:planMark.location] : @"Subscription";
+            }
+            NSString *stamp = [purchase[@"created_at"] isKindOfClass:NSString.class] ? purchase[@"created_at"] : @"";
+            NSDate *when = [parser dateFromString:stamp];
+            if (!when) {
+                parser.formatOptions = NSISO8601DateFormatWithInternetDateTime;
+                when = [parser dateFromString:stamp];
+            }
+            [lines addObject:[NSString stringWithFormat:@"%@ — %@ coins · %@ · %@",
+                              email.length ? email : @"(unknown)",
+                              formattedCoinCount([purchase[@"amount"] integerValue]),
+                              what, when ? [printer stringFromDate:when] : @""]];
+        }
+        _recentPurchasesLabel.text = [lines componentsJoinedByString:@"\n"];
+    } else {
+        _recentPurchasesLabel.text = @"No purchases yet";
+    }
 }
 
 // Updates the subtitle to show which filter is currently active.
@@ -952,16 +1023,24 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     _circulationLabel.frame = CGRectMake(0, 150, viewWidth, 22);
     _driftLabel.frame       = CGRectMake(padding, 172, viewWidth - padding * 2, 14);
 
+    _totalUsersLabel.frame = CGRectMake(0, 190, viewWidth, 22);
+
     CGFloat columnWidth = viewWidth / 5;
     NSArray *statLabels = @[_totalCoinsLabel, _totalCostLabel, _totalCallsLabel,
                             _totalImagesLabel, _totalTokensLabel];
     for (NSInteger i = 0; i < (NSInteger)statLabels.count; i++) {
         ((UILabel *)statLabels[(NSUInteger)i]).frame =
-            CGRectMake(columnWidth * i, 190, columnWidth, 36);
+            CGRectMake(columnWidth * i, 218, columnWidth, 36);
     }
+
+    UIView *purchasesDivider = [self viewWithTag:101];
+    purchasesDivider.frame = CGRectMake(padding * 2, 262, viewWidth - padding * 4, 0.5);
+
+    _purchasesTitleLabel.frame  = CGRectMake(0, 268, viewWidth, 16);
+    _recentPurchasesLabel.frame = CGRectMake(padding, 288, viewWidth - padding * 2, 92);
 }
 
-+ (CGFloat)height { return 234; }
++ (CGFloat)height { return 388; }
 
 @end
 
