@@ -9343,12 +9343,12 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
 }
 
 - (void)performChatMusicRequest:(NSDictionary *)musicRequest {
-    // One free song, same rule as the AI Music screen: a never-purchased
-    // user who already has a finished song hits the paywall instead of
+    // Two free songs, same rule as the AI Music screen: a never-purchased
+    // user who already has two finished songs hits the paywall instead of
     // starting another. Refresh the purchase flag before denying so a
     // just-completed purchase is never blocked by a stale cached flag.
     if (![EZEntitlementManager shared].hasEverPurchased &&
-        [EZMusicLibraryManager sharedManager].createdSongCount >= 1) {
+        [EZMusicLibraryManager sharedManager].createdSongCount >= 2) {
         __weak typeof(self) weakSelf = self;
         [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:^(__unused BOOL refreshed, __unused NSInteger balance) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -9358,7 +9358,7 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
                     [strongSelf performChatMusicRequest:musicRequest];
                     return;
                 }
-                [strongSelf appendToChat:@"[System: You've made your free song. Song creation needs a purchase — any purchase unlocks it.]"];
+                [strongSelf appendToChat:@"[System: You've made your free songs. Song creation needs a purchase — any purchase unlocks it.]"];
                 [strongSelf showSongPurchaseRequiredAlert];
             });
         }];

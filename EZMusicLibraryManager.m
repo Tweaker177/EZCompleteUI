@@ -22,6 +22,7 @@
 
 #import "EZMusicLibraryManager.h"
 #import "EZMusicArtworkService.h"
+#import "EZAuthManager.h"
 #import <AVFoundation/AVFoundation.h>
 @interface EZMusicLibraryManager ()
 @property (nonatomic, strong) NSURL *libraryRootURL, *songsURL, *referencesURL, *stagingURL, *manifestURL;
@@ -168,9 +169,51 @@ static NSString * const kEZMusicSubmittedLyricsKey = @"EZMusicSubmittedLyricsByG
 
 static NSString * const kEZMusicCreatedSongCountKey = @"EZMusicCreatedSongCount";
 
+// The signed-in account's id, or empty when signed out. The free-song
+// count is per account, never per device: songs another account made on
+// this phone must not paywall this account's first song.
+- (NSString *)currentAccountID {
+    NSString *userId = [EZAuthManager shared].userId;
+    return [userId isKindOfClass:NSString.class] ? userId : @"";
+}
+
+- (NSString *)createdSongCountKeyForCurrentAccount {
+    NSString *accountID = [self currentAccountID];
+    if (accountID.length == 0) return kEZMusicCreatedSongCountKey;
+    return [kEZMusicCreatedSongCountKey stringByAppendingFormat:@"_%@", accountID];
+}
+
+// Generations this account actually finished, counted from the songs on
+// the device: the versions of one generation count as one song, and songs
+// another account archived here don't count. Items saved before the
+// account stamp existed carry no account id and are left out — a
+// never-purchased user who already used the free song before this fix
+// gets one more free song, once, instead of a fresh account inheriting
+// someone else's count.
+- (NSInteger)localCreatedSongGenerationCount {
+    NSString *accountID = [self currentAccountID];
+    __block NSMutableSet<NSString *> *generations = [NSMutableSet set];
+    dispatch_sync(self.queue, ^{
+        for (NSDictionary *item in self.items) {
+            if (![item[@"kind"] isEqual:@"song"]) continue;
+            NSString *entryID = [item[@"entry_id"] isKindOfClass:NSString.class] ? item[@"entry_id"] : @"";
+            NSString *path = [item[@"path"] isKindOfClass:NSString.class] ? item[@"path"] : @"";
+            NSURL *url = path.length ? [self.libraryRootURL URLByAppendingPathComponent:path] : nil;
+            if (!entryID.length || !url || ![NSFileManager.defaultManager fileExistsAtPath:url.path]) continue;
+            if (accountID.length > 0) {
+                NSString *itemAccountID = [item[@"account_id"] isKindOfClass:NSString.class] ? item[@"account_id"] : @"";
+                if (![itemAccountID isEqualToString:accountID]) continue;
+            }
+            NSString *generationID = [item[@"generation_id"] isKindOfClass:NSString.class] ? item[@"generation_id"] : @"";
+            [generations addObject:generationID.length ? generationID : entryID];
+        }
+    });
+    return (NSInteger)generations.count;
+}
+
 - (NSInteger)createdSongCount {
-    NSInteger stored = [[NSUserDefaults standardUserDefaults] integerForKey:kEZMusicCreatedSongCountKey];
-    return MAX(stored, (NSInteger)[self localSongEntryIDs].count);
+    NSInteger stored = [[NSUserDefaults standardUserDefaults] integerForKey:[self createdSongCountKeyForCurrentAccount]];
+    return MAX(stored, [self localCreatedSongGenerationCount]);
 }
 
 - (NSArray<NSString *> *)localSongEntryIDs {
@@ -342,7 +385,9 @@ static NSString * const kEZMusicCreatedSongCountKey = @"EZMusicCreatedSongCount"
             if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, archiveError ?: [NSError errorWithDomain:@"EZMusicLibrary" code:3 userInfo:@{NSLocalizedDescriptionKey: @"Couldn’t save the downloaded song."}]); });
             return;
         }
+        NSString *accountID = [self currentAccountID];
         NSMutableDictionary *record = [@{ @"kind": @"song", @"entry_id": entryID, @"path": path,
+            @"account_id": accountID,
             @"format": @"mp3", @"title": songTitle,
             @"prompt": [entryCopy[@"prompt"] isKindOfClass:NSString.class] ? entryCopy[@"prompt"] : @"",
             @"style": EZMusicStyleLabel([entryCopy[@"prompt"] isKindOfClass:NSString.class] ? entryCopy[@"prompt"] : @""),
@@ -354,6 +399,17 @@ static NSString * const kEZMusicCreatedSongCountKey = @"EZMusicCreatedSongCount"
             @"duration_ms": [entryCopy[@"duration_actual_ms"] isKindOfClass:NSNumber.class] ? entryCopy[@"duration_actual_ms"] : @0,
             @"archived_at": @([[NSDate date] timeIntervalSince1970]) } mutableCopy];
         BOOL isNewSong = (existingIndex == NSNotFound);
+        // Count generations, not versions: the versions of one generation
+        // are one song, so only the first version to land advances the
+        // free-song count. A re-archive of the same entry never does.
+        NSString *generationID = [entryCopy[@"generation_id"] isKindOfClass:NSString.class] ? entryCopy[@"generation_id"] : @"";
+        BOOL isNewGeneration = isNewSong;
+        if (generationID.length > 0) {
+            isNewGeneration = YES;
+            for (NSDictionary *item in self.items) {
+                if ([item[@"kind"] isEqual:@"song"] && [item[@"generation_id"] isEqual:generationID]) { isNewGeneration = NO; break; }
+            }
+        }
         if (isNewSong) [self.items addObject:record]; else self.items[existingIndex] = record;
         [self persist];
         if (oldPath.length && ![oldPath isEqual:path]) {
@@ -361,13 +417,13 @@ static NSString * const kEZMusicCreatedSongCountKey = @"EZMusicCreatedSongCount"
             // file is superseded by the copy just made.
             [NSFileManager.defaultManager removeItemAtURL:[self.libraryRootURL URLByAppendingPathComponent:oldPath] error:nil];
         }
-        if (isNewSong) {
+        if (isNewGeneration) {
             // Count every song the user actually ends up with — this drives
-            // the one-free-song paywall (see createdSongCount). Deleting the
+            // the free-song paywall (see createdSongCount). Deleting the
             // song later does not refund the free creation.
             NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-            [defaults setInteger:[defaults integerForKey:kEZMusicCreatedSongCountKey] + 1
-                          forKey:kEZMusicCreatedSongCountKey];
+            NSString *countKey = [self createdSongCountKeyForCurrentAccount];
+            [defaults setInteger:[defaults integerForKey:countKey] + 1 forKey:countKey];
         }
         // The song is safely on the device; now start its cover art. The service
         // skips songs that already have a cover, so re-saving is harmless.

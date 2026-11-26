@@ -101,7 +101,9 @@ static const NSUInteger kPromptCharacterLimit   = 2000;
 static const NSUInteger kTitleCharacterLimit    = 120;
 static const NSInteger  kDurationStepSeconds    = 5;
 static const NSInteger  kDefaultDurationSeconds = 60;
-static const NSInteger  kMaxVariantChoices      = 5;
+// Versions top out at 2: a 3-version pick costs more than it is worth
+// and would blow past the two-song free allowance in one generation.
+static const NSInteger  kMaxVariantChoices      = 2;
 
 // How many following library songs are put in the shared player's Up Next list.
 static const NSUInteger kEZMusicUpNextLimit = 50;
@@ -1608,7 +1610,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [stack setCustomSpacing:16 afterView:self.durationSlider];
     [stack addArrangedSubview:variantHeader];
 
-    self.variantControl = [[UISegmentedControl alloc] initWithItems:@[@"1", @"2", @"3"]];
+    self.variantControl = [[UISegmentedControl alloc] initWithItems:@[@"1", @"2"]];
     self.variantControl.backgroundColor = [EZTheme cardColor];
     self.variantControl.selectedSegmentTintColor = [EZTheme goldColor];
     [self.variantControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme secondaryTextColor]} forState:UIControlStateNormal];
@@ -2452,12 +2454,12 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         return;
     }
 
-    // One free song: a never-purchased user who already has a finished song
-    // hits the paywall before another creation starts. Refresh the purchase
+    // Two free songs: a never-purchased user who already has two finished
+    // songs hits the paywall before another creation starts. Refresh the purchase
     // flag before denying — a purchase may have landed since it was cached
     // (same pattern as the model picker's purchase gate).
     if (![EZEntitlementManager shared].hasEverPurchased &&
-        [EZMusicLibraryManager sharedManager].createdSongCount >= 1) {
+        [EZMusicLibraryManager sharedManager].createdSongCount >= 2) {
         __weak typeof(self) weakSelf = self;
         [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:^(__unused BOOL refreshed, __unused NSInteger balance) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -2592,7 +2594,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 - (void)presentSongCreationPaywall {
     __weak typeof(self) weakSelf = self;
     [self presentMusicDialogWithTitle:EZMusicText(@"EZMusic.Paywall.CreateTitle", @"Purchase Required")
-                              message:EZMusicText(@"EZMusic.Paywall.CreateMessage", @"You've made your free song. Any purchase unlocks unlimited song creation.")
+                              message:EZMusicText(@"EZMusic.Paywall.CreateMessage", @"You've made your free songs. Any purchase unlocks unlimited song creation.")
                        primaryTitle:EZMusicText(@"EZMusic.Paywall.ViewStore", @"View Store")
                      primaryHandler:^{ [weakSelf presentCoinStore]; }];
 }
