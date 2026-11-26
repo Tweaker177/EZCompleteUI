@@ -433,6 +433,7 @@ static const NSInteger kMaxManifestAttempts = 8;
 @property (nonatomic, strong) BRBlackjackAnnouncer *announcer;
 @property (nonatomic, strong) NSDictionary *pendingResponse;
 @property (nonatomic, strong) NSMutableSet<NSNumber *> *stiffHitSeats; // seats that hit on 12-20 this round (for the well-played calls)
+@property (nonatomic, strong) NSMutableSet<NSNumber *> *hardHitSeats; // seats that hit on 16+ this round (for the close-push call)
 @property (nonatomic) BOOL skipNextAnnouncements;           // set after time away so old events aren't replayed
 @end
 
@@ -1809,6 +1810,7 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
 
     if ([newPhase isEqualToString:@"betting"] && ![oldPhase isEqualToString:@"betting"]) {
         [self.stiffHitSeats removeAllObjects];
+        [self.hardHitSeats removeAllObjects];
         if (seated) [self queueCall:calls keys:@[@"place_bets"] caption:BRBlackjackSpeech(@"BRBlackjack.Speech.PlaceBets", @"Place your bets")];
     }
 
@@ -1866,6 +1868,10 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
                 if (!self.stiffHitSeats) self.stiffHitSeats = [NSMutableSet set];
                 [self.stiffHitSeats addObject:@(BRBlackjackInt(seat[@"seat_no"]))];
             }
+            if (hitFrom >= 16) {
+                if (!self.hardHitSeats) self.hardHitSeats = [NSMutableSet set];
+                [self.hardHitSeats addObject:@(BRBlackjackInt(seat[@"seat_no"]))];
+            }
             BOOL natural = [BRBlackjackString(seat[@"status"]) isEqualToString:@"blackjack"] && newCount == 2;
             [self queueHandCall:calls seat:seat hand:seat isNatural:natural withSpeaker:YES];
         }
@@ -1921,6 +1927,41 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
                     caption:[NSString stringWithFormat:BRBlackjackSpeech(@"BRBlackjack.Speech.DealerHasFormat", @"Dealer has %ld"), (long)dealerTotal]];
         }
 
+        // Situational lines for my own hand: how it was played, not
+        // just how it ended. One at most, and it takes the place of a
+        // well-played compliment for my seat when both would fit.
+        NSDictionary *mySeat = nil;
+        for (NSDictionary *rawSeat in BRBlackjackArray(newView[@"seats"])) {
+            NSDictionary *seat = BRBlackjackDict(rawSeat);
+            if (BRBlackjackBool(seat[@"is_me"])) { mySeat = seat; break; }
+        }
+        BOOL situationalQuipped = NO;
+        if (mySeat && BRBlackjackDict(mySeat[@"hand2"]).count == 0 && [self totalBetForSeat:mySeat] > 0) {
+            NSString *myResult = BRBlackjackString(mySeat[@"result"]);
+            if ([myResult isEqualToString:@"push"] && [self.hardHitSeats containsObject:@(BRBlackjackInt(mySeat[@"seat_no"]))]) {
+                // Hit on sixteen or more and still only pushed.
+                [self queueCall:calls keys:@[@"pushclose_quip1"] caption:BRBlackjackSpeech(@"BRBlackjack.Speech.PushCloseQuip1", @"Well, that one was close.")];
+                situationalQuipped = YES;
+            } else if ([myResult isEqualToString:@"push"]) {
+                NSArray<NSDictionary *> *pool = @[
+                    @{ @"keys": @[@"push_quip1"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.PushQuip1", @"If it's not easy money, at least you got even money.") },
+                    @{ @"keys": @[@"push_quip2"], @"caption": BRBlackjackSpeech(@"BRBlackjack.Speech.PushQuip2", @"It beats losing.") },
+                ];
+                NSDictionary *pick = pool[arc4random_uniform((uint32_t)pool.count)];
+                [self queueCall:calls keys:pick[@"keys"] caption:pick[@"caption"]];
+                situationalQuipped = YES;
+            } else if ([BRBlackjackString(mySeat[@"status"]) isEqualToString:@"stood"]) {
+                id myTotalValue = mySeat[@"total"];
+                NSInteger myTotal = [myTotalValue isKindOfClass:[NSNumber class]] ? [myTotalValue integerValue] : 0;
+                BOOL stoodLowWon   = [myResult isEqualToString:@"win"]  && myTotal > 0 && myTotal <= 16;
+                BOOL stoodHighLost = [myResult isEqualToString:@"lose"] && myTotal >= 19;
+                if (stoodLowWon || stoodHighLost) {
+                    [self queueCall:calls keys:@[@"luck_quip1"] caption:BRBlackjackSpeech(@"BRBlackjack.Speech.LuckQuip1", @"Can you believe it? Some luck, huh?")];
+                    situationalQuipped = YES;
+                }
+            }
+        }
+
         // Well played: a win that came from hitting a stiff hand or
         // from a double down earns a word from the dealer (max two
         // per round, so a hot table doesn't turn into a speech).
@@ -1928,6 +1969,7 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
         for (NSDictionary *rawSeat in BRBlackjackArray(newView[@"seats"])) {
             if (compliments >= 2) break;
             NSDictionary *seat = BRBlackjackDict(rawSeat);
+            if (situationalQuipped && BRBlackjackBool(seat[@"is_me"])) continue;
             id payoutValue = seat[@"payout"];
             NSInteger payout = [payoutValue isKindOfClass:[NSNumber class]] ? [payoutValue integerValue] : 0;
             if (payout <= [self totalBetForSeat:seat]) continue;
@@ -1947,6 +1989,7 @@ static NSString *BRBlackjackRankWord(NSInteger cardID) {
             compliments += 1;
         }
         [self.stiffHitSeats removeAllObjects];
+        [self.hardHitSeats removeAllObjects];
     }
 
     self.announcer.voiceEnabled = !self.dealerVoiceMuted && BRSlotSoundEnabled();
