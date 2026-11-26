@@ -4,6 +4,22 @@ All notable changes to EZCompleteUI are documented here. Version numbers refer
 to the app/package version. Server-backed features also require their matching
 Supabase Edge Function deployments and migrations.
 
+## Unreleased — 2026-11-25
+
+### Coin store
+
+- Added seasonal themes: Thanksgiving through Thanksgiving day, then a winter
+  holiday theme from midnight Eastern on Black Friday through January 6. Each
+  restyles the header, sale banner, card accents and section headers and adds
+  falling leaves or snow (off when Reduce Motion is on).
+- The website button is now the most prominent control in the store: larger,
+  pulsing, and it shows the live sale multiplier. It appears instantly from the
+  last server-provided link. TestFlight builds buy through it.
+- Sale banner shows a live "Ends in" countdown, and sale cards show
+  "N X COINS", "Normally N coins" and the first-billing-period note.
+- Fixed card badges never showing, and the website button wiping the sale
+  fine print.
+
 ## 7.2.9 — 2026-11-16
 
 ### Chat and files
