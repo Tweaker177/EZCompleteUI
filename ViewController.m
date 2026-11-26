@@ -9358,7 +9358,7 @@ static NSInteger const kEZChatSoundMaxSeconds = 30;
                     [strongSelf performChatMusicRequest:musicRequest];
                     return;
                 }
-                [strongSelf appendToChat:@"[System: You've made your free songs. Song creation needs a purchase — any purchase unlocks it.]"];
+                [strongSelf appendToChat:@"[System: Free accounts are limited to two generated songs. To generate more, please make a purchase.]"];
                 [strongSelf showSongPurchaseRequiredAlert];
             });
         }];

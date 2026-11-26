@@ -514,7 +514,7 @@
 "EZMusic.Menu.Prompt" = "Prompt";
 "EZMusic.Menu.Remix" = "Remix";
 "EZMusic.Menu.Rename" = "Rename";
-"EZMusic.Paywall.CreateMessage" = "You've made your free songs. Any purchase unlocks unlimited song creation.";
+"EZMusic.Paywall.CreateMessage" = "Free accounts are limited to two generated songs. To generate more, please make a purchase.";
 "EZMusic.Paywall.CreateTitle" = "Purchase Required";
 "EZMusic.Paywall.ExportMessage" = "Exporting songs is a paid feature. Any purchase unlocks it.";
 "EZMusic.Paywall.ExportTitle" = "Purchase Required";
@@ -526,7 +526,7 @@
 "EZMusic.Toast.RenameFailed" = "Couldn't rename. Try again.";
 "EZChat.Paywall.Title" = "Purchase required";
 "EZChat.Paywall.PaidModelMessage" = "%@ is a paid model. Make a purchase to unlock it, then return to this thread.";
-"EZChat.SongPaywall.Message" = "You've made your free songs. Make any purchase to keep creating songs, then ask again.";
+"EZChat.SongPaywall.Message" = "Free accounts are limited to two generated songs. To generate more, please make a purchase.";
 "EZChat.Paywall.ViewStore" = "View Store";
 "EZChat.SongPaywall.NotNow" = "Not Now";
 "EZCoinStore.Feature.AIMusic" = "AI music";
