@@ -40,7 +40,8 @@
 //     live sale multiplier. The last server-provided web_store_url is cached so the button
 //     shows instantly (TestFlight builds buy through it); only https URLs are opened.
 //   - Card badges and footnotes now actually render (the cell hid the badge label and never
-//     showed it), so "5X COINS", "Normally N coins" and the first-period note are visible.
+//     showed it). Top-ups show the sale amount; subscriptions show their regular recurring
+//     amount beside the multiplier and a first-period-only note.
 //   - Sale banner shows a live "Ends in" countdown; when the sale or season rolls over while
 //     the store is open the store rebuilds itself once.
 //   - Fixed: the web button no longer clears the table footer (it wiped the sale fine print),
@@ -1475,17 +1476,10 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (item.isCurrentPlan) return;
 
-    // Server sale: the first billing period takes the multiplier (the
-
-    // webhook grants base + sale bonus on activation), so the card
-
-    // shows the same badge and multiplied coins line as a top-up. The
-
-    // first-period term lives in one fine-print line at the bottom of
-
-    // the store, not on the card. The sale replaces the promo below —
-
-    // the two never stack.
+    // Server sale: keep the regular recurring coin amount on the card.
+    // The multiplier applies only to the first billing period, not renewals;
+    // the badge and its footnote describe that one-time sale. The sale
+    // replaces the promo below — the two never stack.
     if (self.activeSale) {
 
         NSInteger multiplier = [self.activeSale[@"multiplier"] integerValue];
@@ -1497,7 +1491,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
             item.saleBaseCoins  = item.coins;
             item.badgeText      = [NSString stringWithFormat:@"%ldX COINS", (long)multiplier];
             item.accentColor    = [self saleAccentColor]; // matches the top-up sale styling
-            item.subtitle       = [self saleAdjustedSubtitleForItem:item multiplier:multiplier];
 
             // Spell out the term on the card itself, not only in the footer:
             // the server credits the multiplier on the first billing period
