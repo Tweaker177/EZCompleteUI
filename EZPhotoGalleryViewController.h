@@ -36,6 +36,10 @@ extern NSNotificationName const EZEditImageInChat;
 @property (nonatomic, copy, nullable) void (^onSelectMediaURL)(NSURL *fileURL);
 /// Opens the existing gallery directly in image-only multi-select mode for chat.
 @property (nonatomic, assign) BOOL chatAttachmentSelectionMode;
+/// Opens the gallery directly in multi-select mode to pick photos and
+/// videos for a music video (the AI Music screen's Make Video entry). The
+/// Done-style button starts the music-video flow with the selection.
+@property (nonatomic, assign) BOOL musicVideoPickMode;
 /// Maximum number of images selectable in chat mode (zero uses the default cap).
 @property (nonatomic, assign) NSUInteger chatAttachmentSelectionLimit;
 @end
