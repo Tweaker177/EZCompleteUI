@@ -101,7 +101,9 @@ static const NSUInteger kPromptCharacterLimit   = 2000;
 static const NSUInteger kTitleCharacterLimit    = 120;
 static const NSInteger  kDurationStepSeconds    = 5;
 static const NSInteger  kDefaultDurationSeconds = 60;
-static const NSInteger  kMaxVariantChoices      = 5;
+// Versions top out at 2: a 3-version pick costs more than it is worth
+// and would blow past the two-song free allowance in one generation.
+static const NSInteger  kMaxVariantChoices      = 2;
 
 // How many following library songs are put in the shared player's Up Next list.
 static const NSUInteger kEZMusicUpNextLimit = 50;
@@ -1608,7 +1610,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
     [stack setCustomSpacing:16 afterView:self.durationSlider];
     [stack addArrangedSubview:variantHeader];
 
-    self.variantControl = [[UISegmentedControl alloc] initWithItems:@[@"1", @"2", @"3"]];
+    self.variantControl = [[UISegmentedControl alloc] initWithItems:@[@"1", @"2"]];
     self.variantControl.backgroundColor = [EZTheme cardColor];
     self.variantControl.selectedSegmentTintColor = [EZTheme goldColor];
     [self.variantControl setTitleTextAttributes:@{NSForegroundColorAttributeName: [EZTheme secondaryTextColor]} forState:UIControlStateNormal];
