@@ -419,7 +419,7 @@ static NSString * const kEZMusicCreatedSongCountKey = @"EZMusicCreatedSongCount"
         }
         if (isNewGeneration) {
             // Count every song the user actually ends up with — this drives
-            // the one-free-song paywall (see createdSongCount). Deleting the
+            // the free-song paywall (see createdSongCount). Deleting the
             // song later does not refund the free creation.
             NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
             NSString *countKey = [self createdSongCountKeyForCurrentAccount];

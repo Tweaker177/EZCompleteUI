@@ -514,7 +514,7 @@
 "EZMusic.Menu.Prompt" = "Prompt";
 "EZMusic.Menu.Remix" = "Remix";
 "EZMusic.Menu.Rename" = "Rename";
-"EZMusic.Paywall.CreateMessage" = "You've made your free song. Any purchase unlocks unlimited song creation.";
+"EZMusic.Paywall.CreateMessage" = "You've made your free songs. Any purchase unlocks unlimited song creation.";
 "EZMusic.Paywall.CreateTitle" = "Purchase Required";
 "EZMusic.Paywall.ExportMessage" = "Exporting songs is a paid feature. Any purchase unlocks it.";
 "EZMusic.Paywall.ExportTitle" = "Purchase Required";

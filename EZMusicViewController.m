@@ -2452,12 +2452,12 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
         return;
     }
 
-    // One free song: a never-purchased user who already has a finished song
-    // hits the paywall before another creation starts. Refresh the purchase
+    // Two free songs: a never-purchased user who already has two finished
+    // songs hits the paywall before another creation starts. Refresh the purchase
     // flag before denying — a purchase may have landed since it was cached
     // (same pattern as the model picker's purchase gate).
     if (![EZEntitlementManager shared].hasEverPurchased &&
-        [EZMusicLibraryManager sharedManager].createdSongCount >= 1) {
+        [EZMusicLibraryManager sharedManager].createdSongCount >= 2) {
         __weak typeof(self) weakSelf = self;
         [[EZEntitlementManager shared] refreshSubscriptionStatusWithCompletion:^(__unused BOOL refreshed, __unused NSInteger balance) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -2592,7 +2592,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 - (void)presentSongCreationPaywall {
     __weak typeof(self) weakSelf = self;
     [self presentMusicDialogWithTitle:EZMusicText(@"EZMusic.Paywall.CreateTitle", @"Purchase Required")
-                              message:EZMusicText(@"EZMusic.Paywall.CreateMessage", @"You've made your free song. Any purchase unlocks unlimited song creation.")
+                              message:EZMusicText(@"EZMusic.Paywall.CreateMessage", @"You've made your free songs. Any purchase unlocks unlimited song creation.")
                        primaryTitle:EZMusicText(@"EZMusic.Paywall.ViewStore", @"View Store")
                      primaryHandler:^{ [weakSelf presentCoinStore]; }];
 }
