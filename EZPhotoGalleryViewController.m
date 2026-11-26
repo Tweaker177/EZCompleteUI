@@ -1710,6 +1710,10 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSString *size = [defaults stringForKey:@"imgSize"] ?: @"1024x1024";
     NSString *quality = [defaults stringForKey:@"imgQuality"] ?: @"medium";
     NSString *format = [defaults stringForKey:@"imgFormat"] ?: @"png";
+    // Edits are stills — GIF is generate-only, and this editor's model
+    // can't produce it. A GIF left selected in Image Settings must not
+    // leak into an edit request and fail at the server.
+    if ([format isEqualToString:@"gif"]) format = @"png";
     NSString *background = [defaults stringForKey:@"imgBackground"] ?: @"auto";
     NSString *moderation = [defaults stringForKey:@"imgModeration"] ?: @"low";
     // Older deployments of ez-image accept a single `image_b64` value. Send a
