@@ -967,4 +967,8 @@
 "BRBlackjack.Speech.P21Quip3" = "Very nice!";
 "BRBlackjack.Speech.WPQuip1" = "Well played.";
 "BRBlackjack.Speech.WPQuip2" = "This isn't your first time at a table.";
+"BRBlackjack.Speech.PushCloseQuip1" = "Well, that one was close.";
+"BRBlackjack.Speech.PushQuip1" = "If it's not easy money, at least you got even money.";
+"BRBlackjack.Speech.PushQuip2" = "It beats losing.";
+"BRBlackjack.Speech.LuckQuip1" = "Can you believe it? Some luck, huh?";
 "BRBlackjack.Speech.NamePrefixFormat" = "%@: ";
