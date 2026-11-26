@@ -15,7 +15,7 @@
 // ── Share targets ────────────────────────────────────────────────────────────
 // ZeeSigner: the source this app ships through.
 static NSString *const kEZZeeSignerDeepLink =
-    @"zeesigner://source?url=https://raw.githubusercontent.com/Tweaker177/EZCompleteUI/main/apps.json";
+    @"zeesigner://source?url=https://raw.githubusercontent.com/Tweaker177/EZCompleteAI/main/apps.json";
 // Jailbreak: the YouRepo repo hosting the .deb.
 static NSString *const kEZJailbreakRepoURL = @"https://i0s-tweak3r-betas.yourepo.com/";
 // TestFlight: the public beta link — installs with no jailbreak or computer.

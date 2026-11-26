@@ -5855,9 +5855,12 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
     BOOL isImage26 = [imgModel isEqualToString:@"gpt-image-2.6-flare"] ||
                      [imgModel isEqualToString:@"gpt-image-2.6-sunburst"];
     // GIF output exists only on the 2.6 models — a GIF left selected
-    // from a 2.6 session falls back to PNG on anything else instead of
-    // failing at the server.
-    if ([imgFormat isEqualToString:@"gif"] && !isImage26) imgFormat = @"png";
+    // from a 2.6 session is caught here, before any request runs,
+    // instead of being silently swapped for a PNG nobody asked for.
+    if ([imgFormat isEqualToString:@"gif"] && !isImage26) {
+        [self handleAPIError:@"GIF output needs gpt-image-2.6-flare or gpt-image-2.6-sunburst. Switch the image model to a 2.6 model, or change the format in Image Settings."];
+        return;
+    }
     NSString *imgExtension = [imgFormat isEqualToString:@"jpeg"] ? @"jpg" : imgFormat;
     NSInteger imgN = [d integerForKey:@"imgVariations"];
     if (imgN < 1 || imgN > 4) imgN = 1;
