@@ -53,6 +53,10 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
 }
 
 + (BOOL)shouldShowTutorial {
+    // Retired: the walkthrough's demo screens no longer match the app.
+    // A rebuilt tutorial can re-enable this; until then nobody is shown
+    // the old one.
+    return NO;
     if (!EZAuthManager.shared.isLoggedIn) return NO;
     return ![[NSUserDefaults standardUserDefaults] boolForKey:[self completionKey]];
 }
