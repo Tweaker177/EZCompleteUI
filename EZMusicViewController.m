@@ -2594,7 +2594,7 @@ static const unsigned long long kEZMusicMaximumReferenceBytes = 12ULL * 1024ULL 
 - (void)presentSongCreationPaywall {
     __weak typeof(self) weakSelf = self;
     [self presentMusicDialogWithTitle:EZMusicText(@"EZMusic.Paywall.CreateTitle", @"Purchase Required")
-                              message:EZMusicText(@"EZMusic.Paywall.CreateMessage", @"You've made your free songs. Any purchase unlocks unlimited song creation.")
+                              message:EZMusicText(@"EZMusic.Paywall.CreateMessage", @"Free accounts are limited to two generated songs. To generate more, please make a purchase.")
                        primaryTitle:EZMusicText(@"EZMusic.Paywall.ViewStore", @"View Store")
                      primaryHandler:^{ [weakSelf presentCoinStore]; }];
 }
