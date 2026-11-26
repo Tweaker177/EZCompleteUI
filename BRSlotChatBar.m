@@ -725,7 +725,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         empty.numberOfLines = 0;
         [stack addArrangedSubview:empty];
     };
-    void (^addRow)(NSDictionary *, NSUInteger, NSString *) = ^(NSDictionary *entry, NSUInteger index, NSString *amountKey) {
+    void (^addRow)(NSDictionary *, NSUInteger, NSString *, NSString *) = ^(NSDictionary *entry, NSUInteger index, NSString *amountKey, NSString *rowKey) {
         NSDictionary *row = BRChatDictionary(entry);
         UIView *line = [UIView new];
         UIImageView *avatar = [UIImageView new];
@@ -740,7 +740,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         avatar.translatesAutoresizingMaskIntoConstraints = NO;
         [line addSubview:avatar];
         UILabel *label = [UILabel new];
-        label.text = trimmed([NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.WinningsRow", nil), (unsigned long)index + 1, BRChatString(row[@"name"]) ?: NSLocalizedString(@"BRSlot.Lounge.PlayerFallback", nil), BRChatNumber(row[amountKey])]);
+        label.text = trimmed([NSString stringWithFormat:NSLocalizedString(rowKey, nil), (unsigned long)index + 1, BRChatString(row[@"name"]) ?: NSLocalizedString(@"BRSlot.Lounge.PlayerFallback", nil), BRChatNumber(row[amountKey])]);
         label.font = [UIFont monospacedSystemFontOfSize:17 weight:UIFontWeightSemibold];
         label.textColor = UIColor.whiteColor;
         label.numberOfLines = 0;
@@ -765,7 +765,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         [line addGestureRecognizer:[[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(leaderboardRowTapped:)]];
         if (avatarURL.length) { __weak UIImageView *weakAvatar = avatar; [BRSlotChatBar loadAvatarThumbnailForURL:avatarURL points:76 completion:^(UIImage *image) { if (image) weakAvatar.image = image; }]; }
     };
-    void (^addSection)(NSString *, NSArray *, NSString *, NSString *) = ^(NSString *headerKey, NSArray *entries, NSString *amountKey, NSString *emptyKey) {
+    void (^addSection)(NSString *, NSArray *, NSString *, NSString *, NSString *) = ^(NSString *headerKey, NSArray *entries, NSString *amountKey, NSString *emptyKey, NSString *rowKey) {
         if (stack.arrangedSubviews.count) {
             UIView *spacer = [UIView new];
             spacer.translatesAutoresizingMaskIntoConstraints = NO;
@@ -775,17 +775,17 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         addHeader(headerKey);
         NSArray *rows = [entries isKindOfClass:NSArray.class] ? entries : @[];
         if (!rows.count) { addEmpty(emptyKey); return; }
-        [rows enumerateObjectsUsingBlock:^(NSDictionary *entry, NSUInteger i, BOOL *stop) { addRow(entry, i, amountKey); }];
+        [rows enumerateObjectsUsingBlock:^(NSDictionary *entry, NSUInteger i, BOOL *stop) { addRow(entry, i, amountKey, rowKey); }];
     };
-    addSection(@"BRSlot.Lounge.WinningsTopTotals", board[@"daily_winnings"], @"total", @"BRSlot.Lounge.WinningsNoWins");
-    addSection(@"BRSlot.Lounge.WinningsBiggestHits", board[@"biggest_hits"], @"payout", @"BRSlot.Lounge.WinningsNoHits");
-    addSection(@"BRSlot.Lounge.WinningsAllTime", board[@"all_time_winnings"], @"total", @"BRSlot.Lounge.WinningsNoAllTime");
+    addSection(@"BRSlot.Lounge.WinningsTopTotals", board[@"daily_winnings"], @"total", @"BRSlot.Lounge.WinningsNoWins", @"BRSlot.Lounge.WinningsRow");
+    addSection(@"BRSlot.Lounge.WinningsBiggestHits", board[@"biggest_hits"], @"payout", @"BRSlot.Lounge.WinningsNoHits", @"BRSlot.Lounge.WinningsRow");
+    addSection(@"BRSlot.Lounge.WinningsAllTime", board[@"all_time_winnings"], @"total", @"BRSlot.Lounge.WinningsNoAllTime", @"BRSlot.Lounge.WinningsRow");
     NSArray *chips = [board[@"top_chips"] isKindOfClass:NSArray.class] ? board[@"top_chips"] : @[];
     if (chips.count > 5) chips = [chips subarrayWithRange:NSMakeRange(0, 5)];
-    addSection(@"BRSlot.Lounge.WinningsMostChips", chips, @"balance", @"BRSlot.Lounge.WinningsNoChips");
-    addSection(@"BRSlot.Lounge.BlackjackTop", board[@"blackjack"], @"bj_won", @"BRSlot.Lounge.BlackjackNone");
-    addSection(@"BRSlot.Lounge.BlackjackHandsTop", board[@"blackjack_hands"], @"bj_hands", @"BRSlot.Lounge.BlackjackNone");
-    addSection(@"BRSlot.Lounge.BlackjackCoinsTop", board[@"blackjack_coins"], @"bj_total_won", @"BRSlot.Lounge.BlackjackNone");
+    addSection(@"BRSlot.Lounge.WinningsMostChips", chips, @"balance", @"BRSlot.Lounge.WinningsNoChips", @"BRSlot.Lounge.WinningsRow");
+    addSection(@"BRSlot.Lounge.BlackjackTop", board[@"blackjack"], @"bj_won", @"BRSlot.Lounge.BlackjackNone", @"BRSlot.Lounge.BoardRowCount");
+    addSection(@"BRSlot.Lounge.BlackjackHandsTop", board[@"blackjack_hands"], @"bj_hands", @"BRSlot.Lounge.BlackjackNone", @"BRSlot.Lounge.BoardRowCount");
+    addSection(@"BRSlot.Lounge.BlackjackCoinsTop", board[@"blackjack_coins"], @"bj_total_won", @"BRSlot.Lounge.BlackjackNone", @"BRSlot.Lounge.WinningsRow");
     UILabel *footer = [UILabel new];
     footer.text = trimmed(NSLocalizedString(@"BRSlot.Lounge.WinningsFooter", nil));
     footer.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];

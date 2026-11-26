@@ -781,6 +781,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "24 JAM TERAKHIR: TOTAL TERATAS\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "Belum ada kemenangan dalam 24 jam terakhir — jadilah yang pertama.\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ koin\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\n24 JAM TERAKHIR: KEMENANGAN TERBESAR\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "Belum ada kemenangan besar dalam 24 jam terakhir.\n";
 "BRSlot.Lounge.WinningsFooter" = "\nTotal dan kemenangan terbesar mencakup 24 jam terakhir. Hanya pembayaran slot yang diselesaikan server yang dihitung.";

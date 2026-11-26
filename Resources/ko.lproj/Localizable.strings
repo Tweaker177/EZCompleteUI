@@ -781,6 +781,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "최근 24시간: 최고 총액\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "최근 24시간 동안 아직 당첨이 없습니다 — 첫 번째가 되어보세요.\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ 코인\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\n최근 24시간: 최대 당첨\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "최근 24시간 동안 아직 큰 당첨이 없습니다.\n";
 "BRSlot.Lounge.WinningsFooter" = "\n총액과 최대 당첨은 최근 24시간을 기준으로 합니다. 서버에서 정산된 슬롯 지급만 집계됩니다.";

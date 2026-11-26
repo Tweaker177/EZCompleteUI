@@ -740,6 +740,7 @@
 "BRSlot.Lounge.WinningsTopTotals" = "24 ชั่วโมงล่าสุด: ยอดรวมสูงสุด\n\n";
 "BRSlot.Lounge.WinningsNoWins" = "ยังไม่มีผู้ชนะใน 24 ชั่วโมงล่าสุด — เป็นคนแรกสิ\n";
 "BRSlot.Lounge.WinningsRow" = "%1$2lu. %2$@  %3$@ เหรียญ\n";
+"BRSlot.Lounge.BoardRowCount" = "%1$2lu. %2$@  %3$@\n";
 "BRSlot.Lounge.WinningsBiggestHits" = "\n24 ชั่วโมงล่าสุด: ชนะครั้งใหญ่ที่สุด\n\n";
 "BRSlot.Lounge.WinningsNoHits" = "ยังไม่มีการชนะครั้งใหญ่ใน 24 ชั่วโมงล่าสุด\n";
 "BRSlot.Lounge.WinningsFooter" = "\nยอดรวมและการชนะครั้งใหญ่ครอบคลุม 24 ชั่วโมงล่าสุด นับเฉพาะการจ่ายสล็อตที่เซิร์ฟเวอร์ชำระแล้วเท่านั้น";
