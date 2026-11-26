@@ -38,6 +38,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.30",
+          "buildVersion": "7.2.30",
+          "date": "2026-11-26",
+          "localizedDescription": "## What's Changed\n* Merge Coin Store seasonal themes by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/340\n* Guard is_jackpot reads in the slot view controllers by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/341\n* Leaderboard: blackjack count boards show counts, not coins by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/343\n* Guard the store sale multiplier read by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/342\n* Restore blackjack speech localization deleted by PR #334 by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/339\n* Catch GIF on a 2.5 model before the request runs by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/344\n* Give the picker VIP badge a solid backing so it paints on first layout by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/345\n* Dismiss the chat keyboard before opening the lounge profile sheet by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/346\n* Fix the profile sheet methods broken by a mid-line comment by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/347\n* Retire the first-run tutorial until it can be rebuilt by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/349\n* Music videos can use AI library songs; Music gets a Make Video segment by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/348\n* Restore the seasonal store themes wiped by the strings merge by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/350\n* Ledger top section: total users and recent purchases; email gets its own row by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/351\n* Free songs: per-account count, generations not versions, allowance is two, versions cap at 2 by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/352\n* Blackjack: situational dealer lines for pushes and unlikely stands by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/…",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteAI/releases/download/7.2.30/EZCompleteUI-7.2.30-release.ipa",
+          "size": 9311913,
+          "sha256": "c9836db5b1c0bf1237052bd79a004aadb370c1b54a0c681954a8b5cc0696ddce",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.28",
           "buildVersion": "7.2.28",
           "date": "2026-11-25",
