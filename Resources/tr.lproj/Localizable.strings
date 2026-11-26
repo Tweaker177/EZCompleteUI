@@ -898,3 +898,44 @@
 "BRBlackjack.Lobby.VipMessage" = "High Limit, VIP oyuncular içindir. Gümüş VIP'ye (50.000 VIP puanı) ulaşın veya herhangi bir abonelik başlatarak kilidi açın.";
 
 "EZCoinStore.Sale.FirstPeriodNote" = "Abonelik kampanya bonusu: yalnızca ilk fatura dönemi.";
+
+// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
+"BRBlackjack.Speech.YouHavePrefix" = "Sende ";
+"BRBlackjack.Speech.NameHasFormat" = "%@: ";
+"BRBlackjack.Speech.SeatPrefix" = "Koltuk %ld: ";
+"BRBlackjack.Speech.SoftTotal" = "yumuşak %ld";
+"BRBlackjack.Speech.BlackjackBang" = "blackjack!";
+"BRBlackjack.Speech.BustBang" = "Patladın!";
+"BRBlackjack.Speech.BustLower" = "patladı";
+"BRBlackjack.Speech.BustsVerb" = "patladı";
+"BRBlackjack.Speech.VerbStands" = "kalıyor";
+"BRBlackjack.Speech.VerbDoubles" = "katlıyor";
+"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
+"BRBlackjack.Speech.ActionSeatFormat" = "Koltuk %ld %@.";
+"BRBlackjack.Speech.TurnNameFormat" = "%@, sıra sende.";
+"BRBlackjack.Speech.TurnYou" = "Sıra sende.";
+"BRBlackjack.Speech.TurnSeatFormat" = "Koltuk %ld, sıra sende.";
+"BRBlackjack.Speech.DealerBlackjack" = "Kasanın blackjack'i var";
+"BRBlackjack.Speech.DealerHas21" = "Kasada 21 var";
+"BRBlackjack.Speech.D21Quip1" = "Kasaya yirmi bir. Şanssızlık, millet.";
+"BRBlackjack.Speech.D21Quip2" = "Kasada yirmi bir var. Üzgünüm, millet.";
+"BRBlackjack.Speech.D21Quip3" = "Yirmi bir. Kasa yine yapacağını yaptı.";
+"BRBlackjack.Speech.D21Quip4" = "Kasa yirmi bir yaptı. Kasanın selamı var.";
+"BRBlackjack.Speech.D21Quip5" = "Ah, bana yirmi bir geldi. Zor oldu, millet.";
+"BRBlackjack.Speech.PlaceBets" = "Bahislerinizi yapın";
+"BRBlackjack.Speech.NoMoreBets" = "Bahisler kapandı";
+"BRBlackjack.Speech.DealerShowsFormat" = "Kasa %@ gösteriyor";
+"BRBlackjack.Speech.RankAce" = "bir as";
+"BRBlackjack.Speech.DWeakQuip1" = "Kasa patlayacak.";
+"BRBlackjack.Speech.DWeakQuip2" = "Biraz güvenin.";
+"BRBlackjack.Speech.SplitNameFormat" = "%@ ayırıyor";
+"BRBlackjack.Speech.SplitYou" = "Ayırdın";
+"BRBlackjack.Speech.SplitSeatFormat" = "Koltuk %ld ayırıyor";
+"BRBlackjack.Speech.DealerBusts" = "Kasa patladı";
+"BRBlackjack.Speech.DealerHasFormat" = "Kasada %ld var";
+"BRBlackjack.Speech.P21Quip1" = "İşte böyle!";
+"BRBlackjack.Speech.P21Quip2" = "Aynen devam!";
+"BRBlackjack.Speech.P21Quip3" = "Çok güzel!";
+"BRBlackjack.Speech.WPQuip1" = "İyi oynadın.";
+"BRBlackjack.Speech.WPQuip2" = "Bu masada ilk seferin değil.";
+"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";

@@ -857,3 +857,44 @@
 "BRBlackjack.Lobby.VipMessage" = "High Limit dành cho người chơi VIP. Đạt VIP Bạc (50.000 điểm VIP) hoặc bắt đầu bất kỳ gói đăng ký nào để mở khóa.";
 
 "EZCoinStore.Sale.FirstPeriodNote" = "Thưởng sale gói đăng ký: chỉ kỳ thanh toán đầu tiên.";
+
+// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
+"BRBlackjack.Speech.YouHavePrefix" = "Bạn có ";
+"BRBlackjack.Speech.NameHasFormat" = "%@ có ";
+"BRBlackjack.Speech.SeatPrefix" = "Ghế %ld: ";
+"BRBlackjack.Speech.SoftTotal" = "mềm %ld";
+"BRBlackjack.Speech.BlackjackBang" = "blackjack!";
+"BRBlackjack.Speech.BustBang" = "Quắc rồi!";
+"BRBlackjack.Speech.BustLower" = "quắc";
+"BRBlackjack.Speech.BustsVerb" = "bị quắc";
+"BRBlackjack.Speech.VerbStands" = "dằn";
+"BRBlackjack.Speech.VerbDoubles" = "gấp đôi";
+"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
+"BRBlackjack.Speech.ActionSeatFormat" = "Ghế %ld %@.";
+"BRBlackjack.Speech.TurnNameFormat" = "%@, đến lượt bạn.";
+"BRBlackjack.Speech.TurnYou" = "Đến lượt bạn.";
+"BRBlackjack.Speech.TurnSeatFormat" = "Ghế %ld, đến lượt bạn.";
+"BRBlackjack.Speech.DealerBlackjack" = "Nhà cái có blackjack";
+"BRBlackjack.Speech.DealerHas21" = "Nhà cái có 21";
+"BRBlackjack.Speech.D21Quip1" = "Hai mươi mốt cho nhà cái. Tiếc quá, mọi người.";
+"BRBlackjack.Speech.D21Quip2" = "Nhà cái có hai mươi mốt. Xin lỗi mọi người.";
+"BRBlackjack.Speech.D21Quip3" = "Hai mươi mốt. Nhà cái lại làm được.";
+"BRBlackjack.Speech.D21Quip4" = "Nhà cái được hai mươi mốt. Nhà cái gửi lời chào.";
+"BRBlackjack.Speech.D21Quip5" = "Ồ, hai mươi mốt cho tôi. Tiếc quá, mọi người.";
+"BRBlackjack.Speech.PlaceBets" = "Hãy đặt cược";
+"BRBlackjack.Speech.NoMoreBets" = "Ngừng đặt cược";
+"BRBlackjack.Speech.DealerShowsFormat" = "Nhà cái lật %@";
+"BRBlackjack.Speech.RankAce" = "một lá Át";
+"BRBlackjack.Speech.DWeakQuip1" = "Nhà cái sắp quắc.";
+"BRBlackjack.Speech.DWeakQuip2" = "Hãy tin một chút.";
+"BRBlackjack.Speech.SplitNameFormat" = "%@ tách bài";
+"BRBlackjack.Speech.SplitYou" = "Bạn tách bài";
+"BRBlackjack.Speech.SplitSeatFormat" = "Ghế %ld tách bài";
+"BRBlackjack.Speech.DealerBusts" = "Nhà cái quắc";
+"BRBlackjack.Speech.DealerHasFormat" = "Nhà cái có %ld";
+"BRBlackjack.Speech.P21Quip1" = "Đúng rồi!";
+"BRBlackjack.Speech.P21Quip2" = "Hay lắm!";
+"BRBlackjack.Speech.P21Quip3" = "Rất tốt!";
+"BRBlackjack.Speech.WPQuip1" = "Chơi hay lắm.";
+"BRBlackjack.Speech.WPQuip2" = "Đây không phải lần đầu bạn ngồi bàn này.";
+"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";

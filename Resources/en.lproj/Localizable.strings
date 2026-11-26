@@ -916,3 +916,55 @@
 "BRBlackjack.Lobby.VipMessage" = "High Limit is for VIP players. Reach Silver VIP (50,000 VIP points) or start any subscription to unlock it.";
 
 "EZCoinStore.Sale.FirstPeriodNote" = "Subscription sale bonus: first billing period only.";
+
+/* Added 2026-11-25: seasonal store themes, sale countdown, hero web store button */
+"EZCoinStore.Title.Thanksgiving" = "🍂 EZ Coin Store 🦃";
+"EZCoinStore.Title.Winter" = "❄️ EZ Coin Store 🎄";
+"EZCoinStore.Greeting.Thanksgiving" = "🦃 Happy Thanksgiving!";
+"EZCoinStore.Greeting.Winter" = "🎄 Happy Holidays!";
+"EZCoinStore.Sale.EndsInFormat" = "⏰ Ends in %@";
+"EZCoinStore.Sale.NormallyFormat" = "Normally %@ coins";
+"EZCoinStore.Sale.FirstPeriodCardFormat" = "First billing period gets %ldX coins";
+"EZCoinStore.WebStore.Title" = "Buy coins on our website";
+"EZCoinStore.WebStore.SaleLineFormat" = "%ldX COINS on every pack + your first subscription period";
+"EZCoinStore.WebStore.Hint" = "Opens the EZ Coin web store in Safari";
+// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
+"BRBlackjack.Speech.YouHavePrefix" = "You have ";
+"BRBlackjack.Speech.NameHasFormat" = "%@ has ";
+"BRBlackjack.Speech.SeatPrefix" = "Seat %ld: ";
+"BRBlackjack.Speech.SoftTotal" = "soft %ld";
+"BRBlackjack.Speech.BlackjackBang" = "blackjack!";
+"BRBlackjack.Speech.BustBang" = "Bust!";
+"BRBlackjack.Speech.BustLower" = "bust";
+"BRBlackjack.Speech.BustsVerb" = "busts";
+"BRBlackjack.Speech.VerbStands" = "stands";
+"BRBlackjack.Speech.VerbDoubles" = "doubles";
+"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
+"BRBlackjack.Speech.ActionSeatFormat" = "Seat %ld %@.";
+"BRBlackjack.Speech.TurnNameFormat" = "%@, it's on you.";
+"BRBlackjack.Speech.TurnYou" = "It's on you.";
+"BRBlackjack.Speech.TurnSeatFormat" = "Seat %ld, it's on you.";
+"BRBlackjack.Speech.DealerBlackjack" = "Dealer has blackjack";
+"BRBlackjack.Speech.DealerHas21" = "Dealer has 21";
+"BRBlackjack.Speech.D21Quip1" = "Twenty-one for the dealer. Tough break, guys.";
+"BRBlackjack.Speech.D21Quip2" = "Dealer has twenty-one. Sorry about that, folks.";
+"BRBlackjack.Speech.D21Quip3" = "Twenty-one. The house does it again.";
+"BRBlackjack.Speech.D21Quip4" = "Dealer gets twenty-one. The house sends its regards.";
+"BRBlackjack.Speech.D21Quip5" = "Ooh, twenty-one for me. Tough one, guys.";
+"BRBlackjack.Speech.PlaceBets" = "Place your bets";
+"BRBlackjack.Speech.NoMoreBets" = "No more bets";
+"BRBlackjack.Speech.DealerShowsFormat" = "Dealer shows %@";
+"BRBlackjack.Speech.RankAce" = "an ace";
+"BRBlackjack.Speech.DWeakQuip1" = "Dealer's going to bust.";
+"BRBlackjack.Speech.DWeakQuip2" = "Have some faith.";
+"BRBlackjack.Speech.SplitNameFormat" = "%@ splits";
+"BRBlackjack.Speech.SplitYou" = "You split";
+"BRBlackjack.Speech.SplitSeatFormat" = "Seat %ld splits";
+"BRBlackjack.Speech.DealerBusts" = "Dealer busts";
+"BRBlackjack.Speech.DealerHasFormat" = "Dealer has %ld";
+"BRBlackjack.Speech.P21Quip1" = "There you go!";
+"BRBlackjack.Speech.P21Quip2" = "Way to go!";
+"BRBlackjack.Speech.P21Quip3" = "Very nice!";
+"BRBlackjack.Speech.WPQuip1" = "Well played.";
+"BRBlackjack.Speech.WPQuip2" = "This isn't your first time at a table.";
+"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";

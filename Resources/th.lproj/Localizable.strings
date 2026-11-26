@@ -857,3 +857,44 @@
 "BRBlackjack.Lobby.VipMessage" = "High Limit สำหรับผู้เล่น VIP เท่านั้น เป็น VIP ระดับ Silver (50,000 คะแนน VIP) หรือเริ่มสมัครสมาชิกใดก็ได้เพื่อปลดล็อก";
 
 "EZCoinStore.Sale.FirstPeriodNote" = "โบนัสเซลสำหรับสมาชิก: เฉพาะรอบบิลแรกเท่านั้น";
+
+// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
+"BRBlackjack.Speech.YouHavePrefix" = "คุณมี ";
+"BRBlackjack.Speech.NameHasFormat" = "%@ มี ";
+"BRBlackjack.Speech.SeatPrefix" = "ที่นั่ง %ld: ";
+"BRBlackjack.Speech.SoftTotal" = "ซอฟต์ %ld";
+"BRBlackjack.Speech.BlackjackBang" = "แบล็คแจ็ค!";
+"BRBlackjack.Speech.BustBang" = "บัสต์!";
+"BRBlackjack.Speech.BustLower" = "บัสต์";
+"BRBlackjack.Speech.BustsVerb" = "บัสต์";
+"BRBlackjack.Speech.VerbStands" = "สแตนด์";
+"BRBlackjack.Speech.VerbDoubles" = "ดับเบิล";
+"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
+"BRBlackjack.Speech.ActionSeatFormat" = "ที่นั่ง %ld %@.";
+"BRBlackjack.Speech.TurnNameFormat" = "%@ ตาคุณแล้ว";
+"BRBlackjack.Speech.TurnYou" = "ตาคุณแล้ว";
+"BRBlackjack.Speech.TurnSeatFormat" = "ที่นั่ง %ld ตาคุณแล้ว";
+"BRBlackjack.Speech.DealerBlackjack" = "เจ้ามือได้แบล็คแจ็ค";
+"BRBlackjack.Speech.DealerHas21" = "เจ้ามือมี 21";
+"BRBlackjack.Speech.D21Quip1" = "ยี่สิบเอ็ดของเจ้ามือ โชคร้ายหน่อยนะทุกคน";
+"BRBlackjack.Speech.D21Quip2" = "เจ้ามือมี 21 ขอโทษด้วยนะทุกคน";
+"BRBlackjack.Speech.D21Quip3" = "21 เจ้าบ้านทำได้อีกแล้ว";
+"BRBlackjack.Speech.D21Quip4" = "เจ้ามือได้ 21 เจ้าบ้านฝากความระลึกถึง";
+"BRBlackjack.Speech.D21Quip5" = "โอ้ ผมได้ 21 เสียใจด้วยนะทุกคน";
+"BRBlackjack.Speech.PlaceBets" = "วางเดิมพันได้เลย";
+"BRBlackjack.Speech.NoMoreBets" = "หมดเวลาเดิมพัน";
+"BRBlackjack.Speech.DealerShowsFormat" = "เจ้ามือโชว์ %@";
+"BRBlackjack.Speech.RankAce" = "เอซ";
+"BRBlackjack.Speech.DWeakQuip1" = "เจ้ามือกำลังจะบัสต์";
+"BRBlackjack.Speech.DWeakQuip2" = "เชื่อกันหน่อย";
+"BRBlackjack.Speech.SplitNameFormat" = "%@ แยกไพ่";
+"BRBlackjack.Speech.SplitYou" = "คุณแยกไพ่";
+"BRBlackjack.Speech.SplitSeatFormat" = "ที่นั่ง %ld แยกไพ่";
+"BRBlackjack.Speech.DealerBusts" = "เจ้ามือบัสต์";
+"BRBlackjack.Speech.DealerHasFormat" = "เจ้ามือมี %ld";
+"BRBlackjack.Speech.P21Quip1" = "นั่นแหละ!";
+"BRBlackjack.Speech.P21Quip2" = "เยี่ยมไปเลย!";
+"BRBlackjack.Speech.P21Quip3" = "ดีมาก!";
+"BRBlackjack.Speech.WPQuip1" = "เล่นได้สวย";
+"BRBlackjack.Speech.WPQuip2" = "ไม่ใช่ครั้งแรกของคุณที่โต๊ะนี้แน่";
+"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";

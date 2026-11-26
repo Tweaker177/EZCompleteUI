@@ -898,3 +898,44 @@
 "BRBlackjack.Lobby.VipMessage" = "High Limit khusus pemain VIP. Capai VIP Perak (50.000 poin VIP) atau mulai langganan apa pun untuk membukanya.";
 
 "EZCoinStore.Sale.FirstPeriodNote" = "Bonus promo langganan: hanya periode tagihan pertama.";
+
+// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
+"BRBlackjack.Speech.YouHavePrefix" = "Anda punya ";
+"BRBlackjack.Speech.NameHasFormat" = "%@ punya ";
+"BRBlackjack.Speech.SeatPrefix" = "Kursi %ld: ";
+"BRBlackjack.Speech.SoftTotal" = "lunak %ld";
+"BRBlackjack.Speech.BlackjackBang" = "blackjack!";
+"BRBlackjack.Speech.BustBang" = "Bust!";
+"BRBlackjack.Speech.BustLower" = "bust";
+"BRBlackjack.Speech.BustsVerb" = "bust";
+"BRBlackjack.Speech.VerbStands" = "berhenti";
+"BRBlackjack.Speech.VerbDoubles" = "menggandakan";
+"BRBlackjack.Speech.ActionNameFormat" = "%@ %@.";
+"BRBlackjack.Speech.ActionSeatFormat" = "Kursi %ld %@.";
+"BRBlackjack.Speech.TurnNameFormat" = "%@, giliran Anda.";
+"BRBlackjack.Speech.TurnYou" = "Giliran Anda.";
+"BRBlackjack.Speech.TurnSeatFormat" = "Kursi %ld, giliran Anda.";
+"BRBlackjack.Speech.DealerBlackjack" = "Bandar punya blackjack";
+"BRBlackjack.Speech.DealerHas21" = "Bandar punya 21";
+"BRBlackjack.Speech.D21Quip1" = "Dua puluh satu untuk bandar. Sayang sekali, teman-teman.";
+"BRBlackjack.Speech.D21Quip2" = "Bandar punya dua puluh satu. Maaf, teman-teman.";
+"BRBlackjack.Speech.D21Quip3" = "Dua puluh satu. Rumah melakukannya lagi.";
+"BRBlackjack.Speech.D21Quip4" = "Bandar mendapat dua puluh satu. Salam dari rumah.";
+"BRBlackjack.Speech.D21Quip5" = "Oh, dua puluh satu untuk saya. Sayang sekali, teman-teman.";
+"BRBlackjack.Speech.PlaceBets" = "Pasang taruhan Anda";
+"BRBlackjack.Speech.NoMoreBets" = "Taruhan ditutup";
+"BRBlackjack.Speech.DealerShowsFormat" = "Bandar menunjukkan %@";
+"BRBlackjack.Speech.RankAce" = "sebuah as";
+"BRBlackjack.Speech.DWeakQuip1" = "Bandar akan bust.";
+"BRBlackjack.Speech.DWeakQuip2" = "Percayalah sedikit.";
+"BRBlackjack.Speech.SplitNameFormat" = "%@ memisahkan";
+"BRBlackjack.Speech.SplitYou" = "Anda memisahkan";
+"BRBlackjack.Speech.SplitSeatFormat" = "Kursi %ld memisahkan";
+"BRBlackjack.Speech.DealerBusts" = "Bandar bust";
+"BRBlackjack.Speech.DealerHasFormat" = "Bandar punya %ld";
+"BRBlackjack.Speech.P21Quip1" = "Nah, begitu!";
+"BRBlackjack.Speech.P21Quip2" = "Mantap!";
+"BRBlackjack.Speech.P21Quip3" = "Sangat bagus!";
+"BRBlackjack.Speech.WPQuip1" = "Main yang bagus.";
+"BRBlackjack.Speech.WPQuip2" = "Ini bukan pertama kalinya Anda di meja.";
+"BRBlackjack.Speech.NamePrefixFormat" = "%@: ";

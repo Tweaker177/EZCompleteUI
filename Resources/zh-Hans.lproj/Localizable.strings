@@ -857,3 +857,44 @@
 "BRBlackjack.Lobby.VipMessage" = "High Limit 为 VIP 玩家专属。达到白银 VIP（50,000 VIP 积分）或开通任意订阅即可解锁。";
 
 "EZCoinStore.Sale.FirstPeriodNote" = "订阅促销奖励：仅限首个计费周期。";
+
+// Blackjack dealer speech: captions for the announcer's calls, quips and asides (BRBlackjack.Speech)
+"BRBlackjack.Speech.YouHavePrefix" = "你有 ";
+"BRBlackjack.Speech.NameHasFormat" = "%@ 有 ";
+"BRBlackjack.Speech.SeatPrefix" = "%ld号座：";
+"BRBlackjack.Speech.SoftTotal" = "软%ld";
+"BRBlackjack.Speech.BlackjackBang" = "黑杰克！";
+"BRBlackjack.Speech.BustBang" = "爆牌！";
+"BRBlackjack.Speech.BustLower" = "爆牌";
+"BRBlackjack.Speech.BustsVerb" = "爆牌了";
+"BRBlackjack.Speech.VerbStands" = "停牌";
+"BRBlackjack.Speech.VerbDoubles" = "双倍下注";
+"BRBlackjack.Speech.ActionNameFormat" = "%@%@。";
+"BRBlackjack.Speech.ActionSeatFormat" = "%ld号座%@。";
+"BRBlackjack.Speech.TurnNameFormat" = "%@，轮到你了。";
+"BRBlackjack.Speech.TurnYou" = "轮到你了。";
+"BRBlackjack.Speech.TurnSeatFormat" = "%ld号座，轮到你了。";
+"BRBlackjack.Speech.DealerBlackjack" = "庄家是黑杰克";
+"BRBlackjack.Speech.DealerHas21" = "庄家21点";
+"BRBlackjack.Speech.D21Quip1" = "庄家21点。运气不佳，各位。";
+"BRBlackjack.Speech.D21Quip2" = "庄家拿到21点。抱歉，各位。";
+"BRBlackjack.Speech.D21Quip3" = "21点。庄家又赢了。";
+"BRBlackjack.Speech.D21Quip4" = "庄家拿到21点。庄家向各位问好。";
+"BRBlackjack.Speech.D21Quip5" = "哦，我拿到21点。太遗憾了，各位。";
+"BRBlackjack.Speech.PlaceBets" = "请下注";
+"BRBlackjack.Speech.NoMoreBets" = "停止下注";
+"BRBlackjack.Speech.DealerShowsFormat" = "庄家亮出%@";
+"BRBlackjack.Speech.RankAce" = "一张A";
+"BRBlackjack.Speech.DWeakQuip1" = "庄家要爆牌了。";
+"BRBlackjack.Speech.DWeakQuip2" = "有点信心嘛。";
+"BRBlackjack.Speech.SplitNameFormat" = "%@ 分牌";
+"BRBlackjack.Speech.SplitYou" = "你分牌了";
+"BRBlackjack.Speech.SplitSeatFormat" = "%ld号座分牌";
+"BRBlackjack.Speech.DealerBusts" = "庄家爆牌";
+"BRBlackjack.Speech.DealerHasFormat" = "庄家%ld点";
+"BRBlackjack.Speech.P21Quip1" = "就是这样！";
+"BRBlackjack.Speech.P21Quip2" = "干得漂亮！";
+"BRBlackjack.Speech.P21Quip3" = "非常好！";
+"BRBlackjack.Speech.WPQuip1" = "打得漂亮。";
+"BRBlackjack.Speech.WPQuip2" = "你可不是第一次上牌桌了。";
+"BRBlackjack.Speech.NamePrefixFormat" = "%@：";
