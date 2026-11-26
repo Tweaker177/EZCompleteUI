@@ -120,6 +120,11 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
     _vipBadge = [UIView new];
     _vipBadge.layer.cornerRadius = 8;
     _vipBadge.layer.masksToBounds = YES;
+    // Solid gold under the gradient: the gradient layer's frame is only
+    // set in layoutSubviews, which can run before the badge has its size,
+    // so a fresh cell painted with an empty pill. The backing fill is the
+    // same gold, so the badge reads the same with or without the gradient.
+    _vipBadge.backgroundColor = [UIColor colorWithRed:.95 green:.72 blue:.18 alpha:1];
     _vipBadge.userInteractionEnabled = NO;
     _vipBadge.hidden = YES;
     _vipBadge.translatesAutoresizingMaskIntoConstraints = NO;
@@ -220,6 +225,7 @@ static UIColor *BRSlotPickerDarken(UIColor *color, CGFloat amount) {
         [_vipBadge.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:8],
         [_vipBadge.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-8],
         [_vipBadge.heightAnchor constraintEqualToConstant:16],
+        [_vipBadge.widthAnchor constraintEqualToConstant:34],
         [_vipLabel.leadingAnchor constraintEqualToAnchor:_vipBadge.leadingAnchor constant:6],
         [_vipLabel.trailingAnchor constraintEqualToAnchor:_vipBadge.trailingAnchor constant:-6],
         [_vipLabel.centerYAnchor constraintEqualToAnchor:_vipBadge.centerYAnchor],
