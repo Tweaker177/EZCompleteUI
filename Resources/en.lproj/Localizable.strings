@@ -526,7 +526,7 @@
 "EZMusic.Toast.RenameFailed" = "Couldn't rename. Try again.";
 "EZChat.Paywall.Title" = "Purchase required";
 "EZChat.Paywall.PaidModelMessage" = "%@ is a paid model. Make a purchase to unlock it, then return to this thread.";
-"EZChat.SongPaywall.Message" = "You've made your free song. Make any purchase to keep creating songs, then ask again.";
+"EZChat.SongPaywall.Message" = "You've made your free songs. Make any purchase to keep creating songs, then ask again.";
 "EZChat.Paywall.ViewStore" = "View Store";
 "EZChat.SongPaywall.NotNow" = "Not Now";
 "EZCoinStore.Feature.AIMusic" = "AI music";
