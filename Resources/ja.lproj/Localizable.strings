@@ -447,6 +447,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld コイン · ×%ld";
 "BRSlot.Lounge.SignIn" = "ラウンジに参加するにはサインインしてください。";
 "BRSlot.Lounge.Delete" = "削除";
+"BRSlot.Lounge.Cancel" = "キャンセル";
+"BRSlot.Lounge.Report" = "通報する";
+"BRSlot.Lounge.ReportReasonTitle" = "このメッセージを通報する理由は？";
+"BRSlot.Lounge.ReportReasonSpam" = "スパム";
+"BRSlot.Lounge.ReportReasonHarassment" = "嫌がらせ";
+"BRSlot.Lounge.ReportReasonInappropriate" = "不適切なコンテンツ";
+"BRSlot.Lounge.ReportReasonOther" = "その他";
+"BRSlot.Lounge.ReportTitle" = "このメッセージを通報しますか？";
+"BRSlot.Lounge.ReportBody" = "このメッセージが審査対象としてフラグ付けされます。";
+"BRSlot.Lounge.ReportThanks" = "ありがとうございます — このメッセージは審査のため通報されました。";
+"BRSlot.Lounge.ReportFailed" = "このメッセージを通報できませんでした。もう一度お試しください。";
 "BRSlot.OK" = "OK";
 "BRSlot.Customizer.CustomImage" = "現在カスタム イメージを使用しています。";
 "BRSlot.Customizer.BuiltInClassic" = "現在、内蔵スロットイメージを使用しています。";

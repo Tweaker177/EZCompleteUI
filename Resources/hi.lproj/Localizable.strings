@@ -447,6 +447,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld सिक्के · ×%ld";
 "BRSlot.Lounge.SignIn" = "लाउंज में शामिल होने के लिए साइन इन करें.";
 "BRSlot.Lounge.Delete" = "हटाएँ";
+"BRSlot.Lounge.Cancel" = "रद्द करें";
+"BRSlot.Lounge.Report" = "रिपोर्ट करें";
+"BRSlot.Lounge.ReportReasonTitle" = "आप यह संदेश क्यों रिपोर्ट कर रहे हैं?";
+"BRSlot.Lounge.ReportReasonSpam" = "स्पैम";
+"BRSlot.Lounge.ReportReasonHarassment" = "उत्पीड़न";
+"BRSlot.Lounge.ReportReasonInappropriate" = "अनुचित सामग्री";
+"BRSlot.Lounge.ReportReasonOther" = "अन्य";
+"BRSlot.Lounge.ReportTitle" = "क्या यह संदेश रिपोर्ट करें?";
+"BRSlot.Lounge.ReportBody" = "इससे संदेश समीक्षा के लिए चिह्नित हो जाएगा।";
+"BRSlot.Lounge.ReportThanks" = "धन्यवाद — यह संदेश समीक्षा के लिए रिपोर्ट कर दिया गया है।";
+"BRSlot.Lounge.ReportFailed" = "यह संदेश रिपोर्ट नहीं हो सका। कृपया पुनः प्रयास करें।";
 "BRSlot.OK" = "ठीक है";
 "BRSlot.Customizer.CustomImage" = "वर्तमान में आपकी कस्टम छवि का उपयोग किया जा रहा है।";
 "BRSlot.Customizer.BuiltInClassic" = "वर्तमान में अंतर्निर्मित स्लॉट छवि का उपयोग किया जा रहा है।";

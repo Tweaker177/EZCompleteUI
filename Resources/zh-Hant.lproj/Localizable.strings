@@ -488,6 +488,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld 金幣 · ×%ld";
 "BRSlot.Lounge.SignIn" = "登入以加入休息室。";
 "BRSlot.Lounge.Delete" = "刪除";
+"BRSlot.Lounge.Cancel" = "取消";
+"BRSlot.Lounge.Report" = "檢舉";
+"BRSlot.Lounge.ReportReasonTitle" = "為什麼檢舉這則訊息？";
+"BRSlot.Lounge.ReportReasonSpam" = "垃圾訊息";
+"BRSlot.Lounge.ReportReasonHarassment" = "騷擾";
+"BRSlot.Lounge.ReportReasonInappropriate" = "不當內容";
+"BRSlot.Lounge.ReportReasonOther" = "其他";
+"BRSlot.Lounge.ReportTitle" = "檢舉這則訊息？";
+"BRSlot.Lounge.ReportBody" = "這會將該訊息標記為待審核。";
+"BRSlot.Lounge.ReportThanks" = "謝謝——該訊息已檢舉，等待審核。";
+"BRSlot.Lounge.ReportFailed" = "無法檢舉這則訊息，請重試。";
 "BRSlot.OK" = "確定";
 "BRSlot.Customizer.CustomImage" = "目前使用你的自訂圖片。";
 "BRSlot.Customizer.BuiltInClassic" = "目前使用內建的老虎機圖片。";

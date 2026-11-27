@@ -447,6 +447,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld XU · ×%ld";
 "BRSlot.Lounge.SignIn" = "Đăng nhập để tham gia phòng chờ.";
 "BRSlot.Lounge.Delete" = "Xóa";
+"BRSlot.Lounge.Cancel" = "Hủy";
+"BRSlot.Lounge.Report" = "Báo cáo";
+"BRSlot.Lounge.ReportReasonTitle" = "Tại sao bạn báo cáo tin nhắn này?";
+"BRSlot.Lounge.ReportReasonSpam" = "Spam";
+"BRSlot.Lounge.ReportReasonHarassment" = "Quấy rối";
+"BRSlot.Lounge.ReportReasonInappropriate" = "Nội dung không phù hợp";
+"BRSlot.Lounge.ReportReasonOther" = "Khác";
+"BRSlot.Lounge.ReportTitle" = "Báo cáo tin nhắn này?";
+"BRSlot.Lounge.ReportBody" = "Thao tác này sẽ gắn cờ tin nhắn để xem xét.";
+"BRSlot.Lounge.ReportThanks" = "Cảm ơn — tin nhắn này đã được báo cáo để xem xét.";
+"BRSlot.Lounge.ReportFailed" = "Không thể báo cáo tin nhắn này. Vui lòng thử lại.";
 "BRSlot.OK" = "được rồi";
 "BRSlot.Customizer.CustomImage" = "Hiện đang sử dụng hình ảnh tùy chỉnh của bạn.";
 "BRSlot.Customizer.BuiltInClassic" = "Hiện đang sử dụng hình ảnh khe tích hợp.";
