@@ -449,6 +449,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld เหรียญ · ×%ld";
 "BRSlot.Lounge.SignIn" = "ลงชื่อเข้าใช้เพื่อเข้าร่วมห้องรับรอง";
 "BRSlot.Lounge.Delete" = "ลบ";
+"BRSlot.Lounge.Cancel" = "ยกเลิก";
+"BRSlot.Lounge.Report" = "รายงาน";
+"BRSlot.Lounge.ReportReasonTitle" = "ทำไมคุณถึงรายงานข้อความนี้?";
+"BRSlot.Lounge.ReportReasonSpam" = "สแปม";
+"BRSlot.Lounge.ReportReasonHarassment" = "การคุกคาม";
+"BRSlot.Lounge.ReportReasonInappropriate" = "เนื้อหาที่ไม่เหมาะสม";
+"BRSlot.Lounge.ReportReasonOther" = "อื่น ๆ";
+"BRSlot.Lounge.ReportTitle" = "รายงานข้อความนี้?";
+"BRSlot.Lounge.ReportBody" = "ข้อความนี้จะถูกทำเครื่องหมายเพื่อตรวจสอบ";
+"BRSlot.Lounge.ReportThanks" = "ขอบคุณ — ข้อความนี้ถูกรายงานเพื่อตรวจสอบแล้ว";
+"BRSlot.Lounge.ReportFailed" = "ไม่สามารถรายงานข้อความนี้ได้ โปรดลองอีกครั้ง";
 "BRSlot.OK" = "ตกลง";
 "BRSlot.Customizer.CustomImage" = "ขณะนี้ใช้รูปภาพที่คุณกำหนดเอง";
 "BRSlot.Customizer.BuiltInClassic" = "ขณะนี้ใช้ภาพสล็อตในตัว";

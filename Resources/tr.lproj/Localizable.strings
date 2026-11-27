@@ -490,6 +490,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld COIN · ×%ld";
 "BRSlot.Lounge.SignIn" = "Salona katılmak için oturum açın.";
 "BRSlot.Lounge.Delete" = "Sil";
+"BRSlot.Lounge.Cancel" = "İptal";
+"BRSlot.Lounge.Report" = "Bildir";
+"BRSlot.Lounge.ReportReasonTitle" = "Bu mesajı neden bildiriyorsunuz?";
+"BRSlot.Lounge.ReportReasonSpam" = "Spam";
+"BRSlot.Lounge.ReportReasonHarassment" = "Taciz";
+"BRSlot.Lounge.ReportReasonInappropriate" = "Uygunsuz içerik";
+"BRSlot.Lounge.ReportReasonOther" = "Diğer";
+"BRSlot.Lounge.ReportTitle" = "Bu mesajı bildirmek istiyor musunuz?";
+"BRSlot.Lounge.ReportBody" = "Bu, mesajı inceleme için işaretler.";
+"BRSlot.Lounge.ReportThanks" = "Teşekkürler — bu mesaj inceleme için bildirildi.";
+"BRSlot.Lounge.ReportFailed" = "Bu mesaj bildirilemedi. Lütfen tekrar deneyin.";
 "BRSlot.OK" = "Tamam";
 "BRSlot.Customizer.CustomImage" = "Şu anda özel görüntünüz kullanılıyor.";
 "BRSlot.Customizer.BuiltInClassic" = "Şu anda yerleşik slot görüntüsü kullanılıyor.";

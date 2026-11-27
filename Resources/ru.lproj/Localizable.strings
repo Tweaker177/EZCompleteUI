@@ -489,6 +489,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld МОНЕТ · ×%ld";
 "BRSlot.Lounge.SignIn" = "Войдите, чтобы присоединиться к гостиной.";
 "BRSlot.Lounge.Delete" = "Удалить";
+"BRSlot.Lounge.Cancel" = "Отмена";
+"BRSlot.Lounge.Report" = "Пожаловаться";
+"BRSlot.Lounge.ReportReasonTitle" = "Почему вы жалуетесь на это сообщение?";
+"BRSlot.Lounge.ReportReasonSpam" = "Спам";
+"BRSlot.Lounge.ReportReasonHarassment" = "Оскорбления";
+"BRSlot.Lounge.ReportReasonInappropriate" = "Неприемлемый контент";
+"BRSlot.Lounge.ReportReasonOther" = "Другое";
+"BRSlot.Lounge.ReportTitle" = "Пожаловаться на это сообщение?";
+"BRSlot.Lounge.ReportBody" = "Сообщение будет помечено для проверки.";
+"BRSlot.Lounge.ReportThanks" = "Спасибо — сообщение отправлено на проверку.";
+"BRSlot.Lounge.ReportFailed" = "Не удалось пожаловаться на это сообщение. Попробуйте ещё раз.";
 "BRSlot.OK" = "ОК";
 "BRSlot.Customizer.CustomImage" = "В настоящее время используется ваше собственное изображение.";
 "BRSlot.Customizer.BuiltInClassic" = "В настоящее время используется встроенный образ слота.";

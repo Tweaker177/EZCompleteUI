@@ -490,6 +490,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld KOIN · ×%ld";
 "BRSlot.Lounge.SignIn" = "Masuk untuk bergabung ke lounge.";
 "BRSlot.Lounge.Delete" = "Hapus";
+"BRSlot.Lounge.Cancel" = "Batal";
+"BRSlot.Lounge.Report" = "Laporkan";
+"BRSlot.Lounge.ReportReasonTitle" = "Mengapa Anda melaporkan pesan ini?";
+"BRSlot.Lounge.ReportReasonSpam" = "Spam";
+"BRSlot.Lounge.ReportReasonHarassment" = "Pelecehan";
+"BRSlot.Lounge.ReportReasonInappropriate" = "Konten tidak pantas";
+"BRSlot.Lounge.ReportReasonOther" = "Lainnya";
+"BRSlot.Lounge.ReportTitle" = "Laporkan pesan ini?";
+"BRSlot.Lounge.ReportBody" = "Ini menandai pesan untuk ditinjau.";
+"BRSlot.Lounge.ReportThanks" = "Terima kasih — pesan ini telah dilaporkan untuk ditinjau.";
+"BRSlot.Lounge.ReportFailed" = "Tidak dapat melaporkan pesan ini. Silakan coba lagi.";
 "BRSlot.OK" = "OK";
 "BRSlot.Customizer.CustomImage" = "Saat ini menggunakan gambar kustom Anda.";
 "BRSlot.Customizer.BuiltInClassic" = "Saat ini menggunakan gambar slot bawaan.";

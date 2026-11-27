@@ -490,6 +490,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld 코인 · ×%ld";
 "BRSlot.Lounge.SignIn" = "라운지에 참여하려면 로그인하세요.";
 "BRSlot.Lounge.Delete" = "삭제";
+"BRSlot.Lounge.Cancel" = "취소";
+"BRSlot.Lounge.Report" = "신고하기";
+"BRSlot.Lounge.ReportReasonTitle" = "이 메시지를 신고하는 이유가 무엇인가요?";
+"BRSlot.Lounge.ReportReasonSpam" = "스팸";
+"BRSlot.Lounge.ReportReasonHarassment" = "괴롭힘";
+"BRSlot.Lounge.ReportReasonInappropriate" = "부적절한 콘텐츠";
+"BRSlot.Lounge.ReportReasonOther" = "기타";
+"BRSlot.Lounge.ReportTitle" = "이 메시지를 신고하시겠습니까?";
+"BRSlot.Lounge.ReportBody" = "이 메시지가 검토 대상으로 표시됩니다.";
+"BRSlot.Lounge.ReportThanks" = "감사합니다 — 이 메시지가 검토를 위해 신고되었습니다.";
+"BRSlot.Lounge.ReportFailed" = "이 메시지를 신고하지 못했습니다. 다시 시도해 주세요.";
 "BRSlot.OK" = "확인";
 "BRSlot.Customizer.CustomImage" = "현재 맞춤 이미지를 사용 중입니다.";
 "BRSlot.Customizer.BuiltInClassic" = "현재 기본 제공 슬롯 이미지를 사용 중입니다.";

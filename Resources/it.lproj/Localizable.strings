@@ -449,6 +449,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld MONETE · ×%ld";
 "BRSlot.Lounge.SignIn" = "Accedi per unirti alla lounge.";
 "BRSlot.Lounge.Delete" = "Elimina";
+"BRSlot.Lounge.Cancel" = "Annulla";
+"BRSlot.Lounge.Report" = "Segnala";
+"BRSlot.Lounge.ReportReasonTitle" = "Perché segnali questo messaggio?";
+"BRSlot.Lounge.ReportReasonSpam" = "Spam";
+"BRSlot.Lounge.ReportReasonHarassment" = "Molestie";
+"BRSlot.Lounge.ReportReasonInappropriate" = "Contenuto inappropriato";
+"BRSlot.Lounge.ReportReasonOther" = "Altro";
+"BRSlot.Lounge.ReportTitle" = "Segnalare questo messaggio?";
+"BRSlot.Lounge.ReportBody" = "Questo contrassegna il messaggio per la revisione.";
+"BRSlot.Lounge.ReportThanks" = "Grazie — questo messaggio è stato segnalato per la revisione.";
+"BRSlot.Lounge.ReportFailed" = "Impossibile segnalare questo messaggio. Riprova.";
 "BRSlot.OK" = "Va bene";
 "BRSlot.Customizer.CustomImage" = "Attualmente utilizzo la tua immagine personalizzata.";
 "BRSlot.Customizer.BuiltInClassic" = "Attualmente utilizzo l'immagine dello slot integrata.";

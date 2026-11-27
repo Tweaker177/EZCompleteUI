@@ -449,6 +449,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld 硬币 · ×%ld";
 "BRSlot.Lounge.SignIn" = "登录以加入休息室。";
 "BRSlot.Lounge.Delete" = "删除";
+"BRSlot.Lounge.Cancel" = "取消";
+"BRSlot.Lounge.Report" = "举报";
+"BRSlot.Lounge.ReportReasonTitle" = "为什么举报这条消息？";
+"BRSlot.Lounge.ReportReasonSpam" = "垃圾消息";
+"BRSlot.Lounge.ReportReasonHarassment" = "骚扰";
+"BRSlot.Lounge.ReportReasonInappropriate" = "不当内容";
+"BRSlot.Lounge.ReportReasonOther" = "其他";
+"BRSlot.Lounge.ReportTitle" = "举报这条消息？";
+"BRSlot.Lounge.ReportBody" = "这会将该消息标记为待审核。";
+"BRSlot.Lounge.ReportThanks" = "谢谢——该消息已举报，等待审核。";
+"BRSlot.Lounge.ReportFailed" = "无法举报这条消息，请重试。";
 "BRSlot.OK" = "好的";
 "BRSlot.Customizer.CustomImage" = "当前正在使用您的自定义图像。";
 "BRSlot.Customizer.BuiltInClassic" = "目前使用内置插槽图像。";

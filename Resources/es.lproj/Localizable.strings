@@ -471,6 +471,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld MONEDAS · ×%ld";
 "BRSlot.Lounge.SignIn" = "Inicia sesión para unirte al salón.";
 "BRSlot.Lounge.Delete" = "Eliminar";
+"BRSlot.Lounge.Cancel" = "Cancelar";
+"BRSlot.Lounge.Report" = "Denunciar";
+"BRSlot.Lounge.ReportReasonTitle" = "¿Por qué denuncias este mensaje?";
+"BRSlot.Lounge.ReportReasonSpam" = "Spam";
+"BRSlot.Lounge.ReportReasonHarassment" = "Acoso";
+"BRSlot.Lounge.ReportReasonInappropriate" = "Contenido inapropiado";
+"BRSlot.Lounge.ReportReasonOther" = "Otro";
+"BRSlot.Lounge.ReportTitle" = "¿Denunciar este mensaje?";
+"BRSlot.Lounge.ReportBody" = "Esto marca el mensaje para su revisión.";
+"BRSlot.Lounge.ReportThanks" = "Gracias — este mensaje ha sido denunciado para su revisión.";
+"BRSlot.Lounge.ReportFailed" = "No se pudo denunciar este mensaje. Inténtalo de nuevo.";
 "BRSlot.OK" = "bien";
 "BRSlot.Customizer.CustomImage" = "Actualmente estoy usando tu imagen personalizada.";
 "BRSlot.Customizer.BuiltInClassic" = "Actualmente estoy usando la imagen de ranura incorporada.";

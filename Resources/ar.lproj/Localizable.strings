@@ -449,6 +449,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld قطعة نقدية · ×%ld";
 "BRSlot.Lounge.SignIn" = "قم بتسجيل الدخول للانضمام إلى الصالة.";
 "BRSlot.Lounge.Delete" = "حذف";
+"BRSlot.Lounge.Cancel" = "إلغاء";
+"BRSlot.Lounge.Report" = "إبلاغ";
+"BRSlot.Lounge.ReportReasonTitle" = "لماذا تُبلغ عن هذه الرسالة؟";
+"BRSlot.Lounge.ReportReasonSpam" = "بريد مزعج";
+"BRSlot.Lounge.ReportReasonHarassment" = "مضايقة";
+"BRSlot.Lounge.ReportReasonInappropriate" = "محتوى غير لائق";
+"BRSlot.Lounge.ReportReasonOther" = "أخرى";
+"BRSlot.Lounge.ReportTitle" = "هل تريد الإبلاغ عن هذه الرسالة؟";
+"BRSlot.Lounge.ReportBody" = "سيؤدي هذا إلى وضع علامة على الرسالة للمراجعة.";
+"BRSlot.Lounge.ReportThanks" = "شكرًا — تم الإبلاغ عن هذه الرسالة للمراجعة.";
+"BRSlot.Lounge.ReportFailed" = "تعذّر الإبلاغ عن هذه الرسالة. يُرجى المحاولة مرة أخرى.";
 "BRSlot.OK" = "حسنًا";
 "BRSlot.Customizer.CustomImage" = "تستخدم حاليا صورتك المخصصة.";
 "BRSlot.Customizer.BuiltInClassic" = "تستخدم حاليا صورة الفتحة المضمنة.";
