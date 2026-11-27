@@ -942,6 +942,12 @@ static BOOL EZGalleryErrorIsSafetyRejection(NSString *message) {
     UIButton          *_deleteButton;
     UILabel           *_filenameLabel;
 
+    // Photo analysis, shown at readable size below the photo (tracker #109).
+    // The nav-bar prompt used to carry it, but the prompt is a tiny label
+    // and a long summary was barely readable there.
+    UITextView        *_analysisTextView;
+    UIView            *_analysisSeparator;
+
     // EZPhotoAIEditorPatchInstalled
     UITextView        *_editPromptField;
     UILabel           *_editPromptPlaceholderLabel;
@@ -991,6 +997,7 @@ static BOOL EZGalleryErrorIsSafetyRejection(NSString *message) {
 
     [self setupScrollView];
     [self setupToolbar];
+    [self setupAnalysisView];
     [self setupNavBar];
     [self setupImageEditingControls];
     [self updateImageSummary];
@@ -1065,14 +1072,45 @@ static BOOL EZGalleryErrorIsSafetyRejection(NSString *message) {
     NSDictionary *entry = [[EZPhotoGalleryAnalysisService sharedService]
         manifestEntryForPath:self.filePath];
     NSString *summary = [entry[@"summary"] isKindOfClass:[NSString class]] ? entry[@"summary"] : nil;
+    // The analysis lives in the readable strip below the photo now, not in
+    // the nav-bar prompt (tracker #109: the prompt was tiny and unreadable).
+    self.navigationItem.prompt = nil;
     if (summary.length) {
-        self.navigationItem.prompt = [NSString stringWithFormat:@"Scene: %@", summary];
+        _analysisTextView.text = summary;
     } else if ([entry[@"status"] isEqualToString:@"queued"] ||
                [entry[@"status"] isEqualToString:@"analyzing"]) {
-        self.navigationItem.prompt = @"Analyzing photo…";
+        _analysisTextView.text = @"Analyzing photo…";
     } else {
-        self.navigationItem.prompt = nil;
+        _analysisTextView.text = nil;
     }
+    [self.view setNeedsLayout];
+}
+
+// The analysis strip: full-width, 17pt, scrollable, below the photo and
+// above the edit toolbar. Hidden entirely when there is no analysis yet.
+- (void)setupAnalysisView {
+    _analysisTextView = [[UITextView alloc] initWithFrame:CGRectZero];
+    _analysisTextView.backgroundColor = [UIColor clearColor];
+    _analysisTextView.textColor = [UIColor colorWithWhite:0.92 alpha:1.0];
+    _analysisTextView.font = [UIFont systemFontOfSize:17.0];
+    _analysisTextView.textContainerInset = UIEdgeInsetsMake(10.0, 16.0, 10.0, 16.0);
+    _analysisTextView.editable = NO;
+    _analysisTextView.selectable = YES;
+    _analysisTextView.scrollEnabled = YES;
+    _analysisTextView.showsVerticalScrollIndicator = YES;
+    _analysisTextView.text = nil;
+    [self.view addSubview:_analysisTextView];
+
+    _analysisSeparator = [[UIView alloc] initWithFrame:CGRectZero];
+    _analysisSeparator.backgroundColor = [UIColor colorWithWhite:1 alpha:0.1];
+    [self.view addSubview:_analysisSeparator];
+}
+
+- (CGFloat)analysisStripHeight {
+    if (_analysisTextView.text.length == 0) return 0.0;
+    CGSize fit = [_analysisTextView sizeThatFits:
+        CGSizeMake(CGRectGetWidth(self.view.bounds), CGFLOAT_MAX)];
+    return MIN(132.0, MAX(44.0, fit.height));
 }
 
 - (void)setupScrollView {
@@ -1138,9 +1176,16 @@ static BOOL EZGalleryErrorIsSafetyRejection(NSString *message) {
     CGFloat toolbarH = 184 + ([self editPromptHeight] - 56.0) + self.view.safeAreaInsets.bottom;
     CGFloat topInset = self.view.safeAreaInsets.top;
     CGFloat availableHeight = self.view.bounds.size.height - _keyboardOverlap;
-    CGFloat imageAreaH = MAX(0.0, availableHeight - toolbarH);
+    CGFloat analysisH = [self analysisStripHeight];
+    CGFloat imageAreaH = MAX(0.0, availableHeight - toolbarH - analysisH);
 
     _scrollView.frame = CGRectMake(0, topInset, self.view.bounds.size.width, MAX(0, imageAreaH - topInset));
+
+    _analysisSeparator.hidden = (analysisH == 0);
+    _analysisSeparator.frame = CGRectMake(0, availableHeight - toolbarH - analysisH,
+                                          self.view.bounds.size.width, 0.5);
+    _analysisTextView.frame = CGRectMake(0, availableHeight - toolbarH - analysisH,
+                                         self.view.bounds.size.width, analysisH);
 
     [self layoutImagePresentation];
 
