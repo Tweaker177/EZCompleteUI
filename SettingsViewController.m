@@ -337,7 +337,7 @@
         UILabel *versionLabel    = [[UILabel alloc] initWithFrame:CGRectMake(20, y, w, 20)];
         versionLabel.adjustsFontSizeToFitWidth = YES;
         versionLabel.minimumScaleFactor = 0.5;
-        versionLabel.text        = [NSString stringWithFormat:@"EZCompleteUI  v%@  (build %@)",
+        versionLabel.text        = [NSString stringWithFormat:@"EZCompleteAI  v%@  (build %@)",
                                      appVersion, buildNumber];
         versionLabel.font        = [UIFont systemFontOfSize:12];
         versionLabel.textColor   = [EZTheme secondaryTextColor];
@@ -718,7 +718,7 @@
     - (void)signOut {
         UIAlertController *confirm = [UIAlertController
             alertControllerWithTitle:@"Sign Out?"
-                             message:@"You will need to sign in again to use EZCompleteUI."
+                             message:@"You will need to sign in again to use EZCompleteAI."
                       preferredStyle:UIAlertControllerStyleAlert];
         [confirm addAction:[UIAlertAction actionWithTitle:@"Sign Out"
                                                    style:UIAlertActionStyleDestructive

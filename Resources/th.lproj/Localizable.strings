@@ -326,7 +326,7 @@
 "EZGallery.Export.Download" = "ดาวน์โหลดรูปภาพ";
 "EZGallery.Export.Cancel" = "ยกเลิก";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "แชตใหม่";
 "EZNav.PhotoGallery" = "แกลเลอรีรูปภาพ";
 "EZNav.TextToSpeech" = "ข้อความเป็นเสียง";
@@ -339,7 +339,7 @@
 "EZNav.RecentChats" = "แชตล่าสุด";
 /* First-run tutorial */
 "EZTutorial.Skip" = "ข้าม"; "EZTutorial.Back" = "ย้อนกลับ"; "EZTutorial.Next" = "ถัดไป"; "EZTutorial.GetStarted" = "เริ่มต้น";
-"EZTutorial.Welcome.Title" = "ยินดีต้อนรับสู่ EZCompleteUI"; "EZTutorial.Welcome.Body" = "ทัวร์สั้น ๆ ว่าทุกอย่างอยู่ที่ไหน";
+"EZTutorial.Welcome.Title" = "ยินดีต้อนรับสู่ EZCompleteAI"; "EZTutorial.Welcome.Body" = "ทัวร์สั้น ๆ ว่าทุกอย่างอยู่ที่ไหน";
 "EZTutorial.Chat.Title" = "แชตและสร้างสรรค์"; "EZTutorial.Chat.Body" = "เลือกโมเดล แนบไฟล์ พูด หรือค้นหา — แล้วส่ง";
 "EZTutorial.Navigate.Title" = "เมนูและแชตของคุณ"; "EZTutorial.Navigate.Body" = "ทุกอย่างอยู่ในเมนู มุมซ้ายบน";
 "EZTutorial.Gallery.Title" = "แกลเลอรีรูปภาพ"; "EZTutorial.Gallery.Body" = "แตะ + เพื่อเพิ่ม หยิกเพื่อปรับขนาด เลือกเพื่อแชร์หรือลบ";
@@ -487,8 +487,8 @@
 "EZCoinStore.Feature.AIMusic" = "เพลง AI";
 "EZMemory.Player.Play" = "เล่น";
 "EZMemory.Player.Pause" = "หยุดชั่วคราว";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "เปิดเพลงไม่ได้";
 "EZMemory.Player.OpenErrorMessage" = "ดาวน์โหลดเพลงไม่ได้ โปรดตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง";
 "EZMemory.Player.OK" = "ตกลง";

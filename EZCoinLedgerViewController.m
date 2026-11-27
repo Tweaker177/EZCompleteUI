@@ -648,9 +648,9 @@ typedef void (^EZGrantCoinsHandler)(NSString *userId, NSString *email);
     if (_contactEmail.length == 0 || ![_contactEmail containsString:@"@"]) return;
 
     NSString *feature = _contactFeature.length ? _contactFeature : @"recent";
-    NSString *subject = [NSString stringWithFormat:@"EZCompleteUI — about your %@ request", feature];
+    NSString *subject = [NSString stringWithFormat:@"EZCompleteAI — about your %@ request", feature];
     NSString *body = [NSString stringWithFormat:
-                      @"Hi,\n\nI'm following up about your %@ request in EZCompleteUI.\n\n"
+                      @"Hi,\n\nI'm following up about your %@ request in EZCompleteAI.\n\n"
                       @"Transaction details:\n"
                       @"• Date and time: %@\n"
                       @"• Status: %@\n"
@@ -2064,7 +2064,7 @@ static NSInteger const kExportPageSize  = 1000;
      @".err{color:#b71c1c}"
      @"</style></head><body>"];
 
-    [html appendFormat:@"<h1>EZCompleteUI Admin Ledger</h1>"
+    [html appendFormat:@"<h1>EZCompleteAI Admin Ledger</h1>"
      @"<div class='meta'>%@Exported: %@ &nbsp;|&nbsp; %ld rows</div>",
      filterLine, exportDate, (long)rows.count];
 

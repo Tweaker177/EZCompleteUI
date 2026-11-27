@@ -354,7 +354,7 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     self.navigationDemoView.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.navigationDemoView];
 
-    UILabel *appTitle = [self demoLabel:@"EZCompleteUI" color:UIColor.whiteColor font:20];
+    UILabel *appTitle = [self demoLabel:@"EZCompleteAI" color:UIColor.whiteColor font:20];
     [self.navigationDemoView addSubview:appTitle];
     UIImageView *search = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"magnifyingglass"]];
     search.tintColor = [UIColor colorWithRed:0.08 green:0.64 blue:1 alpha:1];

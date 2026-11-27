@@ -362,7 +362,7 @@
 "EZGallery.Export.Download" = "Unduh Gambar";
 "EZGallery.Export.Cancel" = "Batal";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "Chat Baru";
 "EZNav.PhotoGallery" = "Galeri Foto";
 "EZNav.TextToSpeech" = "Teks ke Suara";
@@ -375,7 +375,7 @@
 "EZNav.RecentChats" = "Chat Terbaru";
 /* First-run tutorial */
 "EZTutorial.Skip" = "Lewati"; "EZTutorial.Back" = "Kembali"; "EZTutorial.Next" = "Berikutnya"; "EZTutorial.GetStarted" = "Mulai";
-"EZTutorial.Welcome.Title" = "Selamat Datang di EZCompleteUI"; "EZTutorial.Welcome.Body" = "Tur singkat tentang di mana semua berada.";
+"EZTutorial.Welcome.Title" = "Selamat Datang di EZCompleteAI"; "EZTutorial.Welcome.Body" = "Tur singkat tentang di mana semua berada.";
 "EZTutorial.Chat.Title" = "Chat dan buat"; "EZTutorial.Chat.Body" = "Pilih model. Lampirkan, dikte, atau cari — lalu kirim.";
 "EZTutorial.Navigate.Title" = "Menu dan chat Anda"; "EZTutorial.Navigate.Body" = "Semua ada di menu, kiri atas.";
 "EZTutorial.Gallery.Title" = "Galeri Foto"; "EZTutorial.Gallery.Body" = "Ketuk + untuk menambah. Cubit untuk mengubah ukuran. Pilih untuk membagikan atau menghapus.";
@@ -528,8 +528,8 @@
 "EZCoinStore.Feature.AIMusic" = "Musik AI";
 "EZMemory.Player.Play" = "Putar";
 "EZMemory.Player.Pause" = "Jeda";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "Tidak Dapat Membuka Lagu";
 "EZMemory.Player.OpenErrorMessage" = "Lagu tidak dapat diunduh. Periksa koneksi Anda dan coba lagi.";
 "EZMemory.Player.OK" = "OK";

@@ -362,7 +362,7 @@
 "EZGallery.Export.Download" = "이미지 다운로드";
 "EZGallery.Export.Cancel" = "취소";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "새 채팅";
 "EZNav.PhotoGallery" = "사진 갤러리";
 "EZNav.TextToSpeech" = "텍스트 음성 변환";
@@ -375,7 +375,7 @@
 "EZNav.RecentChats" = "최근 채팅";
 /* First-run tutorial */
 "EZTutorial.Skip" = "건너뛰기"; "EZTutorial.Back" = "뒤로"; "EZTutorial.Next" = "다음"; "EZTutorial.GetStarted" = "시작하기";
-"EZTutorial.Welcome.Title" = "EZCompleteUI에 오신 것을 환영합니다"; "EZTutorial.Welcome.Body" = "모든 것이 어디 있는지 빠르게 둘러봅니다.";
+"EZTutorial.Welcome.Title" = "EZCompleteAI에 오신 것을 환영합니다"; "EZTutorial.Welcome.Body" = "모든 것이 어디 있는지 빠르게 둘러봅니다.";
 "EZTutorial.Chat.Title" = "채팅하고 만들기"; "EZTutorial.Chat.Body" = "모델을 고르고, 첨부·받아쓰기·검색 — 그리고 보내기.";
 "EZTutorial.Navigate.Title" = "메뉴와 채팅"; "EZTutorial.Navigate.Body" = "모든 것은 왼쪽 위 메뉴에 있습니다.";
 "EZTutorial.Gallery.Title" = "사진 갤러리"; "EZTutorial.Gallery.Body" = "+를 눌러 추가. 핀치로 크기 조절. 선택해서 공유하거나 삭제.";
@@ -528,8 +528,8 @@
 "EZCoinStore.Feature.AIMusic" = "AI 음악";
 "EZMemory.Player.Play" = "재생";
 "EZMemory.Player.Pause" = "일시 정지";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "노래를 열 수 없음";
 "EZMemory.Player.OpenErrorMessage" = "노래를 다운로드할 수 없습니다. 연결을 확인하고 다시 시도하세요.";
 "EZMemory.Player.OK" = "확인";

@@ -542,7 +542,7 @@ static NSArray<NSString *> *EZSensitiveUserDefaultsKeys(void) {
     // Build app version string for the subject line
     NSDictionary *infoPlist = [NSBundle mainBundle].infoDictionary;
     NSString *appVersion    = infoPlist[@"CFBundleShortVersionString"] ?: @"?";
-    NSString *subject       = [NSString stringWithFormat:@"EZCompleteUI v%@ — Support Request",
+    NSString *subject       = [NSString stringWithFormat:@"EZCompleteAI v%@ — Support Request",
                                 appVersion];
 
     // Coin balance summary — always inline in the body regardless of CSV toggle

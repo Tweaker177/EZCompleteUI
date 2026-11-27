@@ -4325,7 +4325,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     self.sendButton.enabled = YES;
                     if ([reason isEqualToString:@"Not logged in"]) {
-                        [self appendToChat:@"[Error: Please sign in to use EZCompleteUI]"];
+                        [self appendToChat:@"[Error: Please sign in to use EZCompleteAI]"];
                     } else if ([reason isEqualToString:@"Insufficient coins"] ||
                                [reason isEqualToString:@"No account found"]) {
                         [self presentCoinStoreForFeature:nil];
@@ -4352,7 +4352,7 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     self.sendButton.enabled = YES;
                     if ([reason isEqualToString:@"Not logged in"]) {
-                        [self appendToChat:@"[Error: Please sign in to use EZCompleteUI]"];
+                        [self appendToChat:@"[Error: Please sign in to use EZCompleteAI]"];
                     } else if ([reason isEqualToString:@"Insufficient coins"] ||
                                [reason isEqualToString:@"No account found"]) {
                         [self presentCoinStoreForFeature:nil];
@@ -8598,7 +8598,7 @@ static NSString *EZThreadExportTimestampNow(void) {
 - (NSString *)threadExportFilenameFromName:(NSString *)name extension:(NSString *)extension {
     NSString *base = [[name stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]]
         stringByReplacingOccurrencesOfString:@"/" withString:@"-"];
-    if (!base.length) base = self.activeThread.title.length ? self.activeThread.title : @"EZCompleteUI Thread";
+    if (!base.length) base = self.activeThread.title.length ? self.activeThread.title : @"EZCompleteAI Thread";
     return [[base stringByReplacingOccurrencesOfString:@"." withString:@"-"] stringByAppendingPathExtension:extension];
 }
 
@@ -8734,7 +8734,7 @@ static NSString *EZThreadExportTimestampNow(void) {
     NSData *data = nil;
     if ([format isEqualToString:@"pdf"]) {
         data = [self threadPDFDataWithSelectedMessages:[self selectedThreadMessages]
-                                                 title:name.length ? name : @"EZCompleteUI Thread"];
+                                                 title:name.length ? name : @"EZCompleteAI Thread"];
     } else if ([format isEqualToString:@"rtf"]) {
         NSAttributedString *attributed = [[NSAttributedString alloc] initWithString:text
             attributes:@{ NSFontAttributeName: [UIFont systemFontOfSize:12] }];
@@ -8803,7 +8803,7 @@ static NSString *EZThreadExportTimestampNow(void) {
                                                    detail:@"Name this selection, then choose its export format."];
     UITextField *field = [UITextField new];
     field.translatesAutoresizingMaskIntoConstraints = NO;
-    field.text = self.activeThread.title ?: @"EZCompleteUI Thread";
+    field.text = self.activeThread.title ?: @"EZCompleteAI Thread";
     field.placeholder = @"Export name";
     field.textColor = UIColor.whiteColor;
     field.backgroundColor = [UIColor colorWithWhite:1 alpha:0.08];
@@ -8821,7 +8821,7 @@ static NSString *EZThreadExportTimestampNow(void) {
       forControlEvents:UIControlEventTouchUpInside];
     [continueButton addAction:[UIAction actionWithHandler:^(__unused UIAction *action) {
         NSString *name = [field.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        [weakSelf presentThreadExportFormatMenuWithName:name.length ? name : @"EZCompleteUI Thread"];
+        [weakSelf presentThreadExportFormatMenuWithName:name.length ? name : @"EZCompleteAI Thread"];
     }] forControlEvents:UIControlEventTouchUpInside];
     [NSLayoutConstraint activateConstraints:@[
         [field.topAnchor constraintEqualToAnchor:card.topAnchor constant:86],
@@ -8991,8 +8991,8 @@ static NSDictionary *EZChatMusicDisplayMessage(NSDictionary *event) {
     return @{
         @"role": @"music",
         @"entryID": event[@"entryID"] ?: @"",
-        @"title": event[@"title"] ?: @"🔊EZCompleteUI🔊",
-        @"subtitle": @"🔊EZCompleteUI🔊",
+        @"title": event[@"title"] ?: @"🔊EZCompleteAI🔊",
+        @"subtitle": @"🔊EZCompleteAI🔊",
         // The card shows the length (and plays it) itself; see EZMusicBubbleCell.
         @"durationSeconds": @(MAX(seconds, 0)),
         @"timestamp": event[@"timestamp"] ?: @"time unavailable",
@@ -10133,7 +10133,7 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
 
         NSString *entryID = [finishedEntry[@"id"] isKindOfClass:[NSString class]] ? finishedEntry[@"id"] : @"";
         NSString *finalTitle = [finishedEntry[@"title"] isKindOfClass:[NSString class]] && [finishedEntry[@"title"] length] > 0
-            ? finishedEntry[@"title"] : (requestedTitle.length > 0 ? requestedTitle : @"🔊EZCompleteUI🔊");
+            ? finishedEntry[@"title"] : (requestedTitle.length > 0 ? requestedTitle : @"🔊EZCompleteAI🔊");
         NSInteger actualSeconds = [finishedEntry[@"duration_actual_ms"] respondsToSelector:@selector(integerValue)]
             ? (NSInteger)llround([finishedEntry[@"duration_actual_ms"] doubleValue] / 1000.0) : 0;
         NSInteger shownSeconds = actualSeconds > 0 ? actualSeconds : requestedSeconds;
@@ -10207,7 +10207,7 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
     if ([event[@"isError"] boolValue]) return;
     NSString *token = [EZAuthManager shared].accessToken;
     NSString *prompt = [event[@"prompt"] isKindOfClass:NSString.class] ? event[@"prompt"] : @"";
-    NSString *title = [event[@"title"] isKindOfClass:NSString.class] ? event[@"title"] : @"🔊EZCompleteUI🔊";
+    NSString *title = [event[@"title"] isKindOfClass:NSString.class] ? event[@"title"] : @"🔊EZCompleteAI🔊";
     NSString *entryID = [event[@"entryID"] isKindOfClass:NSString.class] ? event[@"entryID"] : @"";
     if (!token.length || !prompt.length) {
         EZLog(EZLogLevelWarning, @"MEMORY", @"Skipped chat music memory: missing session token or song prompt");
@@ -10232,7 +10232,7 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
     }
     return [NSString stringWithFormat:
         @"Song \"%@\" completed; it is shown in chat with Play and Share buttons and saved in AI Music. Request: %@",
-        event[@"title"] ?: @"🔊EZCompleteUI🔊", event[@"prompt"] ?: @""];
+        event[@"title"] ?: @"🔊EZCompleteAI🔊", event[@"prompt"] ?: @""];
 }
 
 // ── Inline image grid insertion ───────────────────────────────────────────────
@@ -10408,8 +10408,8 @@ static NSUInteger const kEZGitHubApprovalMaxChars = 1400;
     if ([role isEqualToString:@"music"]) {
         EZMusicBubbleCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EZMusic"
                                                                   forIndexPath:indexPath];
-        [cell configureWithTitle:msg[@"title"] ?: @"🔊EZCompleteUI🔊"
-                        subtitle:msg[@"subtitle"] ?: @"🔊EZCompleteUI🔊"
+        [cell configureWithTitle:msg[@"title"] ?: @"🔊EZCompleteAI🔊"
+                        subtitle:msg[@"subtitle"] ?: @"🔊EZCompleteAI🔊"
                  durationSeconds:[msg[@"durationSeconds"] integerValue]
                          entryID:msg[@"entryID"] ?: @""
             presentingController:self];

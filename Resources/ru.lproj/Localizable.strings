@@ -360,7 +360,7 @@
 "EZGallery.Export.Download" = "Загрузить изображение";
 "EZGallery.Export.Cancel" = "Отмена";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "Новый чат";
 "EZNav.PhotoGallery" = "Фотогалерея";
 "EZNav.TextToSpeech" = "Преобразование текста в речь";
@@ -373,7 +373,7 @@
 "EZNav.RecentChats" = "Недавние чаты";
 /* First-run tutorial */
 "EZTutorial.Skip" = "Пропустить"; "EZTutorial.Back" = "Назад"; "EZTutorial.Next" = "Далее"; "EZTutorial.GetStarted" = "Начало работы";
-"EZTutorial.Welcome.Title" = "Добро пожаловать в EZCompleteUI"; "EZTutorial.Welcome.Body" = "Краткий обзор, где что находится.";
+"EZTutorial.Welcome.Title" = "Добро пожаловать в EZCompleteAI"; "EZTutorial.Welcome.Body" = "Краткий обзор, где что находится.";
 "EZTutorial.Chat.Title" = "Общайтесь и создавайте"; "EZTutorial.Chat.Body" = "Выберите модель. Прикрепите, продиктуйте или найдите — и отправьте.";
 "EZTutorial.Navigate.Title" = "Ваше меню и чаты"; "EZTutorial.Navigate.Body" = "Всё находится в меню, слева вверху.";
 "EZTutorial.Gallery.Title" = "Фотогалерея"; "EZTutorial.Gallery.Body" = "Нажмите +, чтобы добавить. Сведите пальцы, чтобы изменить размер. Выберите, чтобы поделиться или удалить.";
@@ -527,8 +527,8 @@
 "EZCoinStore.Feature.AIMusic" = "Музыка ИИ";
 "EZMemory.Player.Play" = "Воспроизвести";
 "EZMemory.Player.Pause" = "Пауза";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "Не удалось открыть песню";
 "EZMemory.Player.OpenErrorMessage" = "Не удалось загрузить песню. Проверьте соединение и попробуйте снова.";
 "EZMemory.Player.OK" = "OK";

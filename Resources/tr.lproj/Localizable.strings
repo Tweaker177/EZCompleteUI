@@ -362,7 +362,7 @@
 "EZGallery.Export.Download" = "Görüntüyü İndir";
 "EZGallery.Export.Cancel" = "İptal";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "Yeni Sohbet";
 "EZNav.PhotoGallery" = "Fotoğraf Galerisi";
 "EZNav.TextToSpeech" = "Metinden Konuşmaya";
@@ -375,7 +375,7 @@
 "EZNav.RecentChats" = "Son Sohbetler";
 /* First-run tutorial */
 "EZTutorial.Skip" = "Atla"; "EZTutorial.Back" = "Geri"; "EZTutorial.Next" = "İleri"; "EZTutorial.GetStarted" = "Başlayın";
-"EZTutorial.Welcome.Title" = "EZCompleteUI'ya Hoş Geldiniz"; "EZTutorial.Welcome.Body" = "Her şeyin nerede olduğunu gösteren hızlı bir tur.";
+"EZTutorial.Welcome.Title" = "EZCompleteAI'ya Hoş Geldiniz"; "EZTutorial.Welcome.Body" = "Her şeyin nerede olduğunu gösteren hızlı bir tur.";
 "EZTutorial.Chat.Title" = "Sohbet edin ve oluşturun"; "EZTutorial.Chat.Body" = "Bir model seçin. Ekleyin, dikte edin veya arayın — sonra gönderin.";
 "EZTutorial.Navigate.Title" = "Menünüz ve sohbetleriniz"; "EZTutorial.Navigate.Body" = "Her şey menüde, sol üstte.";
 "EZTutorial.Gallery.Title" = "Fotoğraf Galerisi"; "EZTutorial.Gallery.Body" = "Eklemek için +'ya dokunun. Boyutlandırmak için kıstırın. Paylaşmak veya silmek için Seç'i kullanın.";
@@ -528,8 +528,8 @@
 "EZCoinStore.Feature.AIMusic" = "Yapay zekâ müziği";
 "EZMemory.Player.Play" = "Oynat";
 "EZMemory.Player.Pause" = "Duraklat";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "Şarkı Açılamadı";
 "EZMemory.Player.OpenErrorMessage" = "Şarkı indirilemedi. Bağlantınızı kontrol edip tekrar deneyin.";
 "EZMemory.Player.OK" = "Tamam";

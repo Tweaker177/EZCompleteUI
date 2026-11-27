@@ -326,7 +326,7 @@
 "EZGallery.Export.Download" = "下载图片";
 "EZGallery.Export.Cancel" = "取消";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "新建对话";
 "EZNav.PhotoGallery" = "照片图库";
 "EZNav.TextToSpeech" = "文字转语音";
@@ -339,7 +339,7 @@
 "EZNav.RecentChats" = "最近对话";
 /* First-run tutorial */
 "EZTutorial.Skip" = "跳过"; "EZTutorial.Back" = "返回"; "EZTutorial.Next" = "下一步"; "EZTutorial.GetStarted" = "开始使用";
-"EZTutorial.Welcome.Title" = "欢迎使用 EZCompleteUI"; "EZTutorial.Welcome.Body" = "快速了解一下每个功能在哪里。";
+"EZTutorial.Welcome.Title" = "欢迎使用 EZCompleteAI"; "EZTutorial.Welcome.Body" = "快速了解一下每个功能在哪里。";
 "EZTutorial.Chat.Title" = "聊天与创作"; "EZTutorial.Chat.Body" = "选个模型。附件、语音输入或搜索 — 然后发送。";
 "EZTutorial.Navigate.Title" = "菜单和对话"; "EZTutorial.Navigate.Body" = "所有功能都在左上角的菜单里。";
 "EZTutorial.Gallery.Title" = "照片图库"; "EZTutorial.Gallery.Body" = "点 + 添加。捏合调整网格大小。选择可分享或删除。";
@@ -487,8 +487,8 @@
 "EZCoinStore.Feature.AIMusic" = "AI音乐";
 "EZMemory.Player.Play" = "播放";
 "EZMemory.Player.Pause" = "暂停";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "无法打开歌曲";
 "EZMemory.Player.OpenErrorMessage" = "无法下载歌曲。请检查网络连接后重试。";
 "EZMemory.Player.OK" = "确定";
