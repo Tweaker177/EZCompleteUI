@@ -736,8 +736,11 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 @property (nonatomic, strong) UIImageView  *imageView;
 @property (nonatomic, strong) UIView       *selectionOverlay;
 @property (nonatomic, strong) UIView       *shimmerView;
+@property (nonatomic, strong) UIView       *durationBadge;
+@property (nonatomic, strong) UILabel      *durationLabel;
 - (void)setImage:(UIImage * _Nullable)image;
 - (void)startShimmer;
+- (void)setDurationText:(NSString * _Nullable)text;
 @end
 
 @implementation EZGalleryCell
@@ -767,6 +770,19 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
         self.selectionOverlay.backgroundColor  = [UIColor colorWithRed:1.0 green:0.84 blue:0.0 alpha:0.22];
         self.selectionOverlay.alpha = 0;
         [self.contentView addSubview:self.selectionOverlay];
+
+        // Video length badge, bottom-right. Hidden for photos.
+        self.durationBadge = [[UIView alloc] init];
+        self.durationBadge.backgroundColor = [UIColor colorWithWhite:0 alpha:0.6];
+        self.durationBadge.layer.cornerRadius = 5;
+        self.durationBadge.clipsToBounds = YES;
+        self.durationBadge.hidden = YES;
+        [self.contentView addSubview:self.durationBadge];
+        self.durationLabel = [[UILabel alloc] init];
+        self.durationLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightSemibold];
+        self.durationLabel.textColor = UIColor.whiteColor;
+        self.durationLabel.textAlignment = NSTextAlignmentCenter;
+        [self.durationBadge addSubview:self.durationLabel];
     }
     return self;
 }
@@ -796,6 +812,7 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
     [self.shimmerView.layer removeAllAnimations];
     self.shimmerView.alpha  = 1;
     self.selectionOverlay.alpha = 0;
+    [self setDurationText:nil];
 }
 
 - (void)setHighlighted:(BOOL)highlighted {
@@ -809,6 +826,23 @@ static NSString *EZGalleryPromptForPath(NSString *path) {
 - (void)setSelected:(BOOL)selected {
     [super setSelected:selected];
     self.selectionOverlay.alpha = selected ? 1.0 : 0.0;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    if (self.durationBadge.hidden) return;
+    [self.durationLabel sizeToFit];
+    CGFloat w = self.durationLabel.bounds.size.width + 12;
+    CGFloat h = self.durationLabel.bounds.size.height + 8;
+    self.durationBadge.frame = CGRectMake(self.contentView.bounds.size.width - w - 6,
+                                          self.contentView.bounds.size.height - h - 6, w, h);
+    self.durationLabel.frame = self.durationBadge.bounds;
+}
+
+- (void)setDurationText:(NSString *)text {
+    self.durationLabel.text = text;
+    self.durationBadge.hidden = (text.length == 0);
+    [self setNeedsLayout];
 }
 
 @end
@@ -2924,6 +2958,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 @property (nonatomic, strong) UICollectionViewFlowLayout *layout;
 @property (nonatomic, strong) NSMutableArray<NSString *> *filePaths;
 @property (nonatomic, strong) NSCache<NSString *, UIImage *> *thumbnailCache;
+@property (nonatomic, strong) NSMutableDictionary<NSString *, NSString *> *videoDurationCache;
 @property (nonatomic, strong) NSOperationQueue      *loadQueue;
 @property (nonatomic, strong) NSOperationQueue      *fileIndexQueue;
 @property (nonatomic, assign) NSUInteger             fileIndexGeneration;
@@ -3013,6 +3048,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     self.columnCount = kDefaultColumns;
     self.filePaths   = [NSMutableArray array];
     self.thumbnailCache = EZGallerySharedThumbnailCache();
+    self.videoDurationCache = [NSMutableDictionary dictionary];
     self.loadQueue = [[NSOperationQueue alloc] init];
     self.loadQueue.maxConcurrentOperationCount = 4;
     self.loadQueue.qualityOfService = NSQualityOfServiceUserInitiated;
@@ -3404,7 +3440,49 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
             });
         }];
     }
+    if ([self isVideoPath:path]) {
+        NSString *durationText = self.videoDurationCache[path];
+        [cell setDurationText:durationText];
+        if (!durationText.length) {
+            NSIndexPath *ip = indexPath;
+            __weak typeof(self) weakSelf = self;
+            [self.loadQueue addOperationWithBlock:^{
+                __strong typeof(weakSelf) strongSelf = weakSelf;
+                if (!strongSelf) return;
+                AVURLAsset *asset = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:path] options:nil];
+                [asset loadValuesAsynchronouslyForKeys:@[@"duration"] completionHandler:^{
+                    NSError *error = nil;
+                    AVKeyValueStatus status = [asset statusOfValueForKey:@"duration" error:&error];
+                    NSTimeInterval seconds = (status == AVKeyValueStatusLoaded) ? CMTimeGetSeconds(asset.duration) : 0;
+                    NSString *text = (seconds > 0) ? [strongSelf formattedVideoDuration:seconds] : nil;
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        if (text.length) strongSelf.videoDurationCache[path] = text;
+                        EZGalleryCell *visible = (EZGalleryCell *)[cv cellForItemAtIndexPath:ip];
+                        if (visible && ip.item < strongSelf.filePaths.count &&
+                            [strongSelf.filePaths[ip.item] isEqualToString:path]) {
+                            [visible setDurationText:text];
+                        }
+                    });
+                }];
+            }];
+        }
+    } else {
+        [cell setDurationText:nil];
+    }
     return cell;
+}
+
+- (BOOL)isVideoPath:(NSString *)path {
+    return [@[@"mov", @"mp4", @"m4v", @"avi"] containsObject:path.pathExtension.lowercaseString];
+}
+
+- (NSString *)formattedVideoDuration:(NSTimeInterval)seconds {
+    NSInteger total = (NSInteger)lround(seconds);
+    NSInteger hours = total / 3600;
+    NSInteger minutes = (total % 3600) / 60;
+    NSInteger secs = total % 60;
+    if (hours > 0) return [NSString stringWithFormat:@"%ld:%02ld:%02ld", (long)hours, (long)minutes, (long)secs];
+    return [NSString stringWithFormat:@"%ld:%02ld", (long)minutes, (long)secs];
 }
 
 - (UIImage *)thumbnailForPath:(NSString *)path side:(CGFloat)side {
