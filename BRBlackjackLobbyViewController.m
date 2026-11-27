@@ -8,6 +8,7 @@
 //   blank screen when the request fails.
 //
 // Changes from v1:
+//   - Added a "Roulette" navigation bar button that opens the roulette table list.
 //   - The plain table list is now a set of casino table cards in the style
 //     of the lobby mockup: a dealer hero header, one card per table with a
 //     chip stack in the table's colors, its bet range, seats taken, the
@@ -22,6 +23,7 @@
 #import "BRBlackjackLobbyViewController.h"
 #import "BRBlackjackAPI.h"
 #import "BRBlackjackTableViewController.h"
+#import "BRRouletteLobbyViewController.h"
 #import "EZCoinStoreViewController.h"
 
 static const NSTimeInterval kLobbyRefreshInterval = 5.0;
@@ -175,6 +177,10 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     [pill addTarget:self action:@selector(balancePillTapped) forControlEvents:UIControlEventTouchUpInside];
     self.balancePill = pill;
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:pill];
+    // Entry to the roulette tables, which share the coin balance and chat of this lobby.
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"🎡 Roulette" style:UIBarButtonItemStylePlain target:self action:@selector(openRouletteTapped)];
+    self.navigationItem.leftBarButtonItem.tintColor = BRBJLobbyGold();
+    self.navigationItem.leftItemsSupplementBackButton = YES;
     [self updateBalancePill];
 }
 
@@ -615,6 +621,10 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     NSInteger index = [self tableIndexForRow:indexPath.row];
     NSDictionary *table = [self.tables[index] isKindOfClass:[NSDictionary class]] ? self.tables[index] : @{};
     return [self cardCellForTable:table index:index];
+}
+
+- (void)openRouletteTapped {
+    [self.navigationController pushViewController:[BRRouletteLobbyViewController new] animated:YES];
 }
 
 #pragma mark UITableViewDelegate
