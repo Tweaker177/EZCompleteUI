@@ -44,6 +44,7 @@ static NSDictionary<NSString *, NSString *> *EZModelLabels(void) {
         @"gpt-image-1-mini":       EZLocalized(@"EZModelLabel.ImageGenFastCheap"),
 #if !APPSTORE
         @"seahorse-image":         EZLocalized(@"EZModelLabel.ImageGenNSFW"),
+        @"seahorse-video":         EZLocalized(@"EZModelLabel.VideoGenNSFW"),
 #endif
         @"whisper-1":              EZLocalized(@"EZModelLabel.AudioTranscriptionOnly"),
     };
@@ -65,7 +66,7 @@ static NSArray<NSArray<NSString *> *> *EZModelSections(void) {
         @[@"gpt-4o", @"gpt-4o-mini"],
         @[@"gpt-image-2.6-sunburst", @"gpt-image-2.6-flare", @"gpt-image-2.5-sunburst", @"gpt-image-2.5-flare", @"gpt-image-2", @"gpt-image-1-mini"
 #if !APPSTORE
-            , @"seahorse-image"
+            , @"seahorse-image", @"seahorse-video"
 #endif
         ],
         @[@"whisper-1"]

@@ -616,6 +616,7 @@
 #import "EZTheme.h"
 #import "EZFirstRunTutorialViewController.h"
 #import "EZPhotoGalleryViewController.h"
+#import "EZSeahorseVideoViewController.h"
 #import "TextToSpeechViewController.h"
 #import "EZMusicViewController.h"
 #import "EZFileExplorerViewController.h"
@@ -7723,6 +7724,20 @@ static NSString *EZChatTTSClipPath(NSString *clipID) {
         EZLogf(EZLogLevelInfo, @"APP", @"Auto model → %@", enabled ? @"on" : @"off");
     };
     picker.onModelSelected = ^(NSString *model) {
+#if !APPSTORE
+        if ([model isEqualToString:@"seahorse-video"]) {
+            // Not a chat model: it opens the NSFW video composer. The
+            // picker dismisses itself right after this callback, so
+            // present once that dismissal has landed.
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.45 * NSEC_PER_SEC)),
+                           dispatch_get_main_queue(), ^{
+                UINavigationController *videoNav = [[UINavigationController alloc]
+                    initWithRootViewController:[[EZSeahorseVideoViewController alloc] init]];
+                [ws presentViewController:videoNav animated:YES completion:nil];
+            });
+            return;
+        }
+#endif
         ws.selectedModel = model;
         [ws.modelButton setTitle:[NSString stringWithFormat:@"Model: %@", model]
                         forState:UIControlStateNormal];

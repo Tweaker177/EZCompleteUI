@@ -88,6 +88,7 @@
 		A2000000000000000000001C /* EZSystemCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* EZSystemCell.m */; };
 		A2000000000000000000001D /* EZCodeBlockCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* EZCodeBlockCell.m */; };
 		A2000000000000000000001E /* EZCoinStoreViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001E /* EZCoinStoreViewController.m */; };
+		A2000000000000000000005A /* EZSeahorseVideoViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000005A /* EZSeahorseVideoViewController.m */; };
 		A2000000000000000000001F /* EZCoinPotView.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* EZCoinPotView.m */; };
 		A20000000000000000000020 /* EZPhotoGalleryViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* EZPhotoGalleryViewController.m */; };
 		A20000000000000000000021 /* EZImageGridCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* EZImageGridCell.m */; };
@@ -252,6 +253,7 @@
 		A1000000000000000000001C /* EZSystemCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZSystemCell.m; sourceTree = "<group>"; };
 		A1000000000000000000001D /* EZCodeBlockCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCodeBlockCell.m; sourceTree = "<group>"; };
 		A1000000000000000000001E /* EZCoinStoreViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCoinStoreViewController.m; sourceTree = "<group>"; };
+		A1000000000000000000005A /* EZSeahorseVideoViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZSeahorseVideoViewController.m; sourceTree = "<group>"; };
 		A1000000000000000000001F /* EZCoinPotView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZCoinPotView.m; sourceTree = "<group>"; };
 		A10000000000000000000020 /* EZPhotoGalleryViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZPhotoGalleryViewController.m; sourceTree = "<group>"; };
 		A10000000000000000000021 /* EZImageGridCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EZImageGridCell.m; sourceTree = "<group>"; };
@@ -447,6 +449,7 @@
 				A1000000000000000000001C /* EZSystemCell.m */,
 				A1000000000000000000001D /* EZCodeBlockCell.m */,
 				A1000000000000000000001E /* EZCoinStoreViewController.m */,
+				A1000000000000000000005A /* EZSeahorseVideoViewController.m */,
 				A100000000000000000000FE /* EZStoreKitManager.h */,
 				A100000000000000000000FF /* EZStoreKitManager.m */,
 				A1000000000000000000001F /* EZCoinPotView.m */,
@@ -711,6 +714,7 @@
 				A2000000000000000000001D /* EZCodeBlockCell.m in Sources */,
 				8C09ACE630AF8CDD00F964F8 /* BRGoldenMandarinAudio.m in Sources */,
 				A2000000000000000000001E /* EZCoinStoreViewController.m in Sources */,
+				A2000000000000000000005A /* EZSeahorseVideoViewController.m in Sources */,
 				8C09AD1730AF8FFB00F964F8 /* mz_zip.c in Sources */,
 				8C09AD1530AF8FFB00F964F8 /* mz_strm_split.c in Sources */,
 				8C09ACF930AF8CDD00F964F8 /* BRStarlightOdysseyAudio.m in Sources */,
