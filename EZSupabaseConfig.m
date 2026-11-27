@@ -39,7 +39,7 @@ NSDictionary *EZCachedActiveStoreSale(void) {
 
 void EZFetchActiveStoreSale(void (^completion)(NSDictionary *sale)) {
     NSString *urlString = [NSString stringWithFormat:
-        @"%@/rest/v1/store_sales?select=id,title,body,multiplier,starts_at,ends_at&active=eq.true&order=starts_at.desc&limit=5",
+        @"%@/rest/v1/store_sales?select=id,title,body,multiplier,starts_at,ends_at,annual_prices&active=eq.true&order=starts_at.desc&limit=5",
         EZSupabaseURL];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString]];
     request.timeoutInterval = 10;

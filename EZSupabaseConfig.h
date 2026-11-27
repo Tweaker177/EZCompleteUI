@@ -29,7 +29,9 @@ extern NSString *const EZSupabaseURL;
 extern NSString *const EZSupabaseAnonKey;
 
 /// Store sales (the `store_sales` table, public read). A sale dict has
-/// id / title / body / multiplier / starts_at / ends_at. The server is
+/// id / title / body / multiplier / starts_at / ends_at, plus an optional
+/// annual_prices dict (monthly tier -> sale yearly price) that the coin
+/// store quotes for annual subscriptions while the sale is live. The server is
 /// the source of truth: the crediting functions read the same table,
 /// so a sale switched on server-side is honored by every build, and
 /// builds with this code also announce it (login popup, store).
