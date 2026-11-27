@@ -1051,7 +1051,10 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
 
 - (NSInteger)storyboardSum {
     NSInteger sum = 0;
-    for (NSDictionary *card in self.shotCards) sum += (NSInteger)[card[@"stepper"] value];
+    for (NSDictionary *card in self.shotCards) {
+        UIStepper *stepper = card[@"stepper"];
+        sum += (NSInteger)stepper.value;
+    }
     return sum;
 }
 
@@ -1394,7 +1397,8 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         @"outfit": self.outfitField,
     };
     for (NSString *key in fields) {
-        NSString *value = [fields[key].text stringByTrimmingCharactersInSet:
+        UITextField *field = fields[key];
+        NSString *value = [field.text stringByTrimmingCharactersInSet:
             [NSCharacterSet whitespaceCharacterSet]];
         if (value.length) body[key] = value;
     }
