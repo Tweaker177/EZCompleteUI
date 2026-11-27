@@ -2177,12 +2177,14 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         [self.usageLogButton.centerYAnchor constraintEqualToAnchor:self.headerView.topAnchor constant:kStoreControlsHeight / 2.0],
     ]];
 
-    // Seasonal greeting on the left of the controls row. It sits at y = 0 (above
-    // the 48 pt controls row boundary), so the web-button shift never moves it,
-    // and it stops short of the Usage Log button on the right.
+    // Seasonal greeting on the left of the controls row, in the row's top half:
+    // the free-coins button takes the bottom half (see addDailyCoinsButton), so
+    // the two never draw over each other. It sits at y = 0 (above the 48 pt
+    // controls row boundary), so the web-button shift never moves it, and it
+    // stops short of the Usage Log button on the right.
     if (self.season.greeting.length > 0) {
 
-        UILabel *greetingLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, MAX(0, self.view.bounds.size.width - 16 - 150), kStoreControlsHeight)];
+        UILabel *greetingLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 0, MAX(0, self.view.bounds.size.width - 16 - 150), 24.0)];
 
         greetingLabel.text      = self.season.greeting;
 
@@ -2477,7 +2479,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     [self.headerView addSubview:self.dailyCoinsButton];
     [NSLayoutConstraint activateConstraints:@[
         [self.dailyCoinsButton.leadingAnchor constraintEqualToAnchor:self.headerView.leadingAnchor constant:16],
-        [self.dailyCoinsButton.centerYAnchor constraintEqualToAnchor:self.headerView.topAnchor constant:24],
+        [self.dailyCoinsButton.centerYAnchor constraintEqualToAnchor:self.headerView.topAnchor constant:(self.season.greeting.length > 0 ? 36.0 : 24.0)],
         [self.dailyCoinsButton.trailingAnchor constraintLessThanOrEqualToAnchor:self.usageLogButton.leadingAnchor constant:-8],
         [self.dailyCoinsButton.widthAnchor constraintLessThanOrEqualToAnchor:self.headerView.widthAnchor multiplier:0.52],
     ]];
