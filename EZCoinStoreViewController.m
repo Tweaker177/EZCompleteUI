@@ -347,6 +347,11 @@ static UIColor *EZSeasonColor(CGFloat red, CGFloat green, CGFloat blue) {
 /// edge. Returns nil for the no-season look.
 - (nullable CAEmitterLayer *)newEmitterLayerForWidth:(CGFloat)width;
 
+/// Standing winter figures for the store header, drawn in code like the
+/// particle artwork. Full colour; not tinted by an emitter cell.
++ (UIImage *)snowmanImage;
++ (UIImage *)evergreenImage;
+
 @end
 
 @implementation EZCoinStoreSeason
@@ -495,6 +500,116 @@ static UIColor *EZSeasonColor(CGFloat red, CGFloat green, CGFloat blue) {
         image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
             [[UIColor whiteColor] setFill];
             [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(2, 2, 12, 12)] fill];
+        }];
+    });
+    return image;
+}
+
++ (UIImage *)snowmanImage {
+    static UIImage *image = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(96, 128)];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+            UIColor *snowFill = [UIColor colorWithRed:0.97 green:0.99 blue:1.0 alpha:1.0];
+            UIColor *snowEdge = [UIColor colorWithRed:0.72 green:0.82 blue:0.92 alpha:1.0];
+            UIColor *coal = [UIColor colorWithRed:0.10 green:0.10 blue:0.14 alpha:1.0];
+            // Stick arms first, so the body balls overlap their roots.
+            UIBezierPath *arms = [UIBezierPath bezierPath];
+            [arms moveToPoint:CGPointMake(27, 56)];
+            [arms addLineToPoint:CGPointMake(7, 42)];
+            [arms moveToPoint:CGPointMake(69, 56)];
+            [arms addLineToPoint:CGPointMake(89, 40)];
+            [arms moveToPoint:CGPointMake(7, 42)];
+            [arms addLineToPoint:CGPointMake(3, 34)];
+            [arms moveToPoint:CGPointMake(89, 40)];
+            [arms addLineToPoint:CGPointMake(93, 32)];
+            arms.lineWidth = 3.0;
+            arms.lineCapStyle = kCGLineCapRound;
+            [[UIColor colorWithRed:0.45 green:0.30 blue:0.16 alpha:1.0] setStroke];
+            [arms stroke];
+            // Three stacked balls.
+            for (NSValue *rectValue in @[ [NSValue valueWithCGRect:CGRectMake(16, 74, 64, 52)],
+                                          [NSValue valueWithCGRect:CGRectMake(25, 42, 46, 40)],
+                                          [NSValue valueWithCGRect:CGRectMake(31, 10, 34, 32)] ]) {
+                UIBezierPath *ball = [UIBezierPath bezierPathWithOvalInRect:rectValue.CGRectValue];
+                [snowFill setFill];
+                [ball fill];
+                [snowEdge setStroke];
+                ball.lineWidth = 2.0;
+                [ball stroke];
+            }
+            // Scarf: a band across the neck and a tail down the right side.
+            UIBezierPath *scarf = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(28, 38, 40, 9) cornerRadius:4];
+            UIBezierPath *tail = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(58, 44, 10, 24) cornerRadius:4];
+            [[UIColor colorWithRed:0.85 green:0.20 blue:0.22 alpha:1.0] setFill];
+            [scarf fill];
+            [tail fill];
+            // Face: coal eyes, a carrot nose, and a dotted smile.
+            [coal setFill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(40, 20, 5, 5)] fill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(51, 20, 5, 5)] fill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(42, 31, 3, 3)] fill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(47, 33, 3, 3)] fill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(52, 31, 3, 3)] fill];
+            UIBezierPath *carrot = [UIBezierPath bezierPath];
+            [carrot moveToPoint:CGPointMake(47, 25)];
+            [carrot addLineToPoint:CGPointMake(63, 28)];
+            [carrot addLineToPoint:CGPointMake(47, 30)];
+            [carrot closePath];
+            [[UIColor colorWithRed:0.96 green:0.55 blue:0.12 alpha:1.0] setFill];
+            [carrot fill];
+            // Coal buttons down the middle and bottom balls.
+            [coal setFill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(46, 56, 5, 5)] fill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(46, 68, 5, 5)] fill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(46, 90, 5, 5)] fill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(46, 104, 5, 5)] fill];
+        }];
+    });
+    return image;
+}
+
++ (UIImage *)evergreenImage {
+    static UIImage *image = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(80, 112)];
+        image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+            // Trunk.
+            [[UIColor colorWithRed:0.45 green:0.30 blue:0.16 alpha:1.0] setFill];
+            [[UIBezierPath bezierPathWithRect:CGRectMake(35, 96, 10, 12)] fill];
+            // Three tiers, widest first so the upper ones overlap cleanly.
+            NSArray<NSValue *> *tiers = @[ [NSValue valueWithCGRect:CGRectMake(6, 40, 68, 62)],
+                                           [NSValue valueWithCGRect:CGRectMake(14, 22, 52, 48)],
+                                           [NSValue valueWithCGRect:CGRectMake(22, 6, 36, 38)] ];
+            [[UIColor colorWithRed:0.13 green:0.45 blue:0.25 alpha:1.0] setFill];
+            for (NSValue *rectValue in tiers) {
+                CGRect r = rectValue.CGRectValue;
+                UIBezierPath *tier = [UIBezierPath bezierPath];
+                [tier moveToPoint:CGPointMake(CGRectGetMidX(r), CGRectGetMinY(r))];
+                [tier addLineToPoint:CGPointMake(CGRectGetMaxX(r), CGRectGetMaxY(r))];
+                [tier addLineToPoint:CGPointMake(CGRectGetMinX(r), CGRectGetMaxY(r))];
+                [tier closePath];
+                [tier fill];
+            }
+            // Snow resting on each tier's shoulders.
+            UIBezierPath *snow = [UIBezierPath bezierPath];
+            for (NSValue *rectValue in tiers) {
+                CGRect r = rectValue.CGRectValue;
+                CGFloat apexX = CGRectGetMidX(r), apexY = CGRectGetMinY(r);
+                [snow moveToPoint:CGPointMake(apexX - CGRectGetWidth(r) * 0.20, apexY + CGRectGetHeight(r) * 0.38)];
+                [snow addLineToPoint:CGPointMake(apexX, apexY + 2)];
+                [snow addLineToPoint:CGPointMake(apexX + CGRectGetWidth(r) * 0.20, apexY + CGRectGetHeight(r) * 0.38)];
+            }
+            snow.lineWidth = 4.0;
+            snow.lineCapStyle = kCGLineCapRound;
+            snow.lineJoinStyle = kCGLineJoinRound;
+            [[UIColor colorWithRed:0.97 green:0.99 blue:1.0 alpha:1.0] setStroke];
+            [snow stroke];
+            // A gold bauble at the very top.
+            [[UIColor colorWithRed:1.0 green:0.78 blue:0.1 alpha:1.0] setFill];
+            [[UIBezierPath bezierPathWithOvalInRect:CGRectMake(36, 0, 8, 8)] fill];
         }];
     });
     return image;
@@ -2098,6 +2213,11 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     static CGFloat const kStoreControlsHeight = 48.0;
     CGFloat headerHeight = 62 + promoOffset + kStoreControlsHeight;
 
+    // Winter gets a decoration strip at the bottom of the header: a snowman
+    // between two evergreens, in the empty band above the first section.
+    CGFloat decorHeight = self.season.kind == EZCoinStoreSeasonKindWinterHoliday ? 88.0 : 0.0;
+    headerHeight += decorHeight;
+
     // Leave enough clearance above the balance label for the floating
 
     // daily-coins countdown button (pinned to the safe area top-left).
@@ -2163,6 +2283,31 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     }
 
     [self.headerView addSubview:self.warningLabel];
+
+    if (decorHeight > 0) {
+
+        CGFloat stripY = headerHeight - decorHeight;
+        CGFloat viewWidth = self.view.bounds.size.width;
+
+        UIImageView *leftTree = [[UIImageView alloc] initWithImage:[EZCoinStoreSeason evergreenImage]];
+        leftTree.frame = CGRectMake(26, stripY + 16, 46, 64);
+        leftTree.contentMode = UIViewContentModeScaleAspectFit;
+        leftTree.userInteractionEnabled = NO;
+        [self.headerView addSubview:leftTree];
+
+        UIImageView *snowman = [[UIImageView alloc] initWithImage:[EZCoinStoreSeason snowmanImage]];
+        snowman.frame = CGRectMake((viewWidth - 56) / 2.0, stripY + 5, 56, 78);
+        snowman.contentMode = UIViewContentModeScaleAspectFit;
+        snowman.userInteractionEnabled = NO;
+        [self.headerView addSubview:snowman];
+
+        UIImageView *rightTree = [[UIImageView alloc] initWithImage:[EZCoinStoreSeason evergreenImage]];
+        rightTree.frame = CGRectMake(viewWidth - 26 - 46, stripY + 16, 46, 64);
+        rightTree.contentMode = UIViewContentModeScaleAspectFit;
+        rightTree.userInteractionEnabled = NO;
+        [self.headerView addSubview:rightTree];
+
+    }
 
     self.usageLogButton = [UIButton buttonWithType:UIButtonTypeSystem];
     [self.usageLogButton setImage:[UIImage systemImageNamed:@"clock.arrow.circlepath"] forState:UIControlStateNormal];
