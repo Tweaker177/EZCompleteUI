@@ -95,26 +95,26 @@ static BOOL gGalleryManifestRecoveryReported = NO;
             NSMutableDictionary *root = [decoded mutableCopy];
             if ([root[@"assets"] isKindOfClass:[NSDictionary class]]) return root;
         }
-        // The manifest exists but cannot be decoded. Restore the last good
-        // copy instead of starting over: starting over discards every
-        // completed summary at once, and the next write would make it
-        // permanent. The next successful write heals the main file.
-        NSData *backupData = [NSData dataWithContentsOfURL:[self manifestBackupURL]];
-        if (backupData.length) {
-            id backup = [NSJSONSerialization JSONObjectWithData:backupData options:0 error:nil];
-            if ([backup isKindOfClass:[NSDictionary class]] &&
-                [backup[@"assets"] isKindOfClass:[NSDictionary class]]) {
-                if (!gGalleryManifestRecoveryReported) {
-                    gGalleryManifestRecoveryReported = YES;
-                    [EZAppErrorReporter reportSource:@"gallery_manifest" code:@"manifest_restored_from_backup" message:@"Gallery manifest was unreadable; restored the last good copy."];
-                }
-                return [backup mutableCopy];
+    }
+    // The manifest is missing, empty, or cannot be decoded. Restore the last
+    // good copy instead of starting over: starting over discards every
+    // completed summary at once, and the next write would make it permanent.
+    // The next successful write heals the main file.
+    NSData *backupData = [NSData dataWithContentsOfURL:[self manifestBackupURL]];
+    if (backupData.length) {
+        id backup = [NSJSONSerialization JSONObjectWithData:backupData options:0 error:nil];
+        if ([backup isKindOfClass:[NSDictionary class]] &&
+            [backup[@"assets"] isKindOfClass:[NSDictionary class]]) {
+            if (!gGalleryManifestRecoveryReported) {
+                gGalleryManifestRecoveryReported = YES;
+                [EZAppErrorReporter reportSource:@"gallery_manifest" code:@"manifest_restored_from_backup" message:@"Gallery manifest was unreadable; restored the last good copy."];
             }
+            return [backup mutableCopy];
         }
-        if (!gGalleryManifestRecoveryReported) {
-            gGalleryManifestRecoveryReported = YES;
-            [EZAppErrorReporter reportSource:@"gallery_manifest" code:@"manifest_unreadable" message:@"Gallery manifest was unreadable and no usable backup exists; starting over."];
-        }
+    }
+    if (!gGalleryManifestRecoveryReported) {
+        gGalleryManifestRecoveryReported = YES;
+        [EZAppErrorReporter reportSource:@"gallery_manifest" code:@"manifest_unreadable" message:@"Gallery manifest was unreadable and no usable backup exists; starting over."];
     }
     return [@{ @"version": @1, @"assets": @{} } mutableCopy];
 }
