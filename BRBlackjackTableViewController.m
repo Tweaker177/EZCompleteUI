@@ -44,6 +44,11 @@
 //     - Card ids 0..51: rank = id % 13 (0 = Ace, 9...12 = 10, J, Q, K),
 //       suit = id / 13 (spades, hearts, diamonds, clubs).
 //
+// Changes from v2.1:
+//   - Apple voice fallback: a call-out that can't be spoken with the dealer's clips
+//     (still rendering, or the voice service is down) is read by the built-in voice
+//     instead of staying silent. Muting or the slot sound toggle silences both.
+//
 // Changes from v2.0:
 //   - Table zoom: dealer, cards and seat panels scale with the player count and
 //     the screen size (tableScale). Dealer cards squeeze together when he has
@@ -171,9 +176,9 @@ static void BRBlackjackActivateAudioSession(void) {
 static const NSUInteger kMaxQueuedCalls = 6;
 static const NSInteger kMaxManifestAttempts = 8;
 
-@interface BRBlackjackAnnouncer : NSObject <AVAudioPlayerDelegate>
+@interface BRBlackjackAnnouncer : NSObject <AVAudioPlayerDelegate, AVSpeechSynthesizerDelegate>
 @property (nonatomic, copy) NSString *tableID;
-@property (nonatomic) BOOL voiceEnabled;
+@property (nonatomic) BOOL voiceEnabled; // turning it off also cuts off anything being spoken
 @property (nonatomic, copy) void (^captionHandler)(NSString *caption);
 @property (nonatomic, copy) void (^speakingHandler)(BOOL speaking);
 @property (nonatomic, copy) void (^idleHandler)(void);
@@ -199,6 +204,8 @@ static const NSInteger kMaxManifestAttempts = 8;
     BOOL _currentHadAudio;
     NSInteger _manifestAttempts;
     AVAudioPlayer *_player;
+    AVSpeechSynthesizer *_appleVoice;   // fallback when the dealer's clips aren't available
+    BOOL _voiceEnabled;
 }
 
 - (instancetype)initWithTableID:(NSString *)tableID {
@@ -211,6 +218,22 @@ static const NSInteger kMaxManifestAttempts = 8;
         _queue = [NSMutableArray array];
     }
     return self;
+}
+
+- (BOOL)voiceEnabled { return _voiceEnabled; }
+
+- (void)setVoiceEnabled:(BOOL)voiceEnabled {
+    if (_voiceEnabled && !voiceEnabled) {
+        [_player stop];
+        _player = nil;
+        [_appleVoice stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+    }
+    _voiceEnabled = voiceEnabled;
+}
+
+- (BOOL)hasAllClips:(NSArray<NSString *> *)keys {
+    for (NSString *key in keys) if (_clipData[key] == nil) return NO;
+    return YES;
 }
 
 /// Fetches the clip manifest and downloads every clip. When the server is still
@@ -316,7 +339,46 @@ static const NSInteger kMaxManifestAttempts = 8;
     _currentIndex = 0;
     _currentHadAudio = NO;
     if (self.captionHandler) self.captionHandler(call[@"caption"]);
+    if (self.voiceEnabled && ![self hasAllClips:_currentKeys]) {
+        [self speakWithAppleVoice:call[@"caption"]];
+        return;
+    }
     [self playCurrentKey];
+}
+
+/// Fallback used while the dealer's clips are still being rendered, or if the
+/// voice service is unavailable: the built-in voice reads the caption.
+- (void)speakWithAppleVoice:(NSString *)text {
+    NSString *spoken = [[text stringByReplacingOccurrencesOfString:@":" withString:@","] stringByReplacingOccurrencesOfString:@"!" withString:@"."];
+    if (spoken.length == 0) { [self playNextCallAfter:1.3]; return; }
+    if (!_appleVoice) {
+        _appleVoice = [[AVSpeechSynthesizer alloc] init];
+        _appleVoice.delegate = self;
+    }
+    BRBlackjackActivateAudioSession();
+    AVSpeechUtterance *utterance = [AVSpeechUtterance speechUtteranceWithString:spoken];
+    // Speak in the language the caption was localized to.
+    NSString *language = NSLocale.preferredLanguages.firstObject;
+    utterance.voice = [AVSpeechSynthesisVoice voiceWithLanguage:language] ?: [AVSpeechSynthesisVoice voiceWithLanguage:@"en-US"];
+    utterance.rate = AVSpeechUtteranceDefaultSpeechRate;
+    _currentHadAudio = YES;
+    if (self.speakingHandler) self.speakingHandler(YES);
+    [_appleVoice speakUtterance:utterance];
+}
+
+- (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didFinishSpeechUtterance:(AVSpeechUtterance *)utterance {
+    if (self.speakingHandler) self.speakingHandler(NO);
+    [self playNextCallAfter:0.3];
+}
+
+- (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didCancelSpeechUtterance:(AVSpeechUtterance *)utterance {
+    if (self.speakingHandler) self.speakingHandler(NO);
+    [self playNextCallAfter:0.3]; // muted mid-call: carry on silently with captions
+}
+
+- (void)playNextCallAfter:(NSTimeInterval)delay {
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [weakSelf playNextCall]; });
 }
 
 - (void)playCurrentKey {
@@ -324,9 +386,7 @@ static const NSInteger kMaxManifestAttempts = 8;
     if (_currentIndex >= _currentKeys.count) {
         // A short breath after spoken calls; silent calls stay up long enough to read.
         if (self.speakingHandler) self.speakingHandler(NO);
-        NSTimeInterval pause = _currentHadAudio ? 0.3 : 1.3;
-        __weak typeof(self) weakSelf = self;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(pause * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [weakSelf playNextCall]; });
+        [self playNextCallAfter:_currentHadAudio ? 0.3 : 1.3];
         return;
     }
     NSData *data = self.voiceEnabled ? _clipData[_currentKeys[_currentIndex]] : nil;
@@ -356,6 +416,8 @@ static const NSInteger kMaxManifestAttempts = 8;
     [_queue removeAllObjects];
     [_player stop];
     _player = nil;
+    _appleVoice.delegate = nil;
+    [_appleVoice stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
     _busy = NO;
 }
 
