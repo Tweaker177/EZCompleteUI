@@ -67,6 +67,30 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     return panel;
 }
 
+// The demo panels are fixed-height (264 or 392 pt). On a short landscape
+// screen that height does not fit between the body text and the bottom
+// controls, so each panel rides in a scroll view: full height in portrait,
+// and the panel shrinks to the room available and scrolls in landscape
+// instead of running offscreen behind the buttons.
+- (UIScrollView *)scrollWrap:(UIView *)content {
+    UIScrollView *scroll = [UIScrollView new];
+    scroll.translatesAutoresizingMaskIntoConstraints = NO;
+    scroll.showsVerticalScrollIndicator = NO;
+    [scroll addSubview:content];
+    NSLayoutConstraint *fitHeight = [scroll.heightAnchor constraintEqualToAnchor:content.heightAnchor];
+    fitHeight.priority = UILayoutPriorityDefaultHigh;
+    [NSLayoutConstraint activateConstraints:@[
+        fitHeight,
+        [content.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor],
+        [content.leadingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.leadingAnchor],
+        [content.trailingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.trailingAnchor],
+        [content.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor],
+        [content.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor],
+        [scroll.bottomAnchor constraintLessThanOrEqualToAnchor:self.pageControl.topAnchor constant:-12],
+    ]];
+    return scroll;
+}
+
 #pragma mark - View lifecycle
 
 - (void)viewDidLoad {
@@ -110,9 +134,6 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     [self buildChatDemo];
     [self buildMenuDemo];
     [self buildStoreDemo];
-    [self.view addSubview:self.chatDemoView];
-    [self.view addSubview:self.menuDemoView];
-    [self.view addSubview:self.storeDemoView];
 
     self.pageControl = [UIPageControl new];
     self.pageControl.numberOfPages = 4;
@@ -137,6 +158,16 @@ static NSString *const kEZTutorialCompletedPrefix = @"EZFirstRunTutorialComplete
     [self.nextButton addTarget:self action:@selector(nextTapped) forControlEvents:UIControlEventTouchUpInside];
     self.nextButton.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.nextButton];
+
+    // Wrap the demo panels in their scroll views before laying out: the
+    // page control has to exist first, because the scroll views cap their
+    // bottom edge against it.
+    self.chatDemoView = [self scrollWrap:self.chatDemoView];
+    self.menuDemoView = [self scrollWrap:self.menuDemoView];
+    self.storeDemoView = [self scrollWrap:self.storeDemoView];
+    [self.view addSubview:self.chatDemoView];
+    [self.view addSubview:self.menuDemoView];
+    [self.view addSubview:self.storeDemoView];
 
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
