@@ -121,6 +121,8 @@
 "EZCoinStore.Tier.UltraPrice" = "$20 / mes";
 
 "EZCoinStore.Badge.Ultra" = "ULTRA";
+"EZCoinStore.Badge.Power" = "POWER";
+"EZCoinStore.Badge.Enterprise" = "ENTERPRISE";
 
 "EZCoinStore.TopUp.Starter" = "Paquete inicial de monedas";
 

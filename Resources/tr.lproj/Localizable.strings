@@ -121,6 +121,8 @@
 "EZCoinStore.Tier.UltraPrice" = "$20 / ay";
 
 "EZCoinStore.Badge.Ultra" = "ULTRA";
+"EZCoinStore.Badge.Power" = "POWER";
+"EZCoinStore.Badge.Enterprise" = "ENTERPRISE";
 
 "EZCoinStore.Tier.Power" = "Yoğun Kullanıcılar";
 

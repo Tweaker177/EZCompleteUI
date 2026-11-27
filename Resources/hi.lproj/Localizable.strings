@@ -121,6 +121,8 @@
 "EZCoinStore.Tier.UltraPrice" = "$20/माह";
 
 "EZCoinStore.Badge.Ultra" = "अल्ट्रा";
+"EZCoinStore.Badge.Power" = "पावर";
+"EZCoinStore.Badge.Enterprise" = "एंटरप्राइज़";
 
 "EZCoinStore.TopUp.Starter" = "सिक्का स्टार्टर पैक";
 

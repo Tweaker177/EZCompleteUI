@@ -3507,7 +3507,31 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         },
     };
 
-    return upsellConfig[monthlyTier];
+    NSDictionary *config = upsellConfig[monthlyTier];
+    if (!config) return nil;
+
+    // While the live store sale carries annual prices
+    // (store_sales.annual_prices), the yearly price — and the savings
+    // against 12 monthly payments — come from the sale, so the card
+    // buttons and the upsell quote exactly what checkout charges.
+    // EZCachedActiveStoreSale checks the sale window, so the regular
+    // prices return on their own when the window ends.
+    NSDictionary *annualPrices = EZCachedActiveStoreSale()[@"annual_prices"];
+    id salePrice = [annualPrices isKindOfClass:[NSDictionary class]] ? annualPrices[monthlyTier] : nil;
+    if ([salePrice isKindOfClass:[NSNumber class]]) {
+        double monthly = [[config[@"monthlyPrice"] stringByReplacingOccurrencesOfString:@"$" withString:@""] doubleValue];
+        double yearly  = [salePrice doubleValue];
+        double saved   = monthly * 12.0 - yearly;
+        NSMutableDictionary *saleConfig = [config mutableCopy];
+        saleConfig[@"annualPrice"] = [NSString stringWithFormat:@"$%.2f", yearly];
+        saleConfig[@"savings"] = (saved == floor(saved))
+            ? [NSString stringWithFormat:@"$%.0f", saved]
+            : [NSString stringWithFormat:@"$%.2f", saved];
+        saleConfig[@"annualSale"] = @YES;
+        return saleConfig;
+    }
+
+    return config;
 
 }
 
@@ -3544,7 +3568,9 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         ? [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.Upsell.AnnualButtonPromoFormat", @"Annual promotional option button"), config[@"annualPrice"]]
         : [NSString stringWithFormat:NSLocalizedString(@"EZCoinStore.Upsell.AnnualButtonFormat", @"Annual option button"), config[@"annualPrice"], config[@"savings"]];
 
-    NSString *message = NSLocalizedString(@"EZCoinStore.Upsell.Message", @"Pay yearly and save 25% vs monthly message");
+    NSString *message = [config[@"annualSale"] boolValue]
+        ? NSLocalizedStringWithDefaultValue(@"EZCoinStore.Upsell.MessageAnnualSale", nil, [NSBundle mainBundle], @"Pay annually and save 75% compared with monthly billing.", @"Pay yearly and save 75% vs monthly message while an annual sale is live")
+        : NSLocalizedString(@"EZCoinStore.Upsell.Message", @"Pay yearly and save 25% vs monthly message");
 
     // Tint the card's title/border with the tapped tier's own accent color
     // (matching buildItems) rather than always using plain gold, so the
