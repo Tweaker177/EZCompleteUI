@@ -525,6 +525,9 @@ static UIColor *EZSeasonColor(CGFloat red, CGFloat green, CGFloat blue) {
     emitter.emitterShape = kCAEmitterLayerLine;
     emitter.emitterPosition = CGPointMake(width / 2.0, -14.0);
     emitter.emitterSize = CGSizeMake(MAX(width, 1.0), 1.0);
+    // Start the clock a full cell lifetime in the past so the first frame
+    // already has flakes at every height, not just near the top.
+    emitter.beginTime = CACurrentMediaTime() - 18.0;
     if (self.kind == EZCoinStoreSeasonKindThanksgiving) {
         emitter.emitterCells = @[
             [EZCoinStoreSeason cellWithImage:[EZCoinStoreSeason leafImage] color:EZSeasonColor(0.95, 0.50, 0.10) birthRate:0.7 scale:0.55 spin:2.6 velocity:42],
@@ -533,8 +536,8 @@ static UIColor *EZSeasonColor(CGFloat red, CGFloat green, CGFloat blue) {
         ];
     } else {
         emitter.emitterCells = @[
-            [EZCoinStoreSeason cellWithImage:[EZCoinStoreSeason snowflakeImage] color:EZSeasonColor(0.92, 0.97, 1.0) birthRate:1.6 scale:0.42 spin:1.2 velocity:34],
-            [EZCoinStoreSeason cellWithImage:[EZCoinStoreSeason snowDotImage]   color:[UIColor whiteColor]             birthRate:3.2 scale:0.40 spin:0.0 velocity:28],
+            [EZCoinStoreSeason cellWithImage:[EZCoinStoreSeason snowflakeImage] color:EZSeasonColor(0.92, 0.97, 1.0) birthRate:3.2 scale:0.42 spin:1.2 velocity:44],
+            [EZCoinStoreSeason cellWithImage:[EZCoinStoreSeason snowDotImage]   color:[UIColor whiteColor]             birthRate:6.4 scale:0.40 spin:0.0 velocity:36],
         ];
     }
     return emitter;
