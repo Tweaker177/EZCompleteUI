@@ -345,6 +345,8 @@
 "EZCoinStore.Upsell.AnnualTitleFormat" = "%@ Annual";
 "EZCoinStore.Upsell.MonthlyButtonFormat" = "%@/mo";
 "EZCoinStore.Upsell.AnnualButtonFormat" = "%@/yr — Save %@";
+"EZCoinStore.Card.MonthlyButtonFormat" = "Monthly %@";
+"EZCoinStore.Card.AnnualButtonFormat" = "Yearly %@";
 "EZCoinStore.Upsell.AnnualButtonPromoFormat" = "%@/yr — 2 More Months Free";
 "EZCoinStore.Tier.BasicWeekly" = "Basic Weekly";
 "EZCoinStore.Tier.BasicWeeklyPrice" = "$5/wk • 400 coins/week";

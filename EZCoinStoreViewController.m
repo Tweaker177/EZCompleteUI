@@ -573,6 +573,12 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, copy)   NSString        *planOrPackageID;
 
+@property (nonatomic, copy)   NSString        *annualPlanOrPackageID; // nil when the tier has no annual option
+
+@property (nonatomic, copy)   NSString        *monthlyPriceString;    // e.g. "$10.00", for the monthly button on the card
+
+@property (nonatomic, copy)   NSString        *annualPriceString;     // e.g. "$89.99", for the yearly button on the card
+
 @property (nonatomic, assign) EZStoreItemType  type;
 
 @property (nonatomic, assign) NSInteger        coins;
@@ -617,7 +623,11 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 @property (nonatomic, strong) UIButton    *actionButton;
 
+@property (nonatomic, strong) UIButton    *annualButton;
+
 @property (nonatomic, copy)   void (^onAction)(void);
+
+@property (nonatomic, copy)   void (^onAnnualAction)(void);
 
 - (void)configureWithItem:(EZStoreItem *)item coinImage:(UIImage * _Nullable)coinImage;
 
@@ -759,6 +769,24 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         [self.cardView addSubview:self.actionButton];
 
+        self.annualButton = [UIButton buttonWithType:UIButtonTypeSystem];
+
+        self.annualButton.layer.cornerRadius  = 10;
+
+        self.annualButton.titleLabel.font     = [UIFont boldSystemFontOfSize:14];
+
+        [self.annualButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+
+        [self.annualButton addTarget:self
+
+                              action:@selector(annualTapped)
+
+                    forControlEvents:UIControlEventTouchUpInside];
+
+        self.annualButton.hidden = YES;
+
+        [self.cardView addSubview:self.annualButton];
+
     }
 
     return self;
@@ -827,7 +855,31 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     [self setNeedsLayout];
 
-    if (item.isCurrentPlan) {
+    BOOL twoButtons = !item.isCurrentPlan && item.type == EZStoreItemTypeSubscription && item.annualPlanOrPackageID.length > 0;
+
+    self.annualButton.hidden = !twoButtons;
+
+    self.priceLabel.hidden   = twoButtons;
+
+    if (twoButtons) {
+
+        [self.actionButton setTitle:[NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"EZCoinStore.Card.MonthlyButtonFormat", nil, [NSBundle mainBundle], @"Monthly %@", @"Monthly option button on a store card"), item.monthlyPriceString] forState:UIControlStateNormal];
+
+        self.actionButton.backgroundColor = [UIColor colorWithWhite:1 alpha:0.12];
+
+        [self.actionButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+
+        self.actionButton.enabled         = YES;
+
+        [self.annualButton setTitle:[NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"EZCoinStore.Card.AnnualButtonFormat", nil, [NSBundle mainBundle], @"Yearly %@", @"Yearly option button on a store card"), item.annualPriceString] forState:UIControlStateNormal];
+
+        self.annualButton.backgroundColor = accentColor;
+
+        [self.annualButton setTitleColor:onAccentColor forState:UIControlStateNormal];
+
+        self.annualButton.enabled         = YES;
+
+    } else if (item.isCurrentPlan) {
 
         [self.actionButton setTitle:NSLocalizedString(@"EZCoinStore.CancelPlan", @"Cancel plan button title") forState:UIControlStateNormal];
 
@@ -860,6 +912,12 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 - (void)actionTapped {
 
     if (self.onAction) self.onAction();
+
+}
+
+- (void)annualTapped {
+
+    if (self.onAnnualAction) self.onAnnualAction();
 
 }
 
@@ -912,7 +970,21 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     CGFloat buttonWidth  = cardWidth - cellPadding * 2;
 
-    self.actionButton.frame = CGRectMake(cellPadding, cardHeight - buttonHeight - cellPadding, buttonWidth, buttonHeight);
+    if (!self.annualButton.hidden) {
+
+        // Both terms on the card: the monthly button stays small on the
+        // left, the yearly button is the wide primary action on the right.
+        CGFloat buttonGap    = 8;
+        CGFloat monthlyWidth = floor((buttonWidth - buttonGap) * 0.36);
+        self.actionButton.frame = CGRectMake(cellPadding, actionTop, monthlyWidth, buttonHeight);
+        self.annualButton.frame = CGRectMake(cellPadding + monthlyWidth + buttonGap, actionTop, buttonWidth - monthlyWidth - buttonGap, buttonHeight);
+
+    } else {
+
+        self.actionButton.frame = CGRectMake(cellPadding, cardHeight - buttonHeight - cellPadding, buttonWidth, buttonHeight);
+        self.annualButton.frame = CGRectZero;
+
+    }
 
 }
 
@@ -1824,6 +1896,24 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
             [visible addObject:item];
         }
     }
+    // Annual-capable tiers carry their yearly option on the item itself, so
+    // the card can offer both terms as buttons (see EZStoreCell).
+    for (EZStoreItem *item in visible) {
+
+        NSDictionary *annualInfo = [self annualConfigForMonthlyTier:item.planOrPackageID];
+
+        if (annualInfo) {
+
+            item.annualPlanOrPackageID = annualInfo[@"annualTier"];
+
+            item.monthlyPriceString    = annualInfo[@"monthlyPrice"];
+
+            item.annualPriceString     = annualInfo[@"annualPrice"];
+
+        }
+
+    }
+
     self.items = [visible copy];
 
     // Season colors go on after the sale styling above so a running sale
@@ -2322,7 +2412,21 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         cell.onAction = ^{
 
-            [weakSelf handlePurchaseForItem:item];
+            if (!item.isCurrentPlan && item.type == EZStoreItemTypeSubscription && item.annualPlanOrPackageID.length > 0) {
+
+                [weakSelf handleTermPurchaseForItem:item annual:NO];
+
+            } else {
+
+                [weakSelf handlePurchaseForItem:item];
+
+            }
+
+        };
+
+        cell.onAnnualAction = ^{
+
+            [weakSelf handleTermPurchaseForItem:item annual:YES];
 
         };
 
@@ -3349,20 +3453,37 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
 }
 
-// ── Annual upsell ──────────────────────────────────────────────────────────────
-// Shown only for Power/Enterprise, only at the moment of subscribing (not
-// shown for cancel or for other tiers). Lets the user compare the monthly
-// price against the discounted annual price and savings before committing,
-// without the annual option taking up a permanent row in the store list.
-- (void)presentAnnualUpsellForMonthlyTier:(NSString *)monthlyTier token:(NSString *)token {
+// Direct checkout for one term from the term buttons on a store card. The card
+// itself presented both options, so there is no upsell step on this path.
+- (void)handleTermPurchaseForItem:(EZStoreItem *)item annual:(BOOL)annual {
 
-    // Each tier has two annual-button copy variants: the plain "save $X"
-    // version, and a promo-aware version used only while isPromoActive is on
-    // (see the comment on that property -- it's the manual flag you flip to
-    // match real rows in the `promotions` table). The promo framing compares
-    // against what a promo'd monthly signup nets (1 free month) rather than
-    // full price, so it reads correctly as "2 MORE months" on top of that,
-    // not as a claim that this stacks with the monthly bonus itself.
+    NSString *token = [EZAuthManager shared].accessToken;
+
+    if (!token) {
+
+        [self showAlert:NSLocalizedString(@"EZCoinStore.Alert.NotLoggedIn", @"Not logged in alert title") message:NSLocalizedString(@"EZCoinStore.Alert.SignInFirst", @"Sign in first message")];
+
+        return;
+
+    }
+
+    NSString *tier = annual ? item.annualPlanOrPackageID : item.planOrPackageID;
+
+    if (!tier.length) return;
+
+    [self.spinner startAnimating];
+
+    self.tableView.userInteractionEnabled = NO;
+
+    [self startSubscriptionForTier:tier token:token];
+
+}
+
+// Per-tier annual option info — the annual tier id and the prices both
+// the store card buttons and the upsell sheet quote, from one table so
+// the two surfaces can never disagree.
+- (NSDictionary *)annualConfigForMonthlyTier:(NSString *)monthlyTier {
+
     NSDictionary *upsellConfig = @{
         kTierStandard: @{
             @"annualTier":  kTierStandardAnnual,
@@ -3386,7 +3507,26 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
         },
     };
 
-    NSDictionary *config = upsellConfig[monthlyTier];
+    return upsellConfig[monthlyTier];
+
+}
+
+
+// ── Annual upsell ──────────────────────────────────────────────────────────────
+// Shown only for Power/Enterprise, only at the moment of subscribing (not
+// shown for cancel or for other tiers). Lets the user compare the monthly
+// price against the discounted annual price and savings before committing,
+// without the annual option taking up a permanent row in the store list.
+- (void)presentAnnualUpsellForMonthlyTier:(NSString *)monthlyTier token:(NSString *)token {
+
+    // Each tier has two annual-button copy variants: the plain "save $X"
+    // version, and a promo-aware version used only while isPromoActive is on
+    // (see the comment on that property -- it's the manual flag you flip to
+    // match real rows in the `promotions` table). The promo framing compares
+    // against what a promo'd monthly signup nets (1 free month) rather than
+    // full price, so it reads correctly as "2 MORE months" on top of that,
+    // not as a claim that this stacks with the monthly bonus itself.
+    NSDictionary *config = [self annualConfigForMonthlyTier:monthlyTier];
     if (!config) {
         // Shouldn't happen -- the tap-handler condition above only routes
         // tiers that have an entry here. Fail safe to a normal monthly
