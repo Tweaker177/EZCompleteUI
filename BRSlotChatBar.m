@@ -595,7 +595,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     [[EZAuthManager shared] getValidAccessToken:^(NSString *token, NSError *error) {
         if (!token.length) { if (completion) completion(nil, NSLocalizedString(@"BRSlot.Lounge.SignIn", nil)); return; }
         NSURL *url = [NSURL URLWithString:[EZSupabaseURL stringByAppendingString:@"/functions/v1/br-slot-social"]]; NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url]; request.HTTPMethod = @"POST"; request.timeoutInterval = 20; [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"]; [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"]; request.HTTPBody = [NSJSONSerialization dataWithJSONObject:body options:0 error:nil];
-        [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) { id rawJSON = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil; NSDictionary *json = [rawJSON isKindOfClass:NSDictionary.class] ? rawJSON : nil; NSString *message = networkError.localizedDescription ?: BRChatString(json[@"error"]); dispatch_async(dispatch_get_main_queue(), ^{ if (completion) completion(json, message); }); }] resume];
+        [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) { id rawJSON = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil; NSDictionary *json = [rawJSON isKindOfClass:NSDictionary.class] ? rawJSON : nil; NSString *message = networkError.localizedDescription ?: BRChatString(json[@"error"]); NSHTTPURLResponse *httpResponse = [response isKindOfClass:[NSHTTPURLResponse class]] ? (NSHTTPURLResponse *)response : nil; if (!message.length && httpResponse && (httpResponse.statusCode < 200 || httpResponse.statusCode >= 300)) { message = [NSString stringWithFormat:@"Request failed (HTTP %ld)", (long)httpResponse.statusCode]; } dispatch_async(dispatch_get_main_queue(), ^{ if (completion) completion(json, message); }); }] resume];
     }];
 }
 
@@ -823,8 +823,18 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 - (UISwipeActionsConfiguration *)tableView:(UITableView *)tableView trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath API_AVAILABLE(ios(11.0)) {
     if (indexPath.row == 0) return [UISwipeActionsConfiguration configurationWithActions:@[]];
     NSDictionary *message = BRChatDictionary(self.messages[indexPath.row - 1]);
-    if (!BRChatBool(message[@"is_mine"]) || BRChatBool(message[@"is_house_host"])) return [UISwipeActionsConfiguration configurationWithActions:@[]];
+    if (BRChatBool(message[@"is_house_host"])) return [UISwipeActionsConfiguration configurationWithActions:@[]];
     __weak typeof(self) weakSelf = self;
+    if (!BRChatBool(message[@"is_mine"])) {
+        UIContextualAction *report = [UIContextualAction contextualActionWithStyle:UIContextualActionStyleNormal title:NSLocalizedString(@"BRSlot.Lounge.Report", nil) handler:^(__unused UIContextualAction *action, __unused UIView *sourceView, void (^completionHandler)(BOOL)) {
+            completionHandler(YES);
+            [weakSelf promptReportMessage:message];
+        }];
+        report.backgroundColor = [UIColor colorWithRed:.85 green:.45 blue:.10 alpha:1];
+        UISwipeActionsConfiguration *reportConfiguration = [UISwipeActionsConfiguration configurationWithActions:@[report]];
+        reportConfiguration.performsFirstActionWithFullSwipe = NO;
+        return reportConfiguration;
+    }
     UIContextualAction *remove = [UIContextualAction contextualActionWithStyle:UIContextualActionStyleDestructive title:NSLocalizedString(@"BRSlot.Lounge.Delete", nil) handler:^(__unused UIContextualAction *action, __unused UIView *sourceView, void (^completionHandler)(BOOL)) {
         [weakSelf request:@{ @"action": @"delete_own_message", @"room_id": weakSelf.roomID, @"message_id": message[@"id"] } completion:^(__unused NSDictionary *json, NSString *error) { completionHandler(error == nil); if (!error) [weakSelf refresh]; }];
     }];
@@ -832,6 +842,61 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     UISwipeActionsConfiguration *configuration = [UISwipeActionsConfiguration configurationWithActions:@[remove]];
     configuration.performsFirstActionWithFullSwipe = NO;
     return configuration;
+}
+
+- (void)promptReportMessage:(NSDictionary *)message {
+    UIViewController *host = self.hostViewController;
+    if (!host || host.presentedViewController) return;
+    if (!BRChatString(message[@"id"]).length) return;
+    UIAlertController *reasons = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"BRSlot.Lounge.ReportReasonTitle", nil) message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    __weak typeof(self) weakSelf = self;
+    NSArray<NSString *> *reasonKeys = @[@"BRSlot.Lounge.ReportReasonSpam", @"BRSlot.Lounge.ReportReasonHarassment", @"BRSlot.Lounge.ReportReasonInappropriate", @"BRSlot.Lounge.ReportReasonOther"];
+    for (NSString *key in reasonKeys) {
+        NSString *reason = NSLocalizedString(key, nil);
+        [reasons addAction:[UIAlertAction actionWithTitle:reason style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+            [weakSelf confirmReportMessage:message reason:reason];
+        }]];
+    }
+    [reasons addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"BRSlot.Lounge.Cancel", nil) style:UIAlertActionStyleCancel handler:nil]];
+    reasons.popoverPresentationController.sourceView = host.view;
+    reasons.popoverPresentationController.sourceRect = CGRectMake(host.view.bounds.size.width / 2, host.view.bounds.size.height / 2, 1, 1);
+    [host presentViewController:reasons animated:YES completion:nil];
+}
+
+- (void)confirmReportMessage:(NSDictionary *)message reason:(NSString *)reason {
+    UIViewController *host = self.hostViewController;
+    if (!host) return;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"BRSlot.Lounge.ReportTitle", nil) message:NSLocalizedString(@"BRSlot.Lounge.ReportBody", nil) preferredStyle:UIAlertControllerStyleAlert];
+    __weak typeof(self) weakSelf = self;
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"BRSlot.Lounge.Report", nil) style:UIAlertActionStyleDestructive handler:^(__unused UIAlertAction *action) {
+        [weakSelf submitReportMessage:message reason:reason];
+    }]];
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"BRSlot.Lounge.Cancel", nil) style:UIAlertActionStyleCancel handler:nil]];
+    [host presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)submitReportMessage:(NSDictionary *)message reason:(NSString *)reason {
+    NSString *messageId = BRChatString(message[@"id"]);
+    if (!messageId.length) return;
+    __weak typeof(self) weakSelf = self;
+    [self request:@{ @"action": @"report", @"room_id": self.roomID, @"message_id": messageId, @"reason": reason } completion:^(NSDictionary *json, NSString *error) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        UIViewController *host = strongSelf.hostViewController;
+        if (!host) return;
+        if (error) {
+            UIAlertController *failed = [UIAlertController alertControllerWithTitle:nil message:NSLocalizedString(@"BRSlot.Lounge.ReportFailed", nil) preferredStyle:UIAlertControllerStyleAlert];
+            [failed addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+            [host presentViewController:failed animated:YES completion:nil];
+            return;
+        }
+        UIAlertController *ack = [UIAlertController alertControllerWithTitle:nil message:NSLocalizedString(@"BRSlot.Lounge.ReportThanks", nil) preferredStyle:UIAlertControllerStyleAlert];
+        [host presentViewController:ack animated:YES completion:^{
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [ack dismissViewControllerAnimated:YES completion:nil];
+            });
+        }];
+    }];
 }
 @end
 

@@ -492,6 +492,17 @@
 "BRSlot.Win.BigWinSub" = "+%ld COINS · ×%ld";
 "BRSlot.Lounge.SignIn" = "Sign in to join the lounge.";
 "BRSlot.Lounge.Delete" = "Delete";
+"BRSlot.Lounge.Cancel" = "Cancel";
+"BRSlot.Lounge.Report" = "Report";
+"BRSlot.Lounge.ReportReasonTitle" = "Why are you reporting this message?";
+"BRSlot.Lounge.ReportReasonSpam" = "Spam";
+"BRSlot.Lounge.ReportReasonHarassment" = "Harassment";
+"BRSlot.Lounge.ReportReasonInappropriate" = "Inappropriate content";
+"BRSlot.Lounge.ReportReasonOther" = "Other";
+"BRSlot.Lounge.ReportTitle" = "Report this message?";
+"BRSlot.Lounge.ReportBody" = "This flags the message for review.";
+"BRSlot.Lounge.ReportThanks" = "Thanks \u2014 this message has been reported for review.";
+"BRSlot.Lounge.ReportFailed" = "Couldn\u2019t report this message. Please try again.";
 "BRSlot.OK" = "OK";
 "BRSlot.Customizer.CustomImage" = "Currently using your custom image.";
 "BRSlot.Customizer.BuiltInClassic" = "Currently using the built-in slot image.";
