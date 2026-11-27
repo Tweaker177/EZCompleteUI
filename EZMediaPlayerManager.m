@@ -42,6 +42,9 @@
 //     audio session.
 //   - Previous restores the queue rule the earlier item had while it was
 //     playing (recorded with the history), not the current item's rule.
+//   - Publishing the lock-screen entry now re-asserts the audio session
+//     claim in the same step, and a one-shot probe reports the session
+//     state the device actually holds shortly after an item starts.
 //
 // Changes from v1.0:
 //   - Per-item playback speed (pitch preserved).
@@ -65,6 +68,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <MediaPlayer/MediaPlayer.h>
 #import "EZMusicArtworkService.h"
+#import "EZAppErrorReporter.h"
 #import "helpers.h"
 
 NSNotificationName const EZMediaPlayerDidUpdateNotification = @"EZMediaPlayerDidUpdateNotification";
@@ -284,6 +288,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
     [self.player replaceCurrentItemWithPlayerItem:playerItem];
     [self startPlayerAtCurrentItemRate];   // Begins as soon as the file is ready.
     [self refreshStateAndPublish];
+    [self scheduleNowPlayingProbeForItem:item];
 }
 
 /// -play always starts at 1x, so a custom speed is applied right after it.
@@ -624,6 +629,7 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
 - (void)configureRemoteCommandsIfNeeded {
     if (self.commandsConfigured) return;
     self.commandsConfigured = YES;
+    [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
 
     MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
     [commandCenter.playCommand addTarget:self action:@selector(handlePlayCommand:)];
@@ -722,6 +728,23 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
         infoCenter.nowPlayingInfo = nil;
         return;
     }
+    // Publish and claim as one operation. iOS only surfaces the Now
+    // Playing card for an app whose session is an active, non-mixable
+    // Playback session at the moment the info lands; other features
+    // share this session and can leave it mixable or inactive between
+    // the play call and a later republish (a cover arriving, a seek
+    // finishing), so re-assert the claim here instead of trusting that
+    // an earlier setup still holds.
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    BOOL mixable = (session.categoryOptions & AVAudioSessionCategoryOptionMixWithOthers) != 0;
+    NSError *sessionError = nil;
+    if (![session.category isEqualToString:AVAudioSessionCategoryPlayback] || mixable) {
+        [session setCategory:AVAudioSessionCategoryPlayback error:&sessionError];
+    }
+    if (!sessionError) [session setActive:YES error:&sessionError];
+    if (sessionError) {
+        EZLogf(EZLogLevelWarning, @"Player", @"Could not claim session for Now Playing: %@", sessionError.localizedDescription);
+    }
     NSMutableDictionary *info = [NSMutableDictionary dictionary];
     info[MPMediaItemPropertyTitle] = item.title;
     info[MPMediaItemPropertyArtist] = item.subtitle.length > 0 ? item.subtitle : @"EZCompleteAI";
@@ -739,6 +762,33 @@ static const NSUInteger kEZMediaPlayerHistoryLimit = 20;
                 requestHandler:^UIImage * _Nonnull(CGSize size) { return artworkImage; }];
     }
     infoCenter.nowPlayingInfo = info;
+}
+
+/// One-shot diagnostic for the missing lock-screen / Control Center
+/// player: two seconds after an item starts, read back the session
+/// category and the published info and report what the device actually
+/// holds. The card has been reported missing on builds where every
+/// setup step in this file reads correct, so the next step needs the
+/// device's own facts instead of another guess. Fires once per started
+/// item, and only while that item is still the loaded one.
+- (void)scheduleNowPlayingProbeForItem:(EZMediaPlayerItem *)item {
+    NSString *identifier = item.identifier;
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        EZMediaPlayerManager *strongSelf = weakSelf;
+        if (!strongSelf || ![strongSelf.currentItem.identifier isEqualToString:identifier]) return;
+        AVAudioSession *session = [AVAudioSession sharedInstance];
+        NSDictionary *info = [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo;
+        BOOL categoryOK = [session.category isEqualToString:AVAudioSessionCategoryPlayback] &&
+                          (session.categoryOptions & AVAudioSessionCategoryOptionMixWithOthers) == 0;
+        NSString *message = [NSString stringWithFormat:@"category=%@ options=%lu state=%ld info=%@ title=%@",
+                             session.category, (unsigned long)session.categoryOptions,
+                             (long)strongSelf.state, info ? @"set" : @"nil",
+                             info[MPMediaItemPropertyTitle] ? @"set" : @"missing"];
+        [EZAppErrorReporter reportSource:@"now_playing_probe"
+                                    code:(categoryOK && info) ? @"probe_ok" : @"probe_bad"
+                                 message:message];
+    });
 }
 
 @end

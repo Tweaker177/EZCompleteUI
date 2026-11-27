@@ -396,6 +396,7 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 @property (nonatomic, copy) NSArray<EZSoundManifestEntry *> *entries;
 @property (nonatomic, strong) EZSoundManifestEntry *pendingVideoEntry;
 @property (nonatomic, strong) NSURL *previewedVideoURL;
+@property (nonatomic, strong) AVPlayer *previewPlayer;
 @property (nonatomic, assign) BOOL generating;
 
 // In-flight mix bookkeeping: every mix finishes through one funnel
@@ -441,6 +442,17 @@ typedef NS_ENUM(NSInteger, EZSoundsTab) {
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self reloadEntries];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    // Covers the video preview being swiped away instead of closed
+    // with Done: once nothing is presented anymore, a leftover preview
+    // player stops instead of sounding on with no screen attached.
+    if (!self.presentedViewController && self.previewPlayer) {
+        [self.previewPlayer pause];
+        self.previewPlayer = nil;
+    }
 }
 
 - (void)closeTapped {
@@ -1588,7 +1600,11 @@ static NSString *EZSoundsShortAutoName(NSString *text) {
     // non-mixable Playback session. Claim it before presenting.
     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
     [[AVAudioSession sharedInstance] setActive:YES error:nil];
+    // One thing plays at a time: stop the shared player so a sound or
+    // song underneath cannot run alongside the preview.
+    [[EZMediaPlayerManager sharedManager] pause];
     AVPlayer *player = [AVPlayer playerWithURL:url];
+    self.previewPlayer = player;
     AVPlayerViewController *playerVC = [[AVPlayerViewController alloc] init];
     playerVC.player = player;
     playerVC.navigationItem.leftBarButtonItem =
@@ -1605,6 +1621,10 @@ static NSString *EZSoundsShortAutoName(NSString *text) {
 }
 
 - (void)dismissVideoPreview:(id)sender {
+    // Dismissal alone does not pause an AVPlayer; stop it first so the
+    // audio cannot outlive the preview screen.
+    [self.previewPlayer pause];
+    self.previewPlayer = nil;
     [self dismissViewControllerAnimated:YES completion:nil];
 }
 
