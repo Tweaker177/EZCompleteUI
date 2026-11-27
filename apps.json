@@ -38,6 +38,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.31",
+          "buildVersion": "7.2.31",
+          "date": "2026-11-27",
+          "localizedDescription": "## What's Changed\n* Song paywall copy: state the two-song free limit plainly by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/354\n* Blackjack dealer clips in the app's language by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/361\n* Gallery manifest: restore from backup instead of discarding completed analyses by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/355\n* Lounge chat: wire up message reporting with reason and confirmation by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/356\n* Stop video audio on dismissal and re-assert the Now Playing claim by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/357\n* Rename EZCompleteUI to EZCompleteAI in user-visible strings by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/358\n* Show video length on gallery thumbnails by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/359\n* Offer monthly and yearly buttons on subscription cards by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/360\n\n\n**Full Changelog**: https://github.com/Tweaker177/EZCompleteAI/compare/7.2.30...7.2.31",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteAI/releases/download/7.2.31/EZCompleteUI-7.2.31-release.ipa",
+          "size": 9327060,
+          "sha256": "90d74bba413f15f7d69714ccc2e5e67b1d986c9890412bdbf4d4b3d61fcb9f0d",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.30",
           "buildVersion": "7.2.30",
           "date": "2026-11-26",
@@ -291,11 +301,11 @@
       "appPermissions": {
         "entitlements": [],
         "privacy": {
-          "NSDocumentsFolderUsageDescription": "EZCompleteUI needs access to your files so you can attach documents, images, and audio to your chats.",
-          "NSMicrophoneUsageDescription": "EZCompleteUI uses the microphone for voice dictation.",
-          "NSPhotoLibraryAddUsageDescription": "EZCompleteUI saves AI-generated images to your Photo Library.",
-          "NSPhotoLibraryUsageDescription": "EZCompleteUI lets you choose images for your custom Brainrot Slots symbols.",
-          "NSSpeechRecognitionUsageDescription": "EZCompleteUI uses speech recognition to transcribe your voice."
+          "NSDocumentsFolderUsageDescription": "EZCompleteAI needs access to your files so you can attach documents, images, and audio to your chats.",
+          "NSMicrophoneUsageDescription": "EZCompleteAI uses the microphone for voice dictation.",
+          "NSPhotoLibraryAddUsageDescription": "EZCompleteAI saves AI-generated images to your Photo Library.",
+          "NSPhotoLibraryUsageDescription": "EZCompleteAI lets you choose images for your custom Brainrot Slots symbols.",
+          "NSSpeechRecognitionUsageDescription": "EZCompleteAI uses speech recognition to transcribe your voice."
         }
       }
     }
