@@ -219,7 +219,12 @@ static const NSInteger kMaxManifestAttempts = 8;
     if (_stopped) return;
     _manifestAttempts += 1;
     __weak typeof(self) weakSelf = self;
-    [BRBlackjackAPI performAction:@"dealer_clips" params:@{ @"table_id": self.tableID } completion:^(NSDictionary *json, NSInteger status, NSString *error) {
+    // Ask for the clip library in the language the app itself is running
+    // in, so the dealer's spoken calls match the captions on screen. The
+    // server renders any missing language's library on first request and
+    // the manifest retries below pick the clips up as they land.
+    NSString *locale = [NSBundle mainBundle].preferredLocalizations.firstObject ?: @"en";
+    [BRBlackjackAPI performAction:@"dealer_clips" params:@{ @"table_id": self.tableID, @"locale": locale } completion:^(NSDictionary *json, NSInteger status, NSString *error) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self || self->_stopped) return;
         NSDictionary *clips = BRBlackjackDict(json[@"clips"]);
