@@ -15,6 +15,7 @@
 #import "EZSupabaseConfig.h"
 #import "EZMusicService.h"
 #import "EZMusicLibraryManager.h"
+#import "EZMediaPlayerManager.h"
 #import "EZTheme.h"
 #import "ViewController+EZKeepAwake.h"
 #import "helpers.h"
@@ -2927,6 +2928,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 @property (nonatomic, strong) NSOperationQueue      *loadQueue;
 @property (nonatomic, strong) NSOperationQueue      *fileIndexQueue;
 @property (nonatomic, assign) NSUInteger             fileIndexGeneration;
+@property (nonatomic, strong) AVPlayerViewController *videoPlayerViewController;
 @property (nonatomic, assign) BOOL                   hasLoadedFilePaths;
 @property (nonatomic, strong) NSArray<NSString *>   *lastFullListing;
 @property (nonatomic, assign) NSInteger              columnCount;
@@ -3045,6 +3047,27 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // here used to double the launch work before the sheet was even visible.
     if (self.hasLoadedFilePaths) [self loadFilePaths];
     [[EZPhotoGalleryAnalysisService sharedService] retryQueuedAnalyses];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    // Becoming visible again with nothing presented means the video
+    // player was dismissed. Dismissal alone does not pause an AVPlayer,
+    // so stop the stored one here: a leftover player keeps sounding
+    // after its screen is gone and doubles up, out of sync, when the
+    // same video is opened again.
+    if (!self.presentedViewController) [self stopGalleryVideoPlayer];
+}
+
+- (void)stopGalleryVideoPlayer {
+    [self.videoPlayerViewController.player pause];
+    self.videoPlayerViewController.player = nil;
+    self.videoPlayerViewController = nil;
+}
+
+- (void)dealloc {
+    // The whole gallery going away mid-playback stops the video too.
+    [_videoPlayerViewController.player pause];
 }
 
 - (void)styleNavBar {
@@ -3475,8 +3498,13 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     // non-mixable Playback session. Claim it before presenting.
     [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:nil];
     [[AVAudioSession sharedInstance] setActive:YES error:nil];
+    // One thing plays at a time: a song left playing in the shared
+    // player would otherwise run underneath the video (for a music
+    // video, the same audio twice, out of sync).
+    [[EZMediaPlayerManager sharedManager] pause];
         AVPlayerViewController *player = [AVPlayerViewController new];
         player.player = [AVPlayer playerWithURL:[NSURL fileURLWithPath:path]];
+        self.videoPlayerViewController = player;
         [self presentViewController:player animated:YES completion:^{ [player.player play]; }];
         return;
     }

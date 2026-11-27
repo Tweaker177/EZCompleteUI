@@ -170,6 +170,19 @@ static const CGFloat kNotesCardHeight = 120;
     ]];
 }
 
+// Leaving the preview stops the video: nothing pauses an AVPlayer on
+// dismissal by itself, so do it explicitly on the way out and at teardown.
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    if (self.isMovingFromParentViewController || self.isBeingDismissed) {
+        [self.playerViewController.player pause];
+    }
+}
+
+- (void)dealloc {
+    [_playerViewController.player pause];
+}
+
 // ── Video content ─────────────────────────────────────────────────────────
 
 - (void)ez_buildVideoContent {
