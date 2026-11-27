@@ -326,7 +326,7 @@
 "EZGallery.Export.Download" = "Tải ảnh xuống";
 "EZGallery.Export.Cancel" = "Hủy";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "Trò chuyện mới";
 "EZNav.PhotoGallery" = "Thư viện ảnh";
 "EZNav.TextToSpeech" = "Chuyển văn bản thành giọng nói";
@@ -339,7 +339,7 @@
 "EZNav.RecentChats" = "Trò chuyện gần đây";
 /* First-run tutorial */
 "EZTutorial.Skip" = "Bỏ qua"; "EZTutorial.Back" = "Quay lại"; "EZTutorial.Next" = "Tiếp theo"; "EZTutorial.GetStarted" = "Bắt đầu";
-"EZTutorial.Welcome.Title" = "Chào mừng đến với EZCompleteUI"; "EZTutorial.Welcome.Body" = "Một tour nhanh về vị trí của mọi thứ.";
+"EZTutorial.Welcome.Title" = "Chào mừng đến với EZCompleteAI"; "EZTutorial.Welcome.Body" = "Một tour nhanh về vị trí của mọi thứ.";
 "EZTutorial.Chat.Title" = "Trò chuyện và sáng tạo"; "EZTutorial.Chat.Body" = "Chọn mô hình. Đính kèm, đọc chính tả hoặc tìm kiếm — rồi gửi.";
 "EZTutorial.Navigate.Title" = "Menu và trò chuyện"; "EZTutorial.Navigate.Body" = "Mọi thứ đều ở menu, góc trên bên trái.";
 "EZTutorial.Gallery.Title" = "Thư viện ảnh"; "EZTutorial.Gallery.Body" = "Chạm + để thêm. Chụm để đổi kích thước. Chọn để chia sẻ hoặc xóa.";
@@ -487,8 +487,8 @@
 "EZCoinStore.Feature.AIMusic" = "Nhạc AI";
 "EZMemory.Player.Play" = "Phát";
 "EZMemory.Player.Pause" = "Tạm dừng";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "Không mở được bài hát";
 "EZMemory.Player.OpenErrorMessage" = "Không tải được bài hát. Kiểm tra kết nối và thử lại.";
 "EZMemory.Player.OK" = "OK";

@@ -326,7 +326,7 @@
 "EZGallery.Export.Download" = "画像をダウンロード";
 "EZGallery.Export.Cancel" = "キャンセル";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "新規チャット";
 "EZNav.PhotoGallery" = "フォトギャラリー";
 "EZNav.TextToSpeech" = "テキスト読み上げ";
@@ -339,7 +339,7 @@
 "EZNav.RecentChats" = "最近のチャット";
 /* First-run tutorial */
 "EZTutorial.Skip" = "スキップ"; "EZTutorial.Back" = "戻る"; "EZTutorial.Next" = "次へ"; "EZTutorial.GetStarted" = "始める";
-"EZTutorial.Welcome.Title" = "EZCompleteUI へようこそ"; "EZTutorial.Welcome.Body" = "どこに何があるかの簡単なツアーです。";
+"EZTutorial.Welcome.Title" = "EZCompleteAI へようこそ"; "EZTutorial.Welcome.Body" = "どこに何があるかの簡単なツアーです。";
 "EZTutorial.Chat.Title" = "チャットして作成"; "EZTutorial.Chat.Body" = "モデルを選んで、添付・音声入力・検索 — あとは送信。";
 "EZTutorial.Navigate.Title" = "メニューとチャット"; "EZTutorial.Navigate.Body" = "すべて左上のメニューにあります。";
 "EZTutorial.Gallery.Title" = "フォトギャラリー"; "EZTutorial.Gallery.Body" = "+ をタップして追加。ピンチでグリッドの大きさを変更。選択して共有や削除。";
@@ -487,8 +487,8 @@
 "EZCoinStore.Feature.AIMusic" = "AI音楽";
 "EZMemory.Player.Play" = "再生";
 "EZMemory.Player.Pause" = "一時停止";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "曲を開けませんでした";
 "EZMemory.Player.OpenErrorMessage" = "曲をダウンロードできませんでした。接続を確認してもう一度お試しください。";
 "EZMemory.Player.OK" = "確認";

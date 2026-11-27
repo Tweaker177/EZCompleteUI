@@ -326,7 +326,7 @@
 "EZGallery.Export.Download" = "تنزيل الصورة";
 "EZGallery.Export.Cancel" = "إلغاء";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "محادثة جديدة";
 "EZNav.PhotoGallery" = "معرض الصور";
 "EZNav.TextToSpeech" = "تحويل النص إلى كلام";
@@ -339,7 +339,7 @@
 "EZNav.RecentChats" = "المحادثات الأخيرة";
 /* First-run tutorial */
 "EZTutorial.Skip" = "تخطي"; "EZTutorial.Back" = "رجوع"; "EZTutorial.Next" = "التالي"; "EZTutorial.GetStarted" = "ابدأ";
-"EZTutorial.Welcome.Title" = "مرحبًا بك في EZCompleteUI"; "EZTutorial.Welcome.Body" = "جولة سريعة لمعرفة أين يوجد كل شيء.";
+"EZTutorial.Welcome.Title" = "مرحبًا بك في EZCompleteAI"; "EZTutorial.Welcome.Body" = "جولة سريعة لمعرفة أين يوجد كل شيء.";
 "EZTutorial.Chat.Title" = "دردش وأنشئ"; "EZTutorial.Chat.Body" = "اختر نموذجًا. أرفق أو أملِ أو ابحث — ثم أرسل.";
 "EZTutorial.Navigate.Title" = "القائمة والمحادثات"; "EZTutorial.Navigate.Body" = "كل شيء في القائمة، أعلى اليسار.";
 "EZTutorial.Gallery.Title" = "معرض الصور"; "EZTutorial.Gallery.Body" = "اضغط + للإضافة. قرّب أو بعّد أصابعك لتغيير الحجم. استخدم التحديد للمشاركة أو الحذف.";
@@ -487,8 +487,8 @@
 "EZCoinStore.Feature.AIMusic" = "موسيقى بالذكاء الاصطناعي";
 "EZMemory.Player.Play" = "تشغيل";
 "EZMemory.Player.Pause" = "إيقاف مؤقت";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "تعذر فتح الأغنية";
 "EZMemory.Player.OpenErrorMessage" = "تعذر تنزيل الأغنية. تحقق من اتصالك وحاول مرة أخرى.";
 "EZMemory.Player.OK" = "موافق";

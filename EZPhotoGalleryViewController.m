@@ -376,11 +376,11 @@ typedef NS_ENUM(NSInteger, EZShareGIFStyle) {
 }
 - (NSString *)activityViewController:(UIActivityViewController *)activityViewController
  attachmentNameForActivityType:(UIActivityType)activityType {
-    return @"EZCompleteUI-animation.gif";
+    return @"EZCompleteAI-animation.gif";
 }
 - (NSString *)activityViewController:(UIActivityViewController *)activityViewController
              subjectForActivityType:(UIActivityType)activityType {
-    return @"EZCompleteUI";
+    return @"EZCompleteAI";
 }
 @end
 
@@ -2663,7 +2663,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     }
     CFRelease(destination);
     NSString *path = [NSTemporaryDirectory() stringByAppendingPathComponent:
-        [NSString stringWithFormat:@"EZCompleteUI-edit-%@.gif", NSUUID.UUID.UUIDString]];
+        [NSString stringWithFormat:@"EZCompleteAI-edit-%@.gif", NSUUID.UUID.UUIDString]];
     return [data writeToFile:path atomically:YES] ? [NSURL fileURLWithPath:path] : nil;
 }
 
@@ -2822,7 +2822,7 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
         NSForegroundColorAttributeName: [UIColor whiteColor],
         NSKernAttributeName: @(0.8)
     };
-    [@"EZCompleteUI" drawAtPoint:CGPointMake(border * 2.0, border + (headerHeight - 28.0) / 2.0)
+    [@"EZCompleteAI" drawAtPoint:CGPointMake(border * 2.0, border + (headerHeight - 28.0) / 2.0)
                     withAttributes:brandAttributes];
 
     CGRect imageArea = CGRectMake(border, border + headerHeight, width - border * 2.0, source.size.height);

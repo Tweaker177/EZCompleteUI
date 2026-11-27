@@ -362,7 +362,7 @@
 "EZGallery.Export.Download" = "下載圖片";
 "EZGallery.Export.Cancel" = "取消";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "新聊天";
 "EZNav.PhotoGallery" = "相簿";
 "EZNav.TextToSpeech" = "文字轉語音";
@@ -375,7 +375,7 @@
 "EZNav.RecentChats" = "最近的聊天";
 /* First-run tutorial */
 "EZTutorial.Skip" = "跳過"; "EZTutorial.Back" = "返回"; "EZTutorial.Next" = "下一步"; "EZTutorial.GetStarted" = "開始使用";
-"EZTutorial.Welcome.Title" = "歡迎使用 EZCompleteUI"; "EZTutorial.Welcome.Body" = "快速了解一下每個功能在哪裡。";
+"EZTutorial.Welcome.Title" = "歡迎使用 EZCompleteAI"; "EZTutorial.Welcome.Body" = "快速了解一下每個功能在哪裡。";
 "EZTutorial.Chat.Title" = "聊天與創作"; "EZTutorial.Chat.Body" = "選個模型。附件、語音輸入或搜尋 — 然後傳送。";
 "EZTutorial.Navigate.Title" = "你的選單與聊天"; "EZTutorial.Navigate.Body" = "所有功能都在左上角的選單裡。";
 "EZTutorial.Gallery.Title" = "相簿"; "EZTutorial.Gallery.Body" = "點 + 新增。捏合調整格線大小。選取可分享或刪除。";
@@ -528,8 +528,8 @@
 "EZCoinStore.Feature.AIMusic" = "AI 音樂";
 "EZMemory.Player.Play" = "播放";
 "EZMemory.Player.Pause" = "暫停";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "無法開啟歌曲";
 "EZMemory.Player.OpenErrorMessage" = "無法下載歌曲。請檢查你的連線並再試一次。";
 "EZMemory.Player.OK" = "確定";

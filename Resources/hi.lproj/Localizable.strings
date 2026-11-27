@@ -326,7 +326,7 @@
 "EZGallery.Export.Download" = "इमेज डाउनलोड करें";
 "EZGallery.Export.Cancel" = "रद्द करें";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "नई चैट";
 "EZNav.PhotoGallery" = "फ़ोटो गैलरी";
 "EZNav.TextToSpeech" = "टेक्स्ट से आवाज़";
@@ -339,7 +339,7 @@
 "EZNav.RecentChats" = "हाल की चैट";
 /* First-run tutorial */
 "EZTutorial.Skip" = "छोड़ें"; "EZTutorial.Back" = "वापस"; "EZTutorial.Next" = "आगे"; "EZTutorial.GetStarted" = "शुरू करें";
-"EZTutorial.Welcome.Title" = "EZCompleteUI में आपका स्वागत है"; "EZTutorial.Welcome.Body" = "सब कुछ कहाँ है, इसका एक छोटा दौरा।";
+"EZTutorial.Welcome.Title" = "EZCompleteAI में आपका स्वागत है"; "EZTutorial.Welcome.Body" = "सब कुछ कहाँ है, इसका एक छोटा दौरा।";
 "EZTutorial.Chat.Title" = "चैट करें और बनाएं"; "EZTutorial.Chat.Body" = "मॉडल चुनें। अटैच करें, डिक्टेट करें या खोजें — फिर भेजें।";
 "EZTutorial.Navigate.Title" = "मेनू और चैट"; "EZTutorial.Navigate.Body" = "सब कुछ मेनू में है, ऊपर बाईं ओर।";
 "EZTutorial.Gallery.Title" = "फ़ोटो गैलरी"; "EZTutorial.Gallery.Body" = "जोड़ने के लिए + दबाएँ। आकार बदलने के लिए पिंच करें। शेयर या हटाने के लिए चुनें।";
@@ -487,8 +487,8 @@
 "EZCoinStore.Feature.AIMusic" = "AI संगीत";
 "EZMemory.Player.Play" = "चलाएं";
 "EZMemory.Player.Pause" = "रोकें";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "गाना नहीं खुल सका";
 "EZMemory.Player.OpenErrorMessage" = "गाना डाउनलोड नहीं हो सका। अपना कनेक्शन जांचें और फिर से प्रयास करें।";
 "EZMemory.Player.OK" = "ठीक है";

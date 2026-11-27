@@ -33,7 +33,7 @@ static NSUInteger const EZShareMaximumImages = 15;
     [self.spinner startAnimating];
     [stack addArrangedSubview:self.spinner];
     self.statusLabel = [[UILabel alloc] init];
-    self.statusLabel.text = @"Preparing photos for EZCompleteUI…";
+    self.statusLabel.text = @"Preparing photos for EZCompleteAI…";
     self.statusLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     self.statusLabel.textAlignment = NSTextAlignmentCenter;
     self.statusLabel.numberOfLines = 0;
@@ -83,12 +83,12 @@ static NSUInteger const EZShareMaximumImages = 15;
         }];
     }
     dispatch_group_notify(group, dispatch_get_main_queue(), ^{
-        if (!names.count) { [self finishWithMessage:@"EZCompleteUI could not read those photos."]; return; }
+        if (!names.count) { [self finishWithMessage:@"EZCompleteAI could not read those photos."]; return; }
         NSArray *orderedNames = [names sortedArrayUsingSelector:@selector(localizedStandardCompare:)];
         NSDictionary *manifest = @{ @"folder": folder.lastPathComponent, @"files": orderedNames };
         NSURL *manifestURL = [container URLByAppendingPathComponent:EZShareManifestName];
         [manifest writeToURL:manifestURL atomically:YES];
-        self.statusLabel.text = [NSString stringWithFormat:@"%lu photo%@ ready in EZCompleteUI",
+        self.statusLabel.text = [NSString stringWithFormat:@"%lu photo%@ ready in EZCompleteAI",
             (unsigned long)orderedNames.count, orderedNames.count == 1 ? @"" : @"s"];
         [self.spinner stopAnimating];
         NSURL *openAppURL = [NSURL URLWithString:@"ezcomplete://shared-images"];

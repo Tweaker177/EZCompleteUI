@@ -88,7 +88,7 @@
 		<string>zh-Hans</string>
 	</array>
 	<key>CFBundleName</key>
-	<string>EZCompleteUI</string>
+	<string>EZCompleteAI</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -117,9 +117,9 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Used for live dictation input</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>EZCompleteUI saves AI-generated images to your Photo Library.</string>
+	<string>EZCompleteAI saves AI-generated images to your Photo Library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>EZCompleteUI lets you choose images for your custom Brainrot Slots symbols.</string>
+	<string>EZCompleteAI lets you choose images for your custom Brainrot Slots symbols.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Used for live dictation input</string>
 	<key>UIApplicationSystemGroup</key>

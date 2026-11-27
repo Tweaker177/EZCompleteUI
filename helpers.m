@@ -4027,7 +4027,7 @@ NSString *EZCallHelperModel(NSString *systemPrompt,
 // Typically displayed in a settings/debug screen. Reads log and memory files
 // synchronously — call on a background thread if the files are large.
 NSString *EZHelperStats(void) {
-    NSMutableString *report = [NSMutableString stringWithString:@"=== EZCompleteUI Stats ===\n\n"];
+    NSMutableString *report = [NSMutableString stringWithString:@"=== EZCompleteAI Stats ===\n\n"];
 
     // ── LOG FILE ──────────────────────────────────────────────────────────────
     NSString *logContent = [NSString stringWithContentsOfFile:EZLogGetPath()

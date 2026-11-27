@@ -366,7 +366,7 @@
 "EZGallery.Export.Download" = "Download Image";
 "EZGallery.Export.Cancel" = "Cancel";
 /* Main navigation drawer */
-"EZNav.AppTitle" = "EZCompleteUI";
+"EZNav.AppTitle" = "EZCompleteAI";
 "EZNav.NewChat" = "New Chat";
 "EZNav.PhotoGallery" = "Photo Gallery";
 "EZNav.TextToSpeech" = "Text to Speech";
@@ -379,7 +379,7 @@
 "EZNav.RecentChats" = "Recent Chats";
 /* First-run tutorial */
 "EZTutorial.Skip" = "Skip"; "EZTutorial.Back" = "Back"; "EZTutorial.Next" = "Next"; "EZTutorial.GetStarted" = "Get Started";
-"EZTutorial.Welcome.Title" = "Welcome to EZCompleteUI"; "EZTutorial.Welcome.Body" = "A quick tour of where everything lives.";
+"EZTutorial.Welcome.Title" = "Welcome to EZCompleteAI"; "EZTutorial.Welcome.Body" = "A quick tour of where everything lives.";
 "EZTutorial.Chat.Title" = "Chat and create"; "EZTutorial.Chat.Body" = "Pick a model. Attach, dictate, or search — then send.";
 "EZTutorial.Navigate.Title" = "Your menu and chats"; "EZTutorial.Navigate.Body" = "Everything lives in the menu, top-left.";
 "EZTutorial.Gallery.Title" = "Photo Gallery"; "EZTutorial.Gallery.Body" = "Tap + to add. Pinch to resize. Select to share or delete.";
@@ -543,8 +543,8 @@
 "EZCoinStore.Feature.AIMusic" = "AI music";
 "EZMemory.Player.Play" = "Play";
 "EZMemory.Player.Pause" = "Pause";
-"EZMemory.Player.SongFallback" = "🔊EZCompleteUI🔊";
-"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteUI🔊 • %@";
+"EZMemory.Player.SongFallback" = "🔊EZCompleteAI🔊";
+"EZMemory.Player.SongDetailFormat" = "🔊EZCompleteAI🔊 • %@";
 "EZMemory.Player.OpenErrorTitle" = "Couldn't Open Song";
 "EZMemory.Player.OpenErrorMessage" = "The song couldn't be downloaded. Check your connection and try again.";
 "EZMemory.Player.OK" = "OK";
