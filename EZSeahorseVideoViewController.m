@@ -102,6 +102,25 @@ static NSString *EZVideoSHA256Hex(NSData *data) {
     return hex;
 }
 
+// NSNull-safe reads of parsed server JSON: a null or mistyped value reads
+// as the empty value instead of crashing (NSNull answers no integerValue,
+// boolValue, doubleValue or isEqualToString:).
+static NSInteger EZVideoInteger(id value) {
+    return [value respondsToSelector:@selector(integerValue)] ? [value integerValue] : 0;
+}
+static double EZVideoDouble(id value) {
+    return [value respondsToSelector:@selector(doubleValue)] ? [value doubleValue] : 0;
+}
+static BOOL EZVideoBool(id value) {
+    return [value respondsToSelector:@selector(boolValue)] ? [value boolValue] : NO;
+}
+static NSString * _Nullable EZVideoString(id value) {
+    return [value isKindOfClass:NSString.class] ? value : nil;
+}
+static NSDictionary * _Nullable EZVideoDict(id value) {
+    return [value isKindOfClass:NSDictionary.class] ? value : nil;
+}
+
 static void EZVideoLoadImage(NSString * _Nullable urlString,
                              void (^completion)(UIImage * _Nullable image)) {
     NSURL *url = urlString.length ? [NSURL URLWithString:urlString] : nil;
@@ -213,8 +232,14 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
 
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
-    [self.pollTimer invalidate];
-    self.pollTimer = nil;
+    // Only stop polling when this screen is really going away. Presenting
+    // the photo picker or the character studio calls this too, and killing
+    // the timer there would freeze the render status with no restart until
+    // the composer is reopened.
+    if (self.isBeingDismissed || self.isMovingFromParentViewController) {
+        [self.pollTimer invalidate];
+        self.pollTimer = nil;
+    }
 }
 
 - (void)closeTapped {
@@ -503,8 +528,9 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
             dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, error); });
             return;
         }
-        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data ?: [NSData data]
-                                                             options:0 error:nil];
+        id parsed = [NSJSONSerialization JSONObjectWithData:data ?: [NSData data]
+                                                      options:0 error:nil];
+        NSDictionary *json = [parsed isKindOfClass:NSDictionary.class] ? parsed : nil;
         dispatch_async(dispatch_get_main_queue(), ^{ completion(json, nil); });
     }] resume];
 }
@@ -519,15 +545,22 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
             self.gateLabel.hidden = NO;
             return;
         }
-        self.idVerified = [json[@"id_verified"] boolValue];
-        self.purchaseOK = [json[@"recent_purchase"] boolValue];
-        self.balance = [json[@"balance"] integerValue];
-        NSDictionary *video = [json[@"video"] isKindOfClass:NSDictionary.class] ? json[@"video"] : nil;
-        NSDictionary *rates = [video[@"rates_coins_per_second"] isKindOfClass:NSDictionary.class]
-            ? video[@"rates_coins_per_second"] : nil;
-        if (rates.count) self.rates = rates;
-        if ([video[@"max_duration_seconds"] integerValue] > 0)
-            self.maxDuration = [video[@"max_duration_seconds"] integerValue];
+        self.idVerified = EZVideoBool(json[@"id_verified"]);
+        self.purchaseOK = EZVideoBool(json[@"recent_purchase"]);
+        self.balance = EZVideoInteger(json[@"balance"]);
+        NSDictionary *video = EZVideoDict(json[@"video"]);
+        NSDictionary *rates = EZVideoDict(video[@"rates_coins_per_second"]);
+        if (rates.count) {
+            // Only adopt rates whose values are real numbers; a null rate
+            // would crash coinQuote's integerValue.
+            NSMutableDictionary *clean = [NSMutableDictionary dictionary];
+            for (NSString *key in rates) {
+                if ([rates[key] isKindOfClass:NSNumber.class]) clean[key] = rates[key];
+            }
+            if (clean.count) self.rates = clean;
+        }
+        if (EZVideoInteger(video[@"max_duration_seconds"]) > 0)
+            self.maxDuration = EZVideoInteger(video[@"max_duration_seconds"]);
         if (!self.idVerified) {
             self.gateLabel.text = EZVideoLocalized(@"EZSeahorseVideo.IDCheckFirst");
             self.gateLabel.hidden = NO;
@@ -709,8 +742,8 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         message:nil preferredStyle:UIAlertControllerStyleActionSheet];
     for (NSDictionary *item in items) {
         if (![item isKindOfClass:NSDictionary.class]) continue;
-        NSString *name = [item[@"name"] isKindOfClass:NSString.class] && [item[@"name"] length]
-            ? item[@"name"] : item[@"item_id"];
+        NSString *name = EZVideoString(item[@"name"]);
+        if (!name.length) name = EZVideoString(item[@"item_id"]) ?: @"";
         NSString *itemID = [item[@"item_id"] isKindOfClass:NSString.class] ? item[@"item_id"] : @"";
         [sheet addAction:[UIAlertAction actionWithTitle:name
             style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *a) {
@@ -801,7 +834,7 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         }
         [self applyBalance:json];
         self.taskID = [json[@"task_id"] isKindOfClass:NSString.class] ? json[@"task_id"] : nil;
-        self.taskIsEditMode = [json[@"mode"] isEqualToString:@"edit"];
+        self.taskIsEditMode = [EZVideoString(json[@"mode"]) isEqualToString:@"edit"];
         [self setBusy:NO status:EZVideoLocalized(@"EZSeahorseVideo.Working")];
         [self startPolling];
     }];
@@ -929,10 +962,10 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         NSArray *tasks = [json[@"tasks"] isKindOfClass:NSArray.class] ? json[@"tasks"] : nil;
         for (NSDictionary *task in tasks) {
             if (![task isKindOfClass:NSDictionary.class]) continue;
-            NSString *status = task[@"status"];
+            NSString *status = EZVideoString(task[@"status"]);
             if (![status isEqualToString:@"planned"] && ![status isEqualToString:@"rendering"]) continue;
-            self.taskID = [task[@"task_id"] isKindOfClass:NSString.class] ? task[@"task_id"] : nil;
-            self.taskIsEditMode = [task[@"mode"] isEqualToString:@"edit"];
+            self.taskID = EZVideoString(task[@"task_id"]);
+            self.taskIsEditMode = [EZVideoString(task[@"mode"]) isEqualToString:@"edit"];
             if (!self.taskID.length) continue;
             self.statusLabel.text = EZVideoLocalized(@"EZSeahorseVideo.Working");
             [self startPolling];
@@ -945,7 +978,7 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
 
 - (void)showStoryboard:(NSDictionary *)scene {
     self.scene = scene;
-    self.lockedSeconds = [scene[@"lockedDurationSeconds"] integerValue];
+    self.lockedSeconds = EZVideoInteger(scene[@"lockedDurationSeconds"]);
     if (self.lockedSeconds <= 0) self.lockedSeconds = self.durationSeconds;
     for (UIView *v in [self.storyboardStack.arrangedSubviews copy]) {
         [self.storyboardStack removeArrangedSubview:v];
@@ -971,7 +1004,7 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
 
         UILabel *head = [[UILabel alloc] init];
         head.text = [NSString stringWithFormat:EZVideoLocalized(@"EZSeahorseVideo.ShotFormat"),
-                     (long)[seg[@"index"] integerValue]];
+                     (long)EZVideoInteger(seg[@"index"])];
         head.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
         head.textColor = [EZTheme secondaryTextColor];
         [card addArrangedSubview:head];
@@ -993,7 +1026,7 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         stepper.minimumValue = 4;
         stepper.maximumValue = 15;
         stepper.stepValue = 1;
-        stepper.value = [seg[@"durationSeconds"] doubleValue] ?: 9;
+        stepper.value = EZVideoDouble(seg[@"durationSeconds"]) ?: 9;
         [stepper addTarget:self action:@selector(shotDurationChanged) forControlEvents:UIControlEventValueChanged];
         UILabel *seconds = [[UILabel alloc] init];
         seconds.font = [UIFont systemFontOfSize:14];
@@ -1005,7 +1038,7 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         explicitLabel.font = [UIFont systemFontOfSize:14];
         explicitLabel.textColor = [EZTheme primaryTextColor];
         UISwitch *explicitSwitch = [[UISwitch alloc] init];
-        explicitSwitch.on = [seg[@"explicit"] boolValue];
+        explicitSwitch.on = EZVideoBool(seg[@"explicit"]);
         [row addArrangedSubview:stepper];
         [row addArrangedSubview:seconds];
         [row addArrangedSubview:explicitLabel];
@@ -1014,7 +1047,7 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
 
         [self.storyboardStack addArrangedSubview:card];
         [cards addObject:@{
-            @"index": seg[@"index"] ?: @0,
+            @"index": @(EZVideoInteger(seg[@"index"])),
             @"beat": beat,
             @"stepper": stepper,
             @"seconds": seconds,
@@ -1314,8 +1347,9 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
             dispatch_async(dispatch_get_main_queue(), ^{ completion(nil, error); });
             return;
         }
-        NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data ?: [NSData data]
-                                                             options:0 error:nil];
+        id parsed = [NSJSONSerialization JSONObjectWithData:data ?: [NSData data]
+                                                      options:0 error:nil];
+        NSDictionary *json = [parsed isKindOfClass:NSDictionary.class] ? parsed : nil;
         dispatch_async(dispatch_get_main_queue(), ^{ completion(json, nil); });
     }] resume];
 }
@@ -1339,8 +1373,8 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
 - (void)loadCharacters {
     [self postSeahorse:@{ @"action": @"character_list" }
             completion:^(NSDictionary *json, NSError *error) {
-        if ([json[@"character_cost"] integerValue] > 0)
-            self.characterCost = [json[@"character_cost"] integerValue];
+        if (EZVideoInteger(json[@"character_cost"]) > 0)
+            self.characterCost = EZVideoInteger(json[@"character_cost"]);
         NSArray *items = [json[@"items"] isKindOfClass:NSArray.class] ? json[@"items"] : @[];
         self.savedItems = items;
         [self rebuildSavedList];
@@ -1369,8 +1403,8 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         NSString *thumbURL = [item[@"thumb_url"] isKindOfClass:NSString.class] ? item[@"thumb_url"] : nil;
         EZVideoLoadImage(thumbURL, ^(UIImage *image) { thumb.image = image; });
         UILabel *name = [[UILabel alloc] init];
-        name.text = [item[@"name"] isKindOfClass:NSString.class] && [item[@"name"] length]
-            ? item[@"name"] : item[@"item_id"];
+        name.text = EZVideoString(item[@"name"]);
+        if (!name.text.length) name.text = EZVideoString(item[@"item_id"]) ?: @"";
         name.font = [UIFont systemFontOfSize:14];
         name.textColor = [EZTheme primaryTextColor];
         UIButton *del = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -1420,7 +1454,7 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
             } else if ([err isEqualToString:@"Insufficient coins"]) {
                 [self showError:[NSString stringWithFormat:
                     EZVideoLocalized(@"EZSeahorseVideo.InsufficientFormat"),
-                    (long)self.characterCost, (long)[json[@"balance"] integerValue]]];
+                    (long)self.characterCost, (long)EZVideoInteger(json[@"balance"])]]];
             } else {
                 [self showError:err ?: EZVideoLocalized(@"EZSeahorseVideo.LoadFailed")];
             }
@@ -1430,7 +1464,9 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         if (bal && ![bal isKindOfClass:NSNull.class])
             [[EZEntitlementManager shared] applyKnownBalance:[bal integerValue]];
         NSArray *cands = [json[@"candidates"] isKindOfClass:NSArray.class] ? json[@"candidates"] : @[];
-        self.candidates = cands;
+        NSMutableArray *valid = [NSMutableArray array];
+        for (id cand in cands) if ([cand isKindOfClass:NSDictionary.class]) [valid addObject:cand];
+        self.candidates = valid;
         self.selectedCandidate = cands.count ? 0 : -1;
         [self renderCandidates];
         self.statusLabel.text = EZVideoLocalized(@"EZSeahorseVideo.PickCandidate");
