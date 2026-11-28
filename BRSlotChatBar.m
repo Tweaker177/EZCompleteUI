@@ -47,7 +47,7 @@ static NSDate *BRChatDateFromISO8601(id value) {
     if (!date) { formatter.formatOptions = NSISO8601DateFormatWithInternetDateTime; date = [formatter dateFromString:text]; }
     return date;
 }
-// Bundled button art (like_thumb / like_heart): a real image from the
+// Bundled power-pack art (like_thumb / like_heart): a real image from the
 // asset catalog when one exists, otherwise the packaged .b64 copy
 // decoded on first use — the same pattern as the Plunder symbols.
 static UIImage *BRChatBundledArtImage(NSString *name) {
@@ -244,7 +244,6 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 @property (nonatomic, strong) UIButton *likeButton;
 @property (nonatomic, strong) UIView *likeContainer;
 @property (nonatomic, strong) UILabel *likeCaption;
-@property (nonatomic) BOOL likeUsesArt;
 @property (nonatomic, strong) UILabel *likesReceivedValue;
 @property (nonatomic, strong) UILabel *likesGivenValue;
 @property (nonatomic, strong) UILabel *chipsValue;
@@ -349,8 +348,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         statusLabel.numberOfLines = 0;
         [stack addArrangedSubview:statusLabel];
     }
-    // Like button: the uploaded thumbs-up artwork, not a banner button
-    // (drawn gold circle as fallback if the art is missing). Hourly per
+    // Like button: a round thumbs-up, not a banner button. Hourly per
     // pair, enforced server-side. Its state comes from like_status (see
     // refreshLikeStatus); until that lands it shows ready, and a tap the
     // server refuses for cooldown still returns the reopen time, which
@@ -360,18 +358,9 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         likeWrap.translatesAutoresizingMaskIntoConstraints = NO;
         UIButton *like = [UIButton buttonWithType:UIButtonTypeCustom];
         like.translatesAutoresizingMaskIntoConstraints = NO;
-        UIImage *thumbArt = BRChatBundledArtImage(@"like_thumb");
-        self.likeUsesArt = thumbArt != nil;
-        if (thumbArt) {
-            // Full square art, X2 badge included — no circular mask,
-            // which would clip the badge at the rim.
-            [like setImage:thumbArt forState:UIControlStateNormal];
-            like.imageView.contentMode = UIViewContentModeScaleAspectFit;
-        } else {
-            UIImageSymbolConfiguration *thumbConfig = [UIImageSymbolConfiguration configurationWithPointSize:29 weight:UIImageSymbolWeightSemibold];
-            [like setImage:[[UIImage systemImageNamed:@"hand.thumbsup.fill" withConfiguration:thumbConfig] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
-            like.layer.cornerRadius = 38;
-        }
+        UIImageSymbolConfiguration *thumbConfig = [UIImageSymbolConfiguration configurationWithPointSize:29 weight:UIImageSymbolWeightSemibold];
+        [like setImage:[[UIImage systemImageNamed:@"hand.thumbsup.fill" withConfiguration:thumbConfig] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
+        like.layer.cornerRadius = 32;
         [like addTarget:self action:@selector(likeTapped) forControlEvents:UIControlEventTouchUpInside];
         like.accessibilityLabel = NSLocalizedString(@"BRSlot.Lounge.LikeButton", nil);
         [likeWrap addSubview:like];
@@ -383,8 +372,8 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         [NSLayoutConstraint activateConstraints:@[
             [like.topAnchor constraintEqualToAnchor:likeWrap.topAnchor],
             [like.centerXAnchor constraintEqualToAnchor:likeWrap.centerXAnchor],
-            [like.widthAnchor constraintEqualToConstant:76],
-            [like.heightAnchor constraintEqualToConstant:76],
+            [like.widthAnchor constraintEqualToConstant:64],
+            [like.heightAnchor constraintEqualToConstant:64],
             [caption.topAnchor constraintEqualToAnchor:like.bottomAnchor constant:5],
             [caption.leadingAnchor constraintEqualToAnchor:likeWrap.leadingAnchor],
             [caption.trailingAnchor constraintEqualToAnchor:likeWrap.trailingAnchor],
@@ -716,21 +705,13 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     BOOL cooling = next && [next timeIntervalSinceNow] > 0;
     button.enabled = !cooling;
     if (cooling) {
-        if (self.likeUsesArt) {
-            button.alpha = .45;
-        } else {
-            button.backgroundColor = [UIColor colorWithWhite:1 alpha:.12];
-            button.tintColor = [UIColor colorWithWhite:1 alpha:.45];
-        }
+        button.backgroundColor = [UIColor colorWithWhite:1 alpha:.12];
+        button.tintColor = [UIColor colorWithWhite:1 alpha:.45];
         self.likeCaption.textColor = [UIColor colorWithWhite:1 alpha:.55];
         self.likeCaption.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeCooldown", nil), BRChatDurationText([next timeIntervalSinceNow])];
     } else {
-        if (self.likeUsesArt) {
-            button.alpha = 1;
-        } else {
-            button.backgroundColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
-            button.tintColor = [UIColor colorWithRed:.16 green:.08 blue:.02 alpha:1];
-        }
+        button.backgroundColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+        button.tintColor = [UIColor colorWithRed:.16 green:.08 blue:.02 alpha:1];
         self.likeCaption.textColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
         self.likeCaption.text = self.likeWeight > 1 ? [NSString stringWithFormat:@"+%@", [self formattedNumber:@(self.likeWeight)]] : @"";
     }
