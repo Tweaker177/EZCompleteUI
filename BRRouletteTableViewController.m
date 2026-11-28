@@ -770,12 +770,18 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     if (self.requestInFlight) return;
     self.requestInFlight = YES;
     self.statusLabel.text = NSLocalizedStringWithDefaultValue(@"BRRoulette.Joining", nil, NSBundle.mainBundle, @"Taking a seat…", nil);
-    __weak typeof(self) weakSelf = self;
+    // This completion captures self strongly on purpose: popping the table
+    // while the join is in flight would otherwise dealloc this screen with
+    // the seat already taken on the server and no leave ever sent. The block
+    // is released when this one-shot request resolves (12s timeout, one
+    // retry at most), so the lifetime extension is bounded, and self never
+    // retains the request, so there is no cycle.
     [BRRouletteAPI performAction:@"join" params:@{ @"table_id": self.tableID } completion:^(NSDictionary *json, NSInteger status, NSString *error) {
-        __strong typeof(weakSelf) self = weakSelf;
-        if (!self) return;
         self.requestInFlight = NO;
         if (error) {
+            // Already gone: nothing to retry and no alert to show on a
+            // screen that is no longer visible.
+            if (self.leaving) return;
             // A dead join (table full, bets live at another table...) can't be
             // retried meaningfully: tell the player and go back to the lobby.
             if ((status >= 400 && status < 500) || status == 409) {
@@ -792,6 +798,12 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
             return;
         }
         self.hasJoined = YES;
+        if (self.leaving) {
+            // Left while the join was in flight: free the seat just taken
+            // instead of drawing a table nobody is looking at.
+            [self sendLeaveRequest];
+            return;
+        }
         self.lastVersion = -1;
         [self applyResponse:json];
     }];
@@ -858,15 +870,23 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     }];
 }
 
-- (void)leaveTableSilently {
-    if (self.leaving || !self.hasJoined) return;
-    self.leaving = YES;
-    [self stopTimers];
-    // Fire and forget: the server refunds bets still open for betting, and
-    // keeps a player seated until a spin they are in has paid out.
+/// Sends the "leave" request. Fire and forget: the server refunds bets still
+/// open for betting, and keeps a player seated until a spin they are in has
+/// paid out.
+- (void)sendLeaveRequest {
     [BRRouletteAPI performAction:@"leave" params:@{ @"table_id": self.tableID } completion:^(NSDictionary *json, NSInteger status, NSString *error) {
         [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {}];
     }];
+}
+
+- (void)leaveTableSilently {
+    if (self.leaving) return;
+    self.leaving = YES;
+    [self stopTimers];
+    // The join may still be in flight: the join completion sends the leave
+    // once the seat exists (see joinTable), so there is nothing to send yet.
+    if (!self.hasJoined) return;
+    [self sendLeaveRequest];
 }
 
 - (void)showFatalError:(NSString *)message {
