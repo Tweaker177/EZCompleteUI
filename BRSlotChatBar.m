@@ -47,6 +47,24 @@ static NSDate *BRChatDateFromISO8601(id value) {
     if (!date) { formatter.formatOptions = NSISO8601DateFormatWithInternetDateTime; date = [formatter dateFromString:text]; }
     return date;
 }
+// Bundled button art (like_thumb / like_heart): a real image from the
+// asset catalog when one exists, otherwise the packaged .b64 copy
+// decoded on first use — the same pattern as the Plunder symbols.
+static UIImage *BRChatBundledArtImage(NSString *name) {
+    static NSMutableDictionary<NSString *, UIImage *> *cache;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ cache = [NSMutableDictionary dictionary]; });
+    if (cache[name]) return cache[name];
+    UIImage *image = [UIImage imageNamed:name];
+    if (!image) {
+        NSString *path = [[NSBundle mainBundle] pathForResource:name ofType:@"b64"];
+        NSData *encoded = path ? [NSData dataWithContentsOfFile:path] : nil;
+        NSData *jpeg = encoded ? [[NSData alloc] initWithBase64EncodedData:encoded options:NSDataBase64DecodingIgnoreUnknownCharacters] : nil;
+        image = jpeg ? [UIImage imageWithData:jpeg] : nil;
+    }
+    if (image) cache[name] = image;
+    return image;
+}
 // Avatars show at up to 76pt: cap the upload at 512px so a full-resolution
 // library photo doesn't become a multi-MB base64 JSON body that times out
 // and silently fails the save (same shape as the 1600px ID-upload cap).
@@ -226,11 +244,13 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 @property (nonatomic, strong) UIButton *likeButton;
 @property (nonatomic, strong) UIView *likeContainer;
 @property (nonatomic, strong) UILabel *likeCaption;
+@property (nonatomic) BOOL likeUsesArt;
 @property (nonatomic, strong) UILabel *likesReceivedValue;
 @property (nonatomic, strong) UILabel *likesGivenValue;
 @property (nonatomic, strong) UILabel *chipsValue;
-@property (nonatomic, strong) UILabel *givingChargeValue;
-@property (nonatomic, strong) UILabel *receivingChargeValue;
+@property (nonatomic, strong) UILabel *givingChargeCount;
+@property (nonatomic, strong) UILabel *receivingChargeCount;
+@property (nonatomic, strong) UIStackView *likeLogStack;
 @property (nonatomic, strong) UIView *packsCard;
 @property (nonatomic, strong) UILabel *givingPackDetail;
 @property (nonatomic, strong) UILabel *receivingPackDetail;
@@ -329,7 +349,8 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         statusLabel.numberOfLines = 0;
         [stack addArrangedSubview:statusLabel];
     }
-    // Like button: a round thumbs-up, not a banner button. Hourly per
+    // Like button: the uploaded thumbs-up artwork, not a banner button
+    // (drawn gold circle as fallback if the art is missing). Hourly per
     // pair, enforced server-side. Its state comes from like_status (see
     // refreshLikeStatus); until that lands it shows ready, and a tap the
     // server refuses for cooldown still returns the reopen time, which
@@ -339,9 +360,18 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         likeWrap.translatesAutoresizingMaskIntoConstraints = NO;
         UIButton *like = [UIButton buttonWithType:UIButtonTypeCustom];
         like.translatesAutoresizingMaskIntoConstraints = NO;
-        UIImageSymbolConfiguration *thumbConfig = [UIImageSymbolConfiguration configurationWithPointSize:29 weight:UIImageSymbolWeightSemibold];
-        [like setImage:[[UIImage systemImageNamed:@"hand.thumbsup.fill" withConfiguration:thumbConfig] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
-        like.layer.cornerRadius = 32;
+        UIImage *thumbArt = BRChatBundledArtImage(@"like_thumb");
+        self.likeUsesArt = thumbArt != nil;
+        if (thumbArt) {
+            // Full square art, X2 badge included — no circular mask,
+            // which would clip the badge at the rim.
+            [like setImage:thumbArt forState:UIControlStateNormal];
+            like.imageView.contentMode = UIViewContentModeScaleAspectFit;
+        } else {
+            UIImageSymbolConfiguration *thumbConfig = [UIImageSymbolConfiguration configurationWithPointSize:29 weight:UIImageSymbolWeightSemibold];
+            [like setImage:[[UIImage systemImageNamed:@"hand.thumbsup.fill" withConfiguration:thumbConfig] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
+            like.layer.cornerRadius = 38;
+        }
         [like addTarget:self action:@selector(likeTapped) forControlEvents:UIControlEventTouchUpInside];
         like.accessibilityLabel = NSLocalizedString(@"BRSlot.Lounge.LikeButton", nil);
         [likeWrap addSubview:like];
@@ -353,8 +383,8 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         [NSLayoutConstraint activateConstraints:@[
             [like.topAnchor constraintEqualToAnchor:likeWrap.topAnchor],
             [like.centerXAnchor constraintEqualToAnchor:likeWrap.centerXAnchor],
-            [like.widthAnchor constraintEqualToConstant:64],
-            [like.heightAnchor constraintEqualToConstant:64],
+            [like.widthAnchor constraintEqualToConstant:76],
+            [like.heightAnchor constraintEqualToConstant:76],
             [caption.topAnchor constraintEqualToAnchor:like.bottomAnchor constant:5],
             [caption.leadingAnchor constraintEqualToAnchor:likeWrap.leadingAnchor],
             [caption.trailingAnchor constraintEqualToAnchor:likeWrap.trailingAnchor],
@@ -432,9 +462,46 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     self.likesReceivedValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesReceived", nil) value:[self formattedNumber:self.stats[@"likes_received"]]];
     self.likesGivenValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesGiven", nil) value:[self formattedNumber:self.stats[@"likes_given"]]];
     self.chipsValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesChips", nil) value:[self formattedNumber:self.stats[@"coins_balance"]]];
-    self.givingChargeValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesGivingCharge", nil) value:[self chargeText:self.stats[@"packs_giving"]]];
-    self.receivingChargeValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesReceivingCharge", nil) value:[self chargeText:self.stats[@"packs_receiving"]]];
+    // Charge levels as artwork + pack count: thumbs-up × giving packs,
+    // heart × receiving packs.
+    UIStackView *chargeRow = [[UIStackView alloc] init];
+    chargeRow.axis = UILayoutConstraintAxisHorizontal;
+    chargeRow.alignment = UIStackViewAlignmentCenter;
+    chargeRow.spacing = 8;
+    chargeRow.translatesAutoresizingMaskIntoConstraints = NO;
+    [chargeRow addArrangedSubview:[self chargeIconViewForArt:@"like_thumb" symbol:@"hand.thumbsup.fill" tint:[UIColor colorWithRed:.25 green:.55 blue:1 alpha:1]]];
+    self.givingChargeCount = [self chargeCountLabelWithValue:self.stats[@"packs_giving"]];
+    [chargeRow addArrangedSubview:self.givingChargeCount];
+    UIView *chargeSpacer = [UIView new];
+    [chargeSpacer setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisHorizontal];
+    [chargeRow addArrangedSubview:chargeSpacer];
+    [chargeRow addArrangedSubview:[self chargeIconViewForArt:@"like_heart" symbol:@"heart.fill" tint:[UIColor colorWithRed:1 green:.3 blue:.45 alpha:1]]];
+    self.receivingChargeCount = [self chargeCountLabelWithValue:self.stats[@"packs_receiving"]];
+    [chargeRow addArrangedSubview:self.receivingChargeCount];
+    [likesStack addArrangedSubview:chargeRow];
     [stack addArrangedSubview:likesCard];
+    // Like log card: the most recent likes this player received, newest
+    // first. Rows arrive with like_status (recent_likes) and render via
+    // renderLikeLog:; until that lands the card is just its header.
+    UIView *logCard = [UIView new];
+    logCard.backgroundColor = [UIColor colorWithRed:.13 green:.045 blue:.23 alpha:1];
+    logCard.layer.cornerRadius = 18;
+    logCard.layer.borderWidth = 1;
+    logCard.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.4].CGColor;
+    logCard.translatesAutoresizingMaskIntoConstraints = NO;
+    UIStackView *logStack = [UIStackView new];
+    logStack.axis = UILayoutConstraintAxisVertical;
+    logStack.spacing = 6;
+    logStack.translatesAutoresizingMaskIntoConstraints = NO;
+    [logCard addSubview:logStack];
+    [NSLayoutConstraint activateConstraints:@[
+        [logStack.topAnchor constraintEqualToAnchor:logCard.topAnchor constant:14],
+        [logStack.bottomAnchor constraintEqualToAnchor:logCard.bottomAnchor constant:-14],
+        [logStack.leadingAnchor constraintEqualToAnchor:logCard.leadingAnchor constant:18],
+        [logStack.trailingAnchor constraintEqualToAnchor:logCard.trailingAnchor constant:-18]]];
+    [self addSectionHeaderToStack:logStack text:NSLocalizedString(@"BRSlot.Lounge.LikeLogSection", nil)];
+    self.likeLogStack = logStack;
+    [stack addArrangedSubview:logCard];
     // Power packs card: starts hidden and is only revealed on your own
     // profile, when like_status answers is_self. Buying charges coins
     // server-side; this card just renders the counts and countdowns the
@@ -486,13 +553,40 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 - (void)closeTapped { [self dismissViewControllerAnimated:YES completion:nil]; }
 // The charge a like carries at a pack count: no packs is ×1, every pack
 // doubles in — 1 pack ×2, 10 packs ×20.
-- (NSString *)chargeText:(id)packs {
-    NSInteger count = BRChatInteger(packs);
-    return count > 0 ? [NSString stringWithFormat:@"×%ld", (long)(2 * count)] : @"×1";
+- (UIImageView *)chargeIconViewForArt:(NSString *)name symbol:(NSString *)symbol tint:(UIColor *)tint {
+    UIImage *image = BRChatBundledArtImage(name) ?: [[UIImage systemImageNamed:symbol] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    UIImageView *icon = [[UIImageView alloc] initWithImage:image];
+    icon.contentMode = UIViewContentModeScaleAspectFit;
+    icon.tintColor = tint;
+    icon.translatesAutoresizingMaskIntoConstraints = NO;
+    [icon.widthAnchor constraintEqualToConstant:30].active = YES;
+    [icon.heightAnchor constraintEqualToConstant:30].active = YES;
+    return icon;
+}
+- (UILabel *)chargeCountLabelWithValue:(id)value {
+    UILabel *label = [UILabel new];
+    label.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
+    label.textColor = UIColor.whiteColor;
+    label.text = [NSString stringWithFormat:@"× %@", [self formattedNumber:value]];
+    return label;
+}
+- (void)updateChargeCounts:(NSDictionary *)json {
+    self.givingChargeCount.text = [NSString stringWithFormat:@"× %@", [self formattedNumber:json[@"packs_giving"]]];
+    self.receivingChargeCount.text = [NSString stringWithFormat:@"× %@", [self formattedNumber:json[@"packs_receiving"]]];
 }
 - (UILabel *)addPackRowToStack:(UIStackView *)stack flavor:(NSString *)flavor title:(NSString *)title {
     UIView *row = [UIView new];
     row.translatesAutoresizingMaskIntoConstraints = NO;
+    // Each flavor carries its artwork: thumbs-up for giving packs, heart
+    // for receiving packs.
+    UIImage *flavorArt = BRChatBundledArtImage([flavor isEqualToString:@"receiving"] ? @"like_heart" : @"like_thumb");
+    UIImageView *icon = nil;
+    if (flavorArt) {
+        icon = [[UIImageView alloc] initWithImage:flavorArt];
+        icon.translatesAutoresizingMaskIntoConstraints = NO;
+        icon.contentMode = UIViewContentModeScaleAspectFit;
+        [row addSubview:icon];
+    }
     UILabel *name = [UILabel new];
     name.text = title;
     name.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
@@ -515,15 +609,25 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     buy.accessibilityIdentifier = flavor;
     [buy addTarget:self action:@selector(buyPackTapped:) forControlEvents:UIControlEventTouchUpInside];
     [row addSubview:buy];
-    [NSLayoutConstraint activateConstraints:@[
-        [name.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+    NSMutableArray<NSLayoutConstraint *> *rowConstraints = [NSMutableArray arrayWithObjects:
         [name.topAnchor constraintEqualToAnchor:row.topAnchor constant:8],
-        [detail.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+        [detail.leadingAnchor constraintEqualToAnchor:name.leadingAnchor],
         [detail.topAnchor constraintEqualToAnchor:name.bottomAnchor constant:2],
         [detail.bottomAnchor constraintEqualToAnchor:row.bottomAnchor constant:-8],
         [buy.trailingAnchor constraintEqualToAnchor:row.trailingAnchor],
         [buy.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
-        [buy.leadingAnchor constraintGreaterThanOrEqualToAnchor:name.trailingAnchor constant:12]]];
+        [buy.leadingAnchor constraintGreaterThanOrEqualToAnchor:name.trailingAnchor constant:12], nil];
+    if (icon) {
+        [rowConstraints addObjectsFromArray:@[
+            [icon.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+            [icon.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+            [icon.widthAnchor constraintEqualToConstant:40],
+            [icon.heightAnchor constraintEqualToConstant:40],
+            [name.leadingAnchor constraintEqualToAnchor:icon.trailingAnchor constant:10]]];
+    } else {
+        [rowConstraints addObject:[name.leadingAnchor constraintEqualToAnchor:row.leadingAnchor]];
+    }
+    [NSLayoutConstraint activateConstraints:rowConstraints];
     [stack addArrangedSubview:row];
     return detail;
 }
@@ -535,13 +639,65 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     if (expiry) text = [text stringByAppendingFormat:@" · %@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.PacksNextEnds", nil), BRChatDurationText([expiry timeIntervalSinceNow])]];
     label.text = text;
 }
+- (void)renderLikeLog:(NSArray *)entries {
+    if (!self.likeLogStack) return;
+    // Drop everything after the section header (arranged index 0).
+    while (self.likeLogStack.arrangedSubviews.count > 1) {
+        UIView *extra = self.likeLogStack.arrangedSubviews.lastObject;
+        [self.likeLogStack removeArrangedSubview:extra];
+        [extra removeFromSuperview];
+    }
+    if (!entries.count) {
+        UILabel *empty = [UILabel new];
+        empty.text = NSLocalizedString(@"BRSlot.Lounge.LikeLogEmpty", nil);
+        empty.font = [UIFont systemFontOfSize:13];
+        empty.textColor = [UIColor colorWithWhite:1 alpha:.5];
+        [self.likeLogStack addArrangedSubview:empty];
+        return;
+    }
+    NSDateFormatter *timeFormat = [NSDateFormatter new];
+    timeFormat.timeStyle = NSDateFormatterShortStyle;
+    for (id entry in entries) {
+        if (![entry isKindOfClass:NSDictionary.class]) continue;
+        [self.likeLogStack addArrangedSubview:[self likeLogRowForEntry:entry timeFormat:timeFormat]];
+    }
+}
+- (UIView *)likeLogRowForEntry:(NSDictionary *)entry timeFormat:(NSDateFormatter *)timeFormat {
+    NSString *name = BRChatString(entry[@"name"]);
+    if (!name.length) name = NSLocalizedString(@"BRSlot.Lounge.PlayerFallback", nil);
+    NSInteger weight = BRChatInteger(entry[@"weight"]);
+    UIView *row = [UIView new];
+    row.translatesAutoresizingMaskIntoConstraints = NO;
+    UILabel *label = [UILabel new];
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    label.font = [UIFont systemFontOfSize:14];
+    label.textColor = [UIColor colorWithWhite:1 alpha:.88];
+    label.text = weight > 1 ? [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeLogLeftMany", nil), name, [self formattedNumber:@(weight)]]
+                            : [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeLogLeftOne", nil), name];
+    [row addSubview:label];
+    UILabel *time = [UILabel new];
+    time.translatesAutoresizingMaskIntoConstraints = NO;
+    time.font = [UIFont systemFontOfSize:12];
+    time.textColor = [UIColor colorWithWhite:1 alpha:.5];
+    NSDate *when = BRChatDateFromISO8601(entry[@"created_at"]);
+    time.text = when ? [timeFormat stringFromDate:when] : @"";
+    [row addSubview:time];
+    [NSLayoutConstraint activateConstraints:@[
+        [label.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+        [label.topAnchor constraintEqualToAnchor:row.topAnchor],
+        [label.bottomAnchor constraintEqualToAnchor:row.bottomAnchor],
+        [time.trailingAnchor constraintEqualToAnchor:row.trailingAnchor],
+        [time.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+        [time.leadingAnchor constraintGreaterThanOrEqualToAnchor:label.trailingAnchor constant:8]]];
+    return row;
+}
 - (void)applyLikeStats:(NSDictionary *)json {
     if (![json isKindOfClass:NSDictionary.class]) return;
     self.likesReceivedValue.text = [self formattedNumber:json[@"likes_received"]];
     self.likesGivenValue.text = [self formattedNumber:json[@"likes_given"]];
     self.chipsValue.text = [self formattedNumber:json[@"coins_balance"]];
-    self.givingChargeValue.text = [self chargeText:json[@"packs_giving"]];
-    self.receivingChargeValue.text = [self chargeText:json[@"packs_receiving"]];
+    [self updateChargeCounts:json];
+    if ([json[@"recent_likes"] isKindOfClass:NSArray.class]) [self renderLikeLog:json[@"recent_likes"]];
     [self updatePackDetail:self.givingPackDetail count:BRChatInteger(json[@"packs_giving"]) nextExpiry:json[@"giving_next_expiry"]];
     [self updatePackDetail:self.receivingPackDetail count:BRChatInteger(json[@"packs_receiving"]) nextExpiry:json[@"receiving_next_expiry"]];
 }
@@ -554,13 +710,21 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     BOOL cooling = next && [next timeIntervalSinceNow] > 0;
     button.enabled = !cooling;
     if (cooling) {
-        button.backgroundColor = [UIColor colorWithWhite:1 alpha:.12];
-        button.tintColor = [UIColor colorWithWhite:1 alpha:.45];
+        if (self.likeUsesArt) {
+            button.alpha = .45;
+        } else {
+            button.backgroundColor = [UIColor colorWithWhite:1 alpha:.12];
+            button.tintColor = [UIColor colorWithWhite:1 alpha:.45];
+        }
         self.likeCaption.textColor = [UIColor colorWithWhite:1 alpha:.55];
         self.likeCaption.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeCooldown", nil), BRChatDurationText([next timeIntervalSinceNow])];
     } else {
-        button.backgroundColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
-        button.tintColor = [UIColor colorWithRed:.16 green:.08 blue:.02 alpha:1];
+        if (self.likeUsesArt) {
+            button.alpha = 1;
+        } else {
+            button.backgroundColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+            button.tintColor = [UIColor colorWithRed:.16 green:.08 blue:.02 alpha:1];
+        }
         self.likeCaption.textColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
         self.likeCaption.text = self.likeWeight > 1 ? [NSString stringWithFormat:@"+%@", [self formattedNumber:@(self.likeWeight)]] : @"";
     }
@@ -586,7 +750,11 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
         if (json[@"next_like_at"]) self.nextLikeAt = BRChatString(json[@"next_like_at"]);
-        if (!error && json) self.likesReceivedValue.text = [self formattedNumber:json[@"target_likes_received"]];
+        if (!error && json) {
+            self.likesReceivedValue.text = [self formattedNumber:json[@"target_likes_received"]];
+            // Re-read the status so the like log gains the new entry.
+            [self refreshLikeStatus];
+        }
         [self refreshLikeButton];
     });
 }
@@ -607,8 +775,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         }
         if (!json) return;
         self.chipsValue.text = [self formattedNumber:json[@"balance"]];
-        self.givingChargeValue.text = [self chargeText:json[@"packs_giving"]];
-        self.receivingChargeValue.text = [self chargeText:json[@"packs_receiving"]];
+        [self updateChargeCounts:json];
         // The buy answer carries counts but not per-flavor expiries;
         // re-read the status so the countdowns stay exact.
         [self refreshLikeStatus];

@@ -1066,6 +1066,10 @@
 "BRSlot.Lounge.LikesSection" = "الإعجاب";
 "BRSlot.Lounge.LikesReceived" = "إعجاب";
 "BRSlot.Lounge.LikesGiven" = "إعجاب مُعطى";
+"BRSlot.Lounge.LikeLogSection" = "سجل الإعجاب";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ ترك إعجابًا";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ ترك %@ إعجاب";
+"BRSlot.Lounge.LikeLogEmpty" = "لا إعجاب بعد";
 "BRSlot.Lounge.LikesChips" = "رقائق";
 "BRSlot.Lounge.LikesGivingCharge" = "شحنة الإعطاء";
 "BRSlot.Lounge.LikesReceivingCharge" = "شحنة الاستلام";

@@ -1088,6 +1088,10 @@
 "BRSlot.Lounge.LikesSection" = "CURTIDAS";
 "BRSlot.Lounge.LikesReceived" = "Curtidas";
 "BRSlot.Lounge.LikesGiven" = "Curtidas dadas";
+"BRSlot.Lounge.LikeLogSection" = "REGISTRO DE CURTIDAS";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ deixou uma curtida";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ deixou %@ curtidas";
+"BRSlot.Lounge.LikeLogEmpty" = "Ainda sem curtidas";
 "BRSlot.Lounge.LikesChips" = "Fichas";
 "BRSlot.Lounge.LikesGivingCharge" = "Carga ao dar";
 "BRSlot.Lounge.LikesReceivingCharge" = "Carga ao receber";

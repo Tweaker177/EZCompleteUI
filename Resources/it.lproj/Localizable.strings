@@ -1066,6 +1066,10 @@
 "BRSlot.Lounge.LikesSection" = "MI PIACE";
 "BRSlot.Lounge.LikesReceived" = "Mi piace";
 "BRSlot.Lounge.LikesGiven" = "Mi piace dati";
+"BRSlot.Lounge.LikeLogSection" = "REGISTRO DEI MI PIACE";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ ha lasciato un mi piace";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ ha lasciato %@ mi piace";
+"BRSlot.Lounge.LikeLogEmpty" = "Ancora nessun mi piace";
 "BRSlot.Lounge.LikesChips" = "Fiche";
 "BRSlot.Lounge.LikesGivingCharge" = "Carica in uscita";
 "BRSlot.Lounge.LikesReceivingCharge" = "Carica in entrata";

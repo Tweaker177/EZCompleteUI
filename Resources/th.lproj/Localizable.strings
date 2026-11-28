@@ -1066,6 +1066,10 @@
 "BRSlot.Lounge.LikesSection" = "ไลก์";
 "BRSlot.Lounge.LikesReceived" = "ไลก์";
 "BRSlot.Lounge.LikesGiven" = "ไลก์ที่ให้";
+"BRSlot.Lounge.LikeLogSection" = "บันทึกไลค์";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ ให้ไลค์";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ ให้ %@ ไลค์";
+"BRSlot.Lounge.LikeLogEmpty" = "ยังไม่มีไลค์";
 "BRSlot.Lounge.LikesChips" = "ชิป";
 "BRSlot.Lounge.LikesGivingCharge" = "ชาร์จการให้";
 "BRSlot.Lounge.LikesReceivingCharge" = "ชาร์จการรับ";

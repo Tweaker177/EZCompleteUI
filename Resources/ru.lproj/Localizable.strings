@@ -1106,6 +1106,10 @@
 "BRSlot.Lounge.LikesSection" = "ЛАЙКИ";
 "BRSlot.Lounge.LikesReceived" = "Лайки";
 "BRSlot.Lounge.LikesGiven" = "Отдано лайков";
+"BRSlot.Lounge.LikeLogSection" = "ЖУРНАЛ ЛАЙКОВ";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ поставил лайк";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ поставил лайков: %@";
+"BRSlot.Lounge.LikeLogEmpty" = "Лайков пока нет";
 "BRSlot.Lounge.LikesChips" = "Фишки";
 "BRSlot.Lounge.LikesGivingCharge" = "Заряд отдачи";
 "BRSlot.Lounge.LikesReceivingCharge" = "Заряд приёма";

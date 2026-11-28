@@ -1088,6 +1088,10 @@
 "BRSlot.Lounge.LikesSection" = "J'AIME";
 "BRSlot.Lounge.LikesReceived" = "J'aime reçus";
 "BRSlot.Lounge.LikesGiven" = "J'aime donnés";
+"BRSlot.Lounge.LikeLogSection" = "JOURNAL DES J'AIME";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ a laissé un j'aime";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ a laissé %@ j'aime";
+"BRSlot.Lounge.LikeLogEmpty" = "Pas encore de j'aime";
 "BRSlot.Lounge.LikesChips" = "Jetons";
 "BRSlot.Lounge.LikesGivingCharge" = "Charge d'envoi";
 "BRSlot.Lounge.LikesReceivingCharge" = "Charge de réception";

@@ -1066,6 +1066,10 @@
 "BRSlot.Lounge.LikesSection" = "いいね";
 "BRSlot.Lounge.LikesReceived" = "いいね";
 "BRSlot.Lounge.LikesGiven" = "送ったいいね";
+"BRSlot.Lounge.LikeLogSection" = "いいね履歴";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ がいいねを残しました";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ が %@ 件のいいねを残しました";
+"BRSlot.Lounge.LikeLogEmpty" = "まだいいねがありません";
 "BRSlot.Lounge.LikesChips" = "チップ";
 "BRSlot.Lounge.LikesGivingCharge" = "送るチャージ";
 "BRSlot.Lounge.LikesReceivingCharge" = "受け取るチャージ";
