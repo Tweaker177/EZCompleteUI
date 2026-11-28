@@ -552,6 +552,59 @@ static NSCache<NSString *, UIImage *> *ArtCache(void) {
     return cache;
 }
 
+#pragma mark - Symbol tiles (sliced art)
+
+// Reel art sliced from the clean white-background sprite sheet the
+// user supplied: each symbol was cut out with the white keyed to
+// transparency (edges un-blended against white, the coin's square
+// hole included) and ships as a packaged .b64 PNG, decoded on first
+// use — the same pattern as the Plunder symbols, since binaries
+// cannot ride the repo's text push. The Golden Hat scatter was not
+// on the sheet and keeps its code-drawn art, and every symbol falls
+// back to the drawn art if its tile is missing.
+static NSMutableDictionary<NSString *, UIImage *> *GMTileCache(void) {
+    static NSMutableDictionary *cache;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ cache = [NSMutableDictionary dictionary]; });
+    return cache;
+}
+
+/// Tile name per symbol: the sheet's eight pictures land on the
+/// engine's eight regular tiers — lantern, fan, bamboo and the plum
+/// medallion on the low tiers, then koi, the gold coin on the Jade Bi
+/// tier (same disc-with-a-hole shape; labelled "Lucky Coin"), the
+/// ingot, and the dragon head on top.
+static NSString *GMTileNameForSymbol(GMSymbol symbol) {
+    switch (symbol) {
+        case GMSymbolLantern: return @"gm_lantern";
+        case GMSymbolFan:     return @"gm_fan";
+        case GMSymbolBamboo:  return @"gm_bamboo";
+        case GMSymbolPlum:    return @"gm_plum";
+        case GMSymbolKoi:     return @"gm_koi";
+        case GMSymbolJade:    return @"gm_coin";
+        case GMSymbolIngot:   return @"gm_ingot";
+        case GMSymbolDragon:  return @"gm_dragon";
+        default:              return nil;
+    }
+}
+
+/// The symbol's sliced tile, decoded once and cached; nil for the
+/// Hat or when the tile is unavailable.
+static UIImage *GMTileImage(GMSymbol symbol) {
+    NSString *name = GMTileNameForSymbol(symbol);
+    if (!name) return nil;
+    if (GMTileCache()[name]) return GMTileCache()[name];
+    UIImage *image = [UIImage imageNamed:name];
+    if (!image) {
+        NSString *path = [[NSBundle mainBundle] pathForResource:name ofType:@"b64"];
+        NSData *encoded = path ? [NSData dataWithContentsOfFile:path] : nil;
+        NSData *png = encoded ? [[NSData alloc] initWithBase64EncodedData:encoded options:NSDataBase64DecodingIgnoreUnknownCharacters] : nil;
+        image = png ? [UIImage imageWithData:png] : nil;
+    }
+    if (image) GMTileCache()[name] = image;
+    return image;
+}
+
 @implementation BRGoldenMandarinArt
 
 + (NSString *)nameForSymbol:(GMSymbol)symbol {
@@ -561,7 +614,7 @@ static NSCache<NSString *, UIImage *> *ArtCache(void) {
         case GMSymbolBamboo: return @"Bamboo";
         case GMSymbolPlum: return @"Plum Blossom";
         case GMSymbolKoi: return @"Koi";
-        case GMSymbolJade: return @"Jade Bi";
+        case GMSymbolJade: return @"Lucky Coin";
         case GMSymbolIngot: return @"Gold Ingot";
         case GMSymbolDragon: return @"Dragon";
         case GMSymbolHat: return @"Golden Hat";
@@ -575,7 +628,15 @@ static NSCache<NSString *, UIImage *> *ArtCache(void) {
     UIImage *cached = [ArtCache() objectForKey:key];
     if (cached) return cached;
     UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
+    UIImage *tileArt = GMTileImage(symbol);
     UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+        if (tileArt) {
+            // A tile is already a finished picture: fit it, centred.
+            CGFloat scale = MIN(size.width / tileArt.size.width, size.height / tileArt.size.height);
+            CGSize fit = CGSizeMake(tileArt.size.width * scale, tileArt.size.height * scale);
+            [tileArt drawInRect:CGRectMake((size.width - fit.width) / 2, (size.height - fit.height) / 2, fit.width, fit.height)];
+            return;
+        }
         CGContextRef c = ctx.CGContext;
         CGContextScaleCTM(c, size.width / 100.0, size.height / 100.0);
         switch (symbol) {
@@ -629,6 +690,6 @@ static NSCache<NSString *, UIImage *> *ArtCache(void) {
     return image;
 }
 
-+ (void)purgeCache { [ArtCache() removeAllObjects]; }
++ (void)purgeCache { [ArtCache() removeAllObjects]; [GMTileCache() removeAllObjects]; }
 
 @end
