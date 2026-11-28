@@ -1,69 +1,4 @@
-
-    // BRRouletteAudio.h
-    // EZCompleteUI v1.0
-    //
-    // Purpose:
-    //   Synthesized sound for the roulette tables — no audio files. Every sound
-    //   is rendered once at launch on a background queue into mono float buffers
-    //   (plain C in the .m), then played through a small pool of
-    //   AVAudioPlayerNodes. The same approach as the slot machines' audio
-    //   classes: Playback category with MixWithOthers, one shared sound switch
-    //   (BRSlotSoundEnabled), engine restart after interruptions, loops paused
-    //   while the app is in the background.
-    //
-    //   Sounds: chip place/remove clicks, betting open/closed stingers, a
-    //   10-second spin (wheel hum, rolling ball, slowing pocket ticks, the
-    //   drop), win jingles sized by payout ratio, a loss tone, and a looping
-    //   lounge ambience bed (electric piano, walking bass, brushes).
-    //
-    // Changes from v0 (new file):
-    //   - Initial version.
-
-    #import <Foundation/Foundation.h>
-
-    @interface BRRouletteAudio : NSObject
-
-    /// YES while the shared slot sound switch is off. Setting it updates the
-    /// engine's output volume immediately.
-    @property (nonatomic) BOOL muted;
-
-    /// Renders every buffer on a background queue and starts the engine.
-    /// Safe to call more than once; later calls do nothing.
-    - (void)prepare;
-
-    /// Restarts the engine after an interruption or route change.
-    - (void)resume;
-
-    /// Stops the engine and releases the player nodes.
-    - (void)shutdown;
-
-    #pragma mark Ambience
-
-    /// Starts the looping lounge bed (sounds only once preparation finished).
-    - (void)startAmbience;
-    - (void)stopAmbience;
-
-    #pragma mark Effects
-
-    - (void)playChipPlace;
-    - (void)playChipRemove;
-    - (void)playBettingOpen;
-    - (void)playBettingClosed;
-
-    /// Plays the spin sound trimmed to its last `seconds`, so it ends exactly
-    /// when the spin ends.
-    - (void)playSpinWithRemaining:(NSTimeInterval)seconds;
-    - (void)stopSpin;
-
-    /// Win jingle sized by payout / bet: small below 3x, medium from 3x,
-    /// big from 20x. A ratio of 1x or less (a push) plays nothing.
-    - (void)playWinForPayoutRatio:(double)ratio;
-    - (void)playLoss;
-
-    @end
-    
-    
-    // BRRouletteAudio.m
+// BRRouletteAudio.m
 // EZCompleteUI v1.0
 //
 // Purpose:
@@ -77,7 +12,7 @@
 // Changes from v0 (new file):
 //   - Initial version.
 
-
+#import "BRRouletteAudio.h"
 #import "BRSlotChatBar.h"
 #import <AVFoundation/AVFoundation.h>
 #include <math.h>
@@ -126,7 +61,14 @@ static inline void RLTrackAdd(RLTrack *track, long index, float value) {
     track->data[index] += value;
 }
 
+/// Scales the track to the given peak. One-shot sounds also get a 25 ms fade at
+/// the very end so a decaying tail can never end in a click (loops are left alone).
 static void RLNormalize(RLTrack *track, float peak) {
+    if (!track->wrap) {
+        long fade = (long)(0.025 * kSR);
+        if (fade > track->frames) fade = track->frames;
+        for (long i = 0; i < fade; i++) track->data[track->frames - 1 - i] *= (float)i / (float)fade;
+    }
     float maxValue = 0;
     for (long i = 0; i < track->frames; i++) { float v = fabsf(track->data[i]); if (v > maxValue) maxValue = v; }
     if (maxValue < 1e-6f) return;
@@ -219,7 +161,7 @@ static RLTrack RLRenderChip(int variant, int remove) {
 // ---- Betting open / closed ----
 
 static RLTrack RLRenderBettingOpen(void) {
-    RLTrack track = RLTrackMake(1.4, 0, 0x1234ABCD5678EF01ULL);
+    RLTrack track = RLTrackMake(1.8, 0, 0x1234ABCD5678EF01ULL);
     RLAddBell(&track, 0.00, RLMidiHz(88), 0.8, 0.55);   // E6
     RLAddBell(&track, 0.17, RLMidiHz(95), 0.55, 0.50);  // B6
     RLNormalize(&track, 0.7f);
@@ -425,11 +367,11 @@ static AVAudioPCMBuffer *BRRouletteBufferFromTrack(RLTrack *track, AVAudioFormat
         rendered[@"bettingClosed"] = BRRouletteBufferFromTrack(&closed, format);
         RLTrack spin = RLRenderSpin();
         rendered[@"spin"] = BRRouletteBufferFromTrack(&spin, format);
-        RLTrack winSmall = RLRenderWin(4, 0.075, 6, 1.6);
+        RLTrack winSmall = RLRenderWin(4, 0.075, 6, 2.2);
         rendered[@"winSmall"] = BRRouletteBufferFromTrack(&winSmall, format);
-        RLTrack winMedium = RLRenderWin(8, 0.060, 14, 2.4);
+        RLTrack winMedium = RLRenderWin(8, 0.060, 14, 3.0);
         rendered[@"winMedium"] = BRRouletteBufferFromTrack(&winMedium, format);
-        RLTrack winBig = RLRenderWin(16, 0.048, 30, 3.6);
+        RLTrack winBig = RLRenderWin(16, 0.048, 30, 4.2);
         rendered[@"winBig"] = BRRouletteBufferFromTrack(&winBig, format);
         RLTrack loss = RLRenderLoss();
         rendered[@"loss"] = BRRouletteBufferFromTrack(&loss, format);

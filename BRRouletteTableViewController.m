@@ -11,8 +11,11 @@
 //        one "bet" request (the server validates limits and balance again),
 //     3. draws the wheel, ball, last numbers, players and the balance,
 //     4. shows the shared table chat through BRSlotChatBar (room "rl:<id>"),
-//     5. calls out each phase change with the device speech voice (obeys the
-//        shared game-sounds switch, BRSlotSoundEnabled).
+//     5. calls out each phase change in the table dealer's recorded voice
+//        (BRRouletteDealer: shared ElevenLabs clips, Apple voice only as a
+//        fallback) and plays the table sound effects (BRRouletteAudio: chips,
+//        the spinning wheel and ball, wins, a quiet casino ambience). Both obey
+//        the shared game-sounds switch, BRSlotSoundEnabled.
 //   Because the client never decides an outcome, a tweaked app cannot pick the
 //   number, bet after the spin or invent coins.
 //
@@ -23,11 +26,18 @@
 // Changes from v0 (new file):
 //   - Initial version.
 //   - Dealer call-outs with the device speech voice, in the device language.
+//   - Dealer call-outs now use BRRouletteDealer (the same ElevenLabs clips as the
+//     blackjack dealers, per table and per language); the device voice is only
+//     the fallback while clips are missing.
+//   - Table sound effects through BRRouletteAudio (chip place/remove, betting
+//     bell, wheel spin timed to the server's spin window, win/loss, ambience).
 //   - Every player-facing string goes through NSLocalizedStringWithDefaultValue
 //     (keys BRRoulette.*), with the English text as the default value.
 
 #import "BRRouletteTableViewController.h"
 #import "BRRouletteAPI.h"
+#import "BRRouletteAudio.h"
+#import "BRRouletteDealer.h"
 #import "BRSlotChatBar.h"
 #import "EZEntitlementManager.h"
 #import <AVFoundation/AVFoundation.h>
@@ -323,7 +333,8 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
 @property (nonatomic, strong) UILabel *limitsLabel;
 @property (nonatomic, strong) UILabel *playersLabel;
 @property (nonatomic, strong) BRSlotChatBar *chatBar;
-@property (nonatomic, strong) AVSpeechSynthesizer *dealerSpeech;
+@property (nonatomic, strong) BRRouletteDealer *dealer;   // recorded dealer calls
+@property (nonatomic, strong) BRRouletteAudio *audio;      // table sound effects
 @property (nonatomic) BOOL skipNextSpeech; // set after time away so old phase changes are not announced
 @end
 
@@ -360,6 +371,13 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     [self setDisplayedBalance:0];
     [self refreshControls];
 
+    self.dealer = [[BRRouletteDealer alloc] initWithTableID:self.tableID];
+    [self.dealer loadClips];
+    self.audio = [BRRouletteAudio new];
+    [self.audio prepare];
+    // Switching game sounds off mid-call cuts the dealer off at once.
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(soundSettingChanged:) name:BRSlotSoundSettingChangedNotification object:nil];
+
     // Stop polling in the background; resume (and resync) when active again.
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillResignActive) name:UIApplicationWillResignActiveNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appDidBecomeActive) name:UIApplicationDidBecomeActiveNotification object:nil];
@@ -375,6 +393,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     }
     [self.chatBar start];
     [self startTimers];
+    [self.audio startAmbience];
     if (!self.hasJoined) [self joinTable];
 }
 
@@ -386,8 +405,12 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     [self.chatBar stop];
     [self stopTimers];
     [self stopDealerSpeech];
+    [self.audio stopAmbience];
+    [self.audio stopSpin];
     if (self.isMovingFromParentViewController || self.isBeingDismissed || self.navigationController == nil) {
         [self leaveTableSilently];
+        [self.dealer shutdown];
+        [self.audio shutdown];
     }
 }
 
@@ -397,12 +420,17 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     [self.balanceTimer invalidate];
 }
 
-- (void)appWillResignActive { [self stopTimers]; [self stopDealerSpeech]; }
+- (void)appWillResignActive { [self stopTimers]; [self stopDealerSpeech]; [self.audio stopSpin]; }
+
+- (void)soundSettingChanged:(NSNotification *)note {
+    if (!BRSlotSoundEnabled()) [self stopDealerSpeech];
+}
 
 - (void)appDidBecomeActive {
     if (self.viewIfLoaded.window == nil || self.leaving) return;
     self.lastVersion = -1; // force a full redraw after time away
     self.skipNextSpeech = YES;
+    [self.audio resume];
     [self startTimers];
     [self pollNow];
 }
@@ -742,18 +770,12 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     if (self.requestInFlight) return;
     self.requestInFlight = YES;
     self.statusLabel.text = NSLocalizedStringWithDefaultValue(@"BRRoulette.Joining", nil, NSBundle.mainBundle, @"Taking a seat…", nil);
-    // This completion captures self strongly on purpose: popping the table
-    // while the join is in flight would otherwise dealloc this screen with
-    // the seat already taken on the server and no leave ever sent. The block
-    // is released when this one-shot request resolves (12s timeout, one
-    // retry at most), so the lifetime extension is bounded, and self never
-    // retains the request, so there is no cycle.
+    __weak typeof(self) weakSelf = self;
     [BRRouletteAPI performAction:@"join" params:@{ @"table_id": self.tableID } completion:^(NSDictionary *json, NSInteger status, NSString *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         self.requestInFlight = NO;
         if (error) {
-            // Already gone: nothing to retry and no alert to show on a
-            // screen that is no longer visible.
-            if (self.leaving) return;
             // A dead join (table full, bets live at another table...) can't be
             // retried meaningfully: tell the player and go back to the lobby.
             if ((status >= 400 && status < 500) || status == 409) {
@@ -770,12 +792,6 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
             return;
         }
         self.hasJoined = YES;
-        if (self.leaving) {
-            // Left while the join was in flight: free the seat just taken
-            // instead of drawing a table nobody is looking at.
-            [self sendLeaveRequest];
-            return;
-        }
         self.lastVersion = -1;
         [self applyResponse:json];
     }];
@@ -842,23 +858,15 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     }];
 }
 
-/// Sends the "leave" request. Fire and forget: the server refunds bets still
-/// open for betting, and keeps a player seated until a spin they are in has
-/// paid out.
-- (void)sendLeaveRequest {
+- (void)leaveTableSilently {
+    if (self.leaving || !self.hasJoined) return;
+    self.leaving = YES;
+    [self stopTimers];
+    // Fire and forget: the server refunds bets still open for betting, and
+    // keeps a player seated until a spin they are in has paid out.
     [BRRouletteAPI performAction:@"leave" params:@{ @"table_id": self.tableID } completion:^(NSDictionary *json, NSInteger status, NSString *error) {
         [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {}];
     }];
-}
-
-- (void)leaveTableSilently {
-    if (self.leaving) return;
-    self.leaving = YES;
-    [self stopTimers];
-    // The join may still be in flight: the join completion sends the leave
-    // once the seat exists (see joinTable), so there is nothing to send yet.
-    if (!self.hasJoined) return;
-    [self sendLeaveRequest];
 }
 
 - (void)showFatalError:(NSString *)message {
@@ -971,6 +979,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
         self.wheelView.centerLabel.text = @"…";
         self.wheelView.centerLabel.textColor = UIColor.whiteColor;
         [self.wheelView spinToNumber:winning duration:remaining];
+        [self.audio playSpinWithRemaining:remaining];
     } else {
         [self.wheelView settleOnNumber:winning];
         if ([phase isEqualToString:@"results"]) [self showWinningNumberInHub:winning];
@@ -1037,6 +1046,9 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     if (totalBet <= 0) return;
     NSInteger totalPayout = 0;
     for (NSNumber *payout in self.confirmedPayouts.allValues) totalPayout += payout.integerValue;
+    [self.audio stopSpin];
+    if (totalPayout > totalBet) [self.audio playWinForPayoutRatio:(double)totalPayout / (double)totalBet];
+    else if (totalPayout < totalBet) [self.audio playLoss];
     UINotificationFeedbackGenerator *haptics = [UINotificationFeedbackGenerator new];
     [haptics notificationOccurred:totalPayout > totalBet ? UINotificationFeedbackTypeSuccess : (totalPayout == totalBet ? UINotificationFeedbackTypeWarning : UINotificationFeedbackTypeError)];
 }
@@ -1050,36 +1062,28 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     if (self.skipNextSpeech) { self.skipNextSpeech = NO; return; }
     // Nothing to say on the first view after joining, or when the phase didn't change.
     if (previousPhase.length == 0 || [previousPhase isEqualToString:phase]) return;
+    // keys: recorded clips to play; line: the translated text the Apple voice
+    // reads when a clip isn't available (and the same text shown on screen).
+    NSArray<NSString *> *keys = nil;
     NSString *line = nil;
     if ([phase isEqualToString:@"betting"]) {
+        keys = @[BRRouletteClipPlaceBets];
         line = NSLocalizedStringWithDefaultValue(@"BRRoulette.Status.Betting", nil, NSBundle.mainBundle, @"Place your bets", nil);
+        [self.audio playBettingOpen];
     } else if ([phase isEqualToString:@"spinning"]) {
+        keys = @[BRRouletteClipNoMoreBets];
         line = NSLocalizedStringWithDefaultValue(@"BRRoulette.Status.Spinning", nil, NSBundle.mainBundle, @"No more bets! The wheel is spinning…", nil);
+        [self.audio playBettingClosed];
     } else if ([phase isEqualToString:@"results"] && table[@"winning_number"] != nil && table[@"winning_number"] != NSNull.null) {
         NSInteger winning = BRRouletteInt(table[@"winning_number"]);
+        keys = @[BRRouletteClipKeyForNumber(winning)];
         line = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Result.SummaryFormat", nil, NSBundle.mainBundle, @"%1$ld %2$@", nil), (long)winning, BRRouletteColorName(winning)];
     }
-    if (line.length > 0) [self speakDealerLine:line];
-}
-
-- (void)speakDealerLine:(NSString *)line {
-    if (!BRSlotSoundEnabled() || self.leaving) return;
-    if (!self.dealerSpeech) self.dealerSpeech = [AVSpeechSynthesizer new];
-    if (self.dealerSpeech.isSpeaking) [self.dealerSpeech stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
-    AVSpeechUtterance *utterance = [AVSpeechUtterance speechUtteranceWithString:line];
-    // Speak in the device language only when the text really was translated into it;
-    // otherwise the English fallback text is read by an English voice.
-    NSString *localization = NSBundle.mainBundle.preferredLocalizations.firstObject ?: @"en";
-    NSString *preferred = NSLocale.preferredLanguages.firstObject ?: @"en-US";
-    NSString *languagePrefix = [[localization substringToIndex:MIN((NSUInteger)2, localization.length)] lowercaseString];
-    NSString *voiceLanguage = [preferred.lowercaseString hasPrefix:languagePrefix] ? preferred : @"en-US";
-    utterance.voice = [AVSpeechSynthesisVoice voiceWithLanguage:voiceLanguage] ?: [AVSpeechSynthesisVoice voiceWithLanguage:@"en-US"];
-    utterance.pitchMultiplier = 0.9;
-    [self.dealerSpeech speakUtterance:utterance];
+    if (keys.count > 0 && !self.leaving) [self.dealer speakKeys:keys fallbackText:line];
 }
 
 - (void)stopDealerSpeech {
-    if (self.dealerSpeech.isSpeaking) [self.dealerSpeech stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+    [self.dealer interrupt];
 }
 
 #pragma mark Balance
@@ -1258,6 +1262,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     }
     self.pendingStakes[key] = @(self.pendingStakes[key].integerValue + chip);
     [[UIImpactFeedbackGenerator new] impactOccurred];
+    [self.audio playChipPlace];
     [self refreshBoard];
     [self refreshControls];
 }
@@ -1272,6 +1277,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     NSString *key = recognizer.view.accessibilityIdentifier;
     if (key.length && self.pendingStakes[key]) {
         [self.pendingStakes removeObjectForKey:key];
+        [self.audio playChipRemove];
         [self refreshBoard];
         [self refreshControls];
     }
@@ -1285,6 +1291,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
 - (void)clearTapped {
     if (self.pendingStakes.count > 0) {
         [self.pendingStakes removeAllObjects];
+        [self.audio playChipRemove];
         [self refreshBoard];
         [self refreshControls];
         return;

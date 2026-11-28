@@ -131,6 +131,8 @@
 		A20000000000000000000047 /* BRBlackjackAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000054 /* BRBlackjackAPI.m */; };
 		A20000000000000000000048 /* BRBlackjackLobbyViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000056 /* BRBlackjackLobbyViewController.m */; };
 		A20000000000000000000049 /* BRBlackjackTableViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000058 /* BRBlackjackTableViewController.m */; };
+		A20000000000000000000F0E /* BRRouletteDealer.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000F0B /* BRRouletteDealer.m */; };
+		A20000000000000000000F0F /* BRRouletteAudio.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000F0D /* BRRouletteAudio.m */; };
 		A20000000000000000000F07 /* BRRouletteAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000F02 /* BRRouletteAPI.m */; };
 		A20000000000000000000F08 /* BRRouletteLobbyViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000F04 /* BRRouletteLobbyViewController.m */; };
 		A20000000000000000000F09 /* BRRouletteTableViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000F06 /* BRRouletteTableViewController.m */; };
@@ -303,6 +305,10 @@
 		A10000000000000000000057 /* BRBlackjackLobbyViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRBlackjackLobbyViewController.h; sourceTree = "<group>"; };
 		A10000000000000000000058 /* BRBlackjackTableViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRBlackjackTableViewController.m; sourceTree = "<group>"; };
 		A10000000000000000000059 /* BRBlackjackTableViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRBlackjackTableViewController.h; sourceTree = "<group>"; };
+		A10000000000000000000F0A /* BRRouletteDealer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRRouletteDealer.h; sourceTree = "<group>"; };
+		A10000000000000000000F0B /* BRRouletteDealer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRRouletteDealer.m; sourceTree = "<group>"; };
+		A10000000000000000000F0C /* BRRouletteAudio.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRRouletteAudio.h; sourceTree = "<group>"; };
+		A10000000000000000000F0D /* BRRouletteAudio.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRRouletteAudio.m; sourceTree = "<group>"; };
 		A10000000000000000000F01 /* BRRouletteAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRRouletteAPI.h; sourceTree = "<group>"; };
 		A10000000000000000000F02 /* BRRouletteAPI.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BRRouletteAPI.m; sourceTree = "<group>"; };
 		A10000000000000000000F03 /* BRRouletteLobbyViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BRRouletteLobbyViewController.h; sourceTree = "<group>"; };
@@ -501,6 +507,10 @@
 				A10000000000000000000057 /* BRBlackjackLobbyViewController.h */,
 				A10000000000000000000058 /* BRBlackjackTableViewController.m */,
 				A10000000000000000000059 /* BRBlackjackTableViewController.h */,
+				A10000000000000000000F0A /* BRRouletteDealer.h */,
+				A10000000000000000000F0B /* BRRouletteDealer.m */,
+				A10000000000000000000F0C /* BRRouletteAudio.h */,
+				A10000000000000000000F0D /* BRRouletteAudio.m */,
 				A10000000000000000000F01 /* BRRouletteAPI.h */,
 				A10000000000000000000F02 /* BRRouletteAPI.m */,
 				A10000000000000000000F03 /* BRRouletteLobbyViewController.h */,
@@ -782,6 +792,8 @@
 				A20000000000000000000047 /* BRBlackjackAPI.m in Sources */,
 				A20000000000000000000048 /* BRBlackjackLobbyViewController.m in Sources */,
 				A20000000000000000000049 /* BRBlackjackTableViewController.m in Sources */,
+				A20000000000000000000F0E /* BRRouletteDealer.m in Sources */,
+				A20000000000000000000F0F /* BRRouletteAudio.m in Sources */,
 				A20000000000000000000F07 /* BRRouletteAPI.m in Sources */,
 				A20000000000000000000F08 /* BRRouletteLobbyViewController.m in Sources */,
 				A20000000000000000000F09 /* BRRouletteTableViewController.m in Sources */,
