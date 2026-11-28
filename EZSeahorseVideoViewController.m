@@ -650,7 +650,7 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
 - (void)applyBalance:(NSDictionary *)json {
     id bal = json[@"balance"];
     if (bal && ![bal isKindOfClass:NSNull.class]) {
-        self.balance = [bal integerValue];
+        self.balance = EZVideoInteger(bal);
         [[EZEntitlementManager shared] applyKnownBalance:self.balance];
     }
 }
@@ -1607,7 +1607,7 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         }
         id bal = json[@"balance"];
         if (bal && ![bal isKindOfClass:NSNull.class])
-            [[EZEntitlementManager shared] applyKnownBalance:[bal integerValue]];
+            [[EZEntitlementManager shared] applyKnownBalance:EZVideoInteger(bal)];
         NSArray *cands = [json[@"candidates"] isKindOfClass:NSArray.class] ? json[@"candidates"] : @[];
         NSMutableArray *valid = [NSMutableArray array];
         for (id cand in cands) if ([cand isKindOfClass:NSDictionary.class]) [valid addObject:cand];
