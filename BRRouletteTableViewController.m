@@ -408,6 +408,23 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     [self.audio stopAmbience];
     [self.audio stopSpin];
     if (self.isMovingFromParentViewController || self.isBeingDismissed || self.navigationController == nil) {
+        // An interactive back-swipe reports isMovingFromParentViewController
+        // while the gesture is still in flight: leaving now would strand
+        // the table dead if the swipe is cancelled (leaving is never reset,
+        // so the join completion frees the seat and the poll guard blocks
+        // every update). Only leave once the pop actually commits.
+        id<UIViewControllerTransitionCoordinator> coordinator = self.transitionCoordinator;
+        if (coordinator && coordinator.isInteractive) {
+            __weak typeof(self) weakSelf = self;
+            [coordinator notifyWhenInteractionEndsUsingBlock:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+                __strong typeof(self) self = weakSelf;
+                if (!self || context.isCancelled) return;
+                [self leaveTableSilently];
+                [self.dealer shutdown];
+                [self.audio shutdown];
+            }];
+            return;
+        }
         [self leaveTableSilently];
         [self.dealer shutdown];
         [self.audio shutdown];
