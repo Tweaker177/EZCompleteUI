@@ -1102,3 +1102,27 @@
 "BRRoulette.Server.rl_not_joined" = "Duduk dulu.";
 "BRRoulette.Server.rl_betting_closed" = "Taruhan baru saja ditutup. Taruhan berikutnya dihitung untuk putaran berikutnya.";
 "BRRoulette.Lobby.Button" = "🎡 Roulette";
+
+/* Profile likes + power packs (tracker #60) */
+"BRSlot.Lounge.LikesSection" = "SUKA";
+"BRSlot.Lounge.LikesReceived" = "Suka";
+"BRSlot.Lounge.LikesGiven" = "Suka diberikan";
+"BRSlot.Lounge.LikesChips" = "Chip";
+"BRSlot.Lounge.LikesGivingCharge" = "Muatan memberi";
+"BRSlot.Lounge.LikesReceivingCharge" = "Muatan menerima";
+"BRSlot.Lounge.LikeButton" = "👍 Suka";
+"BRSlot.Lounge.LikeButtonWeighted" = "👍 Suka +%1$@";
+"BRSlot.Lounge.LikeCooldown" = "Suka lagi dalam %1$@";
+"BRSlot.Lounge.LikesMostLiked" = "PALING DISUKAI\n\n";
+"BRSlot.Lounge.LikesTopGivers" = "PEMBERI TERBANYAK\n\n";
+"BRSlot.Lounge.LikesRow" = "%1$2lu. %2$@  %3$@ suka\n";
+"BRSlot.Lounge.LikesNone" = "Belum ada suka.\n";
+"BRSlot.Lounge.LikesHoursMinutes" = "%1$@h %2$@m";
+"BRSlot.Lounge.LikesMinutes" = "%1$@m";
+"BRSlot.Lounge.PacksSection" = "PAKET POWER";
+"BRSlot.Lounge.PacksGiving" = "Paket memberi";
+"BRSlot.Lounge.PacksReceiving" = "Paket menerima";
+"BRSlot.Lounge.PacksBuy" = "Beli · %1$@ koin";
+"BRSlot.Lounge.PacksActive" = "%1$@ aktif";
+"BRSlot.Lounge.PacksNextEnds" = "berikutnya berakhir dalam %1$@";
+"BRSlot.Lounge.PacksNoneActive" = "Tidak ada yang aktif";

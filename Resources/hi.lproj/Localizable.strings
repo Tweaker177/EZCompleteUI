@@ -1061,3 +1061,27 @@
 "BRRoulette.Server.rl_not_joined" = "पहले सीट लें।";
 "BRRoulette.Server.rl_betting_closed" = "दांव अभी बंद हुए हैं। आपके अगले दांव अगले स्पिन के लिए गिने जाएँगे।";
 "BRRoulette.Lobby.Button" = "🎡 रूलेट";
+
+/* Profile likes + power packs (tracker #60) */
+"BRSlot.Lounge.LikesSection" = "लाइक्स";
+"BRSlot.Lounge.LikesReceived" = "लाइक";
+"BRSlot.Lounge.LikesGiven" = "दिए गए लाइक";
+"BRSlot.Lounge.LikesChips" = "चिप्स";
+"BRSlot.Lounge.LikesGivingCharge" = "देने का चार्ज";
+"BRSlot.Lounge.LikesReceivingCharge" = "पाने का चार्ज";
+"BRSlot.Lounge.LikeButton" = "👍 लाइक";
+"BRSlot.Lounge.LikeButtonWeighted" = "👍 लाइक +%1$@";
+"BRSlot.Lounge.LikeCooldown" = "%1$@ में फिर लाइक करें";
+"BRSlot.Lounge.LikesMostLiked" = "सबसे ज़्यादा लाइक\n\n";
+"BRSlot.Lounge.LikesTopGivers" = "सबसे ज़्यादा देने वाले\n\n";
+"BRSlot.Lounge.LikesRow" = "%1$2lu. %2$@  %3$@ लाइक\n";
+"BRSlot.Lounge.LikesNone" = "अभी कोई लाइक नहीं।\n";
+"BRSlot.Lounge.LikesHoursMinutes" = "%1$@h %2$@m";
+"BRSlot.Lounge.LikesMinutes" = "%1$@m";
+"BRSlot.Lounge.PacksSection" = "पावर पैक";
+"BRSlot.Lounge.PacksGiving" = "देने का पैक";
+"BRSlot.Lounge.PacksReceiving" = "पाने का पैक";
+"BRSlot.Lounge.PacksBuy" = "खरीदें · %1$@ सिक्के";
+"BRSlot.Lounge.PacksActive" = "%1$@ सक्रिय";
+"BRSlot.Lounge.PacksNextEnds" = "अगला %1$@ में खत्म";
+"BRSlot.Lounge.PacksNoneActive" = "कोई सक्रिय नहीं";

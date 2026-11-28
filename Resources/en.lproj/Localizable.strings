@@ -1137,3 +1137,27 @@
 "BRRoulette.Server.rl_not_joined" = "Take a seat first.";
 "BRRoulette.Server.rl_betting_closed" = "Betting just closed. Your next bets count for the next spin.";
 "BRRoulette.Lobby.Button" = "🎡 Roulette";
+
+/* Profile likes + power packs (tracker #60) */
+"BRSlot.Lounge.LikesSection" = "LIKES";
+"BRSlot.Lounge.LikesReceived" = "Likes";
+"BRSlot.Lounge.LikesGiven" = "Likes given";
+"BRSlot.Lounge.LikesChips" = "Chips";
+"BRSlot.Lounge.LikesGivingCharge" = "Giving charge";
+"BRSlot.Lounge.LikesReceivingCharge" = "Receiving charge";
+"BRSlot.Lounge.LikeButton" = "👍 Like";
+"BRSlot.Lounge.LikeButtonWeighted" = "👍 Like +%1$@";
+"BRSlot.Lounge.LikeCooldown" = "Like again in %1$@";
+"BRSlot.Lounge.LikesMostLiked" = "MOST LIKED\n\n";
+"BRSlot.Lounge.LikesTopGivers" = "TOP GIVERS\n\n";
+"BRSlot.Lounge.LikesRow" = "%1$2lu. %2$@  %3$@ likes\n";
+"BRSlot.Lounge.LikesNone" = "No likes yet.\n";
+"BRSlot.Lounge.LikesHoursMinutes" = "%1$@h %2$@m";
+"BRSlot.Lounge.LikesMinutes" = "%1$@m";
+"BRSlot.Lounge.PacksSection" = "POWER PACKS";
+"BRSlot.Lounge.PacksGiving" = "Giving pack";
+"BRSlot.Lounge.PacksReceiving" = "Receiving pack";
+"BRSlot.Lounge.PacksBuy" = "Buy · %1$@ coins";
+"BRSlot.Lounge.PacksActive" = "%1$@ active";
+"BRSlot.Lounge.PacksNextEnds" = "next ends in %1$@";
+"BRSlot.Lounge.PacksNoneActive" = "None active";

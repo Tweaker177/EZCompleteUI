@@ -1101,3 +1101,27 @@
 "BRRoulette.Server.rl_not_joined" = "Сначала займите место.";
 "BRRoulette.Server.rl_betting_closed" = "Приём ставок только что закрылся. Следующие ставки пойдут на следующее вращение.";
 "BRRoulette.Lobby.Button" = "🎡 Рулетка";
+
+/* Profile likes + power packs (tracker #60) */
+"BRSlot.Lounge.LikesSection" = "ЛАЙКИ";
+"BRSlot.Lounge.LikesReceived" = "Лайки";
+"BRSlot.Lounge.LikesGiven" = "Отдано лайков";
+"BRSlot.Lounge.LikesChips" = "Фишки";
+"BRSlot.Lounge.LikesGivingCharge" = "Заряд отдачи";
+"BRSlot.Lounge.LikesReceivingCharge" = "Заряд приёма";
+"BRSlot.Lounge.LikeButton" = "👍 Лайк";
+"BRSlot.Lounge.LikeButtonWeighted" = "👍 Лайк +%1$@";
+"BRSlot.Lounge.LikeCooldown" = "Снова лайк через %1$@";
+"BRSlot.Lounge.LikesMostLiked" = "БОЛЬШЕ ВСЕГО ЛАЙКОВ\n\n";
+"BRSlot.Lounge.LikesTopGivers" = "КТО ДАЁТ БОЛЬШЕ ВСЕХ\n\n";
+"BRSlot.Lounge.LikesRow" = "%1$2lu. %2$@  %3$@ лайков\n";
+"BRSlot.Lounge.LikesNone" = "Лайков пока нет.\n";
+"BRSlot.Lounge.LikesHoursMinutes" = "%1$@h %2$@m";
+"BRSlot.Lounge.LikesMinutes" = "%1$@m";
+"BRSlot.Lounge.PacksSection" = "ПАКИ СИЛЫ";
+"BRSlot.Lounge.PacksGiving" = "Пак для отдачи";
+"BRSlot.Lounge.PacksReceiving" = "Пак для приёма";
+"BRSlot.Lounge.PacksBuy" = "Купить · %1$@ монет";
+"BRSlot.Lounge.PacksActive" = "Активно: %1$@";
+"BRSlot.Lounge.PacksNextEnds" = "следующий закончится через %1$@";
+"BRSlot.Lounge.PacksNoneActive" = "Нет активных";

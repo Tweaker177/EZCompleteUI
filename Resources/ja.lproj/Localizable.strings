@@ -1061,3 +1061,27 @@
 "BRRoulette.Server.rl_not_joined" = "先に着席してください。";
 "BRRoulette.Server.rl_betting_closed" = "ベットが締め切られました。次のベットは次のスピンになります。";
 "BRRoulette.Lobby.Button" = "🎡 ルーレット";
+
+/* Profile likes + power packs (tracker #60) */
+"BRSlot.Lounge.LikesSection" = "いいね";
+"BRSlot.Lounge.LikesReceived" = "いいね";
+"BRSlot.Lounge.LikesGiven" = "送ったいいね";
+"BRSlot.Lounge.LikesChips" = "チップ";
+"BRSlot.Lounge.LikesGivingCharge" = "送るチャージ";
+"BRSlot.Lounge.LikesReceivingCharge" = "受け取るチャージ";
+"BRSlot.Lounge.LikeButton" = "👍 いいね";
+"BRSlot.Lounge.LikeButtonWeighted" = "👍 いいね +%1$@";
+"BRSlot.Lounge.LikeCooldown" = "次のいいねは %1$@ 後";
+"BRSlot.Lounge.LikesMostLiked" = "いいねランキング\n\n";
+"BRSlot.Lounge.LikesTopGivers" = "送った人ランキング\n\n";
+"BRSlot.Lounge.LikesRow" = "%1$2lu. %2$@  %3$@ いいね\n";
+"BRSlot.Lounge.LikesNone" = "まだいいねがありません。\n";
+"BRSlot.Lounge.LikesHoursMinutes" = "%1$@h %2$@m";
+"BRSlot.Lounge.LikesMinutes" = "%1$@m";
+"BRSlot.Lounge.PacksSection" = "パワーパック";
+"BRSlot.Lounge.PacksGiving" = "送るパック";
+"BRSlot.Lounge.PacksReceiving" = "受け取るパック";
+"BRSlot.Lounge.PacksBuy" = "購入 · %1$@ コイン";
+"BRSlot.Lounge.PacksActive" = "%1$@ 個有効";
+"BRSlot.Lounge.PacksNextEnds" = "次は %1$@ で終了";
+"BRSlot.Lounge.PacksNoneActive" = "有効なパックなし";

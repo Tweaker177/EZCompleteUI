@@ -1102,3 +1102,27 @@
 "BRRoulette.Server.rl_not_joined" = "Önce bir yere otur.";
 "BRRoulette.Server.rl_betting_closed" = "Bahisler az önce kapandı. Sonraki bahislerin bir sonraki dönüşe sayılır.";
 "BRRoulette.Lobby.Button" = "🎡 Rulet";
+
+/* Profile likes + power packs (tracker #60) */
+"BRSlot.Lounge.LikesSection" = "BEĞENİLER";
+"BRSlot.Lounge.LikesReceived" = "Beğeniler";
+"BRSlot.Lounge.LikesGiven" = "Verilen beğeniler";
+"BRSlot.Lounge.LikesChips" = "Fişler";
+"BRSlot.Lounge.LikesGivingCharge" = "Verme şarjı";
+"BRSlot.Lounge.LikesReceivingCharge" = "Alma şarjı";
+"BRSlot.Lounge.LikeButton" = "👍 Beğen";
+"BRSlot.Lounge.LikeButtonWeighted" = "👍 Beğen +%1$@";
+"BRSlot.Lounge.LikeCooldown" = "%1$@ sonra tekrar beğen";
+"BRSlot.Lounge.LikesMostLiked" = "EN ÇOK BEĞENİLEN\n\n";
+"BRSlot.Lounge.LikesTopGivers" = "EN ÇOK VERENLER\n\n";
+"BRSlot.Lounge.LikesRow" = "%1$2lu. %2$@  %3$@ beğeni\n";
+"BRSlot.Lounge.LikesNone" = "Henüz beğeni yok.\n";
+"BRSlot.Lounge.LikesHoursMinutes" = "%1$@h %2$@m";
+"BRSlot.Lounge.LikesMinutes" = "%1$@m";
+"BRSlot.Lounge.PacksSection" = "GÜÇ PAKETLERİ";
+"BRSlot.Lounge.PacksGiving" = "Verme paketi";
+"BRSlot.Lounge.PacksReceiving" = "Alma paketi";
+"BRSlot.Lounge.PacksBuy" = "Satın al · %1$@ jeton";
+"BRSlot.Lounge.PacksActive" = "%1$@ aktif";
+"BRSlot.Lounge.PacksNextEnds" = "sonraki %1$@ içinde bitiyor";
+"BRSlot.Lounge.PacksNoneActive" = "Aktif yok";
