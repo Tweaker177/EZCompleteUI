@@ -1,8 +1,8 @@
-# EZCompleteUI
+# EZCompleteAI
 
-EZCompleteUI is a native iOS AI workspace built with Objective-C and Theos. It combines coin-metered AI chat, a gallery-first image studio, AI music, sound generation, voice tools, a file explorer, local thread history, searchable memories, and the Brainrot arcade — slots and custom games — in one app.
+EZCompleteAI is a native iOS AI workspace built with Objective-C and Theos. It combines coin-metered AI chat, a gallery-first image studio, AI music, sound generation, voice tools, a file explorer, local thread history, searchable memories, and the Brainrot arcade — slots and custom games — in one app.
 
-EZCompleteUI targets iOS 15.0 and later. See [CHANGELOG.md](CHANGELOG.md) for
+EZCompleteAI targets iOS 15.0 and later. See [CHANGELOG.md](CHANGELOG.md) for
 release notes.
 
 ## Website
