@@ -126,8 +126,9 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
     EZVideoPickerPurposeLastFrame = 3,
 };
 
-@interface EZSeahorseVideoViewController () <UIImagePickerControllerDelegate, UINavigationControllerDelegate, UITextViewDelegate>
+@interface EZSeahorseVideoViewController () <UIImagePickerControllerDelegate, UINavigationControllerDelegate, UITextViewDelegate, UITextFieldDelegate, UIGestureRecognizerDelegate>
 @property (nonatomic, strong) UIScrollView *scrollView;
+@property (nonatomic, weak) UIView *activeInput;
 @property (nonatomic, strong) UIStackView *stack;
 
 // Eligibility / pricing state (rates come from the server).
@@ -200,6 +201,8 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
     self.castPhotoURLs = [@[@"", @""] mutableCopy];
     self.castPhotoImages = [@[[NSNull null], [NSNull null]] mutableCopy];
     self.castLibraryIDs = [@[@"", @""] mutableCopy];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
     [self buildLayout];
     [self loadEligibility];
     [self refreshSavedCharacters];
@@ -219,6 +222,66 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
 
 - (void)closeTapped {
     [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+// ── Keyboard ─────────────────────────────────────────────────────────
+
+- (UIToolbar *)keyboardDoneToolbar {
+    UIToolbar *toolbar = [[UIToolbar alloc] initWithFrame:CGRectMake(0, 0, 320, 44)];
+    UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+    UIBarButtonItem *done = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(dismissKeyboard)];
+    toolbar.items = @[flex, done];
+    return toolbar;
+}
+
+- (void)dismissKeyboard {
+    [self.view endEditing:YES];
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
+    UIView *v = touch.view;
+    while (v && v != self.scrollView) {
+        if ([v isKindOfClass:UIControl.class] || [v isKindOfClass:UITextView.class]) return NO;
+        v = v.superview;
+    }
+    return YES;
+}
+
+- (BOOL)textFieldShouldReturn:(UITextField *)textField {
+    [textField resignFirstResponder];
+    return YES;
+}
+
+- (void)textFieldDidBeginEditing:(UITextField *)textField {
+    self.activeInput = textField;
+}
+
+- (void)textViewDidBeginEditing:(UITextView *)textView {
+    self.activeInput = textView;
+}
+
+- (void)keyboardWillShow:(NSNotification *)note {
+    CGRect kbFrame = [note.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
+    CGFloat height = [self.view convertRect:kbFrame fromView:nil].size.height;
+    UIEdgeInsets insets = self.scrollView.contentInset;
+    insets.bottom = height;
+    self.scrollView.contentInset = insets;
+    self.scrollView.scrollIndicatorInsets = insets;
+    if (self.activeInput) {
+        CGRect rect = [self.activeInput convertRect:self.activeInput.bounds toView:self.scrollView];
+        [self.scrollView scrollRectToVisible:CGRectInset(rect, 0, -12) animated:YES];
+    }
+}
+
+- (void)keyboardWillHide:(NSNotification *)note {
+    UIEdgeInsets insets = self.scrollView.contentInset;
+    insets.bottom = 0;
+    self.scrollView.contentInset = insets;
+    self.scrollView.scrollIndicatorInsets = insets;
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 // ── Layout ────────────────────────────────────────────────────────────
@@ -252,6 +315,11 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         [self.stack.widthAnchor constraintEqualToAnchor:self.scrollView.frameLayoutGuide.widthAnchor constant:-32],
     ]];
 
+    UITapGestureRecognizer *dismissTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dismissKeyboard)];
+    dismissTap.cancelsTouchesInView = NO;
+    dismissTap.delegate = self;
+    [self.scrollView addGestureRecognizer:dismissTap];
+
     self.gateLabel = [[UILabel alloc] init];
     self.gateLabel.numberOfLines = 0;
     self.gateLabel.font = [UIFont systemFontOfSize:14];
@@ -266,6 +334,7 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
     self.promptView.backgroundColor = [EZTheme cardColor];
     self.promptView.layer.cornerRadius = 10;
     self.promptView.delegate = self;
+    self.promptView.inputAccessoryView = [self keyboardDoneToolbar];
     [self.promptView.heightAnchor constraintEqualToConstant:90].active = YES;
     [self.stack addArrangedSubview:self.promptView];
 
@@ -352,12 +421,18 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         name.placeholder = EZVideoLocalized(@"EZSeahorseVideo.NamePlaceholder");
         name.font = [UIFont systemFontOfSize:14];
         name.textColor = [EZTheme primaryTextColor];
+        name.delegate = self;
+        name.returnKeyType = UIReturnKeyDone;
+        name.inputAccessoryView = [self keyboardDoneToolbar];
         [card addArrangedSubview:name];
 
         UITextField *look = [[UITextField alloc] init];
         look.placeholder = EZVideoLocalized(@"EZSeahorseVideo.LooksPlaceholder");
         look.font = [UIFont systemFontOfSize:14];
         look.textColor = [EZTheme primaryTextColor];
+        look.delegate = self;
+        look.returnKeyType = UIReturnKeyDone;
+        look.inputAccessoryView = [self keyboardDoneToolbar];
         [card addArrangedSubview:look];
 
         UIButton *photo = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -983,6 +1058,8 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
         NSString *beatText = [seg[@"beat"] isKindOfClass:NSString.class] ? seg[@"beat"]
             : ([seg[@"script"] isKindOfClass:NSString.class] ? seg[@"script"] : @"");
         beat.text = beatText;
+        beat.delegate = self;
+        beat.inputAccessoryView = [self keyboardDoneToolbar];
         [beat.heightAnchor constraintEqualToConstant:54].active = YES;
         [card addArrangedSubview:beat];
 
@@ -1158,8 +1235,10 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
 // characters are the account's own — the server registers them per
 // user, so nobody else's characters ever appear here.
 
-@interface EZSeahorseCharacterStudioViewController ()
+@interface EZSeahorseCharacterStudioViewController () <UITextFieldDelegate, UIGestureRecognizerDelegate>
+@property (nonatomic, strong) UIScrollView *scrollView;
 @property (nonatomic, strong) UIStackView *stack;
+@property (nonatomic, weak) UIView *activeInput;
 @property (nonatomic, strong) UISegmentedControl *sexSeg;
 @property (nonatomic, strong) UISegmentedControl *ageSeg;
 @property (nonatomic, strong) UISegmentedControl *styleSeg;
@@ -1192,12 +1271,70 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
                                                       target:self action:@selector(closeTapped)];
     self.characterCost = 50;
     self.selectedCandidate = -1;
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
     [self buildLayout];
     [self loadCharacters];
 }
 
 - (void)closeTapped {
     [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+// ── Keyboard ─────────────────────────────────────────────────────────
+
+- (UIToolbar *)keyboardDoneToolbar {
+    UIToolbar *toolbar = [[UIToolbar alloc] initWithFrame:CGRectMake(0, 0, 320, 44)];
+    UIBarButtonItem *flex = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+    UIBarButtonItem *done = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(dismissKeyboard)];
+    toolbar.items = @[flex, done];
+    return toolbar;
+}
+
+- (void)dismissKeyboard {
+    [self.view endEditing:YES];
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
+    UIView *v = touch.view;
+    while (v && v != self.scrollView) {
+        if ([v isKindOfClass:UIControl.class] || [v isKindOfClass:UITextView.class]) return NO;
+        v = v.superview;
+    }
+    return YES;
+}
+
+- (BOOL)textFieldShouldReturn:(UITextField *)textField {
+    [textField resignFirstResponder];
+    return YES;
+}
+
+- (void)textFieldDidBeginEditing:(UITextField *)textField {
+    self.activeInput = textField;
+}
+
+- (void)keyboardWillShow:(NSNotification *)note {
+    CGRect kbFrame = [note.userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
+    CGFloat height = [self.view convertRect:kbFrame fromView:nil].size.height;
+    UIEdgeInsets insets = self.scrollView.contentInset;
+    insets.bottom = height;
+    self.scrollView.contentInset = insets;
+    self.scrollView.scrollIndicatorInsets = insets;
+    if (self.activeInput) {
+        CGRect rect = [self.activeInput convertRect:self.activeInput.bounds toView:self.scrollView];
+        [self.scrollView scrollRectToVisible:CGRectInset(rect, 0, -12) animated:YES];
+    }
+}
+
+- (void)keyboardWillHide:(NSNotification *)note {
+    UIEdgeInsets insets = self.scrollView.contentInset;
+    insets.bottom = 0;
+    self.scrollView.contentInset = insets;
+    self.scrollView.scrollIndicatorInsets = insets;
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 - (UILabel *)sectionLabel:(NSString *)text {
@@ -1213,29 +1350,37 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
     field.placeholder = placeholder;
     field.font = [UIFont systemFontOfSize:14];
     field.textColor = [EZTheme primaryTextColor];
+    field.delegate = self;
+    field.returnKeyType = UIReturnKeyDone;
+    field.inputAccessoryView = [self keyboardDoneToolbar];
     return field;
 }
 
 - (void)buildLayout {
-    UIScrollView *scrollView = [[UIScrollView alloc] init];
-    scrollView.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view addSubview:scrollView];
+    self.scrollView = [[UIScrollView alloc] init];
+    self.scrollView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:self.scrollView];
     self.stack = [[UIStackView alloc] init];
     self.stack.axis = UILayoutConstraintAxisVertical;
     self.stack.spacing = 10;
     self.stack.translatesAutoresizingMaskIntoConstraints = NO;
-    [scrollView addSubview:self.stack];
+    [self.scrollView addSubview:self.stack];
     [NSLayoutConstraint activateConstraints:@[
-        [scrollView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
-        [scrollView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-        [scrollView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [scrollView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [self.stack.topAnchor constraintEqualToAnchor:scrollView.contentLayoutGuide.topAnchor constant:16],
-        [self.stack.bottomAnchor constraintEqualToAnchor:scrollView.contentLayoutGuide.bottomAnchor constant:-24],
-        [self.stack.leadingAnchor constraintEqualToAnchor:scrollView.contentLayoutGuide.leadingAnchor constant:16],
-        [self.stack.trailingAnchor constraintEqualToAnchor:scrollView.contentLayoutGuide.trailingAnchor constant:-16],
-        [self.stack.widthAnchor constraintEqualToAnchor:scrollView.frameLayoutGuide.widthAnchor constant:-32],
+        [self.scrollView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
+        [self.scrollView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [self.scrollView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [self.scrollView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [self.stack.topAnchor constraintEqualToAnchor:self.scrollView.contentLayoutGuide.topAnchor constant:16],
+        [self.stack.bottomAnchor constraintEqualToAnchor:self.scrollView.contentLayoutGuide.bottomAnchor constant:-24],
+        [self.stack.leadingAnchor constraintEqualToAnchor:self.scrollView.contentLayoutGuide.leadingAnchor constant:16],
+        [self.stack.trailingAnchor constraintEqualToAnchor:self.scrollView.contentLayoutGuide.trailingAnchor constant:-16],
+        [self.stack.widthAnchor constraintEqualToAnchor:self.scrollView.frameLayoutGuide.widthAnchor constant:-32],
     ]];
+
+    UITapGestureRecognizer *dismissTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(dismissKeyboard)];
+    dismissTap.cancelsTouchesInView = NO;
+    dismissTap.delegate = self;
+    [self.scrollView addGestureRecognizer:dismissTap];
 
     [self.stack addArrangedSubview:[self sectionLabel:EZVideoLocalized(@"EZSeahorseVideo.StudioDescribe")]];
     self.sexSeg = [[UISegmentedControl alloc] initWithItems:@[
