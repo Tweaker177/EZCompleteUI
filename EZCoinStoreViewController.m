@@ -696,6 +696,7 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 @property (nonatomic, copy)   NSString        *monthlyPriceString;    // e.g. "$10.00", for the monthly button on the card
 
 @property (nonatomic, copy)   NSString        *annualPriceString;     // e.g. "$89.99", for the yearly button on the card
+@property (nonatomic, copy)   NSString        *annualSavingsString;   // e.g. "$60", saved per year vs paying monthly
 
 @property (nonatomic, assign) EZStoreItemType  type;
 
@@ -891,7 +892,13 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         self.annualButton.layer.cornerRadius  = 10;
 
-        self.annualButton.titleLabel.font     = [UIFont boldSystemFontOfSize:14];
+        self.annualButton.titleLabel.font            = [UIFont boldSystemFontOfSize:14];
+
+        self.annualButton.titleLabel.numberOfLines   = 2;
+
+        self.annualButton.titleLabel.textAlignment   = NSTextAlignmentCenter;
+
+        self.annualButton.titleLabel.lineBreakMode   = NSLineBreakByWordWrapping;
 
         [self.annualButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
 
@@ -983,17 +990,47 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         [self.actionButton setTitle:[NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"EZCoinStore.Card.MonthlyButtonFormat", nil, [NSBundle mainBundle], @"Monthly %@", @"Monthly option button on a store card"), item.monthlyPriceString] forState:UIControlStateNormal];
 
-        self.actionButton.backgroundColor = [UIColor colorWithWhite:1 alpha:0.12];
+        self.actionButton.backgroundColor = accentColor;
 
-        [self.actionButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+        [self.actionButton setTitleColor:onAccentColor forState:UIControlStateNormal];
 
         self.actionButton.enabled         = YES;
 
-        [self.annualButton setTitle:[NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"EZCoinStore.Card.AnnualButtonFormat", nil, [NSBundle mainBundle], @"Yearly %@", @"Yearly option button on a store card"), item.annualPriceString] forState:UIControlStateNormal];
+        NSString *annualTitle = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"EZCoinStore.Card.AnnualButtonFormat", nil, [NSBundle mainBundle], @"Yearly %@", @"Yearly option button on a store card"), item.annualPriceString];
 
-        self.annualButton.backgroundColor = accentColor;
+        if (item.annualSavingsString.length > 0) {
 
-        [self.annualButton setTitleColor:onAccentColor forState:UIControlStateNormal];
+            // The yearly button also states what it saves against paying
+            // monthly, on a smaller second line.
+            NSString *savingsLine = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"EZCoinStore.Card.AnnualSavingsFormat", nil, [NSBundle mainBundle], @"Save %@/yr", @"Yearly savings line on a store card"), item.annualSavingsString];
+
+            NSMutableParagraphStyle *centered = [[NSMutableParagraphStyle alloc] init];
+
+            centered.alignment = NSTextAlignmentCenter;
+
+            NSAttributedString *title = [[NSAttributedString alloc] initWithString:annualTitle attributes:@{ NSFontAttributeName: [UIFont boldSystemFontOfSize:14], NSParagraphStyleAttributeName: centered }];
+
+            NSAttributedString *savings = [[NSAttributedString alloc] initWithString:savingsLine attributes:@{ NSFontAttributeName: [UIFont systemFontOfSize:10.5], NSParagraphStyleAttributeName: centered }];
+
+            NSMutableAttributedString *combined = [[NSMutableAttributedString alloc] initWithAttributedString:title];
+
+            [combined appendAttributedString:[[NSAttributedString alloc] initWithString:@"\n"]];
+
+            [combined appendAttributedString:savings];
+
+            [self.annualButton setAttributedTitle:combined forState:UIControlStateNormal];
+
+        } else {
+
+            [self.annualButton setAttributedTitle:nil forState:UIControlStateNormal];
+
+            [self.annualButton setTitle:annualTitle forState:UIControlStateNormal];
+
+        }
+
+        self.annualButton.backgroundColor = [UIColor colorWithWhite:1 alpha:0.12];
+
+        [self.annualButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
 
         self.annualButton.enabled         = YES;
 
@@ -1090,12 +1127,12 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
     if (!self.annualButton.hidden) {
 
-        // Both terms on the card: the monthly button stays small on the
-        // left, the yearly button is the wide primary action on the right.
-        CGFloat buttonGap    = 8;
-        CGFloat monthlyWidth = floor((buttonWidth - buttonGap) * 0.36);
-        self.actionButton.frame = CGRectMake(cellPadding, actionTop, monthlyWidth, buttonHeight);
-        self.annualButton.frame = CGRectMake(cellPadding + monthlyWidth + buttonGap, actionTop, buttonWidth - monthlyWidth - buttonGap, buttonHeight);
+        // Both terms on the card: the yearly button is small on the left,
+        // the monthly button is the wide primary action on the right.
+        CGFloat buttonGap   = 8;
+        CGFloat yearlyWidth = floor((buttonWidth - buttonGap) * 0.36);
+        self.annualButton.frame = CGRectMake(cellPadding, actionTop, yearlyWidth, buttonHeight);
+        self.actionButton.frame = CGRectMake(cellPadding + yearlyWidth + buttonGap, actionTop, buttonWidth - yearlyWidth - buttonGap, buttonHeight);
 
     } else {
 
@@ -1870,10 +1907,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
 
         ultra.badgeText   = currentStatus.uppercaseString;
 
-    else
-
-        ultra.badgeText   = NSLocalizedString(@"EZCoinStore.Badge.Ultra", @"Ultra badge");
-
     [self applySubscriptionPromoBadgeToItem:ultra]; // now included — takes priority over ULTRA
 
     [items addObject:ultra];
@@ -1895,8 +1928,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     power.isCurrentPlan   = isActive && ([currentTier isEqualToString:@"power"] || [currentTier isEqualToString:@"power_annual"]);
     if (([currentTier isEqualToString:@"power"] || [currentTier isEqualToString:@"power_annual"]) && !isActive && currentStatus)
         power.badgeText   = currentStatus.uppercaseString;
-    else if (!power.isCurrentPlan)
-        power.badgeText   = NSLocalizedString(@"EZCoinStore.Badge.Power", @"Power tier badge");
     [self applySubscriptionPromoBadgeToItem:power];
     [items addObject:power];
 
@@ -1911,8 +1942,6 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
     enterprise.isCurrentPlan   = isActive && ([currentTier isEqualToString:@"enterprise"] || [currentTier isEqualToString:@"enterprise_annual"]);
     if (([currentTier isEqualToString:@"enterprise"] || [currentTier isEqualToString:@"enterprise_annual"]) && !isActive && currentStatus)
         enterprise.badgeText   = currentStatus.uppercaseString;
-    else if (!enterprise.isCurrentPlan)
-        enterprise.badgeText   = NSLocalizedString(@"EZCoinStore.Badge.Enterprise", @"Enterprise tier badge");
     [self applySubscriptionPromoBadgeToItem:enterprise];
     [items addObject:enterprise];
 
@@ -2027,6 +2056,8 @@ typedef NS_ENUM(NSUInteger, EZStoreItemType) {
             item.monthlyPriceString    = annualInfo[@"monthlyPrice"];
 
             item.annualPriceString     = annualInfo[@"annualPrice"];
+
+            item.annualSavingsString   = annualInfo[@"savings"];
 
         }
 
