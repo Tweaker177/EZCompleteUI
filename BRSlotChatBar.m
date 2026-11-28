@@ -582,11 +582,15 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     }
     UILabel *name = [UILabel new];
     name.text = title;
+    name.numberOfLines = 0;
+    [name setContentCompressionResistancePriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
     name.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
     name.textColor = [UIColor colorWithWhite:.88 alpha:1];
     name.translatesAutoresizingMaskIntoConstraints = NO;
     [row addSubview:name];
     UILabel *detail = [UILabel new];
+    detail.numberOfLines = 0;
+    [detail setContentCompressionResistancePriority:UILayoutPriorityDefaultLow forAxis:UILayoutConstraintAxisHorizontal];
     detail.font = [UIFont systemFontOfSize:13];
     detail.textColor = [UIColor colorWithWhite:.6 alpha:1];
     detail.translatesAutoresizingMaskIntoConstraints = NO;
@@ -609,7 +613,9 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         [detail.bottomAnchor constraintEqualToAnchor:row.bottomAnchor constant:-8],
         [buy.trailingAnchor constraintEqualToAnchor:row.trailingAnchor],
         [buy.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
-        [buy.leadingAnchor constraintGreaterThanOrEqualToAnchor:name.trailingAnchor constant:12], nil];
+        [buy.leadingAnchor constraintGreaterThanOrEqualToAnchor:name.trailingAnchor constant:12],
+        [name.trailingAnchor constraintLessThanOrEqualToAnchor:buy.leadingAnchor constant:-12],
+        [detail.trailingAnchor constraintLessThanOrEqualToAnchor:buy.leadingAnchor constant:-12], nil];
     if (icon) {
         [rowConstraints addObjectsFromArray:@[
             [icon.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
