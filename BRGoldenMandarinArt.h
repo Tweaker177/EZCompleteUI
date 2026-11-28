@@ -1,9 +1,11 @@
 // BRGoldenMandarinArt.h
 // EZCompleteUI — Golden Mandarin (金帽福运) slot
 //
-// Every symbol is illustrated in code (CoreGraphics / UIBezierPath) on a 100x100
-// design grid, so the art stays sharp at any size and ships without image
-// files. Symbols are drawn on a transparent background.
+// The eight regular symbols come from the sprite sheet in
+// Resources/IMG_2264.png, cropped and matte-cleaned at runtime; the
+// code-drawn illustrations (CoreGraphics / UIBezierPath on a 100x100
+// design grid) remain as the fallback and still draw the Golden Hat
+// scatter. Symbols render on a transparent background.
 
 #import <UIKit/UIKit.h>
 #import "BRGoldenMandarinEngine.h"
