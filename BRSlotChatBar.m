@@ -224,6 +224,8 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 // profile. Nil on surfaces that cannot like (button and packs stay away).
 @property (nonatomic, copy) void (^likesRequest)(NSDictionary *params, void (^completion)(NSDictionary *json, NSString *error));
 @property (nonatomic, strong) UIButton *likeButton;
+@property (nonatomic, strong) UIView *likeContainer;
+@property (nonatomic, strong) UILabel *likeCaption;
 @property (nonatomic, strong) UILabel *likesReceivedValue;
 @property (nonatomic, strong) UILabel *likesGivenValue;
 @property (nonatomic, strong) UILabel *chipsValue;
@@ -327,23 +329,41 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         statusLabel.numberOfLines = 0;
         [stack addArrangedSubview:statusLabel];
     }
-    // Like button: hourly per pair, enforced server-side. Its title and
-    // enabled state come from like_status (see refreshLikeStatus); until
-    // that lands it shows the plain label, and a tap the server refuses
-    // for cooldown still returns the reopen time to display.
+    // Like button: a round thumbs-up, not a banner button. Hourly per
+    // pair, enforced server-side. Its state comes from like_status (see
+    // refreshLikeStatus); until that lands it shows ready, and a tap the
+    // server refuses for cooldown still returns the reopen time, which
+    // the caption under the thumb displays.
     if (self.playerID.length && self.likesRequest) {
-        UIButton *like = [UIButton buttonWithType:UIButtonTypeSystem];
+        UIView *likeWrap = [UIView new];
+        likeWrap.translatesAutoresizingMaskIntoConstraints = NO;
+        UIButton *like = [UIButton buttonWithType:UIButtonTypeCustom];
         like.translatesAutoresizingMaskIntoConstraints = NO;
-        like.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightBlack];
-        [like setTitleColor:[UIColor colorWithRed:.16 green:.08 blue:.02 alpha:1] forState:UIControlStateNormal];
-        [like setTitleColor:[UIColor colorWithWhite:.75 alpha:1] forState:UIControlStateDisabled];
-        like.backgroundColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
-        like.layer.cornerRadius = 14;
-        like.contentEdgeInsets = UIEdgeInsetsMake(12, 16, 12, 16);
+        UIImageSymbolConfiguration *thumbConfig = [UIImageSymbolConfiguration configurationWithPointSize:29 weight:UIImageSymbolWeightSemibold];
+        [like setImage:[[UIImage systemImageNamed:@"hand.thumbsup.fill" withConfiguration:thumbConfig] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
+        like.layer.cornerRadius = 32;
         [like addTarget:self action:@selector(likeTapped) forControlEvents:UIControlEventTouchUpInside];
-        [like.heightAnchor constraintEqualToConstant:48].active = YES;
+        like.accessibilityLabel = NSLocalizedString(@"BRSlot.Lounge.LikeButton", nil);
+        [likeWrap addSubview:like];
+        UILabel *caption = [UILabel new];
+        caption.translatesAutoresizingMaskIntoConstraints = NO;
+        caption.font = [UIFont systemFontOfSize:13 weight:UIFontWeightSemibold];
+        caption.textAlignment = NSTextAlignmentCenter;
+        [likeWrap addSubview:caption];
+        [NSLayoutConstraint activateConstraints:@[
+            [like.topAnchor constraintEqualToAnchor:likeWrap.topAnchor],
+            [like.centerXAnchor constraintEqualToAnchor:likeWrap.centerXAnchor],
+            [like.widthAnchor constraintEqualToConstant:64],
+            [like.heightAnchor constraintEqualToConstant:64],
+            [caption.topAnchor constraintEqualToAnchor:like.bottomAnchor constant:5],
+            [caption.leadingAnchor constraintEqualToAnchor:likeWrap.leadingAnchor],
+            [caption.trailingAnchor constraintEqualToAnchor:likeWrap.trailingAnchor],
+            [caption.bottomAnchor constraintEqualToAnchor:likeWrap.bottomAnchor],
+        ]];
         self.likeButton = like;
-        [stack addArrangedSubview:like];
+        self.likeCaption = caption;
+        self.likeContainer = likeWrap;
+        [stack addArrangedSubview:likeWrap];
         [self refreshLikeButton];
     }
     UIView *card = [UIView new];
@@ -521,18 +541,21 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 - (void)refreshLikeButton {
     UIButton *button = self.likeButton;
     if (!button) return;
-    if (self.isSelfProfile) { button.hidden = YES; return; }
-    button.hidden = NO;
+    if (self.isSelfProfile) { self.likeContainer.hidden = YES; return; }
+    self.likeContainer.hidden = NO;
     NSDate *next = BRChatDateFromISO8601(self.nextLikeAt);
     BOOL cooling = next && [next timeIntervalSinceNow] > 0;
     button.enabled = !cooling;
-    button.backgroundColor = cooling ? [UIColor colorWithWhite:1 alpha:.12] : [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
     if (cooling) {
-        [button setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeCooldown", nil), BRChatDurationText([next timeIntervalSinceNow])] forState:UIControlStateNormal];
-    } else if (self.likeWeight > 1) {
-        [button setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeButtonWeighted", nil), [self formattedNumber:@(self.likeWeight)]] forState:UIControlStateNormal];
+        button.backgroundColor = [UIColor colorWithWhite:1 alpha:.12];
+        button.tintColor = [UIColor colorWithWhite:1 alpha:.45];
+        self.likeCaption.textColor = [UIColor colorWithWhite:1 alpha:.55];
+        self.likeCaption.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeCooldown", nil), BRChatDurationText([next timeIntervalSinceNow])];
     } else {
-        [button setTitle:NSLocalizedString(@"BRSlot.Lounge.LikeButton", nil) forState:UIControlStateNormal];
+        button.backgroundColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+        button.tintColor = [UIColor colorWithRed:.16 green:.08 blue:.02 alpha:1];
+        self.likeCaption.textColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+        self.likeCaption.text = self.likeWeight > 1 ? [NSString stringWithFormat:@"+%@", [self formattedNumber:@(self.likeWeight)]] : @"";
     }
 }
 - (void)refreshLikeStatus {
