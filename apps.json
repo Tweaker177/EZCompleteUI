@@ -38,6 +38,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.32",
+          "buildVersion": "7.2.32",
+          "date": "2026-11-27",
+          "localizedDescription": "## What's Changed\n* Store: quote live annual sale prices on cards and upsell; fix Power/Enterprise badges by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/367\n* Store: free coins button no longer draws over the season greeting by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/363\n* Tutorial: simple four-page rebuild (chat entry, menu, coin store) by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/364\n* Store: snowman and evergreen trees in the winter header by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/365\n* Localize the lounge report strings for all 17 locales by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/366\n* NSFW video composer + character library by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/368\n* Photo analysis in a readable strip below the photo by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/369\n* Store: snow fills the whole page, not just the top by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/362\n* fix(seahorse): type dictionary subscripts so the file builds on the 16.2 SDK by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/372\n* fix(roulette): don't leave a ghost seat when leaving mid-join by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/370\n* chore(roulette): remove dead duplicate roulette-client folder by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/371\n\n\n**Full Changelog**: https://github.com/Tweaker177/EZCompleteAI/compare/7.2.31...7.2.32",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteAI/releases/download/7.2.32/EZCompleteUI-7.2.32-release.ipa",
+          "size": 9450623,
+          "sha256": "0b803c2f93e855478faa9b3c0710972a1effa2ca5175f66060c412b002cf82e6",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.31",
           "buildVersion": "7.2.31",
           "date": "2026-11-27",
