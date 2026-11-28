@@ -38,6 +38,16 @@
       ],
       "versions": [
         {
+          "version": "7.2.38",
+          "buildVersion": "7.2.38",
+          "date": "2026-11-28",
+          "localizedDescription": "## What's Changed\n* fix(roulette-audio): extract BRRouletteAudio.h and register in Xcode project by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/377\nhttps://github.com/Tweaker177/EZCompleteAI/pull/378\n* feat(lounge): profile likes, power packs, Most Liked + Top Givers boards by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/379\n* fix(roulette): restore ghost-seat guards reverted by dealer-audio commit by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/381\n* Make the like button a round thumbs-up by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/382\n* Roulette boards, picker card, card lobbies, like pack price 25 by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/380\n* Golden Mandarin: reel symbols from the IMG_2264 sprite sheet by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/383\n* Likes follow-up: uploaded button art, pack counts, and the like log by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/385\n* Store cards: two buttons — monthly is the primary, yearly states its savings by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/384\n\n\n**Full Changelog**: https://github.com/Tweaker177/EZCompleteAI/compare/7.2.34...7.2.38",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteAI/releases/download/7.2.38/EZCompleteUI-7.2.38-release.ipa",
+          "size": 10932831,
+          "sha256": "3138ab6adfd7d2442aab26b62583f613512777981f2c34c039b29b9364de33d9",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.34",
           "buildVersion": "7.2.34",
           "date": "2026-11-28",
