@@ -1061,3 +1061,27 @@
 "BRRoulette.Server.rl_not_joined" = "اجلس أولًا.";
 "BRRoulette.Server.rl_betting_closed" = "أُغلقت الرهانات للتو. رهاناتك التالية تُحتسب للدورة التالية.";
 "BRRoulette.Lobby.Button" = "🎡 الروليت";
+
+/* Profile likes + power packs (tracker #60) */
+"BRSlot.Lounge.LikesSection" = "الإعجاب";
+"BRSlot.Lounge.LikesReceived" = "إعجاب";
+"BRSlot.Lounge.LikesGiven" = "إعجاب مُعطى";
+"BRSlot.Lounge.LikesChips" = "رقائق";
+"BRSlot.Lounge.LikesGivingCharge" = "شحنة الإعطاء";
+"BRSlot.Lounge.LikesReceivingCharge" = "شحنة الاستلام";
+"BRSlot.Lounge.LikeButton" = "👍 إعجاب";
+"BRSlot.Lounge.LikeButtonWeighted" = "👍 إعجاب +%1$@";
+"BRSlot.Lounge.LikeCooldown" = "إعجاب جديد بعد %1$@";
+"BRSlot.Lounge.LikesMostLiked" = "الأكثر إعجابًا\n\n";
+"BRSlot.Lounge.LikesTopGivers" = "الأكثر إعطاءً\n\n";
+"BRSlot.Lounge.LikesRow" = "%1$2lu. %2$@  %3$@ إعجاب\n";
+"BRSlot.Lounge.LikesNone" = "لا إعجاب بعد.\n";
+"BRSlot.Lounge.LikesHoursMinutes" = "%1$@h %2$@m";
+"BRSlot.Lounge.LikesMinutes" = "%1$@m";
+"BRSlot.Lounge.PacksSection" = "حزم القوة";
+"BRSlot.Lounge.PacksGiving" = "حزمة إعطاء";
+"BRSlot.Lounge.PacksReceiving" = "حزمة استلام";
+"BRSlot.Lounge.PacksBuy" = "شراء · %1$@ عملة";
+"BRSlot.Lounge.PacksActive" = "%1$@ نشطة";
+"BRSlot.Lounge.PacksNextEnds" = "التالي ينتهي بعد %1$@";
+"BRSlot.Lounge.PacksNoneActive" = "لا شيء نشط";

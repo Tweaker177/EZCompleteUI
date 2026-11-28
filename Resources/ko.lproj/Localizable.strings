@@ -1102,3 +1102,27 @@
 "BRRoulette.Server.rl_not_joined" = "먼저 자리에 앉아 주세요.";
 "BRRoulette.Server.rl_betting_closed" = "베팅이 방금 마감되었습니다. 다음 베팅은 다음 스핀에 적용됩니다.";
 "BRRoulette.Lobby.Button" = "🎡 룰렛";
+
+/* Profile likes + power packs (tracker #60) */
+"BRSlot.Lounge.LikesSection" = "좋아요";
+"BRSlot.Lounge.LikesReceived" = "좋아요";
+"BRSlot.Lounge.LikesGiven" = "보낸 좋아요";
+"BRSlot.Lounge.LikesChips" = "칩";
+"BRSlot.Lounge.LikesGivingCharge" = "보내기 충전";
+"BRSlot.Lounge.LikesReceivingCharge" = "받기 충전";
+"BRSlot.Lounge.LikeButton" = "👍 좋아요";
+"BRSlot.Lounge.LikeButtonWeighted" = "👍 좋아요 +%1$@";
+"BRSlot.Lounge.LikeCooldown" = "%1$@ 후 다시 좋아요";
+"BRSlot.Lounge.LikesMostLiked" = "좋아요 TOP\n\n";
+"BRSlot.Lounge.LikesTopGivers" = "가장 많이 보낸 사람\n\n";
+"BRSlot.Lounge.LikesRow" = "%1$2lu. %2$@  좋아요 %3$@\n";
+"BRSlot.Lounge.LikesNone" = "아직 좋아요가 없습니다.\n";
+"BRSlot.Lounge.LikesHoursMinutes" = "%1$@h %2$@m";
+"BRSlot.Lounge.LikesMinutes" = "%1$@m";
+"BRSlot.Lounge.PacksSection" = "파워 팩";
+"BRSlot.Lounge.PacksGiving" = "보내기 팩";
+"BRSlot.Lounge.PacksReceiving" = "받기 팩";
+"BRSlot.Lounge.PacksBuy" = "구매 · 코인 %1$@";
+"BRSlot.Lounge.PacksActive" = "%1$@개 활성";
+"BRSlot.Lounge.PacksNextEnds" = "다음 종료까지 %1$@";
+"BRSlot.Lounge.PacksNoneActive" = "활성 팩 없음";

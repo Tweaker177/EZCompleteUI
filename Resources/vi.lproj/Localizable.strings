@@ -1061,3 +1061,27 @@
 "BRRoulette.Server.rl_not_joined" = "Hãy ngồi vào bàn trước.";
 "BRRoulette.Server.rl_betting_closed" = "Cược vừa đóng. Các cược tiếp theo sẽ tính cho vòng quay sau.";
 "BRRoulette.Lobby.Button" = "🎡 Roulette";
+
+/* Profile likes + power packs (tracker #60) */
+"BRSlot.Lounge.LikesSection" = "LƯỢT THÍCH";
+"BRSlot.Lounge.LikesReceived" = "Lượt thích";
+"BRSlot.Lounge.LikesGiven" = "Đã tặng thích";
+"BRSlot.Lounge.LikesChips" = "Chip";
+"BRSlot.Lounge.LikesGivingCharge" = "Sạc tặng";
+"BRSlot.Lounge.LikesReceivingCharge" = "Sạc nhận";
+"BRSlot.Lounge.LikeButton" = "👍 Thích";
+"BRSlot.Lounge.LikeButtonWeighted" = "👍 Thích +%1$@";
+"BRSlot.Lounge.LikeCooldown" = "Thích lại sau %1$@";
+"BRSlot.Lounge.LikesMostLiked" = "ĐƯỢC THÍCH NHẤT\n\n";
+"BRSlot.Lounge.LikesTopGivers" = "NGƯỜI TẶNG NHIỀU NHẤT\n\n";
+"BRSlot.Lounge.LikesRow" = "%1$2lu. %2$@  %3$@ lượt thích\n";
+"BRSlot.Lounge.LikesNone" = "Chưa có lượt thích.\n";
+"BRSlot.Lounge.LikesHoursMinutes" = "%1$@h %2$@m";
+"BRSlot.Lounge.LikesMinutes" = "%1$@m";
+"BRSlot.Lounge.PacksSection" = "GÓI NĂNG LƯỢNG";
+"BRSlot.Lounge.PacksGiving" = "Gói tặng";
+"BRSlot.Lounge.PacksReceiving" = "Gói nhận";
+"BRSlot.Lounge.PacksBuy" = "Mua · %1$@ xu";
+"BRSlot.Lounge.PacksActive" = "%1$@ đang hoạt động";
+"BRSlot.Lounge.PacksNextEnds" = "gói tiếp theo hết sau %1$@";
+"BRSlot.Lounge.PacksNoneActive" = "Không có gói nào";

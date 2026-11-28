@@ -1061,3 +1061,27 @@
 "BRRoulette.Server.rl_not_joined" = "นั่งที่โต๊ะก่อน";
 "BRRoulette.Server.rl_betting_closed" = "เพิ่งปิดรับเดิมพัน เดิมพันถัดไปจะนับในการหมุนครั้งต่อไป";
 "BRRoulette.Lobby.Button" = "🎡 รูเล็ต";
+
+/* Profile likes + power packs (tracker #60) */
+"BRSlot.Lounge.LikesSection" = "ไลก์";
+"BRSlot.Lounge.LikesReceived" = "ไลก์";
+"BRSlot.Lounge.LikesGiven" = "ไลก์ที่ให้";
+"BRSlot.Lounge.LikesChips" = "ชิป";
+"BRSlot.Lounge.LikesGivingCharge" = "ชาร์จการให้";
+"BRSlot.Lounge.LikesReceivingCharge" = "ชาร์จการรับ";
+"BRSlot.Lounge.LikeButton" = "👍 ไลก์";
+"BRSlot.Lounge.LikeButtonWeighted" = "👍 ไลก์ +%1$@";
+"BRSlot.Lounge.LikeCooldown" = "ไลก์อีกครั้งใน %1$@";
+"BRSlot.Lounge.LikesMostLiked" = "ไลก์มากสุด\n\n";
+"BRSlot.Lounge.LikesTopGivers" = "ผู้ให้มากสุด\n\n";
+"BRSlot.Lounge.LikesRow" = "%1$2lu. %2$@  %3$@ ไลก์\n";
+"BRSlot.Lounge.LikesNone" = "ยังไม่มีไลก์\n";
+"BRSlot.Lounge.LikesHoursMinutes" = "%1$@h %2$@m";
+"BRSlot.Lounge.LikesMinutes" = "%1$@m";
+"BRSlot.Lounge.PacksSection" = "แพ็กพลัง";
+"BRSlot.Lounge.PacksGiving" = "แพ็กสำหรับให้";
+"BRSlot.Lounge.PacksReceiving" = "แพ็กสำหรับรับ";
+"BRSlot.Lounge.PacksBuy" = "ซื้อ · %1$@ เหรียญ";
+"BRSlot.Lounge.PacksActive" = "ใช้งาน %1$@";
+"BRSlot.Lounge.PacksNextEnds" = "อันถัดไปหมดใน %1$@";
+"BRSlot.Lounge.PacksNoneActive" = "ไม่มีที่ใช้งาน";

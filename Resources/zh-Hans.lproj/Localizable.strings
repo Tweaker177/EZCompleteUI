@@ -1061,3 +1061,27 @@
 "BRRoulette.Server.rl_not_joined" = "请先入座。";
 "BRRoulette.Server.rl_betting_closed" = "下注刚刚截止。你接下来的下注将计入下一次旋转。";
 "BRRoulette.Lobby.Button" = "🎡 轮盘赌";
+
+/* Profile likes + power packs (tracker #60) */
+"BRSlot.Lounge.LikesSection" = "点赞";
+"BRSlot.Lounge.LikesReceived" = "点赞";
+"BRSlot.Lounge.LikesGiven" = "送出的赞";
+"BRSlot.Lounge.LikesChips" = "筹码";
+"BRSlot.Lounge.LikesGivingCharge" = "送出充能";
+"BRSlot.Lounge.LikesReceivingCharge" = "接收充能";
+"BRSlot.Lounge.LikeButton" = "👍 点赞";
+"BRSlot.Lounge.LikeButtonWeighted" = "👍 点赞 +%1$@";
+"BRSlot.Lounge.LikeCooldown" = "%1$@ 后可再点赞";
+"BRSlot.Lounge.LikesMostLiked" = "最受欢迎\n\n";
+"BRSlot.Lounge.LikesTopGivers" = "最慷慨\n\n";
+"BRSlot.Lounge.LikesRow" = "%1$2lu. %2$@  %3$@ 赞\n";
+"BRSlot.Lounge.LikesNone" = "还没有点赞。\n";
+"BRSlot.Lounge.LikesHoursMinutes" = "%1$@h %2$@m";
+"BRSlot.Lounge.LikesMinutes" = "%1$@m";
+"BRSlot.Lounge.PacksSection" = "能量包";
+"BRSlot.Lounge.PacksGiving" = "送出包";
+"BRSlot.Lounge.PacksReceiving" = "接收包";
+"BRSlot.Lounge.PacksBuy" = "购买 · %1$@ 金币";
+"BRSlot.Lounge.PacksActive" = "%1$@ 个生效中";
+"BRSlot.Lounge.PacksNextEnds" = "下一个将在 %1$@ 后到期";
+"BRSlot.Lounge.PacksNoneActive" = "无生效中";

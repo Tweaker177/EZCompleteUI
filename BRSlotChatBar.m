@@ -27,6 +27,26 @@ static NSInteger BRChatInteger(id value) { return [value respondsToSelector:@sel
 static NSString *BRChatString(id value) { return [value isKindOfClass:NSString.class] ? value : nil; }
 static NSNumber *BRChatNumber(id value) { return [value isKindOfClass:NSNumber.class] ? value : @0; }
 static NSDictionary *BRChatDictionary(id value) { return [value isKindOfClass:NSDictionary.class] ? value : @{}; }
+// Profile likes + power packs (tracker #60): the pack price in coins,
+// mirrored in br-slot-social as LIKE_PACK_PRICE_COINS. The server is what
+// charges — this only labels the buy button — so changing the price is a
+// one-line edit in each place.
+static const NSInteger BRChatLikePackPriceCoins = 100;
+// "1h 5m" / "42m" for pack expiries and the like cooldown.
+static NSString *BRChatDurationText(NSTimeInterval seconds) {
+    NSInteger minutes = (NSInteger)ceil(MAX(seconds, 0) / 60.0);
+    if (minutes >= 60) return [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikesHoursMinutes", nil), @(minutes / 60), @(minutes % 60)];
+    return [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikesMinutes", nil), @(MAX(minutes, 1))];
+}
+static NSDate *BRChatDateFromISO8601(id value) {
+    NSString *text = BRChatString(value);
+    if (!text.length) return nil;
+    NSISO8601DateFormatter *formatter = [NSISO8601DateFormatter new];
+    formatter.formatOptions = NSISO8601DateFormatWithInternetDateTime | NSISO8601DateFormatWithFractionalSeconds;
+    NSDate *date = [formatter dateFromString:text];
+    if (!date) { formatter.formatOptions = NSISO8601DateFormatWithInternetDateTime; date = [formatter dateFromString:text]; }
+    return date;
+}
 // Avatars show at up to 76pt: cap the upload at 512px so a full-resolution
 // library photo doesn't become a multi-MB base64 JSON body that times out
 // and silently fails the save (same shape as the 1600px ID-upload cap).
@@ -189,12 +209,33 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 // Full-screen player profile, opened by tapping a leaderboard row: big
 // picture, their status, and their numbers for the day and all time. All
 // data rides on the leaderboard row itself (br-slot-social enriches every
-// row), so opening it needs no extra request.
+// row), so opening it needs no extra request. Likes are the one exception:
+// counts can move while the board sits open, so the profile re-reads like
+// state (and pack state, on your own profile) through the chat bar's
+// request path.
 @interface BRSlotPlayerProfileController : UIViewController
 @property (nonatomic, copy) NSString *playerName;
+@property (nonatomic, copy) NSString *playerID;
 @property (nonatomic, copy) NSString *avatarURLString;
 @property (nonatomic, copy) NSString *statusText;
 @property (nonatomic, copy) NSDictionary *stats;
+// Runs a br-slot-social request for the likes actions (like_status,
+// like_player, buy_like_pack); set by the chat bar that opened this
+// profile. Nil on surfaces that cannot like (button and packs stay away).
+@property (nonatomic, copy) void (^likesRequest)(NSDictionary *params, void (^completion)(NSDictionary *json, NSString *error));
+@property (nonatomic, strong) UIButton *likeButton;
+@property (nonatomic, strong) UILabel *likesReceivedValue;
+@property (nonatomic, strong) UILabel *likesGivenValue;
+@property (nonatomic, strong) UILabel *chipsValue;
+@property (nonatomic, strong) UILabel *givingChargeValue;
+@property (nonatomic, strong) UILabel *receivingChargeValue;
+@property (nonatomic, strong) UIView *packsCard;
+@property (nonatomic, strong) UILabel *givingPackDetail;
+@property (nonatomic, strong) UILabel *receivingPackDetail;
+@property (nonatomic, strong) UILabel *packMessage;
+@property (nonatomic) BOOL isSelfProfile;
+@property (nonatomic) NSInteger likeWeight;
+@property (nonatomic, copy) NSString *nextLikeAt;
 @end
 @implementation BRSlotPlayerProfileController
 - (NSString *)formattedNumber:(id)value {
@@ -202,7 +243,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     formatter.numberStyle = NSNumberFormatterDecimalStyle;
     return [formatter stringFromNumber:BRChatNumber(value)] ?: @"0";
 }
-- (void)addStatRowToStack:(UIStackView *)stack label:(NSString *)label value:(NSString *)value {
+- (UILabel *)addStatRowToStack:(UIStackView *)stack label:(NSString *)label value:(NSString *)value {
     UIView *row = [UIView new];
     row.translatesAutoresizingMaskIntoConstraints = NO;
     UILabel *name = [UILabel new];
@@ -226,6 +267,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         [amount.leadingAnchor constraintGreaterThanOrEqualToAnchor:name.trailingAnchor constant:12],
         [amount.centerYAnchor constraintEqualToAnchor:name.centerYAnchor]]];
     [stack addArrangedSubview:row];
+    return amount;
 }
 - (void)addSectionHeaderToStack:(UIStackView *)stack text:(NSString *)text {
     UILabel *header = [UILabel new];
@@ -285,6 +327,25 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         statusLabel.numberOfLines = 0;
         [stack addArrangedSubview:statusLabel];
     }
+    // Like button: hourly per pair, enforced server-side. Its title and
+    // enabled state come from like_status (see refreshLikeStatus); until
+    // that lands it shows the plain label, and a tap the server refuses
+    // for cooldown still returns the reopen time to display.
+    if (self.playerID.length && self.likesRequest) {
+        UIButton *like = [UIButton buttonWithType:UIButtonTypeSystem];
+        like.translatesAutoresizingMaskIntoConstraints = NO;
+        like.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightBlack];
+        [like setTitleColor:[UIColor colorWithRed:.16 green:.08 blue:.02 alpha:1] forState:UIControlStateNormal];
+        [like setTitleColor:[UIColor colorWithWhite:.75 alpha:1] forState:UIControlStateDisabled];
+        like.backgroundColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+        like.layer.cornerRadius = 14;
+        like.contentEdgeInsets = UIEdgeInsetsMake(12, 16, 12, 16);
+        [like addTarget:self action:@selector(likeTapped) forControlEvents:UIControlEventTouchUpInside];
+        [like.heightAnchor constraintEqualToConstant:48].active = YES;
+        self.likeButton = like;
+        [stack addArrangedSubview:like];
+        [self refreshLikeButton];
+    }
     UIView *card = [UIView new];
     card.backgroundColor = [UIColor colorWithRed:.13 green:.045 blue:.23 alpha:1];
     card.layer.cornerRadius = 18;
@@ -321,6 +382,64 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         [self addStatRowToStack:statsStack label:@"Coins won" value:[self formattedNumber:self.stats[@"bj_total_won"]]];
     }
     [stack addArrangedSubview:card];
+    // Likes card: likes received (the headline number), likes given,
+    // chips, and the two charge levels — the ×N a like from or to this
+    // player carries from their active packs.
+    UIView *likesCard = [UIView new];
+    likesCard.backgroundColor = [UIColor colorWithRed:.13 green:.045 blue:.23 alpha:1];
+    likesCard.layer.cornerRadius = 18;
+    likesCard.layer.borderWidth = 1;
+    likesCard.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.4].CGColor;
+    likesCard.translatesAutoresizingMaskIntoConstraints = NO;
+    UIStackView *likesStack = [UIStackView new];
+    likesStack.axis = UILayoutConstraintAxisVertical;
+    likesStack.spacing = 2;
+    likesStack.translatesAutoresizingMaskIntoConstraints = NO;
+    [likesCard addSubview:likesStack];
+    [NSLayoutConstraint activateConstraints:@[
+        [likesStack.topAnchor constraintEqualToAnchor:likesCard.topAnchor constant:14],
+        [likesStack.bottomAnchor constraintEqualToAnchor:likesCard.bottomAnchor constant:-14],
+        [likesStack.leadingAnchor constraintEqualToAnchor:likesCard.leadingAnchor constant:18],
+        [likesStack.trailingAnchor constraintEqualToAnchor:likesCard.trailingAnchor constant:-18]]];
+    [self addSectionHeaderToStack:likesStack text:NSLocalizedString(@"BRSlot.Lounge.LikesSection", nil)];
+    self.likesReceivedValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesReceived", nil) value:[self formattedNumber:self.stats[@"likes_received"]]];
+    self.likesGivenValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesGiven", nil) value:[self formattedNumber:self.stats[@"likes_given"]]];
+    self.chipsValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesChips", nil) value:[self formattedNumber:self.stats[@"coins_balance"]]];
+    self.givingChargeValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesGivingCharge", nil) value:[self chargeText:self.stats[@"packs_giving"]]];
+    self.receivingChargeValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesReceivingCharge", nil) value:[self chargeText:self.stats[@"packs_receiving"]]];
+    [stack addArrangedSubview:likesCard];
+    // Power packs card: starts hidden and is only revealed on your own
+    // profile, when like_status answers is_self. Buying charges coins
+    // server-side; this card just renders the counts and countdowns the
+    // server reports.
+    UIView *packsCard = [UIView new];
+    packsCard.backgroundColor = [UIColor colorWithRed:.13 green:.045 blue:.23 alpha:1];
+    packsCard.layer.cornerRadius = 18;
+    packsCard.layer.borderWidth = 1;
+    packsCard.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.4].CGColor;
+    packsCard.translatesAutoresizingMaskIntoConstraints = NO;
+    UIStackView *packsStack = [UIStackView new];
+    packsStack.axis = UILayoutConstraintAxisVertical;
+    packsStack.spacing = 2;
+    packsStack.translatesAutoresizingMaskIntoConstraints = NO;
+    [packsCard addSubview:packsStack];
+    [NSLayoutConstraint activateConstraints:@[
+        [packsStack.topAnchor constraintEqualToAnchor:packsCard.topAnchor constant:14],
+        [packsStack.bottomAnchor constraintEqualToAnchor:packsCard.bottomAnchor constant:-14],
+        [packsStack.leadingAnchor constraintEqualToAnchor:packsCard.leadingAnchor constant:18],
+        [packsStack.trailingAnchor constraintEqualToAnchor:packsCard.trailingAnchor constant:-18]]];
+    [self addSectionHeaderToStack:packsStack text:NSLocalizedString(@"BRSlot.Lounge.PacksSection", nil)];
+    self.givingPackDetail = [self addPackRowToStack:packsStack flavor:@"giving" title:NSLocalizedString(@"BRSlot.Lounge.PacksGiving", nil)];
+    self.receivingPackDetail = [self addPackRowToStack:packsStack flavor:@"receiving" title:NSLocalizedString(@"BRSlot.Lounge.PacksReceiving", nil)];
+    UILabel *packMessage = [UILabel new];
+    packMessage.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
+    packMessage.textColor = [UIColor colorWithRed:1 green:.55 blue:.45 alpha:1];
+    packMessage.numberOfLines = 0;
+    self.packMessage = packMessage;
+    [packsStack addArrangedSubview:packMessage];
+    packsCard.hidden = YES;
+    self.packsCard = packsCard;
+    [stack addArrangedSubview:packsCard];
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
         [scroll.topAnchor constraintEqualToAnchor:safe.topAnchor],
@@ -335,8 +454,136 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         [close.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-16],
         [close.widthAnchor constraintEqualToConstant:36],
         [close.heightAnchor constraintEqualToConstant:36]]];
+    if (self.playerID.length && self.likesRequest) [self refreshLikeStatus];
 }
 - (void)closeTapped { [self dismissViewControllerAnimated:YES completion:nil]; }
+// The charge a like carries at a pack count: no packs is ×1, every pack
+// doubles in — 1 pack ×2, 10 packs ×20.
+- (NSString *)chargeText:(id)packs {
+    NSInteger count = BRChatInteger(packs);
+    return count > 0 ? [NSString stringWithFormat:@"×%ld", (long)(2 * count)] : @"×1";
+}
+- (UILabel *)addPackRowToStack:(UIStackView *)stack flavor:(NSString *)flavor title:(NSString *)title {
+    UIView *row = [UIView new];
+    row.translatesAutoresizingMaskIntoConstraints = NO;
+    UILabel *name = [UILabel new];
+    name.text = title;
+    name.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
+    name.textColor = [UIColor colorWithWhite:.88 alpha:1];
+    name.translatesAutoresizingMaskIntoConstraints = NO;
+    [row addSubview:name];
+    UILabel *detail = [UILabel new];
+    detail.font = [UIFont systemFontOfSize:13];
+    detail.textColor = [UIColor colorWithWhite:.6 alpha:1];
+    detail.translatesAutoresizingMaskIntoConstraints = NO;
+    [row addSubview:detail];
+    UIButton *buy = [UIButton buttonWithType:UIButtonTypeSystem];
+    buy.translatesAutoresizingMaskIntoConstraints = NO;
+    buy.titleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBlack];
+    [buy setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.PacksBuy", nil), [self formattedNumber:@(BRChatLikePackPriceCoins)]] forState:UIControlStateNormal];
+    [buy setTitleColor:[UIColor colorWithRed:.16 green:.08 blue:.02 alpha:1] forState:UIControlStateNormal];
+    buy.backgroundColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+    buy.layer.cornerRadius = 10;
+    buy.contentEdgeInsets = UIEdgeInsetsMake(8, 12, 8, 12);
+    buy.accessibilityIdentifier = flavor;
+    [buy addTarget:self action:@selector(buyPackTapped:) forControlEvents:UIControlEventTouchUpInside];
+    [row addSubview:buy];
+    [NSLayoutConstraint activateConstraints:@[
+        [name.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+        [name.topAnchor constraintEqualToAnchor:row.topAnchor constant:8],
+        [detail.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+        [detail.topAnchor constraintEqualToAnchor:name.bottomAnchor constant:2],
+        [detail.bottomAnchor constraintEqualToAnchor:row.bottomAnchor constant:-8],
+        [buy.trailingAnchor constraintEqualToAnchor:row.trailingAnchor],
+        [buy.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+        [buy.leadingAnchor constraintGreaterThanOrEqualToAnchor:name.trailingAnchor constant:12]]];
+    [stack addArrangedSubview:row];
+    return detail;
+}
+- (void)updatePackDetail:(UILabel *)label count:(NSInteger)count nextExpiry:(id)nextExpiry {
+    if (!label) return;
+    if (count <= 0) { label.text = NSLocalizedString(@"BRSlot.Lounge.PacksNoneActive", nil); return; }
+    NSString *text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.PacksActive", nil), [self formattedNumber:@(count)]];
+    NSDate *expiry = BRChatDateFromISO8601(nextExpiry);
+    if (expiry) text = [text stringByAppendingFormat:@" · %@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.PacksNextEnds", nil), BRChatDurationText([expiry timeIntervalSinceNow])]];
+    label.text = text;
+}
+- (void)applyLikeStats:(NSDictionary *)json {
+    if (![json isKindOfClass:NSDictionary.class]) return;
+    self.likesReceivedValue.text = [self formattedNumber:json[@"likes_received"]];
+    self.likesGivenValue.text = [self formattedNumber:json[@"likes_given"]];
+    self.chipsValue.text = [self formattedNumber:json[@"coins_balance"]];
+    self.givingChargeValue.text = [self chargeText:json[@"packs_giving"]];
+    self.receivingChargeValue.text = [self chargeText:json[@"packs_receiving"]];
+    [self updatePackDetail:self.givingPackDetail count:BRChatInteger(json[@"packs_giving"]) nextExpiry:json[@"giving_next_expiry"]];
+    [self updatePackDetail:self.receivingPackDetail count:BRChatInteger(json[@"packs_receiving"]) nextExpiry:json[@"receiving_next_expiry"]];
+}
+- (void)refreshLikeButton {
+    UIButton *button = self.likeButton;
+    if (!button) return;
+    if (self.isSelfProfile) { button.hidden = YES; return; }
+    button.hidden = NO;
+    NSDate *next = BRChatDateFromISO8601(self.nextLikeAt);
+    BOOL cooling = next && [next timeIntervalSinceNow] > 0;
+    button.enabled = !cooling;
+    button.backgroundColor = cooling ? [UIColor colorWithWhite:1 alpha:.12] : [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+    if (cooling) {
+        [button setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeCooldown", nil), BRChatDurationText([next timeIntervalSinceNow])] forState:UIControlStateNormal];
+    } else if (self.likeWeight > 1) {
+        [button setTitle:[NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeButtonWeighted", nil), [self formattedNumber:@(self.likeWeight)]] forState:UIControlStateNormal];
+    } else {
+        [button setTitle:NSLocalizedString(@"BRSlot.Lounge.LikeButton", nil) forState:UIControlStateNormal];
+    }
+}
+- (void)refreshLikeStatus {
+    __weak typeof(self) weakSelf = self;
+    self.likesRequest(@{ @"action": @"like_status", @"target_id": self.playerID }, ^(NSDictionary *json, NSString *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self || error || !json) return;
+        self.isSelfProfile = BRChatBool(json[@"is_self"]);
+        self.likeWeight = BRChatInteger(json[@"like_weight"]);
+        self.nextLikeAt = BRChatString(json[@"next_like_at"]);
+        if (self.isSelfProfile) self.packsCard.hidden = NO;
+        [self applyLikeStats:json];
+        [self refreshLikeButton];
+    });
+}
+- (void)likeTapped {
+    if (!self.playerID.length || !self.likesRequest) return;
+    self.likeButton.enabled = NO;
+    __weak typeof(self) weakSelf = self;
+    self.likesRequest(@{ @"action": @"like_player", @"target_id": self.playerID }, ^(NSDictionary *json, NSString *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        if (json[@"next_like_at"]) self.nextLikeAt = BRChatString(json[@"next_like_at"]);
+        if (!error && json) self.likesReceivedValue.text = [self formattedNumber:json[@"target_likes_received"]];
+        [self refreshLikeButton];
+    });
+}
+- (void)buyPackTapped:(UIButton *)sender {
+    NSString *flavor = sender.accessibilityIdentifier;
+    if (!flavor.length || !self.likesRequest) return;
+    self.packMessage.text = @"";
+    sender.enabled = NO;
+    __weak typeof(self) weakSelf = self;
+    self.likesRequest(@{ @"action": @"buy_like_pack", @"flavor": flavor }, ^(NSDictionary *json, NSString *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
+        sender.enabled = YES;
+        if (error) {
+            self.packMessage.text = error;
+            if (json[@"balance"]) self.chipsValue.text = [self formattedNumber:json[@"balance"]];
+            return;
+        }
+        if (!json) return;
+        self.chipsValue.text = [self formattedNumber:json[@"balance"]];
+        self.givingChargeValue.text = [self chargeText:json[@"packs_giving"]];
+        self.receivingChargeValue.text = [self chargeText:json[@"packs_receiving"]];
+        // The buy answer carries counts but not per-flavor expiries;
+        // re-read the status so the countdowns stay exact.
+        [self refreshLikeStatus];
+    });
+}
 @end
 
 
@@ -677,6 +924,13 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     profile.avatarURLString = BRChatString(row[@"avatar_url"]);
     profile.statusText = BRChatString(row[@"status"]);
     profile.stats = row;
+    profile.playerID = BRChatString(row[@"user_id"]);
+    __weak typeof(self) weakSelf = self;
+    profile.likesRequest = ^(NSDictionary *params, void (^completion)(NSDictionary *, NSString *)) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) { if (completion) completion(nil, @""); return; }
+        [self request:params completion:completion];
+    };
     UIViewController *presenter = self.hostViewController.presentedViewController ?: self.hostViewController;
     if (presenter) [presenter presentViewController:profile animated:YES completion:nil];
 }
@@ -787,6 +1041,8 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     NSArray *chips = [board[@"top_chips"] isKindOfClass:NSArray.class] ? board[@"top_chips"] : @[];
     if (chips.count > 5) chips = [chips subarrayWithRange:NSMakeRange(0, 5)];
     addSection(@"BRSlot.Lounge.WinningsMostChips", chips, @"balance", @"BRSlot.Lounge.WinningsNoChips", @"BRSlot.Lounge.WinningsRow");
+    addSection(@"BRSlot.Lounge.LikesMostLiked", board[@"most_liked"], @"likes_received", @"BRSlot.Lounge.LikesNone", @"BRSlot.Lounge.LikesRow");
+    addSection(@"BRSlot.Lounge.LikesTopGivers", board[@"top_givers"], @"likes_given", @"BRSlot.Lounge.LikesNone", @"BRSlot.Lounge.LikesRow");
     addSection(@"BRSlot.Lounge.BlackjackTop", board[@"blackjack"], @"bj_won", @"BRSlot.Lounge.BlackjackNone", @"BRSlot.Lounge.BoardRowCount");
     addSection(@"BRSlot.Lounge.BlackjackHandsTop", board[@"blackjack_hands"], @"bj_hands", @"BRSlot.Lounge.BlackjackNone", @"BRSlot.Lounge.BoardRowCount");
     addSection(@"BRSlot.Lounge.BlackjackCoinsTop", board[@"blackjack_coins"], @"bj_total_won", @"BRSlot.Lounge.BlackjackNone", @"BRSlot.Lounge.WinningsRow");
