@@ -552,100 +552,56 @@ static NSCache<NSString *, UIImage *> *ArtCache(void) {
     return cache;
 }
 
-#pragma mark - Sprite sheet (IMG_2264)
+#pragma mark - Symbol tiles (sliced art)
 
-// Reel art from the sprite sheet in Resources/IMG_2264.png: a 4x2 grid
-// cropped per symbol at runtime, so no sliced assets ship. The sheet's
-// background is transparent, but every symbol carries a soft colored
-// halo from its source matte; the cleanup pass below fades that halo
-// out through an alpha ramp so the tiles sit clean on the machine's
-// dark reel window. The Golden Hat scatter is not on the sheet and
-// keeps its code-drawn art, and every symbol falls back to the drawn
-// art if the sheet is missing.
-static UIImage *GMSheetImage(void) {
-    static UIImage *sheet;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        sheet = [UIImage imageNamed:@"IMG_2264"];
-        if (!sheet) {
-            NSString *path = [[NSBundle mainBundle] pathForResource:@"IMG_2264" ofType:@"png"];
-            sheet = path ? [UIImage imageWithContentsOfFile:path] : nil;
-        }
-    });
-    return sheet;
-}
-
-static NSMutableDictionary<NSNumber *, UIImage *> *GMSheetCache(void) {
+// Reel art sliced from the clean white-background sprite sheet the
+// user supplied: each symbol was cut out with the white keyed to
+// transparency (edges un-blended against white, the coin's square
+// hole included) and ships as a packaged .b64 PNG, decoded on first
+// use — the same pattern as the Plunder symbols, since binaries
+// cannot ride the repo's text push. The Golden Hat scatter was not
+// on the sheet and keeps its code-drawn art, and every symbol falls
+// back to the drawn art if its tile is missing.
+static NSMutableDictionary<NSString *, UIImage *> *GMTileCache(void) {
     static NSMutableDictionary *cache;
     static dispatch_once_t once;
     dispatch_once(&once, ^{ cache = [NSMutableDictionary dictionary]; });
     return cache;
 }
 
-/// Crop rect (sheet pixels) per symbol: the symbol's solid bounds plus
-/// a small margin, kept inside the empty gutters between cells so a
-/// neighbour's halo stays out. The sheet's eight pictures land on the
-/// engine's eight regular tiers: lantern, fan, bamboo and the plum
+/// Tile name per symbol: the sheet's eight pictures land on the
+/// engine's eight regular tiers — lantern, fan, bamboo and the plum
 /// medallion on the low tiers, then koi, the gold coin on the Jade Bi
 /// tier (same disc-with-a-hole shape; labelled "Lucky Coin"), the
 /// ingot, and the dragon head on top.
-static CGRect GMSheetRectForSymbol(GMSymbol symbol) {
+static NSString *GMTileNameForSymbol(GMSymbol symbol) {
     switch (symbol) {
-        case GMSymbolLantern: return CGRectMake(4, 76, 248, 410);
-        case GMSymbolFan:     return CGRectMake(252, 146, 264, 336);
-        case GMSymbolBamboo:  return CGRectMake(256, 525, 256, 400);
-        case GMSymbolPlum:    return CGRectMake(1, 554, 256, 326);
-        case GMSymbolKoi:     return CGRectMake(511, 523, 256, 380);
-        case GMSymbolJade:    return CGRectMake(767, 605, 254, 270);
-        case GMSymbolIngot:   return CGRectMake(771, 195, 250, 208);
-        case GMSymbolDragon:  return CGRectMake(517, 74, 248, 408);
-        default:              return CGRectZero;
+        case GMSymbolLantern: return @"gm_lantern";
+        case GMSymbolFan:     return @"gm_fan";
+        case GMSymbolBamboo:  return @"gm_bamboo";
+        case GMSymbolPlum:    return @"gm_plum";
+        case GMSymbolKoi:     return @"gm_koi";
+        case GMSymbolJade:    return @"gm_coin";
+        case GMSymbolIngot:   return @"gm_ingot";
+        case GMSymbolDragon:  return @"gm_dragon";
+        default:              return nil;
     }
 }
 
-/// The symbol's cleaned sheet image (halo faded), cropped once and
-/// cached; nil for the Hat or when the sheet is unavailable.
-static UIImage *GMSheetSymbolImage(GMSymbol symbol) {
-    NSNumber *key = @(symbol);
-    UIImage *cached = GMSheetCache()[key];
-    if (cached) return cached;
-    CGRect rect = GMSheetRectForSymbol(symbol);
-    UIImage *sheet = GMSheetImage();
-    if (CGRectIsEmpty(rect) || !sheet) return nil;
-    CGImageRef full = sheet.CGImage;
-    CGImageRef crop = full ? CGImageCreateWithImageInRect(full, rect) : NULL;
-    if (!crop) return nil;
-    size_t w = CGImageGetWidth(crop), h = CGImageGetHeight(crop);
-    NSMutableData *data = [NSMutableData dataWithLength:w * h * 4];
-    CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-    CGContextRef ctx = CGBitmapContextCreate(data.mutableBytes, w, h, 8, w * 4, space, kCGImageAlphaPremultipliedLast);
-    CGColorSpaceRelease(space);
-    if (!ctx) { CGImageRelease(crop); return nil; }
-    CGContextDrawImage(ctx, CGRectMake(0, 0, (CGFloat)w, (CGFloat)h), crop);
-    CGImageRelease(crop);
-    // Matte cleanup: pixels under alpha 40 vanish; the 40...180 band is
-    // rescaled up a ramp (premultiplied channels scaled by the same
-    // factor, so edge colours survive without the halo's smudge).
-    uint8_t *px = data.mutableBytes;
-    for (size_t i = 0, count = w * h; i < count; i++) {
-        uint8_t a = px[i * 4 + 3];
-        if (a == 0) continue;
-        if (a <= 40) {
-            px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = px[i * 4 + 3] = 0;
-        } else if (a < 180) {
-            CGFloat na = (a - 40) * 255.0 / 140.0;
-            CGFloat f = na / a;
-            px[i * 4]     = (uint8_t)MIN(255, px[i * 4] * f);
-            px[i * 4 + 1] = (uint8_t)MIN(255, px[i * 4 + 1] * f);
-            px[i * 4 + 2] = (uint8_t)MIN(255, px[i * 4 + 2] * f);
-            px[i * 4 + 3] = (uint8_t)na;
-        }
+/// The symbol's sliced tile, decoded once and cached; nil for the
+/// Hat or when the tile is unavailable.
+static UIImage *GMTileImage(GMSymbol symbol) {
+    NSString *name = GMTileNameForSymbol(symbol);
+    if (!name) return nil;
+    if (GMTileCache()[name]) return GMTileCache()[name];
+    UIImage *image = [UIImage imageNamed:name];
+    if (!image) {
+        NSString *path = [[NSBundle mainBundle] pathForResource:name ofType:@"b64"];
+        NSData *encoded = path ? [NSData dataWithContentsOfFile:path] : nil;
+        NSData *png = encoded ? [[NSData alloc] initWithBase64EncodedData:encoded options:NSDataBase64DecodingIgnoreUnknownCharacters] : nil;
+        image = png ? [UIImage imageWithData:png] : nil;
     }
-    CGImageRef cleaned = CGBitmapContextCreateImage(ctx);
-    CGContextRelease(ctx);
-    UIImage *image = cleaned ? [UIImage imageWithCGImage:cleaned scale:sheet.scale orientation:UIImageOrientationUp] : nil;
-    if (cleaned) CGImageRelease(cleaned);
-    if (image) GMSheetCache()[key] = image;
+    if (image) GMTileCache()[name] = image;
     return image;
 }
 
@@ -672,13 +628,13 @@ static UIImage *GMSheetSymbolImage(GMSymbol symbol) {
     UIImage *cached = [ArtCache() objectForKey:key];
     if (cached) return cached;
     UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
-    UIImage *sheetArt = GMSheetSymbolImage(symbol);
+    UIImage *tileArt = GMTileImage(symbol);
     UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
-        if (sheetArt) {
-            // Sheet art is already a finished picture: fit it, centred.
-            CGFloat scale = MIN(size.width / sheetArt.size.width, size.height / sheetArt.size.height);
-            CGSize fit = CGSizeMake(sheetArt.size.width * scale, sheetArt.size.height * scale);
-            [sheetArt drawInRect:CGRectMake((size.width - fit.width) / 2, (size.height - fit.height) / 2, fit.width, fit.height)];
+        if (tileArt) {
+            // A tile is already a finished picture: fit it, centred.
+            CGFloat scale = MIN(size.width / tileArt.size.width, size.height / tileArt.size.height);
+            CGSize fit = CGSizeMake(tileArt.size.width * scale, tileArt.size.height * scale);
+            [tileArt drawInRect:CGRectMake((size.width - fit.width) / 2, (size.height - fit.height) / 2, fit.width, fit.height)];
             return;
         }
         CGContextRef c = ctx.CGContext;
@@ -734,6 +690,6 @@ static UIImage *GMSheetSymbolImage(GMSymbol symbol) {
     return image;
 }
 
-+ (void)purgeCache { [ArtCache() removeAllObjects]; [GMSheetCache() removeAllObjects]; }
++ (void)purgeCache { [ArtCache() removeAllObjects]; [GMTileCache() removeAllObjects]; }
 
 @end
