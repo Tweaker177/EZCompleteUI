@@ -248,8 +248,8 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 @property (nonatomic, strong) UILabel *likesReceivedValue;
 @property (nonatomic, strong) UILabel *likesGivenValue;
 @property (nonatomic, strong) UILabel *chipsValue;
-@property (nonatomic, strong) UILabel *givingChargeValue;
-@property (nonatomic, strong) UILabel *receivingChargeValue;
+@property (nonatomic, strong) UILabel *givingChargeCount;
+@property (nonatomic, strong) UILabel *receivingChargeCount;
 @property (nonatomic, strong) UIView *packsCard;
 @property (nonatomic, strong) UILabel *givingPackDetail;
 @property (nonatomic, strong) UILabel *receivingPackDetail;
@@ -454,8 +454,23 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     self.likesReceivedValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesReceived", nil) value:[self formattedNumber:self.stats[@"likes_received"]]];
     self.likesGivenValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesGiven", nil) value:[self formattedNumber:self.stats[@"likes_given"]]];
     self.chipsValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesChips", nil) value:[self formattedNumber:self.stats[@"coins_balance"]]];
-    self.givingChargeValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesGivingCharge", nil) value:[self chargeText:self.stats[@"packs_giving"]]];
-    self.receivingChargeValue = [self addStatRowToStack:likesStack label:NSLocalizedString(@"BRSlot.Lounge.LikesReceivingCharge", nil) value:[self chargeText:self.stats[@"packs_receiving"]]];
+    // Charge levels as artwork + pack count: thumbs-up × giving packs,
+    // heart × receiving packs.
+    UIStackView *chargeRow = [[UIStackView alloc] init];
+    chargeRow.axis = UILayoutConstraintAxisHorizontal;
+    chargeRow.alignment = UIStackViewAlignmentCenter;
+    chargeRow.spacing = 8;
+    chargeRow.translatesAutoresizingMaskIntoConstraints = NO;
+    [chargeRow addArrangedSubview:[self chargeIconViewForArt:@"like_thumb" symbol:@"hand.thumbsup.fill" tint:[UIColor colorWithRed:.25 green:.55 blue:1 alpha:1]]];
+    self.givingChargeCount = [self chargeCountLabelWithValue:self.stats[@"packs_giving"]];
+    [chargeRow addArrangedSubview:self.givingChargeCount];
+    UIView *chargeSpacer = [UIView new];
+    [chargeSpacer setContentHuggingPriority:1 forAxis:UILayoutConstraintAxisHorizontal];
+    [chargeRow addArrangedSubview:chargeSpacer];
+    [chargeRow addArrangedSubview:[self chargeIconViewForArt:@"like_heart" symbol:@"heart.fill" tint:[UIColor colorWithRed:1 green:.3 blue:.45 alpha:1]]];
+    self.receivingChargeCount = [self chargeCountLabelWithValue:self.stats[@"packs_receiving"]];
+    [chargeRow addArrangedSubview:self.receivingChargeCount];
+    [likesStack addArrangedSubview:chargeRow];
     [stack addArrangedSubview:likesCard];
     // Power packs card: starts hidden and is only revealed on your own
     // profile, when like_status answers is_self. Buying charges coins
@@ -508,9 +523,26 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 - (void)closeTapped { [self dismissViewControllerAnimated:YES completion:nil]; }
 // The charge a like carries at a pack count: no packs is ×1, every pack
 // doubles in — 1 pack ×2, 10 packs ×20.
-- (NSString *)chargeText:(id)packs {
-    NSInteger count = BRChatInteger(packs);
-    return count > 0 ? [NSString stringWithFormat:@"×%ld", (long)(2 * count)] : @"×1";
+- (UIImageView *)chargeIconViewForArt:(NSString *)name symbol:(NSString *)symbol tint:(UIColor *)tint {
+    UIImage *image = BRChatBundledArtImage(name) ?: [[UIImage systemImageNamed:symbol] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
+    UIImageView *icon = [[UIImageView alloc] initWithImage:image];
+    icon.contentMode = UIViewContentModeScaleAspectFit;
+    icon.tintColor = tint;
+    icon.translatesAutoresizingMaskIntoConstraints = NO;
+    [icon.widthAnchor constraintEqualToConstant:30].active = YES;
+    [icon.heightAnchor constraintEqualToConstant:30].active = YES;
+    return icon;
+}
+- (UILabel *)chargeCountLabelWithValue:(id)value {
+    UILabel *label = [UILabel new];
+    label.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
+    label.textColor = UIColor.whiteColor;
+    label.text = [NSString stringWithFormat:@"× %@", [self formattedNumber:value]];
+    return label;
+}
+- (void)updateChargeCounts:(NSDictionary *)json {
+    self.givingChargeCount.text = [NSString stringWithFormat:@"× %@", [self formattedNumber:json[@"packs_giving"]]];
+    self.receivingChargeCount.text = [NSString stringWithFormat:@"× %@", [self formattedNumber:json[@"packs_receiving"]]];
 }
 - (UILabel *)addPackRowToStack:(UIStackView *)stack flavor:(NSString *)flavor title:(NSString *)title {
     UIView *row = [UIView new];
@@ -582,8 +614,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     self.likesReceivedValue.text = [self formattedNumber:json[@"likes_received"]];
     self.likesGivenValue.text = [self formattedNumber:json[@"likes_given"]];
     self.chipsValue.text = [self formattedNumber:json[@"coins_balance"]];
-    self.givingChargeValue.text = [self chargeText:json[@"packs_giving"]];
-    self.receivingChargeValue.text = [self chargeText:json[@"packs_receiving"]];
+    [self updateChargeCounts:json];
     [self updatePackDetail:self.givingPackDetail count:BRChatInteger(json[@"packs_giving"]) nextExpiry:json[@"giving_next_expiry"]];
     [self updatePackDetail:self.receivingPackDetail count:BRChatInteger(json[@"packs_receiving"]) nextExpiry:json[@"receiving_next_expiry"]];
 }
@@ -657,8 +688,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         }
         if (!json) return;
         self.chipsValue.text = [self formattedNumber:json[@"balance"]];
-        self.givingChargeValue.text = [self chargeText:json[@"packs_giving"]];
-        self.receivingChargeValue.text = [self chargeText:json[@"packs_receiving"]];
+        [self updateChargeCounts:json];
         // The buy answer carries counts but not per-flavor expiries;
         // re-read the status so the countdowns stay exact.
         [self refreshLikeStatus];
