@@ -1107,6 +1107,10 @@
 "BRSlot.Lounge.LikesSection" = "點贊";
 "BRSlot.Lounge.LikesReceived" = "點贊";
 "BRSlot.Lounge.LikesGiven" = "送出的贊";
+"BRSlot.Lounge.LikeLogSection" = "讚記錄";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ 送出了一個讚";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ 送出了 %@ 個讚";
+"BRSlot.Lounge.LikeLogEmpty" = "暫無讚";
 "BRSlot.Lounge.LikesChips" = "籌碼";
 "BRSlot.Lounge.LikesGivingCharge" = "送出充能";
 "BRSlot.Lounge.LikesReceivingCharge" = "接收充能";

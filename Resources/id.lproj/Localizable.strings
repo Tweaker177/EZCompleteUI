@@ -1107,6 +1107,10 @@
 "BRSlot.Lounge.LikesSection" = "SUKA";
 "BRSlot.Lounge.LikesReceived" = "Suka";
 "BRSlot.Lounge.LikesGiven" = "Suka diberikan";
+"BRSlot.Lounge.LikeLogSection" = "LOG SUKA";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ memberikan suka";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ memberikan %@ suka";
+"BRSlot.Lounge.LikeLogEmpty" = "Belum ada suka";
 "BRSlot.Lounge.LikesChips" = "Chip";
 "BRSlot.Lounge.LikesGivingCharge" = "Muatan memberi";
 "BRSlot.Lounge.LikesReceivingCharge" = "Muatan menerima";

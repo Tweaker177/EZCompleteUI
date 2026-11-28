@@ -1066,6 +1066,10 @@
 "BRSlot.Lounge.LikesSection" = "点赞";
 "BRSlot.Lounge.LikesReceived" = "点赞";
 "BRSlot.Lounge.LikesGiven" = "送出的赞";
+"BRSlot.Lounge.LikeLogSection" = "点赞记录";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ 送出了一个赞";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ 送出了 %@ 个赞";
+"BRSlot.Lounge.LikeLogEmpty" = "暂无点赞";
 "BRSlot.Lounge.LikesChips" = "筹码";
 "BRSlot.Lounge.LikesGivingCharge" = "送出充能";
 "BRSlot.Lounge.LikesReceivingCharge" = "接收充能";

@@ -1088,6 +1088,10 @@
 "BRSlot.Lounge.LikesSection" = "ME GUSTA";
 "BRSlot.Lounge.LikesReceived" = "Me gusta";
 "BRSlot.Lounge.LikesGiven" = "Me gusta dados";
+"BRSlot.Lounge.LikeLogSection" = "REGISTRO DE ME GUSTA";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ dejó un me gusta";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ dejó %@ me gusta";
+"BRSlot.Lounge.LikeLogEmpty" = "Aún no hay me gusta";
 "BRSlot.Lounge.LikesChips" = "Fichas";
 "BRSlot.Lounge.LikesGivingCharge" = "Carga al dar";
 "BRSlot.Lounge.LikesReceivingCharge" = "Carga al recibir";

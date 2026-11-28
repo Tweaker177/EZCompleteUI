@@ -1066,6 +1066,10 @@
 "BRSlot.Lounge.LikesSection" = "LƯỢT THÍCH";
 "BRSlot.Lounge.LikesReceived" = "Lượt thích";
 "BRSlot.Lounge.LikesGiven" = "Đã tặng thích";
+"BRSlot.Lounge.LikeLogSection" = "NHẬT KÝ LƯỢT THÍCH";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ đã để lại một lượt thích";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ đã để lại %@ lượt thích";
+"BRSlot.Lounge.LikeLogEmpty" = "Chưa có lượt thích";
 "BRSlot.Lounge.LikesChips" = "Chip";
 "BRSlot.Lounge.LikesGivingCharge" = "Sạc tặng";
 "BRSlot.Lounge.LikesReceivingCharge" = "Sạc nhận";

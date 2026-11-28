@@ -1107,6 +1107,10 @@
 "BRSlot.Lounge.LikesSection" = "BEĞENİLER";
 "BRSlot.Lounge.LikesReceived" = "Beğeniler";
 "BRSlot.Lounge.LikesGiven" = "Verilen beğeniler";
+"BRSlot.Lounge.LikeLogSection" = "BEĞENİ KAYDI";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ bir beğeni bıraktı";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ %@ beğeni bıraktı";
+"BRSlot.Lounge.LikeLogEmpty" = "Henüz beğeni yok";
 "BRSlot.Lounge.LikesChips" = "Fişler";
 "BRSlot.Lounge.LikesGivingCharge" = "Verme şarjı";
 "BRSlot.Lounge.LikesReceivingCharge" = "Alma şarjı";

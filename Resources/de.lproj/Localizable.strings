@@ -1066,6 +1066,10 @@
 "BRSlot.Lounge.LikesSection" = "LIKES";
 "BRSlot.Lounge.LikesReceived" = "Likes";
 "BRSlot.Lounge.LikesGiven" = "Vergebene Likes";
+"BRSlot.Lounge.LikeLogSection" = "LIKE-VERLAUF";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ hat ein Like hinterlassen";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ hat %@ Likes hinterlassen";
+"BRSlot.Lounge.LikeLogEmpty" = "Noch keine Likes";
 "BRSlot.Lounge.LikesChips" = "Chips";
 "BRSlot.Lounge.LikesGivingCharge" = "Gebe-Ladung";
 "BRSlot.Lounge.LikesReceivingCharge" = "Empfangs-Ladung";

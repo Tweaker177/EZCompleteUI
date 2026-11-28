@@ -1107,6 +1107,10 @@
 "BRSlot.Lounge.LikesSection" = "좋아요";
 "BRSlot.Lounge.LikesReceived" = "좋아요";
 "BRSlot.Lounge.LikesGiven" = "보낸 좋아요";
+"BRSlot.Lounge.LikeLogSection" = "좋아요 기록";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@님이 좋아요를 남겼습니다";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@님이 좋아요 %@개를 남겼습니다";
+"BRSlot.Lounge.LikeLogEmpty" = "아직 좋아요가 없습니다";
 "BRSlot.Lounge.LikesChips" = "칩";
 "BRSlot.Lounge.LikesGivingCharge" = "보내기 충전";
 "BRSlot.Lounge.LikesReceivingCharge" = "받기 충전";

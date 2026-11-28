@@ -1066,6 +1066,10 @@
 "BRSlot.Lounge.LikesSection" = "लाइक्स";
 "BRSlot.Lounge.LikesReceived" = "लाइक";
 "BRSlot.Lounge.LikesGiven" = "दिए गए लाइक";
+"BRSlot.Lounge.LikeLogSection" = "लाइक लॉग";
+"BRSlot.Lounge.LikeLogLeftOne" = "%@ ने एक लाइक दिया";
+"BRSlot.Lounge.LikeLogLeftMany" = "%@ ने %@ लाइक दिए";
+"BRSlot.Lounge.LikeLogEmpty" = "अभी तक कोई लाइक नहीं";
 "BRSlot.Lounge.LikesChips" = "चिप्स";
 "BRSlot.Lounge.LikesGivingCharge" = "देने का चार्ज";
 "BRSlot.Lounge.LikesReceivingCharge" = "पाने का चार्ज";
