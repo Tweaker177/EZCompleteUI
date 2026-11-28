@@ -250,6 +250,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 @property (nonatomic, strong) UILabel *chipsValue;
 @property (nonatomic, strong) UILabel *givingChargeCount;
 @property (nonatomic, strong) UILabel *receivingChargeCount;
+@property (nonatomic, strong) UIStackView *likeLogStack;
 @property (nonatomic, strong) UIView *packsCard;
 @property (nonatomic, strong) UILabel *givingPackDetail;
 @property (nonatomic, strong) UILabel *receivingPackDetail;
@@ -472,6 +473,28 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     [chargeRow addArrangedSubview:self.receivingChargeCount];
     [likesStack addArrangedSubview:chargeRow];
     [stack addArrangedSubview:likesCard];
+    // Like log card: the most recent likes this player received, newest
+    // first. Rows arrive with like_status (recent_likes) and render via
+    // renderLikeLog:; until that lands the card is just its header.
+    UIView *logCard = [UIView new];
+    logCard.backgroundColor = [UIColor colorWithRed:.13 green:.045 blue:.23 alpha:1];
+    logCard.layer.cornerRadius = 18;
+    logCard.layer.borderWidth = 1;
+    logCard.layer.borderColor = [UIColor colorWithRed:1 green:.75 blue:.18 alpha:.4].CGColor;
+    logCard.translatesAutoresizingMaskIntoConstraints = NO;
+    UIStackView *logStack = [UIStackView new];
+    logStack.axis = UILayoutConstraintAxisVertical;
+    logStack.spacing = 6;
+    logStack.translatesAutoresizingMaskIntoConstraints = NO;
+    [logCard addSubview:logStack];
+    [NSLayoutConstraint activateConstraints:@[
+        [logStack.topAnchor constraintEqualToAnchor:logCard.topAnchor constant:14],
+        [logStack.bottomAnchor constraintEqualToAnchor:logCard.bottomAnchor constant:-14],
+        [logStack.leadingAnchor constraintEqualToAnchor:logCard.leadingAnchor constant:18],
+        [logStack.trailingAnchor constraintEqualToAnchor:logCard.trailingAnchor constant:-18]]];
+    [self addSectionHeaderToStack:logStack text:NSLocalizedString(@"BRSlot.Lounge.LikeLogSection", nil)];
+    self.likeLogStack = logStack;
+    [stack addArrangedSubview:logCard];
     // Power packs card: starts hidden and is only revealed on your own
     // profile, when like_status answers is_self. Buying charges coins
     // server-side; this card just renders the counts and countdowns the
@@ -609,12 +632,65 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     if (expiry) text = [text stringByAppendingFormat:@" · %@", [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.PacksNextEnds", nil), BRChatDurationText([expiry timeIntervalSinceNow])]];
     label.text = text;
 }
+- (void)renderLikeLog:(NSArray *)entries {
+    if (!self.likeLogStack) return;
+    // Drop everything after the section header (arranged index 0).
+    while (self.likeLogStack.arrangedSubviews.count > 1) {
+        UIView *extra = self.likeLogStack.arrangedSubviews.lastObject;
+        [self.likeLogStack removeArrangedSubview:extra];
+        [extra removeFromSuperview];
+    }
+    if (!entries.count) {
+        UILabel *empty = [UILabel new];
+        empty.text = NSLocalizedString(@"BRSlot.Lounge.LikeLogEmpty", nil);
+        empty.font = [UIFont systemFontOfSize:13];
+        empty.textColor = [UIColor colorWithWhite:1 alpha:.5];
+        [self.likeLogStack addArrangedSubview:empty];
+        return;
+    }
+    NSDateFormatter *timeFormat = [NSDateFormatter new];
+    timeFormat.timeStyle = NSDateFormatterShortStyle;
+    for (id entry in entries) {
+        if (![entry isKindOfClass:NSDictionary.class]) continue;
+        [self.likeLogStack addArrangedSubview:[self likeLogRowForEntry:entry timeFormat:timeFormat]];
+    }
+}
+- (UIView *)likeLogRowForEntry:(NSDictionary *)entry timeFormat:(NSDateFormatter *)timeFormat {
+    NSString *name = BRChatString(entry[@"name"]);
+    if (!name.length) name = NSLocalizedString(@"BRSlot.Lounge.PlayerFallback", nil);
+    NSInteger weight = BRChatInteger(entry[@"weight"]);
+    UIView *row = [UIView new];
+    row.translatesAutoresizingMaskIntoConstraints = NO;
+    UILabel *label = [UILabel new];
+    label.translatesAutoresizingMaskIntoConstraints = NO;
+    label.font = [UIFont systemFontOfSize:14];
+    label.textColor = [UIColor colorWithWhite:1 alpha:.88];
+    label.text = weight > 1 ? [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeLogLeftMany", nil), name, [self formattedNumber:@(weight)]]
+                            : [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeLogLeftOne", nil), name];
+    [row addSubview:label];
+    UILabel *time = [UILabel new];
+    time.translatesAutoresizingMaskIntoConstraints = NO;
+    time.font = [UIFont systemFontOfSize:12];
+    time.textColor = [UIColor colorWithWhite:1 alpha:.5];
+    NSDate *when = BRChatDateFromISO8601(entry[@"created_at"]);
+    time.text = when ? [timeFormat stringFromDate:when] : @"";
+    [row addSubview:time];
+    [NSLayoutConstraint activateConstraints:@[
+        [label.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+        [label.topAnchor constraintEqualToAnchor:row.topAnchor],
+        [label.bottomAnchor constraintEqualToAnchor:row.bottomAnchor],
+        [time.trailingAnchor constraintEqualToAnchor:row.trailingAnchor],
+        [time.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+        [time.leadingAnchor constraintGreaterThanOrEqualToAnchor:label.trailingAnchor constant:8]]];
+    return row;
+}
 - (void)applyLikeStats:(NSDictionary *)json {
     if (![json isKindOfClass:NSDictionary.class]) return;
     self.likesReceivedValue.text = [self formattedNumber:json[@"likes_received"]];
     self.likesGivenValue.text = [self formattedNumber:json[@"likes_given"]];
     self.chipsValue.text = [self formattedNumber:json[@"coins_balance"]];
     [self updateChargeCounts:json];
+    if ([json[@"recent_likes"] isKindOfClass:NSArray.class]) [self renderLikeLog:json[@"recent_likes"]];
     [self updatePackDetail:self.givingPackDetail count:BRChatInteger(json[@"packs_giving"]) nextExpiry:json[@"giving_next_expiry"]];
     [self updatePackDetail:self.receivingPackDetail count:BRChatInteger(json[@"packs_receiving"]) nextExpiry:json[@"receiving_next_expiry"]];
 }
@@ -667,7 +743,11 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         __strong typeof(weakSelf) self = weakSelf;
         if (!self) return;
         if (json[@"next_like_at"]) self.nextLikeAt = BRChatString(json[@"next_like_at"]);
-        if (!error && json) self.likesReceivedValue.text = [self formattedNumber:json[@"target_likes_received"]];
+        if (!error && json) {
+            self.likesReceivedValue.text = [self formattedNumber:json[@"target_likes_received"]];
+            // Re-read the status so the like log gains the new entry.
+            [self refreshLikeStatus];
+        }
         [self refreshLikeButton];
     });
 }
