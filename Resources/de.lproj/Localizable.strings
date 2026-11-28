@@ -1085,3 +1085,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@ aktiv";
 "BRSlot.Lounge.PacksNextEnds" = "nächstes endet in %1$@";
 "BRSlot.Lounge.PacksNoneActive" = "Keines aktiv";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "ROULETTE: MEISTE SPINS\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "ROULETTE: MEISTE GEWINNE\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "ROULETTE: GRÖSSTER GEWINN\n\n";
+"BRSlot.Lounge.RouletteNone" = "Noch keine Roulette-Spins.";
+"BRSlot.Picker.Roulette.Title" = "Roulette";
+"BRSlot.Picker.Roulette.Detail" = "Live-Multiplayer-Rad mit Tisch-Chat. Volle Nummern zahlen 35:1.";
+
+"BRRoulette.Lobby.HeroTitle" = "DEIN LIVE-RAD & DEIN GASTGEBER";
+"BRRoulette.Lobby.HeroSub" = "Tritt ans Rad, platziere deine Wetten und lass uns einen tollen Abend erleben.";
+"BRRoulette.Lobby.BetRange" = "EINSATZBEREICH";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ Münzen";
+"BRRoulette.Lobby.Pays" = "VOLLE NUMMER ZAHLT";
+"BRRoulette.Lobby.Join" = "BEITRETEN";
+"BRRoulette.Lobby.YoureSeated" = "du sitzt bereits";
+"BRRoulette.Lobby.SeatedCaption" = "BESETZT";
+"BRRoulette.Lobby.Footer" = "GRÖSSERE EINSÄTZE  ✦  HÖHERES RISIKO  ✦  GLEICHER NERVENKITZEL";
+"BRRoulette.Lobby.Loading" = "Tische werden geladen…";
+"BRRoulette.Lobby.PullToRetry" = "Ziehen, um es erneut zu versuchen.";

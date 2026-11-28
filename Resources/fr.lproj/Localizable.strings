@@ -1107,3 +1107,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@ actifs";
 "BRSlot.Lounge.PacksNextEnds" = "le prochain se termine dans %1$@";
 "BRSlot.Lounge.PacksNoneActive" = "Aucun actif";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "ROULETTE : PLUS DE TOURS\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "ROULETTE : PLUS DE GAINS\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "ROULETTE : PLUS GROS GAIN\n\n";
+"BRSlot.Lounge.RouletteNone" = "Pas encore de tours de roulette.";
+"BRSlot.Picker.Roulette.Title" = "Roulette";
+"BRSlot.Picker.Roulette.Detail" = "Roue multijoueur en direct avec chat. Les numéros pleins paient 35:1.";
+
+"BRRoulette.Lobby.HeroTitle" = "VOTRE ROUE EN DIRECT & VOTRE HÔTE";
+"BRRoulette.Lobby.HeroSub" = "Approchez-vous de la roue, placez vos paris et faisons-en une soirée mémorable.";
+"BRRoulette.Lobby.BetRange" = "PLAGE DE MISE";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ pièces";
+"BRRoulette.Lobby.Pays" = "NUMÉRO PLEIN PAYE";
+"BRRoulette.Lobby.Join" = "REJOINDRE";
+"BRRoulette.Lobby.YoureSeated" = "vous êtes assis";
+"BRRoulette.Lobby.SeatedCaption" = "ASSIS";
+"BRRoulette.Lobby.Footer" = "MISES PLUS GROSSES  ✦  ENJEUX PLUS ÉLEVÉS  ✦  MÊME FRISSON";
+"BRRoulette.Lobby.Loading" = "Chargement des tables…";
+"BRRoulette.Lobby.PullToRetry" = "Tirez pour réessayer.";

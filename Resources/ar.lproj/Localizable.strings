@@ -1085,3 +1085,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@ نشطة";
 "BRSlot.Lounge.PacksNextEnds" = "التالي ينتهي بعد %1$@";
 "BRSlot.Lounge.PacksNoneActive" = "لا شيء نشط";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "الروليت: أكثر لفات\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "الروليت: أكثر انتصارات\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "الروليت: أكبر فوز\n\n";
+"BRSlot.Lounge.RouletteNone" = "لا لفات روليت بعد.";
+"BRSlot.Picker.Roulette.Title" = "روليت";
+"BRSlot.Picker.Roulette.Detail" = "عجلة متعددة اللاعبين مباشرة مع دردشة الطاولة. الأرقام المفردة تدفع 35:1.";
+
+"BRRoulette.Lobby.HeroTitle" = "عجلتك المباشرة ومضيفك";
+"BRRoulette.Lobby.HeroSub" = "اقترب من العجلة، ضع رهاناتك، ولنجعلها ليلة رائعة.";
+"BRRoulette.Lobby.BetRange" = "نطاق الرهان";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ عملة";
+"BRRoulette.Lobby.Pays" = "الرقم المباشر يدفع";
+"BRRoulette.Lobby.Join" = "انضم";
+"BRRoulette.Lobby.YoureSeated" = "أنت جالس بالفعل";
+"BRRoulette.Lobby.SeatedCaption" = "الجالسون";
+"BRRoulette.Lobby.Footer" = "رهانات أكبر  ✦  مخاطر أعلى  ✦  نفس الإثارة";
+"BRRoulette.Lobby.Loading" = "جارٍ تحميل الطاولات…";
+"BRRoulette.Lobby.PullToRetry" = "اسحب للأسفل للمحاولة مجددًا.";

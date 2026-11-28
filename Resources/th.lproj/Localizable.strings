@@ -1085,3 +1085,23 @@
 "BRSlot.Lounge.PacksActive" = "ใช้งาน %1$@";
 "BRSlot.Lounge.PacksNextEnds" = "อันถัดไปหมดใน %1$@";
 "BRSlot.Lounge.PacksNoneActive" = "ไม่มีที่ใช้งาน";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "รูเล็ต: หมุนมากสุด\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "รูเล็ต: ชนะมากสุด\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "รูเล็ต: ชนะสูงสุด\n\n";
+"BRSlot.Lounge.RouletteNone" = "ยังไม่มีการหมุนรูเล็ต";
+"BRSlot.Picker.Roulette.Title" = "รูเล็ต";
+"BRSlot.Picker.Roulette.Detail" = "วงล้อหลายผู้เล่นสดพร้อมแชทโต๊ะ เลขตรงจ่าย 35:1";
+
+"BRRoulette.Lobby.HeroTitle" = "วงล้อสดและโฮสต์ของคุณ";
+"BRRoulette.Lobby.HeroSub" = "เข้ามาที่วงล้อ วางเดิมพันของคุณ และมาสร้างค่ำคืนที่ยอดเยี่ยมกันเถอะ";
+"BRRoulette.Lobby.BetRange" = "ช่วงเดิมพัน";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ เหรียญ";
+"BRRoulette.Lobby.Pays" = "เลขเดี่ยวจ่าย";
+"BRRoulette.Lobby.Join" = "เข้าร่วม";
+"BRRoulette.Lobby.YoureSeated" = "คุณนั่งอยู่แล้ว";
+"BRRoulette.Lobby.SeatedCaption" = "นั่งแล้ว";
+"BRRoulette.Lobby.Footer" = "เดิมพันใหญ่กว่า  ✦  เดิมพันสูงกว่า  ✦  ตื่นเต้นเหมือนเดิม";
+"BRRoulette.Lobby.Loading" = "กำลังโหลดโต๊ะ…";
+"BRRoulette.Lobby.PullToRetry" = "ดึงลงเพื่อลองอีกครั้ง";

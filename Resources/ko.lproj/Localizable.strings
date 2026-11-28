@@ -1126,3 +1126,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@개 활성";
 "BRSlot.Lounge.PacksNextEnds" = "다음 종료까지 %1$@";
 "BRSlot.Lounge.PacksNoneActive" = "활성 팩 없음";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "룰렛: 최다 스핀\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "룰렛: 최다 승리\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "룰렛: 최고 승리금\n\n";
+"BRSlot.Lounge.RouletteNone" = "아직 룰렛 스핀이 없습니다.";
+"BRSlot.Picker.Roulette.Title" = "룰렛";
+"BRSlot.Picker.Roulette.Detail" = "테이블 채팅이 있는 라이브 멀티플레이어 휠. 스트레이트업은 35:1.";
+
+"BRRoulette.Lobby.HeroTitle" = "라이브 휠과 호스트";
+"BRRoulette.Lobby.HeroSub" = "휠에 다가가 베팅하고 멋진 밤을 만들어 보세요.";
+"BRRoulette.Lobby.BetRange" = "베팅 범위";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ 코인";
+"BRRoulette.Lobby.Pays" = "스트레이트 업 배당";
+"BRRoulette.Lobby.Join" = "참여";
+"BRRoulette.Lobby.YoureSeated" = "착석 중";
+"BRRoulette.Lobby.SeatedCaption" = "착석";
+"BRRoulette.Lobby.Footer" = "더 큰 베팅  ✦  더 높은 판돈  ✦  같은 스릴";
+"BRRoulette.Lobby.Loading" = "테이블 로딩 중…";
+"BRRoulette.Lobby.PullToRetry" = "아래로 당겨 다시 시도하세요.";

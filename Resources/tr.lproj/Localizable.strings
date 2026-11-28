@@ -1126,3 +1126,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@ aktif";
 "BRSlot.Lounge.PacksNextEnds" = "sonraki %1$@ içinde bitiyor";
 "BRSlot.Lounge.PacksNoneActive" = "Aktif yok";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "RULET: EN ÇOK ÇEVİRME\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "RULET: EN ÇOK KAZANÇ\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "RULET: EN BÜYÜK KAZANÇ\n\n";
+"BRSlot.Lounge.RouletteNone" = "Henüz rulet çevirmesi yok.";
+"BRSlot.Picker.Roulette.Title" = "Rulet";
+"BRSlot.Picker.Roulette.Detail" = "Masa sohbetli canlı çok oyunculu çark. Düz sayılar 35:1 öder.";
+
+"BRRoulette.Lobby.HeroTitle" = "CANLI ÇARKINIZ VE SUNUCUNUZ";
+"BRRoulette.Lobby.HeroSub" = "Çarka yaklaş, bahislerini koy ve bu geceyi harika yapalım.";
+"BRRoulette.Lobby.BetRange" = "BAHİS ARALIĞI";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ jeton";
+"BRRoulette.Lobby.Pays" = "TEK SAYI ÖDEMESİ";
+"BRRoulette.Lobby.Join" = "KATIL";
+"BRRoulette.Lobby.YoureSeated" = "zaten oturuyorsun";
+"BRRoulette.Lobby.SeatedCaption" = "OTURAN";
+"BRRoulette.Lobby.Footer" = "DAHA BÜYÜK BAHİSLER  ✦  DAHA YÜKSEK RİSK  ✦  AYNI HEYECAN";
+"BRRoulette.Lobby.Loading" = "Masalar yükleniyor…";
+"BRRoulette.Lobby.PullToRetry" = "Tekrar denemek için aşağı çekin.";

@@ -1085,3 +1085,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@ đang hoạt động";
 "BRSlot.Lounge.PacksNextEnds" = "gói tiếp theo hết sau %1$@";
 "BRSlot.Lounge.PacksNoneActive" = "Không có gói nào";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "ROULETTE: QUAY NHIỀU NHẤT\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "ROULETTE: THẮNG NHIỀU NHẤT\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "ROULETTE: THẮNG LỚN NHẤT\n\n";
+"BRSlot.Lounge.RouletteNone" = "Chưa có lượt quay roulette.";
+"BRSlot.Picker.Roulette.Title" = "Roulette";
+"BRSlot.Picker.Roulette.Detail" = "Bánh xe nhiều người chơi trực tiếp có chat bàn. Số thẳng trả 35:1.";
+
+"BRRoulette.Lobby.HeroTitle" = "BÁNH XE TRỰC TIẾP & NGƯỜI DẪN CỦA BẠN";
+"BRRoulette.Lobby.HeroSub" = "Hãy đến bên bánh xe, đặt cược và cùng tạo nên một đêm tuyệt vời.";
+"BRRoulette.Lobby.BetRange" = "PHẠM VI CƯỢC";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ xu";
+"BRRoulette.Lobby.Pays" = "SỐ ĐƠN TRẢ";
+"BRRoulette.Lobby.Join" = "THAM GIA";
+"BRRoulette.Lobby.YoureSeated" = "bạn đã ngồi";
+"BRRoulette.Lobby.SeatedCaption" = "ĐÃ NGỒI";
+"BRRoulette.Lobby.Footer" = "CƯỢC LỚN HƠN  ✦  MỨC CƯỢC CAO HƠN  ✦  VẪN HỨNG THÚ";
+"BRRoulette.Lobby.Loading" = "Đang tải bàn…";
+"BRRoulette.Lobby.PullToRetry" = "Kéo xuống để thử lại.";

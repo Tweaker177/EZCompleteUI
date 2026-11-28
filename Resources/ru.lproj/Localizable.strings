@@ -1125,3 +1125,23 @@
 "BRSlot.Lounge.PacksActive" = "Активно: %1$@";
 "BRSlot.Lounge.PacksNextEnds" = "следующий закончится через %1$@";
 "BRSlot.Lounge.PacksNoneActive" = "Нет активных";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "РУЛЕТКА: БОЛЬШЕ ВСЕГО СПИНОВ\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "РУЛЕТКА: БОЛЬШЕ ВСЕГО ПОБЕД\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "РУЛЕТКА: КРУПНЕЙШИЙ ВЫИГРЫШ\n\n";
+"BRSlot.Lounge.RouletteNone" = "Спинов в рулетке пока нет.";
+"BRSlot.Picker.Roulette.Title" = "Рулетка";
+"BRSlot.Picker.Roulette.Detail" = "Живое мультиплеерное колесо с чатом. Ставка на число платит 35:1.";
+
+"BRRoulette.Lobby.HeroTitle" = "ВАШЕ КОЛЕСО В ПРЯМОМ ЭФИРЕ И ВЕДУЩИЙ";
+"BRRoulette.Lobby.HeroSub" = "Подойдите к колесу, делайте ставки — и пусть этот вечер будет отличным.";
+"BRRoulette.Lobby.BetRange" = "ДИАПАЗОН СТАВОК";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ монет";
+"BRRoulette.Lobby.Pays" = "СТАВКА НА ЧИСЛО ПЛАТИТ";
+"BRRoulette.Lobby.Join" = "ИГРАТЬ";
+"BRRoulette.Lobby.YoureSeated" = "вы уже за столом";
+"BRRoulette.Lobby.SeatedCaption" = "ЗА СТОЛОМ";
+"BRRoulette.Lobby.Footer" = "СТАВКИ БОЛЬШЕ  ✦  РИСК ВЫШЕ  ✦  ТОТ ЖЕ АЗАРТ";
+"BRRoulette.Lobby.Loading" = "Загрузка столов…";
+"BRRoulette.Lobby.PullToRetry" = "Потяните, чтобы повторить.";

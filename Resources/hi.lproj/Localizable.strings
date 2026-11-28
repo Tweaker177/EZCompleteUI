@@ -1085,3 +1085,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@ सक्रिय";
 "BRSlot.Lounge.PacksNextEnds" = "अगला %1$@ में खत्म";
 "BRSlot.Lounge.PacksNoneActive" = "कोई सक्रिय नहीं";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "रूलेट: सबसे ज़्यादा स्पिन\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "रूलेट: सबसे ज़्यादा जीत\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "रूलेट: सबसे बड़ी जीत\n\n";
+"BRSlot.Lounge.RouletteNone" = "अभी कोई रूलेट स्पिन नहीं।";
+"BRSlot.Picker.Roulette.Title" = "रूलेट";
+"BRSlot.Picker.Roulette.Detail" = "टेबल चैट के साथ लाइव मल्टीप्लेयर व्हील। सीधे नंबर पर 35:1 मिलता है।";
+
+"BRRoulette.Lobby.HeroTitle" = "आपका लाइव व्हील और होस्ट";
+"BRRoulette.Lobby.HeroSub" = "व्हील के पास आएं, अपने दांव लगाएं और इस रात को शानदार बनाएं।";
+"BRRoulette.Lobby.BetRange" = "दांव सीमा";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ सिक्के";
+"BRRoulette.Lobby.Pays" = "सीधा नंबर भुगतान";
+"BRRoulette.Lobby.Join" = "शामिल हों";
+"BRRoulette.Lobby.YoureSeated" = "आप बैठे हैं";
+"BRRoulette.Lobby.SeatedCaption" = "बैठे";
+"BRRoulette.Lobby.Footer" = "बड़े दांव  ✦  ऊंचे स्टेक्स  ✦  वही रोमांच";
+"BRRoulette.Lobby.Loading" = "टेबल लोड हो रहे हैं…";
+"BRRoulette.Lobby.PullToRetry" = "पुनः प्रयास करने के लिए नीचे खींचें।";
