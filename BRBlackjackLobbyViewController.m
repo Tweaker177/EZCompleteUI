@@ -178,7 +178,7 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     self.balancePill = pill;
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:pill];
     // Entry to the roulette tables, which share the coin balance and chat of this lobby.
-    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"🎡 Roulette" style:UIBarButtonItemStylePlain target:self action:@selector(openRouletteTapped)];
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:NSLocalizedStringWithDefaultValue(@"BRRoulette.Lobby.Button", nil, NSBundle.mainBundle, @"🎡 Roulette", nil) style:UIBarButtonItemStylePlain target:self action:@selector(openRouletteTapped)];
     self.navigationItem.leftBarButtonItem.tintColor = BRBJLobbyGold();
     self.navigationItem.leftItemsSupplementBackButton = YES;
     [self updateBalancePill];

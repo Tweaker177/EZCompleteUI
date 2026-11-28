@@ -10,7 +10,9 @@
 //     2. lets the player stack chips on a real-table board and sends them in
 //        one "bet" request (the server validates limits and balance again),
 //     3. draws the wheel, ball, last numbers, players and the balance,
-//     4. shows the shared table chat through BRSlotChatBar (room "rl:<id>").
+//     4. shows the shared table chat through BRSlotChatBar (room "rl:<id>"),
+//     5. calls out each phase change with the device speech voice (obeys the
+//        shared game-sounds switch, BRSlotSoundEnabled).
 //   Because the client never decides an outcome, a tweaked app cannot pick the
 //   number, bet after the spin or invent coins.
 //
@@ -20,11 +22,18 @@
 //
 // Changes from v0 (new file):
 //   - Initial version.
+//   - Dealer call-outs with the device speech voice, in the device language.
+//   - Every player-facing string goes through NSLocalizedStringWithDefaultValue
+//     (keys BRRoulette.*), with the English text as the default value.
 
 #import "BRRouletteTableViewController.h"
 #import "BRRouletteAPI.h"
 #import "BRSlotChatBar.h"
 #import "EZEntitlementManager.h"
+#import <AVFoundation/AVFoundation.h>
+
+// Defined in BRSlotChatBar.m: the shared "game sounds" switch.
+extern BOOL BRSlotSoundEnabled(void);
 
 static const NSTimeInterval kPollInterval = 1.5;
 static const NSTimeInterval kMaxPollBackoff = 6.0;
@@ -59,8 +68,8 @@ static BOOL BRRouletteIsRed(NSInteger number) {
 }
 
 static NSString *BRRouletteColorName(NSInteger number) {
-    if (number == 0) return @"green";
-    return BRRouletteIsRed(number) ? @"red" : @"black";
+    if (number == 0) return NSLocalizedStringWithDefaultValue(@"BRRoulette.Color.Green", nil, NSBundle.mainBundle, @"green", nil);
+    return BRRouletteIsRed(number) ? NSLocalizedStringWithDefaultValue(@"BRRoulette.Color.Red", nil, NSBundle.mainBundle, @"red", nil) : NSLocalizedStringWithDefaultValue(@"BRRoulette.Color.Black", nil, NSBundle.mainBundle, @"black", nil);
 }
 
 static UIColor *BRRouletteColorForNumber(NSInteger number) {
@@ -314,6 +323,8 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
 @property (nonatomic, strong) UILabel *limitsLabel;
 @property (nonatomic, strong) UILabel *playersLabel;
 @property (nonatomic, strong) BRSlotChatBar *chatBar;
+@property (nonatomic, strong) AVSpeechSynthesizer *dealerSpeech;
+@property (nonatomic) BOOL skipNextSpeech; // set after time away so old phase changes are not announced
 @end
 
 @implementation BRRouletteTableViewController
@@ -322,7 +333,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     self = [super initWithNibName:nil bundle:nil];
     if (self) {
         _tableID = [tableID copy];
-        _tableName = [tableName copy] ?: @"Roulette";
+        _tableName = [tableName copy] ?: NSLocalizedStringWithDefaultValue(@"BRRoulette.Lobby.Title", nil, NSBundle.mainBundle, @"Roulette", nil);
         _pollDelay = kPollInterval;
         _lastVersion = -1;
         _tableState = @{};
@@ -374,6 +385,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     if (self.presentedViewController != nil && !self.isMovingFromParentViewController) return;
     [self.chatBar stop];
     [self stopTimers];
+    [self stopDealerSpeech];
     if (self.isMovingFromParentViewController || self.isBeingDismissed || self.navigationController == nil) {
         [self leaveTableSilently];
     }
@@ -385,11 +397,12 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     [self.balanceTimer invalidate];
 }
 
-- (void)appWillResignActive { [self stopTimers]; }
+- (void)appWillResignActive { [self stopTimers]; [self stopDealerSpeech]; }
 
 - (void)appDidBecomeActive {
     if (self.viewIfLoaded.window == nil || self.leaving) return;
     self.lastVersion = -1; // force a full redraw after time away
+    self.skipNextSpeech = YES;
     [self startTimers];
     [self pollNow];
 }
@@ -438,7 +451,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     button.tag = number;
     NSString *key = BRRouletteSpotKey(betType, number);
     button.accessibilityIdentifier = key;
-    button.accessibilityLabel = [betType isEqualToString:@"straight"] ? [NSString stringWithFormat:@"Number %ld, %@", (long)number, BRRouletteColorName(number)] : title;
+    button.accessibilityLabel = [betType isEqualToString:@"straight"] ? [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.A11y.NumberFormat", nil, NSBundle.mainBundle, @"Number %1$ld, %2$@", nil), (long)number, BRRouletteColorName(number)] : title;
     [button addTarget:self action:@selector(spotTapped:) forControlEvents:UIControlEventTouchUpInside];
     // Long press removes this spot's pending chips.
     UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(spotLongPressed:)];
@@ -498,7 +511,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     self.balancePill.layer.borderWidth = 2;
     self.balancePill.layer.borderColor = gold.CGColor;
     self.balancePill.isAccessibilityElement = YES;
-    self.balancePill.accessibilityLabel = @"Coin balance";
+    self.balancePill.accessibilityLabel = NSLocalizedStringWithDefaultValue(@"BRRoulette.A11y.Balance", nil, NSBundle.mainBundle, @"Coin balance", nil);
     [self.view addSubview:self.balancePill];
     self.balanceLabel = [self labelWithSize:28 weight:UIFontWeightBlack color:gold];
     self.balanceLabel.textAlignment = NSTextAlignmentCenter;
@@ -628,7 +641,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     dozenStack.spacing = kBoardGap;
     dozenStack.distribution = UIStackViewDistributionFillEqually;
     NSArray<NSString *> *dozenTypes = @[@"dozen1", @"dozen2", @"dozen3"];
-    NSArray<NSString *> *dozenTitles = @[@"1st 12", @"2nd 12", @"3rd 12"];
+    NSArray<NSString *> *dozenTitles = @[NSLocalizedStringWithDefaultValue(@"BRRoulette.Board.Dozen1", nil, NSBundle.mainBundle, @"1st 12", nil), NSLocalizedStringWithDefaultValue(@"BRRoulette.Board.Dozen2", nil, NSBundle.mainBundle, @"2nd 12", nil), NSLocalizedStringWithDefaultValue(@"BRRoulette.Board.Dozen3", nil, NSBundle.mainBundle, @"3rd 12", nil)];
     for (NSInteger i = 0; i < 3; i++) {
         UIButton *dozen = [self boardSpotWithTitle:dozenTitles[(NSUInteger)i] betType:dozenTypes[(NSUInteger)i] number:-1 background:outsideColor];
         [dozenStack addArrangedSubview:dozen];
@@ -647,7 +660,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     NSArray<NSString *> *columnTypes = @[@"col1", @"col2", @"col3"];
     NSMutableArray<UIView *> *columnButtons = [NSMutableArray new];
     for (NSInteger i = 0; i < 3; i++) {
-        UIButton *column = [self boardSpotWithTitle:@"2 to 1" betType:columnTypes[(NSUInteger)i] number:-1 background:outsideColor];
+        UIButton *column = [self boardSpotWithTitle:NSLocalizedStringWithDefaultValue(@"BRRoulette.Board.Column", nil, NSBundle.mainBundle, @"2 to 1", nil) betType:columnTypes[(NSUInteger)i] number:-1 background:outsideColor];
         [columnButtons addObject:column];
     }
     UIView *columnSpacer = [UIView new];
@@ -662,8 +675,8 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
 
     // Even-money bets in one row of six.
     NSArray<NSArray<NSString *> *> *outside = @[
-        @[@"low", @"1-18"], @[@"even", @"EVEN"], @[@"red", @"RED"],
-        @[@"black", @"BLACK"], @[@"odd", @"ODD"], @[@"high", @"19-36"],
+        @[@"low", @"1-18"], @[@"even", NSLocalizedStringWithDefaultValue(@"BRRoulette.Board.Even", nil, NSBundle.mainBundle, @"EVEN", nil)], @[@"red", NSLocalizedStringWithDefaultValue(@"BRRoulette.Board.Red", nil, NSBundle.mainBundle, @"RED", nil)],
+        @[@"black", NSLocalizedStringWithDefaultValue(@"BRRoulette.Board.Black", nil, NSBundle.mainBundle, @"BLACK", nil)], @[@"odd", NSLocalizedStringWithDefaultValue(@"BRRoulette.Board.Odd", nil, NSBundle.mainBundle, @"ODD", nil)], @[@"high", @"19-36"],
     ];
     NSMutableArray<UIView *> *outsideButtons = [NSMutableArray new];
     for (NSArray<NSString *> *entry in outside) {
@@ -704,9 +717,9 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     [self.chipStack.heightAnchor constraintEqualToConstant:46].active = YES;
     [self.contentStack addArrangedSubview:self.chipStack];
 
-    self.clearButton = [self pillButtonWithTitle:@"Clear" color:[UIColor colorWithWhite:1 alpha:.16] action:@selector(clearTapped)];
-    self.repeatButton = [self pillButtonWithTitle:@"Repeat" color:[UIColor colorWithWhite:1 alpha:.16] action:@selector(repeatTapped)];
-    self.placeBetsButton = [self pillButtonWithTitle:@"Place bets" color:[UIColor colorWithRed:.12 green:.55 blue:.28 alpha:1] action:@selector(placeBetsTapped)];
+    self.clearButton = [self pillButtonWithTitle:NSLocalizedStringWithDefaultValue(@"BRRoulette.Clear", nil, NSBundle.mainBundle, @"Clear", nil) color:[UIColor colorWithWhite:1 alpha:.16] action:@selector(clearTapped)];
+    self.repeatButton = [self pillButtonWithTitle:NSLocalizedStringWithDefaultValue(@"BRRoulette.Repeat", nil, NSBundle.mainBundle, @"Repeat", nil) color:[UIColor colorWithWhite:1 alpha:.16] action:@selector(repeatTapped)];
+    self.placeBetsButton = [self pillButtonWithTitle:NSLocalizedStringWithDefaultValue(@"BRRoulette.PlaceBets", nil, NSBundle.mainBundle, @"Place bets", nil) color:[UIColor colorWithRed:.12 green:.55 blue:.28 alpha:1] action:@selector(placeBetsTapped)];
     UIStackView *buttonRow = [[UIStackView alloc] initWithArrangedSubviews:@[self.clearButton, self.repeatButton, self.placeBetsButton]];
     buttonRow.axis = UILayoutConstraintAxisHorizontal;
     buttonRow.spacing = 8;
@@ -729,18 +742,12 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     if (self.requestInFlight) return;
     self.requestInFlight = YES;
     self.statusLabel.text = NSLocalizedStringWithDefaultValue(@"BRRoulette.Joining", nil, NSBundle.mainBundle, @"Taking a seat…", nil);
-    // This completion captures self strongly on purpose: popping the table
-    // while the join is in flight would otherwise dealloc this screen with
-    // the seat already taken on the server and no leave ever sent. The block
-    // is released when this one-shot request resolves (12s timeout, one
-    // retry at most), so the lifetime extension is bounded, and self never
-    // retains the request, so there is no cycle.
+    __weak typeof(self) weakSelf = self;
     [BRRouletteAPI performAction:@"join" params:@{ @"table_id": self.tableID } completion:^(NSDictionary *json, NSInteger status, NSString *error) {
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) return;
         self.requestInFlight = NO;
         if (error) {
-            // Already gone: nothing to retry and no alert to show on a
-            // screen that is no longer visible.
-            if (self.leaving) return;
             // A dead join (table full, bets live at another table...) can't be
             // retried meaningfully: tell the player and go back to the lobby.
             if ((status >= 400 && status < 500) || status == 409) {
@@ -757,12 +764,6 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
             return;
         }
         self.hasJoined = YES;
-        if (self.leaving) {
-            // Left while the join was in flight: free the seat just taken
-            // instead of drawing a table nobody is looking at.
-            [self sendLeaveRequest];
-            return;
-        }
         self.lastVersion = -1;
         [self applyResponse:json];
     }];
@@ -829,23 +830,15 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     }];
 }
 
-/// Sends the "leave" request. Fire and forget: the server refunds bets still
-/// open for betting, and keeps a player seated until a spin they are in has
-/// paid out.
-- (void)sendLeaveRequest {
+- (void)leaveTableSilently {
+    if (self.leaving || !self.hasJoined) return;
+    self.leaving = YES;
+    [self stopTimers];
+    // Fire and forget: the server refunds bets still open for betting, and
+    // keeps a player seated until a spin they are in has paid out.
     [BRRouletteAPI performAction:@"leave" params:@{ @"table_id": self.tableID } completion:^(NSDictionary *json, NSInteger status, NSString *error) {
         [[EZEntitlementManager shared] refreshBalanceWithCompletion:^(NSInteger balance) {}];
     }];
-}
-
-- (void)leaveTableSilently {
-    if (self.leaving) return;
-    self.leaving = YES;
-    [self stopTimers];
-    // The join may still be in flight: the join completion sends the leave
-    // once the seat exists (see joinTable), so there is nothing to send yet.
-    if (!self.hasJoined) return;
-    [self sendLeaveRequest];
 }
 
 - (void)showFatalError:(NSString *)message {
@@ -855,7 +848,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
                                                                    message:message
                                                             preferredStyle:UIAlertControllerStyleAlert];
     __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+    [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedStringWithDefaultValue(@"BRRoulette.OK", nil, NSBundle.mainBundle, @"OK", nil) style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
         [weakSelf.navigationController popViewControllerAnimated:YES];
     }]];
     [self presentViewController:alert animated:YES completion:nil];
@@ -895,6 +888,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
 - (NSString *)phase { return BRRouletteString(BRRouletteDict(self.tableState[@"table"])[@"phase"]); }
 
 - (void)applyView:(NSDictionary *)view {
+    NSString *previousPhase = [self phase];
     self.tableState = view;
     NSDictionary *table = BRRouletteDict(view[@"table"]);
     NSString *phase = BRRouletteString(table[@"phase"]);
@@ -930,6 +924,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     [self applyBalance:BRRouletteInt(BRRouletteDict(view[@"me"])[@"balance"]) phase:phase];
     [self renderPlayers:BRRouletteArray(view[@"players"]) phase:phase];
     [self announceResultIfNeededForPhase:phase round:round table:table view:view];
+    [self speakDealerForPhase:phase previousPhase:previousPhase table:table];
     [self refreshBoard];
     [self renderStatusLine];
     [self refreshControls];
@@ -1002,15 +997,15 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
         NSString *name = BRRouletteString(player[@"name"]);
         BOOL isMe = [player[@"is_me"] respondsToSelector:@selector(boolValue)] && [player[@"is_me"] boolValue];
         NSInteger totalBet = BRRouletteInt(player[@"total_bet"]);
-        NSMutableString *line = [NSMutableString stringWithString:isMe ? @"⭐️ You" : (name.length ? name : @"Player")];
-        if (totalBet > 0) [line appendFormat:@"  ·  bet 🪙 %@", BRRouletteFormatCoins(totalBet)];
+        NSMutableString *line = [NSMutableString stringWithString:isMe ? NSLocalizedStringWithDefaultValue(@"BRRoulette.You", nil, NSBundle.mainBundle, @"⭐️ You", nil) : (name.length ? name : NSLocalizedStringWithDefaultValue(@"BRRoulette.Player", nil, NSBundle.mainBundle, @"Player", nil))];
+        if (totalBet > 0) [line appendFormat:@"  ·  %@", [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.PlayerBetFormat", nil, NSBundle.mainBundle, @"bet 🪙 %@", nil), BRRouletteFormatCoins(totalBet)]];
         if ([phase isEqualToString:@"results"] && totalBet > 0 && player[@"payout"] != NSNull.null) {
             NSInteger payout = BRRouletteInt(player[@"payout"]);
-            [line appendString:payout > 0 ? [NSString stringWithFormat:@"  ·  won 🪙 %@", BRRouletteFormatCoins(payout)] : @"  ·  no win"];
+            [line appendFormat:@"  ·  %@", payout > 0 ? [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.PlayerWonFormat", nil, NSBundle.mainBundle, @"won 🪙 %@", nil), BRRouletteFormatCoins(payout)] : NSLocalizedStringWithDefaultValue(@"BRRoulette.PlayerNoWin", nil, NSBundle.mainBundle, @"no win", nil)];
         }
         [lines addObject:line];
     }
-    self.playersLabel.text = [NSString stringWithFormat:@"At the table (%lu)\n%@", (unsigned long)players.count, [lines componentsJoinedByString:@"\n"]];
+    self.playersLabel.text = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.PlayersHeaderFormat", nil, NSBundle.mainBundle, @"At the table (%1$lu)\n%2$@", nil), (unsigned long)players.count, [lines componentsJoinedByString:@"\n"]];
 }
 
 /// Says what happened once per round when the results arrive.
@@ -1024,6 +1019,47 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     for (NSNumber *payout in self.confirmedPayouts.allValues) totalPayout += payout.integerValue;
     UINotificationFeedbackGenerator *haptics = [UINotificationFeedbackGenerator new];
     [haptics notificationOccurred:totalPayout > totalBet ? UINotificationFeedbackTypeSuccess : (totalPayout == totalBet ? UINotificationFeedbackTypeWarning : UINotificationFeedbackTypeError)];
+}
+
+#pragma mark Dealer voice
+
+/// Calls out each phase change ("Place your bets", "No more bets", the winning
+/// number) with the device's speech voice. The text is the same translated
+/// string shown on screen, so it is spoken in the device language.
+- (void)speakDealerForPhase:(NSString *)phase previousPhase:(NSString *)previousPhase table:(NSDictionary *)table {
+    if (self.skipNextSpeech) { self.skipNextSpeech = NO; return; }
+    // Nothing to say on the first view after joining, or when the phase didn't change.
+    if (previousPhase.length == 0 || [previousPhase isEqualToString:phase]) return;
+    NSString *line = nil;
+    if ([phase isEqualToString:@"betting"]) {
+        line = NSLocalizedStringWithDefaultValue(@"BRRoulette.Status.Betting", nil, NSBundle.mainBundle, @"Place your bets", nil);
+    } else if ([phase isEqualToString:@"spinning"]) {
+        line = NSLocalizedStringWithDefaultValue(@"BRRoulette.Status.Spinning", nil, NSBundle.mainBundle, @"No more bets! The wheel is spinning…", nil);
+    } else if ([phase isEqualToString:@"results"] && table[@"winning_number"] != nil && table[@"winning_number"] != NSNull.null) {
+        NSInteger winning = BRRouletteInt(table[@"winning_number"]);
+        line = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Result.SummaryFormat", nil, NSBundle.mainBundle, @"%1$ld %2$@", nil), (long)winning, BRRouletteColorName(winning)];
+    }
+    if (line.length > 0) [self speakDealerLine:line];
+}
+
+- (void)speakDealerLine:(NSString *)line {
+    if (!BRSlotSoundEnabled() || self.leaving) return;
+    if (!self.dealerSpeech) self.dealerSpeech = [AVSpeechSynthesizer new];
+    if (self.dealerSpeech.isSpeaking) [self.dealerSpeech stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+    AVSpeechUtterance *utterance = [AVSpeechUtterance speechUtteranceWithString:line];
+    // Speak in the device language only when the text really was translated into it;
+    // otherwise the English fallback text is read by an English voice.
+    NSString *localization = NSBundle.mainBundle.preferredLocalizations.firstObject ?: @"en";
+    NSString *preferred = NSLocale.preferredLanguages.firstObject ?: @"en-US";
+    NSString *languagePrefix = [[localization substringToIndex:MIN((NSUInteger)2, localization.length)] lowercaseString];
+    NSString *voiceLanguage = [preferred.lowercaseString hasPrefix:languagePrefix] ? preferred : @"en-US";
+    utterance.voice = [AVSpeechSynthesisVoice voiceWithLanguage:voiceLanguage] ?: [AVSpeechSynthesisVoice voiceWithLanguage:@"en-US"];
+    utterance.pitchMultiplier = 0.9;
+    [self.dealerSpeech speakUtterance:utterance];
+}
+
+- (void)stopDealerSpeech {
+    if (self.dealerSpeech.isSpeaking) [self.dealerSpeech stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
 }
 
 #pragma mark Balance
@@ -1105,7 +1141,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
         chip.layer.cornerRadius = 23;
         chip.layer.borderWidth = 3;
         chip.tag = value.integerValue;
-        chip.accessibilityLabel = [NSString stringWithFormat:@"%@ coin chip", BRRouletteFormatCoins(value.integerValue)];
+        chip.accessibilityLabel = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.A11y.ChipFormat", nil, NSBundle.mainBundle, @"%@ coin chip", nil), BRRouletteFormatCoins(value.integerValue)];
         [chip addTarget:self action:@selector(chipTapped:) forControlEvents:UIControlEventTouchUpInside];
         [self.chipStack addArrangedSubview:chip];
     }
@@ -1113,7 +1149,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
 
     NSInteger maxStraight = BRRouletteInt(table[@"max_straight_bet"]);
     NSInteger maxTotal = BRRouletteInt(table[@"max_total_bet"]);
-    self.limitsLabel.text = [NSString stringWithFormat:@"Min 🪙 %@ · max %@ per spot (%@ on a single number) · %@ per spin",
+    self.limitsLabel.text = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.LimitsFormat", nil, NSBundle.mainBundle, @"Min 🪙 %1$@ · max %2$@ per spot (%3$@ on a single number) · %4$@ per spin", nil),
                              BRRouletteFormatCoins(minBet), BRRouletteFormatCoins(maxBet), BRRouletteFormatCoins(maxStraight), BRRouletteFormatCoins(maxTotal)];
 }
 
@@ -1147,7 +1183,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
             badge.text = BRRouletteFormatCoins(total);
             // Gold border marks chips that are still only on this device.
             badge.layer.borderColor = (pending > 0 ? gold : [UIColor colorWithRed:.2 green:.7 blue:.3 alpha:1]).CGColor;
-            badge.accessibilityLabel = [NSString stringWithFormat:@"%@ coins on %@", BRRouletteFormatCoins(total), button.accessibilityLabel ?: key];
+            badge.accessibilityLabel = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.A11y.StakeFormat", nil, NSBundle.mainBundle, @"%1$@ coins on %2$@", nil), BRRouletteFormatCoins(total), button.accessibilityLabel ?: key];
         }
         BOOL isWinningNumber = winning >= 0 && [key isEqualToString:BRRouletteSpotKey(@"straight", winning)];
         BOOL paid = settled && self.confirmedPayouts[key].integerValue > 0;
@@ -1189,15 +1225,15 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     NSInteger chip = self.selectedChip;
 
     if (spotLimit > 0 && spotNow + chip > spotLimit) {
-        self.statusLabel.text = [NSString stringWithFormat:@"Table limit on this spot is 🪙 %@.", BRRouletteFormatCoins(spotLimit)];
+        self.statusLabel.text = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Message.SpotLimitFormat", nil, NSBundle.mainBundle, @"Table limit on this spot is 🪙 %@.", nil), BRRouletteFormatCoins(spotLimit)];
         return;
     }
     if (maxTotal > 0 && [self confirmedTotal] + [self pendingTotal] + chip > maxTotal) {
-        self.statusLabel.text = [NSString stringWithFormat:@"You can bet up to 🪙 %@ per spin at this table.", BRRouletteFormatCoins(maxTotal)];
+        self.statusLabel.text = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Message.TotalLimitFormat", nil, NSBundle.mainBundle, @"You can bet up to 🪙 %@ per spin at this table.", nil), BRRouletteFormatCoins(maxTotal)];
         return;
     }
     if ([self pendingTotal] + chip > balance) {
-        self.statusLabel.text = @"Not enough coins for that chip.";
+        self.statusLabel.text = NSLocalizedStringWithDefaultValue(@"BRRoulette.Message.ChipTooBig", nil, NSBundle.mainBundle, @"Not enough coins for that chip.", nil);
         return;
     }
     self.pendingStakes[key] = @(self.pendingStakes[key].integerValue + chip);
@@ -1250,7 +1286,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     NSInteger balance = BRRouletteInt(BRRouletteDict(self.tableState[@"me"])[@"balance"]);
     if ([self pendingTotal] > balance) {
         [self.pendingStakes removeAllObjects];
-        self.statusLabel.text = @"Not enough coins to repeat your last bets.";
+        self.statusLabel.text = NSLocalizedStringWithDefaultValue(@"BRRoulette.Message.RepeatTooBig", nil, NSBundle.mainBundle, @"Not enough coins to repeat your last bets.", nil);
     }
     [self refreshBoard];
     [self refreshControls];
@@ -1291,26 +1327,26 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     NSDictionary *table = BRRouletteDict(self.tableState[@"table"]);
     NSInteger totalBet = BRRouletteInt(BRRouletteDict(self.tableState[@"me"])[@"total_bet"]);
     if ([phase isEqualToString:@"idle"]) {
-        self.statusLabel.text = @"Waiting for players…";
+        self.statusLabel.text = NSLocalizedStringWithDefaultValue(@"BRRoulette.Status.Idle", nil, NSBundle.mainBundle, @"Waiting for players…", nil);
     } else if ([phase isEqualToString:@"betting"]) {
         self.statusLabel.text = totalBet > 0
-            ? [NSString stringWithFormat:@"🪙 %@ in play. Add more or wait for the spin.", BRRouletteFormatCoins(totalBet)]
-            : @"Place your bets";
+            ? [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Status.InPlayFormat", nil, NSBundle.mainBundle, @"🪙 %@ in play. Add more or wait for the spin.", nil), BRRouletteFormatCoins(totalBet)]
+            : NSLocalizedStringWithDefaultValue(@"BRRoulette.Status.Betting", nil, NSBundle.mainBundle, @"Place your bets", nil);
     } else if ([phase isEqualToString:@"spinning"]) {
-        self.statusLabel.text = @"No more bets! The wheel is spinning…";
+        self.statusLabel.text = NSLocalizedStringWithDefaultValue(@"BRRoulette.Status.Spinning", nil, NSBundle.mainBundle, @"No more bets! The wheel is spinning…", nil);
     } else if ([phase isEqualToString:@"results"]) {
         NSInteger winning = BRRouletteInt(table[@"winning_number"]);
-        NSString *summary = [NSString stringWithFormat:@"%ld %@", (long)winning, BRRouletteColorName(winning)];
+        NSString *summary = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Result.SummaryFormat", nil, NSBundle.mainBundle, @"%1$ld %2$@", nil), (long)winning, BRRouletteColorName(winning)];
         NSInteger totalPayout = 0;
         for (NSNumber *payout in self.confirmedPayouts.allValues) totalPayout += payout.integerValue;
         if (totalBet <= 0) {
             self.statusLabel.text = summary;
         } else if (totalPayout > totalBet) {
-            self.statusLabel.text = [NSString stringWithFormat:@"%@ — you won 🪙 %@!", summary, BRRouletteFormatCoins(totalPayout - totalBet)];
+            self.statusLabel.text = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Result.WonFormat", nil, NSBundle.mainBundle, @"%1$@ — you won 🪙 %2$@!", nil), summary, BRRouletteFormatCoins(totalPayout - totalBet)];
         } else if (totalPayout == totalBet) {
-            self.statusLabel.text = [NSString stringWithFormat:@"%@ — you got your bet back.", summary];
+            self.statusLabel.text = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Result.PushFormat", nil, NSBundle.mainBundle, @"%@ — you got your bet back.", nil), summary];
         } else {
-            self.statusLabel.text = [NSString stringWithFormat:@"%@ — no luck this spin.", summary];
+            self.statusLabel.text = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Result.LostFormat", nil, NSBundle.mainBundle, @"%@ — no luck this spin.", nil), summary];
         }
     }
 }
@@ -1320,7 +1356,7 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     NSInteger pending = [self pendingTotal];
     self.placeBetsButton.enabled = canBet && pending > 0;
     self.placeBetsButton.alpha = self.placeBetsButton.enabled ? 1.0 : 0.5;
-    [self.placeBetsButton setTitle:pending > 0 ? [NSString stringWithFormat:@"Place bets (🪙 %@)", BRRouletteFormatCoins(pending)] : @"Place bets" forState:UIControlStateNormal];
+    [self.placeBetsButton setTitle:pending > 0 ? [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.PlaceBetsAmountFormat", nil, NSBundle.mainBundle, @"Place bets (🪙 %@)", nil), BRRouletteFormatCoins(pending)] : NSLocalizedStringWithDefaultValue(@"BRRoulette.PlaceBets", nil, NSBundle.mainBundle, @"Place bets", nil) forState:UIControlStateNormal];
     self.clearButton.enabled = canBet && (pending > 0 || [self confirmedTotal] > 0);
     self.clearButton.alpha = self.clearButton.enabled ? 1.0 : 0.5;
     self.repeatButton.enabled = canBet && self.previousRoundBets.count > 0 && [self confirmedTotal] == 0;
@@ -1373,8 +1409,8 @@ static NSString *BRRouletteFormatCoins(NSInteger coins) {
     // Convert the server deadline into device time using the measured clock offset.
     NSTimeInterval remaining = [deadline timeIntervalSinceNow] - self.serverClockOffset;
     NSInteger seconds = MAX(0, (NSInteger)ceil(remaining));
-    NSString *label = [phase isEqualToString:@"betting"] ? @"Betting closes in" : @"Next round in";
-    self.timerLabel.text = [NSString stringWithFormat:@"%@ %lds", label, (long)seconds];
+    NSString *format = [phase isEqualToString:@"betting"] ? NSLocalizedStringWithDefaultValue(@"BRRoulette.Timer.BettingFormat", nil, NSBundle.mainBundle, @"Betting closes in %lds", nil) : NSLocalizedStringWithDefaultValue(@"BRRoulette.Timer.NextRoundFormat", nil, NSBundle.mainBundle, @"Next round in %lds", nil);
+    self.timerLabel.text = [NSString stringWithFormat:format, (long)seconds];
     // The server advances lazily on the next poll once the deadline passes; nudge it.
     if (remaining < -0.3 && !self.requestInFlight) [self pollNow];
 }

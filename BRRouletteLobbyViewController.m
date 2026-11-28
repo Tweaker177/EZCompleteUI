@@ -9,6 +9,8 @@
 //
 // Changes from v0 (new file):
 //   - Initial version.
+//   - Every player-facing string goes through NSLocalizedStringWithDefaultValue
+//     (keys BRRoulette.*), with the English text as the default value.
 
 #import "BRRouletteLobbyViewController.h"
 #import "BRRouletteAPI.h"
@@ -101,9 +103,9 @@ static NSString *BRRouletteLobbyGrouped(NSInteger value) {
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    if (self.loadError.length) return [NSString stringWithFormat:@"%@ Pull down to retry.", self.loadError];
-    if (self.tables.count == 0 && !self.loading) return @"No roulette tables are open right now.";
-    return [NSString stringWithFormat:@"Your balance: 🪙 %@", BRRouletteLobbyGrouped(self.balance)];
+    if (self.loadError.length) return [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Lobby.RetryFooterFormat", nil, NSBundle.mainBundle, @"%@ Pull down to retry.", nil), self.loadError];
+    if (self.tables.count == 0 && !self.loading) return NSLocalizedStringWithDefaultValue(@"BRRoulette.Lobby.NoTables", nil, NSBundle.mainBundle, @"No roulette tables are open right now.", nil);
+    return [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Lobby.BalanceFormat", nil, NSBundle.mainBundle, @"Your balance: 🪙 %@", nil), BRRouletteLobbyGrouped(self.balance)];
 }
 
 - (void)tableView:(UITableView *)tableView willDisplayFooterView:(UIView *)view forSection:(NSInteger)section {
@@ -123,10 +125,10 @@ static NSString *BRRouletteLobbyGrouped(NSInteger value) {
     BOOL mine = [table[@"my_table"] respondsToSelector:@selector(boolValue)] && [table[@"my_table"] boolValue];
 
     cell.backgroundColor = [UIColor colorWithWhite:1 alpha:.05];
-    cell.textLabel.text = [NSString stringWithFormat:@"🎡 %@%@", BRRouletteLobbyString(table[@"name"]), mine ? @"  (you're seated)" : @""];
+    cell.textLabel.text = [NSString stringWithFormat:@"🎡 %@%@", BRRouletteLobbyString(table[@"name"]), mine ? [@"  " stringByAppendingString:NSLocalizedStringWithDefaultValue(@"BRRoulette.Lobby.Seated", nil, NSBundle.mainBundle, @"(you're seated)", nil)] : @""];
     cell.textLabel.textColor = UIColor.whiteColor;
     cell.textLabel.font = [UIFont systemFontOfSize:18 weight:UIFontWeightBold];
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"Bets 🪙 %@ – %@  ·  %ld/%ld seated",
+    cell.detailTextLabel.text = [NSString stringWithFormat:NSLocalizedStringWithDefaultValue(@"BRRoulette.Lobby.DetailFormat", nil, NSBundle.mainBundle, @"Bets 🪙 %1$@ – %2$@  ·  %3$ld/%4$ld seated", nil),
                                  BRRouletteLobbyGrouped(BRRouletteLobbyInt(table[@"min_bet"])),
                                  BRRouletteLobbyGrouped(BRRouletteLobbyInt(table[@"max_bet"])),
                                  (long)seated, (long)capacity];

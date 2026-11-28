@@ -9,6 +9,8 @@
 //
 // Changes from v0 (new file):
 //   - Initial version.
+//   - Every player-facing string goes through NSLocalizedStringWithDefaultValue
+//     (keys BRRoulette.*), with the English text as the default value.
 
 #import "BRRouletteAPI.h"
 #import "EZAuthManager.h"
@@ -51,7 +53,7 @@ static const NSTimeInterval kRouletteRequestTimeout = 12.0;
         NSError *encodeError = nil;
         NSData *bodyData = [NSJSONSerialization dataWithJSONObject:body options:0 error:&encodeError];
         if (!bodyData) {
-            [self finish:completion json:nil status:0 message:@"Couldn't build that request."];
+            [self finish:completion json:nil status:0 message:NSLocalizedStringWithDefaultValue(@"BRRoulette.Error.Request", nil, NSBundle.mainBundle, @"Couldn't build that request.", nil)];
             return;
         }
 
@@ -86,11 +88,30 @@ static const NSTimeInterval kRouletteRequestTimeout = 12.0;
                 [self finish:completion json:json status:status message:nil];
                 return;
             }
-            NSString *message = [json[@"error"] isKindOfClass:[NSString class]] ? json[@"error"]
-                : NSLocalizedStringWithDefaultValue(@"BRRoulette.Error.Generic", nil, NSBundle.mainBundle, @"Roulette is temporarily unavailable.", nil);
+            // Prefer our own translation of the server's error code; the server's English text is the last resort.
+            NSString *code = [json[@"code"] isKindOfClass:[NSString class]] ? json[@"code"] : nil;
+            NSString *message = (status == 401) ? NSLocalizedStringWithDefaultValue(@"BRRoulette.Error.SignIn", nil, NSBundle.mainBundle, @"Please sign in to play roulette.", nil) : [self localizedMessageForServerCode:code];
+            if (message.length == 0) {
+                message = [json[@"error"] isKindOfClass:[NSString class]] ? json[@"error"]
+                    : NSLocalizedStringWithDefaultValue(@"BRRoulette.Error.Generic", nil, NSBundle.mainBundle, @"Roulette is temporarily unavailable.", nil);
+            }
             [self finish:completion json:json status:status message:message];
         }] resume];
     }];
+}
+
+/// Translated text for the game error codes br-roulette returns; nil for unknown codes.
++ (NSString *)localizedMessageForServerCode:(NSString *)code {
+    if (code.length == 0) return nil;
+    if ([code isEqualToString:@"rl_table_not_found"]) return NSLocalizedStringWithDefaultValue(@"BRRoulette.Server.rl_table_not_found", nil, NSBundle.mainBundle, @"That table doesn't exist.", nil);
+    if ([code isEqualToString:@"rl_invalid_bet"]) return NSLocalizedStringWithDefaultValue(@"BRRoulette.Server.rl_invalid_bet", nil, NSBundle.mainBundle, @"That bet isn't allowed at this table.", nil);
+    if ([code isEqualToString:@"rl_over_limit"]) return NSLocalizedStringWithDefaultValue(@"BRRoulette.Server.rl_over_limit", nil, NSBundle.mainBundle, @"That's over the table limit.", nil);
+    if ([code isEqualToString:@"rl_insufficient_coins"]) return NSLocalizedStringWithDefaultValue(@"BRRoulette.Server.rl_insufficient_coins", nil, NSBundle.mainBundle, @"Not enough coins for that.", nil);
+    if ([code isEqualToString:@"rl_table_full"]) return NSLocalizedStringWithDefaultValue(@"BRRoulette.Server.rl_table_full", nil, NSBundle.mainBundle, @"This table is full.", nil);
+    if ([code isEqualToString:@"rl_active_bets_elsewhere"]) return NSLocalizedStringWithDefaultValue(@"BRRoulette.Server.rl_active_bets_elsewhere", nil, NSBundle.mainBundle, @"Wait for your spin at your other roulette table first.", nil);
+    if ([code isEqualToString:@"rl_not_joined"]) return NSLocalizedStringWithDefaultValue(@"BRRoulette.Server.rl_not_joined", nil, NSBundle.mainBundle, @"Take a seat first.", nil);
+    if ([code isEqualToString:@"rl_betting_closed"]) return NSLocalizedStringWithDefaultValue(@"BRRoulette.Server.rl_betting_closed", nil, NSBundle.mainBundle, @"Betting just closed. Your next bets count for the next spin.", nil);
+    return nil;
 }
 
 + (void)finish:(BRRouletteCompletion)completion json:(NSDictionary *)json status:(NSInteger)status message:(NSString *)message {
