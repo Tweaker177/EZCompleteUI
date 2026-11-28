@@ -38,6 +38,26 @@
       ],
       "versions": [
         {
+          "version": "7.2.34",
+          "buildVersion": "7.2.34",
+          "date": "2026-11-28",
+          "localizedDescription": "**Full Changelog**: https://github.com/Tweaker177/EZCompleteAI/compare/7.2.33...7.2.34",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteAI/releases/download/7.2.34/EZCompleteUI-7.2.34-release.ipa",
+          "size": 9496722,
+          "sha256": "59d83e49062e03e302477c3f3fc45628d3db13cc55e8688414242fc2411997e6",
+          "minOSVersion": "15.0"
+        },
+        {
+          "version": "7.2.33",
+          "buildVersion": "7.2.33",
+          "date": "2026-11-28",
+          "localizedDescription": "## What's Changed. \n\nNSFW video generation is now live and working.  \nSorry no screenshots lol.\n\n* fix(seahorse): let the keyboard be dismissed in the video composer and character studio by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/375\n* fix(seahorse-video): guard server JSON reads against nulls; keep polling while covered by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/374\n* fix(roulette): restore the ghost-seat fix reverted by the localization push by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/373\n* fix(seahorse): remove an extra closing bracket in the character-generate error branch by @Tweaker177 in https://github.com/Tweaker177/EZCompleteAI/pull/376\n\n\n**Full Changelog**: https://github.com/Tweaker177/EZCompleteAI/compare/7.2.32...7.2.33",
+          "downloadURL": "https://github.com/Tweaker177/EZCompleteAI/releases/download/7.2.33/EZCompleteUI-7.2.33-release.ipa",
+          "size": 9482370,
+          "sha256": "45ce462354ef9d0615419318d0784a10f0608a068e9a24e6ba14bcba51ea2b1f",
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "7.2.32",
           "buildVersion": "7.2.32",
           "date": "2026-11-27",
