@@ -47,6 +47,24 @@ static NSDate *BRChatDateFromISO8601(id value) {
     if (!date) { formatter.formatOptions = NSISO8601DateFormatWithInternetDateTime; date = [formatter dateFromString:text]; }
     return date;
 }
+// Bundled button art (like_thumb / like_heart): a real image from the
+// asset catalog when one exists, otherwise the packaged .b64 copy
+// decoded on first use — the same pattern as the Plunder symbols.
+static UIImage *BRChatBundledArtImage(NSString *name) {
+    static NSMutableDictionary<NSString *, UIImage *> *cache;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ cache = [NSMutableDictionary dictionary]; });
+    if (cache[name]) return cache[name];
+    UIImage *image = [UIImage imageNamed:name];
+    if (!image) {
+        NSString *path = [[NSBundle mainBundle] pathForResource:name ofType:@"b64"];
+        NSData *encoded = path ? [NSData dataWithContentsOfFile:path] : nil;
+        NSData *jpeg = encoded ? [[NSData alloc] initWithBase64EncodedData:encoded options:NSDataBase64DecodingIgnoreUnknownCharacters] : nil;
+        image = jpeg ? [UIImage imageWithData:jpeg] : nil;
+    }
+    if (image) cache[name] = image;
+    return image;
+}
 // Avatars show at up to 76pt: cap the upload at 512px so a full-resolution
 // library photo doesn't become a multi-MB base64 JSON body that times out
 // and silently fails the save (same shape as the 1600px ID-upload cap).
@@ -226,6 +244,7 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 @property (nonatomic, strong) UIButton *likeButton;
 @property (nonatomic, strong) UIView *likeContainer;
 @property (nonatomic, strong) UILabel *likeCaption;
+@property (nonatomic) BOOL likeUsesArt;
 @property (nonatomic, strong) UILabel *likesReceivedValue;
 @property (nonatomic, strong) UILabel *likesGivenValue;
 @property (nonatomic, strong) UILabel *chipsValue;
@@ -329,7 +348,8 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         statusLabel.numberOfLines = 0;
         [stack addArrangedSubview:statusLabel];
     }
-    // Like button: a round thumbs-up, not a banner button. Hourly per
+    // Like button: the uploaded thumbs-up artwork, not a banner button
+    // (drawn gold circle as fallback if the art is missing). Hourly per
     // pair, enforced server-side. Its state comes from like_status (see
     // refreshLikeStatus); until that lands it shows ready, and a tap the
     // server refuses for cooldown still returns the reopen time, which
@@ -339,9 +359,18 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         likeWrap.translatesAutoresizingMaskIntoConstraints = NO;
         UIButton *like = [UIButton buttonWithType:UIButtonTypeCustom];
         like.translatesAutoresizingMaskIntoConstraints = NO;
-        UIImageSymbolConfiguration *thumbConfig = [UIImageSymbolConfiguration configurationWithPointSize:29 weight:UIImageSymbolWeightSemibold];
-        [like setImage:[[UIImage systemImageNamed:@"hand.thumbsup.fill" withConfiguration:thumbConfig] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
-        like.layer.cornerRadius = 32;
+        UIImage *thumbArt = BRChatBundledArtImage(@"like_thumb");
+        self.likeUsesArt = thumbArt != nil;
+        if (thumbArt) {
+            // Full square art, X2 badge included — no circular mask,
+            // which would clip the badge at the rim.
+            [like setImage:thumbArt forState:UIControlStateNormal];
+            like.imageView.contentMode = UIViewContentModeScaleAspectFit;
+        } else {
+            UIImageSymbolConfiguration *thumbConfig = [UIImageSymbolConfiguration configurationWithPointSize:29 weight:UIImageSymbolWeightSemibold];
+            [like setImage:[[UIImage systemImageNamed:@"hand.thumbsup.fill" withConfiguration:thumbConfig] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
+            like.layer.cornerRadius = 38;
+        }
         [like addTarget:self action:@selector(likeTapped) forControlEvents:UIControlEventTouchUpInside];
         like.accessibilityLabel = NSLocalizedString(@"BRSlot.Lounge.LikeButton", nil);
         [likeWrap addSubview:like];
@@ -353,8 +382,8 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         [NSLayoutConstraint activateConstraints:@[
             [like.topAnchor constraintEqualToAnchor:likeWrap.topAnchor],
             [like.centerXAnchor constraintEqualToAnchor:likeWrap.centerXAnchor],
-            [like.widthAnchor constraintEqualToConstant:64],
-            [like.heightAnchor constraintEqualToConstant:64],
+            [like.widthAnchor constraintEqualToConstant:76],
+            [like.heightAnchor constraintEqualToConstant:76],
             [caption.topAnchor constraintEqualToAnchor:like.bottomAnchor constant:5],
             [caption.leadingAnchor constraintEqualToAnchor:likeWrap.leadingAnchor],
             [caption.trailingAnchor constraintEqualToAnchor:likeWrap.trailingAnchor],
@@ -486,6 +515,16 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
 - (UILabel *)addPackRowToStack:(UIStackView *)stack flavor:(NSString *)flavor title:(NSString *)title {
     UIView *row = [UIView new];
     row.translatesAutoresizingMaskIntoConstraints = NO;
+    // Each flavor carries its artwork: thumbs-up for giving packs, heart
+    // for receiving packs.
+    UIImage *flavorArt = BRChatBundledArtImage([flavor isEqualToString:@"receiving"] ? @"like_heart" : @"like_thumb");
+    UIImageView *icon = nil;
+    if (flavorArt) {
+        icon = [[UIImageView alloc] initWithImage:flavorArt];
+        icon.translatesAutoresizingMaskIntoConstraints = NO;
+        icon.contentMode = UIViewContentModeScaleAspectFit;
+        [row addSubview:icon];
+    }
     UILabel *name = [UILabel new];
     name.text = title;
     name.font = [UIFont systemFontOfSize:15 weight:UIFontWeightMedium];
@@ -508,15 +547,25 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     buy.accessibilityIdentifier = flavor;
     [buy addTarget:self action:@selector(buyPackTapped:) forControlEvents:UIControlEventTouchUpInside];
     [row addSubview:buy];
-    [NSLayoutConstraint activateConstraints:@[
-        [name.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+    NSMutableArray<NSLayoutConstraint *> *rowConstraints = [NSMutableArray arrayWithObjects:
         [name.topAnchor constraintEqualToAnchor:row.topAnchor constant:8],
-        [detail.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+        [detail.leadingAnchor constraintEqualToAnchor:name.leadingAnchor],
         [detail.topAnchor constraintEqualToAnchor:name.bottomAnchor constant:2],
         [detail.bottomAnchor constraintEqualToAnchor:row.bottomAnchor constant:-8],
         [buy.trailingAnchor constraintEqualToAnchor:row.trailingAnchor],
         [buy.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
-        [buy.leadingAnchor constraintGreaterThanOrEqualToAnchor:name.trailingAnchor constant:12]]];
+        [buy.leadingAnchor constraintGreaterThanOrEqualToAnchor:name.trailingAnchor constant:12], nil];
+    if (icon) {
+        [rowConstraints addObjectsFromArray:@[
+            [icon.leadingAnchor constraintEqualToAnchor:row.leadingAnchor],
+            [icon.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+            [icon.widthAnchor constraintEqualToConstant:40],
+            [icon.heightAnchor constraintEqualToConstant:40],
+            [name.leadingAnchor constraintEqualToAnchor:icon.trailingAnchor constant:10]]];
+    } else {
+        [rowConstraints addObject:[name.leadingAnchor constraintEqualToAnchor:row.leadingAnchor]];
+    }
+    [NSLayoutConstraint activateConstraints:rowConstraints];
     [stack addArrangedSubview:row];
     return detail;
 }
@@ -547,13 +596,21 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     BOOL cooling = next && [next timeIntervalSinceNow] > 0;
     button.enabled = !cooling;
     if (cooling) {
-        button.backgroundColor = [UIColor colorWithWhite:1 alpha:.12];
-        button.tintColor = [UIColor colorWithWhite:1 alpha:.45];
+        if (self.likeUsesArt) {
+            button.alpha = .45;
+        } else {
+            button.backgroundColor = [UIColor colorWithWhite:1 alpha:.12];
+            button.tintColor = [UIColor colorWithWhite:1 alpha:.45];
+        }
         self.likeCaption.textColor = [UIColor colorWithWhite:1 alpha:.55];
         self.likeCaption.text = [NSString stringWithFormat:NSLocalizedString(@"BRSlot.Lounge.LikeCooldown", nil), BRChatDurationText([next timeIntervalSinceNow])];
     } else {
-        button.backgroundColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
-        button.tintColor = [UIColor colorWithRed:.16 green:.08 blue:.02 alpha:1];
+        if (self.likeUsesArt) {
+            button.alpha = 1;
+        } else {
+            button.backgroundColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
+            button.tintColor = [UIColor colorWithRed:.16 green:.08 blue:.02 alpha:1];
+        }
         self.likeCaption.textColor = [UIColor colorWithRed:1 green:.78 blue:.2 alpha:1];
         self.likeCaption.text = self.likeWeight > 1 ? [NSString stringWithFormat:@"+%@", [self formattedNumber:@(self.likeWeight)]] : @"";
     }
