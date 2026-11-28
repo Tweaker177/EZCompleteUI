@@ -1599,7 +1599,7 @@ typedef NS_ENUM(NSInteger, EZVideoPickerPurpose) {
             } else if ([err isEqualToString:@"Insufficient coins"]) {
                 [self showError:[NSString stringWithFormat:
                     EZVideoLocalized(@"EZSeahorseVideo.InsufficientFormat"),
-                    (long)self.characterCost, (long)EZVideoInteger(json[@"balance"])]]];
+                    (long)self.characterCost, (long)EZVideoInteger(json[@"balance"])]];
             } else {
                 [self showError:err ?: EZVideoLocalized(@"EZSeahorseVideo.LoadFailed")];
             }
