@@ -1107,3 +1107,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@ activos";
 "BRSlot.Lounge.PacksNextEnds" = "el siguiente termina en %1$@";
 "BRSlot.Lounge.PacksNoneActive" = "Ninguno activo";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "RULETA: MÁS GIROS\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "RULETA: MÁS VICTORIAS\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "RULETA: MAYOR PREMIO\n\n";
+"BRSlot.Lounge.RouletteNone" = "Aún no hay giros de ruleta.";
+"BRSlot.Picker.Roulette.Title" = "Ruleta";
+"BRSlot.Picker.Roulette.Detail" = "Rueda multijugador en vivo con chat. Los plenos pagan 35:1.";
+
+"BRRoulette.Lobby.HeroTitle" = "TU RULETA EN VIVO Y ANFITRIÓN";
+"BRRoulette.Lobby.HeroSub" = "Acércate a la ruleta, haz tus apuestas y hagamos que sea una gran noche.";
+"BRRoulette.Lobby.BetRange" = "RANGO DE APUESTA";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ monedas";
+"BRRoulette.Lobby.Pays" = "NÚMERO PLENO PAGA";
+"BRRoulette.Lobby.Join" = "UNIRSE";
+"BRRoulette.Lobby.YoureSeated" = "ya estás sentado";
+"BRRoulette.Lobby.SeatedCaption" = "SENTADOS";
+"BRRoulette.Lobby.Footer" = "APUESTAS MÁS GRANDES  ✦  MÁS EN JUEGO  ✦  LA MISMA EMOCIÓN";
+"BRRoulette.Lobby.Loading" = "Cargando mesas…";
+"BRRoulette.Lobby.PullToRetry" = "Desliza hacia abajo para reintentar.";

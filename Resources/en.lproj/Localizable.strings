@@ -1161,3 +1161,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@ active";
 "BRSlot.Lounge.PacksNextEnds" = "next ends in %1$@";
 "BRSlot.Lounge.PacksNoneActive" = "None active";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "ROULETTE: MOST SPINS\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "ROULETTE: MOST WINS\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "ROULETTE: BIGGEST WIN\n\n";
+"BRSlot.Lounge.RouletteNone" = "No roulette spins yet.";
+"BRSlot.Picker.Roulette.Title" = "Roulette";
+"BRSlot.Picker.Roulette.Detail" = "Live multiplayer wheel with table chat. Straight-up numbers pay 35:1.";
+
+"BRRoulette.Lobby.HeroTitle" = "YOUR LIVE WHEEL & HOST";
+"BRRoulette.Lobby.HeroSub" = "Step up to the wheel, place your bets, and let's make it a great night.";
+"BRRoulette.Lobby.BetRange" = "BET RANGE";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ coins";
+"BRRoulette.Lobby.Pays" = "STRAIGHT-UP PAYS";
+"BRRoulette.Lobby.Join" = "JOIN";
+"BRRoulette.Lobby.YoureSeated" = "you're seated";
+"BRRoulette.Lobby.SeatedCaption" = "SEATED";
+"BRRoulette.Lobby.Footer" = "BIGGER BETS  ✦  HIGHER STAKES  ✦  SAME THRILL";
+"BRRoulette.Lobby.Loading" = "Loading tables…";
+"BRRoulette.Lobby.PullToRetry" = "Pull down to try again.";

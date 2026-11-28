@@ -1126,3 +1126,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@ aktif";
 "BRSlot.Lounge.PacksNextEnds" = "berikutnya berakhir dalam %1$@";
 "BRSlot.Lounge.PacksNoneActive" = "Tidak ada yang aktif";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "ROLET: PUTARAN TERBANYAK\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "ROLET: KEMENANGAN TERBANYAK\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "ROLET: KEMENANGAN TERBESAR\n\n";
+"BRSlot.Lounge.RouletteNone" = "Belum ada putaran rolet.";
+"BRSlot.Picker.Roulette.Title" = "Rolet";
+"BRSlot.Picker.Roulette.Detail" = "Roda multipemain langsung dengan chat meja. Angka lurus membayar 35:1.";
+
+"BRRoulette.Lobby.HeroTitle" = "RODA LANGSUNG & HOST ANDA";
+"BRRoulette.Lobby.HeroSub" = "Mendekatlah ke roda, pasang taruhanmu, dan mari buat malam ini menyenangkan.";
+"BRRoulette.Lobby.BetRange" = "RENTANG TARUHAN";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ koin";
+"BRRoulette.Lobby.Pays" = "ANGKA LANGSUNG MEMBAYAR";
+"BRRoulette.Lobby.Join" = "GABUNG";
+"BRRoulette.Lobby.YoureSeated" = "kamu sudah duduk";
+"BRRoulette.Lobby.SeatedCaption" = "DUDUK";
+"BRRoulette.Lobby.Footer" = "TARUHAN LEBIH BESAR  ✦  TARUHAN LEBIH TINGGI  ✦  SENSASI YANG SAMA";
+"BRRoulette.Lobby.Loading" = "Memuat meja…";
+"BRRoulette.Lobby.PullToRetry" = "Tarik ke bawah untuk mencoba lagi.";

@@ -31,7 +31,7 @@ static NSDictionary *BRChatDictionary(id value) { return [value isKindOfClass:NS
 // mirrored in br-slot-social as LIKE_PACK_PRICE_COINS. The server is what
 // charges — this only labels the buy button — so changing the price is a
 // one-line edit in each place.
-static const NSInteger BRChatLikePackPriceCoins = 100;
+static const NSInteger BRChatLikePackPriceCoins = 25;
 // "1h 5m" / "42m" for pack expiries and the like cooldown.
 static NSString *BRChatDurationText(NSTimeInterval seconds) {
     NSInteger minutes = (NSInteger)ceil(MAX(seconds, 0) / 60.0);
@@ -380,6 +380,13 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
         [self addStatRowToStack:statsStack label:@"Biggest win" value:[self formattedNumber:self.stats[@"bj_best"]]];
         [self addStatRowToStack:statsStack label:@"Blackjacks" value:[self formattedNumber:self.stats[@"bj_blackjacks"]]];
         [self addStatRowToStack:statsStack label:@"Coins won" value:[self formattedNumber:self.stats[@"bj_total_won"]]];
+    }
+    // Roulette record, shown once the player has bet a round.
+    if ([self.stats[@"rl_spins"] respondsToSelector:@selector(integerValue)] && [self.stats[@"rl_spins"] integerValue] > 0) {
+        [self addSectionHeaderToStack:statsStack text:@"ROULETTE"];
+        [self addStatRowToStack:statsStack label:@"Spins" value:[self formattedNumber:self.stats[@"rl_spins"]]];
+        [self addStatRowToStack:statsStack label:@"Rounds won" value:[self formattedNumber:self.stats[@"rl_wins"]]];
+        [self addStatRowToStack:statsStack label:@"Biggest win" value:[self formattedNumber:self.stats[@"rl_best"]]];
     }
     [stack addArrangedSubview:card];
     // Likes card: likes received (the headline number), likes given,
@@ -1046,6 +1053,9 @@ static NSString *BRChatAvatarDiskPathForKey(NSString *key) {
     addSection(@"BRSlot.Lounge.BlackjackTop", board[@"blackjack"], @"bj_won", @"BRSlot.Lounge.BlackjackNone", @"BRSlot.Lounge.BoardRowCount");
     addSection(@"BRSlot.Lounge.BlackjackHandsTop", board[@"blackjack_hands"], @"bj_hands", @"BRSlot.Lounge.BlackjackNone", @"BRSlot.Lounge.BoardRowCount");
     addSection(@"BRSlot.Lounge.BlackjackCoinsTop", board[@"blackjack_coins"], @"bj_total_won", @"BRSlot.Lounge.BlackjackNone", @"BRSlot.Lounge.WinningsRow");
+    addSection(@"BRSlot.Lounge.RouletteSpinsTop", board[@"roulette_spins"], @"rl_spins", @"BRSlot.Lounge.RouletteNone", @"BRSlot.Lounge.BoardRowCount");
+    addSection(@"BRSlot.Lounge.RouletteWinsTop", board[@"roulette_wins"], @"rl_wins", @"BRSlot.Lounge.RouletteNone", @"BRSlot.Lounge.BoardRowCount");
+    addSection(@"BRSlot.Lounge.RouletteBiggestTop", board[@"roulette_biggest"], @"rl_best", @"BRSlot.Lounge.RouletteNone", @"BRSlot.Lounge.WinningsRow");
     UILabel *footer = [UILabel new];
     footer.text = trimmed(NSLocalizedString(@"BRSlot.Lounge.WinningsFooter", nil));
     footer.font = [UIFont systemFontOfSize:11 weight:UIFontWeightMedium];

@@ -1085,3 +1085,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@ 個有効";
 "BRSlot.Lounge.PacksNextEnds" = "次は %1$@ で終了";
 "BRSlot.Lounge.PacksNoneActive" = "有効なパックなし";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "ルーレット: スピン数ランキング\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "ルーレット: 勝利数ランキング\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "ルーレット: 最高勝利金\n\n";
+"BRSlot.Lounge.RouletteNone" = "まだルーレットのスピンがありません。";
+"BRSlot.Picker.Roulette.Title" = "ルーレット";
+"BRSlot.Picker.Roulette.Detail" = "テーブルチャット付きライブマルチプレイヤーホイール。ストレートアップは35:1。";
+
+"BRRoulette.Lobby.HeroTitle" = "ライブホイールとホスト";
+"BRRoulette.Lobby.HeroSub" = "ホイールに近づいてベットしましょう。素敵な夜にしましょう。";
+"BRRoulette.Lobby.BetRange" = "ベット範囲";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ コイン";
+"BRRoulette.Lobby.Pays" = "ストレートアップ配当";
+"BRRoulette.Lobby.Join" = "参加";
+"BRRoulette.Lobby.YoureSeated" = "着席中";
+"BRRoulette.Lobby.SeatedCaption" = "着席";
+"BRRoulette.Lobby.Footer" = "大きなベット  ✦  高いステークス  ✦  同じスリル";
+"BRRoulette.Lobby.Loading" = "テーブルを読み込み中…";
+"BRRoulette.Lobby.PullToRetry" = "下に引いて再試行してください。";

@@ -1085,3 +1085,23 @@
 "BRSlot.Lounge.PacksActive" = "%1$@ 个生效中";
 "BRSlot.Lounge.PacksNextEnds" = "下一个将在 %1$@ 后到期";
 "BRSlot.Lounge.PacksNoneActive" = "无生效中";
+
+/* Roulette boards + picker card (2026-11-28) */
+"BRSlot.Lounge.RouletteSpinsTop" = "轮盘: 旋转最多\n\n";
+"BRSlot.Lounge.RouletteWinsTop" = "轮盘: 获胜最多\n\n";
+"BRSlot.Lounge.RouletteBiggestTop" = "轮盘: 最大胜利\n\n";
+"BRSlot.Lounge.RouletteNone" = "还没有轮盘记录。";
+"BRSlot.Picker.Roulette.Title" = "轮盘";
+"BRSlot.Picker.Roulette.Detail" = "带牌桌聊天的多人直播轮盘。独号赔率 35:1。";
+
+"BRRoulette.Lobby.HeroTitle" = "您的直播轮盘与主持人";
+"BRRoulette.Lobby.HeroSub" = "走近轮盘，下好注，让我们共度一个美好的夜晚。";
+"BRRoulette.Lobby.BetRange" = "投注范围";
+"BRRoulette.Lobby.CoinsRange" = "%@ – %@ 金币";
+"BRRoulette.Lobby.Pays" = "独号赔付";
+"BRRoulette.Lobby.Join" = "加入";
+"BRRoulette.Lobby.YoureSeated" = "您已入座";
+"BRRoulette.Lobby.SeatedCaption" = "已入座";
+"BRRoulette.Lobby.Footer" = "更大投注  ✦  更高注额  ✦  同样刺激";
+"BRRoulette.Lobby.Loading" = "正在加载牌桌…";
+"BRRoulette.Lobby.PullToRetry" = "下拉重试。";

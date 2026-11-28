@@ -481,14 +481,8 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     dealerLabel.minimumScaleFactor = .8;
     [card addSubview:dealerLabel];
 
-    UIView *sep1 = [self cardSeparator];
-    [card addSubview:sep1];
     NSInteger seated = BRBlackjackLobbyInt(table[@"seated"]);
     NSInteger maxSeats = BRBlackjackLobbyInt(table[@"max_seats"]);
-    UIView *seatedColumn = [self columnWithIcon:@"person.fill"
-                                         value:[NSString stringWithFormat:@"%ld/%ld", (long)seated, (long)maxSeats]
-                                       caption:NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Seated", nil, NSBundle.mainBundle, @"SEATED", nil)];
-    [card addSubview:seatedColumn];
 
     UIView *sep2 = [self cardSeparator];
     [card addSubview:sep2];
@@ -507,12 +501,21 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
     join.layer.cornerRadius = 25;
     join.layer.borderWidth = 2;
     join.layer.borderColor = BRBJLobbyGold().CGColor;
-    [join setImage:[UIImage systemImageNamed:vipLocked ? @"lock.fill" : @"arrow.right"] forState:UIControlStateNormal];
+    // The circle carries the seated count instead of an arrow, so how
+    // full the table is reads at a glance; the lock stays for VIP.
+    if (vipLocked) {
+        [join setImage:[UIImage systemImageNamed:@"lock.fill"] forState:UIControlStateNormal];
+    } else {
+        join.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBold];
+        [join setTitle:[NSString stringWithFormat:@"%ld/%ld", (long)seated, (long)maxSeats] forState:UIControlStateNormal];
+    }
     if ((isHigh || mine) && !vipLocked) {
         join.backgroundColor = BRBJLobbyGold();
         join.tintColor = [UIColor colorWithRed:.10 green:.08 blue:.02 alpha:1];
+        [join setTitleColor:[UIColor colorWithRed:.10 green:.08 blue:.02 alpha:1] forState:UIControlStateNormal];
     } else {
         join.tintColor = BRBJLobbyGold();
+        [join setTitleColor:BRBJLobbyGold() forState:UIControlStateNormal];
     }
     [join addTarget:self action:@selector(joinButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
     join.accessibilityLabel = [NSString stringWithFormat:@"%@ %@", vipLocked ? NSLocalizedStringWithDefaultValue(@"BRBlackjack.Lobby.Vip", nil, NSBundle.mainBundle, @"VIP", nil)
@@ -561,16 +564,16 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
 
         [nameLabel.leadingAnchor constraintEqualToAnchor:chips.trailingAnchor constant:10],
         [nameLabel.topAnchor constraintEqualToAnchor:card.topAnchor constant:isHigh ? 24 : 14],
-        [nameLabel.trailingAnchor constraintLessThanOrEqualToAnchor:sep1.leadingAnchor constant:-8],
+        [nameLabel.trailingAnchor constraintLessThanOrEqualToAnchor:paysColumn.leadingAnchor constant:-8],
 
         [rangeCaption.leadingAnchor constraintEqualToAnchor:nameLabel.leadingAnchor],
         [rangeCaption.topAnchor constraintEqualToAnchor:nameLabel.bottomAnchor constant:5],
         [rangeValue.leadingAnchor constraintEqualToAnchor:nameLabel.leadingAnchor],
         [rangeValue.topAnchor constraintEqualToAnchor:rangeCaption.bottomAnchor constant:1],
-        [rangeValue.trailingAnchor constraintLessThanOrEqualToAnchor:sep1.leadingAnchor constant:-8],
+        [rangeValue.trailingAnchor constraintLessThanOrEqualToAnchor:paysColumn.leadingAnchor constant:-8],
         [dealerLabel.leadingAnchor constraintEqualToAnchor:nameLabel.leadingAnchor],
         [dealerLabel.topAnchor constraintEqualToAnchor:rangeValue.bottomAnchor constant:4],
-        [dealerLabel.trailingAnchor constraintLessThanOrEqualToAnchor:sep1.leadingAnchor constant:-6],
+        [dealerLabel.trailingAnchor constraintLessThanOrEqualToAnchor:paysColumn.leadingAnchor constant:-6],
 
         [joinWrap.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-8],
         [joinWrap.centerYAnchor constraintEqualToAnchor:card.centerYAnchor],
@@ -590,12 +593,6 @@ typedef NS_ENUM(NSInteger, BRBJLobbyChipStyle) {
         [paysColumn.centerYAnchor constraintEqualToAnchor:card.centerYAnchor],
         [paysColumn.widthAnchor constraintEqualToConstant:58],
 
-        [sep1.trailingAnchor constraintEqualToAnchor:paysColumn.leadingAnchor constant:-2],
-        [sep1.topAnchor constraintEqualToAnchor:card.topAnchor constant:18],
-        [sep1.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-18],
-        [seatedColumn.trailingAnchor constraintEqualToAnchor:sep1.leadingAnchor constant:-2],
-        [seatedColumn.centerYAnchor constraintEqualToAnchor:card.centerYAnchor],
-        [seatedColumn.widthAnchor constraintEqualToConstant:40],
         nil];
     if (vipPill) {
         [cardConstraints addObjectsFromArray:@[
